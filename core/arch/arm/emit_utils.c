@@ -188,8 +188,67 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 /***************************************************************************/
 /*             THREAD-PRIVATE/SHARED ROUTINE GENERATION                    */
 /***************************************************************************/
+#ifdef X64
+# error NYI on AArch64
+#endif
 
 /* helper functions for emit_fcache_enter_common */
+
+#define OPND_ARG1    opnd_create_reg(DR_REG_R0)
+
+/* Load app's TLS base to reg_base and then APP_TLS_SWAP_SLOT value to reg_slot.
+ * This should be only used on emitting fcache enter/return code.
+ */
+static void
+append_load_app_tls_slot(dcontext_t *dcontext, instrlist_t *ilist,
+                         reg_id_t reg_base, reg_id_t reg_slot)
+{
+    /* load app's TLS base from user-read-only-thread-ID register
+     * mrc p15, 0, reg_base, c13, c0, 3
+     */
+    APP(ilist, INSTR_CREATE_mrc(dcontext,
+                                opnd_create_reg(reg_base),
+                                OPND_CREATE_INT(15),
+                                OPND_CREATE_INT(0),
+                                opnd_create_reg(DR_REG_CR13),
+                                opnd_create_reg(DR_REG_CR0),
+                                OPND_CREATE_INT(APP_TLS_REG_OPCODE)));
+    /* ldr reg_slot, [reg, APP_TLS_SLOT_SWAP] */
+    APP(ilist, XINST_CREATE_load(dcontext,
+                                 opnd_create_reg(reg_slot),
+                                 OPND_CREATE_MEMPTR(reg_base,
+                                                    APP_TLS_SWAP_SLOT)));
+}
+
+/* Having only one thread register (TPIDRURO) shared between app and DR,
+ * we steal a register for DR's TLS base in the code cache,
+ * and steal an app's TLS slot for DR's TLS base in the C code.
+ * On entering the code cache (fcache_enter):
+ * - grab gen routine's parameter dcontext and put it into REG_DCXT
+ * - load app's TLS base from TPIDRURO to r0
+ * - load DR's TLS base from app's TLS slot we steal ([r0, APP_TLS_SWAP_SLOT])
+ * - restore the app original value (stored in os_tls->app_tls_swap)
+ *   back to app's TLS slot ([r0, APP_TLS_SWAP_SLOT])
+ */
+void
+append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
+{
+    ASSERT_NOT_IMPLEMENTED(!absolute &&
+                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+    /* grab gen routine's parameter dcontext and put it into REG_DCXT */
+    APP(ilist, XINST_CREATE_move(dcontext,
+                                 opnd_create_reg(REG_DCXT),
+                                 OPND_ARG1/*r0*/));
+    /* load app's TLS base into r0 and DR's TLS base into dr_reg_stolen */
+    append_load_app_tls_slot(dcontext, ilist, SCRATCH_REG0, dr_reg_stolen);
+    /* load app original value from os_tls->app_tls_swap */
+    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, os_get_app_tls_swap_offset()));
+    /* store app value back to app's TLS swap slot ([r0, APP_TLS_SWAP_SLOT]) */
+    APP(ilist, XINST_CREATE_store(dcontext,
+                                  OPND_CREATE_MEMPTR(SCRATCH_REG0,
+                                                     APP_TLS_SWAP_SLOT),
+                                  opnd_create_reg(SCRATCH_REG1)));
+}
 
 void
 append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
@@ -202,8 +261,11 @@ append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
 void
 append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, XFLAGS_OFFSET));
+    APP(ilist, INSTR_CREATE_msr(dcontext,
+                                opnd_create_reg(DR_REG_CPSR),
+                                OPND_CREATE_INT_MSR_NZCVQG(),
+                                opnd_create_reg(SCRATCH_REG0)));
 }
 
 void
@@ -211,28 +273,124 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     /* s16–s31 (d8–d15, q4–q7) are callee save */
     /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
 }
 
+#ifdef X64
+# define DR_GPR_LIST_LENGTH 32
+# define DR_REG_LIST_TAIL                                      \
+    opnd_create_reg(DR_REG_X14), opnd_create_reg(DR_REG_X15),  \
+    opnd_create_reg(DR_REG_X16), opnd_create_reg(DR_REG_X17),  \
+    opnd_create_reg(DR_REG_X18), opnd_create_reg(DR_REG_X19),  \
+    opnd_create_reg(DR_REG_X20), opnd_create_reg(DR_REG_X21),  \
+    opnd_create_reg(DR_REG_X22), opnd_create_reg(DR_REG_X23),  \
+    opnd_create_reg(DR_REG_X24), opnd_create_reg(DR_REG_X25),  \
+    opnd_create_reg(DR_REG_X26), opnd_create_reg(DR_REG_X27),  \
+    opnd_create_reg(DR_REG_X28), opnd_create_reg(DR_REG_X29),  \
+    opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X31)
+#else
+# define DR_REG_LIST_LENGTH 15 /* no R15 (pc) */
+# define DR_REG_LIST_TAIL opnd_create_reg(DR_REG_R14)
+#endif
+
+#define DR_REG_LIST                                           \
+    opnd_create_reg(DR_REG_R0),  opnd_create_reg(DR_REG_R1),  \
+    opnd_create_reg(DR_REG_R2),  opnd_create_reg(DR_REG_R3),  \
+    opnd_create_reg(DR_REG_R4),  opnd_create_reg(DR_REG_R5),  \
+    opnd_create_reg(DR_REG_R6),  opnd_create_reg(DR_REG_R7),  \
+    opnd_create_reg(DR_REG_R8),  opnd_create_reg(DR_REG_R9),  \
+    opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
+    opnd_create_reg(DR_REG_R12), opnd_create_reg(DR_REG_R13), \
+    DR_REG_LIST_TAIL
+
+/* Append instructions to restore gpr on fcache enter, to be executed
+ * right before jump to fcache target.
+ * - dcontext is in REG_DCXT
+ * - DR's tls base is in dr_reg_stolen
+ * - all other registers can be used as scratch, and we are using R0.
+ */
 void
 append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    /* FIXME i#1551: do not restore the register for TLS */
+    /* FIXME i#1573: NYI on ARM with SELFPROT_DCONTEXT */
+    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+    ASSERT(dr_reg_stolen != SCRATCH_REG0);
+    /* store stolen reg value into TLS slot */
+    APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, REG_OFFSET(dr_reg_stolen)));
+    APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG0, TLS_REG_STOLEN_SLOT));
+
+    /* Save DR's tls base into mcontext for the ldm later.
+     * XXX: we just want to remove the stolen reg from the reg list,
+     * so instead of having this extra store, we should provide a help
+     * function to create the reg list.
+     */
+    APP(ilist, SAVE_TO_DC(dcontext, dr_reg_stolen, REG_OFFSET(dr_reg_stolen)));
+    /* prepare for ldm */
+    APP(ilist, INSTR_CREATE_add(dcontext,
+                                opnd_create_reg(REG_DCXT),
+                                opnd_create_reg(REG_DCXT),
+                                OPND_CREATE_INT(R0_OFFSET)));
+    /* load all regs from mcontext */
+    APP(ilist, INSTR_CREATE_ldm(dcontext,
+                                OPND_CREATE_MEMLIST(REG_DCXT),
+                                DR_REG_LIST_LENGTH,
+                                DR_REG_LIST));
 }
 
 /* helper functions for append_fcache_return_common */
 
+/* Append instructions to save gpr on fcache return, called after
+ * append_fcache_return_prologue.
+ * Assuming the execution comes from an exit stub,
+ * and dcontext base is held in REG_DCXT.
+ * - store all registers into dcontext's mcontext
+ * - restore REG_DCXT app value from TLS slot to mcontext
+ * - restore dr_reg_stolen app value from TLS slot to mcontext
+ */
 void
 append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool absolute,
                 generated_code_t *code, linkstub_t *linkstub, bool coarse_info)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    /* FIXME i#1551: we steal register (R10) for TLS access,
-     * so we need special handling on R10 save/restore here.
+    ASSERT_NOT_IMPLEMENTED(!absolute &&
+                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+    APP(ilist, INSTR_CREATE_add(dcontext,
+                                opnd_create_reg(REG_DCXT),
+                                opnd_create_reg(REG_DCXT),
+                                OPND_CREATE_INT(R0_OFFSET)));
+    /* save current register state to dcontext's mcontext, some are in TLS */
+    APP(ilist, INSTR_CREATE_stm(dcontext,
+                                OPND_CREATE_MEMLIST(REG_DCXT),
+                                DR_REG_LIST_LENGTH,
+                                DR_REG_LIST));
+
+    /* app's r0 was spilled to DIRECT_STUB_SPILL_SLOT by exit stub */
+    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, DIRECT_STUB_SPILL_SLOT));
+    if (linkstub != NULL) {
+        /* FIXME i#1551: NYI for coarse-grain stub */
+        ASSERT_NOT_IMPLEMENTED(false);
+    } else {
+        APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, R0_OFFSET));
+    }
+    /* REG_DCXT's app value is stored in DCONTEXT_BASE_SPILL_SLOT by
+     * append_prepare_fcache_return, copy it to mcontext.
      */
+    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, DCONTEXT_BASE_SPILL_SLOT));
+    APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_DCXT_OFFS));
+    /* dr_reg_stolen's app value is always stored in the TLS spill slot,
+     * and we restore its value back to mcontext on fcache return.
+     */
+    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_REG_STOLEN_SLOT));
+    APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_OFFSET(dr_reg_stolen)));
+    /* steal app's TLS slot for DR's TLS base */
+    /* load app's TLS base into r1 and app's tls slot value into r2 */
+    append_load_app_tls_slot(dcontext, ilist, SCRATCH_REG1, SCRATCH_REG2);
+    /* save r2 into os_tls->app_tls_swap */
+    APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, os_get_app_tls_swap_offset()));
+    /* save dr_reg_stolen into app's tls slot */
+    APP(ilist, XINST_CREATE_store(dcontext,
+                                  OPND_CREATE_MEMPTR(SCRATCH_REG1,
+                                                     APP_TLS_SWAP_SLOT),
+                                  opnd_create_reg(dr_reg_stolen)));
+    /* FIXME i#1551: how should we handle register pc? */
 }
 
 void
@@ -240,14 +398,16 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     /* s16–s31 (d8–d15, q4–q7) are callee save */
     /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
 append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    APP(ilist, INSTR_CREATE_mrs(dcontext,
+                                opnd_create_reg(SCRATCH_REG0),
+                                opnd_create_reg(DR_REG_CPSR)));
+    APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG0, XFLAGS_OFFSET));
+    /* There is no DF on ARM, so we do not need clear xflags. */
 }
 
 bool

@@ -734,7 +734,7 @@ special_ret_stub_create(dcontext_t *dcontext, app_pc tgt)
     /* we need to steal xax register, xax restore is in the ibl_xfer code from
      * emit_native_ret_ibl_xfer.
      */
-    APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+    APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     /* the rest is similar to opt_plt_stub */
     /* mov tgt => XAX */
     APP(&ilist, XINST_CREATE_load_int(dcontext,

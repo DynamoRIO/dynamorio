@@ -34,6 +34,7 @@
  * tls_linux_arm.c - TLS support on ARM
  */
 
+#include <stddef.h> /* offsetof */
 #include "../globals.h"
 #include "tls.h"
 #include "include/syscall.h"
@@ -46,15 +47,25 @@
 # error ARM-only
 #endif
 
+/* Get the offset of app_tls_swap in os_local_state_t.
+ * They should be used with os_tls_offset or RESTORE_FROM_TLS,
+ * so do not need add TLS_OS_LOCAL_STATE here.
+ */
+ushort
+os_get_app_tls_swap_offset(void)
+{
+    return offsetof(os_local_state_t, app_tls_swap);
+}
+
 byte **
-get_app_tls_swap_slot_addr(void)
+get_app_tls_swap_addr(void)
 {
     byte *app_tls_base = (byte *)read_thread_register(LIB_SEG_TLS);
     if (app_tls_base == NULL) {
         ASSERT_NOT_REACHED();
         return NULL;
     }
-    return (byte **)(app_tls_base + TLS_SWAP_SLOT_OFFSET);
+    return (byte **)(app_tls_base + APP_TLS_SWAP_SLOT);
 }
 
 void
@@ -63,10 +74,10 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     byte **tls_swap_slot;
 
     ASSERT((byte *)(os_tls->self) == segment);
-    tls_swap_slot = get_app_tls_swap_slot_addr();
+    tls_swap_slot = get_app_tls_swap_addr();
     /* we assume the swap slot is initialized as 0 */
     ASSERT_NOT_IMPLEMENTED(*tls_swap_slot == NULL);
-    os_tls->app_tls_swap_slot_value = *tls_swap_slot;
+    os_tls->app_tls_swap = *tls_swap_slot;
     *tls_swap_slot = segment;
     os_tls->tls_type = TLS_TYPE_SWAP;
 }
@@ -78,11 +89,11 @@ tls_thread_free(tls_type_t tls_type, int index)
     os_local_state_t *os_tls;
 
     ASSERT(tls_type == TLS_TYPE_SWAP);
-    tls_swap_slot  = get_app_tls_swap_slot_addr();
+    tls_swap_slot = get_app_tls_swap_addr();
     os_tls = (os_local_state_t *)*tls_swap_slot;
     ASSERT(os_tls->self == os_tls);
     /* swap back for the case of detach */
-    *tls_swap_slot = os_tls->app_tls_swap_slot_value;
+    *tls_swap_slot = os_tls->app_tls_swap;
     return;
 }
 
@@ -102,7 +113,7 @@ tls_early_init(void)
      * this set up prior to creating any threads.
      */
     ASSERT(!dynamo_initialized);
-    ASSERT(sizeof(early_app_fake_tls) >= TLS_SWAP_SLOT_OFFSET + sizeof(void*));
+    ASSERT(sizeof(early_app_fake_tls) >= APP_TLS_SWAP_SLOT + sizeof(void*));
     res = dynamorio_syscall(SYS_set_tls, 1, early_app_fake_tls);
     ASSERT(res == 0);
     ASSERT((byte *)read_thread_register(LIB_SEG_TLS) == early_app_fake_tls);

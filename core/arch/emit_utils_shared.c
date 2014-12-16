@@ -2075,21 +2075,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
 /*             THREAD-PRIVATE/SHARED ROUTINE GENERATION                    */
 /***************************************************************************/
 
-/* Export this in instr.h if it becomes useful elsewhere */
-#ifdef X86
-# ifdef X64
-#  ifdef WINDOWS
-#   define OPND_ARG1  opnd_create_reg(REG_RCX)
-#  else
-#   define OPND_ARG1  opnd_create_reg(REG_RDI)
-#  endif /* Win/Unix */
-# else
-#  define OPND_ARG1   OPND_CREATE_MEM32(REG_ESP, 4)
-# endif /* 64/32-bit */
-#elif defined(ARM)
-# define OPND_ARG1    opnd_create_reg(DR_REG_R0)
-#endif /* X86/ARM */
-
 /* register for holding dcontext on fcache enter/return */
 #define REG_DCTXT SCRATCH_REG5
 
@@ -2161,14 +2146,14 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
          */
         /* AMD only supports 32-bit address for far jmp */
         store = XINST_CREATE_store(dcontext,
-                                   OPND_TLS_FIELD_SZ(TLS_SLOT_REG1, OPSZ_4),
+                                   OPND_TLS_FIELD_SZ(TLS_REG1_SLOT, OPSZ_4),
                                    OPND_CREATE_INT32(0/*placeholder*/));
         APP(ilist, store);
         APP(ilist, XINST_CREATE_store(dcontext,
-                                      OPND_TLS_FIELD_SZ(TLS_SLOT_REG1+4, OPSZ_2),
+                                      OPND_TLS_FIELD_SZ(TLS_REG1_SLOT+4, OPSZ_2),
                                       OPND_CREATE_INT16((ushort)CS32_SELECTOR)));
         APP(ilist, INSTR_CREATE_jmp_far_ind(dcontext,
-                                            OPND_TLS_FIELD_SZ(TLS_SLOT_REG1, OPSZ_6)));
+                                            OPND_TLS_FIELD_SZ(TLS_REG1_SLOT, OPSZ_6)));
         APP(ilist, label);
         /* We need a patch that involves two instrs, which is not supported,
          * so we get both addresses involved into local vars and do the patch
@@ -2225,12 +2210,19 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  * # Used by dispatch to begin execution in fcache at dcontext->next_tag
  * fcache_enter(dcontext_t *dcontext)
  *
+ *  # append_fcache_enter_prologue
  *  if (!absolute)
  *      mov    ARG1, SCRATCH_REG5 # dcontext param
  *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *      RESTORE_FROM_UPCONTEXT PROT_OFFSET, %xsi
  *    endif
  *  endif
+ *
+ *  # append_load_tls_base (ARM only)
+ *  mrc p15, 0, r0, c13, c0, 2
+ *  ldr r10, [r10, TLS_SWAP_SLOT_OFFSET]
+ *  ldr r1,  [r0, offsetof(app_tls_swap)]
+ *  str r1,  [r10, TLS_SWAP_SLOT_OFFSET]
  *
  *  # append_setup_fcache_target
  *  if (!absolute)
@@ -2351,21 +2343,7 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code,
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute && shared));
     IF_ARM(ASSERT_NOT_IMPLEMENTED(!absolute && shared));
 
-    if (!absolute) {
-        /* grab gen routine's parameter dcontext and put it into edi */
-        APP(&ilist,
-            IF_X86_ELSE(XINST_CREATE_load, XINST_CREATE_move)
-            (dcontext, opnd_create_reg(SCRATCH_REG5), OPND_ARG1));
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
-            IF_X86_ELSE({
-                APP(&ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG4, PROT_OFFS));
-            }, {
-                /* FIXME i#1551: SELFPROT is not supported on ARM */
-                ASSERT_NOT_REACHED();
-            });
-        }
-    }
-
+    append_fcache_enter_prologue(dcontext, &ilist, absolute);
     append_setup_fcache_target(dcontext, &ilist, absolute, shared);
     append_call_exit_dr_hook(dcontext, &ilist, absolute, shared);
 
@@ -2574,7 +2552,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  * #
  *
  * fcache_return:
- *  # append_prepare_fcache_return
+ *  # append_fcache_return_prologue
  *  ifdef X64 and (source is x86 mode)
  *      far direct jmp to next instr w/ 64-bit switch
  *  endif
@@ -2717,7 +2695,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *   - app xcx is in MANGLE_XCX_SPILL_SLOT
  *   - source coarse info is in %xcx
  *
- * We assume this routine does not use TLS slot FLOAT_PC_STATE_SLOT (TLS_SLOT_REG1).
+ * We assume this routine does not use TLS slot FLOAT_PC_STATE_SLOT (TLS_REG1_SLOT).
  */
 bool
 append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
@@ -4305,7 +4283,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
              */
             APP(&ilist,
                 instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2, SCRATCH_REG5_OFFS));
-            APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_SLOT_REG3));
+            APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_REG3_SLOT));
         }
     }
 
@@ -4345,7 +4323,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 APP(&ilist,
                     instr_create_save_to_dcontext(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS));
             } else {
-                APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_SLOT_REG3));
+                APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG3_SLOT));
             }
         }
     } /* else case is up above to use dead xcx reg */
@@ -4446,7 +4424,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         }
         else {
             APP(&ilist, XINST_CREATE_store
-                (dcontext, OPND_TLS_FIELD(TLS_SLOT_REG3),
+                (dcontext, OPND_TLS_FIELD(TLS_REG3_SLOT),
                  OPND_CREATE_INTPTR((ptr_int_t)get_shared_syscalls_unlinked_linkstub())));
         }
         if (!DYNAMO_OPTION(atomic_inlined_linking)) {
@@ -4463,7 +4441,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 APP(&ilist,
                     instr_create_save_to_dcontext(dcontext, SCRATCH_REG2, SCRATCH_REG1_OFFS));
             } else
-                APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_SLOT_REG1));
+                APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_REG1_SLOT));
             APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_CL),
                                              OPND_CREATE_INT8(1)));
         } else {
@@ -4472,7 +4450,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 APP(&ilist,
                     instr_create_save_to_dcontext(dcontext, SCRATCH_REG1, SCRATCH_REG1_OFFS));
             } else
-                APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_SLOT_REG1));
+                APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
         }
     }
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(unlinked_ib_lookup_pc)));
@@ -4953,7 +4931,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     /* go to fcache return -- use special syscall linkstub */
     /* in case it returns: go to fcache return -- use 0 as &linkstub */
     if (thread_shared)
-        APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+        APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     else
         APP(&ilist, instr_create_save_to_dcontext(dcontext, SCRATCH_REG0,
                                                   SCRATCH_REG0_OFFS));
@@ -5016,7 +4994,7 @@ emit_do_callback_return(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc,
 
     /* in case it returns: go to fcache return -- use 0 as &linkstub */
     if (thread_shared)
-        APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+        APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     else
         APP(&ilist, instr_create_save_to_dcontext(dcontext, REG_EAX, SCRATCH_REG0_OFFS));
     /* for x64 we rely on sign-extension to fill out rax */
@@ -5442,7 +5420,7 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
         const linkstub_t *linkstub =
             get_special_ibl_linkstub(ibl_type,
                                      DYNAMO_OPTION(disable_traces) ? false : true);
-        APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_SLOT_REG1));
+        APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
         APP(&ilist, XINST_CREATE_load_int(dcontext, opnd_create_reg(SCRATCH_REG1),
                                           OPND_CREATE_INTPTR((ptr_int_t)linkstub)));
     }
@@ -5911,7 +5889,7 @@ emit_native_plt_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
  * module via return.
  * The emitted code update some fields of dcontext like whereami and last_exit,
  * and jump to ibl looking for target code fragment.
- * We assume %XAX holds the target and must be restored from TLS_SLOT_REG0 before
+ * We assume %XAX holds the target and must be restored from TLS_REG0_SLOT before
  * jumpping to ibl.
  */
 byte *
@@ -5926,7 +5904,7 @@ emit_native_ret_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     insert_entering_non_native(dcontext, &ilist, NULL, REG_NULL, SCRATCH_REG0);
     insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     /* restore xax */
-    APP(&ilist, instr_create_restore_from_tls(dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+    APP(&ilist, instr_create_restore_from_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     return emit_special_ibl_xfer(dcontext, pc, code, NATIVE_RET_IBL_IDX,
                                  IBL_RETURN, &ilist, tgt);
 }

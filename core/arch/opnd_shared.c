@@ -1912,10 +1912,8 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg,
      */
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         offs < sizeof(unprotected_context_t)) {
-        /* FIXME i#1551: what's the default reg on ARM? */
-        IF_ARM(ASSERT(absolute || basereg != REG_NULL));
         return opnd_create_base_disp(absolute ? REG_NULL :
-                                     (IF_X86((basereg == REG_NULL) ? REG_XSI :) basereg),
+                                     (basereg == REG_NULL ? REG_DCXT_PROT : basereg),
                                      REG_NULL, 0,
                                      ((int)(ptr_int_t)(absolute ?
                                             dcontext->upcontext.separate_upcontext : 0))
@@ -1923,10 +1921,8 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg,
     } else {
         if (offs >= sizeof(unprotected_context_t))
             offs -= sizeof(unprotected_context_t);
-        /* FIXME i#1551: what's the default reg on ARM? */
-        IF_ARM(ASSERT(absolute || basereg != REG_NULL));
         return opnd_create_base_disp(absolute ? REG_NULL :
-                                     (IF_X86((basereg == REG_NULL) ? REG_XDI :) basereg),
+                                     (basereg == REG_NULL ? REG_DCXT : basereg),
                                      REG_NULL, 0,
                                      ((int)(ptr_int_t)
                                       (absolute ? dcontext : 0)) + offs, size);
@@ -2001,16 +1997,6 @@ opnd_t
 opnd_create_tls_slot(int offs)
 {
     return opnd_create_sized_tls_slot(offs, OPSZ_PTR);
-}
-
-opnd_t
-opnd_create_sized_tls_slot(int offs, opnd_size_t size)
-{
-    /* We do not request disp_short_addr or force_full_disp, letting
-     * encode_base_disp() choose whether to use the 0x67 addr prefix
-     * (assuming offs is small).
-     */
-    return opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0, offs, size);
 }
 
 #endif /* !STANDALONE_DECODER */

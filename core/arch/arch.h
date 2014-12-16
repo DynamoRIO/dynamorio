@@ -135,10 +135,17 @@ mixed_mode_enabled(void)
 # define SCRATCH_REG3_OFFS R3_OFFSET
 # define SCRATCH_REG4_OFFS R4_OFFSET
 # define SCRATCH_REG5_OFFS R5_OFFSET
+# define REG_OFFSET(reg)   (R0_OFFSET + ((reg) - DR_REG_R0) * sizeof(reg_t))
 #endif /* X86/ARM */
 #define XSP_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
 #define XFLAGS_OFFSET      ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #define PC_OFFSET          ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
+
+/* the register holds dcontext on fcache enter/return */
+#define REG_DCXT           SCRATCH_REG5
+#define REG_DCXT_OFFS      SCRATCH_REG5_OFFS
+#define REG_DCXT_PROT      SCRATCH_REG4
+#define REG_DCXT_PROT_OFFS SCRATCH_REG4_OFFS
 
 #define ERRNO_OFFSET      (offsetof(unprotected_context_t, errno))
 #define AT_SYSCALL_OFFSET (offsetof(unprotected_context_t, at_syscall))
@@ -535,7 +542,7 @@ bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
     /* ok for this guy to overlap w/ others since he is pre-cache */
-    FCACHE_ENTER_TARGET_SLOT    = TLS_SLOT_REG0,
+    FCACHE_ENTER_TARGET_SLOT    = TLS_REG0_SLOT,
     /* FIXME: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
@@ -543,23 +550,23 @@ enum {
      * used for sysenter shared syscall mangling, which uses an
      * indirect stub.
      */
-    MANGLE_NEXT_TAG_SLOT        = TLS_SLOT_REG0,
-    DIRECT_STUB_SPILL_SLOT      = TLS_SLOT_REG0,
-    MANGLE_RIPREL_SPILL_SLOT    = TLS_SLOT_REG0,
+    MANGLE_NEXT_TAG_SLOT        = TLS_REG0_SLOT,
+    DIRECT_STUB_SPILL_SLOT      = TLS_REG0_SLOT,
+    MANGLE_RIPREL_SPILL_SLOT    = TLS_REG0_SLOT,
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
-    INDIRECT_STUB_SPILL_SLOT    = TLS_SLOT_REG1,
-    MANGLE_FAR_SPILL_SLOT       = TLS_SLOT_REG1,
+    INDIRECT_STUB_SPILL_SLOT    = TLS_REG1_SLOT,
+    MANGLE_FAR_SPILL_SLOT       = TLS_REG1_SLOT,
     /* i#698: float_pc handling stores the mem addr of the float state here.  We
      * assume this slot is not touched on the fcache_return path.
      */
-    FLOAT_PC_STATE_SLOT         = TLS_SLOT_REG1,
-    MANGLE_XCX_SPILL_SLOT       = TLS_SLOT_REG2,
+    FLOAT_PC_STATE_SLOT         = TLS_REG1_SLOT,
+    MANGLE_XCX_SPILL_SLOT       = TLS_REG2_SLOT,
     /* FIXME: edi is used as the base, yet I labeled this slot for edx
      * since it's next in the progression -- change one or the other?
      * (this is case 5239)
      */
-    DCONTEXT_BASE_SPILL_SLOT    = TLS_SLOT_REG3,
-    PREFIX_XAX_SPILL_SLOT       = TLS_SLOT_REG0,
+    DCONTEXT_BASE_SPILL_SLOT    = TLS_REG3_SLOT,
+    PREFIX_XAX_SPILL_SLOT       = TLS_REG0_SLOT,
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
@@ -1370,6 +1377,8 @@ add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
                    instr_create_save_to_dcontext((dc), (reg), (offs))) : \
      instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
 
+void
+append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
 void
 append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
                          bool absolute, bool shared);

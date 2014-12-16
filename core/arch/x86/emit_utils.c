@@ -1084,6 +1084,31 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 /***************************************************************************/
 
 /* helper functions for emit_fcache_enter_common  */
+#ifdef X64
+# ifdef WINDOWS
+#  define OPND_ARG1  opnd_create_reg(REG_RCX)
+# else
+#  define OPND_ARG1  opnd_create_reg(REG_RDI)
+# endif /* Win/Unix */
+#else
+# define OPND_ARG1   OPND_CREATE_MEM32(REG_ESP, 4)
+#endif /* 64/32-bit */
+
+
+void
+append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
+{
+    if (!absolute) {
+        /* grab gen routine's parameter dcontext and put it into edi */
+        APP(ilist, XINST_CREATE_load(dcontext,
+                                     opnd_create_reg(REG_DCXT),
+                                     OPND_ARG1));
+        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+            APP(ilist, RESTORE_FROM_DC(dcontext,
+                                       REG_DCXT_PROT,
+                                       PROT_OFFS));
+    }
+}
 
 /*  # append instructions to call exit_dr_hook
  *  if (EXIT_DR_HOOK != NULL && !dcontext->ignore_enterexit)
@@ -1288,7 +1313,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *   SAVE_TO_UPCONTEXT %xbx,xdi_OFFSET
  *  endif
  *
- *  # save the current register state to context->regs
+ *  # save the current register state to dcontext's mcontext
  *  # xax already in context
  *
  *  if (absolute)
@@ -1715,7 +1740,7 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
         if (absolute)
             after_linkcount = SAVE_TO_DC(dcontext, SCRATCH_REG1, SCRATCH_REG1_OFFS);
         else
-            after_linkcount = SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_SLOT_REG1);
+            after_linkcount = SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG1_SLOT);
     } else {
         /* create scratch register: re-use xbx, it holds linkstub ptr,
          * don't need to restore it on hit!  save to **xdi** slot so as
@@ -1724,7 +1749,7 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
         if (absolute)
             after_linkcount = SAVE_TO_DC(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS);
         else if (table_in_tls) /* xdx is the free slot for tls */
-            after_linkcount = SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_SLOT_REG3);
+            after_linkcount = SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG3_SLOT);
         else /* the xdx slot already holds %xdi so use the mcontext */
             after_linkcount = SAVE_TO_DC(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS);
     }
@@ -2034,7 +2059,7 @@ miss:
                                       OPND_CREATE_INT32(0));
         } else {
             miss = XINST_CREATE_store(dcontext,
-                                      OPND_TLS_FIELD(TLS_SLOT_REG3),
+                                      OPND_TLS_FIELD(TLS_REG3_SLOT),
                                       OPND_CREATE_INT32(0));
         }
         append_ibl_head(dcontext, &ilist, ibl_code, patch, NULL, NULL, NULL,
@@ -2054,9 +2079,9 @@ miss:
                                                                   SCRATCH_REG5_OFFS),
                                        OPND_CREATE_INT32(0));
             } else {
-                unlink = SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_SLOT_REG1);
+                unlink = SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG1_SLOT);
                 after_unlink = XINST_CREATE_store(dcontext,
-                                                  OPND_TLS_FIELD(TLS_SLOT_REG3),
+                                                  OPND_TLS_FIELD(TLS_REG3_SLOT),
                                                   OPND_CREATE_INT32(0));
             }
             APP(&ilist, unlink);
@@ -2067,7 +2092,7 @@ miss:
             if (absolute)
                 unlink = SAVE_TO_DC(dcontext, SCRATCH_REG2, SCRATCH_REG1_OFFS);
             else
-                unlink = SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_SLOT_REG1);
+                unlink = SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_REG1_SLOT);
             APP(&ilist, unlink);
             APP(&ilist, XINST_CREATE_load_int(dcontext, opnd_create_reg(REG_CL),
                                               OPND_CREATE_INT8(1)));
@@ -2522,7 +2547,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
                 (dcontext, (int)(ptr_int_t) get_ibl_deleted_linkstub(), SCRATCH_REG5_OFFS));
         } else if (table_in_tls) {
             APP(&ilist, XINST_CREATE_store
-                (dcontext, OPND_TLS_FIELD(TLS_SLOT_REG3),
+                (dcontext, OPND_TLS_FIELD(TLS_REG3_SLOT),
                  IF_X64_ELSE(opnd_create_reg(SCRATCH_REG1),
                              OPND_CREATE_INTPTR((ptr_int_t)get_ibl_deleted_linkstub()))));
         } else {
@@ -2619,7 +2644,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         if (absolute) {
             APP(&ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS));
         } else if (table_in_tls) {
-            APP(&ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_SLOT_REG3));
+            APP(&ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_REG3_SLOT));
         } else {
             ASSERT(only_spill_state_in_tls);
             APP(&ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS));

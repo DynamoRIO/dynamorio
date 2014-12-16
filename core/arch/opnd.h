@@ -2185,6 +2185,8 @@ extern const reg_id_t regparms[];
 uint opnd_immed_float_arch(uint opcode);
 
 #ifdef ARM
+# define DR_REG_STOLEN_MIN  DR_REG_R8 /* no syscall regs */
+# define DR_REG_STOLEN_MAX  IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
 /* DR's stolen register for TLS access */
 extern reg_id_t dr_reg_stolen;
 #endif

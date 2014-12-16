@@ -159,20 +159,20 @@ typedef struct _local_state_extended_t {
 # define TLS_XBX_SLOT             ((ushort)offsetof(spill_state_t, xbx))
 # define TLS_XCX_SLOT             ((ushort)offsetof(spill_state_t, xcx))
 # define TLS_XDX_SLOT             ((ushort)offsetof(spill_state_t, xdx))
-# define TLS_SLOT_REG0            TLS_XAX_SLOT
-# define TLS_SLOT_REG1            TLS_XBX_SLOT
-# define TLS_SLOT_REG2            TLS_XCX_SLOT
-# define TLS_SLOT_REG3            TLS_XDX_SLOT
+# define TLS_REG0_SLOT            TLS_XAX_SLOT
+# define TLS_REG1_SLOT            TLS_XBX_SLOT
+# define TLS_REG2_SLOT            TLS_XCX_SLOT
+# define TLS_REG3_SLOT            TLS_XDX_SLOT
 # define SCRATCH_REG0             DR_REG_XAX
 # define SCRATCH_REG1             DR_REG_XBX
 # define SCRATCH_REG2             DR_REG_XCX
 # define SCRATCH_REG3             DR_REG_XDX
 #elif defined(ARM)
-# define TLS_SLOT_REG0            ((ushort)offsetof(spill_state_t, r0))
-# define TLS_SLOT_REG1            ((ushort)offsetof(spill_state_t, r1))
-# define TLS_SLOT_REG2            ((ushort)offsetof(spill_state_t, r2))
-# define TLS_SLOT_REG3            ((ushort)offsetof(spill_state_t, r3))
-# define TLS_SLOT_REG_STOLEN      ((ushort)offsetof(spill_state_t, reg_stolen))
+# define TLS_REG0_SLOT            ((ushort)offsetof(spill_state_t, r0))
+# define TLS_REG1_SLOT            ((ushort)offsetof(spill_state_t, r1))
+# define TLS_REG2_SLOT            ((ushort)offsetof(spill_state_t, r2))
+# define TLS_REG3_SLOT            ((ushort)offsetof(spill_state_t, r3))
+# define TLS_REG_STOLEN_SLOT      ((ushort)offsetof(spill_state_t, reg_stolen))
 # define SCRATCH_REG0             DR_REG_R0
 # define SCRATCH_REG1             DR_REG_R1
 # define SCRATCH_REG2             DR_REG_R2

@@ -144,8 +144,8 @@ struct compat_rlimit {
 # else
 #  define ASM_R3 "r3"
 #  define READ_TP_TO_R3 \
-      "mrc  p15, 0, "ASM_R3", c13, c0, 3 \n\t" /* read TPIDRURO */ \
-      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(TLS_SWAP_SLOT_OFFSET)"] \n\t"
+      "mrc p15, 0, "ASM_R3", c13, c0, "STRINGIFY(APP_TLS_REG_OPCODE)" \n\t" \
+      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(APP_TLS_SWAP_SLOT)"] \n\t"
 # endif /* 64/32-bit */
 #endif /* ARM */
 
@@ -1172,7 +1172,6 @@ os_timeout(int time_in_milliseconds)
 #define TLS_APP_FS_BASE_OFFSET (offsetof(os_local_state_t, app_fs_base))
 #define TLS_APP_GS_OFFSET (offsetof(os_local_state_t, app_gs))
 #define TLS_APP_FS_OFFSET (offsetof(os_local_state_t, app_fs))
-#define TLS_APP_TLS_SWAP_SLOT (offsetof(os_local_state_t, app_tls_swap_slot)
 
 /* N.B.: imm and idx are ushorts!
  * We use %c[0-9] to get gcc to emit an integer constant without a leading $ for
@@ -1274,7 +1273,7 @@ is_thread_tls_initialized(void)
     byte **tls_swap_slot;
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
-    tls_swap_slot = (byte **)get_app_tls_swap_slot_addr();
+    tls_swap_slot = (byte **)get_app_tls_swap_addr();
     if (tls_swap_slot == NULL)
         return false;
     ASSERT(is_dynamo_address(*tls_swap_slot));

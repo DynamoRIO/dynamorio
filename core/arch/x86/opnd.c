@@ -74,3 +74,20 @@ reg_is_stolen(reg_id_t reg)
 {
     return false;
 }
+
+
+#ifndef STANDALONE_DECODER
+/****************************************************************************/
+
+opnd_t
+opnd_create_sized_tls_slot(int offs, opnd_size_t size)
+{
+    /* We do not request disp_short_addr or force_full_disp, letting
+     * encode_base_disp() choose whether to use the 0x67 addr prefix
+     * (assuming offs is small).
+     */
+    return opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0, offs, size);
+}
+
+#endif /* !STANDALONE_DECODER */
+/****************************************************************************/

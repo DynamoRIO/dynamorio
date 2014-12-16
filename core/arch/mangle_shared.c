@@ -160,7 +160,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
-            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+            (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
 
         insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
 
@@ -191,7 +191,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
         /* restore xax before pushing the context on the dstack */
         PRE(ilist, instr, instr_create_restore_from_tls
-            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+            (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     }
     else {
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
@@ -308,7 +308,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
-            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+            (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
 
         insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
 
@@ -328,7 +328,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
             (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
 
         PRE(ilist, instr, instr_create_restore_from_tls
-            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+            (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     }
     else {
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)

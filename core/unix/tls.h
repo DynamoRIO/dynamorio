@@ -61,18 +61,6 @@ typedef enum {
     TLS_TYPE_SWAP,
 } tls_type_t;
 
-/* On ARM, we use the 'private' field of the tcbhead_t.
- * typedef struct
- * {
- *   dtv_t *dtv;
- *   void *private;
- * } tcbhead_t;
- * When using private loader, we control all the TLS allocation and
- * should be able to avoid using that field.
- */
-/* This is also used in asm code, so we use literal instead of sizeof. */
-#define TLS_SWAP_SLOT_OFFSET IF_X64_ELSE(8, 4) /* skip dtv */
-
 extern tls_type_t tls_global_type;
 
 /* XXX: more cleanly separate the code so we don't need this here */
@@ -218,10 +206,14 @@ typedef struct _os_local_state_t {
     int ldt_index;
     /* tid needed to ensure children are set up properly */
     thread_id_t tid;
-    /* If tls_type is TLS_TYPE_SWAP, we use one app TLS slot to store DR's TLS base,
-     * save the app TLS slot value here, and save/restore the value on context switch.
+#ifdef ARM
+    /* Having only one thread register (TPIDRURO) shared between app and DR,
+     * we steal a register for DR's TLS base in the code cache,
+     * and steal an app's TLS slot for DR's TLS base when not in the code cache.
+     * We store the original value of app's TLS slot here.
      */
-    byte  *app_tls_swap_slot_value;
+    byte *app_tls_swap;
+#endif
     /* i#107 application's gs/fs value and pointed-at base */
     ushort app_gs;      /* for mangling seg update/query */
     ushort app_fs;      /* for mangling seg update/query */
@@ -251,7 +243,7 @@ tls_early_init(void);
 
 #ifdef ARM
 byte **
-get_app_tls_swap_slot_addr(void);
+get_app_tls_swap_addr(void);
 #endif
 
 /* Assumes it's passed either SEG_FS or SEG_GS.

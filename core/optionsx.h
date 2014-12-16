@@ -554,7 +554,8 @@
 #endif
 
 #ifdef ARM
-    OPTION_DEFAULT_INTERNAL(uint, steal_reg, 10/*r10*/,
+    /* we only allow register between r8 and r12(A32)/r29(A64) to be used */
+    OPTION_DEFAULT_INTERNAL(uint, steal_reg, IF_X64_ELSE(28/*r28*/, 10/*r10*/),
                             "the register stolen/used by DynamoRIO")
 #endif
 

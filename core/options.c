@@ -1925,6 +1925,15 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
+#ifdef ARM
+    if (DYNAMO_OPTION(steal_reg) < 8 /* DR_REG_STOLEN_MIN */||
+        DYNAMO_OPTION(steal_reg) > IF_X64_ELSE(29, 12) /* DR_REG_STOLEN_MAX */) {
+        USAGE_ERROR("-steal_reg only supports register between r8 and r12(A32)/r29(A64)");
+        dynamo_options.steal_reg = IF_X64_ELSE(28/*r28*/, 10/*r10*/);
+        changed_options = true;
+    }
+#endif
+
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */
     /* case 7626: don't short-circuit checks, as later ones may be needed */
@@ -1938,7 +1947,8 @@ check_option_compatibility_helper(int recurse_count)
     if (changed_options) {
         if (recurse_count > 5) {
             /* prevent infinite loop, should never recurse this many times */
-            FATAL_USAGE_ERROR(OPTION_VERIFICATION_RECURSION, 2, get_application_name(), get_application_pid());
+            FATAL_USAGE_ERROR(OPTION_VERIFICATION_RECURSION, 2,
+                              get_application_name(), get_application_pid());
         } else {
             check_option_compatibility_helper(recurse_count+1);
         }

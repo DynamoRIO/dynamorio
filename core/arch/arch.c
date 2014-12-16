@@ -102,10 +102,10 @@ int
 reg_spill_tls_offs(reg_id_t reg)
 {
     switch (reg) {
-    case SCRATCH_REG0: return TLS_SLOT_REG0;
-    case SCRATCH_REG1: return TLS_SLOT_REG1;
-    case SCRATCH_REG2: return TLS_SLOT_REG2;
-    case SCRATCH_REG3: return TLS_SLOT_REG3;
+    case SCRATCH_REG0: return TLS_REG0_SLOT;
+    case SCRATCH_REG1: return TLS_REG1_SLOT;
+    case SCRATCH_REG2: return TLS_REG2_SLOT;
+    case SCRATCH_REG3: return TLS_REG3_SLOT;
     }
     /* don't assert if another reg passed: used on random regs looking for spills */
     return -1;
@@ -589,6 +589,11 @@ arch_init(void)
     /* syscall_init() should have already set the syscall_method so go ahead
      * and create the globlal_do_syscall now */
     ASSERT(syscall_method != SYSCALL_METHOD_UNINITIALIZED);
+#endif
+
+#ifdef ARM
+    dr_reg_stolen = DR_REG_R0 + DYNAMO_OPTION(steal_reg);
+    ASSERT(dr_reg_stolen > DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX)
 #endif
 
     /* Ensure we have no unexpected padding inside structs that include
