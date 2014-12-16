@@ -49,6 +49,7 @@
 #else
 # include <sys/syscall.h>
 #endif
+#include "tls.h"
 
 #include <dlfcn.h>      /* dlsym */
 #ifdef LINUX
@@ -1438,6 +1439,9 @@ privload_early_inject(void **sp)
     elf_loader_destroy(&exe_ld);
 
     reserve_brk();
+
+    /* TLS in some cases needs different init than the normal later path */
+    tls_early_init();
 
     /* Initialize DR *after* we map the app image.  This is consistent with our
      * old behavior, and allows the client to do things like call

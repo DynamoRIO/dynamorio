@@ -840,3 +840,9 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
 }
 #endif /* X64 */
+
+void
+tls_early_init(void)
+{
+    /* nothing */
+}

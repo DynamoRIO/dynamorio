@@ -285,3 +285,9 @@ tls_min_index(void)
 {
     return tls_app_index;
 }
+
+void
+tls_early_init(void)
+{
+    /* nothing */
+}

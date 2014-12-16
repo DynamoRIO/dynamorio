@@ -246,6 +246,9 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment);
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
+void
+tls_early_init(void);
+
 #ifdef ARM
 byte **
 get_app_tls_swap_slot_addr(void);

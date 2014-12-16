@@ -36,6 +36,7 @@
 
 #include "../globals.h"
 #include "tls.h"
+#include "include/syscall.h"
 
 #ifndef LINUX
 # error Linux-only
@@ -50,8 +51,7 @@ get_app_tls_swap_slot_addr(void)
 {
     byte *app_tls_base = (byte *)read_thread_register(LIB_SEG_TLS);
     if (app_tls_base == NULL) {
-        /* FIXME i#1551: NYI if app TLS is not initialized */
-        ASSERT_NOT_IMPLEMENTED(false);
+        ASSERT_NOT_REACHED();
         return NULL;
     }
     return (byte **)(app_tls_base + TLS_SWAP_SLOT_OFFSET);
@@ -84,4 +84,26 @@ tls_thread_free(tls_type_t tls_type, int index)
     /* swap back for the case of detach */
     *tls_swap_slot = os_tls->app_tls_swap_slot_value;
     return;
+}
+
+void
+tls_early_init(void)
+{
+    /* App TLS is not yet initialized (we're probably using early injection).
+     * We set up our own and "steal" its slot.  When app pthread inits it will
+     * clobber it (but from code cache: and DR won't rely on swapped slot there)
+     * and it will keep working seamlessly.  Strangely, tpidrro is not zero
+     * though, so we do this here via explicit early invocation and not inside
+     * get_app_tls_swap_slot_addr().
+     */
+    static byte early_app_fake_tls[16];
+    int res;
+    /* We assume we're single-threaded, b/c every dynamic app will have
+     * this set up prior to creating any threads.
+     */
+    ASSERT(!dynamo_initialized);
+    ASSERT(sizeof(early_app_fake_tls) >= TLS_SWAP_SLOT_OFFSET + sizeof(void*));
+    res = dynamorio_syscall(SYS_set_tls, 1, early_app_fake_tls);
+    ASSERT(res == 0);
+    ASSERT((byte *)read_thread_register(LIB_SEG_TLS) == early_app_fake_tls);
 }
