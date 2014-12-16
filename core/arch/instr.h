@@ -1776,7 +1776,7 @@ instr_is_mov(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr's opcode is OP_call, OP_call_far, OP_call_ind,
- * or OP_call_far_ind.
+ * or OP_call_far_ind on x86; OP_bl, OP_blx, or OP_blx_ind on ARM.
  */
 bool
 instr_is_call(instr_t *instr);
@@ -1787,17 +1787,23 @@ bool
 instr_is_call_direct(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr's opcode is OP_call. */
+/** Returns true iff \p instr's opcode is OP_call on x86; OP_bl or OP_blx on ARM. */
 bool
 instr_is_near_call_direct(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr's opcode is OP_call_ind or OP_call_far_ind. */
+/**
+ * Returns true iff \p instr's opcode is OP_call_ind or OP_call_far_ind on x86;
+ * OP_blx_ind on ARM.
+ */
 bool
 instr_is_call_indirect(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr's opcode is OP_ret, OP_ret_far, or OP_iret. */
+/**
+ * Returns true iff \p instr's opcode is OP_ret, OP_ret_far, or OP_iret on x86.
+ * On ARM, returns true iff \p instr reads DR_REG_LR and writes DR_REG_PC.
+ */
 bool
 instr_is_return(instr_t *instr);
 
@@ -1812,7 +1818,8 @@ instr_is_cti(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr is a control transfer instruction that takes an
- * 8-bit offset: OP_loop*, OP_jecxz, OP_jmp_short, or OP_jcc_short
+ * 8-bit offset on x86 (OP_loop*, OP_jecxz, OP_jmp_short, or OP_jcc_short) or
+ * a small offset on ARM (OP_cbz, OP_cbnz, OP_b_short).
  */
 #ifdef UNSUPPORTED_API
 /**
@@ -1830,10 +1837,11 @@ instr_is_cti_loop(instr_t *instr);
 
 DR_API
 /**
- * Returns true iff \p instr's opcode is OP_loop* or OP_jecxz and instr has
- * been transformed to a sequence of instruction that will allow a 32-bit
+ * Returns true iff \p instr's opcode is OP_loop* or OP_jecxz on x86
+ * or OP_cbz or OP_cbnz on ARM and instr has
+ * been transformed to a sequence of instruction that will allow a larger
  * offset.
- * If \p pc != NULL, \p pc is expected to point the the beginning of the encoding of
+ * If \p pc != NULL, \p pc is expected to point to the beginning of the encoding of
  * \p instr, and the following instructions are assumed to be encoded in sequence
  * after \p instr.
  * Otherwise, the encoding is expected to be found in \p instr's allocated bits.
@@ -1853,7 +1861,8 @@ remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc ta
 DR_API
 /**
  * Returns true iff \p instr is a conditional branch: OP_jcc, OP_jcc_short,
- * OP_loop*, or OP_jecxz.
+ * OP_loop*, or OP_jecxz on x86; OP_cbnz, OP_cbz, or when a predicate is present
+ * any of OP_b, OP_b_short, OP_bx, OP_bxj, OP_bl, OP_blx, OP_blx_ind on ARM.
  */
 bool
 instr_is_cbr(instr_t *instr);
@@ -1862,7 +1871,8 @@ DR_API
 /**
  * Returns true iff \p instr is a multi-way (indirect) branch: OP_jmp_ind,
  * OP_call_ind, OP_ret, OP_jmp_far_ind, OP_call_far_ind, OP_ret_far, or
- * OP_iret.
+ * OP_iret on x86; OP_bx, OP_bxj, OP_blx_ind, or any instruction with a
+ * destination register operand of DR_REG_PC on ARM.
  */
 bool
 instr_is_mbr(instr_t *instr);
@@ -1870,7 +1880,7 @@ instr_is_mbr(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr is an unconditional direct branch: OP_jmp,
- * OP_jmp_short, or OP_jmp_far.
+ * OP_jmp_short, or OP_jmp_far on x86; OP_b or OP_b_short with no predicate on ARM.
  */
 bool
 instr_is_ubr(instr_t *instr);
@@ -1878,7 +1888,7 @@ instr_is_ubr(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr is a near unconditional direct branch: OP_jmp,
- * or OP_jmp_short.
+ * or OP_jmp_short on x86; OP_b with no predicate on ARM.
  */
 bool
 instr_is_near_ubr(instr_t *instr);
@@ -2473,10 +2483,11 @@ bool instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_s
                                 dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
                                 OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
 uint instr_branch_type(instr_t *cti_instr);
-bool opcode_is_call(int opc);
-bool opcode_is_cbr(int opc);
-bool opcode_is_mbr(int opc);
-bool opcode_is_ubr(int opc);
+/* these routines can assume that instr's opcode is valid */
+bool instr_is_call_arch(instr_t *instr);
+bool instr_is_cbr_arch(instr_t *instr);
+bool instr_is_mbr_arch(instr_t *instr);
+bool instr_is_ubr_arch(instr_t *instr);
 
 /* private routines for spill code */
 instr_t * instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);

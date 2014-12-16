@@ -80,14 +80,17 @@ opc_is_not_a_real_memory_load(int opc)
 uint
 instr_branch_type(instr_t *cti_instr)
 {
-    switch (instr_get_opcode(cti_instr)) {
-    case OP_bl:
-        return LINK_DIRECT|LINK_CALL;     /* unconditional */
-    default:
-        /* FIXME i#1551: fill in the rest */
-        CLIENT_ASSERT(false, "instr_branch_type: unknown opcode: NYI");
-    }
-
+    instr_get_opcode(cti_instr); /* ensure opcode is valid */
+    if (instr_is_call_direct(cti_instr))
+        return LINK_DIRECT|LINK_CALL;
+    else if (instr_is_call_indirect(cti_instr))
+        return LINK_INDIRECT|LINK_CALL;
+    else if (instr_is_mbr_arch(cti_instr))
+        return LINK_INDIRECT|LINK_JMP;
+    else if (instr_is_cbr_arch(cti_instr) || instr_is_ubr_arch(cti_instr))
+        return LINK_DIRECT|LINK_JMP;
+    else
+        CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
 }
 
@@ -100,9 +103,10 @@ instr_is_mov(instr_t *instr)
 }
 
 bool
-opcode_is_call(int opc)
+instr_is_call_arch(instr_t *instr)
 {
-    return (opc == OP_bl || opc == OP_blx);
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return (opc == OP_bl || opc == OP_blx || opc == OP_blx_ind);
 }
 
 bool
@@ -121,40 +125,50 @@ instr_is_near_call_direct(instr_t *instr)
 bool
 instr_is_call_indirect(instr_t *instr)
 {
-    /* FIXME i#1551: NYI -- we should split OP_blx into reg and immed forms */
-    CLIENT_ASSERT(false, "NYI");
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_blx_ind);
 }
 
 bool
 instr_is_return(instr_t *instr)
 {
-    /* FIXME i#1551: NYI -- have to look for read of lr and dst of pc */
-    CLIENT_ASSERT(false, "NYI");
+    /* There is no "return" opcode so we consider a return to be either:
+     * A) An instr that reads lr and writes pc;
+     * B) A pop into pc.
+     */
+    if (!instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
+        return false;
+    return (instr_reads_from_reg(instr, DR_REG_LR, DR_QUERY_INCLUDE_ALL) ||
+            instr_get_opcode(instr) == OP_pop);
+}
+
+bool
+instr_is_cbr_arch(instr_t *instr)
+{
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    if (opc == OP_cbnz || opc ==  OP_cbz)
+        return true;
+    /* A predicated uncondtional branch is a cbr */
+    if (opc == OP_b || opc == OP_b_short || opc == OP_bx || opc == OP_bxj ||
+        /* Yes, conditional calls are considered cbr */
+        opc == OP_bl || opc == OP_blx || opc == OP_blx_ind) {
+        dr_pred_type_t pred = instr_get_predicate(instr);
+        return (pred != DR_PRED_NONE && pred != DR_PRED_AL);
+    }
+    /* XXX: should OP_it be considered a cbr? */
     return false;
 }
 
 bool
-opcode_is_cbr(int opc)
+instr_is_mbr_arch(instr_t *instr)
 {
-    /* FIXME i#1551: NYI -- what about predicate?  We have to have instr? */
-    CLIENT_ASSERT(false, "NYI");
-    return false;
-}
-
-bool
-instr_is_cbr(instr_t *instr)      /* conditional branch */
-{
-    /* FIXME i#1551: NYI: look at predicate for ubr.  Also handle it blocks. */
-    CLIENT_ASSERT(false, "NYI");
-    return false;
-}
-
-bool
-opcode_is_mbr(int opc)
-{
-    /* FIXME i#1551: add OP_blx_ind too */
-    return (opc == OP_bx || opc == OP_bxj);
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    if (opc == OP_bx || opc ==  OP_bxj || opc == OP_blx_ind)
+        return true;
+    /* Any instr that writes to the pc, even conditionally (b/c consider that
+     * OP_blx_ind when conditional is still an mbr) is an mbr.
+     */
+    return instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_COND_DSTS);
 }
 
 bool
@@ -170,18 +184,14 @@ instr_is_far_abs_cti(instr_t *instr)
 }
 
 bool
-opcode_is_ubr(int opc)
+instr_is_ubr_arch(instr_t *instr)
 {
-    /* FIXME i#1551: NYI -- what about predicate?  We have to have instr? */
-    CLIENT_ASSERT(false, "NYI");
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    if (opc == OP_b || opc == OP_b_short) {
+        dr_pred_type_t pred = instr_get_predicate(instr);
+        return (pred == DR_PRED_NONE || pred == DR_PRED_AL);
+    }
     return false;
-}
-
-bool
-instr_is_ubr(instr_t *instr)      /* unconditional branch */
-{
-    int opc = instr_get_opcode(instr);
-    return opcode_is_ubr(opc);
 }
 
 bool
@@ -193,9 +203,8 @@ instr_is_near_ubr(instr_t *instr)      /* unconditional branch */
 bool
 instr_is_cti_short(instr_t *instr)
 {
-    /* FIXME i#1551: NYI -- use for diff immed sizes on ARM? */
-    CLIENT_ASSERT(false, "NYI");
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_b_short || opc == OP_cbz || opc == OP_cbnz);
 }
 
 bool
@@ -207,6 +216,10 @@ instr_is_cti_loop(instr_t *instr)
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 {
+    /* FIXME i#1551: NYI: we need to mangle OP_cbz and OP_cbnz in a similar
+     * manner to OP_jecxz on x86
+     */
+    CLIENT_ASSERT(false, "NYI");
     return false;
 }
 

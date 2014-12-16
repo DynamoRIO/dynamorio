@@ -2174,15 +2174,29 @@ instr_set_branch_target_pc(instr_t *cti_instr, app_pc pc)
 bool
 instr_is_call(instr_t *instr)
 {
-    int opc = instr_get_opcode(instr);
-    return opcode_is_call(opc);
+    instr_get_opcode(instr); /* force decode */
+    return instr_is_call_arch(instr);
 }
 
 bool
-instr_is_mbr(instr_t *instr)      /* multi-way branch */
+instr_is_cbr(instr_t *instr)
 {
-    int opc = instr_get_opcode(instr);
-    return opcode_is_mbr(opc);
+    instr_get_opcode(instr); /* force decode */
+    return instr_is_cbr_arch(instr);
+}
+
+bool
+instr_is_mbr(instr_t *instr)
+{
+    instr_get_opcode(instr); /* force decode */
+    return instr_is_mbr_arch(instr);
+}
+
+bool
+instr_is_ubr(instr_t *instr)
+{
+    instr_get_opcode(instr); /* force decode */
+    return instr_is_ubr_arch(instr);
 }
 
 /* An exit CTI is a control-transfer instruction whose target
@@ -2195,13 +2209,13 @@ instr_is_mbr(instr_t *instr)      /* multi-way branch */
 bool
 instr_is_exit_cti(instr_t *instr)
 {
-    int opc;
     if (!instr_operands_valid(instr) || /* implies !opcode_valid */
         instr_is_meta(instr))
         return false;
-    /* XXX: avoid conditional decode in instr_get_opcode() for speed. */
-    opc = instr->opcode;
-    if (opcode_is_ubr(opc) || opcode_is_cbr(opc)) {
+    /* The _arch versions assume the opcode is already valid, avoiding
+     * the conditional decode in instr_get_opcode().
+     */
+    if (instr_is_ubr_arch(instr) || instr_is_cbr_arch(instr)) {
         /* far pc should only happen for mangle's call to here */
         return opnd_is_pc(instr_get_target(instr));
     }
@@ -2211,9 +2225,9 @@ instr_is_exit_cti(instr_t *instr)
 bool
 instr_is_cti(instr_t *instr)      /* any control-transfer instruction */
 {
-    int opc = instr_get_opcode(instr);
-    return (opcode_is_cbr(opc) || opcode_is_ubr(opc) || opcode_is_mbr(opc) ||
-            opcode_is_call(opc));
+    instr_get_opcode(instr); /* force opcode decode, just once */
+    return (instr_is_cbr_arch(instr) || instr_is_ubr_arch(instr) ||
+            instr_is_mbr_arch(instr) || instr_is_call_arch(instr));
 }
 
 int

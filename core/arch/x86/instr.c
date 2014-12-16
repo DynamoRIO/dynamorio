@@ -347,8 +347,9 @@ instr_is_mov(instr_t *instr)
 }
 
 bool
-opcode_is_call(int opc)
+instr_is_call_arch(instr_t *instr)
 {
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return (opc == OP_call ||
             opc == OP_call_far ||
             opc == OP_call_ind ||
@@ -386,23 +387,18 @@ instr_is_return(instr_t *instr)
 /*** WARNING!  The following rely on ordering of opcodes! ***/
 
 bool
-opcode_is_cbr(int opc)
+instr_is_cbr_arch(instr_t *instr)      /* conditional branch */
 {
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return ((opc >= OP_jo && opc <= OP_jnle) ||
             (opc >= OP_jo_short && opc <= OP_jnle_short) ||
             (opc >= OP_loopne && opc <= OP_jecxz));
 }
 
 bool
-instr_is_cbr(instr_t *instr)      /* conditional branch */
+instr_is_mbr_arch(instr_t *instr)      /* multi-way branch */
 {
-    int opc = instr_get_opcode(instr);
-    return opcode_is_cbr(opc);
-}
-
-bool
-opcode_is_mbr(int opc)
-{
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return (opc == OP_jmp_ind ||
             opc == OP_call_ind ||
             opc == OP_ret ||
@@ -432,18 +428,12 @@ instr_is_far_abs_cti(instr_t *instr)
 }
 
 bool
-opcode_is_ubr(int opc)
+instr_is_ubr_arch(instr_t *instr)      /* unconditional branch */
 {
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return (opc == OP_jmp ||
             opc == OP_jmp_short ||
             opc == OP_jmp_far);
-}
-
-bool
-instr_is_ubr(instr_t *instr)      /* unconditional branch */
-{
-    int opc = instr_get_opcode(instr);
-    return opcode_is_ubr(opc);
 }
 
 bool
