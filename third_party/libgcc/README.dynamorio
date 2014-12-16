@@ -1,0 +1,38 @@
+These libgcc files were obtained from svn://gcc.gnu.org/svn/gcc r218764.
+
+The GPL "GCC Runtime Library Exception" allows us to link these files into
+our BSD library.
+
+The file mappings are:
++ libgcc/config/arm/lib1funcs.S   => third_party/libgcc/arm/lib1funcs.S
++ libgcc/config/arm/bpabi.S       => third_party/libgcc/arm/bpabi.S
++ libgcc/config/arm/ieee754-sf.S  => third_party/libgcc/arm/ieee754-sf.S
++ libgcc/config/arm/ieee754-df.S  => third_party/libgcc/arm/ieee754-df.S
++ libgcc/libgcc2.c                => third_party/libgcc/udivmoddi4.c
+
+Each file was untabified and had trailing blank lines removed.
+
+Beyond whitespace changes, two files were changed as described below.
+
+Here are the changes to lib1funcs.S:
+30a31,44
+> /*--------------------------------------------------*/
+> /* i#1566: for DynamoRIO we build separately for each main routine, with
+>  * TODEFINE set to the target we want to build.
+>  */
+> #define __ARM_ARCH__ 7
+> #define __ARM_ARCH_7__
+> #define __prefer_thumb__
+> #define @TODEFINE@
+> #ifdef L_divsi3
+> # define L_dvmd_tls /* for __aeabi_idiv0 */
+> # define L_aeabi_uldivmod /* for __aeabi_uldivmod */
+> #endif
+> /*--------------------------------------------------*/
+>
+
+For udivmoddi4.c, it contains the __udivmoddi4 function extracted from
+libgcc2.c with the following lines added:
+> /* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added: */
+> typedef unsigned int UWtype;
+> typedef unsigned long long UDWtype;

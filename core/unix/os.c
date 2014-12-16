@@ -8565,8 +8565,7 @@ os_check_option_compatibility(void)
     return false;
 }
 
-#ifndef X64
-# ifdef X86
+#ifdef X86_32
 /* Emulate uint64 modulo and division by uint32 on ia32.
  * XXX: Does *not* handle 64-bit divisors!
  */
@@ -8630,13 +8629,11 @@ __umoddi3(uint64 dividend, uint64 divisor)
     uint64_divmod(dividend, divisor, &remainder);
     return (uint64) remainder;
 }
-# elif defined (ARM)
-/* FIXME i#1566: there is no div instruction on most ARM arch including ARMv7a.
- * Also, if we want to avoid libgcc_s dependency, we may also need implement
- * routines like __aeabi_uldivmod, __aeabi_ldiv0, etc..
+#elif defined (ARM)
+/* i#1566: for ARM, __aeabi versions are used instead of udivdi3 and umoddi3.
+ * We link with __aeabi routines from libgcc via third_party/libgcc.
  */
-# endif /* X86 */
-#endif /* !X64 */
+#endif /* X86_32 */
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 

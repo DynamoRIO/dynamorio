@@ -94,8 +94,32 @@ if (UNIX)
   # i#46: Private string routines for libc independence.  On Windows our
   # bootstrapping loader finds these imports in ntdll.  If that becomes
   # problematic, we can find a way to compile this on Windows.
-  set (CORE_SRCS ${CORE_SRCS} string.c)
+  set(CORE_SRCS ${CORE_SRCS} string.c)
 endif (UNIX)
+
+if (ARM)
+  # i#1566: there is no div instruction on most ARM arches including ARMv7a.
+  # We use software divide emulation from libgcc, which we can link here
+  # and remain BSD due to the GPL GCC Runtime Library Exception.
+  #
+  # The libgcc assembly file seems to need to be compiled separately for
+  # each target routine set, as we get duplicate labels in the shared
+  # macros otherwise.
+  # XXX: change the labels to be "local" labels (like "1:") and add 'b' and 'f'
+  # hints on the branches?  Or, better, figure out how glibc compiles the file.
+  macro (add_libgcc_routines name)
+    set(TODEFINE "L_${name}")
+    set(genfile ${CMAKE_CURRENT_BINARY_DIR}/libgcc_${name}.S)
+    configure_file(../third_party/libgcc/arm/lib1funcs.S ${genfile} @ONLY)
+    set(CORE_SRCS ${CORE_SRCS} ${genfile})
+  endmacro ()
+  add_libgcc_routines(udivsi3)
+  add_libgcc_routines(umodsi3)
+  add_libgcc_routines(divsi3)
+  add_libgcc_routines(modsi3)
+  include_directories(../third_party/libgcc/arm)
+  set(CORE_SRCS ${CORE_SRCS} ../third_party/libgcc/udivmoddi4.c)
+endif (ARM)
 
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc
