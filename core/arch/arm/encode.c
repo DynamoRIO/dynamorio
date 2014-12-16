@@ -650,7 +650,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         opnd = instr_get_src(in, opnum);
     }
 
-    DOLOG(1, LOG_EMIT, {
+    DOLOG(ENC_LEVEL, LOG_EMIT, {
         LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  %s_ok %s %d %-15s ", __FUNCTION__,
             is_dst ? "dst" : "src", *counter - 1, type_names[optype]);
         opnd_disassemble(GLOBAL_DCONTEXT, opnd, THREAD_GET);
