@@ -34,6 +34,14 @@
 
 #include "../globals.h"
 #include "arch.h"
+#include "instr_create.h"
+#include "instrument.h"
+
+/* Make code more readable by shortening long lines.
+ * We mark everything we add as non-app instr.
+ */
+#define POST instrlist_meta_postinsert
+#define PRE  instrlist_meta_preinsert
 
 byte *
 remangle_short_rewrite(dcontext_t *dcontext,
@@ -112,8 +120,30 @@ uint
 insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              bool clean_call, uint num_args, opnd_t *args)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    uint i, j;
+    instr_t *mark = INSTR_CREATE_label(dcontext);
+    PRE(ilist, instr, mark);
+
+    ASSERT(num_args == 0 || args != NULL);
+    /* FIXME i#1551: we only support limited number of args for now. */
+    ASSERT_NOT_IMPLEMENTED(num_args <= NUM_REGPARM);
+    for (i = 0; i < num_args; i++) {
+        /* FIXME i#1551: we only implement naive parameter preparation,
+         * where args are all regs and do not conflict with param regs.
+         */
+        ASSERT_NOT_IMPLEMENTED(opnd_is_reg(args[i]) &&
+                               opnd_get_size(args[i]) == OPSZ_PTR);
+        DODEBUG({
+            /* assume no reg used by arg conflicts with regparms */
+            for (j = 0; j < i; j++)
+                ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
+        });
+        if (regparms[i] != opnd_get_reg(args[i])) {
+            POST(ilist, mark, XINST_CREATE_move(dcontext,
+                                                opnd_create_reg(regparms[i]),
+                                                args[i]));
+        }
+    }
     return 0;
 }
 

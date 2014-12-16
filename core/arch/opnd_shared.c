@@ -871,10 +871,17 @@ opnd_get_reg_used(opnd_t opnd, int index)
 /* utility routines */
 
 const reg_id_t regparms[] = {
-#ifdef X64
+#ifdef X86
+# ifdef X64
     REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3,
-# ifdef UNIX
+#  ifdef UNIX
     REGPARM_4, REGPARM_5,
+#  endif
+# endif
+#elif defined(ARM)
+    REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3,
+# ifdef X64
+    REGPARM_4, REGPARM_5, REGPARM_6, REGPARM_7,
 # endif
 #endif
     REG_INVALID

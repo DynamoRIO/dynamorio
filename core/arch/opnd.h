@@ -2121,8 +2121,9 @@ opnd_t opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {
-#ifdef X64
-# ifdef UNIX
+#ifdef X86
+# ifdef X64
+#  ifdef UNIX
     /* SysV ABI calling convention */
     NUM_REGPARM          = 6,
     REGPARM_0            = REG_RDI,
@@ -2133,7 +2134,7 @@ enum {
     REGPARM_5            = REG_R9,
     REGPARM_MINSTACK     = 0,
     REDZONE_SIZE         = 128,
-# else
+#  else
     /* Intel/Microsoft calling convention */
     NUM_REGPARM          = 4,
     REGPARM_0            = REG_RCX,
@@ -2142,22 +2143,40 @@ enum {
     REGPARM_3            = REG_R9,
     REGPARM_MINSTACK     = 4*sizeof(XSP_SZ),
     REDZONE_SIZE         = 0,
-# endif
+#  endif
     /* In fact, for Windows the stack pointer is supposed to be
      * 16-byte aligned at all times except in a prologue or epilogue.
      * The prologue will always adjust by 16*n+8 since push of retaddr
      * always makes stack pointer not 16-byte aligned.
      */
     REGPARM_END_ALIGN    = 16,
-#else
+# else
     NUM_REGPARM          = 0,
     REGPARM_MINSTACK     = 0,
     REDZONE_SIZE         = 0,
-# ifdef MACOS
+#  ifdef MACOS
     REGPARM_END_ALIGN    = 16,
-# else
+#  else
     REGPARM_END_ALIGN    = sizeof(XSP_SZ),
-# endif
+#  endif
+# endif /* 64/32 */
+#elif defined(ARM)
+    REGPARM_0            = DR_REG_R0,
+    REGPARM_1            = DR_REG_R1,
+    REGPARM_2            = DR_REG_R2,
+    REGPARM_3            = DR_REG_R3,
+# ifdef X64
+    REGPARM_4            = DR_REG_R4,
+    REGPARM_5            = DR_REG_R5,
+    REGPARM_6            = DR_REG_R6,
+    REGPARM_7            = DR_REG_R7,
+    NUM_REGPARM          = 8,
+# else
+    NUM_REGPARM          = 4,
+# endif /* 64/32 */
+    REDZONE_SIZE         = 0,
+    REGPARM_MINSTACK     = 0,
+    REGPARM_END_ALIGN    = 8,
 #endif
 };
 extern const reg_id_t regparms[];
