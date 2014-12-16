@@ -199,6 +199,7 @@ GLOBAL_LABEL(global_do_syscall_int:)
         svc      #0
         END_FUNC(global_do_syscall_int)
 
+
 DECLARE_GLOBAL(safe_read_asm_recover)
 
 /* i#350: We implement safe_read in assembly and save the PCs that can fault.
@@ -206,9 +207,10 @@ DECLARE_GLOBAL(safe_read_asm_recover)
  * can recover.  We return the source pointer from ARG2, and the caller uses this
  * to determine how many bytes were copied and whether it matches size.
  *
- * XXX: Do we care about differentiating whether the read or write faulted?
- * Currently this is just "safe_memcpy", and we recover regardless of whether
- * the read or write faulted.
+ * FIXME i#1551: NYI: we need to save the PC's that can fault and have
+ * is_safe_read_pc() identify them.
+ *
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
  *
  * void *
  * safe_read_asm(void *dst, const void *src, size_t n);
@@ -217,8 +219,8 @@ DECLARE_GLOBAL(safe_read_asm_recover)
 GLOBAL_LABEL(safe_read_asm:)
         cmp     ARG3,   #0
 1:      beq     safe_read_asm_recover
-        ldr     REG_R3, [ARG2]
-        str     REG_R3, [ARG1]
+        ldrb    REG_R3, [ARG2]
+        strb    REG_R3, [ARG1]
         subs    ARG3, ARG3, #1
         add     ARG2, ARG2, #1
         add     ARG1, ARG1, #1
@@ -227,6 +229,54 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         mov     REG_R0, ARG2
         bx      lr
         END_FUNC(safe_read_asm)
+
+
+#ifdef UNIX
+/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
+ */
+
+/* Private memcpy.
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
+ */
+        DECLARE_FUNC(memcpy)
+GLOBAL_LABEL(memcpy:)
+        cmp     ARG3,   #0
+1:      beq     2f
+        ldrb    REG_R3, [ARG2]
+        strb    REG_R3, [ARG1]
+        subs    ARG3, ARG3, #1
+        add     ARG2, ARG2, #1
+        add     ARG1, ARG1, #1
+        b       1b
+2:      mov     REG_R0, ARG1
+        bx      lr
+        END_FUNC(memcpy)
+
+/* Private memset.
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
+ */
+        DECLARE_FUNC(memset)
+GLOBAL_LABEL(memset:)
+        cmp     ARG3,   #0
+1:      beq     2f
+        strb    ARG2, [ARG1]
+        subs    ARG3, ARG3, #1
+        add     ARG1, ARG1, #1
+        b       1b
+2:      mov     REG_R0, ARG1
+        bx      lr
+        END_FUNC(memset)
+
+/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
+.global __memcpy_chk
+.hidden __memcpy_chk
+.set __memcpy_chk,memcpy
+
+.global __memset_chk
+.hidden __memset_chk
+.set __memset_chk,memset
+#endif /* UNIX */
+
 
 #ifdef CLIENT_INTERFACE
 /* int cdecl dr_setjmp(dr_jmp_buf *buf);
