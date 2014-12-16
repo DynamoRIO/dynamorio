@@ -4906,6 +4906,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 #elif defined(ARM)
             /* FIXMED i#1551: NYI on ARM */
             ASSERT_NOT_IMPLEMENTED(false);
+            syscall = NULL;
 #endif
         } else
             syscall = create_syscall_instr(dcontext);

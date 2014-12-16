@@ -1214,7 +1214,10 @@ encode_index_shift(decode_info_t *di, opnd_t opnd)
     ptr_int_t sh2, val;
     uint amount;
     dr_shift_type_t shift = opnd_get_index_shift(opnd, &amount);
-    encode_shift_values(shift, amount, &sh2, &val);
+    if (!encode_shift_values(shift, amount, &sh2, &val)) {
+        CLIENT_ASSERT(false, "internal encoding error");
+        val = sh2 = 0;
+    }
     encode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS,
                  DECODE_INDEX_SHIFT_TYPE_SIZE, sh2, false);
     encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS,
@@ -1389,7 +1392,11 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->shift_uses_immed) {
             /* Convert to raw values */
             ptr_int_t sh2, val;
-            encode_shift_values(di->shift_type, opnd_get_immed_int(opnd), &sh2, &val);
+            if (!encode_shift_values(di->shift_type, opnd_get_immed_int(opnd),
+                                     &sh2, &val)) {
+                CLIENT_ASSERT(false, "internal encoding error");
+                val = sh2 = 0;
+            }
             if (di->shift_b6)
                 encode_immed(di, 6, OPSZ_1b, sh2 >> 1, false/*unsigned*/);
             else

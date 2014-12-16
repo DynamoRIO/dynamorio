@@ -2939,8 +2939,8 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
 bool
 instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs)
 {
-    reg_id_t check_reg;
-    int check_disp;
+    reg_id_t check_reg = REG_NULL; /* init to satisfy some compilers */
+    int check_disp = 0; /* init to satisfy some compilers */
     bool spill;
     return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
             spill && check_reg == reg && check_disp == os_tls_offset(offs));
@@ -2952,8 +2952,8 @@ instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs)
 bool
 instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs)
 {
-    reg_id_t check_reg;
-    int check_disp;
+    reg_id_t check_reg = REG_NULL; /* init to satisfy some compilers */
+    int check_disp = 0; /* init to satisfy some compilers */
     bool spill;
     return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
             !spill && (reg == REG_NULL || check_reg == reg) &&
@@ -3031,7 +3031,7 @@ bool
 instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
                               bool *tls, bool *spill, reg_id_t *reg)
 {
-    int check_disp;
+    int check_disp = 0; /* init to satisfy some compilers */
     reg_id_t myreg;
     CLIENT_ASSERT(instr != NULL, "internal error: NULL argument");
     if (reg == NULL)
