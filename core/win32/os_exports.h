@@ -148,6 +148,8 @@ enum {
 # define LIB_SEG_TLS SEG_FS /* win32 lib tls */
 #endif
 
+#define DR_REG_SYSNUM REG_EAX
+
 /* even INLINE_FORCED isn't inlining this into get_thread_id() in debug build (i#655) */
 #define get_tls(/*ushort*/ tls_offs) \
     ((void *) IF_X64_ELSE(__readgsqword,__readfsdword)(tls_offs))

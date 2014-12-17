@@ -1948,7 +1948,9 @@ DR_API
  * Tries to identify common cases of moving a constant into either a
  * register or a memory address.
  * Returns true and sets \p *value to the constant being moved for the following
- * cases: mov_imm, mov_st, and xor where the source equals the destination.
+ * cases: OP_mov_imm, OP_mov_st, and OP_xor where the source equals the
+ * destination, for x86; OP_mov, OP_movs, OP_movw, OP_mvn, OP_mvns, or OP_eor
+ * where the sources equal the destination and there is no shift, for ARM.
  */
 bool
 instr_is_mov_constant(instr_t *instr, ptr_int_t *value);

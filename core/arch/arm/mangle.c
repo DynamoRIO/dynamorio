@@ -273,13 +273,6 @@ float_pc_update(dcontext_t *dcontext)
     ASSERT_NOT_REACHED();
 }
 
-int
-find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
-{
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return -1;
-}
 /* END OF CONTROL-FLOW MANGLING ROUTINES
  *###########################################################################
  *###########################################################################

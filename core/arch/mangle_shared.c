@@ -719,6 +719,101 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
     KSTOP(mangling);
 }
 
+/***************************************************************************
+ * SYSCALL
+ */
+
+#ifdef CLIENT_INTERFACE
+static bool
+cti_is_normal_elision(instr_t *instr)
+{
+    instr_t *next;
+    opnd_t   tgt;
+    app_pc   next_pc;
+    if (instr == NULL || instr_is_meta(instr))
+        return false;
+    if (!instr_is_ubr(instr) && !instr_is_call_direct(instr))
+        return false;
+    next = instr_get_next(instr);
+    if (next == NULL || instr_is_meta(next))
+        return false;
+    tgt = instr_get_target(instr);
+    next_pc = instr_get_translation(next);
+    if (next_pc == NULL && instr_raw_bits_valid(next))
+        next_pc = instr_get_raw_bits(next);
+    if (opnd_is_pc(tgt) && next_pc != NULL && opnd_get_pc(tgt) == next_pc)
+        return true;
+    return false;
+}
+#endif
+
+/* Tries to statically find the syscall number for the
+ * syscall instruction instr.
+ * Returns -1 upon failure.
+ * Note that on MacOS, 32-bit Mach syscalls are encoded using negative numbers
+ * (although -1 is invalid), so be sure to test for -1 and not just <0 as a failure
+ * code.
+ */
+int
+find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    int syscall = -1;
+    ptr_int_t value;
+    instr_t *prev = instr_get_prev(instr);
+    /* Allow either eax or rax for x86_64 */
+    reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
+    if (prev != NULL) {
+        prev = instr_get_prev_expanded(dcontext, ilist, instr);
+        /* walk backwards looking for "mov imm->xax"
+         * may be other instrs placing operands into registers
+         * for the syscall in between
+         */
+        while (prev != NULL &&
+               instr_num_dsts(prev) > 0 &&
+               opnd_is_reg(instr_get_dst(prev, 0)) &&
+               reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) != sysreg) {
+#ifdef CLIENT_INTERFACE
+            /* if client added cti in between, bail and assume non-ignorable */
+            if (instr_is_cti(prev) &&
+                !(cti_is_normal_elision(prev)
+                  IF_WINDOWS(|| instr_is_call_sysenter_pattern
+                             (prev, instr_get_next(prev), instr))))
+                return -1;
+#endif
+            prev = instr_get_prev_expanded(dcontext, ilist, prev);
+        }
+        if (prev != NULL &&
+            instr_is_mov_constant(prev, &value) &&
+            opnd_is_reg(instr_get_dst(prev, 0)) &&
+            reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) == sysreg) {
+#ifdef CLIENT_INTERFACE
+            instr_t *walk, *tgt;
+#endif
+            IF_X64(ASSERT_TRUNCATE(int, int, value));
+            syscall = (int) value;
+#ifdef CLIENT_INTERFACE
+            /* if client added cti target in between, bail and assume non-ignorable */
+            for (walk = instrlist_first_expanded(dcontext, ilist);
+                 walk != NULL;
+                 walk = instr_get_next_expanded(dcontext, ilist, walk)) {
+                if (instr_is_cti(walk) && opnd_is_instr(instr_get_target(walk))) {
+                    for (tgt = opnd_get_instr(instr_get_target(walk));
+                         tgt != NULL;
+                         tgt = instr_get_next_expanded(dcontext, ilist, tgt)) {
+                        if (tgt == prev)
+                            break;
+                        if (tgt == instr)
+                            return -1;
+                    }
+                }
+            }
+#endif
+        }
+    }
+    IF_X64(ASSERT_TRUNCATE(int, int, syscall));
+    return (int) syscall;
+}
+
 /* END OF CONTROL-FLOW MANGLING ROUTINES
  *###########################################################################
  *###########################################################################

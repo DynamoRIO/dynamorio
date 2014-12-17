@@ -97,6 +97,8 @@
 # endif /* 64/32-bit */
 #endif /* X86/ARM */
 
+#define DR_REG_SYSNUM IF_X86_ELSE(REG_EAX/* not XAX */, DR_REG_R7)
+
 void *get_tls(ushort tls_offs);
 void set_tls(ushort tls_offs, void *value);
 

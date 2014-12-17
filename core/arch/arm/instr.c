@@ -237,14 +237,41 @@ instr_is_syscall(instr_t *instr)
     return (opc == OP_svc);
 }
 
-/* looks for mov_imm and mov_st and xor w/ src==dst,
- * returns the constant they set their dst to
- */
 bool
 instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 {
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
+    int opc = instr_get_opcode(instr);
+    if (opc == OP_eor) {
+        /* We include OP_eor for symmetry w/ x86, but on ARM "mov reg, #0" is
+         * just as compact and there's no reason to use an xor.
+         */
+        if (opnd_same(instr_get_src(instr, 0), instr_get_dst(instr, 0)) &&
+            opnd_same(instr_get_src(instr, 0), instr_get_src(instr, 1)) &&
+            /* Must be the form with "sh2, i5_7" and no shift */
+            instr_num_srcs(instr) == 4 &&
+            opnd_get_immed_int(instr_get_src(instr, 2)) == DR_SHIFT_NONE &&
+            opnd_get_immed_int(instr_get_src(instr, 3)) == 0) {
+            *value = 0;
+            return true;
+        } else
+            return false;
+    } else if (opc == OP_mvn || opc == OP_mvns) {
+        opnd_t op = instr_get_src(instr, 0);
+        if (opnd_is_immed_int(op)) {
+            *value = -opnd_get_immed_int(op);
+            return true;
+        } else
+            return false;
+    } else if (opc == OP_mov || opc == OP_movs || opc == OP_movw ||
+               /* We include movt even though it only writes the top half */
+               opc == OP_movt) {
+        opnd_t op = instr_get_src(instr, 0);
+        if (opnd_is_immed_int(op)) {
+            *value = opnd_get_immed_int(op);
+            return true;
+        } else
+            return false;
+    }
     return false;
 }
 

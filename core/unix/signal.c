@@ -2893,8 +2893,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
             pc = decode(dcontext, pc, &instr);
             if (instr_get_opcode(&instr) == IF_X86_ELSE(OP_mov_imm, OP_mov) &&
                 opnd_is_reg(instr_get_dst(&instr, 0)) &&
-                opnd_get_reg(instr_get_dst(&instr, 0)) ==
-                IF_X86_ELSE(REG_EAX /* must be EAX not XAX! */, DR_REG_R7) &&
+                opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_SYSNUM &&
                 opnd_is_immed_int(instr_get_src(&instr, 0))) {
                 sysnum = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
                 /* don't break: find last one before syscall */
