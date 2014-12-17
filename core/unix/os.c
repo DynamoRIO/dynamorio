@@ -1454,9 +1454,8 @@ get_segment_base(uint seg)
     return (byte *) POINTER_MAX;
  #endif /* HAVE_TLS */
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_REACHED();
-    return (byte *) POINTER_MAX;
+    /* XXX i#1551: should we rename/refactor to avoid "segment"? */
+    return (byte *) read_thread_register(seg);
 #endif
 }
 
@@ -1864,10 +1863,11 @@ os_thread_init(dcontext_t *dcontext)
                sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS);
     }
 
-    /* FIXME i#1551: we need a better alias for gs/fs on ARM */
-    LOG(THREAD, LOG_THREADS, 1, "cur gs base is "PFX"\n",
+    LOG(THREAD, LOG_THREADS, 1, "cur %s base is "PFX"\n",
+        IF_X86_ELSE("gs", "tpidruro"),
         get_segment_base(IF_X86_ELSE(SEG_GS, DR_REG_TPIDRURO)));
-    LOG(THREAD, LOG_THREADS, 1, "cur fs base is "PFX"\n",
+    LOG(THREAD, LOG_THREADS, 1, "cur %s base is "PFX"\n",
+        IF_X86_ELSE("fs", "tpidrurw"),
         get_segment_base(IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW)));
 
 #ifdef MACOS
