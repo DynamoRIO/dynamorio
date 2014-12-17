@@ -2941,7 +2941,8 @@ bool
 does_syscall_ret_to_callsite(void)
 {
     return (syscall_method == SYSCALL_METHOD_INT ||
-            syscall_method == SYSCALL_METHOD_SYSCALL
+            syscall_method == SYSCALL_METHOD_SYSCALL ||
+            syscall_method == SYSCALL_METHOD_SVC
             IF_WINDOWS(|| syscall_method == SYSCALL_METHOD_WOW64)
             /* The app is reported to be at whatever's in edx, so
              * for our purposes it does return to the call site
