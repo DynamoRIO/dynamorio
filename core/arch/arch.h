@@ -443,8 +443,8 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        instr_t **first, instr_t **second);
 void
-mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
-               instr_t *instr, instr_t *next_instr);
+mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+                    instr_t *instr, instr_t *next_instr);
 void
 mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr);

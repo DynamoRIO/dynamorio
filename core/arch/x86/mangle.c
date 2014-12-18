@@ -2157,27 +2157,6 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
                                      opnd_create_reg(REG_XCX)));
 }
-
-/* find the system call number in instrlist for an inlined system call
- * by simpling walking the ilist backward and finding "mov immed => %eax"
- * without checking cti or expanding instr
- */
-int
-ilist_find_sysnum(instrlist_t *ilist, instr_t *instr)
-{
-    for (; instr != NULL; instr = instr_get_prev(instr)) {
-        ptr_int_t val;
-        if (instr_is_app(instr) &&
-            instr_is_mov_constant(instr, &val) &&
-            opnd_is_reg(instr_get_dst(instr, 0)) &&
-            reg_to_pointer_sized(opnd_get_reg(instr_get_dst(instr, 0))) ==
-            reg_to_pointer_sized(DR_REG_SYSNUM))
-            return (int) val;
-    }
-    ASSERT_NOT_REACHED();
-    return -1;
-}
-
 #endif /* UNIX */
 
 #ifdef WINDOWS
@@ -2187,66 +2166,14 @@ ilist_find_sysnum(instrlist_t *ilist, instr_t *instr)
  */
 #endif
 void
-mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
-               instr_t *instr, instr_t *next_instr)
+mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+                    instr_t *instr, instr_t *next_instr)
 {
 #ifdef UNIX
-    if (get_syscall_method() != SYSCALL_METHOD_INT &&
-        get_syscall_method() != SYSCALL_METHOD_SYSCALL &&
-        get_syscall_method() != SYSCALL_METHOD_SYSENTER) {
-        /* don't know convention on return address from kernel mode! */
-        SYSLOG_INTERNAL_ERROR("unsupported system call method");
-        LOG(THREAD, LOG_INTERP, 1, "don't know convention for this syscall method\n");
-        CLIENT_ASSERT(false, "Unsupported system call method detected. Please "
-                      "reboot with the nosep kernel option if this is a 32-bit "
-                      "2.5 or 2.6 version Linux kernel.");
-    }
-    /* cannot use dynamo stack in code cache, so we cannot insert a
-     * call -- instead we have interp end bbs at interrupts unless
-     * we can identify them as ignorable system calls.  Otherwise,
-     * we just remove the instruction and jump back to dynamo to
-     * handle it.
+    /* Shared routine already checked method, handled INSTR_NI_SYSCALL*,
+     * and inserted the signal barrier and non-auto-restart nop.
+     * If we get here, we're dealing with an ignorable syscall.
      */
-    if (TESTANY(INSTR_NI_SYSCALL_ALL, instr->flags)) {
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
-        return;
-    }
-
-    /* signal barrier: need to be able to exit fragment immediately
-     * prior to syscall, so we set up an exit cti with a jmp right beforehand
-     * that by default hops over the exit cti.
-     * when we want to exit right before the syscall, we call the
-     * mangle_syscall_code() routine below.
-     */
-    instr_t *skip_exit = INSTR_CREATE_label(dcontext);
-    PRE(ilist, instr, INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(skip_exit)));
-    /* assumption: raw bits of instr == app pc */
-    ASSERT(instr_get_raw_bits(instr) != NULL);
-    /* this should NOT be a meta-instr so we don't use PRE */
-    /* note that it's ok if this gets linked: we unlink all outgoing exits in
-     * addition to changing the skip_exit jmp upon receiving a signal
-     */
-    instrlist_preinsert(ilist, instr, INSTR_CREATE_jmp
-                        (dcontext, opnd_create_pc(instr_get_raw_bits(instr))));
-    PRE(ilist, instr, skip_exit);
-
-    if (does_syscall_ret_to_callsite() &&
-        sysnum_is_not_restartable(ilist_find_sysnum(ilist, instr))) {
-        /* i#1216: we insert a nop instr right after inlined non-auto-restart
-         * syscall to make it a safe point for suspending.
-         * XXX-i#1216-c#2: we still need handle auto-restart syscall
-         */
-        instr_t *nop = INSTR_CREATE_nop(dcontext);
-        /* We make a fake app nop instr for easy handling in recreate_app_state.
-         * XXX: it is cleaner to mark our-mangling and handle it, but it seems
-         * ok to use a fake app nop instr, since the client won't see it.
-         */
-        INSTR_XL8(nop, (instr_get_translation(instr) +
-                        instr_length(dcontext, instr)));
-        instr_set_app(instr);
-        instrlist_postinsert(ilist, instr, nop);
-    }
 
 # ifdef MACOS
     if (instr_get_opcode(instr) == OP_sysenter) {

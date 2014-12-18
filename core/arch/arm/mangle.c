@@ -35,7 +35,7 @@
 #include "../globals.h"
 #include "arch.h"
 #include "instr_create.h"
-#include "instrument.h"
+#include "instrument.h" /* instrlist_meta_preinsert */
 
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
@@ -184,11 +184,37 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
 }
 
 void
-mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
-               instr_t *instr, instr_t *next_instr)
+mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+                    instr_t *instr, instr_t *next_instr)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Shared routine already checked method, handled INSTR_NI_SYSCALL*,
+     * and inserted the signal barrier and non-auto-restart nop.
+     * If we get here, we're dealing with an ignorable syscall.
+     */
+
+    /* We assume we do not have to restore the stolen reg value, as it's
+     * r8+ and so there will be no syscall arg or number stored in it.
+     * We assume the kernel won't read it.
+     */
+    ASSERT(DR_REG_STOLEN_MIN > DR_REG_SYSNUM);
+
+    /* We do need to save the stolen reg if it is caller-saved.
+     * For now we assume that the kernel honors the calling convention
+     * and won't clobber callee-saved regs.
+     */
+    if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG0_SLOT));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R10),
+                              opnd_create_reg(dr_reg_stolen)));
+        /* Post-syscall: */
+        PRE(ilist, next_instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen),
+                              opnd_create_reg(DR_REG_R10)));
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_R10, TLS_REG0_SLOT));
+    }
 }
 
 #ifdef UNIX
