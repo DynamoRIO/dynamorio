@@ -120,7 +120,7 @@ uint
 insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              bool clean_call, uint num_args, opnd_t *args)
 {
-    uint i, j;
+    uint i;
     instr_t *mark = INSTR_CREATE_label(dcontext);
     PRE(ilist, instr, mark);
 
@@ -134,6 +134,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         ASSERT_NOT_IMPLEMENTED(opnd_is_reg(args[i]) &&
                                opnd_get_size(args[i]) == OPSZ_PTR);
         DODEBUG({
+            uint j;
             /* assume no reg used by arg conflicts with regparms */
             for (j = 0; j < i; j++)
                 ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
