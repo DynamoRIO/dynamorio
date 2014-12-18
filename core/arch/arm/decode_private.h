@@ -117,6 +117,7 @@ struct _decode_info_t {
     dr_isa_mode_t isa_mode;
     uint opcode;
     uint predicate;
+    bool check_reachable;
 
     /* For pc-relative references */
     byte *start_pc;

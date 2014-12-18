@@ -560,13 +560,15 @@ encode_immed_ok(decode_info_t *di, opnd_size_t size_temp, ptr_int_t val,
 
 static bool
 encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multiply,
-                             opnd_t opnd, bool is_signed, bool negated, bool relative)
+                             opnd_t opnd, bool is_signed, bool negated, bool relative,
+                             bool check_range)
 {
     /* We'll take a pc for any immediate */
     if (opnd_is_immed_int(opnd) || opnd_is_near_instr(opnd) || opnd_is_near_pc(opnd)) {
         ptr_int_t val = get_immed_val_shared(di, opnd, relative, false/*just checking*/);
-        return (encode_immed_ok(di, size_temp, val / multiply, is_signed, negated) &&
-                val % multiply == 0);
+        return (!check_range ||
+                (encode_immed_ok(di, size_temp, val / multiply, is_signed, negated) &&
+                 val % multiply == 0));
     }
     return false;
 }
@@ -844,7 +846,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b21_b6:
     case TYPE_I_b24_b16_b0:
         return encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
-                                            false/*pos*/, false/*abs*/);
+                                            false/*pos*/, false/*abs*/, true/*range*/);
     case TYPE_NI_b0:
     case TYPE_NI_b8_b0:
         return (opnd_is_immed_int(opnd) &&
@@ -858,7 +860,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
          */
         if (encode_immed_int_or_instr_ok(di, di->shift_uses_immed ? OPSZ_6b : size_temp,
                                          1, opnd, false/*unsigned*/,
-                                         false/*pos*/, false/*abs*/)) {
+                                         false/*pos*/, false/*abs*/, true/*range*/)) {
             /* Ensure abstracted shift values, and writeback, are ok */
             if (di->shift_uses_immed) {
                 /* Best to compare raw values in case one side is not abstracted */
@@ -903,10 +905,12 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return false;
     case TYPE_J_x4_b0: /* OP_b, OP_bl */
         return encode_immed_int_or_instr_ok(di, size_temp, 4, opnd, true/*signed*/,
-                                            false/*pos*/, true/*rel*/);
+                                            false/*pos*/, true/*rel*/,
+                                            di->check_reachable);
     case TYPE_J_b0_b24: /* OP_blx imm24:H:0 */
         return encode_immed_int_or_instr_ok(di, size_temp, 2, opnd, false/*unsigned*/,
-                                            false/*pos*/, true/*rel*/);
+                                            false/*pos*/, true/*rel*/,
+                                            di->check_reachable);
     case TYPE_SHIFT_LSL:
         return (opnd_is_immed_int(opnd) &&
                 opnd_get_immed_int(opnd) == SHIFT_ENCODING_LSL);
@@ -1660,6 +1664,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 {
     const instr_info_t * info;
     decode_info_t di;
+    di.check_reachable = check_reachable;
 
     /* First, handle the already-encoded instructions */
     if (instr_raw_bits_valid(instr)) {
