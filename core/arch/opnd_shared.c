@@ -1880,6 +1880,13 @@ reg_get_size(reg_id_t reg)
         return OPSZ_1;
     if (reg >= DR_REG_CR0 && reg <= DR_REG_CR15)
         return OPSZ_PTR;
+    if (reg >= DR_REG_CPSR && reg <= DR_REG_FPSCR)
+        return OPSZ_4;
+    if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
+        return OPSZ_PTR;
+# ifdef X64
+#  error FIXME i#1551: NYI on AArch64
+# endif
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
