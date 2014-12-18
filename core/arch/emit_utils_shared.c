@@ -2502,8 +2502,8 @@ insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
  *  endif
  */
 static void
-append_prepare_fcache_return(dcontext_t *dcontext, instrlist_t *ilist,
-                             bool absolute, bool shared)
+append_prepare_fcache_return(dcontext_t *dcontext, generated_code_t *code,
+                             instrlist_t *ilist, bool absolute, bool shared)
 {
 #ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode)) {
@@ -2733,7 +2733,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     /* currently linkstub is only used for coarse-grain exits */
     ASSERT(linkstub == NULL || !absolute);
 
-    append_prepare_fcache_return(dcontext, ilist, absolute, shared);
+    append_prepare_fcache_return(dcontext, code, ilist, absolute, shared);
     append_save_gpr(dcontext, ilist, ibl_end, absolute, code, linkstub, coarse_info);
     append_save_simd_reg(dcontext, ilist, absolute);
 

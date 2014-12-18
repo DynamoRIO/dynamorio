@@ -104,6 +104,15 @@
 #include <stdarg.h> /* for varargs */
 #endif
 /* DR_API EXPORT END */
+
+/* Internally, ensure these defines are set */
+#if defined(X86) && !defined(X64) && !defined(X86_32)
+# define X86_32
+#endif
+#if defined(X86) && defined(X64) && !defined(X86_64)
+# define X86_64
+#endif
+
 #include <limits.h>  /* for USHRT_MAX */
 #ifdef UNIX
 #  include <sys/types.h>        /* Fix for case 5341. */
