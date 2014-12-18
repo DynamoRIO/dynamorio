@@ -187,6 +187,20 @@
 #define XINST_CREATE_jump(dc, t) INSTR_CREATE_b((dc), (t))
 
 /**
+ * This platform-independent macro creates an instr_t for an unconditional
+ * branch instruction with the smallest available reach.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define XINST_CREATE_jump_short(dc, t) \
+  (dr_get_isa_mode(dc) == DR_ISA_ARM_THUMB ? \
+   INSTR_CREATE_b_short((dc), (t)) : INSTR_CREATE_b((dc), (t)))
+
+/**
  * This platform-independent macro creates an instr_t for an addition
  * instruction that does not affect the status flags.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
@@ -249,6 +263,12 @@
  * \param i   The source integer constant opnd_t operand.
  */
 #define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_svc(dc, (i))
+
+/**
+ * This platform-independent macro creates an instr_t for a nop instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ */
+#define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
 /* @} */ /* end doxygen group */
 
 
@@ -406,6 +426,8 @@
  */
 #define INSTR_CREATE_b(dc, pc) \
   instr_create_0dst_1src((dc), OP_b, (pc))
+#define INSTR_CREATE_b_short(dc, pc) \
+  instr_create_0dst_1src((dc), OP_b_short, (pc))
 #define INSTR_CREATE_bl(dc, pc) \
   instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_LR), (pc))
 #define INSTR_CREATE_blx(dc, pc) \
