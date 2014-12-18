@@ -40,6 +40,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 # define L_dvmd_tls /* for __aeabi_idiv0 */
 # define L_aeabi_uldivmod /* for __aeabi_uldivmod */
 #endif
+#ifndef __thumb__
+# define __thumb__
+#endif
+#ifdef __ARM_ARCH_5T__
+# undef __ARM_ARCH_5T__
+#endif
 /*--------------------------------------------------*/
 
 #ifdef __ARM_EABI__

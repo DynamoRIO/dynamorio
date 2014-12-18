@@ -15,7 +15,7 @@ Each file was untabified and had trailing blank lines removed.
 Beyond whitespace changes, two files were changed as described below.
 
 Here are the changes to lib1funcs.S:
-30a31,44
+30a31,50
 > /*--------------------------------------------------*/
 > /* i#1566: for DynamoRIO we build separately for each main routine, with
 >  * TODEFINE set to the target we want to build.
@@ -27,6 +27,12 @@ Here are the changes to lib1funcs.S:
 > #ifdef L_divsi3
 > # define L_dvmd_tls /* for __aeabi_idiv0 */
 > # define L_aeabi_uldivmod /* for __aeabi_uldivmod */
+> #endif
+> #ifndef __thumb__
+> # define __thumb__
+> #endif
+> #ifdef __ARM_ARCH_5T__
+> # undef __ARM_ARCH_5T__
 > #endif
 > /*--------------------------------------------------*/
 >
