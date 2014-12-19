@@ -1187,7 +1187,7 @@ decode_next_pc(dcontext_t *dcontext, byte *pc)
 {
     /* FIXME i#1551: check for invalid opcodes */
     /* FIXME i#1551: add Thumb support */
-    return pc + 4;
+    return pc + ARM_INSTR_SIZE;
 }
 
 int
@@ -1196,7 +1196,7 @@ decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
 {
     /* FIXME i#1551: check for invalid opcodes */
     /* FIXME i#1551: add Thumb support */
-    return 4;
+    return ARM_INSTR_SIZE;
 }
 
 /* XXX: share this with x86 */

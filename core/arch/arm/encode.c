@@ -506,7 +506,8 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
             di->has_instr_opnds = true;
         if (relative) {
             /* For A32, "cur PC" is really "PC + 8" */
-            return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note + 8);
+            return (ptr_int_t)opnd_get_instr(opnd)->note -
+                (di->cur_note + ARM_CUR_PC_OFFS);
         } else {
             return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note) +
                 (ptr_int_t)di->final_pc;
@@ -514,7 +515,7 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
     } else if (opnd_is_near_pc(opnd)) {
         if (relative) {
             /* For A32, "cur PC" is really "PC + 8" */
-            return (ptr_int_t)(opnd_get_pc(opnd) - (di->final_pc + 8));
+            return (ptr_int_t)(opnd_get_pc(opnd) - (di->final_pc + ARM_CUR_PC_OFFS));
         } else {
             return (ptr_int_t)opnd_get_pc(opnd);
         }
@@ -577,7 +578,7 @@ static ptr_int_t
 get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 {
     /* For A32, "cur PC" is really "PC + 8" */
-    return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note + 8) +
+    return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note + ARM_CUR_PC_OFFS) +
         opnd_get_mem_instr_disp(opnd);
 }
 

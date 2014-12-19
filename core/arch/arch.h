@@ -1226,6 +1226,12 @@ add_patch_entry_internal(patch_list_t *patch, instr_t *instr, ushort patch_flags
                          ptr_uint_t value_location_offset);
 cache_pc
 get_direct_exit_target(dcontext_t *dcontext, uint flags);
+
+#ifdef ARM
+size_t
+get_direct_exit_tls_offs(dcontext_t *dcontext, uint flags);
+#endif
+
 void
 link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
                         linkstub_t *l, bool hot_patch,

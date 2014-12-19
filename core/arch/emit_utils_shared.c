@@ -104,10 +104,11 @@
  ** CAUTION!
  **
  ** The following definitions and routines are highly dependent upon
- ** definitions made in x86.asm.  Do NOT change any constants or code
- ** without first consulting that file.
+ ** dcontext and TLS offsets.
  **
  **/
+
+/* FIXME i#1551: update remaining comments in this file to not be x86-specific */
 
 /***************************************************************************
  ***************************************************************************
@@ -120,66 +121,38 @@
  ** code will go once linked) does not need to be atomic.
  **/
 
-/* FIXME i#1551: update the comment to x86/arm in this file */
-/*
-direct branch exit_stub:
-   5x8  mov   %xax, xax_offs(&dcontext) or tls
-  #if defined(PROFILE_LINKCOUNT)  (PR 248210: x64 not supported)
-  | 1   lahf
-  | 3   seto  %al
-  |#if !defined(LINKCOUNT_64_BITS)
-  | 6   inc   l->count
-  |#else
-  | 7   add   $1,l->count
-  | 7   adc   $0,l->count+4
-  |#endif
-  | 2   add   $0x7f,%al
-  | 1   sahf
-  #endif
-   5x10 mov   &linkstub, %xax
-    5   jmp   target addr
-#if defined(PROFILE_LINKCOUNT)  (PR 248210: x64 not supported)
-|unlinked entry point:
-|    5   movl  %eax, eax_offs(&dcontext)
-|    5   movl  &linkstub, %eax
-|    5   jmp   fcache_return
-|
-|  Notes: we link/unlink by modifying the 1st jmp to either target unlinked
-|  entry point or the target fragment.  When we link for the first time
-|  we try to remove the eflags save/restore, shifting the 1st jmp up (the
-|  space between it and unlinked entry just becomes junk).
-#endif
-
-indirect branch exit_stub (only used if -indirect_stubs):
-   6x9  mov   %xbx, xbx_offs(&dcontext) or tls
-   5x11 mov   &linkstub, %xbx
-    5   jmp   indirect_branch_lookup
-
-indirect branches use xbx so that the flags can be saved into xax using
-the lahf instruction!
-xref PR 249775 on lahf support on x64.
-
-for PROFILE_LINKCOUNT, the count increment is performed inside the
-hashtable lookup (in both linked and unlinked paths) both since the flags
-are saved there for the linked path and to save space in stubs
-
-also see emit_inline_ibl_stub() below
-
-*/
+/* The general flow of a direct exit stub is:
+ *
+ *   spill xax/r0 -> TLS
+ *   move &linkstub -> xax/r0
+ *   jmp fcache_return
+ *
+ * The general flow of an indirect exit stub (only used if -indirect_stubs) is:
+ *
+ *   spill xbx/r1 -> TLS
+ *   move &linkstub -> xbx/r1
+ *   jmp indirect_branch_lookup
+ */
 
 /* DIRECT_EXIT_STUB_SIZE is in arch_exports.h */
 #define STUB_DIRECT_SIZE(flags) DIRECT_EXIT_STUB_SIZE(flags)
 
+#ifdef X86
 /* for -thread_private, we're relying on the fact that
  * SIZE32_MOV_XBX_TO_TLS == SIZE32_MOV_XBX_TO_ABS, and that
  * x64 always uses tls
  */
-#define STUB_INDIRECT_SIZE32 \
+# define STUB_INDIRECT_SIZE32 \
     (SIZE32_MOV_XBX_TO_TLS + SIZE32_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
-#define STUB_INDIRECT_SIZE64 \
+# define STUB_INDIRECT_SIZE64 \
     (SIZE64_MOV_XBX_TO_TLS + SIZE64_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
-#define STUB_INDIRECT_SIZE(flags) \
+# define STUB_INDIRECT_SIZE(flags) \
     (FRAG_IS_32(flags) ? STUB_INDIRECT_SIZE32 : STUB_INDIRECT_SIZE64)
+#else
+/* FIXME i#1551: implement ibl support */
+# define STUB_INDIRECT_SIZE(flags) \
+    (ASSERT_NOT_IMPLEMENTED(false), 0)
+#endif
 
 /* STUB_COARSE_DIRECT_SIZE is in arch_exports.h */
 #define STUB_COARSE_INDIRECT_SIZE(flags) (STUB_INDIRECT_SIZE(flags))
@@ -454,24 +427,30 @@ get_direct_exit_target(dcontext_t *dcontext, uint flags)
     }
 }
 
+#ifdef ARM
+size_t
+get_direct_exit_tls_offs(dcontext_t *dcontext, uint flags)
+{
+    if (FRAG_DB_SHARED(flags)) {
+        if (TEST(FRAG_COARSE_GRAIN, flags)) {
+            /* FIXME i#1575: coarse-grain NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+            return 0;
+        } else {
+            /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
+            return TLS_FCACHE_RETURN_SHARED_SLOT;
+        }
+    } else {
+        return TLS_FCACHE_RETURN_PRIVATE_SLOT;
+    }
+}
+#endif
+
 int
 insert_exit_stub(dcontext_t *dcontext, fragment_t *f,
                  linkstub_t *l, cache_pc stub_pc)
 {
     return insert_exit_stub_other_flags(dcontext, f, l, stub_pc, l->flags);
-}
-
-/* Patch the (direct) branch at branch_pc so it branches to target_pc
- * The write that actually patches the branch is done atomically so this
- * function is safe with respect to a thread executing this branch presuming
- * that both the before and after targets are valid and that [pc, pc+4) does
- * not cross a cache line.
- */
-void
-patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
-{
-    cache_pc byte_ptr = exit_cti_disp_pc(branch_pc);
-    insert_relative_target(byte_ptr, target_pc, hot_patch);
 }
 
 #ifdef PROFILE_LINKCOUNT
@@ -1609,14 +1588,21 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 
 /* for now all ibl targets must use same scratch locations: tls or not, no mixture */
 
-#define RESTORE_XAX_PREFIX(flags) \
+#ifdef X86
+# define RESTORE_XAX_PREFIX(flags) \
     ((FRAG_IS_X86_TO_X64(flags) && \
       IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false)) ? \
      SIZE64_MOV_R8_TO_XAX : \
      (IBL_EFLAGS_IN_TLS() ? SIZE_MOV_XAX_TO_TLS(flags, false) : SIZE32_MOV_XAX_TO_ABS))
-#define PREFIX_BASE(flags) \
+# define PREFIX_BASE(flags) \
     (RESTORE_XAX_PREFIX(flags) + FRAGMENT_BASE_PREFIX_SIZE(flags))
-
+#else
+/* FIXME i#1551: implement ibl and prefix support */
+# define RESTORE_XAX_PREFIX(flags) \
+    (ASSERT_NOT_IMPLEMENTED(false), 0)
+# define PREFIX_BASE(flags) \
+    (ASSERT_NOT_IMPLEMENTED(false), 0)
+#endif
 
 int
 fragment_prefix_size(uint flags)
@@ -2860,8 +2846,14 @@ coarse_exit_prefix_size(coarse_info_t *info)
      * not using it, so if we persist on P4 but run on Core we don't lose
      * performance.  We have enough space.
      */
+#ifdef X86
     return SIZE_MOV_XBX_TO_TLS(flags, false) + SIZE_MOV_PTR_IMM_TO_XAX(flags)
         + 5*JMP_LONG_LENGTH;
+#else
+    /* FIXME i#1551: implement coarse-grain support; move to arch-specific dir? */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+#endif
 }
 
 byte *

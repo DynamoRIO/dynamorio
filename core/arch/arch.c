@@ -1211,6 +1211,15 @@ arch_thread_init(dcontext_t *dcontext)
     if (DYNAMO_OPTION(hotp_only))
 #endif
         protect_generated_code(code, READONLY);
+
+#ifdef ARM
+    /* Store addresses we access via TLS from exit stubs and gencode. */
+    /* FIXME i#1551: add Thumb vs ARM; refactor FRAGMENT_GENCODE_MODE */
+    get_local_state_extended()->spill_space.fcache_return_shared =
+        fcache_return_shared_routine();
+    get_local_state_extended()->spill_space.fcache_return_private =
+        fcache_return_routine_ex(dcontext);
+#endif
 }
 
 #ifdef WINDOWS_PC_SAMPLE

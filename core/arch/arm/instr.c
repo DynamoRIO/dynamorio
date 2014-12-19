@@ -67,7 +67,7 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
     if (instr_get_opcode(instr) == OP_LABEL)
         return 0;
     /* FIXME i#1551: add Thumb support */
-    return 4;
+    return ARM_INSTR_SIZE;
 }
 
 bool
@@ -219,7 +219,6 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
     /* FIXME i#1551: NYI: we need to mangle OP_cbz and OP_cbnz in a similar
      * manner to OP_jecxz on x86
      */
-    CLIENT_ASSERT(false, "NYI");
     return false;
 }
 

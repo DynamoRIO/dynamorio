@@ -840,13 +840,15 @@
     OPTION_INTERNAL(bool, single_thread_in_DR, "only one thread in DR at a time")
      /* deprecated: we have finer-grained synch that works now */
 
-    OPTION_DEFAULT(bool, separate_private_stubs, true,
+    /* Due to ARM reachability complexities we only support local stubs */
+    OPTION_DEFAULT(bool, separate_private_stubs, IF_X86_ELSE(true, false),
         "place private direct exit stubs in a separate area from the code cache")
 
-    OPTION_DEFAULT(bool, separate_shared_stubs, true,
+    /* Due to ARM reachability complexities we only support local stubs */
+    OPTION_DEFAULT(bool, separate_shared_stubs, IF_X86_ELSE(true, false),
         "place shared direct exit stubs in a separate area from the code cache")
 
-    OPTION_DEFAULT(bool, free_private_stubs, true,
+    OPTION_DEFAULT(bool, free_private_stubs, IF_X86_ELSE(true, false),
         "free separated private direct exit stubs when not pointed at")
 
     /* FIXME Freeing shared stubs is currently an unsafe option due to a lack of
@@ -2604,7 +2606,8 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 #if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     OPTION_DEFAULT(bool, pad_jmps, false, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #else
-    OPTION_DEFAULT(bool, pad_jmps, true, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
+    /* No need to pad on ARM with fixed-width instructions */
+    OPTION_DEFAULT(bool, pad_jmps, IF_X86_ELSE(true, false), "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #endif
     /* FIXME PR 215179 on getting rid of this tracing restriction. */
 #if defined(UNIX)

@@ -58,6 +58,53 @@
 /*                               EXIT STUB                                 */
 /***************************************************************************/
 
+/*
+direct branch exit_stub:
+   5x8  mov   %xax, xax_offs(&dcontext) or tls
+  #if defined(PROFILE_LINKCOUNT)  (PR 248210: x64 not supported)
+  | 1   lahf
+  | 3   seto  %al
+  |#if !defined(LINKCOUNT_64_BITS)
+  | 6   inc   l->count
+  |#else
+  | 7   add   $1,l->count
+  | 7   adc   $0,l->count+4
+  |#endif
+  | 2   add   $0x7f,%al
+  | 1   sahf
+  #endif
+   5x10 mov   &linkstub, %xax
+    5   jmp   target addr
+#if defined(PROFILE_LINKCOUNT)  (PR 248210: x64 not supported)
+|unlinked entry point:
+|    5   movl  %eax, eax_offs(&dcontext)
+|    5   movl  &linkstub, %eax
+|    5   jmp   fcache_return
+|
+|  Notes: we link/unlink by modifying the 1st jmp to either target unlinked
+|  entry point or the target fragment.  When we link for the first time
+|  we try to remove the eflags save/restore, shifting the 1st jmp up (the
+|  space between it and unlinked entry just becomes junk).
+#endif
+
+indirect branch exit_stub (only used if -indirect_stubs):
+   6x9  mov   %xbx, xbx_offs(&dcontext) or tls
+   5x11 mov   &linkstub, %xbx
+    5   jmp   indirect_branch_lookup
+
+indirect branches use xbx so that the flags can be saved into xax using
+the lahf instruction!
+xref PR 249775 on lahf support on x64.
+
+for PROFILE_LINKCOUNT, the count increment is performed inside the
+hashtable lookup (in both linked and unlinked paths) both since the flags
+are saved there for the linked path and to save space in stubs
+
+also see emit_inline_ibl_stub() below
+
+*/
+
+
 /* macro to make it easier to get offsets of fields that are in
  * a different memory space with self-protection
  */
@@ -101,6 +148,19 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
     *(int *)pc = value;
     pc += 4;
     return pc;
+}
+
+/* Patch the (direct) branch at branch_pc so it branches to target_pc
+ * The write that actually patches the branch is done atomically so this
+ * function is safe with respect to a thread executing this branch presuming
+ * that both the before and after targets are valid and that [pc, pc+4) does
+ * not cross a cache line.
+ */
+void
+patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
+{
+    cache_pc byte_ptr = exit_cti_disp_pc(branch_pc);
+    insert_relative_target(byte_ptr, target_pc, hot_patch);
 }
 
 /* make sure to keep in sync w/ instr_raw_is_tls_spill() */

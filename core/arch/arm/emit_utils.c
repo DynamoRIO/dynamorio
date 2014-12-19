@@ -51,7 +51,10 @@
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* FIXME i#1551: NYI on ARM.
+     * We may want to refactor the calling code to remove this and only
+     * use patch_branch().
+     */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -90,15 +93,82 @@ int
 insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                              linkstub_t *l, cache_pc stub_pc, ushort l_flags)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return 0;
+    byte *pc = (byte *) stub_pc;
+    if (LINKSTUB_DIRECT(l_flags)) {
+        /* FIXME i#1575: coarse-grain NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+
+        if (FRAG_IS_THUMB(f->flags)) {
+            /* FIXME i#1551: add Thumb support */
+            ASSERT_NOT_IMPLEMENTED(false);
+        } else {
+            ptr_int_t ls = (ptr_int_t) l;
+            /* XXX: should we use our IR and encoder instead?  Then we could
+             * share code with emit_do_syscall(), though at a perf cost.
+             */
+            /* XXX: we can shrink from 16 bytes to 12 if we keep &linkstub as
+             * data at the end of the stub and use a pc-rel load instead of the 2
+             * mov-immed instrs (followed by the same ldr into pc):
+             *    ldr r0 [pc]
+             *    ldr pc, [r10, #fcache-return-offs]
+             *    <&linkstub>
+             * However, that may incur dcache misses w/ separate icache.
+             * Another idea is to spill lr instead of r0 and use "bl fcache_return"
+             * (again with &linkstub as data), though it has reachability problems.
+             */
+            /* str r0, [r10, #r0-slot] */
+            *(uint *)pc =
+                0xe5800000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
+            pc += ARM_INSTR_SIZE;
+            /* movw r0, #bottom-half-&linkstub */
+            *(uint*)pc =
+                0xe3000000 | ((ls & 0xf000) << 4) | (ls & 0xfff);
+            pc += ARM_INSTR_SIZE;
+            /* movt r0, #top-half-&linkstub */
+            *(uint *)pc =
+                0xe3400000 | ((ls & 0xf0000000) >> 12) | ((ls & 0x0fff0000) >> 16);
+            pc += ARM_INSTR_SIZE;
+            /* ldr pc, [r10, #fcache-return-offs] */
+            *(uint*)pc =
+                0xe590f000 | ((dr_reg_stolen - DR_REG_R0) << 16) |
+                get_direct_exit_tls_offs(dcontext, f->flags);
+            pc += ARM_INSTR_SIZE;
+        }
+        return (int) (pc - stub_pc);
+    } else {
+        /* FIXME i#1551: ibl NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+        return 0;
+    }
+}
+
+void
+patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
+{
+    /* FIXME i#1551: support Thumb */
+    if (((*(branch_pc + 3)) & 0xf) == 0xa) {
+        /* OP_b with 3-byte immed that's stored as >>2 */
+        uint val = *(uint *)branch_pc;
+        int disp = (target_pc - branch_pc + ARM_CUR_PC_OFFS);
+        ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
+        ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+        val |= ((disp >> 2) & 0xffffff);
+        *(uint *)branch_pc = val;
+    } else {
+        /* FIXME i#1551: support patching OP_ldr into pc using TLS-stored offset.
+         * We'll need to add the unlinked ibl addresses to TLS?
+         */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
 }
 
 cache_pc
 exit_cti_disp_pc(cache_pc branch_pc)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* FIXME i#1551: NYI on ARM.
+     * We may want to refactor the calling code to remove this and only
+     * use patch_branch().
+     */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -181,8 +251,13 @@ coarse_is_entrance_stub(cache_pc stub)
 void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT(f->prefix_size == 0);
+    if (use_ibt_prefix(f->flags)) {
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
+    /* make sure emitted size matches size we requested */
+    ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }
 
 /***************************************************************************/

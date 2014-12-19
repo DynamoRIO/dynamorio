@@ -139,6 +139,14 @@ typedef struct _spill_state_t {
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
+#ifdef ARM
+    /* We store addresses here so we can load pointer-sized addresses into
+     * registers with a single instruction in our exit stubs and gencode.
+     */
+    byte *fcache_return_shared;
+    byte *fcache_return_private;
+    /* FIXME i#1575: coarse-grain NYI on ARM */
+#endif
 } spill_state_t;
 
 typedef struct _local_state_t {
@@ -179,6 +187,12 @@ typedef struct _local_state_extended_t {
 # define SCRATCH_REG3             DR_REG_R3
 #endif /* X86/ARM */
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
+#ifdef ARM
+# define TLS_FCACHE_RETURN_SHARED_SLOT \
+    ((ushort)offsetof(spill_state_t, fcache_return_shared))
+# define TLS_FCACHE_RETURN_PRIVATE_SLOT \
+    ((ushort)offsetof(spill_state_t, fcache_return_private))
+#endif
 
 #define TABLE_OFFSET             (offsetof(local_state_extended_t, table_space))
 #define TLS_MASK_SLOT(btype)     ((ushort)(TABLE_OFFSET                         \
@@ -1098,47 +1112,53 @@ use_addr_prefix_on_short_disp(void)
 #endif /* STANDALONE_DECODER */
 }
 
+
+/***************************************************************************
+ * Arch-specific defines
+ */
+#ifdef X86
+
 /* Merge w/ _LENGTH enum below? */
 /* not ifdef X64 to simplify code */
-#define SIZE64_MOV_XAX_TO_TLS         8
-#define SIZE64_MOV_XBX_TO_TLS         9
-#define SIZE64_MOV_PTR_IMM_TO_XAX    10
-#define SIZE64_MOV_PTR_IMM_TO_TLS   (12*2) /* high and low 32 bits separately */
-#define SIZE64_MOV_R8_TO_XAX          3
-#define SIZE64_MOV_R9_TO_XCX          3
-#define SIZE32_MOV_XAX_TO_TLS         5
-#define SIZE32_MOV_XBX_TO_TLS         6
-#define SIZE32_MOV_XAX_TO_TLS_DISP32  6
-#define SIZE32_MOV_XBX_TO_TLS_DISP32  7
-#define SIZE32_MOV_XAX_TO_ABS         5
-#define SIZE32_MOV_XBX_TO_ABS         6
-#define SIZE32_MOV_PTR_IMM_TO_XAX     5
-#define SIZE32_MOV_PTR_IMM_TO_TLS    10
+# define SIZE64_MOV_XAX_TO_TLS         8
+# define SIZE64_MOV_XBX_TO_TLS         9
+# define SIZE64_MOV_PTR_IMM_TO_XAX    10
+# define SIZE64_MOV_PTR_IMM_TO_TLS   (12*2) /* high and low 32 bits separately */
+# define SIZE64_MOV_R8_TO_XAX          3
+# define SIZE64_MOV_R9_TO_XCX          3
+# define SIZE32_MOV_XAX_TO_TLS         5
+# define SIZE32_MOV_XBX_TO_TLS         6
+# define SIZE32_MOV_XAX_TO_TLS_DISP32  6
+# define SIZE32_MOV_XBX_TO_TLS_DISP32  7
+# define SIZE32_MOV_XAX_TO_ABS         5
+# define SIZE32_MOV_XBX_TO_ABS         6
+# define SIZE32_MOV_PTR_IMM_TO_XAX     5
+# define SIZE32_MOV_PTR_IMM_TO_TLS    10
 
-#ifdef X64
-# define FRAG_IS_32(flags) (TEST(FRAG_32_BIT, (flags)))
-# define FRAG_IS_X86_TO_X64(flags) (TEST(FRAG_X86_TO_X64, (flags)))
-#else
-# define FRAG_IS_32(flags) true
-# define FRAG_IS_X86_TO_X64(flags) false
-#endif
+# ifdef X64
+#  define FRAG_IS_32(flags) (TEST(FRAG_32_BIT, (flags)))
+#  define FRAG_IS_X86_TO_X64(flags) (TEST(FRAG_X86_TO_X64, (flags)))
+# else
+#  define FRAG_IS_32(flags) true
+#  define FRAG_IS_X86_TO_X64(flags) false
+# endif
 
-#define SIZE_MOV_XAX_TO_TLS(flags, require_addr16) \
+# define SIZE_MOV_XAX_TO_TLS(flags, require_addr16) \
     (FRAG_IS_32(flags) ? \
      ((require_addr16 || use_addr_prefix_on_short_disp()) ?   \
       SIZE32_MOV_XAX_TO_TLS : SIZE32_MOV_XAX_TO_TLS_DISP32) : \
       SIZE64_MOV_XAX_TO_TLS)
-#define SIZE_MOV_XBX_TO_TLS(flags, require_addr16) \
+# define SIZE_MOV_XBX_TO_TLS(flags, require_addr16) \
     (FRAG_IS_32(flags) ? \
      ((require_addr16 || use_addr_prefix_on_short_disp()) ?   \
       SIZE32_MOV_XBX_TO_TLS : SIZE32_MOV_XBX_TO_TLS_DISP32) : \
       SIZE64_MOV_XBX_TO_TLS)
-#define SIZE_MOV_PTR_IMM_TO_XAX(flags) \
+# define SIZE_MOV_PTR_IMM_TO_XAX(flags) \
     (FRAG_IS_32(flags) ? SIZE32_MOV_PTR_IMM_TO_XAX : SIZE64_MOV_PTR_IMM_TO_XAX)
 
 /* size of restore ecx prefix */
-#define XCX_IN_TLS(flags) (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
-#define FRAGMENT_BASE_PREFIX_SIZE(flags) \
+# define XCX_IN_TLS(flags) (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
+# define FRAGMENT_BASE_PREFIX_SIZE(flags) \
     ((FRAG_IS_X86_TO_X64(flags) && \
       IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false)) ? \
      SIZE64_MOV_R9_TO_XCX : \
@@ -1152,11 +1172,11 @@ use_addr_prefix_on_short_disp(void)
  * SIZE32_MOV_XAX_TO_TLS == SIZE32_MOV_XAX_TO_ABS, and that
  * x64 always uses tls
  */
-#define DIRECT_EXIT_STUB_SIZE32 \
+# define DIRECT_EXIT_STUB_SIZE32 \
     (SIZE32_MOV_XAX_TO_TLS + SIZE32_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
-#define DIRECT_EXIT_STUB_SIZE64 \
+# define DIRECT_EXIT_STUB_SIZE64 \
     (SIZE64_MOV_XAX_TO_TLS + SIZE64_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
-#define DIRECT_EXIT_STUB_SIZE(flags) \
+# define DIRECT_EXIT_STUB_SIZE(flags) \
     (FRAG_IS_32(flags) ? DIRECT_EXIT_STUB_SIZE32 : DIRECT_EXIT_STUB_SIZE64)
 
 /* coarse-grain stubs use a store directly to memory so they can
@@ -1169,38 +1189,98 @@ use_addr_prefix_on_short_disp(void)
  * both of these exact sequences are assumed in entrance_stub_target_tag()
  * and coarse_indirect_stub_jmp_target().
  */
-#define STUB_COARSE_DIRECT_SIZE32  (SIZE32_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
-#define STUB_COARSE_DIRECT_SIZE64  (SIZE64_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
-#define STUB_COARSE_DIRECT_SIZE(flags) \
+# define STUB_COARSE_DIRECT_SIZE32  (SIZE32_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
+# define STUB_COARSE_DIRECT_SIZE64  (SIZE64_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
+# define STUB_COARSE_DIRECT_SIZE(flags) \
     (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
 /* writes nops into the address range */
-#define SET_TO_NOPS(addr, size) memset(addr, 0x90, size)
+# define SET_TO_NOPS(addr, size) memset(addr, 0x90, size)
 /* writes debugbreaks into the address range */
-#define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
+# define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
 /* check if region is SET_TO_NOP */
-#define IS_SET_TO_NOP(addr, size) is_region_memset_to_char(addr, size, 0x90)
+# define IS_SET_TO_NOP(addr, size) is_region_memset_to_char(addr, size, 0x90)
 /* check if region is SET_TO_DEBUG */
-#define IS_SET_TO_DEBUG(addr, size) is_region_memset_to_char(addr, size, 0xcc)
+# define IS_SET_TO_DEBUG(addr, size) is_region_memset_to_char(addr, size, 0xcc)
 
 /* offset of the patchable region from the end of a cti */
-#define CTI_PATCH_OFFSET 4
+# define CTI_PATCH_OFFSET 4
 /* size of the patch to a cti */
-#define CTI_PATCH_SIZE 4
+# define CTI_PATCH_SIZE 4
 
 /* offset of the patchable region from the end of a stub */
-#define EXIT_STUB_PATCH_OFFSET 4
+# define EXIT_STUB_PATCH_OFFSET 4
 /* size of the patch to a stub */
-#define EXIT_STUB_PATCH_SIZE 4
+# define EXIT_STUB_PATCH_SIZE 4
 
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
-#define MAX_PAD_SIZE 3
+# define MAX_PAD_SIZE 3
+
+/****************************************************************************/
+#elif defined(ARM)
+
+# ifdef X64
+#  define FRAG_IS_THUMB(flags) false
+#  define FRAG_IS_32(flags) false
+# else
+#  define FRAG_IS_THUMB(flags) (TEST(FRAG_THUMB, (flags)))
+#  define FRAG_IS_32(flags) true
+# endif
+
+/* FIXME i#1551: implement ibl and prefixes */
+# define FRAGMENT_BASE_PREFIX_SIZE(flags) \
+    (ASSERT_NOT_IMPLEMENTED(false), 0)
+
+/* exported for DYNAMO_OPTION(separate_private_stubs) */
+# define ARM_INSTR_SIZE 4
+# define DIRECT_EXIT_STUB_ARM_INSTR_COUNT 4
+/* FIXME i#1551: implement Thumb support */
+# define DIRECT_EXIT_STUB_SIZE(flags) \
+    (FRAG_IS_THUMB(flags) ? (ASSERT_NOT_IMPLEMENTED(false), 0) : \
+     (DIRECT_EXIT_STUB_ARM_INSTR_COUNT*ARM_INSTR_SIZE))
+
+/* FIXME i#1575: implement coarse-grain support */
+# define STUB_COARSE_DIRECT_SIZE(flags) \
+    (ASSERT_NOT_IMPLEMENTED(false), 0)
+
+/* FIXME i#1551: we need these to all take in the dr_isa_mode_t */
+# define ARM_NOP     0xe320f000
+# define THUMB_NOP   0xbf00
+# define ARM_BKPT    0xe1200070
+# define THUMB_BKPT  0xbe00
+/* writes nops into the address range */
+# define SET_TO_NOPS(addr, size) ASSERT_NOT_IMPLEMENTED(false)
+/* writes debugbreaks into the address range */
+# define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
+/* check if region is SET_TO_DEBUG */
+# define IS_SET_TO_DEBUG(addr, size) (ASSERT_NOT_IMPLEMENTED(false), false)
+
+/* offset of the patchable region from the end of a cti */
+# define CTI_PATCH_OFFSET 4
+/* size of the patch to a cti */
+# define CTI_PATCH_SIZE 4
+
+/* offset of the patchable region from the end of a stub */
+# define EXIT_STUB_PATCH_OFFSET 4
+/* size of the patch to a stub */
+# define EXIT_STUB_PATCH_SIZE 4
+
+/* the most bytes we'll need to shift a patchable location for -pad_jmps */
+# define MAX_PAD_SIZE 0
+
+/* The "current" pc has an offset in pc-relative computations */
+# define ARM_CUR_PC_OFFS 8
+# define THUMB_CUR_PC_OFFS 4
+
+#endif /* ARM */
+/****************************************************************************/
+
 
 /* evaluates to true if region crosses at most 1 padding boundary */
-#define WITHIN_PAD_REGION(lower, upper) \
+# define WITHIN_PAD_REGION(lower, upper) \
     ((upper)-(lower) <= PAD_JMPS_ALIGNMENT)
 
-#define STATS_PAD_JMPS_ADD(flags, stat, val) DOSTATS({    \
+# define STATS_PAD_JMPS_ADD(flags, stat, val) DOSTATS({    \
     if (TEST(FRAG_SHARED, (flags))) {                     \
         if (TEST(FRAG_IS_TRACE, (flags)))                 \
             STATS_ADD(pad_jmps_shared_trace_##stat, val); \
