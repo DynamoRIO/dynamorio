@@ -37,6 +37,11 @@
 #include "../globals.h"
 #include "proc.h"
 #include "instr.h"
+#ifdef UNIX
+# include "../../unix/include/syscall.h"
+#else
+# error NYI
+#endif
 
 /* arch specific proc info */
 void
@@ -57,13 +62,17 @@ proc_has_feature(feature_bit_t f)
     return false;
 }
 
-/* No synchronization routines necessary.  The Pentium hardware
- * guarantees that the i and d caches are consistent. */
 void
 machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    if (flush_icache) {
+        /* The instructions to flush the icache are privileged so we have to
+         * make a syscall.
+         * Note that gcc's __clear_cache just calls this syscall (and requires
+         * library support that we don't build with).
+         */
+        dynamorio_syscall(SYS_cacheflush, 3, pc_start, pc_end, 0/*flags: must be 0*/);
+    }
 }
 
 DR_API

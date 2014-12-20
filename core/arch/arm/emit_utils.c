@@ -154,6 +154,7 @@ patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
         ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
         val |= ((disp >> 2) & 0xffffff);
         *(uint *)branch_pc = val;
+        machine_cache_sync(branch_pc, branch_pc + ARM_INSTR_SIZE, true);
     } else {
         /* FIXME i#1551: support patching OP_ldr into pc using TLS-stored offset.
          * We'll need to add the unlinked ibl addresses to TLS?
