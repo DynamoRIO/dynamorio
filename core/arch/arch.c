@@ -3202,8 +3202,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         });
     }
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#1551: add NEON registers */
 #endif
 
     print_file(f, dump_xml ?
