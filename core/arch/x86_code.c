@@ -444,10 +444,12 @@ static dcontext_t *static_dc;
 static void
 test_func(dcontext_t *dcontext)
 {
-    byte var;
-    memcpy(&var, &var-1, 1); /* avoid uninit warning */
+    /* avoid uninit warning */
+    union {
+        byte var;
+    } u;
     EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
-    EXPECT(var , CONST_BYTE);
+    EXPECT(u.var, CONST_BYTE);
     return;
 }
 
