@@ -181,7 +181,7 @@ Further non-compatibility-affecting changes include:
  - Added OPND_CREATE_MEMLIST().
  - Added dr_get_stolen_reg(), dr_insert_get_stolen_reg_value(),
    and reg_is_stolen().
-
+ - Added opnd_create_immed_uint().
 
 **************************************************
 <hr>

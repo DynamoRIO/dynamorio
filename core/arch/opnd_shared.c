@@ -263,6 +263,30 @@ opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
     return opnd;
 }
 
+opnd_t
+opnd_create_immed_uint(ptr_uint_t i, opnd_size_t size)
+{
+    opnd_t opnd;
+    opnd.kind = IMMED_INTEGER_kind;
+    CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_uint: invalid size");
+    opnd.size = size;
+    opnd.value.immed_int = (ptr_int_t) i;
+    DOCHECK(1, {
+        uint sz = opnd_size_in_bytes(size);
+        if (sz == 1) {
+            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_byte(i),
+                          "opnd_create_immed_uint: value too large for 8-bit size");
+        } else if (sz == 2) {
+            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_ushort(i),
+                          "opnd_create_immed_uint: value too large for 16-bit size");
+        } else if (sz == 4) {
+            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(i),
+                          "opnd_create_immed_uint: value too large for 32-bit size");
+        }
+    });
+    return opnd;
+}
+
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 opnd_t
 opnd_create_immed_float(float i)

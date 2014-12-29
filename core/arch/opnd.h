@@ -902,11 +902,19 @@ opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_opnd_flags_t flags);
 
 DR_API
 /**
- * Returns an immediate integer operand with value \p i and size
+ * Returns a signed immediate integer operand with value \p i and size
  * \p data_size; \p data_size must be a OPSZ_ constant.
  */
 opnd_t
 opnd_create_immed_int(ptr_int_t i, opnd_size_t data_size);
+
+DR_API
+/**
+ * Returns an unsigned immediate integer operand with value \p i and size
+ * \p data_size; \p data_size must be a OPSZ_ constant.
+ */
+opnd_t
+opnd_create_immed_uint(ptr_uint_t i, opnd_size_t data_size);
 
 DR_API
 /**

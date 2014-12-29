@@ -285,8 +285,8 @@ decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
         ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
         uint amount;
         dr_shift_type_t type = decode_index_shift_values(sh2, val, &amount);
-        array[*counter - 2] = opnd_create_immed_int(type, OPSZ_2b);
-        array[*counter - 1] = opnd_create_immed_int(amount, OPSZ_5b);
+        array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
+        array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
         CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),
                       "invalid shift sequence");
         array[*counter - 3] = opnd_create_reg_ex(opnd_get_reg(array[*counter - 3]),
@@ -516,71 +516,71 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     /* Immeds */
     case TYPE_I_b0:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 0, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 0, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_NI_b0:
         array[(*counter)++] =
-            opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsigned*/),
+            opnd_create_immed_uint(-decode_immed(di, 0, opsize, false/*unsign*/),
                                   opsize);
         return true;
     case TYPE_I_b3:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 3, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 3, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b4:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 4, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 4, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b5:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 5, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 5, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b6:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 6, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 6, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b7:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 7, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 7, opsize, false/*unsign*/), opsize);
         if (opsize == OPSZ_5b) {
             decode_register_shift(di, array, counter);
         }
         return true;
     case TYPE_I_b8:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 8, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 8, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b9:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 9, opsize, false/*unsigned*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 9, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b10:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 10, opsize, false/*unsign*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 10, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b16:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 16, opsize, false/*unsign*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 16, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b17:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 17, opsize, false/*unsign*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 17, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b18:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 18, opsize, false/*unsign*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 18, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b19:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 19, opsize, false/*unsign*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 19, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b20:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 20, opsize, false/*unsign*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 20, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_I_b21:
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 21, opsize, false/*unsign*/), opsize);
+            opnd_create_immed_uint(decode_immed(di, 21, opsize, false/*unsign*/), opsize);
         return true;
     case TYPE_NI_b8_b0:
     case TYPE_I_b8_b0: {
@@ -594,7 +594,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             CLIENT_ASSERT(false, "unsupported 8-0 split immed size");
         if (optype == TYPE_NI_b8_b0)
             val = -val;
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b16_b0: {
@@ -606,7 +606,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 4);
         } else
             CLIENT_ASSERT(false, "unsupported 16-0 split immed size");
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b0_b5: {
@@ -615,7 +615,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 0, OPSZ_4b, false/*unsigned*/) << 1);
         } else
             CLIENT_ASSERT(false, "unsupported 0-5 split immed size");
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b5_b3: { /* OP_vmla scalar: M:Vm<3> */
@@ -624,7 +624,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 5, OPSZ_1b, false/*unsigned*/) << 1);
         } else
             CLIENT_ASSERT(false, "unsupported 5-3 split immed size");
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b8_b16: { /* OP_msr */
@@ -633,7 +633,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 8, OPSZ_1b, false/*unsigned*/) << 4);
         } else
             CLIENT_ASSERT(false, "unsupported 8-16 split immed size");
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b21_b5: { /* OP_vmov: 21,6:5 */
@@ -642,7 +642,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 21, OPSZ_1b, false/*unsigned*/) << 2);
         } else
             CLIENT_ASSERT(false, "unsupported 21-5 split immed size");
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b21_b6: { /* OP_vmov: 21,6 */
@@ -651,7 +651,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 21, OPSZ_1b, false/*unsigned*/) << 1);
         } else
             CLIENT_ASSERT(false, "unsupported 21-6 split immed size");
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b24_b16_b0: { /* OP_vbic, OP_vmov: 24,18:16,3:0 */
@@ -661,7 +661,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 24, OPSZ_1b, false/*unsigned*/) << 7);
         } else
             CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
-        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_J_x4_b0: /* OP_b, OP_bl */
@@ -683,23 +683,23 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_SHIFT_b5:
         di->shift_type_idx = *counter;
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 5, opsize, false/*unsigned*/),
+            opnd_create_immed_uint(decode_immed(di, 5, opsize, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_SHIFT_b6: /* value is :0 */
         di->shift_type_idx = *counter;
         array[(*counter)++] =
-            opnd_create_immed_int(decode_immed(di, 5, opsize, false/*unsigned*/) << 1,
+            opnd_create_immed_uint(decode_immed(di, 5, opsize, false/*unsigned*/) << 1,
                                   OPSZ_2b);
         return true;
     case TYPE_SHIFT_LSL:
-        array[(*counter)++] = opnd_create_immed_int(SHIFT_ENCODING_LSL, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(SHIFT_ENCODING_LSL, opsize);
         return true;
     case TYPE_SHIFT_ASR:
-        array[(*counter)++] = opnd_create_immed_int(SHIFT_ENCODING_ASR, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(SHIFT_ENCODING_ASR, opsize);
         return true;
     case TYPE_K:
-        array[(*counter)++] = opnd_create_immed_int(opsize, OPSZ_0);
+        array[(*counter)++] = opnd_create_immed_uint(opsize, OPSZ_0);
         return true;
 
     /* Memory */
