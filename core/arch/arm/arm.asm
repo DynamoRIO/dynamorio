@@ -116,28 +116,28 @@ GLOBAL_LABEL(dynamorio_syscall:)
         DECLARE_FUNC(call_switch_stack)
 GLOBAL_LABEL(call_switch_stack:)
         /* we need a callee-saved reg across our call so save it onto stack */
-        push    {REG_R4, lr}
+        push     {REG_R4, lr}
         /* check mutex_to_free */
-        cmp     ARG4, #0
-        beq     call_dispatch_alt_stack_no_free
+        cmp      ARG4, #0
+        beq      call_dispatch_alt_stack_no_free
         /* release the mutex */
-        mov     REG_R4, #0
-        str     REG_R4, [ARG4]
+        mov      REG_R4, #0
+        str      REG_R4, [ARG4]
 call_dispatch_alt_stack_no_free:
         /* switch stack */
-        mov     REG_R4, sp
-        mov     sp, ARG2
+        mov      REG_R4, sp
+        mov      sp, ARG2
         /* call func */
-        blx     ARG3
+        blx      ARG3
         /* switch stack back */
-        mov     sp, REG_R4
+        mov      sp, REG_R4
         /* load ARG5 (return_on_return) from stack after the push at beginning */
         /* after call, so we can use REG_R3 as the scratch register */
-        ldr     REG_R3, [sp, #8/* r4, lr */] /* ARG5 */
-        cmp     REG_R3, #0
-        beq     GLOBAL_REF(unexpected_return)
+        ldr      REG_R3, [sp, #8/* r4, lr */] /* ARG5 */
+        cmp      REG_R3, #0
+        beq      GLOBAL_REF(unexpected_return)
         /* restore and return */
-        pop     {REG_R4, pc}
+        pop      {REG_R4, pc}
         END_FUNC(call_switch_stack)
 
 
@@ -217,17 +217,17 @@ DECLARE_GLOBAL(safe_read_asm_recover)
  */
         DECLARE_FUNC(safe_read_asm)
 GLOBAL_LABEL(safe_read_asm:)
-        cmp     ARG3,   #0
-1:      beq     safe_read_asm_recover
-        ldrb    REG_R3, [ARG2]
-        strb    REG_R3, [ARG1]
-        subs    ARG3, ARG3, #1
-        add     ARG2, ARG2, #1
-        add     ARG1, ARG1, #1
-        b       1b
+        cmp      ARG3,   #0
+1:      beq      safe_read_asm_recover
+        ldrb     REG_R3, [ARG2]
+        strb     REG_R3, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG2, ARG2, #1
+        add      ARG1, ARG1, #1
+        b        1b
 ADDRTAKEN_LABEL(safe_read_asm_recover:)
-        mov     REG_R0, ARG2
-        bx      lr
+        mov      REG_R0, ARG2
+        bx       lr
         END_FUNC(safe_read_asm)
 
 
@@ -240,16 +240,16 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
  */
         DECLARE_FUNC(memcpy)
 GLOBAL_LABEL(memcpy:)
-        cmp     ARG3,   #0
-1:      beq     2f
-        ldrb    REG_R3, [ARG2]
-        strb    REG_R3, [ARG1]
-        subs    ARG3, ARG3, #1
-        add     ARG2, ARG2, #1
-        add     ARG1, ARG1, #1
-        b       1b
-2:      mov     REG_R0, ARG1
-        bx      lr
+        cmp      ARG3,   #0
+1:      beq      2f
+        ldrb     REG_R3, [ARG2]
+        strb     REG_R3, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG2, ARG2, #1
+        add      ARG1, ARG1, #1
+        b        1b
+2:      mov      REG_R0, ARG1
+        bx       lr
         END_FUNC(memcpy)
 
 /* Private memset.
@@ -257,14 +257,14 @@ GLOBAL_LABEL(memcpy:)
  */
         DECLARE_FUNC(memset)
 GLOBAL_LABEL(memset:)
-        cmp     ARG3,   #0
-1:      beq     2f
-        strb    ARG2, [ARG1]
-        subs    ARG3, ARG3, #1
-        add     ARG1, ARG1, #1
-        b       1b
-2:      mov     REG_R0, ARG1
-        bx      lr
+        cmp      ARG3,   #0
+1:      beq      2f
+        strb     ARG2, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG1, ARG1, #1
+        b        1b
+2:      mov      REG_R0, ARG1
+        bx       lr
         END_FUNC(memset)
 
 /* See x86.asm notes about needing these to avoid gcc invoking *_chk */
@@ -288,9 +288,9 @@ GLOBAL_LABEL(dr_setjmp:)
 #endif
         /* we do not have to save r0 (return value) or r15 (pc) */
         /* optimization: can we trust callee-saved regs r0-r3 and not save them? */
-        stm ARG1, {REG_R1-REG_R12, sp, lr}
-        mov REG_R0, #0
-        bx  lr
+        stm      ARG1, {REG_R1-REG_R12, sp, lr}
+        mov      REG_R0, #0
+        bx       lr
         END_FUNC(dr_setjmp)
 
 /* int cdecl dr_longjmp(dr_jmp_buf *buf, int retval);
@@ -300,10 +300,10 @@ GLOBAL_LABEL(dr_longjmp:)
 #ifdef X64
 # error NYI on AArch64
 #endif
-        mov REG_R2, ARG1
-        mov REG_R0, ARG2
-        ldm REG_R2, {REG_R1-REG_R12, sp, lr}
-        bx  lr
+        mov      REG_R2, ARG1
+        mov      REG_R0, ARG2
+        ldm      REG_R2, {REG_R1-REG_R12, sp, lr}
+        bx       lr
         END_FUNC(dr_longjmp)
 
 /* uint atomic_swap(uint *addr, uint value)
