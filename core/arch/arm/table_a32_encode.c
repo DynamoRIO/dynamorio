@@ -35,6 +35,15 @@
 #include "decode.h"
 #include "decode_private.h"
 
+/* When adding new opcodes here, run tools/x86opnums.pl on this file and update
+ * opcode.h using the resulting output.
+ * Also run tools/arm_table_chain.pl (with the -arm option) to update the
+ * encoding chains in the tables.
+ * See the list of other places to edit when adding new opcodes in opcode.h.
+ *
+ * DO NOT MANUALLY EDIT THE ENCODING CHAINS, INCLUDING THE STARTING POINTS
+ * STORED IN THIS ARRAY!  Use tools/arm_table_chain.pl instead.
+ */
 const instr_info_t * const op_instr_A32[] = {
     /* OP_INVALID */   NULL,
     /* OP_UNDECODED */ NULL,
@@ -106,7 +115,7 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_ldc2              */ &A32_ext_bits20[1][0x01],
     /* OP_ldc2l             */ &A32_ext_bits20[1][0x05],
     /* OP_ldcl              */ &A32_ext_fp[19][0x02],
-    /* OP_ldm               */ &A32_pred_opc8[0x9d],
+    /* OP_ldm               */ &A32_pred_opc8[0x8b],
     /* OP_ldm_priv          */ &A32_pred_opc8[0x8d],
     /* OP_ldmda             */ &A32_pred_opc8[0x83],
     /* OP_ldmda_priv        */ &A32_pred_opc8[0x87],
@@ -114,6 +123,7 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_ldmdb_priv        */ &A32_pred_opc8[0x95],
     /* OP_ldmia_priv        */ &A32_pred_opc8[0x8f],
     /* OP_ldmib             */ &A32_pred_opc8[0x99],
+    /* OP_ldmib_priv        */ &A32_pred_opc8[0x9d],
     /* OP_ldr               */ &A32_pred_opc8[0x59],
     /* OP_ldrb              */ &A32_pred_opc8[0x55],
     /* OP_ldrbt             */ &A32_pred_opc8[0x4f],
@@ -271,13 +281,14 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_stlexd            */ &A32_ext_bits8[2][0x02],
     /* OP_stlexh            */ &A32_ext_bits8[6][0x02],
     /* OP_stlh              */ &A32_ext_bits8[6][0x00],
-    /* OP_stm               */ &A32_pred_opc8[0x9c],
+    /* OP_stm               */ &A32_pred_opc8[0x8a],
     /* OP_stm_priv          */ &A32_pred_opc8[0x8c],
     /* OP_stmda             */ &A32_pred_opc8[0x82],
     /* OP_stmda_priv        */ &A32_pred_opc8[0x84],
     /* OP_stmdb             */ &A32_pred_opc8[0x90],
     /* OP_stmdb_priv        */ &A32_pred_opc8[0x94],
     /* OP_stmib             */ &A32_pred_opc8[0x98],
+    /* OP_stmib_priv        */ &A32_pred_opc8[0x9c],
     /* OP_str               */ &A32_ext_bit4[2][0x00],
     /* OP_strb              */ &A32_pred_opc8[0x5c],
     /* OP_strbt             */ &A32_pred_opc8[0x4e],

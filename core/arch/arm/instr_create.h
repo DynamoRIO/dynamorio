@@ -326,6 +326,15 @@
 #define INSTR_CREATE_neg(dc, Rd, Rn) \
   INSTR_CREATE_rsb((dc), (Rd), (Rn), OPND_CREATE_INT16(0))
 
+/**
+ * This macro creats an instr_t for a jump instruction with a short
+ * reach, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param pc The program counter constant opnd_t operand.
+ */
+#define INSTR_CREATE_b_short(dc, pc) \
+  instr_create_0dst_1src((dc), OP_b_short, (pc))
+
 /* XXX i#1551: add macros for the other opcode aliases */
 
 
@@ -426,8 +435,6 @@
  */
 #define INSTR_CREATE_b(dc, pc) \
   instr_create_0dst_1src((dc), OP_b, (pc))
-#define INSTR_CREATE_b_short(dc, pc) \
-  instr_create_0dst_1src((dc), OP_b_short, (pc))
 #define INSTR_CREATE_bl(dc, pc) \
   instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_LR), (pc))
 #define INSTR_CREATE_blx(dc, pc) \
@@ -1915,6 +1922,8 @@
   instr_create_Ndst_Msrc_vardst((dc), OP_ldmia_priv, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_ldmib(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_ldmib, 0, 1, list_len, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldmib_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmib_priv, 0, 1, list_len, 0, (mem), __VA_ARGS__)
 #define INSTR_CREATE_ldmib_wb(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_ldmib, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_stm(dc, mem, list_len, ...) \
@@ -1937,6 +1946,8 @@
   instr_create_Ndst_Msrc_varsrc((dc), OP_stmdb, 2, 1, list_len, 0, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_stmib(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_stmib, 1, 0, list_len, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stmib_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmib_priv, 1, 0, list_len, 0, (mem), __VA_ARGS__)
 #define INSTR_CREATE_stmib_wb(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_stmib, 2, 1, list_len, 0, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_vld1_dup_8(dc, mem, list_len, ...) \

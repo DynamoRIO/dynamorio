@@ -224,10 +224,10 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_ldmib,   0x09900000, "ldmib",  L16w, xx, MUBl, xx, xx, pred, x, top8[0x9b]},/*PUW=110*//* XXX: "ldmia" alias */
     {OP_stmib,   0x09a00000, "stmib",  MUBl, RAw, L16w, RAw, xx, pred, x, END_LIST},/*PUW=111*/
     {OP_ldmib,   0x09b00000, "ldmib",  L16w, RAw, MUBl, RAw, xx, pred, x, END_LIST},/*PUW=111*/
-    {OP_stm,     0x09c00000, "stm",    MUBl, xx, L16w, xx, xx, pred, x, top8[0x8a]},/*PUW=110*/
-    {OP_ldm,     0x09d00000, "ldm",    L16w, xx, MUBl, xx, xx, pred, x, top8[0x9f]},/*PUW=110*/
-    {INVALID,    0x09e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ldm,     0x09f00000, "ldm",    L16w, RAw, MUBl, RAw, xx, pred, x, top8[0x8b]},/*PUW=111*/
+    {OP_stmib_priv, 0x09c00000, "stmib", MUBl, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=110*/
+    {OP_ldmib_priv, 0x09d00000, "ldmib", L16w, xx, MUBl, xx, xx, pred, x, END_LIST},/*PUW=110*/
+    {INVALID,    0x09e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA}, /* stm_priv w/ writeback */
+    {INVALID,    0x09f00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA}, /* ldm_priv w/ writeback */
     /* a0 */
     {OP_b,       0x0a000000, "b",      xx, xx, j24_x4, xx, xx, pred, x, END_LIST},/*no chain nec.*/
     {OP_b,       0x0a100000, "b",      xx, xx, j24_x4, xx, xx, pred, x, END_LIST},
