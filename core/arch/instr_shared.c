@@ -259,7 +259,7 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
     bool alloc = false;
     bool mangle = instr_is_app(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
-#ifdef X64
+#ifdef X86_64
     uint rip_rel_pos = instr_rip_rel_valid(instr) ? instr->rip_rel_pos : 0;
 #endif
     instr_t *next = instr->next;
@@ -290,7 +290,7 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
     }
     /* preserve across the up-decode */
     instr_set_isa_mode(instr, isa_mode);
-#ifdef X64
+#ifdef X86_64
     if (rip_rel_pos > 0)
         instr_set_rip_rel_pos(instr, rip_rel_pos);
 #endif
@@ -1398,7 +1398,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
     if (!instr_opcode_valid(instr)) {
         byte *next_pc;
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
-#ifdef X64
+#ifdef X86_64
         bool rip_rel_valid = instr_rip_rel_valid(instr);
 #endif
         /* decode_opcode() will use the dcontext mode, but we want the instr mode */
@@ -1409,7 +1409,7 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
         instr_reuse(dcontext, instr);
         next_pc = decode_opcode(dcontext, instr->bytes, instr);
         dr_set_isa_mode(dcontext, old_mode, NULL);
-#ifdef X64
+#ifdef X86_64
         /* decode_opcode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode of the opcode */
         if (rip_rel_valid)
@@ -1431,7 +1431,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
     if (!instr_operands_valid(instr)) {
         byte *next_pc;
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
-#ifdef X64
+#ifdef X86_64
         bool rip_rel_valid = instr_rip_rel_valid(instr);
 #endif
         /* decode() will use the current dcontext mode, but we want the instr mode */
@@ -1445,7 +1445,7 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
             instr_set_translation(instr, instr_get_raw_bits(instr));
 #endif
         dr_set_isa_mode(dcontext, old_mode, NULL);
-#ifdef X64
+#ifdef X86_64
         /* decode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode */
         if (rip_rel_valid)
@@ -1847,7 +1847,7 @@ instr_zeroes_ymmh(instr_t *instr)
     return false;
 }
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
 /* PR 251479: support general re-relativization.  If INSTR_RIP_REL_VALID is set and
  * the raw bits are valid, instr->rip_rel_pos is assumed to hold the offset into the
  * instr of a 32-bit rip-relative displacement, which is used to re-relativize during
@@ -1860,6 +1860,14 @@ instr_zeroes_ymmh(instr_t *instr)
  * raw bits: we can't rely just on the raw bits invalidation.
  * There can only be one rip-relative operand per instruction.
  */
+/* FIXME i#1551: for ARM we don't have a large displacement on every reference.
+ * Some have no disp at all, others have just 12 bits or smaller.
+ * We need to come up with a strategy for handling encode-time re-relativization.
+ * Xref copy_and_re_relativize_raw_instr().
+ * For now, we do use some of these routines, but none that use the rip_rel_pos.
+ */
+
+# ifdef X86_64
 bool
 instr_rip_rel_valid(instr_t *instr)
 {
@@ -1889,6 +1897,7 @@ instr_set_rip_rel_pos(instr_t *instr, uint pos)
     instr->rip_rel_pos = (byte) pos;
     instr_set_rip_rel_valid(instr, true);
 }
+# endif /* X86_64 */
 
 bool
 instr_get_rel_addr_target(instr_t *instr, app_pc *target)
@@ -1897,6 +1906,7 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
     opnd_t curop;
     if (!instr_valid(instr))
         return false;
+#ifdef X86_64
     /* PR 251479: we support rip-rel info in level 1 instrs */
     if (instr_rip_rel_valid(instr)) {
         if (instr_get_rip_rel_pos(instr) > 0) {
@@ -1907,22 +1917,44 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
         } else
             return false;
     }
+#endif
     /* else go to level 3 operands */
     for (i=0; i<instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
-        if (opnd_is_rel_addr(curop)) {
-            if (target != NULL)
-                *target = opnd_get_addr(curop);
-            return true;
-        }
+        IF_ARM_ELSE({
+            /* DR_REG_PC as an index register is not allowed */
+            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
+                if (target != NULL) {
+                    *target =
+                        instr_get_app_pc(instr) + opnd_get_disp(curop) + ARM_CUR_PC_OFFS;
+                }
+            }
+        }, {
+            if (opnd_is_rel_addr(curop)) {
+                if (target != NULL)
+                    *target = opnd_get_addr(curop);
+                return true;
+            }
+        });
     }
     for (i=0; i<instr_num_srcs(instr); i++) {
         curop = instr_get_src(instr, i);
-        if (opnd_is_rel_addr(curop)) {
-            if (target != NULL)
-                *target = opnd_get_addr(curop);
-            return true;
-        }
+        IF_ARM_ELSE({
+            /* DR_REG_PC as an index register is not allowed */
+            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
+                if (target != NULL) {
+                    *target =
+                        instr_get_app_pc(instr) + opnd_get_disp(curop) + ARM_CUR_PC_OFFS;
+                }
+                return true;
+            }
+        }, {
+            if (opnd_is_rel_addr(curop)) {
+                if (target != NULL)
+                    *target = opnd_get_addr(curop);
+                return true;
+            }
+        });
     }
     return false;
 }
@@ -1943,8 +1975,13 @@ instr_get_rel_addr_dst_idx(instr_t *instr)
     /* must go to level 3 operands */
     for (i=0; i<instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
-        if (opnd_is_rel_addr(curop))
-            return i;
+        IF_ARM_ELSE({
+            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC)
+                return i;
+        }, {
+            if (opnd_is_rel_addr(curop))
+                return i;
+        });
     }
     return -1;
 }
@@ -1959,12 +1996,17 @@ instr_get_rel_addr_src_idx(instr_t *instr)
     /* must go to level 3 operands */
     for (i=0; i<instr_num_srcs(instr); i++) {
         curop = instr_get_src(instr, i);
-        if (opnd_is_rel_addr(curop))
-            return i;
+        IF_ARM_ELSE({
+            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC)
+                return i;
+        }, {
+            if (opnd_is_rel_addr(curop))
+                return i;
+        });
     }
     return -1;
 }
-#endif /* X64 */
+#endif /* X64 || ARM */
 
 bool
 instr_is_our_mangling(instr_t *instr)

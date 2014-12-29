@@ -320,8 +320,48 @@ bool
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    uint opc = instr_get_opcode(instr);
+    /* Compute the value of r15==pc for orig app instr */
+    ptr_int_t r15 = (ptr_int_t)instr_get_raw_bits(instr) + ARM_CUR_PC_OFFS;
+    opnd_t reg_op, mem_op;
+    ASSERT(instr_has_rel_addr_reference(instr));
+
+    if (opc == OP_ldr || opc == OP_str) {
+        reg_id_t reg;
+        ushort slot;
+        if (opc == OP_ldr) {
+            reg_op = instr_get_dst(instr, 0);
+            mem_op = instr_get_src(instr, 0);
+        } else {
+            reg_op = instr_get_src(instr, 0);
+            mem_op = instr_get_dst(instr, 0);
+        }
+        ASSERT(opnd_is_reg(reg_op) && opnd_is_base_disp(mem_op));
+        ASSERT_NOT_IMPLEMENTED(!instr_is_cti(instr));
+        for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
+             reg <= SCRATCH_REG5; reg++, slot++) {
+            if (!instr_uses_reg(instr, reg))
+                break;
+        }
+        PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+        insert_mov_immed_arch(dcontext, NULL, NULL, r15,
+                              opnd_create_reg(reg), ilist, instr, NULL, NULL);
+        if (opc == OP_ldr) {
+            instr_set_src(instr, 0,
+                          opnd_create_base_disp(reg, REG_NULL, 0,
+                                                opnd_get_disp(mem_op),
+                                                opnd_get_size(mem_op)));
+        } else {
+            instr_set_dst(instr, 0,
+                          opnd_create_base_disp(reg, REG_NULL, 0,
+                                                opnd_get_disp(mem_op),
+                                                opnd_get_size(mem_op)));
+        }
+        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
+    } else {
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
     return false;
 }
 

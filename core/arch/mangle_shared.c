@@ -652,7 +652,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
         /* i#393: mangle_rel_addr might destroy the instr if it is a LEA,
          * which makes instr point to freed memory.
          * In such case, the control should skip later checks on the instr
@@ -663,7 +663,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             if (mangle_rel_addr(dcontext, ilist, instr, next_instr))
                 continue;
         }
-#endif
+#endif /* X64 || ARM */
 
         if (instr_is_exit_cti(instr)) {
 #ifdef X86

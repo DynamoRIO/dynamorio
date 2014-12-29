@@ -356,7 +356,7 @@ struct _instr_t {
 
     uint    opcode;
 
-#ifdef X64
+#ifdef X86_64
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
     byte    rip_rel_pos;
 #endif
@@ -1572,7 +1572,7 @@ bool
 instr_zeroes_ymmh(instr_t *instr);
 
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+#if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
@@ -1614,7 +1614,11 @@ DR_API
  */
 int
 instr_get_rel_addr_src_idx(instr_t *instr);
+/* DR_API EXPORT BEGIN */
+#endif /* X64 || ARM */
+/* DR_API EXPORT END */
 
+#ifdef X86_64
 /* We're not exposing the low-level rip_rel_pos routines directly to clients,
  * who should only use this level 1-3 feature via decode_cti + encode.
  */
@@ -1646,9 +1650,7 @@ instr_get_rip_rel_pos(instr_t *instr);
  */
 void
 instr_set_rip_rel_pos(instr_t *instr, uint pos);
-/* DR_API EXPORT BEGIN */
 #endif /* X64 */
-/* DR_API EXPORT END */
 
 /* not exported: for PR 267260 */
 bool
