@@ -416,7 +416,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 /* Append instructions to save gpr on fcache return, called after
  * append_fcache_return_prologue.
  * Assuming the execution comes from an exit stub,
- * and dcontext base is held in REG_DCXT.
+ * dcontext base is held in REG_DCXT, and exit stub in r0.
  * - store all registers into dcontext's mcontext
  * - restore REG_DCXT app value from TLS slot to mcontext
  * - restore dr_reg_stolen app value from TLS slot to mcontext
@@ -475,13 +475,14 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     /* FIXME i#1551: NYI on ARM */
 }
 
+/* scratch reg0 is holding exit stub */
 void
 append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     APP(ilist, INSTR_CREATE_mrs(dcontext,
-                                opnd_create_reg(SCRATCH_REG0),
+                                opnd_create_reg(SCRATCH_REG1),
                                 opnd_create_reg(DR_REG_CPSR)));
-    APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG0, XFLAGS_OFFSET));
+    APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, XFLAGS_OFFSET));
     /* There is no DF on ARM, so we do not need clear xflags. */
 }
 
@@ -519,7 +520,7 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return pc;
 }
 
 byte *
@@ -531,7 +532,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return pc;
 }
 
 bool

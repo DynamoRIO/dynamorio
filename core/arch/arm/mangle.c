@@ -153,9 +153,14 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    /* load target into scratch register */
+    insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)target,
+                          opnd_create_reg(scratch), ilist, where, NULL, NULL);
+    /* mov target from scratch register to pc */
+    PRE(ilist, where, INSTR_CREATE_mov(dcontext,
+                                       opnd_create_reg(DR_REG_PC),
+                                       opnd_create_reg(scratch)));
+    return true /* an ind branch */;
 }
 
 /*###########################################################################
