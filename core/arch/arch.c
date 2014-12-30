@@ -2745,8 +2745,8 @@ hook_vsyscall(dcontext_t *dcontext)
     return res;
 # undef CHECK
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* No vsyscall support needed for our ARM targets */
+    ASSERT_NOT_REACHED();
     return false;
 #endif /* X86/ARM */
 }
@@ -2778,8 +2778,7 @@ unhook_vsyscall(void)
     }
     return true;
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
     return false;
 #endif /* X86/ARM */
 }
