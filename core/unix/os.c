@@ -1274,7 +1274,9 @@ is_thread_tls_initialized(void)
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
     tls_swap_slot = (byte **)get_app_tls_swap_addr();
-    if (tls_swap_slot == NULL)
+    if (tls_swap_slot == NULL ||
+        /* We use the app slot's value to identify a now-exited thread (i#1578) */
+        *tls_swap_slot == APP_TLS_VAL_EXITED)
         return false;
     ASSERT(is_dynamo_address(*tls_swap_slot));
     return true;
@@ -1468,6 +1470,18 @@ get_local_state()
     return NULL;
 #endif
 }
+
+#ifdef DEBUG
+void
+os_enter_dynamorio(void)
+{
+# ifdef ARM
+    /* i#1578: check that app's tls value doesn't match our sentinel */
+    os_local_state_t *os_tls = get_os_tls();
+    ASSERT(os_tls->app_tls_swap != APP_TLS_VAL_EXITED);
+# endif
+}
+#endif
 
 /* i#107: handle segment register usage conflicts between app and dr:
  * os_handle_mov_seg updates the app's tls selector maintained by DR.
@@ -1667,7 +1681,6 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
         WRITE_DR_SEG(zero); /* macro needs lvalue! */
     }
 # endif /* X86 */
-    heap_munmap(os_tls->self, PAGE_SIZE);
 
     /* For another thread we can't really make these syscalls so we have to
      * leave it un-cleaned-up.  That's fine if the other thread is exiting:
@@ -1684,7 +1697,10 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
             }
         }
 # endif
-   }
+    }
+
+    /* We can't free prior to tls_thread_free() in case that routine refs os_tls */
+    heap_munmap(os_tls->self, PAGE_SIZE);
 #else
     global_heap_free(tls_table, MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     DELETE_LOCK(tls_lock);

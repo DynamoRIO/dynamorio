@@ -92,8 +92,14 @@ tls_thread_free(tls_type_t tls_type, int index)
     tls_swap_slot = get_app_tls_swap_addr();
     os_tls = (os_local_state_t *)*tls_swap_slot;
     ASSERT(os_tls->self == os_tls);
-    /* swap back for the case of detach */
-    *tls_swap_slot = os_tls->app_tls_swap;
+    /* FIXME i#1578: support detach on ARM.  We should swap back to
+     * os_tls->app_tls_swap for the case of detach but we need some way to
+     * determine whether a thread has exited (for deadlock_avoidance_unlock,
+     * e.g.) after dcontext and os_tls are freed.  For now we store -1 in this
+     * slot and assume the app will never use that value (we check in
+     * os_enter_dynamorio()).
+     */
+    *tls_swap_slot = APP_TLS_VAL_EXITED;
     return;
 }
 

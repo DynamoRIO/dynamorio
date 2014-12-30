@@ -139,6 +139,10 @@ ushort os_get_app_seg_offset(ushort/*reg_id_t*/ seg);
 void *os_get_dr_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
 void *os_get_app_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
 
+#ifdef DEBUG
+void os_enter_dynamorio(void);
+#endif
+
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.
  */

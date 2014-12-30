@@ -688,6 +688,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     /* w/ private loader, our errno is disjoint from app's */
     if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true))
         dcontext->libc_errno = get_libc_errno();
+    os_enter_dynamorio();
 #endif
 
     DOLOG(2, LOG_INTERP, {

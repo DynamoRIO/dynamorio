@@ -114,6 +114,7 @@ typedef struct _our_modify_ldt_t {
 #  define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
 #  define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 # endif /* 64/32-bit */
+# define APP_TLS_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
 #endif /* X86/ARM */
 
 static inline uint
