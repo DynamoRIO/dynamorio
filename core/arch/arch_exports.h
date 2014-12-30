@@ -539,8 +539,9 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
        "   bne   1b                       \n\t"                       \
+       "   sub"   suffix " r2, r2, %2     \n\t"                       \
        "   str" suffix " r2, %1"                                      \
-       : "=Q" (var), "=m" (result)                                    \
+       : "=Q" (*var), "=m" (result)                                   \
        : "r"  (value)                                                 \
        : "cc", "memory", "r2", "r3");
 #  define ATOMIC_ADD_EXCHANGE_int(var, val, res) \

@@ -2405,7 +2405,9 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
      */
     DOSTATS({
         if (stats != NULL &&
-            (uint) GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(reset_at_fragment_count)) {
+            (uint) GLOBAL_STAT(num_fragments) ==
+            INTERNAL_OPTION(reset_at_fragment_count)) {
+            ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
             schedule_reset(RESET_ALL);
         }
     });
