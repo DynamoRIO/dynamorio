@@ -1026,6 +1026,20 @@ arch_thread_init(dcontext_t *dcontext)
     return;
 #endif
 
+#ifdef ARM
+    /* Store addresses we access via TLS from exit stubs and gencode. */
+    /* FIXME i#1551: add Thumb vs ARM; refactor FRAGMENT_GENCODE_MODE */
+    get_local_state_extended()->spill_space.fcache_return_shared =
+        fcache_return_shared_routine();
+    get_local_state_extended()->spill_space.fcache_return_private =
+        fcache_return_routine_ex(dcontext);
+    /* Because absolute addresses are impractical on ARM, thread-private uses
+     * only shared gencode, just like for 64-bit.
+     */
+    ASSERT(dcontext->private_code == NULL);
+    return;
+#endif
+
     /* For detach on windows need to use a separate mmap so we can leave this
      * memory around in case of outstanding callbacks when we detach.  Without
      * detach or on linux could just use one of our heaps (which would save
@@ -1211,15 +1225,6 @@ arch_thread_init(dcontext_t *dcontext)
     if (DYNAMO_OPTION(hotp_only))
 #endif
         protect_generated_code(code, READONLY);
-
-#ifdef ARM
-    /* Store addresses we access via TLS from exit stubs and gencode. */
-    /* FIXME i#1551: add Thumb vs ARM; refactor FRAGMENT_GENCODE_MODE */
-    get_local_state_extended()->spill_space.fcache_return_shared =
-        fcache_return_shared_routine();
-    get_local_state_extended()->spill_space.fcache_return_private =
-        fcache_return_routine_ex(dcontext);
-#endif
 }
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -1233,7 +1238,7 @@ arch_thread_profile_exit(dcontext_t *dcontext)
 void
 arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks))
 {
-#ifdef X64
+#if defined(X64) || defined(ARM)
     /* PR 244737: thread-private uses only shared gencode on x64 */
     ASSERT(dcontext->private_code == NULL);
     return;
@@ -3253,6 +3258,9 @@ is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t bra
 }
 #endif /* DEBUG */
 
+/***************************************************************************
+ * UNIT TEST
+ */
 #ifdef STANDALONE_UNIT_TEST
 
 # ifdef UNIX

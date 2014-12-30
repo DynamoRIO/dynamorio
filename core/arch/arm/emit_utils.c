@@ -551,3 +551,17 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
+
+/* FIXME i#1551: we need to take in the dr_isa_mode_t for Thumb */
+bool
+fill_with_nops(byte *addr, size_t size)
+{
+    byte *pc = addr;
+    if (!ALIGNED(addr, ARM_INSTR_SIZE) || !ALIGNED(addr + size, ARM_INSTR_SIZE)) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    for (pc = addr; pc < addr + size; pc += ARM_INSTR_SIZE)
+        *(uint *)pc = ARM_NOP;
+    return true;
+}

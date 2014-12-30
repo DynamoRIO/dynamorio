@@ -882,8 +882,10 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 #endif
 }
 
-/* PR 244737: thread-private uses shared gencode on x64 */
-#define USE_SHARED_GENCODE_ALWAYS() IF_X64_ELSE(true, false)
+/* PR 244737: thread-private uses shared gencode on x64, b/c absolute addresses
+ * are impractical.  The same goes for ARM.
+ */
+#define USE_SHARED_GENCODE_ALWAYS() IF_ARM_ELSE(true, IF_X64_ELSE(true, false))
 /* PR 212570: on linux we need a thread-shared do_syscall for our vsyscall hook,
  * if we have TLS and support sysenter (PR 361894)
  */

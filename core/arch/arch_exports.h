@@ -1249,7 +1249,8 @@ use_addr_prefix_on_short_disp(void)
 # define ARM_BKPT    0xe1200070
 # define THUMB_BKPT  0xbe00
 /* writes nops into the address range */
-# define SET_TO_NOPS(addr, size) ASSERT_NOT_IMPLEMENTED(false)
+bool fill_with_nops(byte *addr, size_t size);
+# define SET_TO_NOPS(addr, size) fill_with_nops(addr, size)
 /* writes debugbreaks into the address range */
 # define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
 /* check if region is SET_TO_DEBUG */
