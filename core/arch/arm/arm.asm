@@ -37,6 +37,20 @@
 #include "../asm_defines.asm"
 START_FILE
 
+DECL_EXTERN(exiting_thread_count)
+DECL_EXTERN(initstack)
+DECL_EXTERN(initstack_mutex)
+
+#define POUND #
+#define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
+#define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) str src, PTRSZ [reg, POUND (offs)]
+
+/* offsetof(dcontext_t, dstack) */
+#define dstack_OFFSET     0x6c
+/* offsetof(dcontext_t, is_exiting) */
+#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+
+
 /* FIXME i#1551: just a shell to get things compiling.  We need to fill
  * in all the real functions later.
  */
@@ -187,11 +201,140 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_app_take_over)
 
+
+/* Pass in the pointer-sized address to modify in ARG1 and the val to add in ARG2. */
+        DECLARE_FUNC(atomic_add)
+GLOBAL_LABEL(atomic_add:)
+1:      ldrex    REG_R2, [ARG1]
+        add      REG_R2, REG_R2, ARG2
+        strex    REG_R3, REG_R2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        bx       lr
+        END_FUNC(atomic_add)
+
+/* Pass in the memory address in ARG1 and register w/ value in ARG2. */
+        DECLARE_FUNC(atomic_xchg)
+GLOBAL_LABEL(atomic_xchg:)
+1:      ldrex    REG_R2, [ARG1]
+        strex    REG_R3, ARG2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        mov      REG_R0, REG_R2
+        bx       lr
+        END_FUNC(atomic_xchg)
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+/*
+ * cleanup_and_terminate(dcontext_t *dcontext,     // 0*ARG_SZ+sp
+ *                       int sysnum,               // 1*ARG_SZ+sp = syscall #
+ *                       int sys_arg1/param_base,  // 2*ARG_SZ+sp = arg1 for syscall
+ *                       int sys_arg2,             // 3*ARG_SZ+sp = arg2 for syscall
+ *                       bool exitproc,            // 4*ARG_SZ+sp
+ *                       (2 more args that are ignored: Mac-only))
+ *
+ * See decl in arch_exports.h for description.
+ */
         DECLARE_FUNC(cleanup_and_terminate)
 GLOBAL_LABEL(cleanup_and_terminate:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+        push     {REG_R0-REG_R3}
+        /* inc exiting_thread_count to avoid being killed once off all_threads list */
+        /* We use the following multi-instr and multi-stored-data sequence to maintain
+         * PIC code.  Note that using "ldr r0, SYMREF(exiting_thread_count)" does
+         * NOT result in PIC code: it uses a stored absolute address.
+         */
+        ldr      REG_R2, .Lgot0
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R0, .Lexiting_thread_count
+.LPIC0: ldr      REG_R0, [REG_R0, REG_R2]
+        mov      REG_R2, #1
+        CALLC2(atomic_add, REG_R0, REG_R2)
+        /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
+        ldr      REG_R4, PTRSZ [sp, #(0*ARG_SZ)] /* dcontext */
+        mov      REG_R1, #1
+        SAVE_TO_DCONTEXT_VIA_REG(REG_R4, is_exiting_OFFSET, REG_R1)
+        CALLC1(GLOBAL_REF(is_currently_on_dstack), REG_R4) /* r4 is callee-saved */
+        cmp      REG_R0, #0
+        bne      cat_save_dstack
+        mov      REG_R4, #0 /* save 0 for dstack to avoid double-free */
+        b        cat_done_saving_dstack
+cat_save_dstack:
+        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R4, dstack_OFFSET, REG_R4)
+cat_done_saving_dstack:
+        CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
+        mov      REG_R5, REG_R0
+        ldrb     REG_R0, BYTE [sp, #(4*ARG_SZ)] /* exitproc */
+        cmp      REG_R0, #0
+        beq      cat_thread_only
+        CALLC0(GLOBAL_REF(dynamo_process_exit))
+        b        cat_no_thread
+cat_thread_only:
+        CALLC0(GLOBAL_REF(dynamo_thread_exit))
+cat_no_thread:
+        /* switch to initstack for cleanup of dstack */
+        mov      REG_R1, #1
+        ldr      REG_R3, .Lgot1
+        add      REG_R3, REG_R3, pc
+        ldr      REG_R2, .Linitstack_mutex
+.LPIC1: ldr      REG_R2, [REG_R2, REG_R3]
+cat_spin:
+        CALLC2(atomic_xchg, REG_R2, REG_R1)
+        cmp      REG_R0, #0
+        beq      cat_have_lock
+        yield
+        b        cat_spin
+cat_have_lock:
+        /* need to grab everything off dstack first */
+        ldr      REG_R6, [sp, #(1*ARG_SZ)]  /* sysnum */
+        ldr      REG_R7, [sp, #(2*ARG_SZ)]  /* sys_arg1 */
+        ldr      REG_R8, [sp, #(3*ARG_SZ)]  /* sys_arg2 */
+        /* swap stacks */
+        ldr      REG_R2, .Lgot2
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R3, .Linitstack
+.LPIC2: ldr      REG_R3, [REG_R3, REG_R2]
+        ldr      sp, [REG_R3]
+        /* free dstack and call the EXIT_DR_HOOK */
+        CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_R4) /* pass dstack */
+        /* give up initstack mutex */
+        ldr      REG_R2, .Lgot3
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R3, .Linitstack_mutex
+.LPIC3: ldr      REG_R3, [REG_R3, REG_R2]
+        mov      REG_R2, #0
+        str      REG_R2, [REG_R3]
+        /* dec exiting_thread_count (allows another thread to kill us) */
+        ldr      REG_R2, .Lgot4
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R3, .Lexiting_thread_count
+.LPIC4: ldr      REG_R3, [REG_R3, REG_R2]
+        mov      REG_R2, #-1
+        CALLC2(atomic_add, REG_R3, REG_R2)
+        /* finally, execute the termination syscall */
+        mov      REG_R7, REG_R6  /* sysnum */
+        mov      REG_R0, REG_R7  /* sys_arg1 */
+        mov      REG_R1, REG_R8  /* sys_arg2 */
+        bx       REG_R5  /* go do the syscall! */
         END_FUNC(cleanup_and_terminate)
+/* Data for PIC code above */
+.Lgot0:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC0
+.Lgot1:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC1
+.Lgot2:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC2
+.Lgot3:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC3
+.Lgot4:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC4
+.Lexiting_thread_count:
+        .word   exiting_thread_count(GOT)
+.Linitstack:
+        .word   initstack(GOT)
+.Linitstack_mutex:
+        .word   initstack_mutex(GOT)
+#endif /* NOT_DYNAMORIO_CORE_PROPER */
+
 
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)

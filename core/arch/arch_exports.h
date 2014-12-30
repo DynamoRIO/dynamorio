@@ -936,10 +936,23 @@ dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...);
 void unexpected_return(void);
 void clone_and_swap_stack(byte *stack, byte *tos);
 void go_native(dcontext_t *dcontext);
+
+/* Calls dynamo_exit_process if exitproc is true, else calls dynamo_exit_thread.
+ * Uses the current dstack, but instructs the cleanup routines not to
+ * de-allocate it, does a custom de-allocate after swapping to initstack (don't
+ * want to use initstack the whole time, that's too long to hold the mutex).
+ * Then calls system call sysnum with parameter base param_base, which is presumed
+ * to be either NtTerminateThread or NtTerminateProcess or exit.
+ *
+ * Note that the caller is responsible for placing the actual syscall arguments
+ * at the correct offset from edx (or ebx).  See SYSCALL_PARAM_OFFSET in
+ * win32 os.c for more info.
+ */
 void cleanup_and_terminate(dcontext_t *dcontext, int sysnum,
                            ptr_uint_t sys_arg1, ptr_uint_t sys_arg2, bool exitproc,
                            /* these 2 args are only used for Mac thread exit */
                            ptr_uint_t sys_arg3, ptr_uint_t sys_arg4);
+
 bool cpuid_supported(void);
 void our_cpuid(int res[4], int eax);
 #ifdef WINDOWS

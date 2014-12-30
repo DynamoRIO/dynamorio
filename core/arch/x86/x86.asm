@@ -586,23 +586,12 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
  *                       int sysnum,               // 2*ARG_SZ+XBP = syscall #
  *                       int sys_arg1/param_base,  // 3*ARG_SZ+XBP = arg1 for syscall
  *                       int sys_arg2,             // 4*ARG_SZ+XBP = arg2 for syscall
- *                       bool exitproc,            // 7*ARG_SZ+XBP
+ *                       bool exitproc,            // 5*ARG_SZ+XBP
  *                       (these 2 args are only used for Mac thread exit:)
- *                       int sys_arg3,             // 5*ARG_SZ+XBP = arg3 for syscall
- *                       int sys_arg4)             // 6*ARG_SZ+XBP = arg4 for syscall
+ *                       int sys_arg3,             // 6*ARG_SZ+XBP = arg3 for syscall
+ *                       int sys_arg4)             // 7*ARG_SZ+XBP = arg4 for syscall
  *
- * Calls dynamo_exit_process if exitproc is true, else calls dynamo_exit_thread.
- * Uses the current dstack, but instructs the cleanup routines not to
- * de-allocate it, does a custom de-allocate after swapping to initstack (don't
- * want to use initstack the whole time, that's too long to hold the mutex).
- * Then calls system call sysnum with parameter base param_base, which is presumed
- * to be either NtTerminateThread or NtTerminateProcess or exit.
- * For x64 Windows, args are in ecx and edx (terminate syscalls have only 2 args).
- * For x64 Linux, 1st 2 args are in rdi and rsi.
- *
- * Note that the caller is responsible for placing the actual syscall arguments
- * at the correct offset from edx (or ebx).  See SYSCALL_PARAM_OFFSET in
- * win32 os.c for more info.
+ * See decl in arch_exports.h for description.
  *
  * Note that this routine does not return and thus clobbers callee-saved regs.
  */
