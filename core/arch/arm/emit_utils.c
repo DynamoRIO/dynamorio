@@ -148,8 +148,8 @@ patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
     /* FIXME i#1551: support Thumb */
     if (((*(branch_pc + 3)) & 0xf) == 0xa) {
         /* OP_b with 3-byte immed that's stored as >>2 */
-        uint val = *(uint *)branch_pc;
-        int disp = (target_pc - branch_pc + ARM_CUR_PC_OFFS);
+        uint val = (*(uint *)branch_pc) & 0xff000000;
+        int disp = (target_pc - (branch_pc + ARM_CUR_PC_OFFS));
         ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
         ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
         val |= ((disp >> 2) & 0xffffff);

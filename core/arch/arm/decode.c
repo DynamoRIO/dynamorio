@@ -193,9 +193,12 @@ static ptr_int_t
 decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_signed)
 {
     ptr_int_t val;
-    uint mask = ((1 << opnd_size_in_bits(opsize)) - 1);
+    ptr_uint_t mask = ((1 << opnd_size_in_bits(opsize)) - 1);
     if (is_signed) {
-        val = (ptr_int_t)(int)((di->instr_word >> start_bit) & mask) | (~mask);
+        ptr_uint_t top_bit = (1 << (opnd_size_in_bits(opsize) - 1));
+        val = (ptr_int_t)(int)((di->instr_word >> start_bit) & mask);
+        if (TEST(top_bit, val))
+            val |= (~mask);
     } else
         val = (ptr_int_t)(ptr_uint_t)((di->instr_word >> start_bit) & mask);
     return val;
@@ -667,7 +670,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_J_x4_b0: /* OP_b, OP_bl */
         array[(*counter)++] =
             /* For A32, "cur pc" is PC + 8 */
-            opnd_create_pc(di->start_pc + 8 +
+            opnd_create_pc(di->orig_pc + ARM_CUR_PC_OFFS +
                            (decode_immed(di, 0, opsize, true/*signed*/) << 2));
         return true;
     case TYPE_J_b0_b24: { /* OP_blx imm24:H:0 */
@@ -677,7 +680,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         } else
             CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
         /* For A32, "cur pc" is PC + 8 */
-        array[(*counter)++] = opnd_create_pc(di->start_pc + 8 + val);
+        array[(*counter)++] = opnd_create_pc(di->orig_pc + ARM_CUR_PC_OFFS + val);
         return true;
     }
     case TYPE_SHIFT_b5:
