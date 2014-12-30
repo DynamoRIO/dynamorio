@@ -673,13 +673,15 @@ native_module_exit(void)
     module_iterator_t *mi;
     module_area_t *ma;
 
-    mi = module_iterator_start();
-    while (module_iterator_hasnext(mi)) {
-         ma = module_iterator_next(mi);
-         if (vmvector_overlap(native_exec_areas, ma->start, ma->end))
-             native_module_unhook(ma);
+    if (native_exec_areas != NULL) {
+        mi = module_iterator_start();
+        while (module_iterator_hasnext(mi)) {
+            ma = module_iterator_next(mi);
+            if (vmvector_overlap(native_exec_areas, ma->start, ma->end))
+                native_module_unhook(ma);
+        }
+        module_iterator_stop(mi);
     }
-    module_iterator_stop(mi);
 
 #ifdef X64
     if (plt_reachability_stub != NULL) {
