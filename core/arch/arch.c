@@ -2709,8 +2709,7 @@ hook_vsyscall(dcontext_t *dcontext)
     instr_reset(dcontext, &instr);
     pc = decode(dcontext, pc, &instr);
     CHECK(instr_get_opcode(&instr) == OP_ret);
-    /* Sometimes the next byte is a nop, sometimes it's non-code */
-    ASSERT(*pc == RAW_OPCODE_nop || *pc == 0);
+    /* We don't know what the 5th byte is but we assume that it is junk */
 
     /* FIXME: at some point we should pull out all the hook code from
      * callback.c into an os-neutral location.  For now, this hook
