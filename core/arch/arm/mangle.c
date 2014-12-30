@@ -175,8 +175,36 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
                       instrlist_t *ilist, instr_t *instr,
                       instr_t **first, instr_t **second)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    instr_t *mov1, *mov2;
+    ASSERT(opnd_is_reg(dst));
+    /* FIXME i#1551: we may handle Thumb and ARM mode differently.
+     * Now we assume ARM mode only.
+     */
+    if (val <= 0xfff) {
+        mov1 = INSTR_CREATE_mov(dcontext, dst, OPND_CREATE_INT(val));
+        PRE(ilist, instr, mov1);
+        mov2 = NULL;
+    } else {
+        /* To use INT16 here and pass the size checks in opnd_create_immed_int
+         * we'd have to add UINT16 (or sign-extend the bottom half again):
+         * simpler to use INT, and our general ARM philosophy is to use INT and
+         * ignore immed sizes at instr creation time (only at encode time do we
+         * check them).
+         */
+        mov1 = INSTR_CREATE_movw(dcontext, dst, OPND_CREATE_INT(val & 0xffff));
+        PRE(ilist, instr, mov1);
+        /* XXX: movw expects reg size to be OPSZ_PTR but
+         * movt expects reg size to be OPSZ_PTR_HALF.
+         */
+        opnd_set_size(&dst, OPSZ_PTR_HALF);
+        val = (val >> 16) & 0xffff;
+        mov2 = INSTR_CREATE_movt(dcontext, dst, OPND_CREATE_INT(val));
+        PRE(ilist, instr, mov2);
+    }
+    if (first != NULL)
+        *first = mov1;
+    if (second != NULL)
+        *second = mov2;
 }
 
 void

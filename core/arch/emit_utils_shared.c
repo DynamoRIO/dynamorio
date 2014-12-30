@@ -3691,7 +3691,7 @@ create_syscall_instr(dcontext_t *dcontext)
 {
     int method = get_syscall_method();
 #ifdef ARM
-    if (method == SYSCALL_METHOD_SVC) {
+    if (method == SYSCALL_METHOD_SVC || method == SYSCALL_METHOD_UNINITIALIZED) {
         return INSTR_CREATE_svc(dcontext, opnd_create_immed_int((char)0x0, OPSZ_1));
     }
 # elif defined(X86)
@@ -4854,7 +4854,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
                        instr_t *syscall_instr, uint *syscall_offs /*OUT*/)
 {
     instrlist_t ilist;
-    instr_t *syscall;
+    instr_t *syscall = NULL;
 #ifdef UNIX
     instr_t *post_syscall;
 #endif
@@ -4873,11 +4873,8 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 #ifdef X86
             syscall = INSTR_CREATE_int(dcontext,
                                        opnd_create_immed_int((char)interrupt, OPSZ_1));
-#elif defined(ARM)
-            /* FIXMED i#1551: NYI on ARM */
-            ASSERT_NOT_IMPLEMENTED(false);
-            syscall = NULL;
 #endif
+            IF_ARM(ASSERT_NOT_REACHED());
         } else
             syscall = create_syscall_instr(dcontext);
     }
@@ -4913,9 +4910,6 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
             ASSERT_NOT_IMPLEMENTED(instr_length(dcontext, instrlist_last(&ilist)) ==
                                    SYSCALL_METHOD_LONGEST_INSTR);
     }
-# elif defined(ARM)
-    /* FIXMED i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
 # endif
     post_syscall = instrlist_last(&ilist);
 #endif
@@ -4927,9 +4921,8 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     else
         APP(&ilist, instr_create_save_to_dcontext(dcontext, SCRATCH_REG0,
                                                   SCRATCH_REG0_OFFS));
-    APP(&ilist, XINST_CREATE_load_int
-        (dcontext, opnd_create_reg(SCRATCH_REG0),
-         OPND_CREATE_INTPTR((ptr_int_t)get_syscall_linkstub())));
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)get_syscall_linkstub(),
+                           opnd_create_reg(SCRATCH_REG0), &ilist, NULL, NULL, NULL);
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(fcache_return_pc)));
 
 #ifdef UNIX
