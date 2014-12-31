@@ -557,25 +557,6 @@ optimize_linkcount_stub(dcontext_t *dcontext, fragment_t *f,
 }
 #endif /* PROFILE_LINKCOUNT */
 
-/* Checks patchable exit cti for proper alignment for patching. If it's
- * properly aligned returns 0, else returns the number of bytes it would
- * need to be forward shifted to be properly aligned */
-uint
-patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
-{
-    /* all our exit cti's currently use 4 byte offsets */
-    /* FIXME : would be better to use a instr_is_cti_long or some such
-     * also should check for addr16 flag (we shouldn't have any prefixes) */
-    ASSERT((instr_is_cti(inst) && !instr_is_cti_short(inst) &&
-            !TESTANY(~(PREFIX_JCC_TAKEN|PREFIX_JCC_NOT_TAKEN), instr_get_prefixes(inst)))
-            || instr_is_cti_short_rewrite(inst, NULL));
-    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint
-                  (ALIGN_SHIFT_SIZE(pc + instr_length(dcontext, inst) - CTI_PATCH_SIZE,
-                                    CTI_PATCH_SIZE, PAD_JMPS_ALIGNMENT))));
-    return (uint) ALIGN_SHIFT_SIZE(pc + instr_length(dcontext, inst) - CTI_PATCH_SIZE,
-                                   CTI_PATCH_SIZE, PAD_JMPS_ALIGNMENT);
-}
-
 /* Returns true if the exit cti is ever dynamically modified */
 bool
 is_exit_cti_patchable(dcontext_t *dcontext, instr_t *inst, uint frag_flags)

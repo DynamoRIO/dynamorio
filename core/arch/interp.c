@@ -3996,7 +3996,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             LOG(THREAD, LOG_INTERP, 4, "fragment writes OF prior to reading it!\n");
             STATS_INC(bbs_eflags_writes_of);
         } else if (TEST(FRAG_WRITES_EFLAGS_6, bb->flags)) {
-            ASSERT(TEST(FRAG_WRITES_EFLAGS_OF, bb->flags));
+            IF_X86(ASSERT(TEST(FRAG_WRITES_EFLAGS_OF, bb->flags)));
             LOG(THREAD, LOG_INTERP, 4,
                 "fragment writes all 6 flags prior to reading any\n");
             STATS_INC(bbs_eflags_writes_6);

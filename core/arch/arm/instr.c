@@ -148,7 +148,7 @@ instr_is_cbr_arch(instr_t *instr)
     int opc = instr->opcode; /* caller ensures opcode is valid */
     if (opc == OP_cbnz || opc ==  OP_cbz)
         return true;
-    /* A predicated uncondtional branch is a cbr */
+    /* A predicated unconditional branch is a cbr */
     if (opc == OP_b || opc == OP_b_short || opc == OP_bx || opc == OP_bxj ||
         /* Yes, conditional calls are considered cbr */
         opc == OP_bl || opc == OP_blx || opc == OP_blx_ind) {
@@ -361,58 +361,8 @@ instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
     return NULL;
 }
 
-/* Given a machine state, returns whether or not the cbr instr would be taken
- * if the state is before execution (pre == true) or after (pre == false).
- */
-bool
-instr_cbr_taken(instr_t *instr, priv_mcontext_t *mcontext, bool pre)
-{
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    return NULL;
-}
-
-/* Given eflags, returns whether or not the conditional branch opc would be taken */
-static bool
-opc_jcc_taken(int opc, reg_t eflags)
-{
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    return NULL;
-}
-
-/* Given eflags, returns whether or not the conditional branch instr would be taken */
-bool
-instr_jcc_taken(instr_t *instr, reg_t eflags)
-{
-    /* FIXME i#1551: NYI */
-    return opc_jcc_taken(instr_get_opcode(instr), eflags);
-}
-
-DR_API
-/* Converts a cmovcc opcode \p cmovcc_opcode to the OP_jcc opcode that
- * tests the same bits in eflags.
- */
-int
-instr_cmovcc_to_jcc(int cmovcc_opcode)
-{
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    return OP_INVALID;
-}
-
-DR_API
-bool
-instr_cmovcc_triggered(instr_t *instr, reg_t eflags)
-{
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    return false;
-}
-
-DR_API
-dr_pred_trigger_t
-instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
+static dr_pred_trigger_t
+instr_predicate_triggered_priv(instr_t *instr, priv_mcontext_t *mc)
 {
     dr_pred_type_t pred = instr_get_predicate(instr);
     switch (pred) {
@@ -467,6 +417,79 @@ instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
         CLIENT_ASSERT(false, "invalid predicate");
         return DR_PRED_TRIGGER_INVALID;
     }
+}
+
+/* Given a machine state, returns whether or not the cbr instr would be taken
+ * if the state is before execution (pre == true) or after (pre == false).
+ */
+bool
+instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
+{
+    int opc = instr_get_opcode(instr);
+    dr_pred_trigger_t trigger = instr_predicate_triggered_priv(instr, mc);
+    CLIENT_ASSERT(instr_is_cbr(instr), "instr_cbr_taken: instr not a cbr");
+    if (trigger == DR_PRED_TRIGGER_MISMATCH)
+        return false;
+    if (opc == OP_cbnz || opc ==  OP_cbz) {
+        reg_id_t reg;
+        reg_t val;
+        CLIENT_ASSERT(opnd_is_reg(instr_get_src(instr, 1)), "invalid OP_cb{,n}z");
+        reg = opnd_get_reg(instr_get_src(instr, 1));
+        val = reg_get_value_priv(reg, mc);
+        if (opc == OP_cbnz)
+            return (val != 0);
+        else
+            return (val == 0);
+    } else {
+        CLIENT_ASSERT(instr_get_predicate(instr) != DR_PRED_NONE &&
+                      instr_get_predicate(instr) != DR_PRED_AL, "invalid cbr type");
+        return (trigger == DR_PRED_TRIGGER_MATCH);
+    }
+}
+
+/* Given eflags, returns whether or not the conditional branch opc would be taken */
+static bool
+opc_jcc_taken(int opc, reg_t eflags)
+{
+    /* FIXME i#1551: NYI */
+    CLIENT_ASSERT(false, "NYI");
+    return NULL;
+}
+
+/* Given eflags, returns whether or not the conditional branch instr would be taken */
+bool
+instr_jcc_taken(instr_t *instr, reg_t eflags)
+{
+    /* FIXME i#1551: NYI */
+    return opc_jcc_taken(instr_get_opcode(instr), eflags);
+}
+
+DR_API
+/* Converts a cmovcc opcode \p cmovcc_opcode to the OP_jcc opcode that
+ * tests the same bits in eflags.
+ */
+int
+instr_cmovcc_to_jcc(int cmovcc_opcode)
+{
+    /* FIXME i#1551: NYI */
+    CLIENT_ASSERT(false, "NYI");
+    return OP_INVALID;
+}
+
+DR_API
+bool
+instr_cmovcc_triggered(instr_t *instr, reg_t eflags)
+{
+    /* FIXME i#1551: NYI */
+    CLIENT_ASSERT(false, "NYI");
+    return false;
+}
+
+DR_API
+dr_pred_trigger_t
+instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
+{
+    return instr_predicate_triggered_priv(instr, dr_mcontext_as_priv_mcontext(mc));
 }
 
 bool

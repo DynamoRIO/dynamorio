@@ -163,6 +163,12 @@ patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
     }
 }
 
+uint
+patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
+{
+    return 0; /* always aligned */
+}
+
 cache_pc
 exit_cti_disp_pc(cache_pc branch_pc)
 {
