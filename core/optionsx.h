@@ -289,8 +289,10 @@
 #  endif
 #endif /* DEBUG */
 #ifdef KSTATS
-     /* turn on kstats by default for debug builds */
-    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(true), "enable path timing statistics")
+    /* turn on kstats by default for debug builds */
+    /* For ARM we have no cheap tsc so we disable by default (i#1581) */
+    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(IF_ARM_ELSE(false, true)),
+                   "enable path timing statistics")
 #endif
 
 #ifdef DEADLOCK_AVOIDANCE

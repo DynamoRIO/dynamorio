@@ -113,3 +113,18 @@ proc_avx_enabled(void)
 {
     return false;
 }
+
+uint64
+proc_get_timestamp(void)
+{
+    /* XXX i#1581: There is no simple equivalent to x86's rdtsc on ARM.
+     * There is the Cycle CouNT (CNT) register, but it requires kernel support
+     * to make it accessible from user mode, and it can be reset, resulting in
+     * potential conflicts with the app.  Others seem to map /dev/mem and figure
+     * out where the hardware counter is but this does not seem portable w/o
+     * a kernel driver.
+     * For now we punt on having kstats on by default and live with an expensive
+     * system call.
+     */
+    return query_time_micros();
+}

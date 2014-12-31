@@ -574,11 +574,8 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        : "cc", "memory", "r2", "r3");
 
 #  define SPINLOCK_PAUSE()  __asm__ __volatile__("wfi") /* wait for interrupt */
-/* FIXME i#1551: there is no RDTSC on ARM. */
-#  define RDTSC_LL(llval) do {            \
-        ASSERT_NOT_IMPLEMENTED(false);    \
-        (llval) = 0;                      \
-    } while (0)
+uint64 proc_get_timestamp(void);
+#  define RDTSC_LL(llval) (llval) = proc_get_timestamp()
 #  define SERIALIZE_INSTRUCTIONS() __asm__ __volatile__("clrex");
 /* FIXME i#1551: frame pointer is r7 in thumb mode */
 #  define GET_FRAME_PTR(var)  \

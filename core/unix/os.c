@@ -1058,6 +1058,30 @@ query_time_millis()
     }
 }
 
+/* microseconds since 1601 */
+uint64
+query_time_micros()
+{
+    struct timeval current_time;
+#ifdef MACOS
+    /* MacOS returns usecs:secs and does not set the timeval struct */
+    uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
+    current_time.tv_sec = (uint) val;
+    current_time.tv_usec = (uint)(val >> 32);
+    if ((int)val > 0) {
+#else
+    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) >= 0) {
+#endif
+        uint64 res = (((uint64)current_time.tv_sec) * 1000000) +
+            current_time.tv_usec;
+        res += UTC_TO_EPOCH_SECONDS * 1000000;
+        return res;
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+}
+
 #ifdef RETURN_AFTER_CALL
 /* Finds the bottom of the call stack, presumably at program startup. */
 /* This routine is a copycat of internal_dump_callstack and makes assumptions about program state,

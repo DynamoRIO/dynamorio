@@ -913,6 +913,12 @@ query_time_seconds(void);
 uint64
 query_time_millis(void);
 
+#ifdef UNIX
+/* microseconds since 1601 */
+uint64
+query_time_micros();
+#endif
+
 /* gives a good but not necessarily crypto-strength random seed */
 uint
 os_random_seed(void);
