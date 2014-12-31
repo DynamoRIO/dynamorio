@@ -522,7 +522,8 @@
      * All the optimizations assume that clean callee will not be changed
      * later.
      */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
+    /* FIXME i#1551: NYI on ARM */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_ARM_ELSE(0, 2),
                             "optimization level on optimizing clean call sequences")
     /* Assuming the client's clean call does not rely on the cleared eflags,
      * i.e., initialize the eflags before using it, we can skip the eflags
@@ -2137,7 +2138,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
       * modules loaded by natively-executed modules
       * these don't affect pcaches since the trampoline bbs won't be coarse-grain.
       */
-    OPTION_DEFAULT(bool, native_exec, true, "attempt to execute certain libraries natively (WARNING: lots of issues with this, use at own risk)")
+    /* XXX i#1582: add ARM support for native_exec */
+    OPTION_DEFAULT(bool, native_exec, IF_ARM_ELSE(false, true),
+                   "attempt to execute certain libraries natively (WARNING: lots of issues with this, use at own risk)")
      /* initially populated w/ all dlls we've needed to get .NET, MS JVM, Sun JVM,
       * Symantec JVM, and Panda AV working, but with very limited workload testing so far
       */

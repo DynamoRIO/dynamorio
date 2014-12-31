@@ -532,7 +532,7 @@ GLOBAL_LABEL(hashlookup_null_handler:)
 
         DECLARE_FUNC(back_from_native_retstubs)
 GLOBAL_LABEL(back_from_native_retstubs:)
-        /* FIXME i#1551: NYI on ARM */
+        /* FIXME i#1582: NYI on ARM */
 DECLARE_GLOBAL(back_from_native_retstubs_end)
 ADDRTAKEN_LABEL(back_from_native_retstubs_end:)
         bl       GLOBAL_REF(unexpected_return)
@@ -540,7 +540,7 @@ ADDRTAKEN_LABEL(back_from_native_retstubs_end:)
 
         DECLARE_FUNC(back_from_native)
 GLOBAL_LABEL(back_from_native:)
-        /* FIXME i#1551: NYI on ARM */
+        /* FIXME i#1582: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(back_from_native)
 
