@@ -154,8 +154,8 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      reg_id_t scratch, instr_t **inlined_tgt_instr)
 {
     /* load target into scratch register */
-    insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)target,
-                          opnd_create_reg(scratch), ilist, where, NULL, NULL);
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)target,
+                           opnd_create_reg(scratch), ilist, where, NULL, NULL);
     /* mov target from scratch register to pc */
     PRE(ilist, where, INSTR_CREATE_mov(dcontext,
                                        opnd_create_reg(DR_REG_PC),
@@ -193,13 +193,18 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
          */
         mov1 = INSTR_CREATE_movw(dcontext, dst, OPND_CREATE_INT(val & 0xffff));
         PRE(ilist, instr, mov1);
-        /* XXX: movw expects reg size to be OPSZ_PTR but
-         * movt expects reg size to be OPSZ_PTR_HALF.
-         */
-        opnd_set_size(&dst, OPSZ_PTR_HALF);
         val = (val >> 16) & 0xffff;
-        mov2 = INSTR_CREATE_movt(dcontext, dst, OPND_CREATE_INT(val));
-        PRE(ilist, instr, mov2);
+        if (val == 0) {
+            /* movw zero-extends so we're done */
+            mov2 = NULL;
+        } else {
+            /* XXX: movw expects reg size to be OPSZ_PTR but
+             * movt expects reg size to be OPSZ_PTR_HALF.
+             */
+            opnd_set_size(&dst, OPSZ_PTR_HALF);
+            mov2 = INSTR_CREATE_movt(dcontext, dst, OPND_CREATE_INT(val));
+            PRE(ilist, instr, mov2);
+        }
     }
     if (first != NULL)
         *first = mov1;
@@ -287,9 +292,27 @@ instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    /* Strategy: replace OP_bl with 2-step mov immed into lr + OP_b */
+    ptr_uint_t retaddr;
+    uint opc = instr_get_opcode(instr);
+    ASSERT(opc == OP_bl || opc == OP_blx);
+    retaddr = get_call_return_address(dcontext, ilist, instr);
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)retaddr, opnd_create_reg(DR_REG_LR),
+                           ilist, instr, NULL, NULL);
+    if (opc == OP_bl) {
+        /* remove OP_bl (final added jmp already targets the callee) */
+        instrlist_remove(ilist, instr);
+        instr_destroy(dcontext, instr);
+    } else {
+        /* Unfortunately while there is OP_blx with an immed, OP_bx requires
+         * indirection through a register.  We thus need to swap modes separately,
+         * but our ISA doesn't support mixing modes in one fragment, making
+         * a local "blx next_instr" not easy.
+         */
+        /* FIXME i#1551: handling OP_blx NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
+    return next_instr;
 }
 
 void
@@ -344,8 +367,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 break;
         }
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
-        insert_mov_immed_arch(dcontext, NULL, NULL, r15,
-                              opnd_create_reg(reg), ilist, instr, NULL, NULL);
+        insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
+                               ilist, instr, NULL, NULL);
         if (opc == OP_ldr) {
             instr_set_src(instr, 0,
                           opnd_create_base_disp(reg, REG_NULL, 0,
