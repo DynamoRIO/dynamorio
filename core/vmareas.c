@@ -2250,7 +2250,7 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start,
     /* re-adding fails for written_areas since no merging, so lookup first */
     already = lookup_addr(v, tag, &a);
     if (!already) {
-        app_pc prev_start, next_start;
+        app_pc prev_start = NULL, next_start = NULL;
         LOG(GLOBAL, LOG_VMAREAS, 2,
             "new written executable vm area: "PFX"-"PFX"\n",
             start, end);
