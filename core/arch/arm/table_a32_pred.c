@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -247,23 +247,23 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_b,       0x0ae00000, "b",      xx, xx, j24_x4, xx, xx, pred, x, END_LIST},
     {OP_b,       0x0af00000, "b",      xx, xx, j24_x4, xx, xx, pred, x, END_LIST},
     /* b0 */
-    {OP_bl,      0x0b000010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},/*no chain nec.*/
-    {OP_bl,      0x0b100010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0b200010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0b300010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0b400010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0b500010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0b600010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0b700010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b000000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},/*no chain nec.*/
+    {OP_bl,      0x0b100000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b200000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b300000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b400000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b500000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b600000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b700000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
     /* b8 */
-    {OP_bl,      0x0b800010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0b900010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0ba00010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0bb00010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0bc00010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0bd00010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0be00010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
-    {OP_bl,      0x0bf00010, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b800000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0b900000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0ba00000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0bb00000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0bc00000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0bd00000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0be00000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
+    {OP_bl,      0x0bf00000, "bl",     LRw, xx, j24_x4, xx, xx, pred, x, END_LIST},
     /* c0 */
     {INVALID,    0x0c000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x0c100000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
