@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -332,8 +332,50 @@ void
 mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
               instr_t *next_instr, uint flags)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    int opc = instr_get_opcode(instr);
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
+    if (opc == OP_pop) {
+        /* The pop into pc will always be last (r15) so we remove it and add
+         * a single-pop instr into r2.
+         */
+        uint i;
+        bool found_pc;
+        for (i = 0; i < instr_num_dsts(instr); i++) {
+            if (opnd_is_reg(instr_get_dst(instr, i)) &&
+                opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
+                found_pc = true;
+                instr_remove_dst(dcontext, instr, i);
+                break;
+            }
+        }
+        ASSERT(found_pc);
+        PRE(ilist, next_instr,
+            INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_R2)));
+    } else if (opc == OP_bx || opc ==  OP_bxj) {
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
+                              opnd_create_reg(DR_REG_LR)));
+        /* remove the bx */
+        instrlist_remove(ilist, instr);
+        instr_destroy(dcontext, instr);
+    } else {
+        /* Reads lr and writes pc */
+        uint i;
+        bool found_pc;
+        /* XXX: can anything (non-OP_ldm) have r2 as an additional dst? */
+        ASSERT_NOT_IMPLEMENTED(instr_writes_to_reg(instr, DR_REG_R2,
+                                                   DR_QUERY_INCLUDE_ALL));
+        for (i = 0; i < instr_num_dsts(instr); i++) {
+            if (opnd_is_reg(instr_get_dst(instr, i)) &&
+                opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
+                found_pc = true;
+                instr_set_dst(instr, i, opnd_create_reg(DR_REG_R2));
+                break;
+            }
+        }
+        ASSERT(found_pc);
+    }
 }
 
 void

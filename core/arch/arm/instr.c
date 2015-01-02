@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -85,6 +85,8 @@ instr_branch_type(instr_t *cti_instr)
         return LINK_DIRECT|LINK_CALL;
     else if (instr_is_call_indirect(cti_instr))
         return LINK_INDIRECT|LINK_CALL;
+    else if (instr_is_return(cti_instr))
+        return LINK_INDIRECT|LINK_RETURN;
     else if (instr_is_mbr_arch(cti_instr))
         return LINK_INDIRECT|LINK_JMP;
     else if (instr_is_cbr_arch(cti_instr) || instr_is_ubr_arch(cti_instr))
@@ -133,13 +135,19 @@ bool
 instr_is_return(instr_t *instr)
 {
     /* There is no "return" opcode so we consider a return to be either:
-     * A) An instr that reads lr and writes pc;
-     * B) A pop into pc.
+     * A) An indirect branch through lr;
+     * B) An instr that reads lr and writes pc;
+     *    (XXX: should we limit to a move and rule out an add or shift or whatever?)
+     * C) A pop into pc.
      */
+    int opc = instr_get_opcode(instr);
+    if ((opc == OP_bx || opc ==  OP_bxj) &&
+        opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_LR)
+        return true;
     if (!instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
         return false;
     return (instr_reads_from_reg(instr, DR_REG_LR, DR_QUERY_INCLUDE_ALL) ||
-            instr_get_opcode(instr) == OP_pop);
+            opc == OP_pop);
 }
 
 bool
