@@ -431,17 +431,14 @@ get_direct_exit_target(dcontext_t *dcontext, uint flags)
 size_t
 get_direct_exit_tls_offs(dcontext_t *dcontext, uint flags)
 {
-    if (FRAG_DB_SHARED(flags)) {
-        if (TEST(FRAG_COARSE_GRAIN, flags)) {
-            /* FIXME i#1575: coarse-grain NYI on ARM */
-            ASSERT_NOT_IMPLEMENTED(false);
-            return 0;
-        } else {
-            /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
-            return TLS_FCACHE_RETURN_SHARED_SLOT;
-        }
+    /* ARM always uses shared gencode so we ignore FRAG_DB_SHARED(flags) */
+    if (TEST(FRAG_COARSE_GRAIN, flags)) {
+        /* FIXME i#1575: coarse-grain NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+        return 0;
     } else {
-        return TLS_FCACHE_RETURN_PRIVATE_SLOT;
+        /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
+        return TLS_FCACHE_RETURN_SLOT;
     }
 }
 #endif

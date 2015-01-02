@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -143,8 +143,7 @@ typedef struct _spill_state_t {
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
-    byte *fcache_return_shared;
-    byte *fcache_return_private;
+    byte *fcache_return;
     /* FIXME i#1575: coarse-grain NYI on ARM */
 #endif
 } spill_state_t;
@@ -188,10 +187,7 @@ typedef struct _local_state_extended_t {
 #endif /* X86/ARM */
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
 #ifdef ARM
-# define TLS_FCACHE_RETURN_SHARED_SLOT \
-    ((ushort)offsetof(spill_state_t, fcache_return_shared))
-# define TLS_FCACHE_RETURN_PRIVATE_SLOT \
-    ((ushort)offsetof(spill_state_t, fcache_return_private))
+# define TLS_FCACHE_RETURN_SLOT  ((ushort)offsetof(spill_state_t, fcache_return))
 #endif
 
 #define TABLE_OFFSET             (offsetof(local_state_extended_t, table_space))

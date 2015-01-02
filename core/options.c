@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1266,6 +1266,13 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.cache_shared_free_list = true;
         changed_options = true;
     }
+#if defined(X64) || defined(ARM)
+    if (!DYNAMO_OPTION(private_ib_in_tls)) {
+        USAGE_ERROR("-private_ib_in_tls is required for x64 and ARM");
+        dynamo_options.private_ib_in_tls = true;
+        changed_options = true;
+    }
+#endif
 #ifdef WINDOWS
     if (DYNAMO_OPTION(shared_fragment_shared_syscalls) &&
         !DYNAMO_OPTION(shared_syscalls)) {
@@ -1278,11 +1285,6 @@ check_option_compatibility_helper(int recurse_count)
         /* we use tls for the continuation pc, and the shared gencode, always */
         USAGE_ERROR("-shared_fragment_shared_syscalls is required for x64");
         dynamo_options.shared_fragment_shared_syscalls = true;
-        changed_options = true;
-    }
-    if (!DYNAMO_OPTION(private_ib_in_tls)) {
-        USAGE_ERROR("-private_ib_in_tls is required for x64");
-        dynamo_options.private_ib_in_tls = true;
         changed_options = true;
     }
     if (DYNAMO_OPTION(x86_to_x64_ibl_opt) && !DYNAMO_OPTION(x86_to_x64)) {

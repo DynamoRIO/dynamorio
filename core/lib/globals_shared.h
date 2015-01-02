@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -693,6 +693,14 @@ typedef struct _instr_t instr_t;
 # define _IF_X86_X64(x)
 # define IF_NOT_X86_X64(x) x
 # define _IF_NOT_X86_X64(x) , x
+#endif
+
+#if defined(X64) || defined(ARM)
+# define IF_X64_OR_ARM(x) x
+# define IF_NOT_X64_OR_ARM(x)
+#else
+# define IF_X64_OR_ARM(x)
+# define IF_NOT_X64_OR_ARM(x) x
 #endif
 /* DR_API EXPORT END */
 

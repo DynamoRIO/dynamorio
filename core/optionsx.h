@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -782,7 +782,7 @@
     OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(true, false),
                    "shared_traces", {
         /* for -no_shared_traces, set options back to defaults for private traces: */
-        IF_NOT_X64(options->private_ib_in_tls = options->shared_traces;)
+        IF_NOT_X64_OR_ARM(options->private_ib_in_tls = options->shared_traces;)
         options->atomic_inlined_linking = options->shared_traces;
         options->shared_trace_ibl_routine = options->shared_traces;
         /* private on by default, shared off until proven stable FIXME */
@@ -804,7 +804,7 @@
         options->finite_trace_cache = !options->thread_private;
         if (options->thread_private && options->indirect_stubs)
             options->coarse_units = true;
-        IF_NOT_X64(options->private_ib_in_tls = !options->thread_private;)
+        IF_NOT_X64_OR_ARM(options->private_ib_in_tls = !options->thread_private;)
         options->atomic_inlined_linking = !options->thread_private;
         options->shared_trace_ibl_routine = !options->thread_private;
         /* we prefer -no_indirect_stubs to inlining, though should actually
@@ -934,7 +934,7 @@
             options->shared_traces = false;
             /* undo things that the default-on shared_traces turns on */
             IF_NOT_X64(IF_WINDOWS(options->shared_fragment_shared_syscalls = false;))
-            IF_NOT_X64(options->private_ib_in_tls = false;)
+            IF_NOT_X64_OR_ARM(options->private_ib_in_tls = false;)
             options->shared_trace_ibl_routine = false;
             /* will work w/ wset but let's not clutter creation count stats */
             options->finite_bb_cache = false;

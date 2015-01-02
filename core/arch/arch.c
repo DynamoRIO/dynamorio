@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1029,10 +1029,8 @@ arch_thread_init(dcontext_t *dcontext)
 #ifdef ARM
     /* Store addresses we access via TLS from exit stubs and gencode. */
     /* FIXME i#1551: add Thumb vs ARM; refactor FRAGMENT_GENCODE_MODE */
-    get_local_state_extended()->spill_space.fcache_return_shared =
+    get_local_state_extended()->spill_space.fcache_return =
         fcache_return_shared_routine();
-    get_local_state_extended()->spill_space.fcache_return_private =
-        fcache_return_routine_ex(dcontext);
     /* Because absolute addresses are impractical on ARM, thread-private uses
      * only shared gencode, just like for 64-bit.
      */
@@ -1802,8 +1800,7 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
                    target < shared_code_x86_to_x64->gen_start_pc ||
                    target >= shared_code_x86_to_x64->gen_end_pc))) {
         if (dcontext == GLOBAL_DCONTEXT ||
-            /* PR 244737: thread-private uses shared gencode on x64 */
-            IF_X64(true ||)
+            USE_SHARED_GENCODE_ALWAYS() ||
             target < ((generated_code_t *)dcontext->private_code)->gen_start_pc ||
             target >= ((generated_code_t *)dcontext->private_code)->gen_end_pc)
             return false;

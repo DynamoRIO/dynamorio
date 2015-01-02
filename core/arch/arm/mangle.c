@@ -43,6 +43,11 @@
 #define POST instrlist_meta_postinsert
 #define PRE  instrlist_meta_preinsert
 
+/* For ARM, we always use TLS and never use hardcoded dcontext
+ * (xref USE_SHARED_GENCODE_ALWAYS() and -private_ib_in_tls).
+ * Thus we use instr_create_{save_to,restore_from}_tls() directly.
+ */
+
 byte *
 remangle_short_rewrite(dcontext_t *dcontext,
                        instr_t *instr, byte *pc, app_pc target)
