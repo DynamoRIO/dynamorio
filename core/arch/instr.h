@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -875,6 +875,17 @@ DR_API
  */
 void
 instr_set_dst(instr_t *instr, uint pos, opnd_t opnd);
+
+DR_API
+/**
+ * Removes \p instr's destination operand at position \p pos and
+ * shifts all subsequent destination operands (if any) down one
+ * position.
+ * Also calls instr_set_raw_bits_valid(\p instr, false) and
+ * instr_set_operands_valid(\p instr, true).
+ */
+void
+instr_remove_dst(dcontext_t *dcontext, instr_t *instr, uint pos);
 
 DR_API
 /**

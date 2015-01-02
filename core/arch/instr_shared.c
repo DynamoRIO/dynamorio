@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -554,6 +554,25 @@ instr_set_dst(instr_t *instr, uint pos, opnd_t opnd)
     /* if we're modifying operands, don't use original bits to encode! */
     instr_being_modified(instr, false/*raw bits invalid*/);
     /* assume all operands are valid */
+    instr_set_operands_valid(instr, true);
+}
+
+void
+instr_remove_dst(dcontext_t *dcontext, instr_t *instr, uint pos)
+{
+    opnd_t *new_dsts;
+    CLIENT_ASSERT(pos >= 0 && pos < instr->num_dsts, "instr_set_dst: ordinal invalid");
+    instr->num_dsts--;
+    new_dsts = (opnd_t *) heap_alloc(dcontext, instr->num_dsts*sizeof(opnd_t)
+                                     HEAPACCT(ACCT_IR));
+    if (pos > 0)
+        memcpy(new_dsts, instr->dsts, pos*sizeof(opnd_t));
+    if (pos < instr->num_dsts)
+        memcpy(new_dsts + pos, instr->dsts + pos, (instr->num_dsts - pos)*sizeof(opnd_t));
+    instr->dsts = new_dsts;
+    heap_free(dcontext, instr->dsts, (instr->num_dsts + 1)*sizeof(opnd_t)
+              HEAPACCT(ACCT_IR));
+    instr_being_modified(instr, false/*raw bits invalid*/);
     instr_set_operands_valid(instr, true);
 }
 
