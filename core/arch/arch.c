@@ -1031,6 +1031,17 @@ arch_thread_init(dcontext_t *dcontext)
     /* FIXME i#1551: add Thumb vs ARM; refactor FRAGMENT_GENCODE_MODE */
     get_local_state_extended()->spill_space.fcache_return =
         fcache_return_shared_routine();
+    for (branch_type = IBL_BRANCH_TYPE_START;
+         branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+        get_local_state_extended()->spill_space.trace_ibl[branch_type].ibl =
+            get_ibl_routine(dcontext, IBL_LINKED, IBL_TRACE_SHARED, branch_type);
+        get_local_state_extended()->spill_space.trace_ibl[branch_type].unlinked =
+            get_ibl_routine(dcontext, IBL_UNLINKED, IBL_TRACE_SHARED, branch_type);
+        get_local_state_extended()->spill_space.bb_ibl[branch_type].ibl =
+            get_ibl_routine(dcontext, IBL_LINKED, IBL_BB_SHARED, branch_type);
+        get_local_state_extended()->spill_space.bb_ibl[branch_type].unlinked =
+            get_ibl_routine(dcontext, IBL_UNLINKED, IBL_BB_SHARED, branch_type);
+    }
     /* Because absolute addresses are impractical on ARM, thread-private uses
      * only shared gencode, just like for 64-bit.
      */

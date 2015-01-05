@@ -125,6 +125,13 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
+#ifdef ARM
+typedef struct _ibl_entry_pc_t {
+    byte *ibl;
+    byte *unlinked;
+} ibl_entry_pc_t;
+#endif
+
 /* All spill slots are grouped in a separate struct because with
  * -no_ibl_table_in_tls, only these slots are mapped to TLS (and the
  * table address/mask pairs are not).
@@ -143,7 +150,10 @@ typedef struct _spill_state_t {
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
+    /* FIXME i#1551: add Thumb vs ARM: may need two entry points here */
     byte *fcache_return;
+    ibl_entry_pc_t trace_ibl[IBL_BRANCH_TYPE_END];
+    ibl_entry_pc_t bb_ibl[IBL_BRANCH_TYPE_END];
     /* FIXME i#1575: coarse-grain NYI on ARM */
 #endif
 } spill_state_t;

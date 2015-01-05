@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -426,22 +426,6 @@ get_direct_exit_target(dcontext_t *dcontext, uint flags)
         return fcache_return_routine_ex(dcontext _IF_X64(FRAGMENT_GENCODE_MODE(flags)));
     }
 }
-
-#ifdef ARM
-size_t
-get_direct_exit_tls_offs(dcontext_t *dcontext, uint flags)
-{
-    /* ARM always uses shared gencode so we ignore FRAG_DB_SHARED(flags) */
-    if (TEST(FRAG_COARSE_GRAIN, flags)) {
-        /* FIXME i#1575: coarse-grain NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-        return 0;
-    } else {
-        /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
-        return TLS_FCACHE_RETURN_SLOT;
-    }
-}
-#endif
 
 int
 insert_exit_stub(dcontext_t *dcontext, fragment_t *f,

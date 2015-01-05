@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1231,7 +1231,10 @@ get_direct_exit_target(dcontext_t *dcontext, uint flags);
 
 #ifdef ARM
 size_t
-get_direct_exit_tls_offs(dcontext_t *dcontext, uint flags);
+get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags);
+
+size_t
+get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry);
 #endif
 
 void
