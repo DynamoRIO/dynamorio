@@ -2653,7 +2653,8 @@ hook_vsyscall(dcontext_t *dcontext)
 
     ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
     IF_X64(ASSERT_NOT_REACHED()); /* no sysenter support on x64 */
-    ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL);
+    ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL &&
+           vsyscall_page_start == (app_pc)PAGE_START(vsyscall_syscall_end_pc));
 
     instr_init(dcontext, &instr);
     pc = vsyscall_syscall_end_pc;

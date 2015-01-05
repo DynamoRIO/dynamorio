@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -74,6 +74,7 @@ typedef struct _allmem_info_t {
     uint prot;
     dr_mem_type_t type;
     bool shareable;
+    bool vdso;
 } allmem_info_t;
 
 static void allmem_info_free(void *data);
@@ -183,7 +184,9 @@ allmem_should_merge(bool adjacent, void *data1, void *data2)
      */
     return (i1->prot == i2->prot &&
             i1->type == i2->type &&
-            i1->shareable == i2->shareable);
+            i1->shareable == i2->shareable &&
+            /* i#1583: kernel doesn't merge 2-page vdso after we hook vsyscall */
+            !i1->vdso && !i2->vdso);
 }
 
 static void *
@@ -192,9 +195,7 @@ allmem_info_merge(void *dst_data, void *src_data)
     DOCHECK(1, {
       allmem_info_t *src = (allmem_info_t *) src_data;
       allmem_info_t *dst = (allmem_info_t *) dst_data;
-      ASSERT(src->prot == dst->prot &&
-             src->type == dst->type &&
-             src->shareable == dst->shareable);
+      ASSERT(allmem_should_merge(true, dst, src));
     });
     allmem_info_free(src_data);
     return dst_data;
@@ -228,6 +229,7 @@ add_all_memory_area(app_pc start, app_pc end, uint prot, int type, bool shareabl
     ASSERT(type >= 0);
     info->type = type;
     info->shareable = shareable;
+    info->vdso = (start == vsyscall_page_start);
     vmvector_add(all_memory_areas, start, end, (void *)info);
 }
 

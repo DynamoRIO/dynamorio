@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -329,9 +329,13 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
              * We return "rx" as the permissions in that case.
              */
             if (vsyscall_page_start != NULL &&
-                pc >= vsyscall_page_start && pc < vsyscall_page_start+PAGE_SIZE) {
-                ASSERT(iter.vm_start == vsyscall_page_start);
-                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE);
+                pc >= vsyscall_page_start && pc < vsyscall_page_start+2*PAGE_SIZE) {
+                ASSERT(iter.vm_start == vsyscall_page_start ||
+                       /* i#1583: after we hook vsyscall we have two vdso regions */
+                       iter.vm_start == vsyscall_page_start + PAGE_SIZE);
+                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE ||
+                       /* i#1583: recent kernels have 2-page vdso */
+                       iter.vm_end - iter.vm_start == 2*PAGE_SIZE);
                 if (iter.prot == MEMPROT_NONE) {
                     info->prot = (MEMPROT_READ|MEMPROT_EXEC);
                 }

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -334,8 +334,9 @@ static bool os_dir_iterator_next(dir_iterator_t *iter);
  * randomly placed since fedora2.
  * marked rx then: FIXME: should disallow this guy when that's the case!
  * random vsyscall page is identified in maps files as "[vdso]"
- * (kernel-provided fake shared library or Virt Dyn Shared Object)
+ * (kernel-provided fake shared library or Virt Dyn Shared Object).
  */
+/* i#1583: vdso is now 2 pages, yet we assume vsyscall is on 1st page. */
 app_pc vsyscall_page_start = NULL;
 /* pc of the end of the syscall instr itself */
 app_pc vsyscall_syscall_end_pc = NULL;
@@ -7544,7 +7545,9 @@ find_executable_vm_areas(void)
             /* We assume no vsyscall page for x64; thus, checking the
              * hardcoded address shouldn't have any false positives.
              */
-            ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE);
+            ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE ||
+                   /* i#1583: recent kernels have 2-page vdso */
+                   iter.vm_end - iter.vm_start == 2*PAGE_SIZE);
             ASSERT(!dynamo_initialized); /* .data should be +w */
             ASSERT(vsyscall_page_start == NULL);
             /* we're not considering as "image" even if part of ld.so (xref i#89) and

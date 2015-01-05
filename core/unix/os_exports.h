@@ -239,7 +239,9 @@ int our_unsetenv(const char *name);
 # define VAR_IN_SECTION(name) __attribute__ ((section (name)))
 #endif
 
-/* location of vsyscall "vdso" page */
+/* Location of vsyscall "vdso" page.  Even when vdso is 2 pages we assume the
+ * vsyscall is on the 1st page (i#1583).
+ */
 extern app_pc vsyscall_page_start;
 /* pc of the end of the syscall instr itself */
 extern app_pc vsyscall_syscall_end_pc;
