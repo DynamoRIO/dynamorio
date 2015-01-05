@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -520,15 +520,18 @@ GLOBAL_LABEL(master_signal_handler:)
         END_FUNC(master_signal_handler)
 
 #endif /* LINUX */
+
+
 /* void hashlookup_null_handler(void)
  * PR 305731: if the app targets NULL, it ends up here, which indirects
  * through hashlookup_null_target to end up in an ibl miss routine.
  */
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+        ldr      pc, [pc, #-4]
+        nop      /* will be replaced w/ target */
         END_FUNC(hashlookup_null_handler)
+
 
         DECLARE_FUNC(back_from_native_retstubs)
 GLOBAL_LABEL(back_from_native_retstubs:)
