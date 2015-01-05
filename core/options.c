@@ -1228,6 +1228,11 @@ check_option_compatibility_helper(int recurse_count)
     }
 #ifdef EXPOSE_INTERNAL_OPTIONS
     if (!DYNAMO_OPTION(indirect_stubs)) {
+# ifdef ARM
+        USAGE_ERROR("ARM requires -indirect_stubs, enabling");
+        dynamo_options.indirect_stubs = true;
+        changed_options = true;
+# endif
 # ifdef PROGRAM_SHEPHERDING
         if (DYNAMO_OPTION(ret_after_call) ||
             DYNAMO_OPTION(rct_ind_call) != OPTION_DISABLED ||

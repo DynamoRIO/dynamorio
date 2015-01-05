@@ -149,9 +149,8 @@
 # define STUB_INDIRECT_SIZE(flags) \
     (FRAG_IS_32(flags) ? STUB_INDIRECT_SIZE32 : STUB_INDIRECT_SIZE64)
 #else
-/* FIXME i#1551: implement ibl support */
-# define STUB_INDIRECT_SIZE(flags) \
-    (ASSERT_NOT_IMPLEMENTED(false), 0)
+/* indirect stub is parallel to the direct one */
+# define STUB_INDIRECT_SIZE(flags) DIRECT_EXIT_STUB_SIZE(flags)
 #endif
 
 /* STUB_COARSE_DIRECT_SIZE is in arch_exports.h */

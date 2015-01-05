@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1217,6 +1217,34 @@ decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
     instr_set_raw_bits(instr, pc, sz);
     /* assumption: operands are already marked invalid (instr was reset) */
     return (pc + sz);
+}
+
+bool
+decode_raw_is_jmp(dcontext_t *dcontext, byte *pc)
+{
+    dr_isa_mode_t mode = dr_get_isa_mode(dcontext);
+    if (mode == DR_ISA_ARM_A32) {
+        uint word = *(uint*)pc;
+        return ((word & 0x0f000000) == 0x0a000000 &&
+                (word & 0xf0000000) != 0xf0000000);
+    } else
+        ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+}
+
+byte *
+decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
+{
+    dr_isa_mode_t mode = dr_get_isa_mode(dcontext);
+    if (mode == DR_ISA_ARM_A32) {
+        uint word = *(uint*)pc;
+        int disp = word & 0xffffff;
+        if (TEST(0x800000, disp))
+            disp |= 0xff000000; /* sign-extend */
+        return pc + ARM_CUR_PC_OFFS + (disp << 2);
+    } else
+        ASSERT_NOT_IMPLEMENTED(false);
+    return NULL;
 }
 
 const instr_info_t *

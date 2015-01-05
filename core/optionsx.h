@@ -866,7 +866,11 @@
      * Core2, and on IIS on P4.  Note that this gets disabled if
      * coarse_units is on (PR 213262 covers supporting it there).
      */
-    OPTION_COMMAND(bool, indirect_stubs, false, "indirect_stubs", {
+    /* For ARM, reachability concerns make it difficult to avoid a stub unless we
+     * use "ldr pc, [r10+offs]" as an exit cti, which complicates the code that handles
+     * exit ctis and doesn't work for A64.
+     */
+    OPTION_COMMAND(bool, indirect_stubs, IF_ARM_ELSE(true, false), "indirect_stubs", {
         /* we put inlining back in place if we have stubs, for private,
          * though should re-measure whether inlining is worthwhile */
         if (options->thread_private && options->indirect_stubs) {

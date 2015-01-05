@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -384,6 +384,8 @@ extern const instr_info_t invalid_instr;
 
 /* in decode.c */
 const instr_info_t * opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode);
+bool decode_raw_is_jmp(dcontext_t *dcontext, byte *pc);
+byte *decode_raw_jmp_target(dcontext_t *dcontext, byte *pc);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 

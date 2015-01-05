@@ -67,6 +67,14 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
     return NULL;
 }
 
+static void
+insert_ldr_tls_to_pc(byte *pc, uint offs)
+{
+    /* ldr pc, [r10, #offs] */
+    *(uint*)pc =
+        0xe590f000 | ((dr_reg_stolen - DR_REG_R0) << 16) | offs;
+}
+
 /* inserts any nop padding needed to ensure patchable branch offsets don't
  * cross cache line boundaries.  If emitting sets the offset field of all
  * instructions, else sets the translation for the added nops (for
@@ -135,10 +143,9 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                              linkstub_t *l, cache_pc stub_pc, ushort l_flags)
 {
     byte *pc = (byte *) stub_pc;
+    /* FIXME i#1575: coarse-grain NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
     if (LINKSTUB_DIRECT(l_flags)) {
-        /* FIXME i#1575: coarse-grain NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
-
         if (FRAG_IS_THUMB(f->flags)) {
             /* FIXME i#1551: add Thumb support */
             ASSERT_NOT_IMPLEMENTED(false);
@@ -170,16 +177,36 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                 0xe3400000 | ((ls & 0xf0000000) >> 12) | ((ls & 0x0fff0000) >> 16);
             pc += ARM_INSTR_SIZE;
             /* ldr pc, [r10, #fcache-return-offs] */
-            *(uint*)pc =
-                0xe590f000 | ((dr_reg_stolen - DR_REG_R0) << 16) |
-                get_fcache_return_tls_offs(dcontext, f->flags);
+            insert_ldr_tls_to_pc(pc, get_fcache_return_tls_offs(dcontext, f->flags));
             pc += ARM_INSTR_SIZE;
         }
         return (int) (pc - stub_pc);
     } else {
-        /* FIXME i#1551: ibl NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-        return 0;
+        if (FRAG_IS_THUMB(f->flags)) {
+            /* FIXME i#1551: add Thumb support */
+            ASSERT_NOT_IMPLEMENTED(false);
+        } else {
+            ptr_int_t ls = (ptr_int_t) l;
+            /* stub starts out unlinked */
+            cache_pc exit_target = get_unlinked_entry(dcontext,
+                                                      EXIT_TARGET_TAG(dcontext, f, l));
+            /* str r1, [r10, #r1-slot] */
+            *(uint *)pc =
+                0xe5801000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG1_SLOT;
+            pc += ARM_INSTR_SIZE;
+            /* movw r1, #bottom-half-&linkstub */
+            *(uint*)pc =
+                0xe3001000 | ((ls & 0xf000) << 4) | (ls & 0xfff);
+            pc += ARM_INSTR_SIZE;
+            /* movt r1, #top-half-&linkstub */
+            *(uint *)pc =
+                0xe3401000 | ((ls & 0xf0000000) >> 12) | ((ls & 0x0fff0000) >> 16);
+            pc += ARM_INSTR_SIZE;
+            /* ldr pc, [r10, #ibl-offs] */
+            insert_ldr_tls_to_pc(pc, get_ibl_entry_tls_offs(dcontext, exit_target));
+            pc += ARM_INSTR_SIZE;
+        }
+        return (int) (pc - stub_pc);
     }
 }
 
@@ -226,16 +253,35 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
                         linkstub_t *l, bool hot_patch,
                         app_pc target_tag)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    byte *stub_pc = (byte *) EXIT_STUB_PC(dcontext, f, l);
+    byte *pc;
+    cache_pc exit_target;
+    ibl_type_t ibl_type = {0};
+    /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
+    DEBUG_DECLARE(bool is_ibl = )
+        get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type _IF_X64(NULL));
+    ASSERT(is_ibl);
+    if (IS_IBL_LINKED(ibl_type.link_state))
+        exit_target = target_tag;
+    else
+        exit_target = get_linked_entry(dcontext, target_tag);
+    /* We want to patch the final instr */
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
+    pc = stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - ARM_INSTR_SIZE;
+    /* ldr pc, [r10, #ibl-offs] */
+    insert_ldr_tls_to_pc(pc, get_ibl_entry_tls_offs(dcontext, exit_target));
+    /* XXX: since we need a syscall to sync, we should start out linked */
+    machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
 }
 
 cache_pc
 indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    cache_pc cti = EXIT_CTI_PC(f, l);
+    if (!EXIT_HAS_STUB(l->flags, f->flags))
+        return NULL;
+    ASSERT(decode_raw_is_jmp(dcontext, cti));
+    return decode_raw_jmp_target(dcontext, cti);
 }
 
 cache_pc
