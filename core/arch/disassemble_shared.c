@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -346,8 +346,10 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
                                             &ibl_brtype);
         }
 # elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
+        if (ibl_name == NULL && in_coarse_stub_prefixes(target)) {
+            /* FIXME i#1575: NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+        }
 # endif
 # ifdef WINDOWS
         /* must test first, as get_ibl_routine_name will think "bb_ibl_indjmp" */

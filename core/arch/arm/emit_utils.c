@@ -331,8 +331,7 @@ entrance_stub_jmp(cache_pc stub)
 bool
 coarse_is_entrance_stub(cache_pc stub)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#1575: coarse-grain NYI on ARM */
     return false;
 }
 
@@ -536,7 +535,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
     /* app's r0 was spilled to DIRECT_STUB_SPILL_SLOT by exit stub */
     APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, DIRECT_STUB_SPILL_SLOT));
     if (linkstub != NULL) {
-        /* FIXME i#1551: NYI for coarse-grain stub */
+        /* FIXME i#1575: NYI for coarse-grain stub */
         ASSERT_NOT_IMPLEMENTED(false);
     } else {
         APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, R0_OFFSET));

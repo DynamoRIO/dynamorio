@@ -2811,7 +2811,7 @@ coarse_exit_prefix_size(coarse_info_t *info)
     return SIZE_MOV_XBX_TO_TLS(flags, false) + SIZE_MOV_PTR_IMM_TO_XAX(flags)
         + 5*JMP_LONG_LENGTH;
 #else
-    /* FIXME i#1551: implement coarse-grain support; move to arch-specific dir? */
+    /* FIXME i#1575: implement coarse-grain support; move to arch-specific dir? */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 #endif
