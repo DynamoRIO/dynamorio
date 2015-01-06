@@ -613,6 +613,7 @@ typedef enum {
     PATCH_TYPE_ABSOLUTE     = 0x0, /* link with absolute address, updated dynamically */
     PATCH_TYPE_INDIRECT_XDI = 0x1, /* linked with indirection through EDI, no updates */
     PATCH_TYPE_INDIRECT_FS  = 0x2, /* linked with indirection through FS, no updates */
+    PATCH_TYPE_INDIRECT_TLS = 0x3, /* multi-step TLS indirection (ARM), no updates */
 } patch_list_type_t;
 
 typedef struct patch_list_t {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,9 @@
 #include "instrlist.h"
 #include "instrument.h" /* for dr_insert_call() */
 
-#define APP  instrlist_meta_append
+/* shorten code generation lines */
+#define APP    instrlist_meta_append
+#define OPREG  opnd_create_reg
 
 /***************************************************************************/
 /*                               EXIT STUB                                 */
@@ -617,16 +619,114 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
     return pc;
 }
 
+/* XXX: ideally we'd share the high-level and use XINST_CREATE or _arch routines
+ * to fill in pieces like flag saving.  However, the ibl generation code for x86
+ * is so complex that this needs a bunch of refactoring and likely removing support
+ * for certain options before it becomes a reasonable task.  For now we go with
+ * a separate lean routine that supports very few options.  Once we start filling
+ * in hashtable stats we should consider refactoring and sharing.
+ */
 byte *
-emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *pc,
+emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                             byte *fcache_return_pc,
                             bool target_trace_table,
                             bool inline_ibl_head,
                             ibl_code_t *ibl_code /* IN/OUT */)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return pc;
+    instrlist_t ilist;
+    instr_t *unlinked = INSTR_CREATE_label(dc);
+    instr_t *miss = INSTR_CREATE_label(dc);
+    instr_t *target_delete_entry = INSTR_CREATE_label(dc);
+    patch_list_t *patch = &ibl_code->ibl_patch;
+    bool absolute = false; /* XXX: for SAVE_TO_DC: should eliminate it */
+    IF_DEBUG(bool table_in_tls = SHARED_IB_TARGETS() &&
+             (target_trace_table || SHARED_BB_ONLY_IB_TARGETS()) &&
+             DYNAMO_OPTION(ibl_table_in_tls);)
+    /* FIXME i#1551: non-table_in_tls NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(table_in_tls);
+    /* FIXME i#1551: -no_indirect_stubs NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
+
+    instrlist_init(&ilist);
+    init_patch_list(patch, PATCH_TYPE_INDIRECT_TLS);
+
+    /* On entry we expect:
+     * 1) The app target is in r2 (which is spilled to TLS_REG2_SLOT)
+     * 2) The linkstub is in r1 (which is spilled to TLS_REG1_SLOT)
+     */
+
+    /* First, get some scratch regs: spill r0, and move r1 to the r3
+     * slot as we don't need it if we hit.
+     */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
+
+    /* Now apply the hash, the *8, and add to the table base */
+    APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),
+                                 OPND_TLS_FIELD(TLS_MASK_SLOT(ibl_code->branch_type))));
+    APP(&ilist, INSTR_CREATE_and
+        (dc, OPREG(DR_REG_R1), OPREG(DR_REG_R1), OPREG(DR_REG_R2)));
+    APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R0),
+                                 OPND_TLS_FIELD(TLS_TABLE_SLOT(ibl_code->branch_type))));
+    APP(&ilist, INSTR_CREATE_add_shimm
+        (dc, OPREG(DR_REG_R1), OPREG(DR_REG_R0), OPREG(DR_REG_R1),
+         OPND_CREATE_INT(DR_SHIFT_LSL), OPND_CREATE_INT(3)));
+    /* r1 now holds the fragment_entry_t* in the hashtable */
+
+    /* Did we hit? */
+    APP(&ilist, INSTR_CREATE_ldr
+        (dc, OPREG(DR_REG_R0),
+         OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
+    APP(&ilist, INSTR_CREATE_cmp(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R2)));
+    APP(&ilist, INSTR_PRED(INSTR_CREATE_b(dc, opnd_create_instr(miss)), DR_PRED_NE));
+
+    /* Hit path */
+    /* XXX: add stats via sharing code with x86 */
+    APP(&ilist, INSTR_CREATE_ldr
+        (dc, OPREG(DR_REG_R0),
+         OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, start_pc_fragment))));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG1_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+    APP(&ilist, INSTR_CREATE_bx(dc, OPREG(DR_REG_R0)));
+
+    /* FIXME i#1551: add INTERNAL_OPTION(ibl_sentinel_check) support (via
+     * initial hash miss going to sentinel check and loop prior to target delete
+     * entry).  Perhaps best to refactor and share w/ x86 ibl code at the
+     * same time?
+     */
+
+    /* Target delete entry */
+    APP(&ilist, target_delete_entry);
+    add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
+                     0 /* beginning of instruction */,
+                     (ptr_uint_t*)&ibl_code->target_delete_entry);
+    /* We just executed the hit path, so the app's r1 and r2 values are still in
+     * their TLS slots, and &linkstub is still in the r3 slot.
+     */
+
+    /* Miss path */
+    APP(&ilist, miss);
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
+
+    /* Unlink path */
+    APP(&ilist, unlinked);
+    add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
+                     0 /* beginning of instruction */,
+                     (ptr_uint_t*)&ibl_code->unlinked_ibl_entry);
+    /* Put &linkstub into r0 for fcache_return */
+    APP(&ilist, INSTR_CREATE_mov(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R1)));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG1_SLOT));
+    /* Put ib tgt into dcontext->next_tag */
+    insert_shared_get_dcontext(dc, &ilist, NULL, true/*save r5*/);
+    APP(&ilist, SAVE_TO_DC(dc, DR_REG_R2, NEXT_TAG_OFFSET));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R5, DCONTEXT_BASE_SPILL_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+    APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_PC),
+                                 OPND_TLS_FIELD(get_fcache_return_tls_offs(dc, 0))));
+
+    ibl_code->ibl_routine_length = encode_with_patch_list(dc, patch, &ilist, pc);
+    instrlist_clear(dc, &ilist);
+    return pc + ibl_code->ibl_routine_length;
 }
 
 bool
