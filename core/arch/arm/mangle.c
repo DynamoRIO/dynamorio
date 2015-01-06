@@ -324,8 +324,21 @@ void
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ptr_uint_t retaddr;
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
+    if (!opnd_same(instr_get_target(instr), opnd_create_reg(DR_REG_R2))) {
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
+                              instr_get_target(instr)));
+    }
+    retaddr = get_call_return_address(dcontext, ilist, instr);
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)retaddr, opnd_create_reg(DR_REG_LR),
+                           ilist, instr, NULL, NULL);
+    /* remove OP_blx_ind (final added jmp already targets the callee) */
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    /* FIXME i#1551: handle mode switch */
 }
 
 void
