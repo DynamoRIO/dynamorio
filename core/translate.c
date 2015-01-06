@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,7 +69,7 @@
  * - PR 208037/i#399: flushed fragments (need -safe_translate_flushed)
  * - PR 213251: hot patch fragments (b/c nudge can change whether patched =>
  *     should store translations for all hot patch fragments)
- * - PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead
+ * - i#400/PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead
  * - i#751: fault translation has not been tested for x86_to_x64
  */
 

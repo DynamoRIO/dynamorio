@@ -132,6 +132,18 @@ instr_is_call_indirect(instr_t *instr)
 }
 
 bool
+instr_is_pop(instr_t *instr)
+{
+    opnd_t memop;
+    if (instr_num_srcs(instr) == 0)
+        return false;
+    memop = instr_get_src(instr, 0);
+    if (!opnd_is_base_disp(memop))
+        return false;
+    return opnd_get_base(memop) == DR_REG_SP;
+}
+
+bool
 instr_is_return(instr_t *instr)
 {
     /* There is no "return" opcode so we consider a return to be either:
@@ -147,7 +159,7 @@ instr_is_return(instr_t *instr)
     if (!instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
         return false;
     return (instr_reads_from_reg(instr, DR_REG_LR, DR_QUERY_INCLUDE_ALL) ||
-            opc == OP_pop);
+            instr_is_pop(instr));
 }
 
 bool

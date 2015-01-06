@@ -298,6 +298,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
     /* Strategy: replace OP_bl with 2-step mov immed into lr + OP_b */
+    /* FIXME i#1551: handle predication where instr is skipped */
     ptr_uint_t retaddr;
     uint opc = instr_get_opcode(instr);
     ASSERT(opc == OP_bl || opc == OP_blx);
@@ -348,12 +349,16 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     int opc = instr_get_opcode(instr);
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
-    if (opc == OP_pop) {
+    if (instr_is_pop(instr)) {
         /* The pop into pc will always be last (r15) so we remove it and add
          * a single-pop instr into r2.
          */
         uint i;
         bool found_pc;
+        opnd_t memop = instr_get_src(instr, 0);
+        ASSERT(opnd_is_base_disp(memop));
+        opnd_set_size(&memop, OPSZ_VAR_REGLIST);
+        instr_set_src(instr, 0, memop);
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_reg(instr_get_dst(instr, i)) &&
                 opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
@@ -389,6 +394,8 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         ASSERT(found_pc);
     }
+    /* FIXME i#1551: handle mode switch */
+    /* FIXME i#1551: handle predication where instr is skipped */
 }
 
 void
@@ -397,6 +404,44 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#1551: handle mode switch */
+    /* FIXME i#1551: handle predication where instr is skipped
+     * For ind branch: need to add cbr -- will emit do right thing?
+     * For pc read or rip-rel: b/c post-app-instr restore can't
+     * rely on pred flags (app instr could change them), just
+     * have all the mangling be non-pred?  No hurt, right?
+     * Though may as well have the mov-immed for magle_rel_addr
+     * be predicated.
+     */
+}
+
+/* Local single-instr-window scratch reg picker */
+static reg_id_t
+pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore OUT)
+{
+    reg_id_t reg;
+    ushort slot;
+    *should_restore = true;
+    for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
+         reg <= SCRATCH_REG5; reg++, slot++) {
+        if (!instr_uses_reg(instr, reg))
+            break;
+    }
+    if (reg > SCRATCH_REG5) {
+        /* Likely OP_ldm.  We'll have to pick a dead reg (non-ideal b/c a fault
+         * could come in: i#400).
+         */
+        for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
+             reg <= SCRATCH_REG5; reg++, slot++) {
+            if (!instr_reads_from_reg(instr, reg, DR_QUERY_INCLUDE_ALL))
+                break;
+        }
+        *should_restore = false;
+    }
+    ASSERT(reg <= SCRATCH_REG5); /* No instr reads and writes all regs */
+    if (scratch_slot != NULL)
+        *scratch_slot = slot;
+    return reg;
 }
 
 bool
@@ -410,8 +455,9 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(instr_has_rel_addr_reference(instr));
 
     if (opc == OP_ldr || opc == OP_str) {
-        reg_id_t reg;
         ushort slot;
+        bool should_restore;
+        reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
         if (opc == OP_ldr) {
             reg_op = instr_get_dst(instr, 0);
             mem_op = instr_get_src(instr, 0);
@@ -421,11 +467,6 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         ASSERT(opnd_is_reg(reg_op) && opnd_is_base_disp(mem_op));
         ASSERT_NOT_IMPLEMENTED(!instr_is_cti(instr));
-        for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
-             reg <= SCRATCH_REG5; reg++, slot++) {
-            if (!instr_uses_reg(instr, reg))
-                break;
-        }
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
         insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
                                ilist, instr, NULL, NULL);
@@ -440,12 +481,36 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                                 opnd_get_disp(mem_op),
                                                 opnd_get_size(mem_op)));
         }
-        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
+        if (should_restore)
+            PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
     } else {
         /* FIXME i#1551: NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
     }
     return false;
+}
+
+void
+mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                instr_t *next_instr)
+{
+    ushort slot;
+    bool should_restore;
+    reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
+    ptr_int_t app_r15 = (ptr_int_t)instr_get_raw_bits(instr) + ARM_CUR_PC_OFFS;
+    int i;
+    PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+    insert_mov_immed_ptrsz(dcontext, app_r15, opnd_create_reg(reg),
+                           ilist, instr, NULL, NULL);
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        if (opnd_uses_reg(instr_get_src(instr, i), DR_REG_PC)) {
+            /* A memref should have been mangled already in mangle_rel_addr */
+            ASSERT(opnd_is_reg(instr_get_src(instr, i)));
+            instr_set_src(instr, i, opnd_create_reg(reg));
+        }
+    }
+    if (should_restore)
+        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
 }
 
 void

@@ -2023,6 +2023,11 @@ DR_API
 bool
 instr_is_undefined(instr_t *instr);
 
+#ifdef ARM
+bool
+instr_is_pop(instr_t *instr);
+#endif
+
 DR_API
 /**
  * Assumes that \p instr's opcode is OP_int and that either \p instr's

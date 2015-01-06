@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -664,6 +664,10 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                 continue;
         }
 #endif /* X64 || ARM */
+#if defined(ARM) && !defined(X64)
+        if (instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
+            mangle_pc_read(dcontext, ilist, instr, next_instr);
+#endif
 
         if (instr_is_exit_cti(instr)) {
 #ifdef X86

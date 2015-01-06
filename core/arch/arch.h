@@ -465,6 +465,11 @@ bool
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
+#if defined(ARM) && !defined(X64)
+void
+mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+               instr_t *next_instr);
+#endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *instr, bool skip
                               _IF_X64(gencode_mode_t mode));

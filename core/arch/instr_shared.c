@@ -567,11 +567,13 @@ instr_remove_dst(dcontext_t *dcontext, instr_t *instr, uint pos)
                                      HEAPACCT(ACCT_IR));
     if (pos > 0)
         memcpy(new_dsts, instr->dsts, pos*sizeof(opnd_t));
-    if (pos < instr->num_dsts)
-        memcpy(new_dsts + pos, instr->dsts + pos, (instr->num_dsts - pos)*sizeof(opnd_t));
-    instr->dsts = new_dsts;
+    if (pos < instr->num_dsts) {
+        memcpy(new_dsts + pos, instr->dsts + (pos + 1),
+               (instr->num_dsts - pos)*sizeof(opnd_t));
+    }
     heap_free(dcontext, instr->dsts, (instr->num_dsts + 1)*sizeof(opnd_t)
               HEAPACCT(ACCT_IR));
+    instr->dsts = new_dsts;
     instr_being_modified(instr, false/*raw bits invalid*/);
     instr_set_operands_valid(instr, true);
 }
@@ -1697,9 +1699,10 @@ instr_reg_in_src(instr_t *instr, reg_id_t reg)
     if (instr_get_opcode(instr) == OP_nop_modrm)
         return false;
 #endif
-    for (i =0; i<instr_num_srcs(instr); i++)
+    for (i=0; i<instr_num_srcs(instr); i++) {
         if (opnd_uses_reg(instr_get_src(instr, i), reg))
             return true;
+    }
     return false;
 }
 
