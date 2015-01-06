@@ -1537,68 +1537,11 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
  * normal prefix, which just restores xcx
  */
 
-/* Indirect Branch Target Prefix
- * We have 3 different prefixes: one if we don't need to restore eflags, one
- * if we need to restore just using sahf, and one if we also need to restore
- * the overflow flag OF.
- *
- * FIXME: currently we cache-align the prefix, not the normal
- * entry point...if prefix gets much longer, might want to add
- * nops to get normal entry cache-aligned?
- */
-
-/* for now all ibl targets must use same scratch locations: tls or not, no mixture */
-
-#ifdef X86
-# define RESTORE_XAX_PREFIX(flags) \
-    ((FRAG_IS_X86_TO_X64(flags) && \
-      IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false)) ? \
-     SIZE64_MOV_R8_TO_XAX : \
-     (IBL_EFLAGS_IN_TLS() ? SIZE_MOV_XAX_TO_TLS(flags, false) : SIZE32_MOV_XAX_TO_ABS))
-# define PREFIX_BASE(flags) \
-    (RESTORE_XAX_PREFIX(flags) + FRAGMENT_BASE_PREFIX_SIZE(flags))
-#else
-/* FIXME i#1551: implement ibl and prefix support */
-# define RESTORE_XAX_PREFIX(flags) \
-    (ASSERT_NOT_IMPLEMENTED(false), 0)
-# define PREFIX_BASE(flags) \
-    (ASSERT_NOT_IMPLEMENTED(false), 0)
-#endif
-
 int
 fragment_prefix_size(uint flags)
 {
     if (use_ibt_prefix(flags)) {
-        bool use_eflags_restore = TEST(FRAG_IS_TRACE, flags) ?
-            !DYNAMO_OPTION(trace_single_restore_prefix) :
-            !DYNAMO_OPTION(bb_single_restore_prefix);
-        /* The common case is !INTERNAL_OPTION(unsafe_ignore_eflags*) so
-         * PREFIX_BASE(flags) is defined accordingly, and we subtract from it to
-         * get the correct value when the option is on.
-         */
-        if (INTERNAL_OPTION(unsafe_ignore_eflags_prefix)) {
-            if (INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) {
-                ASSERT(PREFIX_BASE(flags) - RESTORE_XAX_PREFIX(flags) >= 0);
-                return PREFIX_BASE(flags) - RESTORE_XAX_PREFIX(flags);
-            } else {
-                /* still need to restore xax, just don't restore eflags */
-                return PREFIX_BASE(flags);
-            }
-        }
-        if (!use_eflags_restore)
-            return PREFIX_BASE(flags) - RESTORE_XAX_PREFIX(flags);
-        if (TEST(FRAG_WRITES_EFLAGS_6, flags)) /* no flag restoration needed */
-            return PREFIX_BASE(flags);
-        else if (TEST(FRAG_WRITES_EFLAGS_OF, flags)) /* no OF restoration needed */
-            return (PREFIX_BASE(flags) + PREFIX_SIZE_FIVE_EFLAGS);
-        else /* must restore all 6 flags */
-            if (INTERNAL_OPTION(unsafe_ignore_overflow)) {
-                /* do not restore OF */
-                return (PREFIX_BASE(flags) + PREFIX_SIZE_FIVE_EFLAGS);
-            } else {
-                return (PREFIX_BASE(flags) + PREFIX_SIZE_RESTORE_OF +
-                        PREFIX_SIZE_FIVE_EFLAGS);
-            }
+        return fragment_ibt_prefix_size(flags);
     } else {
 #ifdef CLIENT_INTERFACE
         if (dynamo_options.bb_prefixes)

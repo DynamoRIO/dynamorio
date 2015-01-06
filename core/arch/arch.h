@@ -1389,6 +1389,9 @@ add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
                    instr_create_save_to_dcontext((dc), (reg), (offs))) : \
      instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
 
+int
+fragment_ibt_prefix_size(uint flags);
+
 void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
 void

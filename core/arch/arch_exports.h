@@ -1244,9 +1244,8 @@ use_addr_prefix_on_short_disp(void)
 #  define FRAG_IS_32(flags) true
 # endif
 
-/* FIXME i#1551: implement ibl and prefixes */
 # define FRAGMENT_BASE_PREFIX_SIZE(flags) \
-    (ASSERT_NOT_IMPLEMENTED(false), 0)
+    (FRAG_IS_THUMB(flags) ? (ASSERT_NOT_IMPLEMENTED(false), 0) : ARM_INSTR_SIZE)
 
 /* exported for DYNAMO_OPTION(separate_private_stubs) */
 # define ARM_INSTR_SIZE 4

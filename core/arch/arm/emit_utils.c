@@ -343,14 +343,25 @@ coarse_is_entrance_stub(cache_pc stub)
  * normal prefix, which just restores xcx
  */
 
+int
+fragment_ibt_prefix_size(uint flags)
+{
+    /* Nothing extra for ibt as we don't have flags to restore */
+    return FRAGMENT_BASE_PREFIX_SIZE(flags);
+}
+
 void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
+    byte *pc = (byte *) f->start_pc;
     ASSERT(f->prefix_size == 0);
     if (use_ibt_prefix(f->flags)) {
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
+        /* ldr r0, [r10, #r0-slot] */
+        *(uint *)pc =
+            0xe5900000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
+        pc += ARM_INSTR_SIZE;
     }
+    f->prefix_size = (byte)(((cache_pc) pc) - f->start_pc);
     /* make sure emitted size matches size we requested */
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }
