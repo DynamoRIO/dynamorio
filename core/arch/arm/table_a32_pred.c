@@ -209,7 +209,7 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_stm_priv,0x08c00000, "stm",    Ml, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=010*/
     {OP_ldm_priv,0x08d00000, "ldm",    L16w, xx, Ml, xx, xx, pred, x, END_LIST},/*PUW=010*/
     {INVALID,    0x08e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ldmia_priv,0x08f00000,"ldmia", L16w, RAw, Ml, RAw, xx, pred, x, END_LIST},/*PUW=011*/
+    {OP_ldm_priv,0x08f00000, "ldm",    L16w, RAw, Ml, RAw, xx, pred, x, top8[0x8d]},/*PUW=011*/
     /* 90 */
     {OP_stmdb,   0x09000000, "stmdb",  MDBl, xx, L16w, xx, xx, pred, x, top8[0x92]},/*PUW=100*/
     {OP_ldmdb,   0x09100000, "ldmdb",  L16w, xx, MDBl, xx, xx, pred, x, top8[0x93]},/*PUW=100*/

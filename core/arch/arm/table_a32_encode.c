@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,12 +116,11 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_ldc2l             */ &A32_ext_bits20[1][0x05],
     /* OP_ldcl              */ &A32_ext_fp[19][0x02],
     /* OP_ldm               */ &A32_pred_opc8[0x8b],
-    /* OP_ldm_priv          */ &A32_pred_opc8[0x8d],
+    /* OP_ldm_priv          */ &A32_pred_opc8[0x8f],
     /* OP_ldmda             */ &A32_pred_opc8[0x83],
     /* OP_ldmda_priv        */ &A32_pred_opc8[0x87],
     /* OP_ldmdb             */ &A32_pred_opc8[0x91],
     /* OP_ldmdb_priv        */ &A32_pred_opc8[0x95],
-    /* OP_ldmia_priv        */ &A32_pred_opc8[0x8f],
     /* OP_ldmib             */ &A32_pred_opc8[0x99],
     /* OP_ldmib_priv        */ &A32_pred_opc8[0x9d],
     /* OP_ldr               */ &A32_pred_opc8[0x59],
