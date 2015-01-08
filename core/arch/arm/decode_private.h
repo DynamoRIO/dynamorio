@@ -99,7 +99,17 @@ enum {
     EXT_OPCBX,   /* Indexed by bits B11:8 but minus x1-x7 */
     EXT_RCPC,    /* Indexed by whether RC != PC */
     /* T32 16-bit only */
-    /* FIXME i#1551: add T32.16 */
+    EXT_11,      /* Indexed by bit  11 */
+    EXT_11_10,   /* Indexed by bits 11:10 */
+    EXT_11_9,    /* Indexed by bits 11:9 */
+    EXT_11_8,    /* Indexed by bits 11:8 */
+    EXT_10_9,    /* Indexed by bits 10:9 */
+    EXT_9_6,     /* Indexed by bits 9:6 */
+    EXT_8_6,     /* Indexed by bits 8:6 */
+    EXT_7,       /* Indexed by bit  7 */
+    EXT_6,       /* Indexed by bit  6 */
+    EXT_6_4,     /* Indexed by bits 6:4 */
+    EXT_3_0,     /* Indexed by whether imm 3:0 is zero or not */
     /* else, from OP_ enum */
 };
 
@@ -236,6 +246,15 @@ enum {
     TYPE_R_C,   /* A/T32-11:8  = Rd (T32 dest reg) or Rs (A32, often shift value) */
     TYPE_R_D,   /* A/T32-3:0   = Rm: source register, often used as offset */
 
+    /* T32.16: 4-bit */
+    TYPE_R_U,   /* T32.16-6:3   = Rm: src reg */
+    TYPE_R_V,   /* T32.16-7,2:0 = DN:Rdn or DM:Rdm: src and dst reg */
+    /* T32.16: 3-bit */
+    TYPE_R_W,   /* T32.16-10:8  = Rd: dst reg, Rn: src reg, Rt */
+    TYPE_R_X,   /* T32.16-8:6   = Rm: src reg */
+    TYPE_R_Y,   /* T32.16-5:3   = Rm or Rn: src reg */
+    TYPE_R_Z,   /* T32.16-2:0   = Rd: dst reg, Rn or Rm: src reg, Rt */
+
     TYPE_R_A_TOP, /* top half of register */
     TYPE_R_B_TOP, /* top half of register */
     TYPE_R_C_TOP, /* top half of register */
@@ -270,6 +289,7 @@ enum {
     TYPE_FPSCR, /* Floating Point Status and Control Register */
     TYPE_LR, /* Link register */
     TYPE_SP, /* Stack pointer */
+    TYPE_PC, /* PC register */
 
     /* FIXME i#1551: some immediates have built-in shifting or scaling: we
      * need to add handling for that.
@@ -313,11 +333,13 @@ enum {
     TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 */
 
     /* PC-relative jump targets */
+    TYPE_J_x2_b0,  /* T16-OP_b: signed immed is stored as value/2 */
     TYPE_J_x4_b0,  /* OP_b, OP_bl: signed immed is stored as value/4 */
     TYPE_J_b0_b24, /* OP_blx imm24:H:0 */
     TYPE_J_b26_b11_b13_b16_b0, /* OP_b T32-26,11,13,21:16,10:0 x2 */
     /* OP_b T32-26,13,11,25:16,10:0 x2, but bits 13 and 11 are flipped if bit 26 is 0 */
     TYPE_J_b26_b13_b11_b16_b0,
+    TYPE_J_b9_b3,  /* OP_cb{n}z: ZeroExtend(i:imm5:0) [9,7:3]:0 */
 
     TYPE_SHIFT_b4,    /* T32-5:4 */
     TYPE_SHIFT_b5,    /* A32-6:5 */
@@ -326,7 +348,9 @@ enum {
     TYPE_SHIFT_LSL,   /* shift logical left */
     TYPE_SHIFT_ASR,   /* shift arithmetic right */
 
-    TYPE_L_8b,  /* 8-bit register list */
+    TYPE_L_8b,    /* 8-bit register list */
+    TYPE_L_9b_LR, /* T32.16-push 9-bit register list 0:M:000000:reg_list */
+    TYPE_L_9b_PC, /* T32.16-pop  9-bit register list P:0000000:reg_list  */
     TYPE_L_16b, /* 16-bit register list */
     TYPE_L_16b_NO_SP, /* 16-bit register list but no SP */
     TYPE_L_16b_NO_SP_PC, /* 16-bit register list but no SP or PC */
@@ -346,8 +370,8 @@ enum {
     /* All memory addressing modes use fixed base and index registers:
      * A32: base  = RA 19:16 ("Rn" in manual)
      *      index = RD  3:0  ("Rm" in manual)
-     * T32.16: base  =
-     *         index =
+     * T32.16: base  = RY  5:3  ("Rn" in manual)
+     *         index = RW  8:6  ("Rm" in manual)
      * T32.32: base  = RA 19:16 ("Rn" in manual)
      *         index = RD  3:0  ("Rm" in manual)
      * A64: base  =
@@ -366,6 +390,7 @@ enum {
      * disasm will NOT contain writeback or post-index info.
      */
     TYPE_M,           /* mem w/ just base */
+    TYPE_M_SP,        /* mem w/ just SP as base */
     TYPE_M_POS_REG,   /* mem offs + reg index */
     TYPE_M_NEG_REG,   /* mem offs - reg index */
     TYPE_M_POS_SHREG, /* mem offs + reg-shifted (or extended for A64) index */
@@ -377,11 +402,13 @@ enum {
     TYPE_M_SI9,       /* mem offs + signed 9-bit immed @ 20:12 */
     TYPE_M_POS_I8,    /* mem offs + 4 * 8-bit immed @ 7:0 */
     TYPE_M_NEG_I8,    /* mem offs - 4 * 8-bit immed @ 7:0 */
+    TYPE_M_SP_POS_I8, /* mem offs + 4 * 8-bit immed @ 7:0 with SP as base */
     TYPE_M_POS_I4_4,  /* mem offs + 8-bit immed split @ 11:8|3:0 */
     TYPE_M_NEG_I4_4,  /* mem offs - 8-bit immed split @ 11:8|3:0 */
     TYPE_M_SI7,       /* mem offs + signed 7-bit immed @ 6:0 */
-    TYPE_M_POS_I5,    /* mem offs + 5-bit immed @ 5:0 */
+    TYPE_M_POS_I5,    /* mem offs + 4 * 5-bit immed @ 5:0 */
 
+    TYPE_M_PCREL_POS_I8,  /* mem offs pc-relative +  8-bit immed @  7:0 */
     TYPE_M_PCREL_POS_I12, /* mem offs pc-relative + 12-bit immed @ 11:0 */
     TYPE_M_PCREL_NEG_I12, /* mem offs pc-relative - 12-bit immed @ 11:0 */
     TYPE_M_PCREL_S9,  /* mem offs pc-relative w/ signed 9-bit immed 23:5 scaled */
@@ -390,6 +417,7 @@ enum {
     TYPE_M_UP_OFFS,   /* mem w/ base plus ptr-sized disp */
     TYPE_M_DOWN,      /* mem w/ base pointing at start of last ptr-sized slot */
     TYPE_M_DOWN_OFFS, /* mem w/ base minus ptr-sized disp pointing at last slot */
+    TYPE_M_SP_DOWN_OFFS, /* mem w/ base minus ptr-sized (SP) disp pointing at last slot */
 
     TYPE_K,    /* integer constant, size ignored, value stored in size */
 
@@ -479,6 +507,19 @@ extern const instr_info_t T32_ext_RBPC[][2];
 extern const instr_info_t T32_ext_RCPC[][2];
 extern const instr_info_t T32_ext_imm126[][2];
 extern const instr_info_t T32_extra_operands[];
+
+extern const instr_info_t T32_16_opc4[];
+extern const instr_info_t T32_16_ext_bit_11[][2];
+extern const instr_info_t T32_16_ext_bits_11_10[][4];
+extern const instr_info_t T32_16_ext_bits_11_9[][8];
+extern const instr_info_t T32_16_ext_bits_11_8[][16];
+extern const instr_info_t T32_16_ext_bits_9_6[][16];
+extern const instr_info_t T32_16_ext_bit_7[][2];
+extern const instr_info_t T32_16_ext_bit_6[][2];
+extern const instr_info_t T32_16_ext_bits_10_9[][4];
+extern const instr_info_t T32_16_ext_bits_8_6[][4];
+extern const instr_info_t T32_16_ext_bits_6_4[][8];
+extern const instr_info_t T32_16_ext_imm_3_0[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const op_to_instr_info_t const op_instr[];
