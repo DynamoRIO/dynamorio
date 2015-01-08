@@ -557,22 +557,26 @@ instr_set_dst(instr_t *instr, uint pos, opnd_t opnd)
     instr_set_operands_valid(instr, true);
 }
 
+/* end is open-ended (so pass pos,pos+1 to remove just the pos-th dst) */
 void
-instr_remove_dst(dcontext_t *dcontext, instr_t *instr, uint pos)
+instr_remove_dsts(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 {
     opnd_t *new_dsts;
-    CLIENT_ASSERT(pos >= 0 && pos < instr->num_dsts, "instr_set_dst: ordinal invalid");
-    instr->num_dsts--;
-    new_dsts = (opnd_t *) heap_alloc(dcontext, instr->num_dsts*sizeof(opnd_t)
-                                     HEAPACCT(ACCT_IR));
-    if (pos > 0)
-        memcpy(new_dsts, instr->dsts, pos*sizeof(opnd_t));
-    if (pos < instr->num_dsts) {
-        memcpy(new_dsts + pos, instr->dsts + (pos + 1),
-               (instr->num_dsts - pos)*sizeof(opnd_t));
-    }
-    heap_free(dcontext, instr->dsts, (instr->num_dsts + 1)*sizeof(opnd_t)
-              HEAPACCT(ACCT_IR));
+    CLIENT_ASSERT(start >= 0 && end < instr->num_dsts && start < end,
+                  "instr_set_dst: ordinals invalid");
+    if (instr->num_dsts > end - start) {
+        new_dsts = (opnd_t *) heap_alloc
+            (dcontext, (instr->num_dsts - (end-start))*sizeof(opnd_t) HEAPACCT(ACCT_IR));
+        if (start > 0)
+            memcpy(new_dsts, instr->dsts, start*sizeof(opnd_t));
+        if (end < instr->num_dsts) {
+            memcpy(new_dsts + start, instr->dsts + end,
+                   (instr->num_dsts - end)*sizeof(opnd_t));
+        }
+    } else
+        new_dsts = NULL;
+    heap_free(dcontext, instr->dsts, instr->num_dsts*sizeof(opnd_t) HEAPACCT(ACCT_IR));
+    instr->num_dsts -= (byte)(end - start);
     instr->dsts = new_dsts;
     instr_being_modified(instr, false/*raw bits invalid*/);
     instr_set_operands_valid(instr, true);

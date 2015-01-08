@@ -499,7 +499,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
  * a non word-aligned memory address causes UNPREDICTABLE behavior.",
  * so we require alignment here.
  */
-/* FIXME i#1551: should we allow the infinit loops for those ATOMIC ops */
+/* FIXME i#1551: should we allow infinite loops for those ATOMIC ops */
 #  define ATOMIC_INC_suffix(suffix, var)                              \
      __asm__ __volatile__(                                            \
        "1: ldrex" suffix " r2, %0         \n\t"                       \

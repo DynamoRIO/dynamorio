@@ -216,6 +216,11 @@ void
 patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
 {
     /* FIXME i#1551: support Thumb */
+    /* FIXME i#1551: link reachability: we either need to support OP_ldr into pc
+     * as an exit cti and live w/ ind br cost always, or we need to go
+     * though the stub and replace its 1st instr w/ OP_ldr into pc
+     * when the target is far away.
+     */
     if (((*(branch_pc + 3)) & 0xf) == 0xa) {
         /* OP_b with 3-byte immed that's stored as >>2 */
         uint val = (*(uint *)branch_pc) & 0xff000000;
@@ -317,7 +322,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 cache_pc
 entrance_stub_jmp(cache_pc stub)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* FIXME i#1575: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }

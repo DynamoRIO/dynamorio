@@ -340,50 +340,62 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
     /* FIXME i#1551: handle mode switch */
+    /* FIXME i#1551: handle predication where instr is skipped */
 }
 
 void
 mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
               instr_t *next_instr, uint flags)
 {
+    /* The mangling is identical */
+    mangle_indirect_jump(dcontext, ilist, instr, next_instr, flags);
+}
+
+void
+mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                     instr_t *next_instr, uint flags)
+{
     int opc = instr_get_opcode(instr);
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
-    if (instr_is_pop(instr)) {
-        /* The pop into pc will always be last (r15) so we remove it and add
-         * a single-pop instr into r2.
+    if (instr_writes_gpr_list(instr)) {
+        /* The load into pc will always be last (r15) so we remove it and add
+         * a single-load instr into r2, with the same inc/dec and writeback.
          */
         uint i;
         bool found_pc;
         opnd_t memop = instr_get_src(instr, 0);
+        instr_t *single;
         ASSERT(opnd_is_base_disp(memop));
         opnd_set_size(&memop, OPSZ_VAR_REGLIST);
         instr_set_src(instr, 0, memop);
+        single = instr_clone(dcontext, instr);
         for (i = 0; i < instr_num_dsts(instr); i++) {
-            if (opnd_is_reg(instr_get_dst(instr, i)) &&
-                opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
+            ASSERT(opnd_is_reg(instr_get_dst(instr, i)));
+            if (opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
                 found_pc = true;
-                instr_remove_dst(dcontext, instr, i);
+                instr_remove_dsts(dcontext, instr, i, i+1);
                 break;
             }
         }
         ASSERT(found_pc);
-        PRE(ilist, next_instr,
-            INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_R2)));
+        instr_remove_dsts(dcontext, single, 0, i); /* leave pc => r2 */
+        instr_set_dst(single, 0, opnd_create_reg(DR_REG_R2));
+        PRE(ilist, next_instr, single);
     } else if (opc == OP_bx || opc ==  OP_bxj) {
         PRE(ilist, instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
-                              opnd_create_reg(DR_REG_LR)));
+                              instr_get_target(instr)));
         /* remove the bx */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
     } else {
-        /* Reads lr and writes pc */
+        /* Explicitly writes just the pc */
         uint i;
         bool found_pc;
         /* XXX: can anything (non-OP_ldm) have r2 as an additional dst? */
-        ASSERT_NOT_IMPLEMENTED(instr_writes_to_reg(instr, DR_REG_R2,
-                                                   DR_QUERY_INCLUDE_ALL));
+        ASSERT_NOT_IMPLEMENTED(!instr_writes_to_reg(instr, DR_REG_R2,
+                                                    DR_QUERY_INCLUDE_ALL));
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_reg(instr_get_dst(instr, i)) &&
                 opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
@@ -394,16 +406,6 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         ASSERT(found_pc);
     }
-    /* FIXME i#1551: handle mode switch */
-    /* FIXME i#1551: handle predication where instr is skipped */
-}
-
-void
-mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                     instr_t *next_instr, uint flags)
-{
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
     /* FIXME i#1551: handle mode switch */
     /* FIXME i#1551: handle predication where instr is skipped
      * For ind branch: need to add cbr -- will emit do right thing?
