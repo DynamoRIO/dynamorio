@@ -185,8 +185,9 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
     /* FIXME i#1551: we may handle Thumb and ARM mode differently.
      * Now we assume ARM mode only.
      */
-    if (val <= 0xfff) {
-        mov1 = INSTR_CREATE_mov(dcontext, dst, OPND_CREATE_INT(val));
+    /* MVN writes the bitwise inverse of an immediate value to the dst register */
+    if (~val >= 0 && ~val <= 0xfff) {
+        mov1 = INSTR_CREATE_mvn(dcontext, dst, OPND_CREATE_INT(~val));
         PRE(ilist, instr, mov1);
         mov2 = NULL;
     } else {
