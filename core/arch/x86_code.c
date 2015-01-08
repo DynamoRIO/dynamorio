@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -256,6 +256,9 @@ new_thread_setup(priv_mcontext_t *mc)
      * so we "enter" DR here
      */
     ENTERING_DR();
+
+    /* FIXME i#1551: NYI on ARM (we need emit_new_thread_dynamo_start()) */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
 
     /* i#149/PR 403015: clone_record_t is passed via dstack. */
     crec = get_clone_record(mc->xsp);

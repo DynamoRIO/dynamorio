@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -6062,6 +6062,8 @@ dr_redirect_native_target(void *drcontext)
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_redirect_native_target(): drcontext cannot be NULL");
+    /* FIXME i#1551: NYI on ARM (we need emit_client_ibl_xfer()) */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
     return get_client_ibl_xfer_entry(dcontext);
 #endif
 }

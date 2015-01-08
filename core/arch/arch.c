@@ -1730,6 +1730,8 @@ get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     else
         code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
     ASSERT(code != NULL);
+    /* FIXME i#1551: NYI on ARM (we need emit_clean_call_save()) */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
     return (cache_pc) code->clean_call_save;
 }
 
@@ -1742,6 +1744,8 @@ get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     else
         code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
     ASSERT(code != NULL);
+    /* FIXME i#1551: NYI on ARM (we need emit_clean_call_restore()) */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
     return (cache_pc) code->clean_call_restore;
 }
 

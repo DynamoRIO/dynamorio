@@ -5118,8 +5118,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         (dcontext, opnd_create_reg(SCRATCH_REG0),
          OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, 0)));
 #elif defined(ARM)
-    /* FIXMED i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#1551: NYI on ARM (no assert here, it's in new_thread_setup()) */
 #endif
 
     dr_insert_call(dcontext, &ilist, NULL, (void *)new_thread_setup,
@@ -5455,6 +5454,10 @@ unlink_special_ibl_xfer(dcontext_t *dcontext)
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
+# ifdef ARM
+    /* FIXME i#1551: NYI on ARM */
+    return pc;
+# endif
     /* The client puts the target in SPILL_SLOT_REDIRECT_NATIVE_TGT. */
     return emit_special_ibl_xfer(dcontext, pc, code, CLIENT_IBL_IDX,
                                  IBL_RETURN, NULL,
@@ -5480,6 +5483,10 @@ byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
     instrlist_t ilist;
+#ifdef ARM
+    /* FIXME i#1551: NYI on ARM (no assert here, it's in get_clean_call_save()) */
+    return pc;
+#endif
 
     instrlist_init(&ilist);
     /* xref insert_out_of_line_context_switch @ x86/mangle.c,
@@ -5504,7 +5511,7 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
                               INSTR_CREATE_push_imm(dcontext,
                                                     OPND_CREATE_INT32(0)));
 #elif defined(ARM)
-    /* FIXMED i#1551: NYI on ARM */
+    /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
@@ -5544,7 +5551,7 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     APP(&ilist, INSTR_CREATE_ret_imm
         (dcontext, OPND_CREATE_INT16(get_clean_call_temp_stack_size())));
 #elif defined(ARM)
-    /* FIXMED i#1551: NYI on ARM */
+    /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
@@ -5559,6 +5566,10 @@ byte *
 emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
     instrlist_t ilist;
+#ifdef ARM
+    /* FIXME i#1551: NYI on ARM (no assert here, it's in get_clean_call_restore()) */
+    return pc;
+#endif
 
     instrlist_init(&ilist);
 
