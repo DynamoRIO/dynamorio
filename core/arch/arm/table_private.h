@@ -53,8 +53,10 @@
 
 /* flags */
 #define no        0
-#define pred      DECODE_PREDICATE
-#define predAL    DECODE_PREDICATE_AL_ONLY
+#define pred      DECODE_PREDICATE_28
+#define predAL    DECODE_PREDICATE_28_AL
+#define pred22    DECODE_PREDICATE_22
+#define pred8     DECODE_PREDICATE_8
 #define xop       DECODE_EXTRA_OPERANDS
 #define xop_shift DECODE_EXTRA_SHIFT
 #define xop_wb    DECODE_EXTRA_WRITEBACK

@@ -1098,12 +1098,15 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
     if (pred == DR_PRED_OP) {
         di->errmsg = "DR_PRED_OP is an illegal predicate request";
         return false;
-    } else if (TEST(DECODE_PREDICATE_AL_ONLY, ii->flags) && pred != DR_PRED_AL &&
+    } else if (TEST(DECODE_PREDICATE_28_AL, ii->flags) && pred != DR_PRED_AL &&
                pred != DR_PRED_NONE) {
         di->errmsg = "DR_PRED_AL is the only valid predicate";
         return false;
-    }
-    else if (!TEST(DECODE_PREDICATE, ii->flags) && pred != DR_PRED_NONE) {
+    } else if (TESTANY(DECODE_PREDICATE_22|DECODE_PREDICATE_8, ii->flags) &&
+               (pred == DR_PRED_AL || pred == DR_PRED_OP || pred == DR_PRED_NONE)) {
+        di->errmsg = "A predicate is required";
+        return false;
+    } else if (!TEST(DECODE_PREDICATE_28, ii->flags) && pred != DR_PRED_NONE) {
         di->errmsg = "No predicate is supported";
         return false;
     }
@@ -1719,11 +1722,17 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     /* Encode into di.instr_word */
     di.instr_word = info->opcode;
-    if (TEST(DECODE_PREDICATE, info->flags)) {
+    if (TEST(DECODE_PREDICATE_28, info->flags)) {
         dr_pred_type_t pred = instr_get_predicate(instr);
         if (pred == DR_PRED_NONE)
             pred = DR_PRED_AL;
         di.instr_word |= (pred - DR_PRED_EQ) << 28;
+    } else if (TEST(DECODE_PREDICATE_22, info->flags)) {
+        dr_pred_type_t pred = instr_get_predicate(instr);
+        di.instr_word |= (pred - DR_PRED_EQ) << 22;
+    } else if (TEST(DECODE_PREDICATE_8, info->flags)) {
+        dr_pred_type_t pred = instr_get_predicate(instr);
+        di.instr_word |= (pred - DR_PRED_EQ) << 8;
     }
     encode_operands(&di, instr, info);
 

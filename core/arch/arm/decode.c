@@ -76,9 +76,9 @@ reg_is_past_last_simd(reg_id_t reg, uint add)
 
 /* We assume little-endian */
 static inline int
-decode_predicate(uint instr_word)
+decode_predicate(uint instr_word, uint bit_pos)
 {
-    return instr_word >> 28; /* bits 31:28 */
+    return (instr_word >> bit_pos) & 0xf;
 }
 
 /* We often take bits 27:20 as an 8-bit opcode */
@@ -836,7 +836,7 @@ read_instruction(byte *pc, byte *orig_pc,
     di->mem_needs_reglist_sz = NULL;
     di->reglist_sz = -1;
 
-    di->predicate = decode_predicate(instr_word) + DR_PRED_EQ;
+    di->predicate = decode_predicate(instr_word, 28) + DR_PRED_EQ;
     if (di->predicate == DR_PRED_OP) {
         uint opc7 = /* remove bit 22 */
             ((instr_word >> 21) & 0x7c) | ((instr_word >> 20) & 0x3);
@@ -1014,6 +1014,11 @@ read_instruction(byte *pc, byte *orig_pc,
     if ((instr_word & info->opcode) != info->opcode && info->type != INVALID)
         info = &invalid_instr;
 
+    if (TESTANY(DECODE_PREDICATE_22|DECODE_PREDICATE_8, info->flags)) {
+        di->predicate = DR_PRED_EQ + decode_predicate
+            (instr_word, TEST(DECODE_PREDICATE_22, info->flags) ? 22 : 8);
+    }
+
     /* We should now have either a valid OP_ opcode or an invalid opcode */
     if (info == &invalid_instr || info->type < OP_FIRST || info->type > OP_LAST) {
         DODEBUG({
@@ -1097,7 +1102,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     instr_set_operands_valid(instr, true);
 
     if (di.predicate != DR_PRED_OP) {
-        /* XXX: not bothering to mark invalid for DECODE_PREDICATE_AL */
+        /* XXX: not bothering to mark invalid for DECODE_PREDICATE_28_AL */
         instr_set_predicate(instr, di.predicate);
     }
 

@@ -99,12 +99,17 @@ enum {
     DECODE_EXTRA_WRITEBACK2   = 0x0008, /* has 2 additional src @exop[2] */
     DECODE_4_SRCS             = 0x0010, /* dst2==src1, src1==src2, etc. */
     DECODE_3_DSTS             = 0x0020, /* src1==dst3, src2==src1, etc. */
-    DECODE_PREDICATE          = 0x0040, /* takes a predicate */
-    DECODE_PREDICATE_AL_ONLY  = 0x0080, /* takes AL predicate only */
-    DECODE_UNPREDICTABLE      = 0x0100, /* unpredictable according to ISA spec */
+    DECODE_PREDICATE_28       = 0x0040, /* has predicate in bits 31:28 */
+    DECODE_PREDICATE_28_AL    = 0x0080, /* accepts only AL predicate in 31:28 */
+    DECODE_PREDICATE_22       = 0x0100, /* has predicate (not AL or OP) in bits 25:22 */
+    DECODE_PREDICATE_8        = 0x0200, /* has predicate (not AL or OP) in bits 11:8 */
+    DECODE_UNPREDICTABLE      = 0x0400, /* unpredictable according to ISA spec */
     /* ARM versions we care about */
-    DECODE_ARM_V8             = 0x0200, /* added in v8: not present in v7 */
-    DECODE_ARM_VFP            = 0x0400, /* VFP instruction */
+    DECODE_ARM_V8             = 0x0800, /* added in v8: not present in v7 */
+    DECODE_ARM_VFP            = 0x1000, /* VFP instruction */
+    /* XXX: running out of space here.  We could take the top of the eflags
+     * bits as we're only using through 0x00000800 now.
+     */
 };
 
 /* instr_info_t.code:
