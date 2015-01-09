@@ -759,7 +759,7 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_bkpt(dc, imm) \
-  instr_create_1dst_0src((dc), OP_bkpt, (imm))
+  instr_create_0dst_1src((dc), OP_bkpt, (imm))
 #define INSTR_CREATE_cps(dc, imm) \
   instr_create_0dst_1src((dc), OP_cps, (imm))
 #define INSTR_CREATE_cpsid(dc, imm) \
@@ -767,15 +767,15 @@
 #define INSTR_CREATE_cpsie(dc, imm) \
   instr_create_0dst_1src((dc), OP_cpsie, (imm))
 #define INSTR_CREATE_dbg(dc, imm) \
-  instr_create_1dst_0src((dc), OP_dbg, (imm))
+  instr_create_0dst_1src((dc), OP_dbg, (imm))
 #define INSTR_CREATE_dmb(dc, imm) \
   instr_create_0dst_1src((dc), OP_dmb, (imm))
 #define INSTR_CREATE_dsb(dc, imm) \
   instr_create_0dst_1src((dc), OP_dsb, (imm))
 #define INSTR_CREATE_hlt(dc, imm) \
-  instr_create_1dst_0src((dc), OP_hlt, (imm))
+  instr_create_0dst_1src((dc), OP_hlt, (imm))
 #define INSTR_CREATE_hvc(dc, imm) \
-  instr_create_1dst_0src((dc), OP_hvc, (imm))
+  instr_create_0dst_1src((dc), OP_hvc, (imm))
 #define INSTR_CREATE_isb(dc, imm) \
   instr_create_0dst_1src((dc), OP_isb, (imm))
 #define INSTR_CREATE_setend(dc, imm) \
@@ -1900,6 +1900,8 @@
   instr_create_Ndst_Msrc_vardst((dc), OP_ldm, 0, 1, list_len, 0, (mem), __VA_ARGS__)
 #define INSTR_CREATE_ldm_priv(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_ldm_priv, 0, 1, list_len, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldm_priv_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldm_priv, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_ldm_wb(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_ldm, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_ldmda(dc, mem, list_len, ...) \
@@ -1918,8 +1920,6 @@
   instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb_priv, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_ldmdb_wb(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-#define INSTR_CREATE_ldmia_priv_wb(dc, mem, list_len, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmia_priv, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_ldmib(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_ldmib, 0, 1, list_len, 0, (mem), __VA_ARGS__)
 #define INSTR_CREATE_ldmib_priv(dc, mem, list_len, ...) \
@@ -2439,25 +2439,6 @@
   instr_create_2dst_3src((dc), OP_mrrc2, (Ra), (Rd), (imm), (imm2), (cpreg))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Rd, imm, imm2, cpreg, cpreg2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param imm The integer constant opnd_t operand.
- * \param imm2 The second integer constant opnd_t operand.
- * \param cpreg The coprocessor register opnd_t operand.
- * \param cpreg2 The second coprocessor register opnd_t operand.
- */
-#define INSTR_CREATE_mrc2(dc, Rd, imm, imm2, cpreg, cpreg2) \
-  instr_create_1dst_4src((dc), OP_mrc2, (Rd), (imm), (imm2), (cpreg), (cpreg2))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (cpreg, Rn, Rt, imm, imm2) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -2535,6 +2516,8 @@
  */
 #define INSTR_CREATE_mrc(dc, Rd, imm, imm2, cpreg, cpreg2, imm3) \
   instr_create_1dst_5src((dc), OP_mrc, (Rd), (imm), (imm2), (cpreg), (cpreg2), (imm3))
+#define INSTR_CREATE_mrc2(dc, Rd, imm, imm2, cpreg, cpreg2, imm3) \
+  instr_create_1dst_5src((dc), OP_mrc2, (Rd), (imm), (imm2), (cpreg), (cpreg2), (imm3))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, cpreg2, imm, imm2, Rt, imm3) */
@@ -2575,6 +2558,25 @@
  */
 #define INSTR_CREATE_cdp(dc, cpreg, imm, imm2, cpreg2, cpreg3, imm3) \
   instr_create_1dst_5src((dc), OP_cdp, (cpreg), (imm), (imm2), (cpreg2), (cpreg3), (imm3))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (cpreg, mem, imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param cpreg The coprocessor register opnd_t operand.
+ * \param mem The memory opnd_t operand.
+ * \param imm The integer constant opnd_t operand.
+ */
+#define INSTR_CREATE_ldc(dc, cpreg, mem, imm) \
+  instr_create_1dst_2src((dc), OP_ldc, (cpreg), (mem), (imm))
+#define INSTR_CREATE_ldcl(dc, cpreg, mem, imm) \
+  instr_create_1dst_2src((dc), OP_ldcl, (cpreg), (mem), (imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, cpreg, imm2) */
@@ -2623,8 +2625,6 @@
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
  */
-#define INSTR_CREATE_ldc(dc, cpreg, mem, imm, imm2) \
-  instr_create_1dst_3src((dc), OP_ldc, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldc2(dc, cpreg, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_ldc2, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldc2_wbimm(dc, cpreg, mem, imm, imm2) \
@@ -2635,8 +2635,6 @@
   instr_create_2dst_4src((dc), OP_ldc2l, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldc_wbimm(dc, cpreg, mem, imm, imm2) \
   instr_create_2dst_4src((dc), OP_ldc, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_ldcl(dc, cpreg, mem, imm, imm2) \
-  instr_create_1dst_3src((dc), OP_ldcl, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldcl_wbimm(dc, cpreg, mem, imm, imm2) \
   instr_create_2dst_4src((dc), OP_ldcl, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */

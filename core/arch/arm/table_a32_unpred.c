@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,7 @@
  * dense tables?
  */
 const instr_info_t A32_unpred_opc7[] = {
-    /* {op/type, op encoding, name, dst1, src1, src2, src3, src4, flags, eflags, code} */
+    /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     /* 00 */
     {INVALID,    0xf0000000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf0100000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
