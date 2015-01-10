@@ -599,7 +599,7 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {OP_pkhbt,   0x06800010, "pkhbt",  RBw, RAh, RDt, LSL, i5_7, pred|srcX4, x, END_LIST},
     {INVALID,    0x06800030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_pkhtb,   0x06800050, "pkhtb",  RBw, RAt, RDh, ASR, i5_7, pred|srcX4, x, END_LIST},
-    {OP_sxtab16, 0x06800070, "sxtab16", RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* XXX: "sxtb16" on PC */ /* rotates RDw then extracts 2 8-bit parts: model as reading whole thing, for now at least */
+    {EXT_RAPC,   0x06800070, "(ext rapc 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_pkhbt,   0x06800090, "pkhbt",  RBw, RAh, RDt, LSL, i5_7, pred|srcX4, x, END_LIST},
     {OP_sel,     0x06800fb0, "sel",    RBw, xx, RAw, RDw, xx, pred, fRGE, END_LIST},
     {OP_pkhtb,   0x068000d0, "pkhtb",  RBw, RAt, RDh, ASR, i5_7, pred|srcX4, x, END_LIST},
@@ -609,7 +609,7 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {OP_ssat,    0x06a00010, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {OP_ssat16,  0x06a00f30, "ssat16", RBw, xx, i4_16, RDw, xx, pred, x, END_LIST},
     {OP_ssat,    0x06a00050, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
-    {OP_sxtab,   0x06a00070, "sxtab",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* XXX: "sxtb" on PC */ /* rotates RDw then extracts 8 bits: model as reading whole thing, for now at least */
+    {EXT_RAPC,   0x06a00070, "(ext rapc 1)", xx, xx, xx, xx, xx, no, x, 1},
     {OP_ssat,    0x06a00090, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {INVALID,    0x06a000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_ssat,    0x06a000d0, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
@@ -619,7 +619,7 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {OP_ssat,    0x06b00010, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {OP_rev,     0x06bf0f30, "rev",    RBw, xx, RDw, xx, xx, pred, x, END_LIST},
     {OP_ssat,    0x06b00050, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
-    {OP_sxtah,   0x06b00070, "sxtah",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* XXX: "sxth" on PC */ /* rotates RDw then extracts 8 bits: model as reading whole thing, for now at least */
+    {EXT_RAPC,   0x06b00070, "(ext rapc 2)", xx, xx, xx, xx, xx, no, x, 2},
     {OP_ssat,    0x06b00090, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {OP_rev16,   0x06bf0fb0, "rev16",  RBw, xx, RDw, xx, xx, pred, x, END_LIST},
     {OP_ssat,    0x06b000d0, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
@@ -629,7 +629,7 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {INVALID,    0x06c00010, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x06c00030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x06c00050, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_uxtab16, 0x06c00070, "uxtab16", RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* XXX: "uxtb16" on PC */ /* rotates RDw then extracts 2x8 bits: model as reading whole thing, for now at least */
+    {EXT_RAPC,   0x06c00070, "(ext rapc 3)", xx, xx, xx, xx, xx, no, x, 3},
     {INVALID,    0x06c00090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x06c000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x06c000d0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -639,7 +639,7 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {OP_usat,    0x06e00010, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {OP_usat16,  0x06e00f30, "usat16", RBw, xx, i4_16, RDw, xx, pred, x, END_LIST},
     {OP_usat,    0x06e00050, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
-    {OP_uxtab,   0x06e00070, "uxtab",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* XXX: "uxtb" on PC */ /* rotates RDw then extracts 8 bits: model as reading whole thing, for now at least */
+    {EXT_RAPC,   0x06e00070, "(ext rapc 4)", xx, xx, xx, xx, xx, no, x, 4},
     {OP_usat,    0x06e00090, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {INVALID,    0x06e000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_usat,    0x06e000d0, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
@@ -649,17 +649,17 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {OP_usat,    0x06f00010, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {OP_rbit,    0x06ff0f30, "rbit",   RBw, xx, RDw, xx, xx, pred, x, END_LIST},
     {OP_usat,    0x06f00050, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
-    {OP_uxtah,   0x06f00070, "uxtah",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* XXX: "uxth" on PC */ /* rotates RDw then extracts 16 bits: model as reading whole thing, for now at least */
+    {EXT_RAPC,   0x06f00070, "(ext rapc 5)", xx, xx, xx, xx, xx, no, x, 5},
     {OP_usat,    0x06f00090, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {OP_revsh,   0x06ff0fb0, "revsh",  RBw, xx, RDw, xx, xx, pred, x, END_LIST},
     {OP_usat,    0x06f000d0, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
     {INVALID,    0x06f000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 12 */
     {OP_str,     0x07000000, "str",    MNSw, xx, RBw, xx, xx, pred, x, top8[0x50]},/*PUW=100*/
-    {OP_smlad,   0x07000010, "smlad",  RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},/* XXX: "smuad" on PC */
-    {OP_smladx,  0x07000030, "smladx", RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},/* XXX: "smuadx" on PC */
-    {OP_smlsd,   0x07000050, "smlsd",  RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},/* XXX: "smusd" on PC */
-    {OP_smlsdx,  0x07000070, "smlsdx", RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},/* XXX: "smusdx" on PC */
+    {EXT_RBPC,   0x07000010, "(ext rbpc 1)", xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_RBPC,   0x07000030, "(ext rbpc 2)", xx, xx, xx, xx, xx, no, x, 2},
+    {EXT_RBPC,   0x07000050, "(ext rbpc 3)", xx, xx, xx, xx, xx, no, x, 3},
+    {EXT_RBPC,   0x07000070, "(ext rbpc 4)", xx, xx, xx, xx, xx, no, x, 4},
     {INVALID,    0x07000090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x070000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x070000d0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -676,8 +676,8 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {INVALID,    0x074000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 14 */
     {OP_ldrb,    0x07500000, "ldrb",   RBw, xx, MNSb, xx, xx, pred, x, top8[0x5f]},/*PUW=100*/
-    {OP_smmla,   0x07500010, "smmla",  RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},/* XXX: "smmul" if RBw==PC */
-    {OP_smmlar,  0x07500030, "smmlar", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},/* XXX: "smmulr" if RBw==PC */
+    {EXT_RBPC,   0x07500010, "(ext rbpc 5)", xx, xx, xx, xx, xx, no, x, 5},
+    {EXT_RBPC,   0x07500030, "(ext rbpc 6)", xx, xx, xx, xx, xx, no, x, 6},
     {INVALID,    0x07500050, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x07500070, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x07500090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -1000,7 +1000,7 @@ const instr_info_t A32_ext_bit4[][2] = {
     {OP_udiv,    0x0730f010, "udiv",   RAw, xx, RDw, RCw, xx, pred, x, END_LIST},
   }, { /* 2 */
     {OP_str,     0x07800000, "str",    MPSw, xx, RBw, xx, xx, pred, x, top8[0x58]},/*PUW=110*/
-    {OP_usada8,  0x07800010, "usada8", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},/* "usad8" on PC */
+    {EXT_RBPC,   0x07800010, "(ext rbpc 7)", xx, xx, xx, xx, xx, no, x, 7},
   }, { /* 3 */
     {OP_str,     0x07a00000, "str",    MPSw, RAw, RBw, RAw, RDw, xop_shift|pred, x, top8[0x72]},/*PUW=111*/
     {OP_sbfx,    0x07a00050, "sbfx",   RBw, xx, RDw, i5_7, i5_16, pred, x, END_LIST},
@@ -1634,11 +1634,55 @@ const instr_info_t A32_ext_bits16[][16] = {
   },
 };
 
+/* Indexed by whether RA != PC */
+const instr_info_t A32_ext_RAPC[][2] = {
+  { /* 0 */
+    {OP_sxtab16, 0x06800070, "sxtab16", RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* rotates RDw then extracts 2 8-bit parts: model as reading whole thing, for now at least */
+    {OP_sxtb16,  0x068f0070, "sxtb16", RBw, xx, RDw, ro2, xx, pred, x, END_LIST},/* ditto */
+  }, { /* 1 */
+    {OP_sxtab,   0x06a00070, "sxtab",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* rotates RDw then extracts 8 bits: model as reading whole thing, for now at least */
+    {OP_sxtb,    0x06af0070, "sxtb",   RBw, xx, RDw, ro2, xx, pred, x, END_LIST},/* ditto */
+  }, { /* 2 */
+    {OP_sxtah,   0x06b00070, "sxtah",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* rotates RDw then extracts 8 bits: model as reading whole thing, for now at least */
+    {OP_sxth,    0x06bf0070, "sxth",   RBw, xx, RDw, ro2, xx, pred, x, END_LIST},/* ditto */
+  }, { /* 3 */
+    {OP_uxtab16, 0x06c00070, "uxtab16", RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* rotates RDw then extracts 2x8 bits: model as reading whole thing, for now at least */
+    {OP_uxtb16,  0x06cf0070, "uxtb16", RBw, xx, RDw, ro2, xx, pred, x, END_LIST},/* ditto */
+  }, { /* 4 */
+    {OP_uxtab,   0x06e00070, "uxtab",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* rotates RDw then extracts 8 bits: model as reading whole thing, for now at least */
+    {OP_uxtb,    0x06ef0070, "uxtb",   RBw, xx, RDw, ro2, xx, pred, x, END_LIST},/* ditto */
+  }, { /* 5 */
+    {OP_uxtah,   0x06f00070, "uxtah",  RBw, xx, RAw, RDw, ro2, pred, x, END_LIST},/* rotates RDw then extracts 16 bits: model as reading whole thing, for now at least */
+    {OP_uxth,    0x06ff0070, "uxth",   RBw, xx, RDw, ro2, xx, pred, x, END_LIST},/* ditto */
+  },
+};
+
 /* Indexed by whether RB != PC */
 const instr_info_t A32_ext_RBPC[][2] = {
   { /* 0 */
-    {OP_vmrs,      0x0ef10a10, "vmrs",   RBd, xx, FPSCR, xx, xx, pred|vfp, x, END_LIST},
-    {OP_vmrs,      0x0ef1fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, pred|vfp, x, trbpc[0][0x00]},
+    {OP_vmrs,    0x0ef10a10, "vmrs",   RBd, xx, FPSCR, xx, xx, pred|vfp, x, END_LIST},
+    {OP_vmrs,    0x0ef1fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, pred|vfp, x, trbpc[0][0x00]},
+  }, { /* 1 */
+    {OP_smlad,   0x07000010, "smlad",  RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},
+    {OP_smuad,   0x0700f010, "smuad",  RCw, xx, RAw, RDw, xx, pred, fWQ, END_LIST},
+  }, { /* 2 */
+    {OP_smladx,  0x07000030, "smladx", RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},
+    {OP_smuadx,  0x0700f030, "smuadx", RCw, xx, RAw, RDw, xx, pred, fWQ, END_LIST},
+  }, { /* 3 */
+    {OP_smlsd,   0x07000050, "smlsd",  RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
+    {OP_smusd,   0x0700f050, "smusd",  RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+  }, { /* 4 */
+    {OP_smlsdx,  0x07000070, "smlsdx", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
+    {OP_smusdx,  0x0700f070, "smusdx", RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+  }, { /* 5 */
+    {OP_smmla,   0x07500010, "smmla",  RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
+    {OP_smmul,   0x0750f010, "smmul",  RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+  }, { /* 6 */
+    {OP_smmlar,  0x07500030, "smmlar", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
+    {OP_smmulr,  0x0750f030, "smmulr", RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+  }, { /* 7 */
+    {OP_usada8,  0x07800010, "usada8", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
+    {OP_usad8,   0x0780f010, "usad8",  RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
   },
 };
 

@@ -903,8 +903,11 @@ read_instruction(byte *pc, byte *orig_pc,
         } else if (info->type == EXT_BITS16) {
             idx = ((instr_word >> 16) & 0xf) /*bits 19:16*/;
             info = &A32_ext_bits16[info->code][idx];
+        } else if (info->type == EXT_RAPC) {
+            idx = (((instr_word >> 16) & 0xf) /*bits 19:16*/ != 0xf) ? 0 : 1;
+            info = &A32_ext_RAPC[info->code][idx];
         } else if (info->type == EXT_RBPC) {
-            idx = (((instr_word >> 12) & 0xf) /*bits 19:16*/ != 0xf) ? 0 : 1;
+            idx = (((instr_word >> 12) & 0xf) /*bits 15:12*/ != 0xf) ? 0 : 1;
             info = &A32_ext_RBPC[info->code][idx];
         } else if (info->type == EXT_RDPC) {
             idx = ((instr_word & 0xf) /*bits 3:0*/ == 0xf) ? 1 : 0;

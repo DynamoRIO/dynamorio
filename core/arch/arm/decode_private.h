@@ -54,6 +54,7 @@ enum {
     EXT_FPA,     /* Indexed by bits 6:4 but collapsed */
     EXT_FPB,     /* Indexed by bits 6:4 */
     EXT_BITS16,  /* Indexed by bits 19:16 */
+    EXT_RAPC,    /* Indexed by whether RA != PC */
     EXT_RBPC,    /* Indexed by whether RB != PC */
     EXT_RDPC,    /* Indexed by whether RD != PC */
     /* A32 unpred only */
@@ -359,6 +360,7 @@ extern const instr_info_t A32_ext_fp[][3];
 extern const instr_info_t A32_ext_opc4fpA[][3];
 extern const instr_info_t A32_ext_opc4fpB[][8];
 extern const instr_info_t A32_ext_bits16[][16];
+extern const instr_info_t A32_ext_RAPC[][2];
 extern const instr_info_t A32_ext_RBPC[][2];
 extern const instr_info_t A32_ext_RDPC[][2];
 extern const instr_info_t A32_ext_imm5[][2];

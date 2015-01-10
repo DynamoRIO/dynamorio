@@ -579,10 +579,22 @@
   instr_create_1dst_2src((dc), OP_shsub16, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_shsub8(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_shsub8, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smmul(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smmul, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smmulr(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smmulr, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smuad(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smuad, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smuadx(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smuadx, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_smulwb(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_smulwb, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_smulwt(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_smulwt, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smusd(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smusd, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smusdx(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smusdx, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_ssax(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_ssax, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_ssub16(dc, Rd, Rn, Rm) \
@@ -621,6 +633,8 @@
   instr_create_1dst_2src((dc), OP_uqsub16, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_uqsub8(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_uqsub8, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_usad8(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_usad8, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_usax(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_usax, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_usub16(dc, Rd, Rn, Rm) \
@@ -665,6 +679,10 @@
   instr_create_1dst_3src((dc), OP_smlawb, (Rd), (Rn), (Rm), (Ra))
 #define INSTR_CREATE_smlawt(dc, Rd, Rn, Rm, Ra) \
   instr_create_1dst_3src((dc), OP_smlawt, (Rd), (Rn), (Rm), (Ra))
+#define INSTR_CREATE_smlsd(dc, Rd, Rn, Rm, Ra) \
+  instr_create_1dst_3src((dc), OP_smlsd, (Rd), (Rn), (Rm), (Ra))
+#define INSTR_CREATE_smlsdx(dc, Rd, Rn, Rm, Ra) \
+  instr_create_1dst_3src((dc), OP_smlsdx, (Rd), (Rn), (Rm), (Ra))
 #define INSTR_CREATE_smmla(dc, Rd, Rn, Rm, Ra) \
   instr_create_1dst_3src((dc), OP_smmla, (Rd), (Rn), (Rm), (Ra))
 #define INSTR_CREATE_smmlar(dc, Rd, Rn, Rm, Ra) \
@@ -703,10 +721,6 @@
   instr_create_2dst_2src((dc), OP_smlaldx, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlals(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_smlals, (Rd), (Rd2), (Rn), (Rm))
-#define INSTR_CREATE_smlsd(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlsd, (Rd), (Rd2), (Rn), (Rm))
-#define INSTR_CREATE_smlsdx(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlsdx, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlaltb(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_4src((dc), OP_smlaltb, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlaltt(dc, Rd, Rd2, Rn, Rm) \
@@ -868,6 +882,33 @@
    INSTR_CREATE_tst_shimm((dc), (Rn), (Rm_or_imm), \
      OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
    instr_create_0dst_2src((dc), OP_tst, (Rn), (Rm_or_imm)))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Rd, Rm, imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rm The source register opnd_t operand.
+ * \param imm The integer constant opnd_t operand.
+ */
+#define INSTR_CREATE_sxtb(dc, Rd, Rm, imm) \
+  instr_create_1dst_2src((dc), OP_sxtb, (Rd), (Rm), (imm))
+#define INSTR_CREATE_sxtb16(dc, Rd, Rm, imm) \
+  instr_create_1dst_2src((dc), OP_sxtb16, (Rd), (Rm), (imm))
+#define INSTR_CREATE_sxth(dc, Rd, Rm, imm) \
+  instr_create_1dst_2src((dc), OP_sxth, (Rd), (Rm), (imm))
+#define INSTR_CREATE_uxtb(dc, Rd, Rm, imm) \
+  instr_create_1dst_2src((dc), OP_uxtb, (Rd), (Rm), (imm))
+#define INSTR_CREATE_uxtb16(dc, Rd, Rm, imm) \
+  instr_create_1dst_2src((dc), OP_uxtb16, (Rd), (Rm), (imm))
+#define INSTR_CREATE_uxth(dc, Rd, Rm, imm) \
+  instr_create_1dst_2src((dc), OP_uxth, (Rd), (Rm), (imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, imm, Rm) */

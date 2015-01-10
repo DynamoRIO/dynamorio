@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -700,6 +700,10 @@ sub rename_regs($)
         $str =~ s/\b([RV])B\w/\1d/;
         $str =~ s/\bRC\w/Rs/;
         $str =~ s/\bVC\w/Vm/;
+        $str =~ s/\bRD\w/Rm/;
+    } elsif ($str =~ /\bRC\w; RA\w RD\w$/) {
+        $str =~ s/\bRC\w/Rd/;
+        $str =~ s/\bRA\w/Rn/;
         $str =~ s/\bRD\w/Rm/;
     } elsif ($str =~ /\b[RV]\w/) {
         die "XXXX No reg mapping for $str\n";

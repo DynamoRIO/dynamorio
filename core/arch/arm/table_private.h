@@ -96,6 +96,7 @@
 #define tfpA  (ptr_int_t)&A32_ext_opc4fpA
 #define tfpB  (ptr_int_t)&A32_ext_opc4fpB
 #define t16   (ptr_int_t)&A32_ext_bits16
+#define trapc (ptr_int_t)&A32_ext_RAPC
 #define trbpc (ptr_int_t)&A32_ext_RBPC
 #define trdpc (ptr_int_t)&A32_ext_RDPC
 #define ti5   (ptr_int_t)&A32_ext_imm5
