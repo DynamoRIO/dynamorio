@@ -732,13 +732,13 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_qdadd,   0x01400050, "qdadd",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {INVALID,    0x01400060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_hvc,     0x01400070, "hvc",    xx, xx, i16x0_8, xx, xx, pred, x, END_LIST},
-    {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RCh, pred|xop, x, exop[0x4]},
+    {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x4]},
     {INVALID,    0x01400090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_smlalbt, 0x014000a0, "smlalbt", RAw, RBw, RAw, RBw, RCh, pred|xop, x, exop[0x5]},
+    {OP_smlalbt, 0x014000a0, "smlalbt", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x5]},
     {OP_strh,    0x014000b0, "strh",   MN44h, xx, RBh, xx, xx, pred, x, top4[0][0x0b]},/*PUW=100*/
-    {OP_smlaltb, 0x014000c0, "smlaltb", RAw, RBw, RAw, RBw, RCt, pred|xop, x, exop[0x4]},
+    {OP_smlaltb, 0x014000c0, "smlaltb", RAw, RBw, RAw, RBw, RDt, pred|xop, x, exop[0x4]},
     {OP_ldrd,    0x014000d0, "ldrd",   RBEw, RB2w, MN44q, xx, xx, pred, x, top4x[20][0x04]},/*PUW=100*/
-    {OP_smlaltt, 0x014000e0, "smlaltt", RAw, RBw, RAw, RBw, RCt, pred|xop, x, exop[0x5]},
+    {OP_smlaltt, 0x014000e0, "smlaltt", RAw, RBw, RAw, RBw, RDt, pred|xop, x, exop[0x5]},
     {OP_strd,    0x014000f0, "strd",   MN44q, xx, RBEw, RB2w, xx, pred, x, top4[0][0x0f]},/*PUW=100*/
   }, { /* 3 */
     {EXT_BIT9,   0x01600000, "(ext bit9 6)", xx, xx, xx, xx, xx, no, x, 6},
@@ -1686,6 +1686,6 @@ const instr_info_t A32_extra_operands[] =
     {OP_CONTD, 0x00000000, "writeback base src", xx, xx, RAw, xx, xx, no, x, END_LIST},/*xop_wb*/
     {OP_CONTD, 0x00000000, "writeback base + index", xx, xx, RDw, RAw, xx, no, x, END_LIST},/*xop_wb2*/
     {OP_CONTD, 0x00000000, "<cdp/mcr/mrc cont'd>", xx, xx, i3_5, xx, xx, no, x, END_LIST},
-    {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RDh, xx, xx, no, x, END_LIST},
-    {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RDt, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RCh, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RCt, xx, xx, no, x, END_LIST},
 };

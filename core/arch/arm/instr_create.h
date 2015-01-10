@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,7 +63,7 @@
 #define OPND_CREATE_INT_MSR_NZCVQ() opnd_create_immed_int(0x8, OPSZ_4b)
 
 /** The immediate opnd_t for use with OP_msr to write the apsr_g status flags. */
-#define OPND_CREATE_INT_MSR_G() opnd_create_immed_int(0x8, OPSZ_4b)
+#define OPND_CREATE_INT_MSR_G() opnd_create_immed_int(0x4, OPSZ_4b)
 
 /** The immediate opnd_t for use with OP_msr to write the apsr_nzcvqg status flags. */
 #define OPND_CREATE_INT_MSR_NZCVQG() opnd_create_immed_int(0xc, OPSZ_4b)
@@ -677,30 +677,6 @@
   instr_create_1dst_3src((dc), OP_usada8, (Rd), (Rn), (Rm), (Ra))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Rd, Rd2, Rm, Rn) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param Rd2 The second destination register opnd_t operand.
- * \param Rm The source register opnd_t operand.
- * \param Rn The source register opnd_t operand.
- */
-#define INSTR_CREATE_smlalbb(dc, Rd, Rd2, Rm, Rn) \
-  instr_create_2dst_4src((dc), OP_smlalbb, (Rd), (Rd2), (Rd), (Rd2), (Rm), (Rn))
-#define INSTR_CREATE_smlalbt(dc, Rd, Rd2, Rm, Rn) \
-  instr_create_2dst_4src((dc), OP_smlalbt, (Rd), (Rd2), (Rd), (Rd2), (Rm), (Rn))
-#define INSTR_CREATE_smlaltb(dc, Rd, Rd2, Rm, Rn) \
-  instr_create_2dst_4src((dc), OP_smlaltb, (Rd), (Rd2), (Rd), (Rd2), (Rm), (Rn))
-#define INSTR_CREATE_smlaltt(dc, Rd, Rd2, Rm, Rn) \
-  instr_create_2dst_4src((dc), OP_smlaltt, (Rd), (Rd2), (Rd), (Rd2), (Rm), (Rn))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (Rd, Rd2, Rn, Rm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -717,6 +693,10 @@
  */
 #define INSTR_CREATE_smlal(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_smlal, (Rd), (Rd2), (Rn), (Rm))
+#define INSTR_CREATE_smlalbb(dc, Rd, Rd2, Rn, Rm) \
+  instr_create_2dst_4src((dc), OP_smlalbb, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
+#define INSTR_CREATE_smlalbt(dc, Rd, Rd2, Rn, Rm) \
+  instr_create_2dst_4src((dc), OP_smlalbt, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlald(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_smlald, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlaldx(dc, Rd, Rd2, Rn, Rm) \
@@ -727,6 +707,10 @@
   instr_create_2dst_2src((dc), OP_smlsd, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlsdx(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_smlsdx, (Rd), (Rd2), (Rn), (Rm))
+#define INSTR_CREATE_smlaltb(dc, Rd, Rd2, Rn, Rm) \
+  instr_create_2dst_4src((dc), OP_smlaltb, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
+#define INSTR_CREATE_smlaltt(dc, Rd, Rd2, Rn, Rm) \
+  instr_create_2dst_4src((dc), OP_smlaltt, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlsld(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_smlsld, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlsldx(dc, Rd, Rd2, Rn, Rm) \
