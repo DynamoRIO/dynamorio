@@ -536,14 +536,14 @@ const instr_info_t A32_ext_opc4x[][6] = {
 const instr_info_t A32_ext_opc4y[][9] = {
   { /* 0 */
     {OP_ldr,     0x06100000, "ldr",    RBw, RAw, Mw, RAw, RDNw, xop_shift|pred, x, END_LIST},/*PUW=000*/
-    {OP_sadd16,  0x06100f10, "sadd16", RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_sasx,    0x06100f30, "sasx",   RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_ssax,    0x06100f50, "ssax",   RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_ssub16,  0x06100f70, "ssub16", RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_sadd8,   0x06100f90, "sadd8",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_sadd16,  0x06100f10, "sadd16", RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
+    {OP_sasx,    0x06100f30, "sasx",   RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
+    {OP_ssax,    0x06100f50, "ssax",   RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
+    {OP_ssub16,  0x06100f70, "ssub16", RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
+    {OP_sadd8,   0x06100f90, "sadd8",  RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
     {INVALID,    0x061000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x061000d0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ssub8,   0x06100ff0, "ssub8",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_ssub8,   0x06100ff0, "ssub8",  RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
   }, { /* 1 */
     {OP_strt,    0x06200000, "strt",   Mw, RAw, RBw, RAw, RDNw, xop_shift|pred, x, END_LIST},/*PUW=001*/
     {OP_qadd16,  0x06200f10, "qadd16", RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
@@ -566,14 +566,14 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {OP_shsub8,  0x06300ff0, "shsub8", RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
   }, { /* 3 */
     {OP_ldrb,    0x06500000, "ldrb",   RBw, RAw, Mb, RAw, RDNw, xop_shift|pred, x, END_LIST},/*PUW=000*/
-    {OP_uadd16,  0x06500f10, "uadd16", RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_uadd16,  0x06500f10, "uadd16", RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
     {OP_uasx,    0x06500f30, "uasx",   RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_usax,    0x06500f50, "usax",   RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_usub16,  0x06500f70, "usub16", RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_uadd8,   0x06500f90, "uadd8",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_usax,    0x06500f50, "usax",   RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
+    {OP_usub16,  0x06500f70, "usub16", RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
+    {OP_uadd8,   0x06500f90, "uadd8",  RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
     {INVALID,    0x065000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x065000d0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_usub8,   0x06500ff0, "usub8",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_usub8,   0x06500ff0, "usub8",  RBw, xx, RAw, RDw, xx, pred, fWGE, END_LIST},
   }, { /* 4 */
     {OP_strbt,   0x06600000, "strbt",  Mb, RAw, RBb, RAw, RDNw, xop_shift|pred, x, END_LIST},/*PUW=001*/
     {OP_uqadd16, 0x06600f10, "uqadd16", RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
@@ -606,23 +606,23 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {INVALID,    0x068000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 7 */
     {OP_strt,    0x06a00000, "strt",   Mw, RAw, RBw, RAw, RDw, xop_shift|pred, x, top4y[1][0x00]},/*PUW=011*/
-    {OP_ssat,    0x06a00010, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
-    {OP_ssat16,  0x06a00f30, "ssat16", RBw, xx, i4_16, RDw, xx, pred, x, END_LIST},
-    {OP_ssat,    0x06a00050, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_ssat,    0x06a00010, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
+    {OP_ssat16,  0x06a00f30, "ssat16", RBw, xx, i4_16, RDw, xx, pred, fWQ, END_LIST},
+    {OP_ssat,    0x06a00050, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {EXT_RAPC,   0x06a00070, "(ext rapc 1)", xx, xx, xx, xx, xx, no, x, 1},
-    {OP_ssat,    0x06a00090, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_ssat,    0x06a00090, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {INVALID,    0x06a000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ssat,    0x06a000d0, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_ssat,    0x06a000d0, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {INVALID,    0x06a000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 8 */
     {OP_ldrt,    0x06b00000, "ldrt",   RBw, RAw, Mw, RAw, RDw, xop_shift|pred, x, top4y[2][0x00]},/*PUW=011*/
-    {OP_ssat,    0x06b00010, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_ssat,    0x06b00010, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {OP_rev,     0x06bf0f30, "rev",    RBw, xx, RDw, xx, xx, pred, x, END_LIST},
-    {OP_ssat,    0x06b00050, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_ssat,    0x06b00050, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {EXT_RAPC,   0x06b00070, "(ext rapc 2)", xx, xx, xx, xx, xx, no, x, 2},
-    {OP_ssat,    0x06b00090, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_ssat,    0x06b00090, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {OP_rev16,   0x06bf0fb0, "rev16",  RBw, xx, RDw, xx, xx, pred, x, END_LIST},
-    {OP_ssat,    0x06b000d0, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_ssat,    0x06b000d0, "ssat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {INVALID,    0x06b000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 9 */
     {OP_strb,    0x06c00000, "strb",   Mb, RAw, RBb, RAw, RDw, xop_shift|pred, x, top8[0x64]},/*PUW=010*/
@@ -636,23 +636,23 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {INVALID,    0x06c000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 10 */
     {OP_strbt,   0x06e00000, "strbt",  Mb, RAw, RBb, RAw, RDw, xop_shift|pred, x, top4y[4][0x00]},/*PUW=011*/
-    {OP_usat,    0x06e00010, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
-    {OP_usat16,  0x06e00f30, "usat16", RBw, xx, i4_16, RDw, xx, pred, x, END_LIST},
-    {OP_usat,    0x06e00050, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_usat,    0x06e00010, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
+    {OP_usat16,  0x06e00f30, "usat16", RBw, xx, i4_16, RDw, xx, pred, fWQ, END_LIST},
+    {OP_usat,    0x06e00050, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {EXT_RAPC,   0x06e00070, "(ext rapc 4)", xx, xx, xx, xx, xx, no, x, 4},
-    {OP_usat,    0x06e00090, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_usat,    0x06e00090, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {INVALID,    0x06e000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_usat,    0x06e000d0, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_usat,    0x06e000d0, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {INVALID,    0x06e000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 11 */
     {OP_ldrbt,   0x06f00000, "ldrbt",  RBw, RAw, Mb, RAw, RDw, xop_shift|pred, x, top4y[5][0x00]},/*PUW=011*/
-    {OP_usat,    0x06f00010, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_usat,    0x06f00010, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {OP_rbit,    0x06ff0f30, "rbit",   RBw, xx, RDw, xx, xx, pred, x, END_LIST},
-    {OP_usat,    0x06f00050, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_usat,    0x06f00050, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {EXT_RAPC,   0x06f00070, "(ext rapc 5)", xx, xx, xx, xx, xx, no, x, 5},
-    {OP_usat,    0x06f00090, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_usat,    0x06f00090, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {OP_revsh,   0x06ff0fb0, "revsh",  RBw, xx, RDw, xx, xx, pred, x, END_LIST},
-    {OP_usat,    0x06f000d0, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, x, END_LIST},
+    {OP_usat,    0x06f000d0, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, END_LIST},
     {INVALID,    0x06f000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 12 */
     {OP_str,     0x07000000, "str",    MNSw, xx, RBw, xx, xx, pred, x, top8[0x50]},/*PUW=100*/
@@ -747,7 +747,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {INVALID,    0x01600030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {EXT_BIT9,   0x01600040, "(ext bit9 7)", xx, xx, xx, xx, xx, no, x, 7},
     {OP_qdsub,   0x01600050, "qdsub",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
-    {OP_eret,    0x0160006e, "eret",   xx, xx, xx, xx, xx, pred, x, END_LIST},
+    {OP_eret,    0x0160006e, "eret",   xx, xx, LRw, xx, xx, pred, fWNZCV, END_LIST},
     {OP_smc,     0x01600070, "smc",    xx, xx, i4, xx, xx, pred, x, END_LIST},
     {OP_smulbb,  0x01600080, "smulbb", RAw, xx, RCh, RDh, xx, pred, x, END_LIST},
     {INVALID,    0x01600090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -1600,7 +1600,7 @@ const instr_info_t A32_ext_bits16[][16] = {
   }, { /* 8 */
     {INVALID,         0xf1000000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_setend,       0xf1010000, "setend",         xx, xx, i1_9, xx, xx, no, x, END_LIST},
-    {OP_cps,          0xf1020000, "cps",            xx, xx, i5_7, xx, xx, no, x, END_LIST},
+    {OP_cps,          0xf1020000, "cps",            xx, xx, i5, xx, xx, no, x, END_LIST},
     {INVALID,         0xf1030000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,         0xf1040000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,         0xf1050000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
@@ -1608,11 +1608,11 @@ const instr_info_t A32_ext_bits16[][16] = {
     {INVALID,         0xf1070000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_cpsie,        0xf1080000, "cpsie",          xx, xx, i3_6, xx, xx, no, x, END_LIST},
     {INVALID,         0xf1090000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_cpsie,        0xf10a0000, "cpsie",          xx, xx, i3_6, i5_7, xx, no, x, t16[8][0x08]},
+    {OP_cpsie,        0xf10a0000, "cpsie",          xx, xx, i3_6, i5, xx, no, x, t16[8][0x08]},
     {INVALID,         0xf10b0000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_cpsid,        0xf10c0000, "cpsid",          xx, xx, i3_6, xx, xx, no, x, END_LIST},
     {INVALID,         0xf10d0000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_cpsid,        0xf10e0000, "cpsid",          xx, xx, i3_6, i5_7, xx, no, x, t16[8][0x0c]},
+    {OP_cpsid,        0xf10e0000, "cpsid",          xx, xx, i3_6, i5, xx, no, x, t16[8][0x0c]},
     {INVALID,         0xf10f0000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 9 */
     {EXT_SIMD6B,      0xf3b00000, "(ext simd6B 0)", xx, xx, xx, xx, xx, no, x, 0},

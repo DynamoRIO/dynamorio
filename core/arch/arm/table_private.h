@@ -78,6 +78,7 @@
 #define fWNZ      (EFLAGS_WRITE_N | EFLAGS_WRITE_Z)
 #define fWNZC     (EFLAGS_WRITE_N | EFLAGS_WRITE_Z | EFLAGS_WRITE_C)
 #define fRGE      EFLAGS_READ_GE
+#define fWGE      EFLAGS_WRITE_GE
 #define fWQ       EFLAGS_WRITE_Q
 
 /* for constructing linked lists of table entries */
@@ -148,6 +149,7 @@
 #define i4_8     TYPE_I_b8, OPSZ_4b
 #define i4_16    TYPE_I_b16, OPSZ_4b
 #define i4_20    TYPE_I_b20, OPSZ_4b
+#define i5       TYPE_I_b0, OPSZ_5b
 #define i5_7     TYPE_I_b7, OPSZ_5b
 #define i5_16    TYPE_I_b16, OPSZ_5b
 #define i5x5_0   TYPE_I_b0_b5, OPSZ_5b
