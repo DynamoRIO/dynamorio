@@ -955,7 +955,8 @@ instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
 
 DR_API
 /**
- * Returns \p instr's eflags use as EFLAGS_ constants or'ed together.
+ * Returns \p instr's eflags use as EFLAGS_ constants (e.g., EFLAGS_READ_CF,
+ * EFLAGS_WRITE_OF, etc.) or'ed together.
  * Which eflags are considered to be accessed for conditionally executed
  * instructions are controlled by \p flags.
  */
@@ -965,7 +966,8 @@ instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags);
 DR_API
 /**
  * Returns the eflags usage of instructions with opcode \p opcode,
- * as EFLAGS_ constants or'ed together.
+ * as EFLAGS_ constants (e.g., EFLAGS_READ_CF, EFLAGS_WRITE_OF, etc.) or'ed
+ * together.
  * If \p opcode is predicated (see instr_is_predicated()), the eflags may not
  * always be accessed or written.
  */
@@ -974,8 +976,8 @@ instr_get_opcode_eflags(int opcode);
 
 DR_API
 /**
- * Returns \p instr's arithmetic flags (bottom 6 eflags) use
- * as EFLAGS_ constants or'ed together.
+ * Returns \p instr's arithmetic flags (bottom 6 eflags) use as EFLAGS_
+ * constants (e.g., EFLAGS_READ_CF, EFLAGS_WRITE_OF, etc.) or'ed together.
  * If \p instr's eflags behavior has not been calculated yet or is
  * invalid, the entire eflags use is calculated and returned (not
  * just the arithmetic flags).
@@ -2562,6 +2564,9 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 
 /****************************************************************************
  * EFLAGS/CONDITION CODES
+ *
+ * The EFLAGS_READ_* and EFLAGS_WRITE_* constants are used by API routines
+ * instr_get_eflags(), instr_get_opcode_flags(), and instr_get_arith_flags().
  */
 #ifdef X86
 /* we only care about these 11 flags, and mostly only about the first 6
