@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -152,19 +152,19 @@
 #define i5       TYPE_I_b0, OPSZ_5b
 #define i5_7     TYPE_I_b7, OPSZ_5b
 #define i5_16    TYPE_I_b16, OPSZ_5b
-#define i5x5_0   TYPE_I_b0_b5, OPSZ_5b
-#define i5x16_8  TYPE_I_b8_b16, OPSZ_5b
+#define i5x0_5   TYPE_I_b0_b5, OPSZ_5b
+#define i5x8_16  TYPE_I_b8_b16, OPSZ_5b
 #define i6_16    TYPE_I_b16, OPSZ_6b
 #define i8       TYPE_I_b0, OPSZ_1
 #define n8       TYPE_NI_b0, OPSZ_1
-#define n8x0_8   TYPE_NI_b8_b0, OPSZ_1
-#define i8x0_8   TYPE_I_b8_b0, OPSZ_1
-#define i8x0_16  TYPE_I_b16_b0, OPSZ_1
+#define n8x8_0   TYPE_NI_b8_b0, OPSZ_1
+#define i8x8_0   TYPE_I_b8_b0, OPSZ_1
+#define i8x16_0  TYPE_I_b16_b0, OPSZ_1
 #define i8x24_16_0 TYPE_I_b24_b16_b0, OPSZ_1
 #define i12      TYPE_I_b0, OPSZ_12b
 #define n12      TYPE_NI_b0, OPSZ_12b
-#define i16x0_8  TYPE_I_b8_b0, OPSZ_2
-#define i16x0_16 TYPE_I_b16_b0, OPSZ_2
+#define i16x8_0  TYPE_I_b8_b0, OPSZ_2
+#define i16x16_0 TYPE_I_b16_b0, OPSZ_2
 #define i24      TYPE_I_b0, OPSZ_3
 #define j24_x4   TYPE_J_x4_b0, OPSZ_3
 #define j25x0_24 TYPE_J_b0_b24, OPSZ_25b
