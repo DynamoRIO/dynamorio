@@ -1070,9 +1070,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                   ((optype == TYPE_M_UP_OFFS &&
                     opnd_get_disp(opnd) == sizeof(void*)) ||
                    (optype == TYPE_M_DOWN_OFFS &&
-                    opnd_get_disp(opnd) == opnd_size_in_bytes(size_op)-sizeof(void*)) ||
+                    opnd_get_disp(opnd) == -(int)opnd_size_in_bytes(size_op)*
+                    sizeof(void*)) ||
                    (optype == TYPE_M_DOWN &&
-                    opnd_get_disp(opnd) == opnd_size_in_bytes(size_op))))));
+                    opnd_get_disp(opnd) == -(int)(opnd_size_in_bytes(size_op)-1)*
+                    sizeof(void*))))));
 
     default:
         CLIENT_ASSERT(false, "encode-ok error: unknown operand type");

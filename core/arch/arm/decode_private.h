@@ -328,8 +328,8 @@ enum {
     TYPE_M_PCREL_U9,  /* mem offs pc-relative w/ unsigned 9-bit immed 23:5 scaled */
 
     TYPE_M_UP_OFFS,   /* mem w/ base plus ptr-sized disp */
-    TYPE_M_DOWN,      /* mem w/ base pointing at endpoint */
-    TYPE_M_DOWN_OFFS, /* mem w/ base minus ptr-sized disp pointing at endpoint */
+    TYPE_M_DOWN,      /* mem w/ base pointing at start of last ptr-sized slot */
+    TYPE_M_DOWN_OFFS, /* mem w/ base minus ptr-sized disp pointing at last slot */
 
     TYPE_K,    /* integer constant, size ignored, value stored in size */
 

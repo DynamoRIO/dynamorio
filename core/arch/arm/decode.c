@@ -796,12 +796,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_M_DOWN:
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, true/*disp*/);
         array[(*counter)++] =
-            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, 0, opsize);
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  -(int)(opnd_size_in_bytes(opsize)-1)*sizeof(void*),
+                                  opsize);
         return true;
     case TYPE_M_DOWN_OFFS:
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, true/*disp*/);
         array[(*counter)++] =
-            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, -sizeof(void*), opsize);
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  -(int)opnd_size_in_bytes(opsize)*sizeof(void*),
+                                  opsize);
         return true;
 
     default:
