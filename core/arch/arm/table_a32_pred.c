@@ -1719,6 +1719,9 @@ const instr_info_t A32_nopred_opc8[] = {
  * Extra operands beyond the ones that fit into instr_info_t.
  * All cases where we have extra operands are single-encoding-only instructions,
  * so we can have instr_info_t.code point here.
+ * The arm_table_chain.pl script now supports one exop[] entry per chain by
+ * placing it last, so we can support multi-encoding instructions if one variant
+ * has extra operands.
  *
  * XXX: just add more opnd fields, eat cost in data size and src line
  * length, for simpler tables?
@@ -1732,4 +1735,5 @@ const instr_info_t A32_extra_operands[] =
     {OP_CONTD, 0x00000000, "<cdp/mcr/mrc cont'd>", xx, xx, i3_5, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RCh, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RCt, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x00000000, "<srs* cont'd>",  xx, xx, SPSR, xx, xx, no, x, END_LIST},
 };

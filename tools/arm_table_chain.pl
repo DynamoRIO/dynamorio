@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -122,6 +122,9 @@ foreach $infile (@infiles) {
             $priority+=10   if (/PUW=.1./);
             $priority+=10   if (/[VW][ABC]q,/);
             $priority-=50   if (/[VW][ABC]d,/);
+            # exop must be final member of chain
+            $priority-=1000 if (/exop\[\w+\]},/);
+
             $entry[$instance]{'priority'} = $priority;
             if ($verbose > 0) {
                 my $tmp = $entry[$instance]{'addr_long'};
@@ -162,8 +165,12 @@ foreach $infile (@infiles) {
                 if ($i == @entry - 1) {
                     s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
                 } else {
-                    my $chain = $entry[$i+1]{'addr_short'};
-                    s/, [\w\[\]]+},/, $chain},/;
+                    if (/exop\[\w+\]},/) {
+                        print STDERR "ERROR: exop must be final element in chain: $_\n";
+                    } else {
+                        my $chain = $entry[$i+1]{'addr_short'};
+                        s/, [\w\[\]]+},/, $chain},/;
+                    }
                 }
             }
         }
