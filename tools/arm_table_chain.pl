@@ -77,15 +77,11 @@ foreach $infile (@infiles) {
             # Ignore duplicate encodings
             my $encoding = $_;
             my $is_new = 1;
-            # Remove up through opcode name (to remove encoding hexes) and
-            # final field and comments
-            $encoding =~ s/^[^"]+"/"/;
-            $encoding =~ s/,[^,]+}.*$//;
-            $encoding =~ s/\s*$//;
+            $encoding = extract_encoding($_);
             for (my $i = 0; $i < @entry; $i++) {
                 if ($encoding eq $entry[$i]{'encoding'}) {
                     $is_new = 0;
-                    $dup{$_} = 1;
+                    $dup{$encoding} = 1;
                     last;
                 }
             }
@@ -154,29 +150,59 @@ $^I = '.bak';
 foreach $infile (@infiles) {
     @ARGV = ($infile);
     while (<>) {
+        my $encoding = extract_encoding($_);
+        my $handled = 0;
         if (/^\s+\/\* $op[ ,]/) {
             if (defined($entry[0]{'addr_long'})) {
                 my $start = $entry[0]{'addr_long'};
                 s/&.*,/&$start,/;
             }
         }
-        for (my $i = 0; $i < @entry; $i++) {
-            if ($_ eq $entry[$i]{'line'}) {
-                if ($i == @entry - 1) {
-                    s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
-                } else {
-                    if (/exop\[\w+\]},/) {
-                        print STDERR "ERROR: exop must be final element in chain: $_\n";
+        if (defined($dup{$encoding})) {
+            my $first = 0;
+            if (!defined($dup_first{$encoding})) {
+                # Keep one of them, if any other encodings
+                $dup_first{$encoding} = 1;
+                $first = 1;
+            }
+            if (!$first) {
+                s/, [\w\[\]_]+},/, DUP_ENTRY},/ unless /exop\[\w+\]},/;
+                $handled = 1;
+            } elsif (@entry == 1) {
+                s/, [\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
+                $handled = 1;
+            }
+        }
+        if (!$handled) {
+            for (my $i = 0; $i < @entry; $i++) {
+                if ($_ eq $entry[$i]{'line'}) {
+                    if ($i == @entry - 1) {
+                        s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
                     } else {
-                        my $chain = $entry[$i+1]{'addr_short'};
-                        s/, [\w\[\]]+},/, $chain},/;
+                        if (/exop\[\w+\]},/) {
+                            print STDERR
+                                "ERROR: exop must be final element in chain: $_\n";
+                        } else {
+                            my $chain = $entry[$i+1]{'addr_short'};
+                            s/, [\w\[\]_]+},/, $chain},/;
+                        }
                     }
+                    last;
                 }
             }
         }
-        if (defined($dup{$_})) {
-            s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
-        }
         print;
     }
+}
+
+sub extract_encoding($)
+{
+    my ($line) = @_;
+
+    # Remove up through opcode name (to remove encoding hexes) and
+    # final field and comments
+    $line =~ s/^[^"]+"/"/;
+    $line =~ s/,[^,]+}.*$//;
+    $line =~ s/\s*$//;
+    return $line;
 }

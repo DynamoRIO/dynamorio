@@ -124,7 +124,7 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_ldmib             */ &A32_pred_opc8[0x99],
     /* OP_ldmib_priv        */ &A32_pred_opc8[0x9d],
     /* OP_ldr               */ &A32_pred_opc8[0x59],
-    /* OP_ldrb              */ &A32_pred_opc8[0x55],
+    /* OP_ldrb              */ &A32_pred_opc8[0x5d],
     /* OP_ldrbt             */ &A32_pred_opc8[0x4f],
     /* OP_ldrd              */ &A32_ext_opc4x[22][0x04],
     /* OP_ldrex             */ &A32_ext_bits8[1][0x03],

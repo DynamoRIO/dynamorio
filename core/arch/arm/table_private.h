@@ -84,6 +84,7 @@
 /* for constructing linked lists of table entries */
 #define NA 0
 #define END_LIST  0
+#define DUP_ENTRY  0
 #define exop  (ptr_int_t)&A32_extra_operands
 #define top8  (ptr_int_t)&A32_pred_opc8
 #define top4x (ptr_int_t)&A32_ext_opc4x
