@@ -870,7 +870,8 @@ read_instruction(byte *pc, byte *orig_pc,
             idx = decode_opc4(instr_word);
             info = &A32_ext_opc4[info->code][idx];
         } else if (info->type == EXT_IMM1916) {
-            idx = (((instr_word >> 16) & 0xf) /*bits 19:16*/ == 0) ? 0 : 1;
+            int imm = ((instr_word >> 16) & 0xf); /*bits 19:16*/
+            idx = (imm == 0) ? 0 : (imm == 1 ? 1 : 2);
             info = &A32_ext_imm1916[info->code][idx];
         } else if (info->type == EXT_BIT4) {
             idx = (instr_word >> 4) & 0x1 /*bit 4*/;

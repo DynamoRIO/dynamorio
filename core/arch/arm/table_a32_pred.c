@@ -879,17 +879,28 @@ const instr_info_t A32_ext_opc4[][16] = {
   },
 };
 
-/* Indexed by whether imm4 in 19:16 is zero or not */
-const instr_info_t A32_ext_imm1916[][2] = {
+/* Indexed by whether imm4 in 19:16 is 0, 1, or other */
+const instr_info_t A32_ext_imm1916[][3] = {
   { /* 0 */
     {EXT_OPC4,   0x03200000, "(ext opc4 6)", xx, xx, xx, xx, xx, no, x, 6},
     {OP_msr,     0x0320f000, "msr",    CPSR, xx, i4_16, i12, xx, pred, x, top8[0x36]},
+    {OP_msr,     0x0320f000, "msr",    CPSR, xx, i4_16, i12, xx, pred, x, END_LIST},
   }, { /* 1 */
     {OP_vmovl_s16, 0xf2900a10, "vmovl.s16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
+    {OP_vshll_s16, 0xf2900a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
     {OP_vshll_s16, 0xf2900a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
   }, { /* 2 */
     {OP_vmovl_u16, 0xf3900a10, "vmovl.u16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
     {OP_vshll_u16, 0xf3900a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
+    {OP_vshll_u16, 0xf3900a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
+  }, { /* 3 */
+    {OP_vmsr,     0x0ee00a10, "vmsr",   xx, xx, RBd, i4_16, xx, pred|vfp, x, ti19[3][0x01]},
+    {OP_vmsr,     0x0ee10a10, "vmsr",   FPSCR, xx, RBd, xx, xx, pred|vfp, x, END_LIST},
+    {OP_vmsr,     0x0ee00a10, "vmsr",   xx, xx, RBd, i4_16, xx, pred|vfp, x, END_LIST/*dup*/},
+  }, { /* 4 */
+    {OP_vmrs,    0x0ef00a10, "vmrs",   RBd, xx, i4_16, xx, xx, pred|vfp, x, trbpc[0][0x01]},
+    {OP_vmrs,    0x0ef10a10, "vmrs",   RBd, xx, FPSCR, xx, xx, pred|vfp, x, END_LIST},
+    {OP_vmrs,    0x0ef00a10, "vmrs",   RBd, xx, i4_16, xx, xx, pred|vfp, x, END_LIST/*dup*/},
   },
 };
 
@@ -1293,7 +1304,7 @@ const instr_info_t A32_ext_opc4fpA[][3] = {
     {INVALID,     0x0e700a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vsub_f32, 0x0e700a40, "vsub.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
   }, { /* 8 */
-      {OP_vdiv_f32, 0x0e800a00, "vdiv.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
+    {OP_vdiv_f32, 0x0e800a00, "vdiv.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
     {INVALID,     0x0e800a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0e800a40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 9 */
@@ -1314,7 +1325,7 @@ const instr_info_t A32_ext_opc4fpA[][3] = {
     {OP_vfnms_f32,0x0ed00a40, "vfnms.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
   }, { /* 13 */
     {OP_vfma_f32, 0x0ee00a00, "vfma.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
-    {OP_vmsr,     0x0ee10a10, "vmsr",   FPSCR, xx, RBd, xx, xx, pred|vfp, x, END_LIST},
+    {EXT_IMM1916, 0x0ee00a10, "(ext imm1916 3)", xx, xx, xx, xx, xx, no, x, 3},
     {OP_vfms_f32, 0x0ee00a40, "vfms.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
   },
 };
@@ -1660,8 +1671,8 @@ const instr_info_t A32_ext_RAPC[][2] = {
 /* Indexed by whether RB != PC */
 const instr_info_t A32_ext_RBPC[][2] = {
   { /* 0 */
-    {OP_vmrs,    0x0ef10a10, "vmrs",   RBd, xx, FPSCR, xx, xx, pred|vfp, x, END_LIST},
-    {OP_vmrs,    0x0ef1fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, pred|vfp, x, trbpc[0][0x00]},
+    {EXT_IMM1916,0x0ef00a10, "(ext imm1916 4)", xx, xx, xx, xx, xx, no, x, 4},
+    {OP_vmrs,    0x0ef1fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, pred|vfp, x, ti19[4][0x01]},
   }, { /* 1 */
     {OP_smlad,   0x07000010, "smlad",  RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},
     {OP_smuad,   0x0700f010, "smuad",  RCw, xx, RAw, RDw, xx, pred, fWQ, END_LIST},

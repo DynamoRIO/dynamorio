@@ -43,7 +43,7 @@ enum {
     EXT_OPC4,    /* Indexed by bits 7:4 */
     EXT_OPC4X,   /* Indexed by bits 7:4 in specific manner: see table */
     EXT_OPC4Y,   /* Indexed by bits 7:4 w/ 1st entry covering all evens */
-    EXT_IMM1916, /* Indexed by whether imm4 in 19:16 is zero or not */
+    EXT_IMM1916, /* Indexed by whether imm4 in 19:16 is 0, 1, or other */
     EXT_IMM5,    /* Indexed by whether imm5 11:7 is zero or not */
     EXT_BITS0,   /* Indexed by bits 2:0 */
     EXT_BITS8,   /* Indexed by bits 9:8 */
@@ -355,7 +355,7 @@ extern const instr_info_t A32_pred_opc8[];
 extern const instr_info_t A32_ext_opc4x[][6];
 extern const instr_info_t A32_ext_opc4y[][9];
 extern const instr_info_t A32_ext_opc4[][16];
-extern const instr_info_t A32_ext_imm1916[][2];
+extern const instr_info_t A32_ext_imm1916[][3];
 extern const instr_info_t A32_ext_bits0[][8];
 extern const instr_info_t A32_ext_bits8[][4];
 extern const instr_info_t A32_ext_bit9[][2];
