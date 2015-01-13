@@ -205,9 +205,9 @@ enum {
 /* 139 */     OP_rev,                /**< ARM rev opcode. */
 /* 140 */     OP_rev16,              /**< ARM rev16 opcode. */
 /* 141 */     OP_revsh,              /**< ARM revsh opcode. */
-/* 142 */     OP_rfeda,              /**< ARM rfeda opcode. */
-/* 143 */     OP_rfedb,              /**< ARM rfedb opcode. */
-/* 144 */     OP_rfeia,              /**< ARM rfeia opcode. */
+/* 142 */     OP_rfe,                /**< ARM rfe opcode. */
+/* 143 */     OP_rfeda,              /**< ARM rfeda opcode. */
+/* 144 */     OP_rfedb,              /**< ARM rfedb opcode. */
 /* 145 */     OP_rfeib,              /**< ARM rfeib opcode. */
 /* 146 */     OP_ror,                /**< ARM ror opcode. */
 /* 147 */     OP_rors,               /**< ARM rors opcode. */
@@ -283,9 +283,9 @@ enum {
 /* 217 */     OP_smulwt,             /**< ARM smulwt opcode. */
 /* 218 */     OP_smusd,              /**< ARM smusd opcode. */
 /* 219 */     OP_smusdx,             /**< ARM smusdx opcode. */
-/* 220 */     OP_srsda,              /**< ARM srsda opcode. */
-/* 221 */     OP_srsdb,              /**< ARM srsdb opcode. */
-/* 222 */     OP_srsia,              /**< ARM srsia opcode. */
+/* 220 */     OP_srs,                /**< ARM srs opcode. */
+/* 221 */     OP_srsda,              /**< ARM srsda opcode. */
+/* 222 */     OP_srsdb,              /**< ARM srsdb opcode. */
 /* 223 */     OP_srsib,              /**< ARM srsib opcode. */
 /* 224 */     OP_ssat,               /**< ARM ssat opcode. */
 /* 225 */     OP_ssat16,             /**< ARM ssat16 opcode. */
@@ -579,8 +579,8 @@ enum {
 /* 513 */     OP_vld4_lane_16,       /**< ARM vld4_lane_16 opcode. */
 /* 514 */     OP_vld4_lane_32,       /**< ARM vld4_lane_32 opcode. */
 /* 515 */     OP_vld4_lane_8,        /**< ARM vld4_lane_8 opcode. */
-/* 516 */     OP_vldmdb,             /**< ARM vldmdb opcode. */
-/* 517 */     OP_vldmia,             /**< ARM vldmia opcode. */
+/* 516 */     OP_vldm,               /**< ARM vldm opcode. */
+/* 517 */     OP_vldmdb,             /**< ARM vldmdb opcode. */
 /* 518 */     OP_vldr,               /**< ARM vldr opcode. */
 /* 519 */     OP_vmax_f32,           /**< ARM vmax_f32 opcode. */
 /* 520 */     OP_vmax_s16,           /**< ARM vmax_s16 opcode. */
@@ -941,8 +941,8 @@ enum {
 /* 875 */     OP_vst4_lane_16,       /**< ARM vst4_lane_16 opcode. */
 /* 876 */     OP_vst4_lane_32,       /**< ARM vst4_lane_32 opcode. */
 /* 877 */     OP_vst4_lane_8,        /**< ARM vst4_lane_8 opcode. */
-/* 878 */     OP_vstmdb,             /**< ARM vstmdb opcode. */
-/* 879 */     OP_vstmia,             /**< ARM vstmia opcode. */
+/* 878 */     OP_vstm,               /**< ARM vstm opcode. */
+/* 879 */     OP_vstmdb,             /**< ARM vstmdb opcode. */
 /* 880 */     OP_vstr,               /**< ARM vstr opcode. */
 /* 881 */     OP_vsub_f32,           /**< ARM vsub_f32 opcode. */
 /* 882 */     OP_vsub_f64,           /**< ARM vsub_f64 opcode. */
@@ -990,6 +990,12 @@ enum {
 };
 
 /* alternative names */
+#define OP_ldmia     OP_ldm    /**< Alternative opcode name for ldm. */
+#define OP_rfeia     OP_rfe    /**< Alternative opcode name for rfe. */
+#define OP_srsia     OP_srs    /**< Alternative opcode name for srs. */
+#define OP_stmia     OP_stm    /**< Alternative opcode name for stm. */
+#define OP_vldmia    OP_vldm   /**< Alternative opcode name for vldm. */
+#define OP_vstmia    OP_vstm   /**< Alternative opcode name for vstm. */
 #define OP_pop       OP_ldr    /**< Alternative opcode name for ldr. */
 #define OP_push      OP_stmdb  /**< Alternative opcode name for stmdb. */
 #define OP_vpop      OP_vldmia /**< Alternative opcode name for vldmia. */

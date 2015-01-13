@@ -125,10 +125,10 @@ const instr_info_t A32_unpred_opc7[] = {
     {OP_srsdb,   0xf8ed0500, "srsdb",       Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=011*/
     {OP_rfedb,   0xf8b00a00, "rfedb",       RAw, CPSR, Mq, RAw, xx, no, x, top7[0x45]},/*PUW=011*/
     /* 90 */
-    {OP_srsia,   0xf94d0500, "srsia",       Mq, xx, i5, LRw, SPSR, no, x, top7[0x4a]},/*PUW=100*/
-    {OP_rfeia,   0xf9100a00, "rfeia",       CPSR, xx, Mq, xx, xx, no, x, top7[0x4b]},/*PUW=100*/
-    {OP_srsia,   0xf96d0500, "srsia",       Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=101*/
-    {OP_rfeia,   0xf9300a00, "rfeia",       RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=101*/
+    {OP_srs,     0xf94d0500, "srs",         Mq, xx, i5, LRw, SPSR, no, x, top7[0x4a]},/*PUW=100*/
+    {OP_rfe,     0xf9100a00, "rfe",         CPSR, xx, Mq, xx, xx, no, x, top7[0x4b]},/*PUW=100*/
+    {OP_srs,     0xf96d0500, "srs",         Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=101*/
+    {OP_rfe,     0xf9300a00, "rfe",         RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=101*/
     {OP_srsib,   0xf9cd0500, "srsib",       Mq, xx, i5, LRw, SPSR, no, x, top7[0x4e]},/*PUW=110*/
     {OP_rfeib,   0xf9900a00, "rfeib",       CPSR, xx, Mq, xx, xx, no, x, top7[0x4f]},/*PUW=110*/
     {OP_srsib,   0xf9ed0500, "srsib",       Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=111*/
