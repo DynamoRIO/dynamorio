@@ -35,9 +35,9 @@
 #include "decode.h"
 #include "decode_private.h"
 
-/* When adding new opcodes here, run tools/x86opnums.pl on this file and update
- * opcode.h using the resulting output.
- * Also run tools/arm_table_chain.pl (with the -arm option) to update the
+/* When adding new opcodes here, run tools/x86opnums.pl (with the -arm option) on
+ * this file and update opcode.h using the resulting output.
+ * Also run tools/arm_table_chain.pl to update the
  * encoding chains in the tables.
  * See the list of other places to edit when adding new opcodes in opcode.h.
  *

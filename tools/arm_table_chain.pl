@@ -35,14 +35,26 @@
 # It has assumptions on the precise format of the decoding table
 # and of the op_instr* starting point array.
 #
+# To run on one opcode:
+#
+#   tools/arm_table_chain.pl -v -o $i core/arch/arm/table_*.[ch]
+#
 # To run on everything:
 #
-#   for i in `egrep -o 'OP_[a-z0-9_]+,' core/arch/arm/opcode.h | sed 's/,//'`; do echo $i; tools/arm_table_chain.pl $i core/arch/arm/table_*.[ch]; done
+#   tools/arm_table_chain.pl core/arch/arm/table_*.[ch]
 
-my $verbose = 1;
+my $verbose = 0;
 
-die "Usage: $0 OP_<opcode> <table-files>\n" if ($#ARGV < 1);
-my $op = shift;
+die "Usage: $0 [-o OP_<opcode>] <table-files>\n" if ($#ARGV < 1);
+my $single_op = '';
+while ($ARGV[0] eq '-v') {
+    shift;
+    $verbose++;
+}
+if ($ARGV[0] eq '-o') {
+    shift;
+    $single_op = shift;
+}
 my @infiles = @ARGV;
 my $table = "";
 my $shape = "";
@@ -73,32 +85,36 @@ foreach $infile (@infiles) {
             $major++;
             $minor = 0;
         }
-        if (/^\s*{$op[ ,]/) {
+        if (/^\s*{(OP_\w+)[ ,]/ && ($single_op eq '' || $single_op eq $1) &&
+            $1 ne 'OP_CONTD') {
+            my $opc = $1;
+            $instance{$opc} = 0 if (!defined($instance{$opc}));
+
             # Ignore duplicate encodings
             my $encoding = $_;
             my $is_new = 1;
             $encoding = extract_encoding($_);
-            for (my $i = 0; $i < @entry; $i++) {
-                if ($encoding eq $entry[$i]{'encoding'}) {
+            for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
+                if ($encoding eq $entry{$opc}[$i]{'encoding'}) {
                     $is_new = 0;
-                    $dup{$encoding} = 1;
+                    $dup{$opc}{$encoding} = 1;
                     last;
                 }
             }
             goto dup_line if (!$is_new);
 
-            $entry[$instance]{'line'} = $_;
-            $entry[$instance]{'encoding'} = $encoding;
+            $entry{$opc}[$instance{$opc}]{'line'} = $_;
+            $entry{$opc}[$instance{$opc}]{'encoding'} = $encoding;
             die "Error: no shorthand for $table\n" if ($shorthand{$table} eq '');
             if ($shape =~ /\d/) {
-                $entry[$instance]{'addr_short'} =
+                $entry{$opc}[$instance{$opc}]{'addr_short'} =
                     sprintf "$shorthand{$table}\[$major][0x%02x]", $minor;
-                $entry[$instance]{'addr_long'} =
+                $entry{$opc}[$instance{$opc}]{'addr_long'} =
                     sprintf "$table\[$major][0x%02x]", $minor;
             } else {
-                $entry[$instance]{'addr_short'} =
+                $entry{$opc}[$instance{$opc}]{'addr_short'} =
                     sprintf "$shorthand{$table}\[0x%02x]", $minor;
-                $entry[$instance]{'addr_long'} =
+                $entry{$opc}[$instance{$opc}]{'addr_long'} =
                     sprintf "$table\[0x%02x]", $minor;
             }
             # Order for sorting:
@@ -106,7 +122,7 @@ foreach $infile (@infiles) {
             # + Prefer shift via immed over shift via reg
             # + Prefer P=1 and U=1
             # + Prefer 8-byte over 16-byte and over 4-byte
-            my $priority = $instance;
+            my $priority = $instance{$opc};
             $priority-=10   if (/sh2, i/);
             $priority-=10   if (/sh2, R/);
             $priority-=10   if (/xop_shift/);
@@ -121,12 +137,12 @@ foreach $infile (@infiles) {
             # exop must be final member of chain
             $priority-=1000 if (/exop\[\w+\]},/);
 
-            $entry[$instance]{'priority'} = $priority;
+            $entry{$opc}[$instance{$opc}]{'priority'} = $priority;
             if ($verbose > 0) {
-                my $tmp = $entry[$instance]{'addr_long'};
+                my $tmp = $entry{$opc}[$instance{$opc}]{'addr_long'};
                 print "$priority $tmp $_";
             }
-            $instance++;
+            $instance{$opc}++;
         }
       dup_line:
         $minor++ if (/^\s*{[A-Z]/);
@@ -134,14 +150,15 @@ foreach $infile (@infiles) {
     close(INFILE);
 }
 
-@entry = sort({$b->{'priority'} <=> $a->{'priority'}} @entry);
-
-if ($verbose > 1) {
-    print "Sorted:\n";
-    for (my $i = 0; $i < @entry; $i++) {
-        my $tmp = $entry[$i]{'addr_long'};
-        my $pri = $entry[$i]{'priority'};
-        print "$pri $tmp\n";
+foreach my $opc (keys %entry) {
+    @{$entry{$opc}} = sort({$b->{'priority'} <=> $a->{'priority'}} @{$entry{$opc}});
+    if ($verbose > 1) {
+        print "Sorted:\n";
+        for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
+            my $tmp = $entry{$opc}[$i]{'addr_long'};
+            my $pri = $entry{$opc}[$i]{'priority'};
+            print "$pri $tmp\n";
+        }
     }
 }
 
@@ -152,42 +169,47 @@ foreach $infile (@infiles) {
     while (<>) {
         my $encoding = extract_encoding($_);
         my $handled = 0;
-        if (/^\s+\/\* $op[ ,]/) {
-            if (defined($entry[0]{'addr_long'})) {
-                my $start = $entry[0]{'addr_long'};
+        if (/^\s+\/\* (OP_\w+)[ ,]/ && ($single_op eq '' || $single_op eq $1)) {
+            my $opc = $1;
+            if (defined($entry{$opc}[0]{'addr_long'})) {
+                my $start = $entry{$opc}[0]{'addr_long'};
                 s/&.*,/&$start,/;
             }
         }
-        if (defined($dup{$encoding})) {
-            my $first = 0;
-            if (!defined($dup_first{$encoding})) {
-                # Keep one of them, if any other encodings
-                $dup_first{$encoding} = 1;
-                $first = 1;
+        if (/^\s*{(OP_\w+)[ ,]/ && ($single_op eq '' || $single_op eq $1) &&
+            $1 ne 'OP_CONTD') {
+            my $opc = $1;
+            if (defined($dup{$opc}{$encoding})) {
+                my $first = 0;
+                if (!defined($dup_first{$opc}{$encoding})) {
+                    # Keep one of them, if any other encodings
+                    $dup_first{$opc}{$encoding} = 1;
+                    $first = 1;
+                }
+                if (!$first) {
+                    s/, [\w\[\]_]+},/, DUP_ENTRY},/ unless /exop\[\w+\]},/;
+                    $handled = 1;
+                } elsif (@{$entry{$opc}} == 1) {
+                    s/, [\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
+                    $handled = 1;
+                }
             }
-            if (!$first) {
-                s/, [\w\[\]_]+},/, DUP_ENTRY},/ unless /exop\[\w+\]},/;
-                $handled = 1;
-            } elsif (@entry == 1) {
-                s/, [\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
-                $handled = 1;
-            }
-        }
-        if (!$handled) {
-            for (my $i = 0; $i < @entry; $i++) {
-                if ($_ eq $entry[$i]{'line'}) {
-                    if ($i == @entry - 1) {
-                        s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
-                    } else {
-                        if (/exop\[\w+\]},/) {
-                            print STDERR
-                                "ERROR: exop must be final element in chain: $_\n";
+            if (!$handled) {
+                for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
+                    if ($_ eq $entry{$opc}[$i]{'line'}) {
+                        if ($i == @{$entry{$opc}} - 1) {
+                            s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
                         } else {
-                            my $chain = $entry[$i+1]{'addr_short'};
-                            s/, [\w\[\]_]+},/, $chain},/;
+                            if (/exop\[\w+\]},/) {
+                                print STDERR
+                                    "ERROR: exop must be final element in chain: $_\n";
+                            } else {
+                                my $chain = $entry{$opc}[$i+1]{'addr_short'};
+                                s/, [\w\[\]_]+},/, $chain},/;
+                            }
                         }
+                        last;
                     }
-                    last;
                 }
             }
         }
