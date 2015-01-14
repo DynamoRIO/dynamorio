@@ -174,17 +174,19 @@ sub generate_entry($,$,$,$,$,$)
         'Rn' => '4', 'Rd' => 4, 'Rt' => 4, 'Rt2' => 4, 'Rs' => 4, 'Rm' => 4, 'Ra' => 4,
         'RdHi' => 4, 'RdLo' => 4,
         'CRd' => 4, 'CRn' => 4, 'CRm' => 4,
+        'Vn' => '4', 'Vd' => 4, 'Vt' => 4, 'Vm' => 4, 'Va' => 4,
         'imm2' => 2, 'imm3' => 3, 'imm4' => 4, 'imm5' => 5, 'imm6' => 6, 'imm8' => 8,
         'imm10' => 10, 'imm11' => 11, 'imm12' => 12, 'imm24' => 24,
         'imm10H' => 10, 'imm10L' => 10, 'imm4H' => 4, 'imm4L' => 4,
         'sat_imm4' => 4, 'sat_imm5' => 5,
         'type' => 2, # shift type
+        'type_vld' => 4, # OP_vld1
         'cond' => 4,
         'option' => 4,
-        'sz' => 2, # OP_crc32
         'msb' => 5, 'lsb' => 5,
         'coproc' => 4, 'opc1' => 4, 'opc2' => 3, # OP_cdp
         'opc1_mcr' => 3, # OP_mcr
+        'opc1_vmov' => 2, 'opc2_vmov' => 2, # OP_vmov
         'opt' => 2, # OP_dcps
         'register_list_t32' => 13, # for T32
         'register_list' => 16, # for A32
@@ -199,6 +201,21 @@ sub generate_entry($,$,$,$,$,$)
         'M1' => 4, # OP_mrs
         'reg' => 4, # OP_vmrs
         'opcode' => 4, # OP_subs pc
+        'sz_crc32' => 2, # OP_crc32
+        'sz' => 1, # OP_vabs
+        # SIMD
+        'size' => 2, 'size=8' => 2, 'size=16' => 2, 'size=32' => 2, 'size=64' => 2,
+        'size=s8' => 2, 'size=s16' => 2, 'size=s32' => 2, 'size=s64' => 2,
+        'size=u8' => 2, 'size=u16' => 2, 'size=u32' => 2, 'size=u64' => 2,
+        'size=i8' => 2, 'size=i16' => 2, 'size=i32' => 2, 'size=i64' => 2,
+        'sz=0' => 1, 'sz=1' => 1, 'cmode' => 4,
+        'op' => 1, # OP_vacge
+        'op_2b' => 2, # OP_vbif, OP_vcvt, OP_vqmov, OP_vrev
+        'op_3b' => 3, # OP_vrint
+        'sf' => 1, 'sx' => 1, 'RM' => 2, # OP_vcvt
+        'align' => 2, 'index_align' => 4,
+        'cc' => 2, # OP_vsel
+        'len' => 2, # OP_vtbl
         );
     my @encbits = split(' ', $enc);
     my $totlen = 0;
@@ -210,6 +227,15 @@ sub generate_entry($,$,$,$,$,$)
         $token =~ s/opc1/opc1_mcr/ if ($name eq 'mcr' || $name eq 'mcr2' ||
                                        $name eq 'mrc' || $name eq 'mrc2');
         $token =~ s/mask/mask_priv/ if ($name eq 'msr' && $enc =~ / R /);
+        $token =~ s/\bsz\b/sz_crc32/ if ($name eq 'crc32');
+        $token =~ s/\bop\b/op_2b/
+            if (($name eq 'v' && $enc =~ /D op V/) ||
+                ($name =~ /^vcvt/ && $enc =~ /1 op Q/) ||
+                ($name =~ /^vqmov/) ||
+                ($name =~ /^vrev/));
+        $token =~ s/\bop\b/op_3b/ if ($name =~ /^vrint/ && $enc =~ /1 op Q/);
+        $token =~ s/\btype\b/type_vld/ if ($name =~ /^vld/ || $name =~ /^vst/);
+        $token =~ s/\b(opc\d)\b/\1_vmov/ if ($name =~ /^vmov/);
         my $len = 0;
         if (length($token) == 1) {
             $len = 1;
@@ -224,7 +250,7 @@ sub generate_entry($,$,$,$,$,$)
                 $rest =~ s/\b$unmod\b/imm$repl/;
             }
         } else {
-            die "Unknown length for: \"$token\"\n";
+            die "Unknown length for $name: \"$token\" ($enc)\n";
         }
         $totlen += $len;
         if ($token eq '1' || $token eq '(1)') {

@@ -141,7 +141,7 @@ const instr_info_t T32_base_f[] = {
 };
 
 /* High--level T32 table for non-coprocessor instructions starting with 0xf
- * and either with bit B15 == 0 or bit A11 == 0.
+ * and either with bit B15 == 0 or bit A11 == 1.
  * Indexed by bits A11:4 but stop at 0xfb.
  */
 const instr_info_t T32_ext_fopc8[][192] = {
@@ -300,21 +300,21 @@ const instr_info_t T32_ext_fopc8[][192] = {
     {INVALID,     0xf8e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf8f00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     /* 90 */
-    {INVALID,     0xf9000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_VLDA,    0xf9000000, "(ext vldA  0)",  xx, xx, xx, xx, xx, no, x, 0},
     {EXT_RAPC,    0xf9100000, "(ext rapc 19)", xx, xx, xx, xx, xx, no, x, 19},
-    {INVALID,     0xf9200000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_VLDA,    0xf9200000, "(ext vldA  1)",  xx, xx, xx, xx, xx, no, x, 1},
     {EXT_RAPC,    0xf9300000, "(ext rapc 20)", xx, xx, xx, xx, xx, no, x, 20},
-    {INVALID,     0xf9400000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_VLDA,    0xf9400000, "(ext vldA  0)",  xx, xx, xx, xx, xx, no, x, 0},
     {INVALID,     0xf9500000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf9600000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_VLDA,    0xf9600000, "(ext vldA  1)",  xx, xx, xx, xx, xx, no, x, 1},
     {INVALID,     0xf9700000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf9800000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_VLDB,    0xf9800000, "(ext vldB  0)",  xx, xx, xx, xx, xx, no, x, 0},
     {EXT_RAPC,    0xf9900000, "(ext rapc 21)", xx, xx, xx, xx, xx, no, x, 21},
-    {INVALID,     0xf9a00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {EXT_RAPC,    0xf9b00000, "(ext rbpc 28)", xx, xx, xx, xx, xx, no, x, 28},
-    {INVALID,     0xf9c00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_VLDB,    0xf9a00000, "(ext vldB  1)",  xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_RAPC,    0xf9b00000, "(ext rapc 28)", xx, xx, xx, xx, xx, no, x, 28},
+    {EXT_VLDB,    0xf9c00000, "(ext vldB  0)",  xx, xx, xx, xx, xx, no, x, 0},
     {INVALID,     0xf9d00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf9e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_VLDB,    0xf9e00000, "(ext vldB  1)",  xx, xx, xx, xx, xx, no, x, 1},
     {INVALID,     0xf9f00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     /* a0 */
     {EXT_RAPC,    0xfa000000, "(ext rapc 22)", xx, xx, xx, xx, xx, no, x, 22},
@@ -747,6 +747,45 @@ const instr_info_t T32_ext_bit_B4[][2] = {
   }, { /* 10 */
     {OP_smlsld,   0xfbd000c0, "smlsld", RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
     {OP_smlsldx,  0xfbd000d0, "smlsldx",RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
+  }, { /* 11 */
+    {OP_cdp,     0xee000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*//*no chain nec.*/
+    {OP_mcr,     0xee000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, xop, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+  }, { /* 12 */
+    {OP_cdp,     0xee100000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+    {OP_mrc,     0xee100010, "mrc",    RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+  }, { /* 13 */
+    {OP_cdp2,     0xfe000000, "cdp2",           CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, END_LIST},/*XXX: disasm not in dst-src order*//*no chain nec.*/
+    {OP_mcr2,     0xfe000010, "mcr2",           CRAw, CRDw, i4_8, i3_21, RBw, xop, x, END_LIST},/*XXX: disasm not in dst-src order*/
+  }, { /* 14 */
+    {OP_cdp2,     0xfe100000, "cdp2",           CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, DUP_ENTRY},/*XXX: disasm not in dst-src order*//*no chain nec.*/
+    {OP_mrc2,     0xfe100010, "mrc2",          RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+  }, { /* 15 */
+    /* To handle the 21:16 immed instrs that vary in high bits we must first
+     * sseparate those out: we do that via bit4 and then bit7 in the next 8 entries.
+     */
+    {EXT_BIT19,  0xef800000, "(ext bit19  0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_B7,     0xef800000, "(ext bit7   6)", xx, xx, xx, xx, xx, no, x, 6},
+  }, { /* 16 */
+    {EXT_SIMD6,  0xef900000, "(ext simd6  4)", xx, xx, xx, xx, xx, no, x, 4},
+    {EXT_B7,     0xef900000, "(ext bit7   7)", xx, xx, xx, xx, xx, no, x, 7},
+  }, { /* 17 */
+    {EXT_SIMD6,  0xefa00000, "(ext simd6  5)", xx, xx, xx, xx, xx, no, x, 5},
+    {EXT_B7,     0xefa00000, "(ext bit7   8)", xx, xx, xx, xx, xx, no, x, 8},
+  }, { /* 18 */
+    {EXT_BIT6,   0xefb00000, "(ext bit6   0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_B7,     0xefb00000, "(ext bit7   8)", xx, xx, xx, xx, xx, no, x, 8},
+  }, { /* 19 */
+    {EXT_BIT19,  0xff800000, "(ext bit19  1)", xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_B7,     0xff800000, "(ext bit7   9)", xx, xx, xx, xx, xx, no, x, 9},
+  }, { /* 20 */
+    {EXT_SIMD6,  0xff900000, "(ext simd6 10)", xx, xx, xx, xx, xx, no, x, 10},
+    {EXT_B7,     0xff900000, "(ext bit7  10)", xx, xx, xx, xx, xx, no, x, 10},
+  }, { /* 21 */
+    {EXT_SIMD6,  0xffa00000, "(ext simd6 11)", xx, xx, xx, xx, xx, no, x, 11},
+    {EXT_B7,     0xffa00000, "(ext bit7  11)", xx, xx, xx, xx, xx, no, x, 11},
+  }, { /* 22 */
+    {EXT_VTB,    0xffb00000, "(ext vtb 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_B7,     0xffb00000, "(ext bit7  11)", xx, xx, xx, xx, xx, no, x, 11},
   },
 };
 
@@ -790,6 +829,29 @@ const instr_info_t T32_ext_bit_B7[][2] = {
   }, { /* 5 */
     {OP_asrs,     0xfa50f000, "asrs",   RCw, xx, RAw, RDw, xx, no, fWNZCV, xb54[1][0x02]},
     {OP_uxtab,    0xfa50f080, "uxtab",  RCw, xx, RAw, RDw, ro2_4, no, x, END_LIST},
+  }, { /* 6 */
+    {EXT_BIT19,  0xef800010, "(ext bit19  0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_IMM6L,  0xef800090, "(ext imm6L  0)", xx, xx, xx, xx, xx, no, x, 0},
+  }, { /* 7 */
+    {EXT_SIMD6,  0xef900010, "(ext simd6  4)", xx, xx, xx, xx, xx, no, x, 4},
+    {EXT_IMM6L,  0xef900090, "(ext imm6L  0)", xx, xx, xx, xx, xx, no, x, 0},
+  }, { /* 8 */
+    /* The .*32 versions of the high-immed instrs can be 0xefa or 0xefb so we
+     * point at the same simd6[5], w/ bit4=1 ensuring we skip the right entries
+     * that we should not hit if we went there w/o checking bit4 first.
+     */
+    {EXT_SIMD6,  0xefa00010, "(ext simd6  5)", xx, xx, xx, xx, xx, no, x, 5},
+    {EXT_IMM6L,  0xefa00090, "(ext imm6L  0)", xx, xx, xx, xx, xx, no, x, 0},
+  }, { /* 9 */
+    {EXT_BIT19,  0xff800010, "(ext bit19  1)", xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_IMM6L,  0xff800090, "(ext imm6L  1)", xx, xx, xx, xx, xx, no, x, 1},
+  }, { /* 10 */
+    {EXT_SIMD6,  0xff900010, "(ext simd6 10)", xx, xx, xx, xx, xx, no, x, 10},
+    {EXT_IMM6L,  0xff900090, "(ext imm6L  1)", xx, xx, xx, xx, xx, no, x, 1},
+  }, { /* 11 */
+    /* Similarly, we need to share 0xffa with 0xffb when bit4 is set. */
+    {EXT_SIMD6,  0xffa00010, "(ext simd6 11)", xx, xx, xx, xx, xx, no, x, 11},
+    {EXT_IMM6L,  0xffa00090, "(ext imm6L  1)", xx, xx, xx, xx, xx, no, x, 1},
   },
 };
 
@@ -962,6 +1024,9 @@ const instr_info_t T32_ext_RBPC[][2] = {
   }, { /* 16 */
     {OP_usada8,   0xfb700000, "usada8", RCw, xx, RAw, RDw, RBw, no, x, END_LIST},
     {OP_usad8,    0xfb70f000, "usad8",  RCw, xx, RAw, RDw, xx, no, x, END_LIST},
+  }, { /* 17 */
+    {EXT_IMM1916, 0xeef00a10, "(ext imm1916 3)", xx, xx, xx, xx, xx, no, x, 3},
+    {OP_vmrs,     0xeef0fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, vfp, x, END_LIST},
   },
 };
 

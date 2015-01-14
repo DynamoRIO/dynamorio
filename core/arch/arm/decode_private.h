@@ -73,10 +73,11 @@ enum {
     EXT_SIMD6,   /* Indexed by 6 bits 11:8,6,4 */
     EXT_SIMD5,   /* Indexed by bits 11:8,5 */
     EXT_SIMD5B,  /* Indexed by bits 18:16,8:7 */
-    EXT_SIMD8,   /* Indexed by bits 11:8,7:4, but 7:4 collapsed */
-    EXT_SIMD6B,  /* Indexed by bits 11:8,7:6 */
-    EXT_SIMD6C,  /* Indexed by bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
+    EXT_SIMD8,   /* Indexed by bits 11:8,6:4, but 6:4 collapsed */
+    EXT_SIMD6B,  /* Indexed by bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
+    EXT_SIMD6C,  /* FIXME i#1551: will be removed once A32 collapes 6b into 6c */
     EXT_SIMD2,   /* Indexed by bits 11,6 */
+    EXT_IMM6L,   /* Indexed by bits 10:8,6 */
     EXT_VLDA,    /* Indexed by bits (11:8,7:6)*3+X where X based on value of 3:0 */
     EXT_VLDB,    /* Indexed by bits (11:8,Y)*3+X (see table descr) */
     EXT_VLDC,    /* Indexed by bits (9:8,7:5)*3+X where X based on value of 3:0 */
@@ -340,6 +341,7 @@ enum {
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
     TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 + complex T32 "modified immed" encoding */
+    TYPE_I_b28_b16_b0, /* OP_vbic, etc. T32: 28,18:16,3:0 */
 
     /* PC-relative jump targets.  All are x2 unless specified. */
     TYPE_J_b0,     /* T16-OP_b: signed immed is stored as value/2 */
@@ -520,6 +522,32 @@ extern const instr_info_t T32_ext_RBPC[][2];
 extern const instr_info_t T32_ext_RCPC[][2];
 extern const instr_info_t T32_ext_imm126[][2];
 extern const instr_info_t T32_extra_operands[];
+
+/* The coproc names more closely match A32 as the table split is similar */
+extern const instr_info_t T32_coproc_e[];
+extern const instr_info_t T32_coproc_f[];
+extern const instr_info_t T32_ext_fp[][3];
+extern const instr_info_t T32_ext_opc4[][16];
+extern const instr_info_t T32_ext_imm1916[][3];
+extern const instr_info_t T32_ext_opc4fpA[][3];
+extern const instr_info_t T32_ext_opc4fpB[][8];
+extern const instr_info_t T32_ext_bits16[][16];
+extern const instr_info_t T32_ext_bits20[][16];
+extern const instr_info_t T32_ext_imm2016[][2];
+extern const instr_info_t T32_ext_imm1816[][2];
+extern const instr_info_t T32_ext_bit6[][2];
+extern const instr_info_t T32_ext_bit19[][2];
+extern const instr_info_t T32_ext_simd6[][64];
+extern const instr_info_t T32_ext_simd5[][32];
+extern const instr_info_t T32_ext_simd5b[][32];
+extern const instr_info_t T32_ext_simd8[][80];
+extern const instr_info_t T32_ext_simd6b[][36];
+extern const instr_info_t T32_ext_simd2[][4];
+extern const instr_info_t T32_ext_imm6L[][16];
+extern const instr_info_t T32_ext_vldA[][132];
+extern const instr_info_t T32_ext_vldB[][96];
+extern const instr_info_t T32_ext_vldC[][96];
+extern const instr_info_t T32_ext_vtb[][9];
 
 extern const instr_info_t T32_16_opc4[];
 extern const instr_info_t T32_16_ext_bit_11[][2];

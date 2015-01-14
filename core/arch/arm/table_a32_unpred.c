@@ -36,7 +36,8 @@
 #include "decode_private.h"
 #include "table_private.h"
 
-/* The D bit (0x04) has been removed.  We are including the U bit.  Is
+/* Indexed by bits 27:23,21:20.
+ * The D bit (0x04) has been removed.  We are including the U bit.  Is
  * there some other order we could do to group the related instrs better
  * while still minimizing the number of table lookup steps and keeping
  * dense tables?

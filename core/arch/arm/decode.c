@@ -271,8 +271,8 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     first_reg = opnd_get_reg(array[*counter-1]);
     di->reglist_sz = 0;
     for (i = 0; i < count; i++) {
-        print_file(STDERR, "reglist: first=%s, new=%s\n", reg_names[first_reg],
-                   reg_names[first_reg + i]);
+        LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n", reg_names[first_reg],
+            reg_names[first_reg + i]);
         if ((upsz == OPSZ_8 && first_reg + i > DR_REG_D31) ||
             (upsz == OPSZ_4 && first_reg + i > DR_REG_S31))
             return false; /* invalid */
@@ -866,6 +866,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
+    case TYPE_I_b28_b16_b0: { /* OP_vbic, OP_vmov: 24,18:16,3:0 */
+        if (opsize == OPSZ_1) {
+            val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+            val |= (decode_immed(di, 16, OPSZ_3b, false/*unsigned*/) << 4);
+            val |= (decode_immed(di, 28, OPSZ_1b, false/*unsigned*/) << 7);
+        } else
+            CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
+        /* FIXME i#1551: this and TYPE_I_b24_b16_b0 are special SIMD
+         * immeds that shift their 8-bit value depending on the "cmode"
+         * separate immed (which we've encoded into opcode sizes).
+         */
+        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
+        return true;
+    }
     case TYPE_I_b26_b12_b0: { /* T32-26,14:12,7:0 */
         if (opsize == OPSZ_12b) {
             val = decode_immed(di, 0, OPSZ_1, false/*unsigned*/);
@@ -1173,17 +1187,153 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     return false;
 }
 
+/* Indexing shared between A32 and T32 SIMD decoding */
+
+static inline uint
+decode_ext_fp_idx(uint instr_word)
+{
+    uint idx = ((instr_word >> 8) & 0xf) /*bits 11:8*/;
+    return (idx == 0xa ? 0 : (idx == 0xb ? 1 : 2));
+}
+
+static inline uint
+decode_ext_fpa_idx(uint instr_word)
+{
+    return (((instr_word >> 5) & 0x2) | ((instr_word >> 4) & 0x1)) /*bits 6,4*/;
+}
+
+static inline uint
+decode_ext_fpb_idx(uint instr_word)
+{
+    return ((instr_word >> 4) & 0x7) /*bits 6:4*/;
+}
+
+static inline uint
+decode_ext_simd6_idx(uint instr_word)
+{
+    return ((instr_word >> 6) & 0x3c) |
+        ((instr_word >> 5) & 0x2) |
+        ((instr_word >> 4) & 0x1);  /*6 bits 11:8,6,4 */
+}
+
+static inline uint
+decode_ext_simd5_idx(uint instr_word)
+{
+    return ((instr_word >> 7) & 0x1e) | ((instr_word >> 5) & 0x1); /*5 bits 11:8,5 */
+}
+
+static inline uint
+decode_ext_simd5b_idx(uint instr_word)
+{
+    return ((instr_word >> 14) & 0x1c) | ((instr_word >> 7) & 0x3); /*bits 18:16,8:7 */
+}
+
+static inline uint
+decode_ext_simd8_idx(uint instr_word)
+{
+    /* Odds<8 + 0 == 5 entries each */
+    uint idx = 5 * ((instr_word >> 8) & 0xf) /*bits 11:8*/;
+    if (((instr_word >> 4) & 0x1) != 0)
+        idx += 1 + ((instr_word >> 5) & 0x3) /*bits 6:5*/;
+    return idx;
+}
+
+static inline uint
+decode_ext_simd6b_idx(uint instr_word)
+{
+    /* FIXME i#1551: apply the same transformations as T32 and collapse
+     * simd6b into simd6c, renaming simd6c to simd6b.  For now this is
+     * the T32 simd6b but A32 simd6c.
+     */
+    /* bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
+    if (((instr_word >> 11) & 0x1) != 0)
+        return 32 + ((instr_word >> 6) & 0x3);
+    else
+        return ((instr_word >> 6) & 0x1c) | ((instr_word >> 6) & 0x3);
+}
+
+static inline uint
+decode_ext_simd2_idx(uint instr_word)
+{
+    return ((instr_word >> 10) & 0x2) | ((instr_word >> 6) & 0x1); /*11,6 */
+}
+
+static inline uint
+decode_ext_imm6l_idx(uint instr_word)
+{
+    return ((instr_word >> 7) & 0x6) | ((instr_word >> 6) & 0x1); /* 10:8,6 */
+}
+
+static inline uint
+decode_ext_vlda_idx(uint instr_word)
+{
+    int reg = (instr_word & 0xf);
+    uint idx = /*bits (11:8,7:6)*3+X where X based on value of 3:0 */
+        3 * (((instr_word >> 6) & 0x3c) | ((instr_word >> 6) & 0x3));
+    idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+    return idx;
+}
+
+static inline uint
+decode_ext_vldb_idx(uint instr_word)
+{
+    int reg = (instr_word & 0xf);
+    uint idx = /*bits (11:8,Y)*3+X where X based on value of 3:0 */
+        ((instr_word >> 7) & 0x1e);
+    /* Y is bit 6 if bit 11 is set; else, bit 5 */
+    if (((instr_word >> 11) & 0x1) != 0)
+        idx |= ((instr_word >> 6) & 0x1);
+    else
+        idx |= ((instr_word >> 5) & 0x1);
+    idx *= 3;
+    idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+    return idx;
+}
+
+static inline uint
+decode_ext_vldc_idx(uint instr_word)
+{
+    int reg = (instr_word & 0xf);
+    uint idx = /*bits (9:8,7:5)*3+X where X based on value of 3:0 */
+        3 * (((instr_word >> 5) & 0x18) | ((instr_word >> 5) & 0x7));
+    idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+    return idx;
+}
+
+static inline uint
+decode_ext_vtb_idx(uint instr_word)
+{
+    uint idx = ((instr_word >> 10) & 0x3) /*bits 11:10 */;
+    if (idx != 2)
+        idx = 0;
+    else {
+        idx = 1 +   /*3 bits 9:8,6 */
+            (((instr_word >> 7) & 0x6) |
+             ((instr_word >> 6) & 0x1));
+    }
+    return idx;
+}
+
 const instr_info_t *
 decode_instr_info_T32_32(decode_info_t *di)
 {
     const instr_info_t *info;
     uint idx;
+    /* We use instr_word for cases where we're dealing w/ coproc/SIMD instrs,
+     * whose decoding is very similar to A32.
+     */
+    uint instr_word = di->instr_word;
     /* First, split by whether coprocessor or not */
     if (TESTALL(0xec00, di->halfwordA)) {
         /* coproc */
-        /* FIXME i#1551: NYI */
-        ASSERT_NOT_IMPLEMENTED(false);
-        return NULL;
+        if (TEST(0x1000, di->halfwordA)) {
+            idx = (((instr_word >> 20) & 0x3) |
+                   ((instr_word >> 21) & 0x1c)); /*bits 25:23,21:20*/
+            info = &T32_coproc_f[idx];
+        } else {
+            idx = ((instr_word >> 20) & 0x3f); /*bits 25:20*/
+            info = &T32_coproc_e[idx];
+        }
     } else {
         /* non-coproc */
         if (TESTALL(0xf000, di->halfwordA)) {
@@ -1197,7 +1347,13 @@ decode_instr_info_T32_32(decode_info_t *di)
             info = &T32_base_e[idx];
         }
     }
-    /* If an extension, discard the old info and get a new one */
+    /* If an extension, discard the old info and get a new one.
+     * The SIMD instruction tables are very similar to the A32 tables.
+     * It may be possible to share the A32 tables and apply programmatic
+     * transformations to the opcodes (something like:
+     *   s/0xf2/0xef/;s/0xf3/0xff/;s/0xe2/0xef/;s/0xe3/0xef/;s/0xf4/0xf9/
+     * and for opcodes that use i8x28_16_0, s/0xf/0xe/).
+     */
     while (info->type > INVALID) {
         if (info->type == EXT_FOPC8) {
             idx = (di->halfwordA >> 4) & 0xff /*bits A11:4*/;
@@ -1263,6 +1419,67 @@ decode_instr_info_T32_32(decode_info_t *di)
             else
                 idx = 1 + ((di->halfwordB >> 8) & 0x7) /*bits 10:8*/;
             info = &T32_ext_opcBX[info->code][idx];
+        } else if (info->type == EXT_OPC4) {
+            idx = decode_opc4(instr_word);
+            info = &T32_ext_opc4[info->code][idx];
+        } else if (info->type == EXT_FP) {
+            info = &T32_ext_fp[info->code][decode_ext_fp_idx(instr_word)];
+        } else if (info->type == EXT_FPA) {
+            uint idx = decode_ext_fpa_idx(instr_word);
+            if (idx == 3)
+                info = &invalid_instr;
+            else
+                info = &T32_ext_opc4fpA[info->code][idx];
+        } else if (info->type == EXT_FPB) {
+            info = &T32_ext_opc4fpB[info->code][decode_ext_fpb_idx(instr_word)];
+        } else if (info->type == EXT_IMM1916) {
+            int imm = ((instr_word >> 16) & 0xf); /*bits 19:16*/
+            idx = (imm == 0) ? 0 : (imm == 1 ? 1 : 2);
+            info = &T32_ext_imm1916[info->code][idx];
+        } else if (info->type == EXT_BIT6) {
+            idx = ((instr_word >> 6) & 0x1) /*bit 6 */;
+            info = &T32_ext_bit6[info->code][idx];
+        } else if (info->type == EXT_BIT19) {
+            idx = ((instr_word >> 19) & 0x1) /*bit 19 */;
+            info = &T32_ext_bit19[info->code][idx];
+        } else if (info->type == EXT_BITS16) {
+            idx = ((instr_word >> 16) & 0xf) /*bits 19:16*/;
+            info = &T32_ext_bits16[info->code][idx];
+        } else if (info->type == EXT_BITS20) {
+            idx = ((instr_word >> 20) & 0xf) /*bits 23:20 */;
+            info = &T32_ext_bits20[info->code][idx];
+        } else if (info->type == EXT_IMM1816) {
+            idx = (((instr_word >> 16) & 0x7) /*bits 18:16*/ == 0) ? 0 : 1;
+            info = &T32_ext_imm1816[info->code][idx];
+        } else if (info->type == EXT_IMM2016) {
+            idx = (((instr_word >> 16) & 0x1f) /*bits 20:16*/ == 0) ? 0 : 1;
+            info = &T32_ext_imm2016[info->code][idx];
+        } else if (info->type == EXT_SIMD6) {
+            info = &T32_ext_simd6[info->code][decode_ext_simd6_idx(instr_word)];
+        } else if (info->type == EXT_SIMD5) {
+            info = &T32_ext_simd5[info->code][decode_ext_simd5_idx(instr_word)];
+        } else if (info->type == EXT_SIMD5B) {
+            info = &T32_ext_simd5b[info->code][decode_ext_simd5b_idx(instr_word)];
+        } else if (info->type == EXT_SIMD8) {
+            info = &T32_ext_simd8[info->code][decode_ext_simd8_idx(instr_word)];
+        } else if (info->type == EXT_SIMD6B) {
+            info = &T32_ext_simd6b[info->code][decode_ext_simd6b_idx(instr_word)];
+        } else if (info->type == EXT_SIMD2) {
+            info = &T32_ext_simd2[info->code][decode_ext_simd2_idx(instr_word)];
+        } else if (info->type == EXT_IMM6L) {
+            info = &T32_ext_imm6L[info->code][decode_ext_imm6l_idx(instr_word)];
+        } else if (info->type == EXT_VLDA) {
+            /* this table stops at 0xa in top bits, to save space */
+            if (((instr_word >> 8) & 0xf) > 0xa)
+                info = &invalid_instr;
+            else
+                info = &T32_ext_vldA[info->code][decode_ext_vlda_idx(instr_word)];
+        } else if (info->type == EXT_VLDB) {
+            info = &T32_ext_vldB[info->code][decode_ext_vldb_idx(instr_word)];
+        } else if (info->type == EXT_VLDC) {
+            info = &T32_ext_vldC[info->code][decode_ext_vldc_idx(instr_word)];
+        } else if (info->type == EXT_VTB) {
+            info = &T32_ext_vtb[info->code][decode_ext_vtb_idx(instr_word)];
         } else {
             ASSERT_NOT_REACHED();
             info = NULL;
@@ -1388,18 +1605,15 @@ decode_instr_info_A32(decode_info_t *di)
             idx = (((instr_word >> 7) & 0x1f) /*bits 11:7*/ == 0) ? 0 : 1;
             info = &A32_ext_imm5[info->code][idx];
         } else if (info->type == EXT_FP) {
-            idx = ((instr_word >> 8) & 0xf) /*bits 11:8*/;
-            idx = (idx == 0xa ? 0 : (idx == 0xb ? 1 : 2));
-            info = &A32_ext_fp[info->code][idx];
+            info = &A32_ext_fp[info->code][decode_ext_fp_idx(instr_word)];
         } else if (info->type == EXT_FPA) {
-            idx = (((instr_word >> 5) & 0x2) | ((instr_word >> 4) & 0x1)) /*bits 6,4*/;
+            uint idx = decode_ext_fpa_idx(instr_word);
             if (idx == 3)
                 info = &invalid_instr;
             else
                 info = &A32_ext_opc4fpA[info->code][idx];
         } else if (info->type == EXT_FPB) {
-            idx = ((instr_word >> 4) & 0x7) /*bits 6:4*/;
-            info = &A32_ext_opc4fpB[info->code][idx];
+            info = &A32_ext_opc4fpB[info->code][decode_ext_fpb_idx(instr_word)];
         } else if (info->type == EXT_BITS16) {
             idx = ((instr_word >> 16) & 0xf) /*bits 19:16*/;
             info = &A32_ext_bits16[info->code][idx];
@@ -1434,78 +1648,45 @@ decode_instr_info_A32(decode_info_t *di)
             idx = (((instr_word >> 16) & 0x1f) /*bits 20:16*/ == 0) ? 0 : 1;
             info = &A32_ext_imm2016[info->code][idx];
         } else if (info->type == EXT_SIMD6) {
-            idx =  /*6 bits 11:8,6,4 */
-                ((instr_word >> 6) & 0x3c) |
-                ((instr_word >> 5) & 0x2) |
-                ((instr_word >> 4) & 0x1);
-            info = &A32_ext_simd6[info->code][idx];
+            info = &A32_ext_simd6[info->code][decode_ext_simd6_idx(instr_word)];
         } else if (info->type == EXT_SIMD5) {
-            idx =  /*5 bits 11:8,5 */
-                ((instr_word >> 7) & 0x1e) | ((instr_word >> 5) & 0x1);
-            info = &A32_ext_simd5[info->code][idx];
+            info = &A32_ext_simd5[info->code][decode_ext_simd5_idx(instr_word)];
         } else if (info->type == EXT_SIMD5B) {
-            idx = /*bits 18:16,8:7 */
-                ((instr_word >> 14) & 0x1c) | ((instr_word >> 7) & 0x3);
-            info = &A32_ext_simd5b[info->code][idx];
+            info = &A32_ext_simd5b[info->code][decode_ext_simd5b_idx(instr_word)];
         } else if (info->type == EXT_SIMD8) {
+            /* FIXME i#1551: apply the same transformations as T32 and remove bit 7,
+             * allowing use of decode_ext_simd8_idx here.
+             */
             /* Odds + 0 == 9 entries each */
-            idx = 9 * ((instr_word >> 8) & 0xf) /*bits 11:8*/;
+            uint idx = 9 * ((instr_word >> 8) & 0xf) /*bits 11:8*/;
             if (((instr_word >> 4) & 0x1) != 0)
                 idx += 1 + ((instr_word >> 5) & 0x7) /*bits 7:5*/;
             info = &A32_ext_simd8[info->code][idx];
         } else if (info->type == EXT_SIMD6B) {
-            idx = /*bits 11:8,7:6 */
-                ((instr_word >> 6) & 0x3c) | ((instr_word >> 6) & 0x3);
+            /* FIXME i#1551: apply the same transformations as T32 and collapse
+             * simd6b into simd6c, renaming simd6c to simd6b.
+             */
+            idx = ((instr_word >> 6) & 0x3c) | ((instr_word >> 6) & 0x3);/*bits 11:8,7:6*/
             info = &A32_ext_simd6b[info->code][idx];
         } else if (info->type == EXT_SIMD6C) {
-            /* bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
-            if (((instr_word >> 11) & 0x1) != 0)
-                idx = 32 + ((instr_word >> 6) & 0x3);
-            else
-                idx = ((instr_word >> 6) & 0x1c) | ((instr_word >> 6) & 0x3);
-            info = &A32_ext_simd6c[info->code][idx];
+            /* FIXME i#1551: apply the same transformations as T32 and collapse
+             * simd6b into simd6c, renaming simd6c to simd6b.
+             */
+            info = &A32_ext_simd6c[info->code][decode_ext_simd6b_idx(instr_word)];
         } else if (info->type == EXT_SIMD2) {
-            idx = /*11,6 */
-                ((instr_word >> 10) & 0x2) | ((instr_word >> 6) & 0x1);
-            info = &A32_ext_simd2[info->code][idx];
+            info = &A32_ext_simd2[info->code][decode_ext_simd2_idx(instr_word)];
         } else if (info->type == EXT_VLDA) {
-            int reg = (instr_word & 0xf);
-            idx = /*bits (11:8,7:6)*3+X where X based on value of 3:0 */
-                3 * (((instr_word >> 6) & 0x3c) | ((instr_word >> 6) & 0x3));
-            idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
             /* this table stops at 0xa in top bits, to save space */
             if (((instr_word >> 8) & 0xf) > 0xa)
                 info = &invalid_instr;
             else
-                info = &A32_ext_vldA[info->code][idx];
+                info = &A32_ext_vldA[info->code][decode_ext_vlda_idx(instr_word)];
         } else if (info->type == EXT_VLDB) {
-            int reg = (instr_word & 0xf);
-            idx = /*bits (11:8,Y)*3+X where X based on value of 3:0 */
-                ((instr_word >> 7) & 0x1e);
-            /* Y is bit 6 if bit 11 is set; else, bit 5 */
-            if (((instr_word >> 11) & 0x1) != 0)
-                idx |= ((instr_word >> 6) & 0x1);
-            else
-                idx |= ((instr_word >> 5) & 0x1);
-            idx *= 3;
-            idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
-            info = &A32_ext_vldB[info->code][idx];
+            info = &A32_ext_vldB[info->code][decode_ext_vldb_idx(instr_word)];
         } else if (info->type == EXT_VLDC) {
-            int reg = (instr_word & 0xf);
-            idx = /*bits (9:8,7:5)*3+X where X based on value of 3:0 */
-                3 * (((instr_word >> 5) & 0x18) | ((instr_word >> 5) & 0x7));
-            idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
-            info = &A32_ext_vldC[info->code][idx];
+            info = &A32_ext_vldC[info->code][decode_ext_vldc_idx(instr_word)];
         } else if (info->type == EXT_VTB) {
-            idx = ((instr_word >> 10) & 0x3) /*bits 11:10 */;
-            if (idx != 2)
-                idx = 0;
-            else {
-                idx = 1 +   /*3 bits 9:8,6 */
-                    (((instr_word >> 7) & 0x6) |
-                     ((instr_word >> 6) & 0x1));
-            }
-            info = &A32_ext_vtb[info->code][idx];
+            info = &A32_ext_vtb[info->code][decode_ext_vtb_idx(instr_word)];
         }
     }
     return info;

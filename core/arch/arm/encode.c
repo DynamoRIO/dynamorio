@@ -283,6 +283,7 @@ const char * const type_names[] = {
     "TYPE_I_b21_b6",
     "TYPE_I_b24_b16_b0",
     "TYPE_I_b26_b12_b0",
+    "TYPE_I_b28_b16_b0",
     "TYPE_J_b0",
     "TYPE_J_x4_b0",
     "TYPE_J_b0_b24",
@@ -963,6 +964,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b21_b5:
     case TYPE_I_b21_b6:
     case TYPE_I_b24_b16_b0:
+    case TYPE_I_b28_b16_b0:
+        /* FIXME i#1551: TYPE_I_b28_b16_b0 and TYPE_I_b24_b16_b0 are special SIMD
+         * immeds that shift their 8-bit value depending on the "cmode"
+         * separate immed (which we've encoded into opcode sizes).
+         */
         return encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
                                             false/*pos*/, false/*abs*/, true/*range*/);
     case TYPE_NI_b0:
@@ -1802,6 +1808,20 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             encode_immed(di, 5, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
             encode_immed(di, 24, OPSZ_1b, val >> 7, false/*unsigned*/);
+        } else
+            CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
+        break;
+    }
+    case TYPE_I_b28_b16_b0: {
+        /* FIXME i#1551: this and TYPE_I_b24_b16_b0 are special SIMD
+         * immeds that shift their 8-bit value depending on the "cmode"
+         * separate immed (which we've encoded into opcode sizes).
+         */
+        ptr_int_t val = get_immed_val_abs(di, opnd);
+        if (size_temp == OPSZ_1) {
+            encode_immed(di, 5, OPSZ_4b, val, false/*unsigned*/);
+            encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
+            encode_immed(di, 28, OPSZ_1b, val >> 7, false/*unsigned*/);
         } else
             CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
         break;

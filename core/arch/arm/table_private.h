@@ -147,6 +147,30 @@
 #define xrcpc (ptr_int_t)&T32_ext_RCPC
 #define xi126 (ptr_int_t)&T32_ext_imm126
 #define xexop (ptr_int_t)&T32_extra_operands
+#define xcope (ptr_int_t)&T32_coproc_e
+#define xcopf (ptr_int_t)&T32_coproc_f
+#define xfp   (ptr_int_t)&T32_ext_fp
+#define xopc4 (ptr_int_t)&T32_ext_opc4
+#define xi19  (ptr_int_t)&T32_ext_imm1916
+#define xfpA  (ptr_int_t)&T32_ext_opc4fpA
+#define xfpB  (ptr_int_t)&T32_ext_opc4fpB
+#define xbi16 (ptr_int_t)&T32_ext_bits16
+#define xbi20 (ptr_int_t)&T32_ext_bits20
+#define xi20  (ptr_int_t)&T32_ext_imm2016
+#define xi18  (ptr_int_t)&T32_ext_imm1816
+#define xb6   (ptr_int_t)&T32_ext_bit6
+#define xb19  (ptr_int_t)&T32_ext_bit19
+#define xsi6  (ptr_int_t)&T32_ext_simd6
+#define xsi5  (ptr_int_t)&T32_ext_simd5
+#define xsi5b (ptr_int_t)&T32_ext_simd5b
+#define xsi8  (ptr_int_t)&T32_ext_simd8
+#define xsi6b (ptr_int_t)&T32_ext_simd6b
+#define xsi2  (ptr_int_t)&T32_ext_simd2
+#define xi6l  (ptr_int_t)&T32_ext_imm6L
+#define xvlA  (ptr_int_t)&T32_ext_vldA
+#define xvlB  (ptr_int_t)&T32_ext_vldB
+#define xvlC  (ptr_int_t)&T32_ext_vldC
+#define xvtb  (ptr_int_t)&T32_ext_vtb
 /* T32.16 */
 #define ytop  (ptr_int_t)&T32_16_opc4
 #define y11   (ptr_int_t)&T32_16_ext_bit_11
@@ -211,6 +235,7 @@
 #define i8x8_0   TYPE_I_b8_b0, OPSZ_1
 #define i8x16_0  TYPE_I_b16_b0, OPSZ_1
 #define i8x24_16_0 TYPE_I_b24_b16_b0, OPSZ_1
+#define i8x28_16_0 TYPE_I_b28_b16_b0, OPSZ_1
 #define i9       TYPE_I_b0, OPSZ_9b
 #define i12      TYPE_I_b0, OPSZ_12b
 #define i12x26_12_0 TYPE_I_b26_b12_b0, OPSZ_12b
