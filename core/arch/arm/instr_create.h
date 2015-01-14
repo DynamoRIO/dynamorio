@@ -358,7 +358,7 @@
 #define INSTR_CREATE_clrex(dc) \
   instr_create_0dst_0src((dc), OP_clrex)
 #define INSTR_CREATE_eret(dc) \
-  instr_create_0dst_0src((dc), OP_eret)
+  instr_create_0dst_1src((dc), OP_eret, opnd_create_reg(DR_REG_LR))
 #define INSTR_CREATE_nop(dc) \
   instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_sev(dc) \
@@ -802,6 +802,24 @@
   instr_create_1dst_1src((dc), OP_movt, (Rd), (imm))
 #define INSTR_CREATE_movw(dc, Rd, imm) \
   instr_create_1dst_1src((dc), OP_movw, (Rd), (imm))
+#define INSTR_CREATE_vmrs_imm(dc, Rd, imm) \
+  instr_create_1dst_1src((dc), OP_vmrs, (Rd), (imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Rt, imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rt The source register opnd_t operand.
+ * \param imm The integer constant opnd_t operand.
+ */
+#define INSTR_CREATE_vmsr_imm(dc, Rt, imm) \
+  instr_create_0dst_2src((dc), OP_vmsr, (Rt), (imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (imm, imm2) */
@@ -1455,38 +1473,6 @@
   instr_create_0dst_1src((dc), OP_pldw, (mem))
 #define INSTR_CREATE_pli(dc, mem) \
   instr_create_0dst_1src((dc), OP_pli, (mem))
-#define INSTR_CREATE_rfeda(dc, mem) \
-  instr_create_0dst_1src((dc), OP_rfeda, (mem))
-#define INSTR_CREATE_rfeda_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfeda, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_rfedb(dc, mem) \
-  instr_create_0dst_1src((dc), OP_rfedb, (mem))
-#define INSTR_CREATE_rfedb_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfedb, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_rfeia(dc, mem) \
-  instr_create_0dst_1src((dc), OP_rfeia, (mem))
-#define INSTR_CREATE_rfeia_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfeia, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_rfeib(dc, mem) \
-  instr_create_0dst_1src((dc), OP_rfeib, (mem))
-#define INSTR_CREATE_rfeib_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfeib, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_srsda(dc, mem) \
-  instr_create_1dst_0src((dc), OP_srsda, (mem))
-#define INSTR_CREATE_srsda_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsda, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_srsdb(dc, mem) \
-  instr_create_1dst_0src((dc), OP_srsdb, (mem))
-#define INSTR_CREATE_srsdb_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsdb, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_srsia(dc, mem) \
-  instr_create_1dst_0src((dc), OP_srsia, (mem))
-#define INSTR_CREATE_srsia_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsia, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_srsib(dc, mem) \
-  instr_create_1dst_0src((dc), OP_srsib, (mem))
-#define INSTR_CREATE_srsib_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsib, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem) */
@@ -1569,6 +1555,36 @@
   instr_create_1dst_1src((dc), OP_strb, (mem), (Rt))
 #define INSTR_CREATE_strh(dc, mem, Rt) \
   instr_create_1dst_1src((dc), OP_strh, (mem), (Rt))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (statreg, mem) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
+ * \param mem The memory opnd_t operand.
+ */
+#define INSTR_CREATE_rfe(dc, statreg, mem) \
+  instr_create_1dst_1src((dc), OP_rfe, (statreg), (mem))
+#define INSTR_CREATE_rfe_wb(dc, statreg, mem) \
+  instr_create_2dst_2src((dc), OP_rfe, opnd_create_reg(opnd_get_base(mem)), (statreg), (mem), opnd_create_reg(opnd_get_base(mem)))
+#define INSTR_CREATE_rfeda(dc, statreg, mem) \
+  instr_create_1dst_1src((dc), OP_rfeda, (statreg), (mem))
+#define INSTR_CREATE_rfeda_wb(dc, statreg, mem) \
+  instr_create_2dst_2src((dc), OP_rfeda, opnd_create_reg(opnd_get_base(mem)), (statreg), (mem), opnd_create_reg(opnd_get_base(mem)))
+#define INSTR_CREATE_rfedb(dc, statreg, mem) \
+  instr_create_1dst_1src((dc), OP_rfedb, (statreg), (mem))
+#define INSTR_CREATE_rfedb_wb(dc, statreg, mem) \
+  instr_create_2dst_2src((dc), OP_rfedb, opnd_create_reg(opnd_get_base(mem)), (statreg), (mem), opnd_create_reg(opnd_get_base(mem)))
+#define INSTR_CREATE_rfeib(dc, statreg, mem) \
+  instr_create_1dst_1src((dc), OP_rfeib, (statreg), (mem))
+#define INSTR_CREATE_rfeib_wb(dc, statreg, mem) \
+  instr_create_2dst_2src((dc), OP_rfeib, opnd_create_reg(opnd_get_base(mem)), (statreg), (mem), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, mem) */
@@ -1822,6 +1838,37 @@
   instr_create_2dst_3src((dc), OP_strht, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), (_or_imm))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (mem, imm, statreg) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param mem The memory opnd_t operand.
+ * \param imm The integer constant opnd_t operand.
+ * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
+ */
+#define INSTR_CREATE_srs(dc, mem, imm, statreg) \
+  instr_create_1dst_3src((dc), OP_srs, (mem), (imm), opnd_create_reg(DR_REG_LR), (statreg))
+#define INSTR_CREATE_srs_wbimm(dc, mem, imm, statreg) \
+  instr_create_2dst_4src((dc), OP_srs, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(DR_REG_LR), (statreg))
+#define INSTR_CREATE_srsda(dc, mem, imm, statreg) \
+  instr_create_1dst_3src((dc), OP_srsda, (mem), (imm), opnd_create_reg(DR_REG_LR), (statreg))
+#define INSTR_CREATE_srsda_wbimm(dc, mem, imm, statreg) \
+  instr_create_2dst_4src((dc), OP_srsda, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(DR_REG_LR), (statreg))
+#define INSTR_CREATE_srsdb(dc, mem, imm, statreg) \
+  instr_create_1dst_3src((dc), OP_srsdb, (mem), (imm), opnd_create_reg(DR_REG_LR), (statreg))
+#define INSTR_CREATE_srsdb_wbimm(dc, mem, imm, statreg) \
+  instr_create_2dst_4src((dc), OP_srsdb, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(DR_REG_LR), (statreg))
+#define INSTR_CREATE_srsib(dc, mem, imm, statreg) \
+  instr_create_1dst_3src((dc), OP_srsib, (mem), (imm), opnd_create_reg(DR_REG_LR), (statreg))
+#define INSTR_CREATE_srsib_wbimm(dc, mem, imm, statreg) \
+  instr_create_2dst_4src((dc), OP_srsib, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(DR_REG_LR), (statreg))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (Rd, Rd2, mem, imm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -1991,10 +2038,10 @@
   instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 0, 1, list_len, 0, (mem), __VA_ARGS__)
 #define INSTR_CREATE_vld4_dup_8_wb(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-#define INSTR_CREATE_vldmia(dc, mem, list_len, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vldmia, 0, 1, list_len, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_vstmia(dc, mem, list_len, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmia, 1, 0, list_len, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vldm(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vldm, 0, 1, list_len, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vstm(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vstm, 1, 0, list_len, 0, (mem), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rm, list_len, ...) */
@@ -2212,10 +2259,10 @@
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
  */
+#define INSTR_CREATE_vldm_imm(dc, Rd, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vldm, 1, 2, list_len, 0, (Rd), (mem), (imm), __VA_ARGS__)
 #define INSTR_CREATE_vldmdb(dc, Rd, mem, imm, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vldmdb, 1, 2, list_len, 0, (Rd), (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vldmia_imm(dc, Rd, mem, imm, list_len, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vldmia, 1, 2, list_len, 0, (Rd), (mem), (imm), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rd, imm, list_len, ...) */
@@ -2233,10 +2280,10 @@
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
  */
+#define INSTR_CREATE_vstm_imm(dc, mem, Rd, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vstm, 2, 1, list_len, 0, (mem), (Rd), (imm), __VA_ARGS__)
 #define INSTR_CREATE_vstmdb(dc, mem, Rd, imm, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_vstmdb, 2, 1, list_len, 0, (mem), (Rd), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vstmia_imm(dc, mem, Rd, imm, list_len, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmia, 2, 1, list_len, 0, (mem), (Rd), (imm), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, Rm, list_len, ...) */

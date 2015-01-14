@@ -238,7 +238,10 @@ foreach my $opc (keys %entry) {
             # See if have same # args and thus candidate for "Rm_or_immed"
             my @sp0 = $ksig[0] =~ / /g;
             my @sp1 = $ksig[1] =~ / /g;
-            if ($#sp0 == $#sp1) {
+            if ($#sp0 == $#sp1 &&
+                # Rule out FPSCR vs immed (OP_vmrs).
+                !($ksig[0] =~ /; FPSCR/ && $ksig[1] =~ /; i/) &&
+                !($ksig[0] =~ /; i/ && $ksig[1] =~ /; FPSCR/)) {
                 # Distinguished by immed but let's make the macros more versatile
                 # by combining into a variable-type "Rm_or_immed" arg rather than
                 # naming $name_imm.
@@ -319,7 +322,7 @@ foreach my $opc (keys %entry) {
 
         # Look for writeback => name and implicit args
         if ($sig =~ /\bmem/ &&
-            ($sig =~ /RAw;.*RAw/ || $sig =~ /sp;.*sp/) &&
+            ($sig =~ /RAw.*;.*RAw/ || $sig =~ /sp;.*sp/) &&
             $num_tot_dsts > 0) {
             # For us, writeback or post-indexed look the same.  We have
             # two variants: immed disp or index (possibly shifted) reg.
@@ -563,7 +566,7 @@ foreach my $args (@order) {
         } elsif ($tomap eq '...') {
             print " * \\param $param The register list as separate opnd_t arguments.\n";
         } else {
-            die "XXXX No mapping for $param\n" if (!defined$mapping{$tomap});
+            die "XXXX No mapping for $param\n" if (!defined($mapping{$tomap}));
             my $full = $mapping{$tomap};
             $count{$param}++;
             die "XXXX Duplicate name $param\n" unless ($count{$param} == 1);
