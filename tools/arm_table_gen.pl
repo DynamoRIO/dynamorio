@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@ my $verbose = 0;
 my $line = 0;
 my $pred = 1; # Process predicated instrs, or non-pred?
 my $simd = 0; # Assume SIMD?
+my $t32 = 0; # Look for T32 instrs
 
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq '-nopred') {
@@ -44,6 +45,8 @@ while ($#ARGV >= 0) {
         $verbose++;
     } elsif ($ARGV[0] eq '-simd') {
         $simd = 1;
+    } elsif ($ARGV[0] eq '-t32') {
+        $t32 = 1;
     } else {
         die "Unknown argument $ARGV[0]\n";
     }
@@ -56,7 +59,8 @@ while (<>) {
     chomp if (/\r$/); # DOS
     print "xxx $line $_\n" if ($verbose > 1);
   startover:
-    if (/^Encoding A/ || /^Encoding ..\/A/) {
+    if ((!$t32 && (/^Encoding A/ || /^Encoding ..\/A/)) ||
+        ($t32  && (/^Encoding T/))) {
         my $name;
         my $asm;
         while (<>) {
@@ -95,7 +99,11 @@ while (<>) {
             chomp;
             chomp if (/\r$/); # DOS
             my $prefix = '';
-            if (!$pred) {
+            if ($t32) {
+                if ($last =~ /^15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0 15/) {
+                    $prefix = "1 1 1 .";
+                }
+            } elsif (!$pred) {
                 if ($last =~ /^31 30 29/ && /^1 1 1 1/) {
                     $prefix = "1 1 1 1";
                 }
@@ -130,6 +138,14 @@ while (<>) {
                     $opc =~ s/\(//g;
                     $opc =~ s/\)//g;
                     generate_entry(lc($name), $asm, $enc, $opc, $rest, 0);
+                } elsif (/^$prefix\s+((\(?[01PUWSRDQi]\)? ){2})(.*)/) {
+                    my $opc = $1 . "0 0 0 0 0 0";
+                    my $rest = $3;
+                    print "matched $name $enc\n" if ($verbose);
+                    # Ignore parens: go w/ value inside.
+                    $opc =~ s/\(//g;
+                    $opc =~ s/\)//g;
+                    generate_entry(lc($name), $asm, $enc, $opc, $rest, 0);
                 } else {
                     print "no match for $name: $_\n";
                 }
@@ -149,10 +165,76 @@ sub generate_entry($,$,$,$,$,$)
     my $other_enc;
     my $other_rest;
     my $negative = 0;
+    my $hexopc = 0;
+
+    # Ensure we've got all the bits, and fill in opcode for lower bits
+    my %bitlen = (
+        '(0)' => 1, '(1)' => 1, '(S)' => 1,
+        'J1' => 1, 'J2' => 1,
+        'Rn' => '4', 'Rd' => 4, 'Rt' => 4, 'Rt2' => 4, 'Rs' => 4, 'Rm' => 4, 'Ra' => 4,
+        'RdHi' => 4, 'RdLo' => 4,
+        'CRd' => 4, 'CRn' => 4, 'CRm' => 4,
+        'imm2' => 2, 'imm3' => 3, 'imm4' => 4, 'imm5' => 5, 'imm6' => 6, 'imm8' => 8,
+        'imm10' => 10, 'imm11' => 11, 'imm12' => 12, 'imm24' => 24,
+        'imm10H' => 10, 'imm10L' => 10, 'imm4H' => 4, 'imm4L' => 4,
+        'sat_imm4' => 4, 'sat_imm5' => 5,
+        'type' => 2, # shift type
+        'cond' => 4,
+        'option' => 4,
+        'sz' => 2, # OP_crc32
+        'msb' => 5, 'lsb' => 5,
+        'coproc' => 4, 'opc1' => 4, 'opc2' => 3, # OP_cdp
+        'opc1_mcr' => 3, # OP_mcr
+        'opt' => 2, # OP_dcps
+        'register_list_t32' => 13, # for T32
+        'register_list' => 16, # for A32
+        'register_list_priv' => 15, # for A32 priv ldm
+        'mask' => 2, # OP_msr
+        'mask_priv' => 4, # OP_msr priv
+        'tb' => 1, # OP_pkh
+        'widthm1' => 5, # OP_sbfx
+        'sh' => 1, # OP_ssat
+        'rotate' => 2, # OP_sxtab
+        'imod' => 2, 'mode' => 5, # OP_cps
+        'M1' => 4, # OP_mrs
+        'reg' => 4, # OP_vmrs
+        'opcode' => 4, # OP_subs pc
+        );
+    my @encbits = split(' ', $enc);
+    my $totlen = 0;
+    for (my $i = 0; $i <= $#encbits; $i++) {
+        my $token = $encbits[$i];
+        $token =~ s/register_list/register_list_t32/ if ($t32);
+        $token =~ s/register_list/register_list_priv/
+            if ($name eq 'ldm' && $asm =~ /amode/);
+        $token =~ s/opc1/opc1_mcr/ if ($name eq 'mcr' || $name eq 'mcr2' ||
+                                       $name eq 'mrc' || $name eq 'mrc2');
+        $token =~ s/mask/mask_priv/ if ($name eq 'msr' && $enc =~ / R /);
+        my $len = 0;
+        if (length($token) == 1) {
+            $len = 1;
+        } elsif (defined($bitlen{$token})) {
+            $len = $bitlen{$token};
+            my $unmod = $encbits[$i];
+            if ($unmod eq 'type') {
+                $rest =~ s/\btype\b/sh2/;
+            } elsif ($unmod !~ /^R/ && $unmod !~ /^CR/ && $unmod !~ /^\(/) {
+                my $pos = 32 - $totlen - $len;
+                my $repl = $len . "_" . $pos;
+                $rest =~ s/\b$unmod\b/imm$repl/;
+            }
+        } else {
+            die "Unknown length for: \"$token\"\n";
+        }
+        $totlen += $len;
+        if ($token eq '1' || $token eq '(1)') {
+            $hexopc |= 1 << (32 - $totlen);
+        }
+    }
+    die "Missing chars (have $totlen) for $name $asm:  $enc\n" unless ($totlen == 32);
 
     # Handle "x x x P U {D,R} W S" by expanding the chars
     my @bits = split(' ', $opc);
-    my $hexopc = 0;
     for (my $i = 0; $i <= $#bits; $i++) {
         if ($bits[$i] eq 'S') {
             $other_opc = $opc;
@@ -252,7 +334,14 @@ sub generate_entry($,$,$,$,$,$)
         }
     }
 
-    if (!$pred) {
+    if ($t32) {
+        my @topbits = split(' ', $enc);
+        for (my $i = 0; $i < 4; $i++) {
+            if ($topbits[$i] eq '1' || $topbits[$i] eq '0') {
+                $hexopc |= $topbits[$i] << (31 - $i);
+            }
+        }
+    } elsif (!$pred) {
         $hexopc |= 0xf0000000;
     }
     $opname = $name;
@@ -292,14 +381,37 @@ sub generate_entry($,$,$,$,$,$)
         if ($opnds[$i] ne '0' && $opnds[$i] ne '1' &&
             (!$simd || ($opnds[$i] ne 'sz' && $opnds[$i] ne 'N' &&
                         $opnds[$i] ne 'M' && $opnds[$i] ne 'F'))) {
-            print "$opnds[$i], ";
+            if ($opcnt == 0 && $opnds[$i] !~ /Rd$/) {
+                print "xx, xx, ";
+                $opcnt += 2;
+            }
+            # Convert to the new types
+            my $toprint = $opnds[$i];
+            $toprint =~ s/Rn/RAw/;
+            # XXX: convert these based on bit positions up above -- but keep dst
+            # vs src info too
+            if ($t32) {
+                $toprint =~ s/Rd/RCw/;
+                $toprint =~ s/Rt/RCw/;
+                die "No Rs in T32!\n" if ($toprint =~ /Rs/);
+            } else {
+                $toprint =~ s/Rd/RBw/;
+                $toprint =~ s/Rt/RBw/;
+                $toprint =~ s/Rs/RCw/;
+            }
+            $toprint =~ s/Rm/RDw/;
+            print "$toprint, ";
             $opcnt++;
+            if ($opcnt == 1) {
+                print "xx, ";
+                $opcnt++;
+            }
         }
     }
     for (my $i = $opcnt; $i < 5; $i++) {
         print "xx, ";
     }
-    print ($pred ? "pred" : "no");
+    print (($pred && !$t32) ? "pred" : "no");
     print ", $eflags, END_LIST},";
     if ($PUW) {
         $PUW_str = $bits[3] . $bits[4] . $bits[6];

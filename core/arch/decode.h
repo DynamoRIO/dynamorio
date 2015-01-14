@@ -284,6 +284,7 @@ enum {
     OPSZ_7b,   /**< 7 bits */
     OPSZ_9b,   /**< 9 bits */
     OPSZ_12b,  /**< 12 bits */
+    OPSZ_20b,  /**< 20 bits */
     OPSZ_25b,  /**< 25 bits */
     /**
      * At encode or decode time, the size will match the size of the

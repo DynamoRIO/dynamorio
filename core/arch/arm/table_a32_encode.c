@@ -44,6 +44,10 @@
  * DO NOT MANUALLY EDIT THE ENCODING CHAINS, INCLUDING THE STARTING POINTS
  * STORED IN THIS ARRAY!  Use tools/arm_table_chain.pl instead.
  */
+/* FIXME i#1551: turn this into a table of pairs of A32,T32 entry points, as the
+ * alternative of a completely separate array is just too much extra to maintain
+ * when we add new opcodes.
+ */
 const instr_info_t * const op_instr_A32[] = {
     /* OP_INVALID */   NULL,
     /* OP_UNDECODED */ NULL,
@@ -54,6 +58,7 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_adcs              */ &A32_pred_opc8[0x2b],
     /* OP_add               */ &A32_pred_opc8[0x28],
     /* OP_adds              */ &A32_pred_opc8[0x29],
+    /* OP_addw              */ &invalid_instr,
     /* OP_aesd_8            */ &A32_ext_simd6b[0][0x0d],
     /* OP_aese_8            */ &A32_ext_simd6b[0][0x0c],
     /* OP_aesimc_8          */ &A32_ext_simd6b[0][0x0f],
@@ -167,6 +172,7 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_mvns              */ &A32_pred_opc8[0x3f],
     /* OP_nop               */ &A32_ext_bits0[0][0x00],
     /* OP_orn               */ &invalid_instr,
+    /* OP_orns              */ &invalid_instr,
     /* OP_orr               */ &A32_pred_opc8[0x38],
     /* OP_orrs              */ &A32_pred_opc8[0x39],
     /* OP_pkhbt             */ &A32_ext_opc4y[6][0x01],
@@ -307,6 +313,7 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_strt              */ &A32_pred_opc8[0x4a],
     /* OP_sub               */ &A32_pred_opc8[0x24],
     /* OP_subs              */ &A32_pred_opc8[0x25],
+    /* OP_subw              */ &invalid_instr,
     /* OP_svc               */ &A32_pred_opc8[0xf0],
     /* OP_sxtab             */ &A32_ext_RAPC[1][0x00],
     /* OP_sxtab16           */ &A32_ext_RAPC[0][0x00],

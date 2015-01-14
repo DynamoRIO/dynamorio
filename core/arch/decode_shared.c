@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -185,6 +185,7 @@ const char * const size_names[] = {
     "OPSZ_7b",
     "OPSZ_9b",
     "OPSZ_12b",
+    "OPSZ_20b",
     "OPSZ_25b",
     "OPSZ_VAR_REGLIST",
     "OPSZ_20",
@@ -223,7 +224,7 @@ const instr_info_t invalid_instr =
 /* PR 302344: used for shared traces -tracedump_origins where we
  * need to change the mode but we have no dcontext
  */
-static bool initexit_isa_mode = DEFAULT_ISA_MODE;
+static dr_isa_mode_t initexit_isa_mode = DEFAULT_ISA_MODE;
 
 /* The decode and encode routines use a per-thread persistent flag that
  * indicates which processor mode to use.  This routine sets that flag to the

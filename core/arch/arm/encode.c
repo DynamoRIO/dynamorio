@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -222,6 +222,7 @@ const char * const type_names[] = {
     "TYPE_R_B_PLUS1",
     "TYPE_R_D_EVEN",
     "TYPE_R_D_PLUS1",
+    "TYPE_R_A_EQ_D",
     "TYPE_CR_A",
     "TYPE_CR_B",
     "TYPE_CR_C",
@@ -257,23 +258,33 @@ const char * const type_names[] = {
     "TYPE_I_b20",
     "TYPE_I_b21",
     "TYPE_I_b0_b5",
+    "TYPE_I_b4_b8",
+    "TYPE_I_b4_b16",
     "TYPE_I_b5_b3",
     "TYPE_I_b8_b0",
     "TYPE_NI_b8_b0",
     "TYPE_I_b8_b16",
+    "TYPE_I_b12_b6",
     "TYPE_I_b16_b0",
+    "TYPE_I_b16_b26_b12_b0",
     "TYPE_I_b21_b5",
     "TYPE_I_b21_b6",
     "TYPE_I_b24_b16_b0",
+    "TYPE_I_b26_b12_b0",
     "TYPE_J_x4_b0",
     "TYPE_J_b0_b24",
+    "TYPE_J_b26_b11_b13_b16_b0",
+    "TYPE_J_b26_b13_b11_b16_b0",
+    "TYPE_SHIFT_b4",
     "TYPE_SHIFT_b5",
     "TYPE_SHIFT_b6",
+    "TYPE_SHIFT_b21",
     "TYPE_SHIFT_LSL",
     "TYPE_SHIFT_ASR",
     "TYPE_L_8b",
-    "TYPE_L_13b",
     "TYPE_L_16b",
+    "TYPE_L_16b_NO_SP",
+    "TYPE_L_16b_NO_SP_PC",
     "TYPE_L_CONSEC",
     "TYPE_L_VBx2",
     "TYPE_L_VBx3",
@@ -289,6 +300,8 @@ const char * const type_names[] = {
     "TYPE_M_NEG_REG",
     "TYPE_M_POS_SHREG",
     "TYPE_M_NEG_SHREG",
+    "TYPE_M_POS_LSHREG",
+    "TYPE_M_POS_LSH2REG",
     "TYPE_M_POS_I12",
     "TYPE_M_NEG_I12",
     "TYPE_M_SI9",
@@ -298,6 +311,8 @@ const char * const type_names[] = {
     "TYPE_M_NEG_I4_4",
     "TYPE_M_SI7",
     "TYPE_M_POS_I5",
+    "TYPE_M_PCREL_POS_I12",
+    "TYPE_M_PCREL_NEG_I12",
     "TYPE_M_PCREL_S9",
     "TYPE_M_PCREL_U9",
     "TYPE_M_UP_OFFS",
@@ -753,7 +768,6 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
 
     /* Register lists */
     case TYPE_L_8b:
-    case TYPE_L_13b:
     case TYPE_L_16b: {
         /* Strategy: first, we disallow any template with a reglist followed by more
          * than one plain register type (checked in decode_debug_checks_arch()).
@@ -762,7 +776,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
          * ahead, or to disallow any reg after a reglist (that would lead to
          * wrong-order-vs-asm for OP_vtbl and others).
          */
-        uint max_num = (optype == TYPE_L_8b ? 8 : (optype == TYPE_L_13b ? 13 : 16));
+        uint max_num = (optype == TYPE_L_8b ? 8 : 16);
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, false/*gpr*/,
                                0/*no restrictions*/, 0))
             return false;
@@ -1353,7 +1367,6 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
 
     /* Register lists */
     case TYPE_L_8b:
-    case TYPE_L_13b:
     case TYPE_L_16b: {
         uint i;
         CLIENT_ASSERT(di->reglist_start == *counter - 1, "internal reglist encode error");

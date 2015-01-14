@@ -452,9 +452,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
 
     /* Register lists */
     case TYPE_L_8b:
-    case TYPE_L_13b:
     case TYPE_L_16b: {
-        uint num = (optype == TYPE_L_8b ? 8 : (optype == TYPE_L_13b ? 13 : 16));
+        uint num = (optype == TYPE_L_8b ? 8 : 16);
         di->reglist_sz = 0;
         for (i = 0; i < num; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
@@ -817,29 +816,54 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     return false;
 }
 
-/* Disassembles the instruction at pc into the data structures ret_info
- * and di.  Returns a pointer to the pc of the next instruction.
- * Returns NULL on an invalid instruction.
- * Caller should set di->isa_mode.
- */
-static byte *
-read_instruction(byte *pc, byte *orig_pc,
-                 const instr_info_t **ret_info, decode_info_t *di
-                 _IF_DEBUG(bool report_invalid))
+const instr_info_t *
+decode_instr_info_T32_32(decode_info_t *di)
 {
-    uint instr_word;
     const instr_info_t *info;
     uint idx;
+    /* First, split by whether coprocessor or not */
+    if (TESTALL(0xec00, di->halfwordA)) {
+        /* coproc */
+        /* FIXME i#1551: NYI */
+        ASSERT_NOT_IMPLEMENTED(false);
+        return NULL;
+    } else {
+        /* non-coproc */
+        if (TESTALL(0xe800, di->halfwordA)) {
+            idx = (di->halfwordA >> 4) & 0x3f /*bits A9:4*/;
+            info = &T32_base_e[idx];
+        } else {
+            /* bits A11,B15:14,B12 */
+            idx = (((di->halfwordA >> 7) & 0x8) |
+                   ((di->halfwordB >> 13) & 0x3) |
+                   ((di->halfwordB >> 12) & 0x1));
+            info = &T32_base_f[idx];
+        }
+    }
+    /* If an extension, discard the old info and get a new one */
+    while (info->type > INVALID) {
+        /* FIXME i#1551: NYI */
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
+    return info;
+}
 
-    /* Read instr bytes and initialize di */
-    di->start_pc = pc;
-    di->orig_pc = orig_pc;
-    instr_word = *(uint *)pc;
-    pc += sizeof(instr_word);
-    di->instr_word = instr_word;
-    di->mem_needs_reglist_sz = NULL;
-    di->reglist_sz = -1;
+const instr_info_t *
+decode_instr_info_T32_16(decode_info_t *di)
+{
+    /* FIXME i#1551: NYI */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return NULL;
+}
 
+const instr_info_t *
+decode_instr_info_A32(decode_info_t *di)
+{
+    const instr_info_t *info;
+    uint idx;
+    uint instr_word = di->instr_word;
+
+    /* We first split by whether it's predicated */
     di->predicate = decode_predicate(instr_word, 28) + DR_PRED_EQ;
     if (di->predicate == DR_PRED_OP) {
         uint opc7 = /* remove bit 22 */
@@ -1013,15 +1037,68 @@ read_instruction(byte *pc, byte *orig_pc,
             info = &A32_ext_vtb[info->code][idx];
         }
     }
-    CLIENT_ASSERT(info->type <= INVALID, "decoding table error");
+    return info;
+}
+
+/* Disassembles the instruction at pc into the data structures ret_info
+ * and di.  Returns a pointer to the pc of the next instruction.
+ * Returns NULL on an invalid instruction.
+ * Caller should set di->isa_mode.
+ */
+static byte *
+read_instruction(byte *pc, byte *orig_pc,
+                 const instr_info_t **ret_info, decode_info_t *di
+                 _IF_DEBUG(bool report_invalid))
+{
+    const instr_info_t *info;
+
+    /* Initialize di */
+    di->start_pc = pc;
+    di->orig_pc = orig_pc;
+    di->mem_needs_reglist_sz = NULL;
+    di->reglist_sz = -1;
+    di->predicate = DR_PRED_NONE;
+
+    /* Read instr bytes and find instr_info */
+    if (di->isa_mode == DR_ISA_ARM_THUMB) {
+        di->halfwordA = *(ushort *)pc;
+        pc += sizeof(ushort);
+        /* First, split by whether 16 or 32 bits */
+        if (TESTALL(0xe800, di->halfwordA) || TESTALL(0xf000, di->halfwordA)) {
+            /* 32 bits */
+            di->T32_32 = true;
+            di->halfwordB = *(ushort *)pc;
+            pc += sizeof(ushort);
+            /* We put A up high (so this does NOT match little-endianness) */
+            di->instr_word = (di->halfwordA << 16) | di->halfwordB;
+            info = decode_instr_info_T32_32(di);
+        } else {
+            /* 16 bits */
+            di->T32_32 = false;
+            di->instr_word = di->halfwordA;
+            info = decode_instr_info_T32_16(di);
+        }
+    } else if (di->isa_mode == DR_ISA_ARM_A32) {
+        di->instr_word = *(uint *)pc;
+        pc += sizeof(uint);
+        info = decode_instr_info_A32(di);
+    } else {
+        /* XXX i#1569: A64 NYI */
+        ASSERT_NOT_IMPLEMENTED(false);
+        di->instr_word = 0;
+        *ret_info = &invalid_instr;
+        return NULL;
+    }
+
+    CLIENT_ASSERT(info != NULL && info->type <= INVALID, "decoding table error");
 
     /* All required bits should be set */
-    if ((instr_word & info->opcode) != info->opcode && info->type != INVALID)
+    if ((di->instr_word & info->opcode) != info->opcode && info->type != INVALID)
         info = &invalid_instr;
 
     if (TESTANY(DECODE_PREDICATE_22|DECODE_PREDICATE_8, info->flags)) {
         di->predicate = DR_PRED_EQ + decode_predicate
-            (instr_word, TEST(DECODE_PREDICATE_22, info->flags) ? 22 : 8);
+            (di->instr_word, TEST(DECODE_PREDICATE_22, info->flags) ? 22 : 8);
     }
 
     /* We should now have either a valid OP_ opcode or an invalid opcode */
@@ -1031,7 +1108,7 @@ read_instruction(byte *pc, byte *orig_pc,
             if (report_invalid && !is_dynamo_address(di->start_pc)) {
                 SYSLOG_INTERNAL_WARNING_ONCE("Invalid opcode encountered");
                 LOG(THREAD_GET, LOG_ALL, 1, "Invalid opcode @"PFX": 0x%016x\n",
-                    di->start_pc, instr_word);
+                    di->start_pc, di->instr_word);
             }
         });
         *ret_info = &invalid_instr;
@@ -1401,7 +1478,6 @@ optype_is_reglist(int optype)
 {
     switch (optype) {
     case TYPE_L_8b:
-    case TYPE_L_13b:
     case TYPE_L_16b:
     case TYPE_L_CONSEC:
     case TYPE_L_VBx2:

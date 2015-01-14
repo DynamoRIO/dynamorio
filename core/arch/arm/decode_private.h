@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,11 @@
 enum {
     /* not a valid opcode */
     INVALID = OP_LAST + 1,
+    /* Our EXT_ names are slightly different for A32 vs T32: we use "BITS" and only
+     * specify the bottom for multi-bit sets for A32, but list which halfword (A vs
+     * B) and the range for bitsets for T32.  We could normalize the two but having
+     * them different is a feature.
+     */
     EXT_OPC4,    /* Indexed by bits 7:4 */
     EXT_OPC4X,   /* Indexed by bits 7:4 in specific manner: see table */
     EXT_OPC4Y,   /* Indexed by bits 7:4 w/ 1st entry covering all evens */
@@ -76,6 +81,25 @@ enum {
     EXT_VLDB,    /* Indexed by bits (11:8,Y)*3+X (see table descr) */
     EXT_VLDC,    /* Indexed by bits (9:8,7:5)*3+X where X based on value of 3:0 */
     EXT_VTB,     /* Indexed by 11:10 and 9:8,6 in a special way */
+    /* T32 32-bit only */
+    EXT_A10_6_4, /* Indexed by bits A10,6:4 */
+    EXT_A9_7,    /* Indexed by bits A7:4 */
+    EXT_B10_8,   /* Indexed by bits B10:8 */
+    EXT_B2_0,    /* Indexed by bits B2:0 */
+    EXT_B5_4,    /* Indexed by bits B5:4 */
+    EXT_B6_4,    /* Indexed by bits B6:4 */
+    EXT_B7_4,    /* Indexed by bits B7:4 */
+    EXT_B7_4_eq1,/* Indexed by whether bits B7:4 == 0xf */
+    EXT_B4,      /* Indexed by bit  B4 */
+    EXT_B5,      /* Indexed by bit  B5 */
+    EXT_B11,     /* Indexed by bit  B11 */
+    EXT_B13,     /* Indexed by bit  B13 */
+    EXT_FOPC8,   /* Indexed by bits A11:4 but stop at 0xfb */
+    EXT_IMM126,  /* Indexed by whether imm5 in 12:12,7:6 is 0 or not */
+    EXT_OPCBX,   /* Indexed by bits B11:8 but minus x1-x7 */
+    EXT_RCPC,    /* Indexed by whether RC != PC */
+    /* T32 16-bit only */
+    /* FIXME i#1551: add T32.16 */
     /* else, from OP_ enum */
 };
 
@@ -119,8 +143,17 @@ enum {
  */
 
 struct _decode_info_t {
-    uint instr_word;
     dr_isa_mode_t isa_mode;
+
+    /* We fill in instr_word for T32 too.  For T32.32, we put halfwordB up high
+     * (to match our table opcodes, for easier human reading).  This does NOT
+     * match the little-endian encoding of both halfwords as one doubleword.
+     */
+    uint instr_word;
+    ushort halfwordA; /* T32 only */
+    ushort halfwordB; /* T32.32 only */
+    bool T32_32; /* whether T32.32 as opposed to T32.16 */
+
     uint opcode;
     uint predicate;
     bool check_reachable;
@@ -186,15 +219,15 @@ enum {
     TYPE_NONE,  /* must be 0 for invalid_instr */
 
     /* We name the registers according to their encoded position: A, B, C, D.
-     * XXX: Rd is T32-11:8; T16-2:0; A64-4:0 so not always "C"
+     * XXX: Rd is T32-11:8; T32.16-2:0; A64-4:0 so not always "C"
      *
      * XXX: record which registers are "unpredictable" if PC (or SP, or LR) is
      * passed?  Many are, for many different opcodes.
      */
-    TYPE_R_A,   /* A32-19:16 = Rn: source register, often memory base */
-    TYPE_R_B,   /* A32-15:12 = Rd or Rt: dest reg */
-    TYPE_R_C,   /* A32-11:8  = Rs: source register, often used as shift value */
-    TYPE_R_D,   /* A32-3:0   = Rm: source register, often used as offset */
+    TYPE_R_A,   /* A/T32-19:16 = Rn: source register, often memory base */
+    TYPE_R_B,   /* A/T32-15:12 = Rd (A32 dest reg) or Rt (src reg) */
+    TYPE_R_C,   /* A/T32-11:8  = Rd (T32 dest reg) or Rs (A32, often shift value) */
+    TYPE_R_D,   /* A/T32-3:0   = Rm: source register, often used as offset */
 
     TYPE_R_A_TOP, /* top half of register */
     TYPE_R_B_TOP, /* top half of register */
@@ -207,6 +240,8 @@ enum {
     TYPE_R_B_PLUS1, /* Subsequent reg after prior TYPE_R_B_EVEN opnd */
     TYPE_R_D_EVEN, /* Must be an even-numbered reg */
     TYPE_R_D_PLUS1, /* Subsequent reg after prior TYPE_R_D_EVEN opnd */
+
+    TYPE_R_A_EQ_D,  /* T32-19:16 = must be identical to Rm in 3:0 (OP_clz) */
 
     TYPE_CR_A, /* Coprocessor register in A slot */
     TYPE_CR_B, /* Coprocessor register in B slot */
@@ -253,27 +288,38 @@ enum {
     TYPE_I_b20,
     TYPE_I_b21,    /* OP_vmov */
     TYPE_I_b0_b5,  /* OP_cvt: immed is either 32 or 16 minus [3:0,5] */
+    TYPE_I_b4_b8,  /* OP_mrs T32 */
+    TYPE_I_b4_b16, /* OP_mrs T32 */
     TYPE_I_b5_b3,  /* OP_vmla scalar: M:Vm<3> */
     TYPE_I_b8_b0,
     TYPE_NI_b8_b0, /* negated immed */
     TYPE_I_b8_b16,
+    TYPE_I_b12_b6, /* T32-14:12,7:6 */
     TYPE_I_b16_b0,
+    TYPE_I_b16_b26_b12_b0, /* OP_movw T32-19:16,26,14:12,7:0 */
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
+    TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 */
 
     /* PC-relative jump targets */
     TYPE_J_x4_b0,  /* OP_b, OP_bl: signed immed is stored as value/4 */
     TYPE_J_b0_b24, /* OP_blx imm24:H:0 */
+    TYPE_J_b26_b11_b13_b16_b0, /* OP_b T32-26,11,13,21:16,10:0 x2 */
+    /* OP_b T32-26,13,11,25:16,10:0 x2, but bits 13 and 11 are flipped if bit 26 is 0 */
+    TYPE_J_b26_b13_b11_b16_b0,
 
-    TYPE_SHIFT_b5,
+    TYPE_SHIFT_b4,    /* T32-5:4 */
+    TYPE_SHIFT_b5,    /* A32-6:5 */
     TYPE_SHIFT_b6,    /* value is :0 */
+    TYPE_SHIFT_b21,   /* value is :0 */
     TYPE_SHIFT_LSL,   /* shift logical left */
     TYPE_SHIFT_ASR,   /* shift arithmetic right */
 
     TYPE_L_8b,  /* 8-bit register list */
-    TYPE_L_13b, /* 13-bit register list */
     TYPE_L_16b, /* 16-bit register list */
+    TYPE_L_16b_NO_SP, /* 16-bit register list but no SP */
+    TYPE_L_16b_NO_SP_PC, /* 16-bit register list but no SP or PC */
     TYPE_L_CONSEC, /* Consecutive multimedia regs starting at prior opnd, w/ dword
                     * count in immed 7:0
                     */
@@ -290,10 +336,10 @@ enum {
     /* All memory addressing modes use fixed base and index registers:
      * A32: base  = RA 19:16 ("Rn" in manual)
      *      index = RD  3:0  ("Rm" in manual)
-     * T16: base  =
-     *      index =
-     * T32: base  =
-     *      index =
+     * T32.16: base  =
+     *         index =
+     * T32.32: base  = RA 19:16 ("Rn" in manual)
+     *         index = RD  3:0  ("Rm" in manual)
      * A64: base  =
      *      index =
      *
@@ -314,6 +360,8 @@ enum {
     TYPE_M_NEG_REG,   /* mem offs - reg index */
     TYPE_M_POS_SHREG, /* mem offs + reg-shifted (or extended for A64) index */
     TYPE_M_NEG_SHREG, /* mem offs - reg-shifted (or extended for A64) index */
+    TYPE_M_POS_LSHREG, /* mem offs + LSL reg-shifted (T32: by 5:4) index */
+    TYPE_M_POS_LSH2REG, /* mem offs + LSL reg-shifted by 1 index */
     TYPE_M_POS_I12,   /* mem offs + 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
     TYPE_M_NEG_I12,   /* mem offs - 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
     TYPE_M_SI9,       /* mem offs + signed 9-bit immed @ 20:12 */
@@ -324,6 +372,8 @@ enum {
     TYPE_M_SI7,       /* mem offs + signed 7-bit immed @ 6:0 */
     TYPE_M_POS_I5,    /* mem offs + 5-bit immed @ 5:0 */
 
+    TYPE_M_PCREL_POS_I12, /* mem offs pc-relative + 12-bit immed @ 11:0 */
+    TYPE_M_PCREL_NEG_I12, /* mem offs pc-relative - 12-bit immed @ 11:0 */
     TYPE_M_PCREL_S9,  /* mem offs pc-relative w/ signed 9-bit immed 23:5 scaled */
     TYPE_M_PCREL_U9,  /* mem offs pc-relative w/ unsigned 9-bit immed 23:5 scaled */
 
@@ -389,6 +439,29 @@ extern const instr_info_t A32_ext_vldA[][132];
 extern const instr_info_t A32_ext_vldB[][96];
 extern const instr_info_t A32_ext_vldC[][96];
 extern const instr_info_t A32_ext_vtb[][9];
+
+extern const instr_info_t T32_base_e[];
+extern const instr_info_t T32_base_f[];
+extern const instr_info_t T32_ext_fopc8[][192];
+extern const instr_info_t T32_ext_bits_A9_7[][2];
+extern const instr_info_t T32_ext_bits_A10_6_4[][16];
+extern const instr_info_t T32_ext_opcBX[][9];
+extern const instr_info_t T32_ext_bits_B10_8[][8];
+extern const instr_info_t T32_ext_bits_B7_4[][16];
+extern const instr_info_t T32_ext_B7_4_eq1[][8];
+extern const instr_info_t T32_ext_bits_B6_4[][8];
+extern const instr_info_t T32_ext_bits_B5_4[][4];
+extern const instr_info_t T32_ext_bits_B2_0[][8];
+extern const instr_info_t T32_ext_bit_B4[][2];
+extern const instr_info_t T32_ext_bit_B5[][2];
+extern const instr_info_t T32_ext_bit_B7[][2];
+extern const instr_info_t T32_ext_bit_B11[][2];
+extern const instr_info_t T32_ext_bit_B13[][2];
+extern const instr_info_t T32_ext_RAPC[][2];
+extern const instr_info_t T32_ext_RBPC[][2];
+extern const instr_info_t T32_ext_RCPC[][2];
+extern const instr_info_t T32_ext_imm126[][2];
+extern const instr_info_t T32_extra_operands[];
 
 /* tables that translate opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr_A32[];

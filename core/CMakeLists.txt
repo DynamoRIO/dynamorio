@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -156,7 +156,8 @@ else ()
   set(DECODER_SRCS ${DECODER_SRCS}
     arch/${ARCH_NAME}/table_a32_pred.c
     arch/${ARCH_NAME}/table_a32_unpred.c
-    arch/${ARCH_NAME}/table_a32_encode.c)
+    arch/${ARCH_NAME}/table_a32_encode.c
+    arch/${ARCH_NAME}/table_t32_base.c)
 endif ()
 
 set(ARCH_SRCS
