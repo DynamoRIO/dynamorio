@@ -146,8 +146,9 @@ struct _decode_info_t {
     dr_isa_mode_t isa_mode;
 
     /* We fill in instr_word for T32 too.  For T32.32, we put halfwordB up high
-     * (to match our table opcodes, for easier human reading).  This does NOT
-     * match the little-endian encoding of both halfwords as one doubleword.
+     * (to match our table opcodes, for easier human reading, and to enable
+     * sharing the A32 bit position labels).  This does NOT match the little-endian
+     * encoding of both halfwords as one doubleword: this matches big-endian.
      */
     uint instr_word;
     ushort halfwordA; /* T32 only */
@@ -213,6 +214,8 @@ struct _decode_info_t {
 
 /* Operand types have 2 parts, type and size.  The type tells us in which bits
  * the operand is encoded, and the type of operand.
+ * For T32.32, we share the A32 bit labels by considering halfwordA to be
+ * placed above halfwordB to form a big-endian doubleword.
  */
 enum {
     /* operand types */
@@ -269,7 +272,10 @@ enum {
      */
     /* Immediates are at several different bit positions and come in several
      * different sizes.  We considered storing a bitmask to cover any type
-     * of immediate, but there are few enough that we are enumerating them:
+     * of immediate, but there are few enough that we are enumerating them.
+     * For split types, our type + the size does not specify how many bits are at
+     * each bit location: we rely on the decoder and encoder enumerating all the
+     * possibilities.
      */
     TYPE_I_b0,
     TYPE_NI_b0, /* negated immed */
@@ -388,11 +394,18 @@ enum {
 
 
     /* Non-incremental-enum valus */
-    DECODE_INDEX_SHIFT_TYPE_BITPOS   = 5,
-    DECODE_INDEX_SHIFT_TYPE_SIZE     = OPSZ_2b,
-    DECODE_INDEX_SHIFT_AMOUNT_BITPOS = 7,
-    DECODE_INDEX_SHIFT_AMOUNT_SIZE   = OPSZ_5b,
+    DECODE_INDEX_SHIFT_TYPE_BITPOS_A32    = 5,
+    DECODE_INDEX_SHIFT_TYPE_BITPOS_T32    = 4,
+    DECODE_INDEX_SHIFT_TYPE_SIZE          = OPSZ_2b,
+    DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32  = 7,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32    = OPSZ_5b,
+    DECODE_INDEX_SHIFT_AMOUNT_BITPOS1_T32 = 12,
+    DECODE_INDEX_SHIFT_AMOUNT_BITPOS2_T32 = 6,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE1_T32   = OPSZ_3b,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE2_T32   = OPSZ_2b,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE1_SHIFT = 2,
 
+    SHIFT_ENCODING_DECODE = -1,
     SHIFT_ENCODING_LSL = 0,
     SHIFT_ENCODING_LSR = 1,
     SHIFT_ENCODING_ASR = 2,

@@ -1244,10 +1244,10 @@ encode_index_shift(decode_info_t *di, opnd_t opnd)
         CLIENT_ASSERT(false, "internal encoding error");
         val = sh2 = 0;
     }
-    encode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS,
+    encode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS_A32,
                  DECODE_INDEX_SHIFT_TYPE_SIZE, sh2, false);
-    encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS,
-                 DECODE_INDEX_SHIFT_AMOUNT_SIZE, val, false);
+    encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32,
+                 DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32, val, false);
 }
 
 static void

@@ -1269,6 +1269,8 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_2:
     case OPSZ_2_reg4: /* mem size */
     case OPSZ_9b: /* round up */
+    case OPSZ_10b:
+    case OPSZ_11b:
     case OPSZ_12b:
         return 2;
     case OPSZ_20b: /* round up */
@@ -1382,6 +1384,8 @@ opnd_size_in_bits(opnd_size_t size)
     case OPSZ_6b:  return 6;
     case OPSZ_7b:  return 7;
     case OPSZ_9b:  return 9;
+    case OPSZ_10b:  return 10;
+    case OPSZ_11b:  return 11;
     case OPSZ_12b: return 12;
     case OPSZ_20b: return 20;
     case OPSZ_25b: return 25;
