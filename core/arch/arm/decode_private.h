@@ -330,7 +330,7 @@ enum {
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
-    TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 */
+    TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0, but w/ complex decoding rules */
 
     /* PC-relative jump targets */
     TYPE_J_x2_b0,  /* T16-OP_b: signed immed is stored as value/2 */

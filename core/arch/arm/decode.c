@@ -740,6 +740,26 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 26, OPSZ_1b, false/*unsigned*/) << 11);
         } else
             CLIENT_ASSERT(false, "unsupported 26-12-0 split immed size");
+        /* This is a "modified immediate constant" with complex rules.
+         * Bottom 8 bits are "abcdefgh".
+         */
+        if (!TESTANY(0xc00, val)) {
+            int code = (val >> 8) & 0x3;
+            int val8 = (val & 0xff);
+            if (code == 0)
+                val = val8;
+            else if (code == 1)
+                val = (val8 << 16) | val8;
+            else if (code == 2)
+                val = (val8 << 24) | (val8 << 8);
+            else if (code == 3)
+                val = (val8 << 24) | (val8 << 16) | (val8 << 8) | val8;
+        } else {
+            /* ROR of 1bcdefgh */
+            int toror = 0x80 | (val & 0x7f);
+            int amt = (val >> 7) & 0x1f;
+            val = (toror >> amt) | (toror << (32 - amt));
+        }
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
