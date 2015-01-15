@@ -668,8 +668,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     }
     case TYPE_J_x4_b0: /* OP_b, OP_bl */
         array[(*counter)++] =
-            /* For A32, "cur pc" is PC + 8 */
-            opnd_create_pc(di->orig_pc + ARM_CUR_PC_OFFS +
+            /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
+            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) +
                            (decode_immed(di, 0, opsize, true/*signed*/) << 2));
         return true;
     case TYPE_J_b0_b24: { /* OP_blx imm24:H:0 */
@@ -678,8 +678,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 0, OPSZ_3, false/*unsigned*/) << 2);
         } else
             CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
-        /* For A32, "cur pc" is PC + 8 */
-        array[(*counter)++] = opnd_create_pc(di->orig_pc + ARM_CUR_PC_OFFS + val);
+        /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
+        array[(*counter)++] =
+            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) + val);
         return true;
     }
     case TYPE_SHIFT_b5:
@@ -1331,7 +1332,7 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
         int disp = word & 0xffffff;
         if (TEST(0x800000, disp))
             disp |= 0xff000000; /* sign-extend */
-        return pc + ARM_CUR_PC_OFFS + (disp << 2);
+        return pc + decode_cur_pc_offs(mode) + (disp << 2);
     } else
         ASSERT_NOT_IMPLEMENTED(false);
     return NULL;

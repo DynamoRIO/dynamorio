@@ -215,7 +215,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
 void
 patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
 {
-    /* FIXME i#1551: support Thumb */
+    /* FIXME i#1551: support Thumb: need to pass in isa mode somehow */
     /* FIXME i#1551: link reachability: we either need to support OP_ldr into pc
      * as an exit cti and live w/ ind br cost always, or we need to go
      * though the stub and replace its 1st instr w/ OP_ldr into pc
@@ -224,6 +224,7 @@ patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
     if (((*(branch_pc + 3)) & 0xf) == 0xa) {
         /* OP_b with 3-byte immed that's stored as >>2 */
         uint val = (*(uint *)branch_pc) & 0xff000000;
+        /* FIXME i#1551: need isa mode to call decode_cur_pc_offs() here */
         int disp = (target_pc - (branch_pc + ARM_CUR_PC_OFFS));
         ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
         ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */

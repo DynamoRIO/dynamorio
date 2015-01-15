@@ -452,7 +452,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     uint opc = instr_get_opcode(instr);
     /* Compute the value of r15==pc for orig app instr */
-    ptr_int_t r15 = (ptr_int_t)instr_get_raw_bits(instr) + ARM_CUR_PC_OFFS;
+    ptr_int_t r15 = (ptr_int_t)instr_get_raw_bits(instr) +
+        decode_cur_pc_offs(dr_get_isa_mode(dcontext));
     opnd_t reg_op, mem_op;
     ASSERT(instr_has_rel_addr_reference(instr));
 
@@ -499,7 +500,8 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ushort slot;
     bool should_restore;
     reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
-    ptr_int_t app_r15 = (ptr_int_t)instr_get_raw_bits(instr) + ARM_CUR_PC_OFFS;
+    ptr_int_t app_r15 = (ptr_int_t)instr_get_raw_bits(instr) +
+        decode_cur_pc_offs(dr_get_isa_mode(dcontext));
     int i;
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
     insert_mov_immed_ptrsz(dcontext, app_r15, opnd_create_reg(reg),

@@ -1285,10 +1285,6 @@ bool fill_with_nops(byte *addr, size_t size);
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
 # define MAX_PAD_SIZE 0
 
-/* The "current" pc has an offset in pc-relative computations */
-# define ARM_CUR_PC_OFFS 8
-# define THUMB_CUR_PC_OFFS 4
-
 #endif /* ARM */
 /****************************************************************************/
 
@@ -1759,6 +1755,26 @@ DR_API
 byte *
 instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc,
                          byte *final_pc, byte *max_pc, bool has_instr_jmp_targets);
+
+#ifdef ARM
+/* The "current" pc has an offset in pc-relative computations */
+# define ARM_CUR_PC_OFFS 8
+# define THUMB_CUR_PC_OFFS 4
+
+static inline int
+decode_cur_pc_offs(dr_isa_mode_t mode)
+{
+    if (mode == DR_ISA_ARM_A32)
+        return ARM_CUR_PC_OFFS;
+    else if (mode == DR_ISA_ARM_THUMB)
+        return THUMB_CUR_PC_OFFS;
+    else {
+        /* FIXME i#1569: A64 NYI */
+        ASSERT_NOT_IMPLEMENTED(false);
+        return 0;
+    }
+}
+#endif
 
 /* in mangle.c */
 void insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext, instrlist_t *ilist,
