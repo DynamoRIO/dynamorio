@@ -85,6 +85,7 @@
 #define NA 0
 #define END_LIST  0
 #define DUP_ENTRY  0
+/* A32 */
 #define exop  (ptr_int_t)&A32_extra_operands
 #define top8  (ptr_int_t)&A32_pred_opc8
 #define top4x (ptr_int_t)&A32_ext_opc4x
@@ -123,6 +124,29 @@
 #define tvlB  (ptr_int_t)&A32_ext_vldB
 #define tvlC  (ptr_int_t)&A32_ext_vldC
 #define tvtb  (ptr_int_t)&A32_ext_vtb
+/* T32.32 */
+#define xbase (ptr_int_t)&T32_base_e
+#define xbasf (ptr_int_t)&T32_base_f
+#define xfop8 (ptr_int_t)&T32_ext_fopc8
+#define xa97  (ptr_int_t)&T32_ext_bits_A9_7
+#define xa106 (ptr_int_t)&T32_ext_bits_A10_6_4
+#define xopbx (ptr_int_t)&T32_ext_opcBX
+#define xb108 (ptr_int_t)&T32_ext_bits_B10_8
+#define xb74  (ptr_int_t)&T32_ext_bits_B7_4
+#define xb741 (ptr_int_t)&T32_ext_B7_4_eq1
+#define xb64  (ptr_int_t)&T32_ext_bits_B6_4
+#define xb54  (ptr_int_t)&T32_ext_bits_B5_4
+#define xb20  (ptr_int_t)&T32_ext_bits_B2_0
+#define xb4   (ptr_int_t)&T32_ext_bit_B4
+#define xb5   (ptr_int_t)&T32_ext_bit_B5
+#define xb7   (ptr_int_t)&T32_ext_bit_B7
+#define xb11  (ptr_int_t)&T32_ext_bit_B11
+#define xb13  (ptr_int_t)&T32_ext_bit_B13
+#define xrapc (ptr_int_t)&T32_ext_RAPC
+#define xrbpc (ptr_int_t)&T32_ext_RBPC
+#define xrcpc (ptr_int_t)&T32_ext_RCPC
+#define xi126 (ptr_int_t)&T32_ext_imm126
+#define xexop (ptr_int_t)&T32_extra_operands
 
 /* operands */
 #define xx  TYPE_NONE, OPSZ_NA

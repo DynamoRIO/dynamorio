@@ -49,7 +49,7 @@
 /*
  * This enum corresponds with the arrays in table_*.c.
  * They must be kept consistent, using tools/x86opnums.pl (pass -arm).
- * The list in table_a32_encode.c should be edited first and then
+ * The list in table_encode.c should be edited first and then
  * tools/x86opnums.pl used (with -arm option) to generate the list here.
  * When adding new instructions, be sure to update all of these places:
  *   1) table_* op_instr arrays

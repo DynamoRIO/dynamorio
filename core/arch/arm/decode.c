@@ -1549,9 +1549,13 @@ const instr_info_t *
 opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
 {
     if (isa_mode == DR_ISA_ARM_A32)
-        return op_instr_A32[opc];
-    CLIENT_ASSERT(false, "NYI i#1551");
-    return &invalid_instr;
+        return op_instr[opc].A32;
+    else if (isa_mode == DR_ISA_ARM_THUMB)
+        return op_instr[opc].T32;
+    else {
+        CLIENT_ASSERT(false, "NYI i#1551");
+        return &invalid_instr;
+    }
 }
 
 DR_API

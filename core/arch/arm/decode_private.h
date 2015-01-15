@@ -207,6 +207,10 @@ struct _decode_info_t {
     uint check_wb_shift_amount; /* raw encoded value */
 };
 
+typedef struct _op_to_instr_info_t {
+    const instr_info_t * const A32;
+    const instr_info_t * const T32;
+} op_to_instr_info_t;
 
 /* N.B.: if you change the type enum, change the string names for
  * them, kept in encode.c
@@ -476,8 +480,8 @@ extern const instr_info_t T32_ext_RCPC[][2];
 extern const instr_info_t T32_ext_imm126[][2];
 extern const instr_info_t T32_extra_operands[];
 
-/* tables that translate opcode enums into pointers into decoding tables */
-extern const instr_info_t * const op_instr_A32[];
+/* table that translates opcode enums into pointers into decoding tables */
+extern const op_to_instr_info_t const op_instr[];
 
 opnd_size_t
 resolve_size_upward(opnd_size_t size);

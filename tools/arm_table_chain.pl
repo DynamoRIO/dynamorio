@@ -35,13 +35,21 @@
 # It has assumptions on the precise format of the decoding table
 # and of the op_instr* starting point array.
 #
-# To run on one opcode:
+# To run on one A32 opcode:
 #
-#   tools/arm_table_chain.pl -v -o $i core/arch/arm/table_*.[ch]
+#   tools/arm_table_chain.pl -v -o $i core/arch/arm/table_{private,encode,a32}*.[ch]
 #
-# To run on everything:
+# To run on all A32 opcodes:
 #
-#   tools/arm_table_chain.pl core/arch/arm/table_*.[ch]
+#   tools/arm_table_chain.pl core/arch/arm/table_{private,encode,a32}*.[ch]
+#
+# To run on one T32 opcode:
+#
+#   tools/arm_table_chain.pl -v -o $i core/arch/arm/table_{private,encode,t32}*.[ch]
+#
+# To run on all T32 opcodes:
+#
+#   tools/arm_table_chain.pl core/arch/arm/table_{private,encode,t32}*.[ch]
 
 my $verbose = 0;
 
@@ -61,6 +69,7 @@ my $shape = "";
 my $major = 0;
 my $minor = 0;
 my $instance = 0;
+my $t32 = 0;
 
 # Must process headers first
 @infiles = sort({return -1 if($a =~ /\.h$/);return 1 if($b =~ /\.h$/); return 0;}
@@ -68,6 +77,7 @@ my $instance = 0;
 
 foreach $infile (@infiles) {
     print "Processing $infile\n" if ($verbose > 0);
+    $t32 = 1 if ($infile =~ /_t32_/);
     open(INFILE, "< $infile") || die "Couldn't open $file\n";
     while (<INFILE>) {
         print "xxx $_\n" if ($verbose > 2);
@@ -173,7 +183,11 @@ foreach $infile (@infiles) {
             my $opc = $1;
             if (defined($entry{$opc}[0]{'addr_long'})) {
                 my $start = $entry{$opc}[0]{'addr_long'};
-                s/&.*,/&$start,/;
+                if ($t32) {
+                    s/{(&.*,\s*)&.*}/{\1&$start}/;
+                } else {
+                    s/{&.*,(\s*&.*)}/{&$start,\1}/;
+                }
             }
         }
         if (/^\s*{(OP_\w+)[ ,]/ && ($single_op eq '' || $single_op eq $1) &&
