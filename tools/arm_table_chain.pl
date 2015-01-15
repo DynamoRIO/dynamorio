@@ -30,14 +30,18 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Pass this 1) an OP_ constant and 2) a decoding table file.
-# It will construct the encoding chain and in-place edit the table file.
+# Pass this the file with the op_instr[] encoding chain starting points
+# array along with headers containing the table shortcuts and the files
+# containing the decoding table files to chain.
+# If -o OP_<opc> is passed it will only consider that opcode; else it will
+# process all opcodes.
+# It will construct each encoding chain and in-place edit the table files.
 # It has assumptions on the precise format of the decoding table
 # and of the op_instr* starting point array.
 #
 # To run on one A32 opcode:
 #
-#   tools/arm_table_chain.pl -v -o $i core/arch/arm/table_{private,encode,a32}*.[ch]
+#   tools/arm_table_chain.pl -v -o <opc> core/arch/arm/table_{private,encode,a32}*.[ch]
 #
 # To run on all A32 opcodes:
 #
@@ -45,7 +49,7 @@
 #
 # To run on one T32 opcode:
 #
-#   tools/arm_table_chain.pl -v -o $i core/arch/arm/table_{private,encode,t32}*.[ch]
+#   tools/arm_table_chain.pl -v -o <opc> core/arch/arm/table_{private,encode,t32}*.[ch]
 #
 # To run on all T32 opcodes:
 #
