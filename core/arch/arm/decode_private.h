@@ -83,7 +83,7 @@ enum {
     EXT_VTB,     /* Indexed by 11:10 and 9:8,6 in a special way */
     /* T32 32-bit only */
     EXT_A10_6_4, /* Indexed by bits A10,6:4 */
-    EXT_A9_7,    /* Indexed by bits A7:4 */
+    EXT_A9_7_eq1,/* Indexed by whether bits A9:7 == 0xf */
     EXT_B10_8,   /* Indexed by bits B10:8 */
     EXT_B2_0,    /* Indexed by bits B2:0 */
     EXT_B5_4,    /* Indexed by bits B5:4 */
@@ -92,10 +92,11 @@ enum {
     EXT_B7_4_eq1,/* Indexed by whether bits B7:4 == 0xf */
     EXT_B4,      /* Indexed by bit  B4 */
     EXT_B5,      /* Indexed by bit  B5 */
+    EXT_B7,      /* Indexed by bit  B7 */
     EXT_B11,     /* Indexed by bit  B11 */
     EXT_B13,     /* Indexed by bit  B13 */
     EXT_FOPC8,   /* Indexed by bits A11:4 but stop at 0xfb */
-    EXT_IMM126,  /* Indexed by whether imm5 in 12:12,7:6 is 0 or not */
+    EXT_IMM126,  /* Indexed by whether imm5 in B12:12,7:6 is 0 or not */
     EXT_OPCBX,   /* Indexed by bits B11:8 but minus x1-x7 */
     EXT_RCPC,    /* Indexed by whether RC != PC */
     /* T32 16-bit only */
@@ -488,7 +489,7 @@ extern const instr_info_t A32_ext_vtb[][9];
 extern const instr_info_t T32_base_e[];
 extern const instr_info_t T32_base_f[];
 extern const instr_info_t T32_ext_fopc8[][192];
-extern const instr_info_t T32_ext_bits_A9_7[][2];
+extern const instr_info_t T32_ext_A9_7_eq1[][2];
 extern const instr_info_t T32_ext_bits_A10_6_4[][16];
 extern const instr_info_t T32_ext_opcBX[][9];
 extern const instr_info_t T32_ext_bits_B10_8[][8];

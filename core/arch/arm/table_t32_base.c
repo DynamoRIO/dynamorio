@@ -126,7 +126,7 @@ const instr_info_t T32_base_f[] = {
     {EXT_FOPC8,   0xf0001000, "(ext fopc8 0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_FOPC8,   0xf0004000, "(ext fopc8 0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_FOPC8,   0xf0005000, "(ext fopc8 0)", xx, xx, xx, xx, xx, no, x, 0},
-    {EXT_A9_7,    0xf0008000, "(ext a9_7 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_A9_7_eq1,0xf0008000, "(ext a9_7_eq1 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_b,        0xf0009000, "b",      xx, xx, j24x26_13_11_16_0, xx, xx, no, x, xa97[0][0x01]},
     {OP_blx,      0xf000c000, "blx",    xx, xx, j24x26_13_11_16_0, xx, xx, no, x, END_LIST},
     {OP_bl,       0xf000d000, "bl",     xx, xx, j24x26_13_11_16_0, xx, xx, no, x, END_LIST},
@@ -354,7 +354,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
 };
 
 /* Indexed by whether bits A9:7 are all 1's (==0x7) */
-const instr_info_t T32_ext_bits_A9_7[][2] = {
+const instr_info_t T32_ext_A9_7_eq1[][2] = {
   { /* 0 */
     {EXT_A10_6_4, 0xf3808000, "(ext a10_6_4 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_b,        0xf0008000, "b",      xx, xx, j20x26_11_13_16_0, xx, xx, pred22, x, END_LIST},
@@ -886,22 +886,22 @@ const instr_info_t T32_ext_RAPC[][2] = {
     {EXT_RBPC,    0xf9900000, "(ext rbpc 8)", xx, xx, xx, xx, xx, no, x, 8},
     {EXT_RBPC,    0xf99f0000, "(ext rbpc 9)", xx, xx, xx, xx, xx, no, x, 9},
   }, { /* 22 */
-    {EXT_B11,     0xfa000000, "(ext b11 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_B7,      0xfa000000, "(ext b7 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_sxth,     0xfa0ff080, "sxth",   RCw, xx, RDw, ro2_4, xx, no, x, END_LIST},
   }, { /* 23 */
-    {EXT_B11,     0xfa100000, "(ext b11 1)", xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_B7,      0xfa100000, "(ext b7 1)", xx, xx, xx, xx, xx, no, x, 1},
     {OP_uxth,     0xfa1ff080, "uxth",   RCw, xx, RDw, ro2_4, xx, no, x, END_LIST},
   }, { /* 24 */
-    {EXT_B11,     0xfa200000, "(ext b11 2)", xx, xx, xx, xx, xx, no, x, 2},
+    {EXT_B7,      0xfa200000, "(ext b7 2)", xx, xx, xx, xx, xx, no, x, 2},
     {OP_sxtb16,   0xfa2ff080, "sxtb16", RCw, xx, RDw, ro2_4, xx, no, x, END_LIST},
   }, { /* 25 */
-    {EXT_B11,     0xfa300000, "(ext b11 3)", xx, xx, xx, xx, xx, no, x, 3},
+    {EXT_B7,      0xfa300000, "(ext b7 3)", xx, xx, xx, xx, xx, no, x, 3},
     {OP_uxtb16,   0xfa3ff080, "uxtb16", RCw, xx, RDw, ro2_4, xx, no, x, END_LIST},
   }, { /* 26 */
-    {EXT_B11,     0xfa400000, "(ext b11 4)", xx, xx, xx, xx, xx, no, x, 4},
+    {EXT_B7,      0xfa400000, "(ext b7 4)", xx, xx, xx, xx, xx, no, x, 4},
     {OP_sxtb,     0xfa4ff080, "sxtb",   RCw, xx, RDw, ro2_4, xx, no, x, END_LIST},
   }, { /* 27 */
-    {EXT_B11,     0xfa500000, "(ext b11 5)", xx, xx, xx, xx, xx, no, x, 5},
+    {EXT_B7,      0xfa500000, "(ext b7 5)", xx, xx, xx, xx, xx, no, x, 5},
     {OP_uxtb,     0xfa5ff080, "uxtb",   RCw, xx, RDw, ro2_4, xx, no, x, END_LIST},
   }, { /* 28 */
     {OP_ldrsh,    0xf9b00000, "ldrsh",  RBw, xx, MP12h, xx, xx, no, x, xopbx[7][0x04]},
@@ -1006,7 +1006,7 @@ const instr_info_t T32_ext_RCPC[][2] = {
   },
 };
 
-/* Indexed by whether imm5 in 14:12,7:6 is 0 or not */
+/* Indexed by whether imm5 in B14:12,7:6 is 0 or not */
 const instr_info_t T32_ext_imm126[][2] = {
   { /* 0 */
     {OP_mov,      0xea4f0000, "mov",    RCw, xx, RDw, xx, xx, no, x, xrapc[4][0x01]},

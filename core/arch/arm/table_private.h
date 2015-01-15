@@ -128,7 +128,7 @@
 #define xbase (ptr_int_t)&T32_base_e
 #define xbasf (ptr_int_t)&T32_base_f
 #define xfop8 (ptr_int_t)&T32_ext_fopc8
-#define xa97  (ptr_int_t)&T32_ext_bits_A9_7
+#define xa97  (ptr_int_t)&T32_ext_A9_7_eq1
 #define xa106 (ptr_int_t)&T32_ext_bits_A10_6_4
 #define xopbx (ptr_int_t)&T32_ext_opcBX
 #define xb108 (ptr_int_t)&T32_ext_bits_B10_8

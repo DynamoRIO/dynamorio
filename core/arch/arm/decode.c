@@ -996,21 +996,86 @@ decode_instr_info_T32_32(decode_info_t *di)
         return NULL;
     } else {
         /* non-coproc */
-        if (TESTALL(0xe800, di->halfwordA)) {
-            idx = (di->halfwordA >> 4) & 0x3f /*bits A9:4*/;
-            info = &T32_base_e[idx];
-        } else {
+        if (TESTALL(0xf000, di->halfwordA)) {
             /* bits A11,B15:14,B12 */
-            idx = (((di->halfwordA >> 7) & 0x8) |
-                   ((di->halfwordB >> 13) & 0x3) |
+            idx = (((di->halfwordA >> 8) & 0x8) |
+                   ((di->halfwordB >> 13) & 0x6) |
                    ((di->halfwordB >> 12) & 0x1));
             info = &T32_base_f[idx];
+        } else {
+            idx = (di->halfwordA >> 4) & 0x3f /*bits A9:4*/;
+            info = &T32_base_e[idx];
         }
     }
     /* If an extension, discard the old info and get a new one */
     while (info->type > INVALID) {
-        /* FIXME i#1551: NYI */
-        ASSERT_NOT_IMPLEMENTED(false);
+        if (info->type == EXT_FOPC8) {
+            idx = (di->halfwordA >> 4) & 0xff /*bits A11:4*/;
+            ASSERT(idx < 0xfc);
+            info = &T32_ext_fopc8[info->code][idx];
+        } else if (info->type == EXT_RAPC) {
+            idx = (((di->instr_word >> 16) & 0xf) /*bits 19:16*/ != 0xf) ? 0 : 1;
+            info = &T32_ext_RAPC[info->code][idx];
+        } else if (info->type == EXT_RBPC) {
+            idx = (((di->instr_word >> 12) & 0xf) /*bits 15:12*/ != 0xf) ? 0 : 1;
+            info = &T32_ext_RBPC[info->code][idx];
+        } else if (info->type == EXT_RCPC) {
+            idx = (((di->instr_word >> 8) & 0xf) /*bits 11:8*/ != 0xf) ? 0 : 1;
+            info = &T32_ext_RCPC[info->code][idx];
+        } else if (info->type == EXT_A10_6_4) {
+            idx = (((di->halfwordA >> 7) & 0x8) |
+                   ((di->halfwordA >> 4) & 0x7)) /*bits A10,6:4*/;
+            info = &T32_ext_bits_A10_6_4[info->code][idx];
+        } else if (info->type == EXT_A9_7_eq1) {
+            idx = (((di->halfwordA >> 7) & 0x7) /*bits A9:7*/ == 0x7) ? 0 : 1;
+            info = &T32_ext_A9_7_eq1[info->code][idx];
+        } else if (info->type == EXT_B10_8) {
+            idx = ((di->halfwordB >> 8) & 0x7) /*bits B10:8*/;
+            info = &T32_ext_bits_B10_8[info->code][idx];
+        } else if (info->type == EXT_B2_0) {
+            idx = (di->halfwordB & 0x7) /*bits B2:0*/;
+            info = &T32_ext_bits_B2_0[info->code][idx];
+        } else if (info->type == EXT_B5_4) {
+            idx = ((di->halfwordB >> 4) & 0x3) /*bits B5:4*/;
+            info = &T32_ext_bits_B5_4[info->code][idx];
+        } else if (info->type == EXT_B6_4) {
+            idx = ((di->halfwordB >> 4) & 0x7) /*bits B6:4*/;
+            info = &T32_ext_bits_B6_4[info->code][idx];
+        } else if (info->type == EXT_B7_4) {
+            idx = ((di->halfwordB >> 4) & 0xf) /*bits B7:4*/;
+            info = &T32_ext_bits_B7_4[info->code][idx];
+        } else if (info->type == EXT_B7_4_eq1) {
+            idx = (((di->halfwordB >> 4) & 0xf) /*bits B7:4*/ == 0xf) ? 0 : 1;
+            info = &T32_ext_B7_4_eq1[info->code][idx];
+        } else if (info->type == EXT_B4) {
+            idx = ((di->halfwordB >> 4) & 0x1) /*bit B4*/;
+            info = &T32_ext_bit_B4[info->code][idx];
+        } else if (info->type == EXT_B5) {
+            idx = ((di->halfwordB >> 5) & 0x1) /*bit B5*/;
+            info = &T32_ext_bit_B5[info->code][idx];
+        } else if (info->type == EXT_B7) {
+            idx = ((di->halfwordB >> 7) & 0x1) /*bit B7*/;
+            info = &T32_ext_bit_B7[info->code][idx];
+        } else if (info->type == EXT_B11) {
+            idx = ((di->halfwordB >> 8) & 0x1) /*bit B11*/;
+            info = &T32_ext_bit_B11[info->code][idx];
+        } else if (info->type == EXT_B13) {
+            idx = ((di->halfwordB >> 8) & 0x1) /*bit B13*/;
+            info = &T32_ext_bit_B13[info->code][idx];
+        } else if (info->type == EXT_IMM126) {
+            idx = (((di->halfwordB >> 10) & 0x1c) |
+                   ((di->halfwordB >> 6) & 0x3)) /*bits B14:12,7:6*/;
+            info = &T32_ext_imm126[info->code][idx];
+        } else if (info->type == EXT_OPCBX) {
+            if (!TEST(0x800, di->halfwordB))
+                idx = 0;
+            else
+                idx = 1 + ((di->halfwordB >> 8) & 0x7) /*bits 10:8*/;
+            info = &T32_ext_opcBX[info->code][idx];
+        } else {
+            ASSERT_NOT_REACHED();
+            break;
+        }
     }
     return info;
 }
