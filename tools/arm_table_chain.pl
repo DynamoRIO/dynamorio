@@ -150,6 +150,11 @@ foreach $infile (@infiles) {
             $priority-=50   if (/[VW][ABC]d,/);
             # exop must be final member of chain
             $priority-=1000 if (/exop\[\w+\]},/);
+            # + Prefer 16-bit Thumb code over 32-bit Thumb code
+            $priority+=500  if (/0x([\da-f]){4},/);
+            $priority+=10   if (/\bSPw\b|\bPCw\b/);
+            $priority+=10   if (/\bMSPP8w\b|\bMPCP8w\b/);
+            $priority+=10   if (/\bMSPDBl\b|\bMSPl\b/);
 
             $entry{$opc}[$instance{$opc}]{'priority'} = $priority;
             if ($verbose > 0) {

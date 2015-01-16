@@ -147,6 +147,19 @@
 #define xrcpc (ptr_int_t)&T32_ext_RCPC
 #define xi126 (ptr_int_t)&T32_ext_imm126
 #define xexop (ptr_int_t)&T32_extra_operands
+/* T32.16 */
+#define ytop  (ptr_int_t)&T32_16_opc4
+#define y11   (ptr_int_t)&T32_16_ext_bit_11
+#define y1110 (ptr_int_t)&T32_16_ext_bits_11_10
+#define y119  (ptr_int_t)&T32_16_ext_bits_11_9
+#define y118  (ptr_int_t)&T32_16_ext_bits_11_8
+#define y96   (ptr_int_t)&T32_16_ext_bits_9_6
+#define y7    (ptr_int_t)&T32_16_ext_bit_7
+#define y6    (ptr_int_t)&T32_16_ext_bit_6
+#define y109  (ptr_int_t)&T32_16_ext_bits_10_9
+#define y86   (ptr_int_t)&T32_16_ext_bits_8_6
+#define y64   (ptr_int_t)&T32_16_ext_bits_6_4
+#define y30   (ptr_int_t)&T32_16_ext_imm_3_0
 
 /* operands */
 #define xx  TYPE_NONE, OPSZ_NA
