@@ -506,7 +506,7 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {OP_stlexd,   0xe8c000f0, "stlexd", Mq, RDw, RBw, RCw, xx, no, x, END_LIST},
   }, { /* 1 */
     {OP_tbb,      0xe8d0f000, "tbb",    xx, xx, MPRb, no, x, END_LIST},/*FIXME i#1551: this is a branch,pc+=memval*2: add dr_insert_get_mbr_branch_target()*/
-    {OP_tbh,      0xe8d0f010, "tbh",    xx, xx, MPLS2h, no, x, END_LIST},/*FIXME i#1551: this is a branch,pc+=memval*2*/
+    {OP_tbh,      0xe8d0f010, "tbh",    xx, xx, MPLS1h, no, x, END_LIST},/*FIXME i#1551: this is a branch,pc+=memval*2*/
     {INVALID,     0xe8d00020, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xe8d00030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_ldrexb,   0xe8d00f4f, "ldrexb", RBw, xx, Mb, xx, xx, no, x, END_LIST},

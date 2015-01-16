@@ -740,19 +740,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 26, OPSZ_1b, false/*unsigned*/) << 11);
         } else
             CLIENT_ASSERT(false, "unsupported 26-12-0 split immed size");
-        /* This is a "modified immediate constant" with complex rules.
-         * Bottom 8 bits are "abcdefgh".
+        /* This is a T32 "modified immediate constant" with complex rules.
+         * Bottom 8 bits are "abcdefgh" and the other bits indicate
+         * whether to tile or rotate the bottom bits.
          */
         if (!TESTANY(0xc00, val)) {
             int code = (val >> 8) & 0x3;
             int val8 = (val & 0xff);
-            if (code == 0)
+            if (code == 0)      /* 00000000 00000000 00000000 abcdefgh */
                 val = val8;
-            else if (code == 1)
+            else if (code == 1) /* 00000000 abcdefgh 00000000 abcdefgh */
                 val = (val8 << 16) | val8;
-            else if (code == 2)
+            else if (code == 2) /* abcdefgh 00000000 abcdefgh 00000000 */
                 val = (val8 << 24) | (val8 << 8);
-            else if (code == 3)
+            else if (code == 3) /* abcdefgh abcdefgh abcdefgh abcdefgh */
                 val = (val8 << 24) | (val8 << 16) | (val8 << 8) | val8;
         } else {
             /* ROR of 1bcdefgh */
@@ -771,7 +772,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
     case TYPE_J_b0_b24: { /* OP_blx imm24:H:0 */
         if (opsize == OPSZ_25b) {
-            val = decode_immed(di, 24, OPSZ_1b, false/*unsigned*/) << 1;
+            val = decode_immed(di, 24, OPSZ_1b, false/*unsigned*/) << 1; /*x2*/
             val |= (decode_immed(di, 0, OPSZ_3, false/*unsigned*/) << 2);
         } else
             CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
@@ -782,12 +783,11 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     }
     case TYPE_J_b26_b11_b13_b16_b0: { /* OP_b T32-26,11,13,21:16,10:0 x2 */
         if (opsize == OPSZ_20b) {
-            val = decode_immed(di, 0, OPSZ_11b, false/*unsigned*/);
-            val |= (decode_immed(di, 16, OPSZ_6b, false/*unsigned*/) << 11);
-            val |= (decode_immed(di, 13, OPSZ_1b, false/*unsigned*/) << 17);
-            val |= (decode_immed(di, 11, OPSZ_1b, false/*unsigned*/) << 18);
-            val |= (decode_immed(di, 26, OPSZ_1b, false/*unsigned*/) << 19);
-            val *= 2;
+            val = decode_immed(di, 0, OPSZ_11b, false/*unsigned*/) << 1; /*x2*/
+            val |= (decode_immed(di, 16, OPSZ_6b, false/*unsigned*/) << 12);
+            val |= (decode_immed(di, 13, OPSZ_1b, false/*unsigned*/) << 18);
+            val |= (decode_immed(di, 11, OPSZ_1b, false/*unsigned*/) << 19);
+            val |= (decode_immed(di, 26, OPSZ_1b, true/*signed*/) << 20);
         } else
             CLIENT_ASSERT(false, "unsupported 26-11-13-16-0 split immed size");
         /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
@@ -803,12 +803,11 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             uint bit26 = decode_immed(di, 26, OPSZ_1b, true/*signed*/);
             uint bit13 = decode_immed(di, 13, OPSZ_1b, false/*unsigned*/);
             uint bit11 = decode_immed(di, 11, OPSZ_1b, false/*unsigned*/);
-            val = decode_immed(di, 0, OPSZ_11b, false/*unsigned*/);
-            val |= (decode_immed(di, 16, OPSZ_10b, false/*unsigned*/) << 11);
-            val |= ((bit26 == 0 ? (bit11 == 0 ? 1 : 0) : bit11) << 21);
-            val |= ((bit26 == 0 ? (bit13 == 0 ? 1 : 0) : bit13) << 22);
-            val |= bit26 << 23;
-            val *= 2;
+            val = decode_immed(di, 0, OPSZ_11b, false/*unsigned*/) << 1 /*x2*/;
+            val |= (decode_immed(di, 16, OPSZ_10b, false/*unsigned*/) << 12);
+            val |= ((bit26 == 0 ? (bit11 == 0 ? 1 : 0) : bit11) << 22);
+            val |= ((bit26 == 0 ? (bit13 == 0 ? 1 : 0) : bit13) << 23);
+            val |= bit26 << 24;
         } else
             CLIENT_ASSERT(false, "unsupported 26-13-11-16-0 split immed size");
         /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
@@ -816,11 +815,11 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) + val);
         return true;
     }
-    case TYPE_SHIFT_b4: /* value is :0 */
+    case TYPE_SHIFT_b4:
         di->shift_type_idx = *counter;
         array[(*counter)++] =
-            opnd_create_immed_uint(decode_immed(di, 4, opsize, false/*unsigned*/) << 1,
-                                   OPSZ_2b);
+            opnd_create_immed_uint(decode_immed(di, 4, opsize, false/*unsigned*/),
+                                   opsize);
         return true;
     case TYPE_SHIFT_b5:
         di->shift_type_idx = *counter;
@@ -894,7 +893,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                                       0, 0, opsize);
         return true;
     }
-    case TYPE_M_POS_LSH2REG:
+    case TYPE_M_POS_LSH1REG:
         array[(*counter)++] =
             opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), DR_SHIFT_LSL, 1,
                                       0, 0, opsize);

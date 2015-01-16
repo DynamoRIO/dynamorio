@@ -179,13 +179,13 @@ struct _decode_info_t {
     ptr_int_t cur_note;
     bool has_instr_opnds;
 
+    /***************************************************
+     * The rest of the fields are zeroed when encoding each template
+     */
     /* For encoding error messages */
     const char *errmsg; /* can contain one integer format parameter */
     int errmsg_param;
 
-    /***************************************************
-     * The rest of the fields are zeroed when encoding each template
-     */
     /* For decoding reglists.  Max 1 reglist per template (we check this in
      * decode_debug_checks_arch()).
      */
@@ -202,7 +202,7 @@ struct _decode_info_t {
     uint shift_type_idx;
     bool shift_uses_immed;
     dr_shift_type_t shift_type;
-    bool shift_b6; /* 1 bit in b6; else, 2 bits in b5 */
+    bool shift_1bit; /* 1 bit in b6/b21; else, 2 bits in b4/b5 */
     /* Our IR and decode templates store the disp/index/shifted-index inside
      * the memory operand, but also have the same elements separate for writeback
      * or post-indexed addressing.  We need to make sure they match.
@@ -216,6 +216,8 @@ struct _decode_info_t {
     bool check_wb_shift;
     uint check_wb_shift_type; /* raw encoded value */
     uint check_wb_shift_amount; /* raw encoded value */
+    /* For modified immed values */
+    uint mod_imm_enc;
 };
 
 typedef struct _op_to_instr_info_t {
@@ -268,6 +270,7 @@ enum {
     TYPE_R_D_EVEN, /* Must be an even-numbered reg */
     TYPE_R_D_PLUS1, /* Subsequent reg after prior TYPE_R_D_EVEN opnd */
 
+    /* An opnd with this type must come immediately after a TYPE_R_D opnd */
     TYPE_R_A_EQ_D,  /* T32-19:16 = must be identical to Rm in 3:0 (OP_clz) */
 
     TYPE_CR_A, /* Coprocessor register in A slot */
@@ -331,7 +334,7 @@ enum {
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
-    TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0, but w/ complex decoding rules */
+    TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 + complex T32 "modified immed" encoding */
 
     /* PC-relative jump targets.  All are x2 unless specified. */
     TYPE_J_b0,     /* T16-OP_b: signed immed is stored as value/2 */
@@ -397,7 +400,7 @@ enum {
     TYPE_M_POS_SHREG, /* mem offs + reg-shifted (or extended for A64) index */
     TYPE_M_NEG_SHREG, /* mem offs - reg-shifted (or extended for A64) index */
     TYPE_M_POS_LSHREG, /* mem offs + LSL reg-shifted (T32: by 5:4) index */
-    TYPE_M_POS_LSH2REG, /* mem offs + LSL reg-shifted by 1 index */
+    TYPE_M_POS_LSH1REG, /* mem offs + LSL reg-shifted by 1 index */
     TYPE_M_POS_I12,   /* mem offs + 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
     TYPE_M_NEG_I12,   /* mem offs - 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
     TYPE_M_SI9,       /* mem offs + signed 9-bit immed @ 20:12 */
