@@ -790,6 +790,7 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
         insert_relative_target(pc + 1, hashlookup_null_target, NOT_HOT_PATCHABLE);
 # elif defined(ARM)
         /* We use a pc-rel load w/ the data right after the load */
+        /* FIXME i#1551: is our gencode going to switch to Thumb?!? */
         *(byte **)(pc + ARM_INSTR_SIZE) = hashlookup_null_target;
 # endif
         make_unwritable(page_start, page_end - page_start);

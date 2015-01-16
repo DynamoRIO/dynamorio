@@ -1249,6 +1249,8 @@ use_addr_prefix_on_short_disp(void)
 
 /* exported for DYNAMO_OPTION(separate_private_stubs) */
 # define ARM_INSTR_SIZE 4
+# define THUMB_SHORT_INSTR_SIZE 2
+# define THUMB_LONG_INSTR_SIZE 4
 # define DIRECT_EXIT_STUB_ARM_INSTR_COUNT 4
 /* FIXME i#1551: implement Thumb support */
 # define DIRECT_EXIT_STUB_SIZE(flags) \

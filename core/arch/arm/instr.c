@@ -66,8 +66,11 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_get_opcode(instr) == OP_LABEL)
         return 0;
-    /* FIXME i#1551: add Thumb support */
-    return ARM_INSTR_SIZE;
+    if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB) {
+        /* We have to encode to find the size */
+        return -1;
+    } else
+        return ARM_INSTR_SIZE;
 }
 
 bool

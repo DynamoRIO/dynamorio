@@ -1074,6 +1074,7 @@ decode_instr_info_T32_32(decode_info_t *di)
             info = &T32_ext_opcBX[info->code][idx];
         } else {
             ASSERT_NOT_REACHED();
+            info = NULL;
             break;
         }
     }
@@ -1511,8 +1512,15 @@ byte *
 decode_next_pc(dcontext_t *dcontext, byte *pc)
 {
     /* FIXME i#1551: check for invalid opcodes */
-    /* FIXME i#1551: add Thumb support */
-    return pc + ARM_INSTR_SIZE;
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
+    if (isa_mode == DR_ISA_ARM_THUMB) {
+        ushort halfword = *(ushort *)pc;
+        if (TESTALL(0xe800, halfword) || TESTALL(0xf000, halfword))
+            return pc + THUMB_LONG_INSTR_SIZE;
+        else
+            return pc + THUMB_SHORT_INSTR_SIZE;
+    } else
+        return pc + ARM_INSTR_SIZE;
 }
 
 int
@@ -1520,8 +1528,8 @@ decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
               _IF_X64(uint *rip_rel_pos))
 {
     /* FIXME i#1551: check for invalid opcodes */
-    /* FIXME i#1551: add Thumb support */
-    return ARM_INSTR_SIZE;
+    byte *next_pc = decode_next_pc(dcontext, pc);
+    return next_pc - pc;
 }
 
 /* XXX: share this with x86 */

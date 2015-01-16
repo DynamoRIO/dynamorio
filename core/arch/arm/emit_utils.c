@@ -362,6 +362,8 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     byte *pc = (byte *) f->start_pc;
     ASSERT(f->prefix_size == 0);
     if (use_ibt_prefix(f->flags)) {
+        /* FIXME i#1551: add Thumb support */
+        ASSERT_NOT_IMPLEMENTED(!FRAG_IS_THUMB(f->flags));
         /* ldr r0, [r10, #r0-slot] */
         *(uint *)pc =
             0xe5900000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
