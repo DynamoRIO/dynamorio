@@ -7596,7 +7596,7 @@ find_executable_vm_areas(void)
 #endif
             ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
             /* Get size by walking the program headers.  This includes .bss. */
-            if (module_walk_program_headers(iter.vm_start, size, false,
+            if (module_walk_program_headers(iter.vm_start, size, false, true,
                                             &mod_base, &mod_first_end,
                                             &mod_max_end, NULL, NULL)) {
                 image_size = mod_max_end - mod_base;

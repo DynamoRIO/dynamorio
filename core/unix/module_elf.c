@@ -276,7 +276,7 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
 /* Returns absolute address of the ELF dynamic array DT_ target */
 static app_pc
 elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size,
-                size_t view_size, ptr_int_t load_delta, bool at_map)
+                size_t view_size, ptr_int_t load_delta, bool at_map, bool relocated)
 {
     /* FIXME - if at_map this needs to be adjusted if not in the first segment
      * since we haven't re-mapped later ones yet. Since it's read only I've
@@ -294,9 +294,12 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size,
      * other real option short of going to disk though so we'll stick to that
      * and default to already relocated (which seems to be the case for the
      * newer ld versions).
+     * Update i#1589: for our own private loader, we know whether we have applied
+     * relocations, which is what the "relocated" param tells us.  It sure seems
+     * like every .so has relocations for dynamic entries so we assume that's the case.
      */
     app_pc tgt = (app_pc) dyn->d_un.d_ptr;
-    if (at_map || tgt < base || tgt > base + size) {
+    if (at_map || !relocated || tgt < base || tgt > base + size) {
         /* not relocated, adjust by load_delta */
         tgt = (app_pc) dyn->d_un.d_ptr + load_delta;
     }
@@ -336,7 +339,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     app_pc mod_max_end,
                     app_pc base,
                     size_t view_size,
-                    bool at_map,
+                    bool at_map, bool relocated,
                     ptr_int_t load_delta,
                     OUT char **soname,
                     OUT os_module_data_t *out_data)
@@ -370,7 +373,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
             } else if (dyn->d_tag == DT_STRTAB) {
                 dynstr = (char *)
                     elf_dt_abs_addr(dyn, base, sz, view_size,
-                                    load_delta, at_map);
+                                    load_delta, at_map, relocated);
                 if (out_data != NULL)
                     out_data->dynstr = (app_pc) dynstr;
                 if (soname_index != -1 && out_data == NULL)
@@ -379,18 +382,18 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                 if (dyn->d_tag == DT_SYMTAB) {
                     out_data->dynsym =
                         elf_dt_abs_addr(dyn, base, sz, view_size, load_delta,
-                                        at_map);
+                                        at_map, relocated);
                 } else if (dyn->d_tag == DT_HASH &&
                            /* if has both .gnu.hash and .hash, prefer .gnu.hash */
                            !out_data->hash_is_gnu) {
                     out_data->hashtab =
                         elf_dt_abs_addr(dyn, base, sz, view_size, load_delta,
-                                        at_map);
+                                        at_map, relocated);
                     out_data->hash_is_gnu = false;
                 } else if (dyn->d_tag == DT_GNU_HASH) {
                     out_data->hashtab =
                         elf_dt_abs_addr(dyn, base, sz, view_size, load_delta,
-                                        at_map);
+                                        at_map, relocated);
                     out_data->hash_is_gnu = true;
                 } else if (dyn->d_tag == DT_STRSZ) {
                     out_data->dynstr_size = (size_t) dyn->d_un.d_val;
@@ -423,10 +426,12 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                 ASSERT_NOT_REACHED();
             }
         }
-        /* we put module_hashtab_init here since it should always be called
-         * together with module_fill_os_data and it updates os_data.
-         */
-        module_hashtab_init(out_data);
+        if (out_data != NULL) {
+            /* we put module_hashtab_init here since it should always be called
+             * together with module_fill_os_data and it updates os_data.
+             */
+            module_hashtab_init(out_data);
+        }
     } , { /* EXCEPT */
         ASSERT_CURIOSITY(false && "crashed while walking dynamic header");
         *soname = NULL;
@@ -441,7 +446,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
  * os_module_area_init() if out_data != NULL!
  */
 bool
-module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
+module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool relocated,
                             OUT app_pc *out_base /* relative pc */,
                             OUT app_pc *out_first_end /* relative pc */,
                             OUT app_pc *out_max_end /* relative pc */,
@@ -494,7 +499,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             if ((out_soname != NULL || out_data != NULL) &&
                 prog_hdr->p_type == PT_DYNAMIC) {
                 module_fill_os_data(prog_hdr, mod_base, max_end,
-                                    base, view_size, at_map, load_delta,
+                                    base, view_size, at_map, relocated, load_delta,
                                     &soname, out_data);
             }
         }
@@ -996,7 +1001,7 @@ module_get_section_with_name(app_pc image, size_t img_size, const char *sec_name
 
 /* fills os_data and initializes the hash table. */
 bool
-module_read_os_data(app_pc base,
+module_read_os_data(app_pc base, bool relocated,
                     OUT ptr_int_t *load_delta,
                     OUT os_module_data_t *os_data,
                     OUT char **soname)
@@ -1016,7 +1021,7 @@ module_read_os_data(app_pc base,
             (base + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
         if (prog_hdr->p_type == PT_DYNAMIC) {
             module_fill_os_data(prog_hdr, v_base, v_end,
-                                base, 0, false, *load_delta,
+                                base, v_end - v_base, false, relocated, *load_delta,
                                 soname, os_data);
             return true;
         }
@@ -1031,7 +1036,8 @@ get_shared_lib_name(app_pc map)
     char *soname;
     os_module_data_t os_data;
     memset(&os_data, 0, sizeof(os_data));
-    module_read_os_data(map, &load_delta, &os_data, &soname);
+    module_read_os_data(map, true/*doesn't matter for soname*/,
+                        &load_delta, NULL, &soname);
     return soname;
 }
 
@@ -1248,8 +1254,8 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     while (mod != NULL) {
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
-        LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s\n",
-            name, pd->soname);
+        LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n",
+            name, pd->soname, mod->path);
         res = get_proc_address_from_os_data(&pd->os_data,
                                             pd->load_delta,
                                             name, &is_ifunc);

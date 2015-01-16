@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -73,7 +73,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     char *soname = NULL;
     ASSERT(module_is_header(base, view_size));
 
-    module_walk_program_headers(base, view_size, at_map,
+    module_walk_program_headers(base, view_size, at_map, !at_map,
                                 &mod_base, NULL, &mod_end, &soname, &ma->os_data);
     if (ma->os_data.contiguous) {
         app_pc map_end = ma->os_data.segments[ma->os_data.num_segments-1].end;

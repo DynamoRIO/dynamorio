@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -161,7 +161,7 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 bool
-module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
+module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool relocated,
                             OUT app_pc *out_base /* relative pc */,
                             OUT app_pc *out_first_end /* relative pc */,
                             OUT app_pc *out_max_end /* relative pc */,
@@ -626,7 +626,7 @@ module_has_text_relocs_ex(app_pc base, os_privmod_data_t *pd)
 }
 
 bool
-module_read_os_data(app_pc base,
+module_read_os_data(app_pc base, bool relocated,
                     OUT ptr_int_t *load_delta,
                     OUT os_module_data_t *os_data,
                     OUT char **soname)
@@ -640,7 +640,7 @@ char *
 get_shared_lib_name(app_pc map)
 {
     char *soname;
-    if (!module_walk_program_headers(map, PAGE_SIZE/*at least*/, false,
+    if (!module_walk_program_headers(map, PAGE_SIZE/*at least*/, false, true,
                                      NULL, NULL, NULL, &soname, NULL))
         return NULL;
     return soname;
@@ -651,7 +651,8 @@ module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
                            OUT os_privmod_data_t *pd)
 {
     pd->load_delta = 0; /* FIXME i#58: need preferred base */
-    module_walk_program_headers(base, size, false, NULL, NULL, NULL, &pd->soname, NULL);
+    module_walk_program_headers(base, size, false, true, NULL,
+                                NULL, NULL, &pd->soname, NULL);
     /* XXX i#1285: fill in the rest of the fields */
     return;
 }

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -138,7 +138,8 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
                 }
                 if (module_is_header(mod_start, mod_readable_sz)) {
                     app_pc mod_base, mod_end;
-                    if (module_walk_program_headers(mod_start, mod_readable_sz, false,
+                    if (module_walk_program_headers(mod_start, mod_readable_sz,
+                                                    false, true,
                                                     &mod_base, NULL, &mod_end, NULL,
                                                     NULL)) {
                         image_size = mod_end - mod_base;

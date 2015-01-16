@@ -345,6 +345,9 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
      */
 }
 
+/* This only maps, as relocation for ELF requires processing imports first,
+ * which we have to delay at init time at least.
+ */
 app_pc
 privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
 {
@@ -466,7 +469,9 @@ privload_process_imports(privmod_t *mod)
         }
         ++dyn;
     }
-    /* Relocate library's symbols after load dependent libraries. */
+    /* Relocate library's symbols after load dependent libraries (so that we
+     * can resolve symbols in the global ELF namespace).
+     */
     if (!mod->externally_loaded)
         privload_relocate_mod(mod);
     return true;
@@ -774,7 +779,9 @@ get_private_library_address(app_pc modbase, const char *name)
         char *soname;
         os_module_data_t os_data;
         memset(&os_data, 0, sizeof(os_data));
-        if (!module_read_os_data(mod->base, &delta, &os_data, &soname)) {
+        if (!module_read_os_data(mod->base,
+                                 false /* not relocated yet: i#1589 */,
+                                 &delta, &os_data, &soname)) {
             release_recursive_lock(&privload_lock);
             return NULL;
         }
@@ -919,7 +926,9 @@ privload_create_os_privmod_data(privmod_t *privmod)
     memset(opd, 0, sizeof(*opd));
 
     /* walk the module's program header to get privmod information */
-    module_walk_program_headers(privmod->base, privmod->size, false,
+    module_walk_program_headers(privmod->base, privmod->size,
+                                false, /* segments are remapped */
+                                false, /* i#1589: relocs are after imports */
                                 &out_base, NULL, &out_end, &opd->soname,
                                 &opd->os_data);
     module_get_os_privmod_data(privmod->base, privmod->size,

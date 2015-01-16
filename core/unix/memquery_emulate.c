@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -144,8 +144,8 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
                                     /* FIXME: don't have view size: but
                                      * anything larger than header sizes works
                                      */
-                                    PAGE_SIZE,
-                                    false, &pref_start, NULL, &pref_end, NULL, NULL)) {
+                                    PAGE_SIZE, false, true,
+                                    &pref_start, NULL, &pref_end, NULL, NULL)) {
         /* we're passed back start,end of preferred base */
         if ((iter_data->target_addr != NULL &&
              iter_data->target_addr >= base &&
@@ -257,7 +257,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
         /* Candidate for VDSO.  Xref PR 289138 on using AT_SYSINFO to locate. */
         /* Xref VSYSCALL_PAGE_START_HARDCODED but later linuxes randomize */
         char *soname;
-        if (module_walk_program_headers(modbase, modsize, false,
+        if (module_walk_program_headers(modbase, modsize, false, true,
                                         NULL, NULL, NULL, &soname, NULL) &&
             strncmp(soname, VSYSCALL_PAGE_SO_NAME,
                     strlen(VSYSCALL_PAGE_SO_NAME)) == 0) {
