@@ -333,14 +333,14 @@ enum {
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
     TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0, but w/ complex decoding rules */
 
-    /* PC-relative jump targets */
-    TYPE_J_x2_b0,  /* T16-OP_b: signed immed is stored as value/2 */
+    /* PC-relative jump targets.  All are x2 unless specified. */
+    TYPE_J_b0,     /* T16-OP_b: signed immed is stored as value/2 */
     TYPE_J_x4_b0,  /* OP_b, OP_bl: signed immed is stored as value/4 */
     TYPE_J_b0_b24, /* OP_blx imm24:H:0 */
+    TYPE_J_b9_b3,  /* OP_cb{n}z: ZeroExtend(i:imm5:0) [9,7:3]:0 */
     TYPE_J_b26_b11_b13_b16_b0, /* OP_b T32-26,11,13,21:16,10:0 x2 */
     /* OP_b T32-26,13,11,25:16,10:0 x2, but bits 13 and 11 are flipped if bit 26 is 0 */
     TYPE_J_b26_b13_b11_b16_b0,
-    TYPE_J_b9_b3,  /* OP_cb{n}z: ZeroExtend(i:imm5:0) [9,7:3]:0 */
 
     TYPE_SHIFT_b4,    /* T32-5:4 */
     TYPE_SHIFT_b5,    /* A32-6:5 */
