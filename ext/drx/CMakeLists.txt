@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -81,4 +81,4 @@ if (NOT STATIC_LIBRARY)
   configure_drx_target(drx_static)
 endif ()
 
-DR_install(FILES drx.h DESTINATION ${INSTALL_EXT_INCLUDE})
+install_ext_header(drx.h)

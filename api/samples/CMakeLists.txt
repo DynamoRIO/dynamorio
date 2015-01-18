@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -234,22 +234,28 @@ if (WIN32)
   add_sample_client(stats     "stats.c;utils.c"         "drx")
 
   # XXX i#893: drwrap's asm isn't SEH compliant.
-  append_property_string(TARGET wrap LINK_FLAGS "/safeseh:no")
+  _DR_append_property_string(TARGET wrap LINK_FLAGS "/safeseh:no")
 endif ()
 
 add_sample_standalone(tracedump   "tracedump.c")
 
 # Strip out everything past this point for the user-exposed file.
-# We also remove any lines above marked "NON_PUBLIC".
+# We also remove any lines above marked "NON-PUBLIC".
 # Should we add some install targets for users?
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" string)
 string(REGEX REPLACE "[^\n]*NON-PUBLIC[^\n]*\n" "" string "${string}")
 string(REGEX REPLACE "# Strip out everything.*$" "" string "${string}")
 string(REGEX REPLACE "\\$\\{(VERSION_NUMBER[^\\}]*)\\}" "@\\1@" string "${string}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in" "${string}")
+set(public_clist "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists.txt")
+set_property(GLOBAL PROPERTY DynamoRIO_sample_proj_dir "${CMAKE_CURRENT_BINARY_DIR}")
 configure_file("${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt"
-  @ONLY)
+  "${public_clist}" @ONLY)
+
+# Make a copy of the sources with the public cmakelists
+foreach (src ${srcs})
+  configure_file(${src} ${CMAKE_CURRENT_BINARY_DIR}/${src} COPY_ONLY)
+endforeach ()
 
 foreach (tgt ${tgts})
   # ensure we rebuild samples if includes change
@@ -283,7 +289,7 @@ endif (X64)
 
 DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
-DR_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt"
+DR_install(FILES "${public_clist}"
   DESTINATION "${INSTALL_SAMPLES}" RENAME CMakeLists.txt)
 if (WIN32)                                                    # NON-PUBLIC
   # have a copy of dynamorio library for tracedump            # NON-PUBLIC

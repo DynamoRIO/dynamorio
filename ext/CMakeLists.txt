@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -97,6 +97,12 @@ macro(configure_extension target)
   DR_export_target(${target})
   install_exported_target(${target} ${INSTALL_EXT_LIB})
 endmacro(configure_extension)
+
+macro(install_ext_header header)
+  DR_install(FILES ${header} DESTINATION ${INSTALL_EXT_INCLUDE})
+  # We also need a copy in the build dir for our --build-and-test (i#1586)
+  configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${header} COPY_ONLY)
+endmacro()
 
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})

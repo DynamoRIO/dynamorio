@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -110,4 +110,4 @@ if (NOT STATIC_LIBRARY)
   configure_drwrap_target(drwrap_static)
 endif ()
 
-DR_install(FILES drwrap.h DESTINATION ${INSTALL_EXT_INCLUDE})
+install_ext_header(drwrap.h)

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -1563,13 +1563,15 @@ endfunction ()
 
 # create CMake configuration files for clients and tests to use
 # we also create cmake/DynamoRIOTarget.cmake in core/CMakeLists.txt
+set(public_config_dir ${PROJECT_BINARY_DIR}/cmake)
+set(public_config_file ${public_config_dir}/DynamoRIOConfig.cmake)
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
+  ${public_config_file}
   @ONLY)
 
 # INCLUDEFILE feature
-file(READ ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake contents)
+file(READ ${public_config_file} contents)
 string(REGEX MATCHALL "\nINCLUDEFILE [^ \r\n]*" includes "${contents}")
 foreach (inc ${includes})
   string(REGEX REPLACE "\nINCLUDEFILE " "" incfile "${inc}")
@@ -1578,14 +1580,14 @@ foreach (inc ${includes})
   string(REGEX REPLACE "(^|\n)##[^\n]*" "" subst "${subst}")
   string(REGEX REPLACE "${inc}" "\n${subst}" contents "${contents}")
 endforeach (inc)
-file(WRITE ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake "${contents}")
+file(WRITE ${public_config_file} "${contents}")
 
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfigVersion.cmake.in
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   @ONLY)
 DR_install(FILES
-  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
+  ${public_config_file}
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   DESTINATION ${INSTALL_CMAKE}
 )

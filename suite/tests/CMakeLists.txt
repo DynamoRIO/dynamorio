@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -1724,6 +1724,20 @@ if (CLIENT_INTERFACE)
           common/eflags.c "" "-opt_cleancall 0" "")
       endif ()
     endforeach ()
+
+    # Test building the samples as an external project (i#1586).
+    # This is not a perfect test as the build dir is not an install dir,
+    # but this should catch errors in the public samples/CMakeLists.txt.
+    # To set up for this, we copied all the sample source files into the build
+    # dir, and we also copied the extension headers into the build dir.
+    # XXX i#1588: this does not catch exported-target issues.
+    # XXX: we could also execute the resulting clients.
+    get_property(sample_proj_dir GLOBAL PROPERTY DynamoRIO_sample_proj_dir)
+    add_test(samples_proj ${CMAKE_CTEST_COMMAND}
+      --build-and-test "${sample_proj_dir}" "${sample_proj_dir}/build_and_test"
+      --build-generator ${CMAKE_GENERATOR}
+      --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+      --build-options -DDynamoRIO_DIR:PATH=${public_config_dir})
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
