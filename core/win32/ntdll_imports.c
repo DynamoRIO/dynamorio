@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "ntdll_types.h"
+
+#pragma warning( disable : 4100) /* unreferenced formal parameter */
 
 #ifdef __cplusplus
 extern "C" {

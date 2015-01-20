@@ -1730,8 +1730,12 @@ if (CLIENT_INTERFACE)
     # but this should catch errors in the public samples/CMakeLists.txt.
     # To set up for this, we copied all the sample source files into the build
     # dir, and we also copied the extension headers into the build dir.
-    # XXX i#1588: this does not catch exported-target issues.
     # XXX: we could also execute the resulting clients.
+    # XXX i#1588: this does not catch exported-target issues, such as the absolute
+    # path problem.  Such things are not easy to test.  Also note that with
+    # cmake < 3.x our build-dir IMPORTED_LINK_INTERFACE_LIBRARIES does not
+    # list the transitive closure of the dependents, so we end up with link errors
+    # if we make a client link drx_static.
     get_property(sample_proj_dir GLOBAL PROPERTY DynamoRIO_sample_proj_dir)
     add_test(samples_proj ${CMAKE_CTEST_COMMAND}
       --build-and-test "${sample_proj_dir}" "${sample_proj_dir}/build_and_test"

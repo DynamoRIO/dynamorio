@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -129,23 +129,13 @@ else (UNIX)
     ${PROJECT_SOURCE_DIR}/core/lib
     )
 
-  include(../make/ntdll_imports.cmake)
-
-  target_link_libraries(run_in_bg "${ntimp_lib}")
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # for parallel build correctness we need a target dependence
-    add_dependencies(run_in_bg ntimp_tgt)
-  endif ()
+  target_link_libraries(run_in_bg ntdll_imports)
 
   foreach (tgt ${tgts})
     add_executable(${tgt} ${tgt}.c ${RESOURCES})
 
     if ("${tgt}" STREQUAL "ldmp")
-      set(extra_lib libcmt "${ntimp_lib}")
-      if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-        # for parallel build correctness we need a target dependence
-        add_dependencies(${tgt} ntimp_tgt)
-      endif ()
+      set(extra_lib libcmt ntdll_imports)
     endif ("${tgt}" STREQUAL "ldmp")
     target_link_libraries(${tgt}
       policy_static user32 advapi32 pdh imagehlp shell32 ${extra_lib})

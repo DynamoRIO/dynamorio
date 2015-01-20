@@ -188,7 +188,6 @@ endif (X64)
 
 # These custom commands are per-subdir so can't just place at top level
 include(../make/CMake_events.cmake)
-include(../make/ntdll_imports.cmake)
 
 # i#801: For generated headers, we need to use add_dependencies to ensure that
 # they are generated before compiling the other sources.  Listing the header as
@@ -207,12 +206,31 @@ function (add_gen_events_deps target)
   endif ()
 endfunction (add_gen_events_deps)
 
-# Just like i#801, we can't put custom targets in ntdll_imports.cmake
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for correct parallel builds we need a target to avoid
-  # duplicate and racy VS per-project rules
-  add_custom_target(ntimp_tgt DEPENDS "${ntimp_lib}")
-endif ()
+if (WIN32)
+  # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.
+  # Because the Ki are stdcall we can't just use a .def file: we need
+  # an .obj file built from stubs w/ the same signatures (in addition to
+  # listing those stub routine (un-mangled) names in our .def file).
+  # i#938: We expand our .lib to include everything so we don't need DDK/WDK.
+  # XXX: we should make sure we don't rely on ntdll routines not in older systems!
+  if (X64)
+    set(ntimp_def "${PROJECT_SOURCE_DIR}/core/win32/ntdll_imports_x64.def")
+  else (X64)
+    set(ntimp_def "${PROJECT_SOURCE_DIR}/core/win32/ntdll_imports.def")
+  endif (X64)
+  # i#1588: we used to have a custom command to build this imports lib (and a
+  # custom target for VS parallel builds) but we need this exported for our other
+  # exported libs and we can't export custom targets, so we now use a first-class
+  # lib target.  CMake supports a .def file as a source and runs lib.exe for us.
+  # Although we no longer use the WDK/DDK ntdll.lib (i#938), we still use a
+  # separate name "ntdll_imports" to avoid conflicts in containing projects.
+  add_library(ntdll_imports SHARED win32/ntdll_imports.c ${ntimp_def})
+  get_target_property(ntimp_flags ntdll_imports LOCATION)
+  string(REPLACE ".dll" ".lib" ntimp_flags ${ntimp_flags})
+  DR_export_target(ntdll_imports)
+  # We need separate 32-bit and 64-bit versions so we put into lib dir
+  install_exported_target(ntdll_imports ${INSTALL_LIB_BASE})
+endif (WIN32)
 
 if (UNIX)
   set(OSNAME unix)
@@ -308,7 +326,6 @@ else (UNIX)
     win32/drwinapi/rpcrt4_redir.c
     win32/drwinapi/advapi32_redir.c
     win32/resources.rc
-    ${ntimp_dep}
    )
   set(PRELOAD_SRCS
     win32/pre_inject.c
@@ -335,7 +352,6 @@ else (UNIX)
     config.c
     win32/os.c
     io.c
-    ${ntimp_dep}
     )
 
   add_library(drearlyhelp1 SHARED
@@ -364,8 +380,11 @@ set_target_properties(dynamorio PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(dynamorio)
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for parallel build correctness we need a target dependence
-  add_dependencies(dynamorio ${arch_core_asm_tgt} ntimp_tgt)
+  # Since we're forced to use link-line flags instead of target_link_libraries
+  # for dynamorio, we have to add a real target dependence here for correct
+  # parallel builds w/ VS generators.
+  # We also need one for our asm custom commands.
+  add_dependencies(dynamorio ${arch_core_asm_tgt} ntdll_imports)
 endif ()
 
 if (UNIX)
@@ -812,7 +831,7 @@ else (UNIX)
     # here to make sure things get linked in the right order to avoid duplicate
     # definitions.  See the case 4125 msvcrt comment above about why we need a C
     # library.
-    target_link_libraries(dynamorio ${WIN32_C_LIB} ${ntimp_lib})
+    target_link_libraries(dynamorio ${WIN32_C_LIB} ntdll_imports)
   endif ()
 
 
@@ -824,7 +843,7 @@ else (UNIX)
     "${LD_FLAGS} /dll /incremental:no /base:0x14000000 /NODEFAULTLIB ${NOLIBC_DLL_ENTRY}")
   set_target_properties(${PRELOAD_NAME} PROPERTIES LINK_FLAGS "${pre_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
-  target_link_libraries(${PRELOAD_NAME} ${ntimp_lib} kernel32 msvcrt dynamorio)
+  target_link_libraries(${PRELOAD_NAME} ntdll_imports kernel32 msvcrt dynamorio)
 
 
   set_target_properties(drearlyhelp1 PROPERTIES
@@ -860,20 +879,16 @@ set_target_properties(drinjectlib PROPERTIES
   # drconfiglib and drinjectlib, the only libs we do this for).
   INSTALL_NAME_DIR "@rpath")
 if (WIN32)
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # for parallel build correctness we need a target dependence
-    add_dependencies(drinjectlib ${arch_noncore_asm_tgt} ntimp_tgt)
-  endif ()
   set(drinjectlib_link_flags
     # not bothering with map files
     "${LD_FLAGS} /incremental:no /subsystem:console /NODEFAULTLIB")
-  # If we use ${ntimp_flags} in the link flags and thus prior to the
+  # If we use ${ntimp_flags} in the link flags and thus prior to libc from the
   # target_link_libraries() list, on VS2005 and VS2008 we end up with duplicate
   # symbols atoi and iswctype from libcmtd and ntdll.  Unlike dynamorio.dll we're
   # ok w/ libc syms so we re-order and take the static syms first.
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
   # I'm adding libcmt to attempt to make sure we have multithreaded C lib:
-  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ${ntimp_lib}
+  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB}.lib ntdll_imports
     kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
@@ -907,7 +922,7 @@ if (BUILD_TESTS)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(unit_tests ${arch_core_asm_tgt} ntimp_tgt)
+    add_dependencies(unit_tests ${arch_core_asm_tgt} ntdll_imports)
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
@@ -920,8 +935,8 @@ if (BUILD_TESTS)
     target_link_libraries(unit_tests c dl m pthread)
     set_preferred_base_start_and_end(unit_tests)
   else (UNIX)
-    # Just like drinjectlib (see above) we need libc before ntimp_lib
-    target_link_libraries(unit_tests ${WIN32_C_LIB} ${ntimp_lib})
+    # Just like drinjectlib (see above) we need libc before ntdll
+    target_link_libraries(unit_tests ${WIN32_C_LIB} ntdll_imports)
     set_target_properties(unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
@@ -967,6 +982,3 @@ else (UNIX)
 endif (UNIX)
 
 install_exported_target(drdecode ${INSTALL_LIB})
-
-# We need separate 32-bit and 64-bit versions so we put into lib dir
-DR_install(FILES ${ntimp_lib} DESTINATION ${INSTALL_LIB_BASE})

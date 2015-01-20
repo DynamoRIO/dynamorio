@@ -61,13 +61,9 @@ use_DynamoRIO_extension(drx drcontainers)
 # drmgr.h in drx.h, all so that drx users need not use drmgr.
 use_DynamoRIO_extension(drx drmgr)
 
-include(../../make/ntdll_imports.cmake)
-
 macro(configure_drx_target target)
-  target_link_libraries(drx "${ntimp_lib}")
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # for parallel build correctness we need a target dependence
-    add_dependencies(drx ntimp_tgt)
+  if (WIN32)
+    target_link_libraries(${target} ntdll_imports)
   endif ()
 endmacro()
 
