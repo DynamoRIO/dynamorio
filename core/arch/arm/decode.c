@@ -1241,9 +1241,57 @@ decode_instr_info_T32_32(decode_info_t *di)
 const instr_info_t *
 decode_instr_info_T32_16(decode_info_t *di)
 {
-    /* FIXME i#1551: NYI */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    const instr_info_t *info;
+    uint idx;
+    idx  = (di->instr_word >> 12) & 0xf; /* bits 15:12 */
+    info = &T32_16_opc4[idx];
+    while (info->type > INVALID) {
+        /* XXX: we compare info->type in the order listed in table_t32_16.c,
+         * we may want to optimize the order by puting more common instrs
+         * or larger tables earler.
+         */
+        if (info->type == EXT_11) {
+            idx = (di->instr_word >> 11) & 0x1; /* bit 11 */
+            info = &T32_16_ext_bit_11[info->code][idx];
+        } else if (info->type == EXT_11_10) {
+            idx = (di->instr_word >> 10) & 0x3; /* bits 11:10 */
+            info = &T32_16_ext_bits_11_10[info->code][idx];
+        } else if (info->type == EXT_11_9) {
+            idx = (di->instr_word >> 9) & 0x7; /* bits 11:9 */
+            info = &T32_16_ext_bits_11_9[info->code][idx];
+        } else if (info->type == EXT_11_8) {
+            idx = (di->instr_word >> 8) & 0xf; /* bits 11:8 */
+            info = &T32_16_ext_bits_11_8[info->code][idx];
+        } else if (info->type == EXT_9_6) {
+            idx = (di->instr_word >> 6) & 0xf; /* bits 9:6 */
+            info = &T32_16_ext_bits_9_6[info->code][idx];
+        } else if (info->type == EXT_7) {
+            idx = (di->instr_word >> 7) & 0x1; /* bit 7 */
+            info = &T32_16_ext_bit_7[info->code][idx];
+        } else if (info->type == EXT_5_4) {
+            idx = (di->instr_word >> 4) & 0x3; /* bit 5:4 */
+            info = &T32_16_ext_bits_5_4[info->code][idx];
+        } else if (info->type == EXT_10_9) {
+            idx = (di->instr_word >> 9) & 0x3; /* bits 10:9 */
+            info = &T32_16_ext_bits_10_9[info->code][idx];
+        } else if (info->type == EXT_7_6) {
+            idx = (di->instr_word >> 6) & 0x3; /* bits 7:6 */
+            info = &T32_16_ext_bits_7_6[info->code][idx];
+        } else if (info->type == EXT_6_4) {
+            idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
+            info = &T32_16_ext_bits_6_4[info->code][idx];
+        } else if (info->type == EXT_3_0) {
+            idx = di->instr_word & 0xf; /* bits 3:0 */
+            if (idx != 0)
+                idx = 1;
+            info = &T32_16_ext_imm_3_0[info->code][idx];
+        } else {
+            ASSERT_NOT_REACHED();
+            info = NULL;
+            break;
+        }
+    }
+    return info;
 }
 
 const instr_info_t *
