@@ -116,7 +116,7 @@ if [ "$mode" = "upload" ]; then
         label="latest patchset";
         issue="-i $issue"
     fi
-    msg=$(echo -e "Commit log for ${label}:\n---------------\n${log}\n---------------")
+    msg=$(printf "Commit log for ${label}:\n---------------\n${log}\n---------------\n")
     echo "Uploading the review..."
     output=$(python ${root}/make/upload.py -y -e "${user}" ${reviewer} ${issue} \
         -t "${subject}" -m "${msg}" ${email} origin/master..)
@@ -142,8 +142,8 @@ elif [ "$mode" = "commit" ]; then
         echo "Finalizing existing code review request #${issue}."
         subject="Committed"
         hash=$(git log -n 1 --format=%H)
-        msg=$(echo -e "Committed as ${hashurl}${hash}\n\nFinal commit log:" \
-            "\n---------------\n${log}\n---------------")
+        msg=$(printf "Committed as ${hashurl}${hash}\n\nFinal commit log:" \
+            "\n---------------\n${log}\n---------------\n")
         output=$(python ${root}/make/upload.py -y -e "${user}" -i ${issue} \
             -t "${subject}" -m "${msg}" ${email} HEAD^)
         echo "${output}"
