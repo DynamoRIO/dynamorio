@@ -202,6 +202,7 @@
 #define i5x12_6  TYPE_I_b12_b6, OPSZ_5b
 #define i6       TYPE_I_b0, OPSZ_6b
 #define i6_16    TYPE_I_b16, OPSZ_6b
+#define i7x4     TYPE_I_x4_b0, OPSZ_7b
 #define i8       TYPE_I_b0, OPSZ_1
 #define n8       TYPE_NI_b0, OPSZ_1
 #define n8x8_0   TYPE_NI_b8_b0, OPSZ_1

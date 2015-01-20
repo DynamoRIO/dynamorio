@@ -275,6 +275,9 @@ enum {
 
     /* Needed for ARM.  We share the same namespace for now */
     OPSZ_3,    /**< 3 bytes */
+    /* gpl_list_num_bits assumes OPSZ_ includes every value from 1b to 12b
+     * (except 8b/OPSZ_1) in order
+     */
     OPSZ_1b,   /**< 1 bit */
     OPSZ_2b,   /**< 2 bits */
     OPSZ_3b,   /**< 3 bits */

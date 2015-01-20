@@ -309,6 +309,7 @@ enum {
      * possibilities.
      */
     TYPE_I_b0,
+    TYPE_I_x4_b0,
     TYPE_NI_b0, /* negated immed */
     TYPE_I_b3,
     TYPE_I_b4,
@@ -415,7 +416,7 @@ enum {
     TYPE_M_SI7,       /* mem offs + signed 7-bit immed @ 6:0 */
     TYPE_M_POS_I5,    /* mem offs + 4 * 5-bit immed @ 5:0 */
 
-    TYPE_M_PCREL_POS_I8,  /* mem offs pc-relative +  8-bit immed @  7:0 */
+    TYPE_M_PCREL_POS_I8,  /* mem offs pc-relative + 4 * 8-bit immed @  7:0 */
     TYPE_M_PCREL_POS_I12, /* mem offs pc-relative + 12-bit immed @ 11:0 */
     TYPE_M_PCREL_NEG_I12, /* mem offs pc-relative - 12-bit immed @ 11:0 */
     TYPE_M_PCREL_S9,  /* mem offs pc-relative w/ signed 9-bit immed 23:5 scaled */
@@ -539,5 +540,8 @@ resolve_size_downward(opnd_size_t size);
 
 bool
 optype_is_reg(int optype);
+
+uint
+gpr_list_num_bits(byte optype);
 
 #endif /* DECODE_PRIVATE_H */

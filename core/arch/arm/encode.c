@@ -252,6 +252,7 @@ const char * const type_names[] = {
     "TYPE_SP",
     "TYPE_PC",
     "TYPE_I_b0",
+    "TYPE_I_x4_b0",
     "TYPE_NI_b0",
     "TYPE_I_b3",
     "TYPE_I_b4",
@@ -871,7 +872,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
          * ahead, or to disallow any reg after a reglist (that would lead to
          * wrong-order-vs-asm for OP_vtbl and others).
          */
-        uint max_num = (optype == TYPE_L_8b ? 8 : 16);
+        uint max_num = gpr_list_num_bits(optype);
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, false/*gpr*/,
                                0/*no restrictions*/, 0,
                                (optype == TYPE_L_16b_NO_SP ||

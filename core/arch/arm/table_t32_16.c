@@ -211,8 +211,8 @@ const instr_info_t T32_16_ext_bits_9_6[][16] = {
 const instr_info_t T32_16_ext_bit_7[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {OP_add,     0xb000, "add",    SPw, xx, SPw, i8, xx, no, x, y11[8][0x01]},
-      {OP_sub,     0xb080, "sub",    SPw, xx, SPw, i8, xx, no, x, xfop8[0][0x1a]},
+      {OP_add,     0xb000, "add",    SPw, xx, SPw, i7x4, xx, no, x, y11[8][0x01]},
+      {OP_sub,     0xb080, "sub",    SPw, xx, SPw, i7x4, xx, no, x, xfop8[0][0x1a]},
     },
 };
 
