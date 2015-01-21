@@ -30,18 +30,20 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Pass this 1) an OP_ constant and 2) a decoding table file.
-# It will construct the encoding chain and in-place edit the table file.
-# It has assumptions on the precise format of the decoding table
-# and of the op_instr* starting point array.
+# Pass this a set of decoding table files from which to extract
+# INSTR_CREATE_ macro signature information.
+# It will construct the different sets of macros needed for each
+# instruction form.
+# It has assumptions on the precise format of the decoding tables and
+# on the decoding table file names (specifically, that *t32* is Thumb).
 #
 # To run on one opcode:
 #
-#   tools/arm_macros_gen.pl -v -o OP_add core/arch/arm/table_*.[ch]
+#   tools/arm_macros_gen.pl -v -o OP_add core/arch/arm/table_{a32,t32}*.[ch]
 #
 # To run on everything:
 #
-#   tools/arm_macros_gen.pl core/arch/arm/table_*.[ch]
+#   tools/arm_macros_gen.pl core/arch/arm/table_{a32,t32}*.[ch]
 #
 # XXX i#1563: should we swap src and dst for stores and for OP_cdp and
 # other instructions to more closely match the assembly order?
@@ -62,7 +64,6 @@ if ($ARGV[0] eq '-o') {
     $single_op = shift;
 }
 my @infiles = @ARGV;
-my $extra_num = 0;
 
 # Must process headers first
 @infiles = sort({return -1 if($a =~ /\.h$/);return 1 if($b =~ /\.h$/); return 0;}
@@ -70,6 +71,8 @@ my $extra_num = 0;
 
 foreach $infile (@infiles) {
     print "Processing $infile\n" if ($verbose > 0);
+    my $extra_num = 0;
+    my $thumb = ($infile =~ /t32/) ? 1 : 0;
     open(INFILE, "< $infile") || die "Couldn't open $file\n";
     while (<INFILE>) {
         print "xxx $_\n" if ($verbose > 2);
@@ -97,7 +100,7 @@ foreach $infile (@infiles) {
                 die "Cannot find flags: $_";
             }
 
-            my $opstr = collapse_types($encoding);
+            my $opstr = collapse_types($encoding, $infile);
 
             my @opnds = split(',', $opstr);
             my @dsts = ();
@@ -122,6 +125,7 @@ foreach $infile (@infiles) {
 
             @{$entry{$opc}[$instance{$opc}]{'srcs'}} = @srcs;
             @{$entry{$opc}[$instance{$opc}]{'dsts'}} = @dsts;
+            $entry{$opc}[$instance{$opc}]{'file'} = $infile;
 
             if ($verbose > 0) {
                 print "$opstr <== $_";
@@ -131,7 +135,7 @@ foreach $infile (@infiles) {
             my $opnds = $_;
             die "Two extra-op lines not supported: $_" unless ($opnds =~ /END_LIST/);
             if ($opnds =~ /",(\s*\w+,\s*\w+,\s*\w+,\s*\w+,\s*\w+,)/) {
-                my $encoding = collapse_types($1);
+                my $encoding = collapse_types($1, $infile);
                 my @opnds = split(',', $encoding);
                 my @dsts = ();
                 my @srcs = ();
@@ -140,9 +144,10 @@ foreach $infile (@infiles) {
                 push(@srcs, $opnds[2]) unless ($opnds[2] eq 'xx');
                 push(@srcs, $opnds[3]) unless ($opnds[3] eq 'xx');
                 push(@srcs, $opnds[4]) unless ($opnds[4] eq 'xx');
-                $extra[$extra_num]{'line'} = $_;
-                @{$extra[$extra_num]{'srcs'}} = @srcs;
-                @{$extra[$extra_num]{'dsts'}} = @dsts;
+                # Separate extra-args for Thumb and ARM
+                $extra{$thumb}[$extra_num]{'line'} = $_;
+                @{$extra{$thumb}[$extra_num]{'srcs'}} = @srcs;
+                @{$extra{$thumb}[$extra_num]{'dsts'}} = @dsts;
             } else {
                 die "Failed to parse extra-op line $_";
             }
@@ -162,20 +167,88 @@ foreach my $opc (keys %entry) {
 
     for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
         # Get extra args
+        my $infile = $entry{$opc}[$i]{'file'};
+        my $thumb = ($infile =~ /t32/) ? 1 : 0;
         if (defined($entry{$opc}[$i]{'xop'})) {
             my $xop = $entry{$opc}[$i]{'xop'};
-            for (my $j = 0; $j < @extra; $j++) {
-                if ($extra[$j]{'line'} =~ /$xop\W/) {
-                    push(@{$entry{$opc}[$i]{'srcs'}}, @{$extra[$j]{'srcs'}});
-                    push(@{$entry{$opc}[$i]{'dsts'}}, @{$extra[$j]{'dsts'}});
+            for (my $j = 0; $j < @{$extra{$thumb}}; $j++) {
+                if ($extra{$thumb}[$j]{'line'} =~ /$xop\W/) {
+                    push(@{$entry{$opc}[$i]{'srcs'}}, @{$extra{$thumb}[$j]{'srcs'}});
+                    push(@{$entry{$opc}[$i]{'dsts'}}, @{$extra{$thumb}[$j]{'dsts'}});
                 }
             }
         } elsif (defined($entry{$opc}[$i]{'exop'})) {
             my $exop = $entry{$opc}[$i]{'exop'};
-            push(@{$entry{$opc}[$i]{'srcs'}}, @{$extra[$exop]{'srcs'}});
-            push(@{$entry{$opc}[$i]{'dsts'}}, @{$extra[$exop]{'dsts'}});
+            push(@{$entry{$opc}[$i]{'srcs'}}, @{$extra{$thumb}[$exop]{'srcs'}});
+            push(@{$entry{$opc}[$i]{'dsts'}}, @{$extra{$thumb}[$exop]{'dsts'}});
         }
+    }
 
+
+    # Prefer the ARM register names, as the Thumb ones are often completely
+    # different, and it would be a real pain to add another set of
+    # fragile, hacky mappings to "semantic names".
+    # We want to map from each Thumb encoding to a "similar" ARM encoding.
+    # We can't do global reg slots b/c they do vary for wb vs non-wb so we
+    # store the ARM reg for each slot per operand count.
+    # First, store the ARM reg values:
+    my %arm_src = ();
+    my %arm_dst = ();
+    for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
+        if ($entry{$opc}[$i]{'file'} !~ /t32/) {
+            my $count = @{$entry{$opc}[$i]{'srcs'}};
+            for (my $j = 0; $j < $count; $j++) {
+                if ($entry{$opc}[$i]{'srcs'}[$j] =~ /\bR/) {
+                    if (defined($arm_src{$count}{$j})) {
+                        die "Src regs for $opc in slot x$count $j do not match: ".
+                            $arm_src{$count}{$j} ." vs ".
+                            $entry{$opc}[$i]{'srcs'}[$j] ."\n"
+                            unless ($arm_src{$count}{$j} eq $entry{$opc}[$i]{'srcs'}[$j]);
+                    }
+                    $arm_src{$count}{$j} = $entry{$opc}[$i]{'srcs'}[$j];
+                }
+            }
+            $count = @{$entry{$opc}[$i]{'dsts'}};
+            for (my $j = 0; $j < $count; $j++) {
+                if ($entry{$opc}[$i]{'dsts'}[$j] =~ /\bR/) {
+                    if (defined($arm_dst{$j})) {
+                        die "Dst regs for $opc in slot $j do not match: ".
+                            $arm_dst{$count}{$j} ." vs ".
+                            $entry{$opc}[$i]{'dsts'}[$j] ."\n"
+                            unless ($arm_dst{$count}{$j} eq $entry{$opc}[$i]{'dsts'}[$j]);
+                    }
+                    $arm_dst{$count}{$j} = $entry{$opc}[$i]{'dsts'}[$j];
+                }
+            }
+        }
+    }
+    # Now, substitute the ARM reg values into the corresponding Thumb slots:
+    for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
+        if ($entry{$opc}[$i]{'file'} =~ /t32/) {
+            my $count = @{$entry{$opc}[$i]{'srcs'}};
+            for (my $j = 0; $j < $count; $j++) {
+                if (($entry{$opc}[$i]{'srcs'}[$j] =~ /\bR/ ||
+                     $entry{$opc}[$i]{'srcs'}[$j] =~ /\bSPw/) &&
+                    defined($arm_src{$count}{$j})) {
+                    print "Setting src $j from ".$entry{$opc}[$i]{'srcs'}[$j].
+                        " to ". $arm_src{$count}{$j} ."\n" if ($verbose > 1);
+                    $entry{$opc}[$i]{'srcs'}[$j] = $arm_src{$count}{$j};
+                }
+            }
+            $count = @{$entry{$opc}[$i]{'dsts'}};
+            for (my $j = 0; $j < $count; $j++) {
+                if (($entry{$opc}[$i]{'dsts'}[$j] =~ /\bR/ ||
+                     $entry{$opc}[$i]{'dsts'}[$j] =~ /\bSPw/) &&
+                    defined($arm_dst{$count}{$j})) {
+                    print "Setting dst $j from ".$entry{$opc}[$i]{'dsts'}[$j].
+                        " to ". $arm_dst{$count}{$j} ."\n" if ($verbose > 1);
+                    $entry{$opc}[$i]{'dsts'}[$j] = $arm_dst{$count}{$j};
+                }
+            }
+        }
+    }
+
+    for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
         # Create a single-string signature line
         my $sig = join " ",@{$entry{$opc}[$i]{'dsts'}};
         $sig .= "; ";
@@ -200,7 +273,7 @@ foreach my $opc (keys %entry) {
         $sig =~ s/\bSPSR/statreg/;
 
         if (!defined($sigs{$sig})) {
-            $sigs{$sig} = $sig ;
+            $sigs{$sig} = $sig;
             $check_list = 1 if ($sig =~ /\bL[XC]/);
             $shift_variant = $sig if (($sig =~ /\ssh2 i/ || $sig =~ /\ssh2 R/) &&
                                       # only arith srcs, not shifts in mem opnds
@@ -261,23 +334,31 @@ foreach my $opc (keys %entry) {
         # Add a simple version w/o the shifted reg
         my $replaced = 0;
         foreach my $sig (keys %sigs) {
-            # When we add a simple reg-reg DR_SHIFT_NONE, and a reg-imm
+            # When we add a simple reg-reg DR_SHIFT_NONE, and a reg-imm or reg-reg
             # exists, combine them into a variable-type "Rm_or_immed" arg
             # rather than forcing the reg-imm to be $name_imm.
-            if ($sig =~ /^R\w+;\s*\bi$/ || $sig =~ /^;\s*R\w+\s*\bi$/ ||
-                $sig =~ /^R\w+;\s*R\w+\s*\bi$/) {
+            if ($sig =~ /^R\w+;\s*\bi$/ ||
+                $sig =~ /^;\s*R\w+\s*\bi$/ ||
+                $sig =~ /^;\s*R\w+\s*R\w+$/ ||
+                $sig =~ /^R\w+;\s*R\w+$/ ||
+                $sig =~ /^R\w+;\s*R\w+\s*\bi$/ ||
+                $sig =~ /^R\w+;\s*R\w+\s*\bR\w+$/) {
                 my $newsig = $sig;
                 my $with_reg = $shift_variant;
                 $with_reg =~ s/\s*sh2\s*\w+$//;
                 my $check = $with_reg;
                 $check =~ s/R\w+\s*$//;
-                $newsig =~ s/\bi\s*$//;
-                die "Unknown shift variant $shift_variant\n" unless ($check eq $newsig);
+                if ($newsig =~ /\bi/) {
+                    $newsig =~ s/\bi\s*$//;
+                } else {
+                    $newsig =~ s/\bR\w+\s*$//;
+                }
+                die "Unknown shift variant $opc |$shift_variant|: |$check| vs |$newsig|\n"
+                    unless ($check eq $newsig);
                 $newsig = $with_reg . "_or_imm_specialshift";
                 delete $sigs{$sig};
                 $sigs{$newsig} = $newsig;
                 $replaced = 1;
-                last;
             }
         }
         if (!$replaced) {
@@ -462,7 +543,8 @@ foreach my $opc (keys %entry) {
             $num_tot_dsts = 'N';
             $num_tot_srcs = 'M';
         }
-        die "XXXX Duplicate macro $name\n" if (defined($dupcheck{$name}));
+        print "  Macro sigs: ($esig) | $sig\n" if ($verbose > 0);
+        die "XXXX Duplicate macro $name for |$sig|\n" if (defined($dupcheck{$name}));
         $dupcheck{$name} = 1;
 
         if ($sig =~ /_specialshift/ && $sig !~ /_imm_specialshift/) {
@@ -581,20 +663,45 @@ foreach my $args (@order) {
 ';
 }
 
-sub collapse_types($)
+sub collapse_types($, $)
 {
-    my ($str) = @_;
+    my ($str, $infile) = @_;
     $str =~ s/\s//g;
     # Collapse opnds that will look identical to the macro and for which
     # we don't need to distinguish later
     $str =~ s/\bM\w+/M/g;
     $str =~ s/\bn\w+/i/g; # Negative immed == positive
     $str =~ s/\bi\w+/i/g; # Type of immed doesn't matter
-    $str =~ s/\bro2/i/; # Rotate-by
+    $str =~ s/\bj\w+/j/g; # Type of jump immed doesn't matter
+    $str =~ s/\bro2\w*/i/; # Rotate-by
     $str =~ s/\bk\w+/i/; # Hardcoded const => immed (all are explicit in asm)
     $str =~ s/\b(R\w)N(\w)/\1\2/g; # User must negate registers
     $str =~ s/\bLSL/shift/g;
     $str =~ s/\bASR/shift/g;
+    $str =~ s/\bL[\dPL]+/L/;
+    # Thumb-only rules
+    if ($infile =~ /t32/) {
+        # This is only there when encoding
+        $str =~ s/RA_EQ_D\w+/xx/;
+        # We're not adding special macros for implicit regs or for
+        # destructive src==dst forms.  We assume there's a general form
+        # (sometimes only w/ our special DR_SHIFT_NONE implicit) for each.
+        $str =~ s/,RV/,RA/; # destructive src => diff name (no special macro for it)
+        $str =~ s/^SPw/RBw/;
+        $str =~ s/\bSPw/RAw/ unless ($str =~ /\bM/); # don't do this for srs
+        $str =~ s/\bPC/RA/;
+        # We map Thumb names to the corresponding ARM names
+        $str =~ s/sh2_4/sh2/;
+        $str =~ s/sh1_21/sh1/;
+        $str =~ s/^RCw/RBw/; # T32.W often have RCw as dst
+        $str =~ s/\bRU/RD/g;
+        $str =~ s/\bRV/RB/g;
+        $str =~ s/\bRW/RA/g;
+        $str =~ s/\bRX/RD/g;
+        $str =~ s/\bRY/RA/g;
+        $str =~ s/^RZ/RB/g;
+        $str =~ s/\bRZ/RA/g;
+    }
     return $str;
 }
 
@@ -680,7 +787,7 @@ sub rename_regs($)
         $str =~ s/\bRD\w/Rn/;
     } elsif ($str =~ /\b[RV]B.*;/) {
         $str =~ s/\b([RV])A\w/\1n/;
-        $str =~ s/\b([RV])B\w/\1d/;
+        $str =~ s/\b([RV])B\w/\1d/g;
         $str =~ s/\bRC\w/Rs/;
         $str =~ s/\bVC\w/Vm/;
         $str =~ s/\bRD\w/Rm/;

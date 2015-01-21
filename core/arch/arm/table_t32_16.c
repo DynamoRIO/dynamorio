@@ -135,16 +135,16 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
       {OP_cbz,   0xb100, "cbz",               xx,  xx, j6x9_3,  xx, xx, no, x, END_LIST},/*i=0*/
       {EXT_8_6,  0xb200, "(ext 8:6 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
       {OP_cbz,   0xb300, "cbz",               xx,  xx, j6x9_3,  xx, xx, no, x, DUP_ENTRY},/*i=1*/
-      {OP_stmdb, 0xb400, "stmdb",/*push*/ MSPDBl, SPw,   L9Lw, SPw, xx, no, x, xbase[0x10]},
-      {OP_stmdb, 0xb500, "stmdb",/*push*/ MSPDBl, SPw,   L9Lw, SPw, xx, no, x, DUP_ENTRY},/*M=1*/
+      {OP_stmdb, 0xb400, "stmdb",         MSPDBl, SPw,   L9Lw, SPw, xx, no, x, xbase[0x10]},/*"push"*/
+      {OP_stmdb, 0xb500, "stmdb",         MSPDBl, SPw,   L9Lw, SPw, xx, no, x, DUP_ENTRY},/*M=1*//*"push"*/
       {EXT_6,    0xb600, "(ext 6 0)",         xx,  xx,     xx,  xx, xx, no, x,        0},
       {INVALID,  0xb700, "(bad)",             xx,  xx,     xx,  xx, xx, no, x,       NA},
       {INVALID,  0xb800, "(bad)",             xx,  xx,     xx,  xx, xx, no, x,       NA},
       {OP_cbnz,  0xb900, "cbnz",              xx,  xx, j6x9_3,  xx, xx, no, x, END_LIST},/*i=0*/
       {EXT_8_6,  0xba00, "(ext 8:6 1)",       xx,  xx,     xx,  xx, xx, no, x,        1},
       {OP_cbnz,  0xbb00, "cbnz",              xx,  xx, j6x9_3,  xx, xx, no, x, DUP_ENTRY},/*i=1*/
-      {OP_ldm,   0xbc00, "ldm",/*pop*/      L9Pw, SPw,   MSPl, SPw, xx, no, x, y11[9][0x01]},
-      {OP_ldm,   0xbd00, "ldm",/*pop*/      L9Pw, SPw,   MSPl, SPw, xx, no, x, DUP_ENTRY},/*P=1*/
+      {OP_ldm,   0xbc00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, y11[9][0x01]},/*"pop"*/
+      {OP_ldm,   0xbd00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, DUP_ENTRY},/*P=1*//*"pop"*/
       {OP_bkpt,  0xbe00, "bkpt",              xx,  xx,     i8,  xx, xx, no, x, END_LIST},
       {EXT_6_4,  0xbf00, "(ext 6:4 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
     }, { /* 1 */
