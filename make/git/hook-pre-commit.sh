@@ -37,7 +37,7 @@
 # The --short option is too recent to rely on so we use a bash expansion
 # to remove refs/heads/.
 branch=`git symbolic-ref -q HEAD`
-if [ "${branch##*/}" == "master" ]; then
+if [ "${branch##*/}" = "master" ]; then
     exec 1>&2
     cat <<\EOF
 Error: it looks like you're committing on master.
