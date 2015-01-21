@@ -1033,7 +1033,7 @@ char *
 get_shared_lib_name(app_pc map)
 {
     ptr_int_t load_delta;
-    char *soname;
+    char *soname = NULL;
     os_module_data_t os_data;
     memset(&os_data, 0, sizeof(os_data));
     module_read_os_data(map, true/*doesn't matter for soname*/,
