@@ -1064,6 +1064,7 @@ decode_instr_info_T32_32(decode_info_t *di)
         } else if (info->type == EXT_IMM126) {
             idx = (((di->halfwordB >> 10) & 0x1c) |
                    ((di->halfwordB >> 6) & 0x3)) /*bits B14:12,7:6*/;
+            idx = (idx == 0) ? 0 : 1;
             info = &T32_ext_imm126[info->code][idx];
         } else if (info->type == EXT_OPCBX) {
             if (!TEST(0x800, di->halfwordB))

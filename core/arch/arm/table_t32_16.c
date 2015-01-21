@@ -181,7 +181,7 @@ const instr_info_t T32_16_ext_bits_9_6[][16] = {
       {OP_sbcs,    0x4180, "sbcs",   RZw, xx, RZw, RYw, xx, no, fWNZCV, xfop8[0][0x17]},
       {OP_rors,    0x41c0, "rors",   RZw, xx, RZw, RYw, xx, no, fWNZCV, xi126[3][0x01]},
       {OP_tst,     0x4200, "tst",     xx, xx, RZw, RYw, xx, no, fWNZCV, xrcpc[4][0x01]},
-      {OP_rsbs,    0x4240, "rsbs",   RZw, xx, RYw,  xx, xx, no, fWNZCV, xfop8[0][0x1d]},
+      {OP_rsbs,    0x4240, "rsbs",   RZw, xx, RYw,  k0, xx, no, fWNZCV, xfop8[0][0x1d]},
       {OP_cmp,     0x4280, "cmp",     xx, xx, RZw, RYw, xx, no, fWNZCV, y11[2][0x01]},
       {OP_cmn,     0x42c0, "cmn",     xx, xx, RZw, RYw, xx, no, fWNZCV, xrcpc[6][0x01]},
       {OP_orrs,    0x4300, "orrs",   RZw, xx, RZw, RYw, xx, no, fWNZCV, xrapc[5][0x00]},
@@ -220,7 +220,8 @@ const instr_info_t T32_16_ext_bit_6[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
       {OP_setend,  0xb640, "setend",  xx, xx, i1_3, xx, xx, no, x, END_LIST},
-      {OP_cps,     0xb660, "cps",     xx, xx, i1_4, i3, xx, no, x, xb108[0][0x01]},
+      /* FIXME i#1551: add OP_cpsie and OP_cpsid */
+      {OP_cps,     0xb660, "cps",     xx, xx, i3, xx, xx, no, x, xb108[0][0x01]},
     },
 };
 
