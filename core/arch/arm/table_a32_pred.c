@@ -651,7 +651,7 @@ const instr_info_t A32_ext_opc4y[][9] = {
     {OP_usat,    0x06f00050, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, DUP_ENTRY},
     {EXT_RAPC,   0x06f00070, "(ext rapc 5)", xx, xx, xx, xx, xx, no, x, 5},
     {OP_usat,    0x06f00090, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, DUP_ENTRY},
-    {OP_revsh,   0x06ff0fb0, "revsh",  RBw, xx, RDw, xx, xx, pred, x, END_LIST},
+    {OP_revsh,   0x06ff0fb0, "revsh",  RBw, xx, RDh, xx, xx, pred, x, END_LIST},
     {OP_usat,    0x06f000d0, "usat",   RBw, i5_16, RDw, sh1, i5_7, pred|srcX4, fWQ, DUP_ENTRY},
     {INVALID,    0x06f000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 12 */

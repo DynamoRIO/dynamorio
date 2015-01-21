@@ -734,6 +734,14 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         }
     }
 
+    if (optype == TYPE_R_A_EQ_D) {
+        /* Does not correspond to an actual opnd in the instr_t */
+        if (opnum ==  0)
+            return false;
+        (*counter)--;
+        opnum--;
+    }
+
     if (optype == TYPE_NONE) {
         return (is_dst ? (instr_num_dsts(in) < opnum) : (instr_num_srcs(in) < opnum));
     } else if (is_dst) {
@@ -799,21 +807,10 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 (size_op == size_temp || size_op == size_temp_up) &&
                 opnd_is_reg(prior) && opnd_get_reg(prior) + 1 == opnd_get_reg(opnd));
     }
-    case TYPE_R_A_EQ_D: {
-        opnd_t prior;
-        if (opnum ==  0)
-            return false;
-        if (is_dst)
-            prior = instr_get_dst(in, opnum - 1);
-        else
-            prior = instr_get_src(in, opnum - 1);
+    case TYPE_R_A_EQ_D:
+        /* We already adjusted opnd to point at prior up above */
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
-                opnd_is_reg(prior) && opnd_get_reg(prior) == opnd_get_reg(opnd) &&
-                /* Ensure writeback matches memop base */
-                (di->check_wb_base == DR_REG_NULL ||
-                 di->check_wb_base == opnd_get_reg(opnd)));
-    }
+                (size_op == size_temp || size_op == size_temp_up));
     case TYPE_CR_A:
     case TYPE_CR_B:
     case TYPE_CR_C:
@@ -1433,6 +1430,11 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     uint opnum = (*counter)++;
     opnd_size_t size_temp_up = resolve_size_upward(size_temp);
     opnd_t opnd;
+    if (optype == TYPE_R_A_EQ_D) {
+        /* Does not correspond to an actual opnd in the instr_t */
+        (*counter)--;
+        opnum--;
+    }
     if (optype != TYPE_NONE) {
         if (is_dst)
             opnd = instr_get_dst(in, opnum);
@@ -1699,7 +1701,7 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         break;
     }
     case TYPE_I_b12_b6: {
-        ptr_int_t val;
+        ptr_int_t val = 0;
         if (size_temp == OPSZ_5b && di->shift_type_idx == opnum - 1 &&
             di->shift_uses_immed) {
             /* Convert to raw values */

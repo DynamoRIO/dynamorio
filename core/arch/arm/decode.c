@@ -400,7 +400,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_R_A_EQ_D:
         if (decode_regA(di) != decode_regD(di))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(decode_regA(di), downsz, 0);
+        /* This one is not its own opnd: just encoded 2x into different slots */
         return true;
     case TYPE_CR_A:
         array[(*counter)++] = opnd_create_reg_ex(decode_regA(di) - DR_REG_START_GPR +
@@ -482,9 +482,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         for (i = 0; i < num; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
                 if ((optype == TYPE_L_16b_NO_SP || optype == TYPE_L_16b_NO_SP_PC) &&
-                    i == DR_REG_START_GPR + DR_REG_SP)
+                    i + DR_REG_START_GPR == DR_REG_SP)
                     return false;
-                if (optype == TYPE_L_16b_NO_SP_PC && i == DR_REG_START_GPR + DR_REG_PC)
+                if (optype == TYPE_L_16b_NO_SP_PC && i + DR_REG_START_GPR == DR_REG_PC)
                     return false;
                 array[(*counter)++] = opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, 0);
                 di->reglist_sz += opnd_size_in_bytes(downsz);

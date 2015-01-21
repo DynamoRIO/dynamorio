@@ -550,7 +550,7 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {OP_rev,      0xfa90f080, "rev",    RCw, xx, RDw, RA_EQ_Dw, xx, no, x, END_LIST},
     {OP_rev16,    0xfa90f090, "rev16",  RCw, xx, RDw, RA_EQ_Dw, xx, no, x, END_LIST},
     {OP_rbit,     0xfa90f0a0, "rbit",   RCw, xx, RDw, RA_EQ_Dw, xx, no, x, END_LIST},
-    {OP_revsh,    0xfa90f0b0, "revsh",  RCw, xx, RDw, RA_EQ_Dw, xx, no, x, END_LIST},
+    {OP_revsh,    0xfa90f0b0, "revsh",  RCw, xx, RDh, RA_EQ_Dh, xx, no, x, END_LIST},
     {INVALID,     0xfa9000c0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfa9000d0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfa9000e0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},

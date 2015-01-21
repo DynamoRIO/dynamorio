@@ -257,6 +257,7 @@
 #define RDEw TYPE_R_D_EVEN, OPSZ_PTR
 #define RD2w TYPE_R_D_PLUS1, OPSZ_PTR
 #define RA_EQ_Dw TYPE_R_A_EQ_D, OPSZ_PTR
+#define RA_EQ_Dh TYPE_R_A_EQ_D, OPSZ_PTR_HALF
 
 /* T16 */
 #define RUw  TYPE_R_U, OPSZ_PTR
