@@ -106,9 +106,9 @@ enum {
     EXT_11_8,    /* Indexed by bits 11:8 */
     EXT_10_9,    /* Indexed by bits 10:9 */
     EXT_9_6,     /* Indexed by bits 9:6 */
-    EXT_8_6,     /* Indexed by bits 8:6 */
+    EXT_7_6,     /* Indexed by bits 7:6 */
     EXT_7,       /* Indexed by bit  7 */
-    EXT_6,       /* Indexed by bit  6 */
+    EXT_5_4,     /* Indexed by bits 5:4 */
     EXT_6_4,     /* Indexed by bits 6:4 */
     EXT_3_0,     /* Indexed by whether imm 3:0 is zero or not */
     /* else, from OP_ enum */
@@ -257,6 +257,9 @@ enum {
     TYPE_R_X,   /* T32.16-8:6   = Rm: src reg */
     TYPE_R_Y,   /* T32.16-5:3   = Rm or Rn: src reg */
     TYPE_R_Z,   /* T32.16-2:0   = Rd: dst reg, Rn or Rm: src reg, Rt */
+    TYPE_R_V_DUP, /* T32.16-7,2:0 = DN:Rdn or DM:Rdm, destructive TYPE_R_V */
+    TYPE_R_W_DUP, /* T32.16-10:8  = Rdn, destructive TYPE_R_W */
+    TYPE_R_Z_DUP, /* T32.16-2:0   = Rdn, destructive TYPE_R_Z */
 
     TYPE_R_A_TOP, /* top half of register */
     TYPE_R_B_TOP, /* top half of register */
@@ -519,9 +522,9 @@ extern const instr_info_t T32_16_ext_bits_11_9[][8];
 extern const instr_info_t T32_16_ext_bits_11_8[][16];
 extern const instr_info_t T32_16_ext_bits_9_6[][16];
 extern const instr_info_t T32_16_ext_bit_7[][2];
-extern const instr_info_t T32_16_ext_bit_6[][2];
+extern const instr_info_t T32_16_ext_bits_5_4[][4];
 extern const instr_info_t T32_16_ext_bits_10_9[][4];
-extern const instr_info_t T32_16_ext_bits_8_6[][4];
+extern const instr_info_t T32_16_ext_bits_7_6[][4];
 extern const instr_info_t T32_16_ext_bits_6_4[][8];
 extern const instr_info_t T32_16_ext_imm_3_0[][2];
 

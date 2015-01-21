@@ -155,9 +155,9 @@
 #define y118  (ptr_int_t)&T32_16_ext_bits_11_8
 #define y96   (ptr_int_t)&T32_16_ext_bits_9_6
 #define y7    (ptr_int_t)&T32_16_ext_bit_7
-#define y6    (ptr_int_t)&T32_16_ext_bit_6
+#define y54   (ptr_int_t)&T32_16_ext_bits_5_4
 #define y109  (ptr_int_t)&T32_16_ext_bits_10_9
-#define y86   (ptr_int_t)&T32_16_ext_bits_8_6
+#define y76   (ptr_int_t)&T32_16_ext_bits_7_6
 #define y64   (ptr_int_t)&T32_16_ext_bits_6_4
 #define y30   (ptr_int_t)&T32_16_ext_imm_3_0
 
@@ -270,6 +270,9 @@
 #define RYb  TYPE_R_Y, OPSZ_1
 #define RZh  TYPE_R_Z, OPSZ_PTR_HALF
 #define RZb  TYPE_R_Z, OPSZ_1
+#define RVDw TYPE_R_V_DUP, OPSZ_PTR
+#define RWDw TYPE_R_W_DUP, OPSZ_PTR
+#define RZDw TYPE_R_Z_DUP, OPSZ_PTR
 
 #define VAdq   TYPE_V_A, OPSZ_16
 #define VBdq   TYPE_V_B, OPSZ_16
