@@ -224,7 +224,9 @@ bool
 instr_is_mbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    if (opc == OP_bx || opc ==  OP_bxj || opc == OP_blx_ind)
+    if (opc == OP_bx || opc ==  OP_bxj || opc == OP_blx_ind ||
+        opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
+        opc == OP_eret || opc == OP_tbb || opc == OP_tbh)
         return true;
     /* Any instr that writes to the pc, even conditionally (b/c consider that
      * OP_blx_ind when conditional is still an mbr) is an mbr.

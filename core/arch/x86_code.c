@@ -92,6 +92,13 @@ dynamo_start(priv_mcontext_t *mc)
     dynamorio_take_over_threads(dcontext);
 
     /* Set return address */
+#ifdef ARM
+    if (TEST(0x1, (ptr_uint_t)mc->pc)) {
+        LOG(THREAD, LOG_TOP, 2, "%s: entry "PFX" is Thumb\n", __FUNCTION__, mc->pc);
+        dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, NULL);
+        mc->pc = (app_pc) (((ptr_uint_t)mc->pc) & ~0x1);
+    }
+#endif
     dcontext->next_tag = mc->pc;
     ASSERT(dcontext->next_tag != NULL);
 

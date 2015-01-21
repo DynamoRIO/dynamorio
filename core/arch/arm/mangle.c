@@ -390,6 +390,16 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* remove the bx */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
+    } else if (opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
+               opc == OP_eret || opc == OP_tbb || opc == OP_tbh) {
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+        /* FIXME i#1551: we should add add dr_insert_get_mbr_branch_target() for
+         * use internally and by clients, as OP_tb{b,h} break our assumptions
+         * of the target simply being stored as an absolute address at
+         * the memory operand location.  Instead, these are pc-relative:
+         * pc += memval*2.
+         */
     } else {
         /* Explicitly writes just the pc */
         uint i;
@@ -413,7 +423,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * For pc read or rip-rel: b/c post-app-instr restore can't
      * rely on pred flags (app instr could change them), just
      * have all the mangling be non-pred?  No hurt, right?
-     * Though may as well have the mov-immed for magle_rel_addr
+     * Though may as well have the mov-immed for mangle_rel_addr
      * be predicated.
      */
 }

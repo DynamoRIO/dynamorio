@@ -49,9 +49,9 @@ const instr_info_t T32_base_e[] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     /* 80 */
     {OP_srsdb,    0xe80dc000, "srsdb",  Mq, xx, i5, LRw, SPSR, no, x, xbase[0x02]},/*PUW=000*/
-    {OP_rfedb,    0xe810c000, "rfedb",  CPSR, xx, Mq, xx, xx, no, x, END_LIST},/*PUW=000*//*FIXME i#1551: this is a branch*/
+    {OP_rfedb,    0xe810c000, "rfedb",  CPSR, xx, Mq, xx, xx, no, x, END_LIST},/*PUW=000*/
     {OP_srsdb,    0xe82dc000, "srsdb",  Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=001*/
-    {OP_rfedb,    0xe830c000, "rfedb",  RAw, CPSR, Mq, RAw, xx, no, x, xbase[0x01]},/*PUW=001*//*FIXME i#1551: this is a branch*/
+    {OP_rfedb,    0xe830c000, "rfedb",  RAw, CPSR, Mq, RAw, xx, no, x, xbase[0x01]},/*PUW=001*/
     {OP_strex,    0xe8400000, "strex",  MP8w, RCw, RBw, xx, xx, no, x, END_LIST},
     {OP_ldrex,    0xe8500f00, "ldrex",  RBw, xx, MP8w, xx, xx, no, x, END_LIST},
     {OP_strd,     0xe8600000, "strd",   Mq, RAw, RBw, RCw, n8, xop_wb, x, END_LIST},/*PUW=001*/
@@ -74,9 +74,9 @@ const instr_info_t T32_base_e[] = {
     {OP_strd,     0xe9600000, "strd",   MN8q, RAw, RBw, RCw, n8, xop_wb, x, xbase[0x0e]},/*PUW=101*/
     {OP_ldrd,     0xe9700000, "ldrd",   RBw, RCw, RAw, MN8q, n8, xop_wb|dstX3, x, xbase[0x0f]},/*PUW=101*/
     {OP_srs,      0xe98dc000, "srs",    Mq, xx, i5, LRw, SPSR, no, x, xbase[0x1a]},/*PUW=110*/
-    {OP_rfe,      0xe990c000, "rfe",    CPSR, xx, Mq, xx, xx, no, x, xbase[0x1b]},/*PUW=110*//*FIXME i#1551: this is a branch*/
+    {OP_rfe,      0xe990c000, "rfe",    CPSR, xx, Mq, xx, xx, no, x, xbase[0x1b]},/*PUW=110*/
     {OP_srs,      0xe9adc000, "srs",    Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=111*/
-    {OP_rfe,      0xe9b0c000, "rfe",    RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=111*//*FIXME i#1551: this is a branch*/
+    {OP_rfe,      0xe9b0c000, "rfe",    RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=111*/
     {OP_strd,     0xe9c00000, "strd",   MP8q, xx, RBw, RCw, xx, no, x, xbase[0x14]},/*PUW=110*/
     {OP_ldrd,     0xe9d00000, "ldrd",   RBw, RCw, MP8q, xx, xx, no, x, xbase[0x15]},/*PUW=110*/
     {OP_strd,     0xe9e00000, "strd",   MP8q, RAw, RBw, RCw, i8, xop_wb, x, xbase[0x16]},/*PUW=111*/
@@ -369,7 +369,7 @@ const instr_info_t T32_ext_bits_A10_6_4[][16] = {
     {EXT_B10_8,   0xf3af8000, "(ext b10_8 0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_B6_4,    0xf3bf8000, "(ext b6_4 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_bxj,      0xf3c08f00, "bxj",    xx, xx, RDw, xx, xx, no, x, END_LIST},
-    {OP_eret,     0xf3de8f00, "eret",   xx, xx, LRw, i8, xx, no, fWNZCV, END_LIST},/*FIXME i#1551: this is a branch*//*XXX: identical to "subs pc, lr, #0"*/
+    {OP_eret,     0xf3de8f00, "eret",   xx, xx, LRw, i8, xx, no, fWNZCV, END_LIST},/*XXX: identical to "subs pc, lr, #0"*/
     {EXT_B5,      0xf3e08000, "(ext b5 2)", xx, xx, xx, xx, xx, no, x, 2},
     {EXT_B5,      0xf3f08000, "(ext b5 3)", xx, xx, xx, xx, xx, no, x, 3},
     {EXT_B2_0,    0xf78f8000, "(ext b2_0 1)", xx, xx, xx, xx, xx, no, x, 1},
@@ -505,8 +505,8 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {OP_stlex,    0xe8c00fe0, "stlex",  Mw, RDw, RBw, xx, xx, no, x, END_LIST},
     {OP_stlexd,   0xe8c000f0, "stlexd", Mq, RDw, RBw, RCw, xx, no, x, END_LIST},
   }, { /* 1 */
-    {OP_tbb,      0xe8d0f000, "tbb",    xx, xx, MPRb, no, x, END_LIST},/*FIXME i#1551: this is a branch,pc+=memval*2: add dr_insert_get_mbr_branch_target()*/
-    {OP_tbh,      0xe8d0f010, "tbh",    xx, xx, MPLS1h, no, x, END_LIST},/*FIXME i#1551: this is a branch,pc+=memval*2*/
+    {OP_tbb,      0xe8d0f000, "tbb",    xx, xx, MPRb, no, x, END_LIST},
+    {OP_tbh,      0xe8d0f010, "tbh",    xx, xx, MPLS1h, no, x, END_LIST},
     {INVALID,     0xe8d00020, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xe8d00030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_ldrexb,   0xe8d00f4f, "ldrexb", RBw, xx, Mb, xx, xx, no, x, END_LIST},
