@@ -231,8 +231,8 @@ const instr_info_t T32_16_ext_bits_5_4[][4] = {
 const instr_info_t T32_16_ext_bits_10_9[][4] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {OP_adds,    0x1800, "adds",   RZw, xx, RYw,  RWw, xx, no, fWNZCV, y11[3][0x00]},
-      {OP_subs,    0x1a00, "subs",   RZw, xx, RYw,  RWw, xx, no, fWNZCV, y11[3][0x01]},
+      {OP_adds,    0x1800, "adds",   RZw, xx, RYw,  RXw, xx, no, fWNZCV, y11[3][0x00]},
+      {OP_subs,    0x1a00, "subs",   RZw, xx, RYw,  RXw, xx, no, fWNZCV, y11[3][0x01]},
       {OP_adds,    0x1c00, "adds",   RZw, xx, RYw, i3_6, xx, no, fWNZCV, y109[0][0x00]},
       {OP_subs,    0x1e00, "subs",   RZw, xx, RYw, i3_6, xx, no, fWNZCV, y109[0][0x01]},
     },
