@@ -2176,7 +2176,7 @@ optype_is_reglist(int optype)
 }
 
 static void
-decode_check_opnds(int optype[], uint num_types)
+decode_check_reglist(int optype[], uint num_types)
 {
     /* Ensure at most 1 reglist, and at most 1 reg after a reglist */
     uint i, num_reglist = 0, reglist_idx;
@@ -2194,6 +2194,69 @@ decode_check_opnds(int optype[], uint num_types)
         }
     }
     ASSERT(num_reglist <= 1);
+}
+
+static void
+decode_check_reg_dup(int src_type[], uint num_srcs, int dst_type[], uint num_dsts)
+{
+    uint i;
+    /* TYPE_R_*_DUP are always srcs and the 1st dst is the corresponding non-dup type */
+    for (i = 0; i < num_srcs; i++) {
+        switch (src_type[i]) {
+        case TYPE_R_V_DUP:
+            ASSERT(dst_type[0] == TYPE_R_V);
+            break;
+        case TYPE_R_W_DUP:
+            ASSERT(dst_type[0] == TYPE_R_W);
+            break;
+        case TYPE_R_Z_DUP:
+            ASSERT(dst_type[0] == TYPE_R_Z);
+            break;
+        }
+    }
+    for (i = 0; i < num_dsts; i++) {
+        switch (dst_type[i]) {
+        case TYPE_R_V_DUP:
+        case TYPE_R_W_DUP:
+        case TYPE_R_Z_DUP:
+            ASSERT(false);
+        }
+    }
+}
+
+static void
+decode_check_writeback(int src_type[], uint num_srcs, int dst_type[], uint num_dsts)
+{
+    uint i;
+    for (i = 0; i < num_srcs; i++) {
+        switch (src_type[i]) {
+        case TYPE_M_POS_I5:
+        case TYPE_M_SP_POS_I8:
+        case TYPE_M_PCREL_POS_I8:
+            /* no writeback */
+            ASSERT(dst_type[1] == TYPE_NONE);
+            break;
+        }
+    }
+    for (i = 0; i < num_dsts; i++) {
+        switch (dst_type[i]) {
+        case TYPE_M_POS_I5:
+        case TYPE_M_SP_POS_I8:
+        case TYPE_M_PCREL_POS_I8:
+            /* no writeback */
+            ASSERT(dst_type[1] == TYPE_NONE);
+            break;
+        }
+    }
+}
+
+static void
+decode_check_opnds(int src_type[], uint num_srcs, int dst_type[], uint num_dsts)
+{
+    decode_check_reglist(src_type, num_srcs);
+    decode_check_reglist(dst_type, num_dsts);
+    decode_check_reg_dup(src_type, num_srcs, dst_type, num_dsts);
+    decode_check_writeback(src_type, num_srcs, dst_type, num_dsts);
 }
 # endif /* STANDALONE_DECODER */
 
@@ -2234,8 +2297,7 @@ check_ISA(dr_isa_mode_t isa_mode)
                 /* Sanity-check encoding chain */
                 ASSERT(info->type == opc);
 
-                decode_check_opnds(dst_type, num_dsts);
-                decode_check_opnds(src_type, num_srcs);
+                decode_check_opnds(src_type, num_srcs, dst_type, num_dsts);
 
                 info = get_next_instr_info(info);
             }
