@@ -117,7 +117,7 @@ bool
 module_is_partial_map(app_pc base, size_t size, uint memprot);
 
 bool
-module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool relocated,
+module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
                             app_pc *out_base,
                             app_pc *out_first_end, /* first segment's end */
                             app_pc *out_max_end,

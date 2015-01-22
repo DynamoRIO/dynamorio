@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3867,6 +3867,12 @@ free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which))
         dr_strfree(mod_names->exe_name HEAPACCT(which));
     if (mod_names->rsrc_name != NULL)
         dr_strfree(mod_names->rsrc_name HEAPACCT(which));
+}
+
+void
+module_copy_os_data(os_module_data_t *dst, os_module_data_t *src)
+{
+    memcpy(dst, src, sizeof(*dst));
 }
 
 /* destructor for os-specific module area fields */

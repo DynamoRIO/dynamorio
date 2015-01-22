@@ -177,7 +177,7 @@ bool
 module_get_relro(app_pc base, OUT app_pc *relro_base, OUT size_t *relro_size);
 
 bool
-module_read_os_data(app_pc base, bool relocated,
+module_read_os_data(app_pc base, bool dyn_reloc,
                     OUT ptr_int_t *delta,
                     OUT os_module_data_t *os_data,
                     OUT char **soname);

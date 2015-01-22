@@ -161,7 +161,7 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 bool
-module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool relocated,
+module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
                             OUT app_pc *out_base /* relative pc */,
                             OUT app_pc *out_first_end /* relative pc */,
                             OUT app_pc *out_max_end /* relative pc */,
@@ -626,7 +626,7 @@ module_has_text_relocs_ex(app_pc base, os_privmod_data_t *pd)
 }
 
 bool
-module_read_os_data(app_pc base, bool relocated,
+module_read_os_data(app_pc base, bool dyn_reloc,
                     OUT ptr_int_t *load_delta,
                     OUT os_module_data_t *os_data,
                     OUT char **soname)
@@ -640,19 +640,21 @@ char *
 get_shared_lib_name(app_pc map)
 {
     char *soname;
-    if (!module_walk_program_headers(map, PAGE_SIZE/*at least*/, false, true,
+    if (!module_walk_program_headers(map, PAGE_SIZE/*at least*/, false,
+                                     true/*doesn't matter for soname*/,
                                      NULL, NULL, NULL, &soname, NULL))
         return NULL;
     return soname;
 }
 
 void
-module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
+module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
                            OUT os_privmod_data_t *pd)
 {
     pd->load_delta = 0; /* FIXME i#58: need preferred base */
-    module_walk_program_headers(base, size, false, true, NULL,
-                                NULL, NULL, &pd->soname, NULL);
+    module_walk_program_headers(base, size, false,
+                                true, /* i#1589: ld.so relocated .dynamic */
+                                NULL, NULL, NULL, &pd->soname, NULL);
     /* XXX i#1285: fill in the rest of the fields */
     return;
 }

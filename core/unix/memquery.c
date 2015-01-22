@@ -139,7 +139,9 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
                 if (module_is_header(mod_start, mod_readable_sz)) {
                     app_pc mod_base, mod_end;
                     if (module_walk_program_headers(mod_start, mod_readable_sz,
-                                                    false, true,
+                                                    false,
+                                                    /*i#1589: ld.so relocated .dynamic*/
+                                                    true,
                                                     &mod_base, NULL, &mod_end, NULL,
                                                     NULL)) {
                         image_size = mod_end - mod_base;

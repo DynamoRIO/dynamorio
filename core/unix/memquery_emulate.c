@@ -144,7 +144,8 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
                                     /* FIXME: don't have view size: but
                                      * anything larger than header sizes works
                                      */
-                                    PAGE_SIZE, false, true,
+                                    PAGE_SIZE, false,
+                                    true, /* i#1589: ld.so relocated .dynamic */
                                     &pref_start, NULL, &pref_end, NULL, NULL)) {
         /* we're passed back start,end of preferred base */
         if ((iter_data->target_addr != NULL &&
@@ -257,7 +258,8 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
         /* Candidate for VDSO.  Xref PR 289138 on using AT_SYSINFO to locate. */
         /* Xref VSYSCALL_PAGE_START_HARDCODED but later linuxes randomize */
         char *soname;
-        if (module_walk_program_headers(modbase, modsize, false, true,
+        if (module_walk_program_headers(modbase, modsize, false,
+                                        true, /* i#1589: ld.so relocated .dynamic */
                                         NULL, NULL, NULL, &soname, NULL) &&
             strncmp(soname, VSYSCALL_PAGE_SO_NAME,
                     strlen(VSYSCALL_PAGE_SO_NAME)) == 0) {

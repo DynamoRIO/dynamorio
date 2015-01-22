@@ -73,8 +73,13 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     char *soname = NULL;
     ASSERT(module_is_header(base, view_size));
 
-    module_walk_program_headers(base, view_size, at_map, !at_map,
-                                &mod_base, NULL, &mod_end, &soname, &ma->os_data);
+    /* i#1589: use privload data if it exists (for client lib) */
+    if (!privload_fill_os_module_info(base, &mod_base, &mod_end,
+                                      &soname, &ma->os_data)) {
+        module_walk_program_headers(base, view_size, at_map,
+                                    !at_map, /* i#1589: ld.so relocates .dynamic */
+                                    &mod_base, NULL, &mod_end, &soname, &ma->os_data);
+    }
     if (ma->os_data.contiguous) {
         app_pc map_end = ma->os_data.segments[ma->os_data.num_segments-1].end;
         module_list_add_mapping(ma, base, map_end);
@@ -198,6 +203,18 @@ free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which))
         dr_strfree(mod_names->module_name HEAPACCT(which));
     if (mod_names->file_name != NULL)
         dr_strfree(mod_names->file_name HEAPACCT(which));
+}
+
+void
+module_copy_os_data(os_module_data_t *dst, os_module_data_t *src)
+{
+    memcpy(dst, src, sizeof(*dst));
+    if (src->segments != NULL) {
+        dst->segments = (module_segment_t *)
+            HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
+                             src->alloc_segments, ACCT_OTHER, PROTECTED);
+        memcpy(dst->segments, src->segments, src->num_segments*sizeof(module_segment_t));
+    }
 }
 
 void

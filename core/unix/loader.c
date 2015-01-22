@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -780,7 +780,7 @@ get_private_library_address(app_pc modbase, const char *name)
         os_module_data_t os_data;
         memset(&os_data, 0, sizeof(os_data));
         if (!module_read_os_data(mod->base,
-                                 false /* not relocated yet: i#1589 */,
+                                 false /* .dynamic not relocated (i#1589) */,
                                  &delta, &os_data, &soname)) {
             release_recursive_lock(&privload_lock);
             return NULL;
@@ -868,6 +868,8 @@ privload_relocate_mod(privmod_t *mod)
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
+    LOG(GLOBAL, LOG_LOADER, 3, "relocating %s\n", mod->name);
+
     /* If module has tls block need update its tls offset value */
     if (opd->tls_block_size != 0)
         privload_mod_tls_init(mod);
@@ -918,7 +920,6 @@ static void
 privload_create_os_privmod_data(privmod_t *privmod)
 {
     os_privmod_data_t *opd;
-    app_pc out_base, out_end;
 
     opd = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, os_privmod_data_t,
                           ACCT_OTHER, PROTECTED);
@@ -928,8 +929,9 @@ privload_create_os_privmod_data(privmod_t *privmod)
     /* walk the module's program header to get privmod information */
     module_walk_program_headers(privmod->base, privmod->size,
                                 false, /* segments are remapped */
-                                false, /* i#1589: relocs are after imports */
-                                &out_base, NULL, &out_end, &opd->soname,
+                                false, /* i#1589: .dynamic not relocated */
+                                &opd->os_data.base_address, NULL,
+                                &opd->max_end, &opd->soname,
                                 &opd->os_data);
     module_get_os_privmod_data(privmod->base, privmod->size,
                                false/*!relocated*/, opd);
@@ -944,6 +946,36 @@ privload_delete_os_privmod_data(privmod_t *privmod)
     privmod->os_privmod_data = NULL;
 }
 
+/* i#1589: the client lib is already on the priv lib list, so we share its
+ * data with loaded_module_areas (which also avoids problems with .dynamic
+ * not being relocated for priv libs).
+ */
+bool
+privload_fill_os_module_info(app_pc base,
+                             OUT app_pc *out_base /* relative pc */,
+                             OUT app_pc *out_max_end /* relative pc */,
+                             OUT char **out_soname,
+                             OUT os_module_data_t *out_data)
+{
+    bool res = false;
+    privmod_t *privmod;
+    acquire_recursive_lock(&privload_lock);
+    privmod = privload_lookup_by_base(base);
+    if (privmod != NULL) {
+        os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
+        if (out_base != NULL)
+            *out_base = opd->os_data.base_address;
+        if (out_max_end != NULL)
+            *out_max_end = opd->max_end;
+        if (out_soname != NULL)
+            *out_soname = opd->soname;
+        if (out_data != NULL)
+            module_copy_os_data(out_data, &opd->os_data);
+        res = true;
+    }
+    release_recursive_lock(&privload_lock);
+    return res;
+}
 
 /****************************************************************************
  *                  Thread Local Storage Handling Code                      *
