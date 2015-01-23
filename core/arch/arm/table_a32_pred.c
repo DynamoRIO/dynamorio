@@ -1037,17 +1037,14 @@ const instr_info_t A32_ext_bit4[][2] = {
     {OP_cdp,     0x0e100000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, pred|xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
     {OP_mrc,     0x0e100010, "mrc",    RBw, i4_8, i3_21, CRAw, CRDw, pred|xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
   }, { /* 11 */
-    {OP_vbic_i16, 0xf2800140, "vbic.i16",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
-    {OP_vorr_i32, 0xf2800150, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
-  }, { /* 12 */
-    {OP_vbic_i32, 0xf2800340, "vbic.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
-    {OP_vorr_i32, 0xf2800350, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-  }, { /* 13 */
     {EXT_BIT6,    0xf2b00000, "(ext bit6   0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_SIMD5,   0xf2b00010, "(ext simd5  1)", xx, xx, xx, xx, xx, no, x, 1},
-  }, { /* 14 */
+  }, { /* 12 */
     {OP_cdp2,     0xfe000000, "cdp2",           CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, END_LIST},/*XXX: disasm not in dst-src order*//*no chain nec.*/
     {OP_mcr2,     0xfe000010, "mcr2",           CRAw, CRDw, i4_8, i3_21, RBw, xop, x, END_LIST},/*XXX: disasm not in dst-src order*/
+  }, { /* 13 */
+    {OP_cdp2,     0xfe100000, "cdp2",           CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, END_LIST},/*XXX: disasm not in dst-src order*//*no chain nec.*/
+    {OP_mrc2,     0xfe100010, "mrc2",          RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
   },
 };
 
@@ -1244,23 +1241,35 @@ const instr_info_t A32_ext_fp[][3] = {
   }, { /* 46 */
     {OP_vsel_eq_f32, 0xfe000a00, "vsel.eq.f32",   WBd, xx, i2_20, WAd, WCd, v8|vfp, fRZ, END_LIST},
     {OP_vsel_eq_f64, 0xfe000b00, "vsel.eq.f64",   VBq, xx, i2_20, VAq, VCq, v8|vfp, fRZ, END_LIST},
-    {EXT_BIT4,       0xfe000000, "(ext bit4 14)", xx, xx, xx, xx, xx, no, x, 14},
+    {EXT_BIT4,       0xfe000000, "(ext bit4 12)", xx, xx, xx, xx, xx, no, x, 12},
   }, { /* 47 */
     {OP_vsel_vs_f32, 0xfe100a00, "vsel.vs.f32",   WBd, xx, i2_20, WAd, WCd, v8|vfp, fRV, END_LIST},
     {OP_vsel_vs_f64, 0xfe100b00, "vsel.vs.f64",   VBq, xx, i2_20, VAq, VCq, v8|vfp, fRV, END_LIST},
-    {OP_mrc2,        0xfe100010, "mrc2",          RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+    {EXT_BIT4,       0xfe100000, "(ext bit4 13)", xx, xx, xx, xx, xx, no, x, 13},
   }, { /* 48 */
     {OP_vsel_ge_f32, 0xfe200a00, "vsel.ge.f32",   WBd, xx, i2_20, WAd, WCd, v8|vfp, fRNV, END_LIST},
     {OP_vsel_ge_f64, 0xfe200b00, "vsel.ge.f64",   VBq, xx, i2_20, VAq, VCq, v8|vfp, fRNV, END_LIST},
-    {INVALID,        0xfe200000, "(bad)",         xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_BIT4,       0xfe200000, "(ext bit4 12)", xx, xx, xx, xx, xx, no, x, 12},
   }, { /* 49 */
     {OP_vsel_gt_f32, 0xfe300a00, "vsel.gt.f32",   WBd, xx, i2_20, WAd, WCd, v8|vfp, fRNZV, END_LIST},
     {OP_vsel_gt_f64, 0xfe300b00, "vsel.gt.f64",   VBq, xx, i2_20, VAq, VCq, v8|vfp, fRNZV, END_LIST},
-    {INVALID,        0xfe300000, "(bad)",         xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_BIT4,       0xfe100000, "(ext bit4 13)", xx, xx, xx, xx, xx, no, x, 13},
   }, { /* 50 */
     {EXT_BIT6,       0xfe800a00, "(ext bit6  1)", xx, xx, xx, xx, xx, no, x, 1},
     {EXT_BIT6,       0xfe800b00, "(ext bit6  2)", xx, xx, xx, xx, xx, no, x, 2},
-    {INVALID,        0xfe800000, "(bad)",         xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_BIT4,       0xfe200000, "(ext bit4 12)", xx, xx, xx, xx, xx, no, x, 12},
+  }, { /* 51 */
+    {INVALID,        0xfe900a00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0xfe900b00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_BIT4,       0xfe900000, "(ext bit4 13)", xx, xx, xx, xx, xx, no, x, 13},
+  }, { /* 52 */
+    {INVALID,        0xfea00a00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0xfea00b00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {EXT_BIT4,       0xfea00000, "(ext bit4 12)", xx, xx, xx, xx, xx, no, x, 12},
+  }, { /* 53 */
+    {EXT_SIMD5B,     0xfeb00a00, "(ext simd5b 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_SIMD5B,     0xfeb00b00, "(ext simd5b 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_BIT4,       0xfeb00000, "(ext bit4 13)", xx, xx, xx, xx, xx, no, x, 13},
   },
 };
 

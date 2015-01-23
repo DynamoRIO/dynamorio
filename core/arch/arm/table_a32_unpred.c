@@ -69,7 +69,7 @@ const instr_info_t A32_unpred_opc7[] = {
     {EXT_BIT19,  0xf2800000, "(ext bit19  0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_SIMD6,  0xf2900000, "(ext simd6  4)", xx, xx, xx, xx, xx, no, x, 4},
     {EXT_SIMD6,  0xf2a00000, "(ext simd6  5)", xx, xx, xx, xx, xx, no, x, 5},
-    {EXT_BIT4,   0xf2b00000, "(ext bit4  13)", xx, xx, xx, xx, xx, no, x, 13},
+    {EXT_BIT4,   0xf2b00000, "(ext bit4  11)", xx, xx, xx, xx, xx, no, x, 11},
     /* 30 */
     {EXT_SIMD6,  0xf3000000, "(ext simd6  6)", xx, xx, xx, xx, xx, no, x, 6},
     {EXT_SIMD6,  0xf3100000, "(ext simd6  7)", xx, xx, xx, xx, xx, no, x, 7},
@@ -175,9 +175,9 @@ const instr_info_t A32_unpred_opc7[] = {
     {EXT_FP,     0xfe200000, "(ext fp 48)",    xx, xx, xx, xx, xx, no, x, 48},
     {EXT_FP,     0xfe300000, "(ext fp 49)",    xx, xx, xx, xx, xx, no, x, 49},
     {EXT_FP,     0xfe800000, "(ext fp 50)",    xx, xx, xx, xx, xx, no, x, 50},
-    {INVALID,    0xfe900000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,    0xfea00000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {EXT_SIMD5B, 0xfeb00000, "(ext simd5b 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_FP,     0xfe900000, "(ext fp 51)",    xx, xx, xx, xx, xx, no, x, 51},
+    {EXT_FP,     0xfea00000, "(ext fp 52)",    xx, xx, xx, xx, xx, no, x, 52},
+    {EXT_FP,     0xfeb00000, "(ext fp 53)",    xx, xx, xx, xx, xx, no, x, 53},
     /* f0 */
     {INVALID,    0xff000000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xff100000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
@@ -1273,7 +1273,7 @@ const instr_info_t A32_ext_simd8[][144] = {
     {OP_vaddw_s8,       0xf2800100, "vaddw.s8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf2800110, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, tb4[11][0x01]},
     {OP_vbic_i16,       0xf2800130, "vbic.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, tb4[11][0x00]},/*XXX: encode immed expansion to 16 vs 32?*/
-    {EXT_BIT4,          0xf2800150, "(ext bit4 11)",  xx, xx, xx, xx, xx, no, x, 11},
+    {OP_vorr_i32,       0xf2800150, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
     {INVALID,           0xf2800170, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,           0xf2800190, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,           0xf28001b0, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
@@ -1293,7 +1293,7 @@ const instr_info_t A32_ext_simd8[][144] = {
     {OP_vsubw_s8,       0xf2800300, "vsubw.s8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf2800310, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vbic_i32,       0xf2800330, "vbic.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, tb4[12][0x00]},
-    {EXT_BIT4,          0xf2800350, "(ext bit4 12)",  xx, xx, xx, xx, xx, no, x, 12},
+    {OP_vorr_i32,       0xf2800350, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {INVALID,           0xf2800370, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_vrsra_s64,      0xf2800390, "vrsra.s64",      VBq, xx, VCq, i6_16, xx, no, x, tsi8[0][0x22]},/*XXX: imm = 64-imm*/
     {INVALID,           0xf28003b0, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
