@@ -164,7 +164,7 @@ struct _decode_info_t {
     uint instr_word;
     ushort halfwordA; /* T32 only */
     ushort halfwordB; /* T32.32 only */
-    bool T32_32; /* whether T32.32 as opposed to T32.16 */
+    bool T32_16; /* whether T32.16 as opposed to T32.32 or A32 */
 
     uint opcode;
     uint predicate;
@@ -375,13 +375,17 @@ enum {
     TYPE_L_VAx3,  /* 3 consecutive multimedia regs starting at TYPE_V_A */
     TYPE_L_VAx4,  /* 4 consecutive multimedia regs starting at TYPE_V_A */
 
-    /* All memory addressing modes use fixed base and index registers:
+    /* All memory addressing modes use fixed base and index registers in A32 and T32.32:
      * A32: base  = RA 19:16 ("Rn" in manual)
      *      index = RD  3:0  ("Rm" in manual)
-     * T32.16: base  = RY  5:3  ("Rn" in manual)
-     *         index = RW  8:6  ("Rm" in manual)
      * T32.32: base  = RA 19:16 ("Rn" in manual)
      *         index = RD  3:0  ("Rm" in manual)
+     *
+     * T32.16 may use fixed register for index but different register for base.
+     * T32.16: base  = RY  5:3  ("Rn" in manual)
+     *                 RW 10:8  ("Rn" in manual) for ldm/stm
+     *         index = RX  8:6  ("Rm" in manual)
+     *
      * A64: base  =
      *      index =
      *
@@ -414,7 +418,7 @@ enum {
     TYPE_M_POS_I4_4,  /* mem offs + 8-bit immed split @ 11:8|3:0 */
     TYPE_M_NEG_I4_4,  /* mem offs - 8-bit immed split @ 11:8|3:0 */
     TYPE_M_SI7,       /* mem offs + signed 7-bit immed @ 6:0 */
-    TYPE_M_POS_I5,    /* mem offs + 4 * 5-bit immed @ 5:0 */
+    TYPE_M_POS_I5,    /* mem offs + 4 * 5-bit immed @ 10:6 */
 
     TYPE_M_PCREL_POS_I8,  /* mem offs pc-relative + 4 * 8-bit immed @  7:0 */
     TYPE_M_PCREL_POS_I12, /* mem offs pc-relative + 12-bit immed @ 11:0 */

@@ -120,7 +120,7 @@ const instr_info_t T32_16_ext_bits_11_9[][8] = {
       {OP_strh,   0x5200, "strh",   MPRh, xx,  RZh,  xx,  xx, no, x, y11[6][0x00]},
       {OP_strb,   0x5400, "strb",   MPRb, xx,  RZb,  xx,  xx, no, x, y11[5][0x00]},
       {OP_ldrsb,  0x5600, "ldrsb",   RZw, xx, MPRb,  xx,  xx, no, x, xopbx[6][0x05]},
-      {OP_ldr,    0x5800, "ldr",     RZw, xx,   Mw,  xx,  xx, no, x, y11[4][0x01]},
+      {OP_ldr,    0x5800, "ldr",     RZw, xx, MPRw,  xx,  xx, no, x, y11[4][0x01]},
       {OP_ldrh,   0x5a00, "ldrh",    RZw, xx, MPRh,  xx,  xx, no, x, y11[6][0x01]},
       {OP_ldrb,   0x5c00, "ldrb",    RZw, xx, MPRb,  xx,  xx, no, x, y11[5][0x01]},
       {OP_ldrsh,  0x5e00, "ldrsh",   RZw, xx, MPRh,  xx,  xx, no, x, xopbx[7][0x05]},

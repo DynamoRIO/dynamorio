@@ -992,20 +992,25 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_M:
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, false/*just sz*/);
         array[(*counter)++] =
-            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, 0, opsize);
+            opnd_create_base_disp(di->T32_16 ? decode_regW(di) : decode_regA(di),
+                                  REG_NULL, 0, 0, opsize);
         return true;
     case TYPE_M_SP:
+        CLIENT_ASSERT(di->T32_16,
+                      "32-bit instrs should use general types, not TYPE_M_SP");
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, false/*just sz*/);
         array[(*counter)++] =
             opnd_create_base_disp(DR_REG_SP, REG_NULL, 0, 0, opsize);
         return true;
     case TYPE_M_POS_I12:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
                                   decode_immed(di, 0, OPSZ_12b, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_NEG_I12:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
                                   -decode_immed(di, 0, OPSZ_12b, false/*unsigned*/),
@@ -1014,7 +1019,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_M_POS_REG:
     case TYPE_M_NEG_REG:
         array[(*counter)++] =
-            opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), DR_SHIFT_NONE, 0,
+            opnd_create_base_disp_arm(di->T32_16 ? decode_regY(di) : decode_regA(di),
+                                      di->T32_16 ? decode_regX(di) : decode_regD(di),
+                                      DR_SHIFT_NONE, 0,
                                       0, optype == TYPE_M_NEG_REG ?
                                       DR_OPND_NEGATED : 0, opsize);
         return true;
@@ -1022,6 +1029,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_M_NEG_SHREG: {
         uint amount;
         dr_shift_type_t shift = decode_index_shift(di, SHIFT_ENCODING_DECODE, &amount);
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), shift, amount,
                                       0, optype == TYPE_M_NEG_SHREG ?
@@ -1031,17 +1039,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_M_POS_LSHREG: {
         uint amount;
         dr_shift_type_t shift = decode_index_shift(di, SHIFT_ENCODING_LSL, &amount);
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), shift, amount,
                                       0, 0, opsize);
         return true;
     }
     case TYPE_M_POS_LSH1REG:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), DR_SHIFT_LSL, 1,
                                       0, 0, opsize);
         return true;
     case TYPE_M_SI9:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
                                   /* 9-bit signed immed @ 20:12 */
@@ -1049,24 +1060,29 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                                   opsize);
         return true;
     case TYPE_M_SI7:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
                                   decode_immed(di, 0, OPSZ_7b, true/*signed*/),
                                   opsize);
         return true;
     case TYPE_M_POS_I8:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
                                   4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_NEG_I8:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
                                   -4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_SP_POS_I8:
+        CLIENT_ASSERT(di->T32_16,
+                      "32-bit instrs should use general types, not TYPE_M_SP_POS_I8");
         array[(*counter)++] =
             opnd_create_base_disp(DR_REG_SP, REG_NULL, 0,
                                   4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
@@ -1076,6 +1092,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         ptr_int_t val =
             (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4) |
             decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, val, opsize);
         return true;
@@ -1084,22 +1101,26 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         ptr_int_t val =
             (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4) |
             decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, -val, opsize);
         return true;
     }
     case TYPE_M_POS_I5:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
         array[(*counter)++] =
-            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
-                                  decode_immed(di, 0, OPSZ_5b, false/*unsigned*/),
+            opnd_create_base_disp(decode_regY(di), REG_NULL, 0,
+                                  decode_immed(di, 6, OPSZ_5b, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_UP_OFFS:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, false/*just sz*/);
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, sizeof(void*), opsize);
         return true;
     case TYPE_M_DOWN:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, true/*disp*/);
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
@@ -1118,12 +1139,14 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
     case TYPE_M_PCREL_POS_I8: {
         ptr_int_t disp = decode_immed(di, 0, OPSZ_1, false/*unsigned*/) << 2;
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
         array[(*counter)++] = opnd_create_base_disp(DR_REG_PC, REG_NULL, 0, disp, opsize);
         return true;
     }
     case TYPE_M_PCREL_POS_I12:
     case TYPE_M_PCREL_NEG_I12: {
         ptr_int_t disp = decode_immed(di, 0, OPSZ_12b, false/*unsigned*/);
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         if (optype == TYPE_M_PCREL_NEG_I12)
             disp = -disp;
         array[(*counter)++] = opnd_create_base_disp(DR_REG_PC, REG_NULL, 0, disp, opsize);
@@ -1496,6 +1519,7 @@ read_instruction(byte *pc, byte *orig_pc,
     di->mem_needs_reglist_sz = NULL;
     di->reglist_sz = -1;
     di->predicate = DR_PRED_NONE;
+    di->T32_16 = false;
 
     /* Read instr bytes and find instr_info */
     if (di->isa_mode == DR_ISA_ARM_THUMB) {
@@ -1504,7 +1528,6 @@ read_instruction(byte *pc, byte *orig_pc,
         /* First, split by whether 16 or 32 bits */
         if (TESTALL(0xe800, di->halfwordA) || TESTALL(0xf000, di->halfwordA)) {
             /* 32 bits */
-            di->T32_32 = true;
             di->halfwordB = *(ushort *)pc;
             pc += sizeof(ushort);
             /* We put A up high (so this does NOT match little-endianness) */
@@ -1512,7 +1535,7 @@ read_instruction(byte *pc, byte *orig_pc,
             info = decode_instr_info_T32_32(di);
         } else {
             /* 16 bits */
-            di->T32_32 = false;
+            di->T32_16 = true;
             di->instr_word = di->halfwordA;
             info = decode_instr_info_T32_16(di);
         }
