@@ -56,7 +56,7 @@ enum {
     EXT_BIT5,    /* Indexed by bit 5 */
     EXT_BIT9,    /* Indexed by bit 9 */
     EXT_FP,      /* Indexed by bits 11:8 but collapsed */
-    EXT_FPA,     /* Indexed by bits 6:4 but collapsed */
+    EXT_FPA,     /* Indexed by bits 6,4 but invalid if ==3 */
     EXT_FPB,     /* Indexed by bits 6:4 */
     EXT_BITS16,  /* Indexed by bits 19:16 */
     EXT_RAPC,    /* Indexed by whether RA != PC */

@@ -1273,12 +1273,7 @@ const instr_info_t A32_ext_fp[][3] = {
   },
 };
 
-/* Indexed by bits 6:4 but in the following manner:
- * + If 6:4 == 0, take entry 0;
- * + If 6:4 == 1, take entry 1;
- * + If 6:4 == 4, take entry 2;
- * + Else, invalid.
- */
+/* Indexed by bits 6,4 but if both are set it's invalid. */
 const instr_info_t A32_ext_opc4fpA[][3] = {
   { /* 0 */
     {OP_vmla_f32, 0x0e000a00, "vmla.f32",  WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},

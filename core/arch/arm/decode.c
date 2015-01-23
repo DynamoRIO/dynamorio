@@ -1392,8 +1392,7 @@ decode_instr_info_A32(decode_info_t *di)
             idx = (idx == 0xa ? 0 : (idx == 0xb ? 1 : 2));
             info = &A32_ext_fp[info->code][idx];
         } else if (info->type == EXT_FPA) {
-            idx = ((instr_word >> 4) & 0x7) /*bits 6:4*/;
-            idx = (idx == 0 ? 0 : (idx == 1 ? 1 : (idx == 4 ? 2 : 3)));
+            idx = (((instr_word >> 5) & 0x2) | ((instr_word >> 4) & 0x1)) /*bits 6,4*/;
             if (idx == 3)
                 info = &invalid_instr;
             else
