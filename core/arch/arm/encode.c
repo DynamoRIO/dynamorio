@@ -254,6 +254,7 @@ const char * const type_names[] = {
     "TYPE_I_b0",
     "TYPE_I_x4_b0",
     "TYPE_NI_b0",
+    "TYPE_NI_x4_b0",
     "TYPE_I_b3",
     "TYPE_I_b4",
     "TYPE_I_b5",
@@ -969,6 +970,16 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return (opnd_is_immed_int(opnd) &&
                 encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
                                 false/*unsigned*/, true/*negated*/));
+    case TYPE_I_x4_b0:
+        return (opnd_is_immed_int(opnd) &&
+                (opnd_get_immed_int(opnd) % 4) != 0 &&
+                encode_immed_ok(di, size_temp, opnd_get_immed_int(opnd),
+                                false/*unsigned*/, true/*negated*/));
+    case TYPE_NI_x4_b0:
+        return (opnd_is_immed_int(opnd) &&
+                (opnd_get_immed_int(opnd) % 4) != 0 &&
+                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
+                                false/*unsigned*/, true/*negated*/));
     case TYPE_I_b12_b6:
     case TYPE_I_b7:
         if (size_temp == OPSZ_5b && di->shift_type_idx == opnum - 1)
@@ -1582,8 +1593,14 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b0:
         encode_immed(di, 0, size_temp, get_immed_val_abs(di, opnd), false/*unsigned*/);
         break;
+    case TYPE_I_x4_b0:
+        encode_immed(di, 0, size_temp, get_immed_val_abs(di, opnd)/4, false/*unsigned*/);
+        break;
     case TYPE_NI_b0:
         encode_immed(di, 0, size_temp, -get_immed_val_abs(di, opnd), false/*unsigned*/);
+        break;
+    case TYPE_NI_x4_b0:
+        encode_immed(di, 0, size_temp, -get_immed_val_abs(di, opnd)/4, false/*unsigned*/);
         break;
     case TYPE_I_b3:
         encode_immed(di, 3, size_temp, get_immed_val_abs(di, opnd), false/*unsigned*/);

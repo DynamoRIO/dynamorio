@@ -676,6 +676,11 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             opnd_create_immed_uint(-decode_immed(di, 0, opsize, false/*unsign*/),
                                   opsize);
         return true;
+    case TYPE_NI_x4_b0:
+        array[(*counter)++] =
+            opnd_create_immed_uint(-decode_immed(di, 0, opsize, false/*unsign*/) * 4,
+                                   opnd_size_scale(opsize, 4));
+        return true;
     case TYPE_I_b3:
         array[(*counter)++] =
             opnd_create_immed_uint(decode_immed(di, 3, opsize, false/*unsign*/), opsize);

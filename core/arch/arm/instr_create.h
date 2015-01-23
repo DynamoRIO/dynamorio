@@ -2766,16 +2766,20 @@
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
  */
-#define INSTR_CREATE_ldc2(dc, cpreg, mem, imm, imm2) \
+#define INSTR_CREATE_ldc2_option(dc, cpreg, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_ldc2, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldc2_wbimm(dc, cpreg, mem, imm, imm2) \
   instr_create_2dst_4src((dc), OP_ldc2, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
-#define INSTR_CREATE_ldc2l(dc, cpreg, mem, imm, imm2) \
+#define INSTR_CREATE_ldc2l_option(dc, cpreg, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_ldc2l, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldc2l_wbimm(dc, cpreg, mem, imm, imm2) \
   instr_create_2dst_4src((dc), OP_ldc2l, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
+#define INSTR_CREATE_ldc_option(dc, cpreg, mem, imm, imm2) \
+  instr_create_1dst_3src((dc), OP_ldc, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldc_wbimm(dc, cpreg, mem, imm, imm2) \
   instr_create_2dst_4src((dc), OP_ldc, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
+#define INSTR_CREATE_ldcl_option(dc, cpreg, mem, imm, imm2) \
+  instr_create_1dst_3src((dc), OP_ldcl, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldcl_wbimm(dc, cpreg, mem, imm, imm2) \
   instr_create_2dst_4src((dc), OP_ldcl, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
