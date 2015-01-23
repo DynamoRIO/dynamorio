@@ -1495,10 +1495,13 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_L_VAx2:
     case TYPE_L_VAx3:
     case TYPE_L_VAx4: {
-        /* A32 = 7,19:16 */
+        /* A32 = 7,19:16, but for Q regs 7,19:17 */
         reg_id_t reg = opnd_get_reg(opnd);
         uint val = reg - reg_simd_start(reg);
-        di->instr_word |= ((val & 0x10) << 3) | ((val & 0xf) << 16);
+        if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
+            di->instr_word |= ((val & 0x8) << 4) | ((val & 0x7) << 17);
+        else
+            di->instr_word |= ((val & 0x10) << 3) | ((val & 0xf) << 16);
         if (di->reglist_stop > 0)
             (*counter) += (di->reglist_stop - 1 - di->reglist_start);
         break;
@@ -1510,19 +1513,25 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_L_VBx2D:
     case TYPE_L_VBx3D:
     case TYPE_L_VBx4D: {
-        /* A32 = 22,15:12 */
+        /* A32 = 22,15:12, but for Q regs 22,15:13 */
         reg_id_t reg = opnd_get_reg(opnd);
         uint val = reg - reg_simd_start(reg);
-        di->instr_word |= ((val & 0x10) << 18) | ((val & 0xf) << 12);
+        if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
+            di->instr_word |= ((val & 0x8) << 19) | ((val & 0x7) << 13);
+        else
+            di->instr_word |= ((val & 0x10) << 18) | ((val & 0xf) << 12);
         if (di->reglist_stop > 0)
             (*counter) += (di->reglist_stop - 1 - di->reglist_start);
         break;
     }
     case TYPE_V_C: {
-        /* A32 = 5,3:0 */
+        /* A32 = 5,3:0, but for Q regs 5,3:1 */
         reg_id_t reg = opnd_get_reg(opnd);
         uint val = reg - reg_simd_start(reg);
-        di->instr_word |= ((val & 0x10) << 1) | (val & 0xf);
+        if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
+            di->instr_word |= ((val & 0x8) << 2) | ((val & 0x7) << 1);
+        else
+            di->instr_word |= ((val & 0x10) << 1) | (val & 0xf);
         break;
     }
     case TYPE_W_A: {

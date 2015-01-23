@@ -186,31 +186,37 @@ decode_simd_start(opnd_size_t opsize)
 static reg_id_t
 decode_vregA(decode_info_t *di, opnd_size_t opsize)
 {
-    /* A32 = 7,19:16 */
+    /* A32/T32 = 7,19:16, but for Q regs 7,19:17 */
     return decode_simd_start(opsize) +
-        (((di->instr_word & 0x00000080) >> 3) | ((di->instr_word >> 16) & 0xf));
+        (opsize == OPSZ_16 ?
+         (((di->instr_word & 0x00000080) >> 4) | ((di->instr_word >> 17) & 0x7)) :
+         (((di->instr_word & 0x00000080) >> 3) | ((di->instr_word >> 16) & 0xf)));
 }
 
 static reg_id_t
 decode_vregB(decode_info_t *di, opnd_size_t opsize)
 {
-    /* A32 = 22,15:12 */
+    /* A32/T32 = 22,15:12, but for Q regs 22,15:13 */
     return decode_simd_start(opsize) +
-        (((di->instr_word & 0x00400000) >> 18) | ((di->instr_word >> 12) & 0xf));
+        (opsize == OPSZ_16 ?
+         (((di->instr_word & 0x00400000) >> 19) | ((di->instr_word >> 13) & 0x7)) :
+         (((di->instr_word & 0x00400000) >> 18) | ((di->instr_word >> 12) & 0xf)));
 }
 
 static reg_id_t
 decode_vregC(decode_info_t *di, opnd_size_t opsize)
 {
-    /* A32 = 5,3:0 */
+    /* A32/T32 = 5,3:0, but for Q regs 5,3:1 */
     return decode_simd_start(opsize) +
-        (((di->instr_word & 0x00000020) >> 1) | (di->instr_word & 0xf));
+        (opsize == OPSZ_16 ?
+         (((di->instr_word & 0x00000020) >> 2) | ((di->instr_word >> 1) & 0x7)) :
+         (((di->instr_word & 0x00000020) >> 1) | (di->instr_word & 0xf)));
 }
 
 static reg_id_t
 decode_wregA(decode_info_t *di, opnd_size_t opsize)
 {
-    /* A32 = 19:16,7 */
+    /* A32/T32 = 19:16,7 */
     return decode_simd_start(opsize) +
         (((di->instr_word & 0x000f0000) >> 15) | ((di->instr_word >> 19) & 0x1));
 }
@@ -218,7 +224,7 @@ decode_wregA(decode_info_t *di, opnd_size_t opsize)
 static reg_id_t
 decode_wregB(decode_info_t *di, opnd_size_t opsize)
 {
-    /* A32 = 15:12,22 */
+    /* A32/T32 = 15:12,22 */
     return decode_simd_start(opsize) +
         (((di->instr_word & 0x0000f000) >> 11) | ((di->instr_word >> 22) & 0x1));
 }
@@ -226,7 +232,7 @@ decode_wregB(decode_info_t *di, opnd_size_t opsize)
 static reg_id_t
 decode_wregC(decode_info_t *di, opnd_size_t opsize)
 {
-    /* A32 = 3:0,5 */
+    /* A32/T32 = 3:0,5 */
     return decode_simd_start(opsize) +
         (((di->instr_word & 0x0000000f) << 1) | ((di->instr_word >> 5) & 0x1));
 }
@@ -648,12 +654,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         if (reg_is_past_last_simd(start, inc))
             return false;
         array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, 0);
-        if (optype == TYPE_L_VBx2)
+        if (optype == TYPE_L_VAx2)
             return true;
         if (reg_is_past_last_simd(start, 2*inc))
             return false;
         array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, 0);
-        if (optype == TYPE_L_VBx3)
+        if (optype == TYPE_L_VAx3)
             return true;
         if (reg_is_past_last_simd(start, 3*inc))
             return false;

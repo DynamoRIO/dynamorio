@@ -281,9 +281,9 @@ enum {
     TYPE_CR_C, /* Coprocessor register in C slot */
     TYPE_CR_D, /* Coprocessor register in D slot */
 
-    TYPE_V_A,   /* A32-7,19:16  = Vn: some (bottom) part of 128-bit src reg */
-    TYPE_V_B,   /* A32-22,15:12 = Vd: some (bottom) part of 128-bit dst reg */
-    TYPE_V_C,   /* A32-5,3:0    = Vm: some (bottom) part of 128-bit src reg */
+    TYPE_V_A,   /* A32/T32 = 7,19:16, but for Q regs 7,19:17   = Vn src reg */
+    TYPE_V_B,   /* A32/T32 = 22,15:12, but for Q regs 22,15:13 = Vd dst reg */
+    TYPE_V_C,   /* A32/T32 = 5,3:0, but for Q regs 5,3:1       = Vm src reg */
     TYPE_V_C_3b,/* A32-2:0      = Vm<2:0>: some (bottom) part of 128-bit src reg */
     TYPE_V_C_4b,/* A32-3:0      = Vm<3:0>: some (bottom) part of 128-bit src reg */
     TYPE_W_A,   /* A32-19:16,7  = Vn VFP non-double: part of 128-bit src reg */
