@@ -2193,14 +2193,14 @@ decode_check_opnds(int optype[], uint num_types)
 }
 # endif /* STANDALONE_DECODER */
 
-void
-decode_debug_checks_arch(void)
+static void
+check_ISA(dr_isa_mode_t isa_mode)
 {
 #   define MAX_TYPES 8
     DOCHECK(2, {
         uint opc;
         for (opc = OP_FIRST; opc < OP_AFTER_LAST; opc++) {
-            const instr_info_t *info = opcode_to_encoding_info(opc, DR_ISA_ARM_A32);
+            const instr_info_t *info = opcode_to_encoding_info(opc, isa_mode);
             while (info != NULL && info != &invalid_instr && info->type != OP_CONTD) {
                 const instr_info_t *ops = info;
                 uint num_srcs = 0;
@@ -2238,7 +2238,14 @@ decode_debug_checks_arch(void)
         }
     });
 }
-#endif
+
+void
+decode_debug_checks_arch(void)
+{
+    check_ISA(DR_ISA_ARM_A32);
+    check_ISA(DR_ISA_ARM_THUMB);
+}
+#endif /* DEBUG */
 
 #ifdef DECODE_UNIT_TEST
 /* FIXME i#1551: add unit tests here.  How divide vs suite/tests/api/ tests? */
