@@ -118,8 +118,8 @@
 #define tsi5b (ptr_int_t)&A32_ext_simd5b
 #define tsi8  (ptr_int_t)&A32_ext_simd8
 #define tsi6b (ptr_int_t)&A32_ext_simd6b
-#define tsi6c (ptr_int_t)&A32_ext_simd6c
 #define tsi2  (ptr_int_t)&A32_ext_simd2
+#define ti6l  (ptr_int_t)&A32_ext_imm6L
 #define tvlA  (ptr_int_t)&A32_ext_vldA
 #define tvlB  (ptr_int_t)&A32_ext_vldB
 #define tvlC  (ptr_int_t)&A32_ext_vldC

@@ -75,7 +75,6 @@ enum {
     EXT_SIMD5B,  /* Indexed by bits 18:16,8:7 */
     EXT_SIMD8,   /* Indexed by bits 11:8,6:4, but 6:4 collapsed */
     EXT_SIMD6B,  /* Indexed by bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
-    EXT_SIMD6C,  /* FIXME i#1551: will be removed once A32 collapes 6b into 6c */
     EXT_SIMD2,   /* Indexed by bits 11,6 */
     EXT_IMM6L,   /* Indexed by bits 10:8,6 */
     EXT_VLDA,    /* Indexed by bits (11:8,7:6)*3+X where X based on value of 3:0 */
@@ -491,10 +490,10 @@ extern const instr_info_t A32_ext_bit22[][2];
 extern const instr_info_t A32_ext_simd6[][64];
 extern const instr_info_t A32_ext_simd5[][32];
 extern const instr_info_t A32_ext_simd5b[][32];
-extern const instr_info_t A32_ext_simd8[][144];
-extern const instr_info_t A32_ext_simd6b[][64];
-extern const instr_info_t A32_ext_simd6c[][36];
+extern const instr_info_t A32_ext_simd8[][80];
+extern const instr_info_t A32_ext_simd6b[][36];
 extern const instr_info_t A32_ext_simd2[][4];
+extern const instr_info_t A32_ext_imm6L[][16];
 extern const instr_info_t A32_ext_vldA[][132];
 extern const instr_info_t A32_ext_vldB[][96];
 extern const instr_info_t A32_ext_vldC[][96];

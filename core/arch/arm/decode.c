@@ -1241,10 +1241,6 @@ decode_ext_simd8_idx(uint instr_word)
 static inline uint
 decode_ext_simd6b_idx(uint instr_word)
 {
-    /* FIXME i#1551: apply the same transformations as T32 and collapse
-     * simd6b into simd6c, renaming simd6c to simd6b.  For now this is
-     * the T32 simd6b but A32 simd6c.
-     */
     /* bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
     if (((instr_word >> 11) & 0x1) != 0)
         return 32 + ((instr_word >> 6) & 0x3);
@@ -1654,27 +1650,13 @@ decode_instr_info_A32(decode_info_t *di)
         } else if (info->type == EXT_SIMD5B) {
             info = &A32_ext_simd5b[info->code][decode_ext_simd5b_idx(instr_word)];
         } else if (info->type == EXT_SIMD8) {
-            /* FIXME i#1551: apply the same transformations as T32 and remove bit 7,
-             * allowing use of decode_ext_simd8_idx here.
-             */
-            /* Odds + 0 == 9 entries each */
-            uint idx = 9 * ((instr_word >> 8) & 0xf) /*bits 11:8*/;
-            if (((instr_word >> 4) & 0x1) != 0)
-                idx += 1 + ((instr_word >> 5) & 0x7) /*bits 7:5*/;
-            info = &A32_ext_simd8[info->code][idx];
+            info = &A32_ext_simd8[info->code][decode_ext_simd8_idx(instr_word)];
         } else if (info->type == EXT_SIMD6B) {
-            /* FIXME i#1551: apply the same transformations as T32 and collapse
-             * simd6b into simd6c, renaming simd6c to simd6b.
-             */
-            idx = ((instr_word >> 6) & 0x3c) | ((instr_word >> 6) & 0x3);/*bits 11:8,7:6*/
-            info = &A32_ext_simd6b[info->code][idx];
-        } else if (info->type == EXT_SIMD6C) {
-            /* FIXME i#1551: apply the same transformations as T32 and collapse
-             * simd6b into simd6c, renaming simd6c to simd6b.
-             */
-            info = &A32_ext_simd6c[info->code][decode_ext_simd6b_idx(instr_word)];
+            info = &A32_ext_simd6b[info->code][decode_ext_simd6b_idx(instr_word)];
         } else if (info->type == EXT_SIMD2) {
             info = &A32_ext_simd2[info->code][decode_ext_simd2_idx(instr_word)];
+        } else if (info->type == EXT_IMM6L) {
+            info = &A32_ext_imm6L[info->code][decode_ext_imm6l_idx(instr_word)];
         } else if (info->type == EXT_VLDA) {
             /* this table stops at 0xa in top bits, to save space */
             if (((instr_word >> 8) & 0xf) > 0xa)
