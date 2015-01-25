@@ -1911,6 +1911,15 @@ optype_is_reg(int optype)
     case TYPE_R_B:
     case TYPE_R_C:
     case TYPE_R_D:
+    case TYPE_R_U:
+    case TYPE_R_V:
+    case TYPE_R_W:
+    case TYPE_R_X:
+    case TYPE_R_Y:
+    case TYPE_R_Z:
+    case TYPE_R_V_DUP:
+    case TYPE_R_W_DUP:
+    case TYPE_R_Z_DUP:
     case TYPE_R_A_TOP:
     case TYPE_R_B_TOP:
     case TYPE_R_C_TOP:
