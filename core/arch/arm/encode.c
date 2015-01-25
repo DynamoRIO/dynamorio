@@ -359,6 +359,10 @@ opnd_size_t
 resolve_size_upward(opnd_size_t size)
 {
     switch (size) {
+    case OPSZ_1_of_4:
+    case OPSZ_2_of_4:
+        return OPSZ_4;
+
     case OPSZ_1_of_8:
     case OPSZ_2_of_8:
     case OPSZ_4_of_8:
@@ -384,9 +388,11 @@ opnd_size_t
 resolve_size_downward(opnd_size_t size)
 {
     switch (size) {
+    case OPSZ_1_of_4:
     case OPSZ_1_of_8:
     case OPSZ_1_of_16:
         return OPSZ_1;
+    case OPSZ_2_of_4:
     case OPSZ_2_of_8:
     case OPSZ_2_of_16:
         return OPSZ_2;
@@ -722,7 +728,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     uint opnum = (*counter)++;
     opnd_t opnd;
     opnd_size_t size_temp_up = resolve_size_upward(size_temp);
-    opnd_size_t size_op, size_op_up;
+    opnd_size_t size_temp_down = resolve_size_downward(size_temp);
+    opnd_size_t size_op;
 
     /* Roll back greedy reglist if necessary */
     if (di->reglist_stop > 0 && optype_is_reg(optype) &&
@@ -768,7 +775,6 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     });
 
     size_op = opnd_get_size(opnd);
-    size_op_up = resolve_size_upward(size_op);
 
     switch (optype) {
 
@@ -781,24 +787,28 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_R_C_TOP:
     case TYPE_R_D_TOP:
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up));
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down));
     case TYPE_R_A:
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down) &&
                 /* Ensure writeback matches memop base */
                 (di->check_wb_base == DR_REG_NULL ||
                  di->check_wb_base == opnd_get_reg(opnd)));
     case TYPE_R_D:
     case TYPE_R_D_NEGATED:
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down) &&
                 /* Ensure writeback index matches memop index */
                 (di->check_wb_index == DR_REG_NULL ||
                  di->check_wb_index == opnd_get_reg(opnd)));
     case TYPE_R_B_EVEN:
     case TYPE_R_D_EVEN:
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down) &&
                 ((dr_reg_fixer[opnd_get_reg(opnd)] - DR_REG_START_GPR) % 2 == 0));
     case TYPE_R_B_PLUS1:
     case TYPE_R_D_PLUS1: {
@@ -810,19 +820,22 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         else
             prior = instr_get_src(in, opnum - 1);
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down) &&
                 opnd_is_reg(prior) && opnd_get_reg(prior) + 1 == opnd_get_reg(opnd));
     }
     case TYPE_R_A_EQ_D:
         /* We already adjusted opnd to point at prior up above */
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up));
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down));
     case TYPE_CR_A:
     case TYPE_CR_B:
     case TYPE_CR_C:
     case TYPE_CR_D:
         return (opnd_is_reg(opnd) && reg_is_cpreg(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up));
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down));
     case TYPE_V_A:
     case TYPE_V_B:
     case TYPE_V_C:
@@ -830,14 +843,17 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_W_B:
     case TYPE_W_C:
         return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up));
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down));
     case TYPE_V_C_3b:
         return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down) &&
                 (opnd_get_reg(opnd) - reg_simd_start(opnd_get_reg(opnd)) < 8));
     case TYPE_V_C_4b:
         return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down) &&
                 (opnd_get_reg(opnd) - reg_simd_start(opnd_get_reg(opnd)) < 16));
     case TYPE_W_C_PLUS1: {
         opnd_t prior;
@@ -848,7 +864,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         else
             prior = instr_get_src(in, opnum - 1);
         return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
-                (size_op == size_temp || size_op == size_temp_up) &&
+                (size_op == size_temp || size_op == size_temp_up ||
+                 size_op == size_temp_down) &&
                 opnd_is_reg(prior) && opnd_get_reg(prior) + 1 == opnd_get_reg(opnd));
     }
     case TYPE_SPSR:
