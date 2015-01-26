@@ -111,16 +111,11 @@ reg_spill_tls_offs(reg_id_t reg)
     return -1;
 }
 
-#ifdef ARM
-/* We store all the entry points with LSB=1 so we can use as-is in indirect
+/* For Thumb, we store all the entry points with LSB=1 so we can use as-is in indirect
  * calls and in our "ldr pc, [TLS]" gencode.
  * Uses that want the LSB=0 form should use ENTRY_PC_TO_DECODE_PC().
  */
-# define ENCODE_ENTRY_PC(mode, pc) \
-    ((mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) | 1) : pc)
-#else
-# define ENCODE_ENTRY_PC(mode, pc) pc
-#endif
+#define ENCODE_ENTRY_PC(mode, pc) PC_AS_JMP_TGT(mode, pc)
 
 #ifdef INTERNAL
 /* routine can be used for dumping both thread private and the thread shared routines */

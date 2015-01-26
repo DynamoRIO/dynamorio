@@ -1980,8 +1980,10 @@ decode_raw_is_jmp(dcontext_t *dcontext, byte *pc)
         uint word = *(uint*)pc;
         return ((word & 0x0f000000) == 0x0a000000 &&
                 (word & 0xf0000000) != 0xf0000000);
-    } else
-        ASSERT_NOT_IMPLEMENTED(false);
+    } else {
+        return (((*(pc + 1)) & 0xf0) == 0xf0 &&
+                ((*(pc + 3)) & 0xd0) == 0x90);
+    }
     return false;
 }
 
@@ -1995,8 +1997,23 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
         if (TEST(0x800000, disp))
             disp |= 0xff000000; /* sign-extend */
         return pc + decode_cur_pc_offs(mode) + (disp << 2);
-    } else
-        ASSERT_NOT_IMPLEMENTED(false);
+    } else {
+        /* A10,B13,B11,A9:0,B10:0 x2, but B13 and B11 are flipped if A10 is 0 */
+        /* XXX: share with decoder's TYPE_J_b26_b13_b11_b16_b0 */
+        ushort valA = *(ushort *)pc;
+        ushort valB = *(ushort *)(pc + 2);
+        uint bitA10 = (valA & 0x0400) >> 10;
+        uint bitB13 = (valB & 0x2000) >> 13;
+        uint bitB11 = (valB & 0x0800) >> 11;
+        int disp = valB & 0x7ff; /* B10:0 */
+        disp |= (valA & 0x3ff) << 11;
+        disp |= ((bitA10 == 0 ? (bitB11 == 0 ? 1 : 0) : bitB11) << 21);
+        disp |= ((bitA10 == 0 ? (bitB13 == 0 ? 1 : 0) : bitB13) << 22);
+        disp |= bitA10 << 23;
+        if (bitA10 == 1)
+            disp |= 0xff000000; /* sign-extend */
+        return pc + decode_cur_pc_offs(mode) + (disp << 1);
+    }
     return NULL;
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,7 +79,9 @@ print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
 {
     /* Follow conventions used elsewhere with split for T32, solid for the rest */
     if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB) {
-        if (next_pc - pc == 2)
+        if (next_pc - pc == 0)
+            print_to_buffer(buf, bufsz, sofar, "            ", *((ushort *)pc));
+        else if (next_pc - pc == 2)
             print_to_buffer(buf, bufsz, sofar, " %04x       ", *((ushort *)pc));
         else {
             CLIENT_ASSERT(next_pc - pc == 4, "invalid thumb size");

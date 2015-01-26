@@ -1216,6 +1216,8 @@ decode_init(void);
 #  define FRAG_IS_X86_TO_X64(flags) false
 # endif
 
+# define PC_AS_JMP_TGT(isa_mode, pc) pc
+
 # define SIZE_MOV_XAX_TO_TLS(flags, require_addr16) \
     (FRAG_IS_32(flags) ? \
      ((require_addr16 || use_addr_prefix_on_short_disp()) ?   \
@@ -1299,6 +1301,9 @@ decode_init(void);
 #  define FRAG_IS_THUMB(flags) (TEST(FRAG_THUMB, (flags)))
 #  define FRAG_IS_32(flags) true
 # endif
+
+# define PC_AS_JMP_TGT(isa_mode, pc) \
+    ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) | 1) : pc)
 
 # define FRAGMENT_BASE_PREFIX_SIZE(flags) \
     (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)

@@ -478,7 +478,8 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     else
         fcache_enter = get_fcache_enter_private_routine(dcontext);
 
-    enter_fcache(dcontext, fcache_enter, FCACHE_ENTRY_PC(targetf));
+    enter_fcache(dcontext, fcache_enter,
+                 PC_AS_JMP_TGT(FRAG_ISA_MODE(targetf->flags), FCACHE_ENTRY_PC(targetf)));
     ASSERT_NOT_REACHED();
     return true;
 }

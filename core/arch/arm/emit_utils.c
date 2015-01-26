@@ -765,6 +765,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     instr_t *target_delete_entry = INSTR_CREATE_label(dc);
     patch_list_t *patch = &ibl_code->ibl_patch;
     bool absolute = false; /* XXX: for SAVE_TO_DC: should eliminate it */
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dc);
     IF_DEBUG(bool table_in_tls = SHARED_IB_TARGETS() &&
              (target_trace_table || SHARED_BB_ONLY_IB_TARGETS()) &&
              DYNAMO_OPTION(ibl_table_in_tls);)
@@ -786,6 +787,15 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      */
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
+
+    /* Check LSB for mode changes */
+    if (isa_mode == DR_ISA_ARM_A32) {
+        /* FIXME i#1551: mode change NYI */
+    } else {
+        /* FIXME i#1551: mode change NYI.  For now we just clear LSB. */
+        APP(&ilist, INSTR_CREATE_bic
+            (dc, OPREG(DR_REG_R2), OPREG(DR_REG_R2), OPND_CREATE_INT(0x1)));
+    }
 
     /* Now apply the hash, the *8, and add to the table base */
     APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),
