@@ -1157,7 +1157,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regY(di), REG_NULL, 0,
-                                  decode_immed(di, 6, OPSZ_5b, false/*unsigned*/),
+                                  4*decode_immed(di, 6, OPSZ_5b, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_UP_OFFS:

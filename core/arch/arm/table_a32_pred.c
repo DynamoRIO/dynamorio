@@ -972,8 +972,8 @@ const instr_info_t A32_ext_bit9[][2] = {
     {OP_crc32b,  0xe1000040, "crc32b",  RBw, xx, RAw, RDb, xx, predAL|v8, x, END_LIST},
     {OP_crc32cb, 0xe1000240, "crc32cb", RBw, xx, RAw, RDb, xx, predAL|v8, x, END_LIST},
   }, { /* 2 */
-    {OP_msr,      0x0120f000, "msr",    CPSR, xx, i4_16, RAw, xx, pred, x, ti19[0][0x01]},
-    {OP_msr_priv, 0x0120f000, "msr",    CPSR, xx, i5x8_16, RAw, xx, pred, x, END_LIST},
+    {OP_msr,      0x0120f000, "msr",    CPSR, xx, i4_16, RDw, xx, pred, x, ti19[0][0x01]},
+    {OP_msr_priv, 0x0120f000, "msr",    CPSR, xx, i5x8_16, RDw, xx, pred, x, END_LIST},
   }, { /* 3 */
     {OP_crc32h,   0xe1200040, "crc32h",  RBw, xx, RAw, RDh, xx, predAL|v8, x, END_LIST},
     {OP_crc32ch, 0xe1200240, "crc32ch", RBw, xx, RAw, RDh, xx, predAL|v8, x, END_LIST},
@@ -984,8 +984,8 @@ const instr_info_t A32_ext_bit9[][2] = {
     {OP_crc32w,  0xe1400040, "crc32w",  RBw, xx, RAw, RDw, xx, predAL|v8, x, END_LIST},
     {OP_crc32cw, 0xe1400240, "crc32cw", RBw, xx, RAw, RDw, xx, predAL|v8, x, END_LIST},
   }, { /* 6 */
-    {OP_msr,      0x0160f000, "msr",    SPSR, xx, i4_16, RAw, xx, pred, x, tb9[2][0x00]},
-    {OP_msr_priv, 0x0160f000, "msr",    SPSR, xx, i5x8_16, RAw, xx, pred, x, tb9[2][0x01]},
+    {OP_msr,      0x0160f000, "msr",    SPSR, xx, i4_16, RDw, xx, pred, x, tb9[2][0x00]},
+    {OP_msr_priv, 0x0160f000, "msr",    SPSR, xx, i5x8_16, RDw, xx, pred, x, tb9[2][0x01]},
   }, { /* 7 */
     /* XXX: or should we just mark INVALID? */
     {OP_crc32w,  0xe1600040, "crc32w",  RBw, xx, RAw, RDw, xx, predAL|v8|unp, x, tb9[5][0x00]},

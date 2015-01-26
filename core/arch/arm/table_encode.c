@@ -66,7 +66,7 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_asr            */ {&A32_ext_opc4[4][0x04],     &T32_ext_bit_B7[4][0x00]},
     /* OP_asrs           */ {&A32_ext_opc4[5][0x04],     &T32_16_ext_bits_9_6[0][0x04]},
     /* OP_b              */ {&A32_pred_opc8[0xa0],       &T32_base_f[0x05]},
-    /* OP_b_short        */ {&invalid_instr,             &T32_16_ext_bits_11_8[1][0x00]},
+    /* OP_b_short        */ {&invalid_instr,             &T32_16_opc4[0x0e]},
     /* OP_bfc            */ {&A32_ext_bit4[8][0x01],     &T32_ext_RAPC[8][0x01]},
     /* OP_bfi            */ {&A32_ext_RDPC[0][0x00],     &T32_ext_RAPC[8][0x00]},
     /* OP_bic            */ {&A32_pred_opc8[0x3c],       &T32_ext_fopc8[0][0x02]},

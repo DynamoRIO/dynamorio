@@ -60,7 +60,7 @@ const instr_info_t T32_16_opc4[] = {
     {EXT_11_8,  0xb000, "(ext 11:8  0)", xx, xx,  xx, xx, xx, no, x, 0},
     {EXT_11,    0xc000, "(ext 11    9)", xx, xx,  xx, xx, xx, no, x, 9},
     {EXT_11_8,  0xb000, "(ext 11:8  1)", xx, xx,  xx, xx, xx, no, x, 1},
-    {OP_b_short,0xe000, "b",             xx, xx, j11, xx, xx, no, x, y118[1][0x01]},
+    {OP_b_short,0xe000, "b",             xx, xx, j11, xx, xx, no, x, y118[1][0x00]},
     {INVALID,   0xf000, "(bad)",         xx, xx,  xx, xx, xx, no, x, NA},
 };
 
@@ -148,8 +148,8 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
       {OP_bkpt,  0xbe00, "bkpt",              xx,  xx,     i8,  xx, xx, no, x, END_LIST},
       {EXT_6_4,  0xbf00, "(ext 6:4 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
     }, { /* 1 */
-      {OP_b_short, 0xd000, "b",            xx, xx, j8, xx, xx, no, x,  END_LIST},
-      {OP_b_short, 0xd100, "b",            xx, xx, j8, xx, xx, pred8, x, END_LIST},
+      {OP_b_short, 0xd000, "b",            xx, xx, j8, xx, xx, pred8, x, END_LIST},
+      {OP_b_short, 0xd100, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
       {OP_b_short, 0xd200, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
       {OP_b_short, 0xd300, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
       {OP_b_short, 0xd400, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
