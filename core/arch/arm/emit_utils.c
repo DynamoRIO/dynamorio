@@ -793,16 +793,20 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
     return false;
 }
 
-/* FIXME i#1551: we need to take in the dr_isa_mode_t for Thumb */
 bool
-fill_with_nops(byte *addr, size_t size)
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 {
     byte *pc = addr;
-    if (!ALIGNED(addr, ARM_INSTR_SIZE) || !ALIGNED(addr + size, ARM_INSTR_SIZE)) {
+    size_t align = (isa_mode == DR_ISA_ARM_A32 ? ARM_INSTR_SIZE : THUMB_SHORT_INSTR_SIZE);
+    if (!ALIGNED(addr, align) || !ALIGNED(addr + size, align)) {
         ASSERT_NOT_REACHED();
         return false;
     }
-    for (pc = addr; pc < addr + size; pc += ARM_INSTR_SIZE)
-        *(uint *)pc = ARM_NOP;
+    for (pc = addr; pc < addr + size; pc += align) {
+        if (isa_mode == DR_ISA_ARM_A32)
+            *(uint *)pc = ARM_NOP;
+        else
+            *(ushort *)pc = THUMB_NOP;
+    }
     return true;
 }

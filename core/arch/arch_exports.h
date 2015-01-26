@@ -805,9 +805,6 @@ void arch_thread_profile_exit(dcontext_t *dcontext);
 void arch_profile_exit(void);
 #endif
 
-byte *
-code_align_forward(byte *pc, size_t alignment);
-
 bool is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_generated_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_context_switch_code(dcontext_t *dcontext, cache_pc pc);
@@ -1129,6 +1126,66 @@ use_addr_prefix_on_short_disp(void)
 #endif /* STANDALONE_DECODER */
 }
 
+/* in decode.c, needed here for ref in arch.h */
+/* DR_API EXPORT TOFILE dr_ir_utils.h */
+/* DR_API EXPORT BEGIN */
+/** Specifies which processor mode to use when decoding or encoding. */
+typedef enum _dr_isa_mode_t {
+    DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
+    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
+    DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
+    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
+    DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
+    DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
+} dr_isa_mode_t;
+/* DR_API EXPORT END */
+
+/* static version for drdecodelib */
+#define DEFAULT_ISA_MODE_STATIC \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+
+/* use this one in DR proper */
+#define DEFAULT_ISA_MODE \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+                IF_X64_ELSE(DR_ISA_ARM_A64, (INTERNAL_OPTION(isa_mode_arm) ? \
+                                             DR_ISA_ARM_A32 : DR_ISA_ARM_THUMB)))
+
+/* We store gencode entry points with LSB set to 1 for Thumb */
+#ifdef ARM
+# define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
+#else
+# define ENTRY_PC_TO_DECODE_PC(pc) pc
+#endif
+
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine sets that flag to the
+ * indicated value and optionally returns the old value.  Be sure to restore the
+ * old value prior to any further application execution to avoid problems in
+ * mis-interpreting application code.
+ */
+bool
+dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
+                dr_isa_mode_t *old_mode OUT);
+
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine returns the value of
+ * that flag.
+ */
+dr_isa_mode_t
+dr_get_isa_mode(dcontext_t *dcontext);
+
+/* Switches the ISA mode, if necessary, and returns the (potentially modified) pc */
+app_pc
+canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
+
+void
+decode_init(void);
+
 /***************************************************************************
  * Arch-specific defines
  */
@@ -1211,7 +1268,7 @@ use_addr_prefix_on_short_disp(void)
     (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
 /* writes nops into the address range */
-# define SET_TO_NOPS(addr, size) memset(addr, 0x90, size)
+# define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
 /* writes debugbreaks into the address range */
 # define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
 /* check if region is SET_TO_NOP */
@@ -1266,8 +1323,8 @@ use_addr_prefix_on_short_disp(void)
 # define ARM_BKPT    0xe1200070
 # define THUMB_BKPT  0xbe00
 /* writes nops into the address range */
-bool fill_with_nops(byte *addr, size_t size);
-# define SET_TO_NOPS(addr, size) fill_with_nops(addr, size)
+bool fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
+# define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 # define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
 /* check if region is SET_TO_DEBUG */
@@ -1628,66 +1685,6 @@ reached_image_entry_yet(void);
 
 void
 set_reached_image_entry(void);
-
-/* in decode.c, needed here for ref in arch.h */
-/* DR_API EXPORT TOFILE dr_ir_utils.h */
-/* DR_API EXPORT BEGIN */
-/** Specifies which processor mode to use when decoding or encoding. */
-typedef enum _dr_isa_mode_t {
-    DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
-    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
-    DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
-    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
-    DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
-    DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
-} dr_isa_mode_t;
-/* DR_API EXPORT END */
-
-/* static version for drdecodelib */
-#define DEFAULT_ISA_MODE_STATIC \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
-
-/* use this one in DR proper */
-#define DEFAULT_ISA_MODE \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, (INTERNAL_OPTION(isa_mode_arm) ? \
-                                             DR_ISA_ARM_A32 : DR_ISA_ARM_THUMB)))
-
-/* We store gencode entry points with LSB set to 1 for Thumb */
-#ifdef ARM
-# define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
-#else
-# define ENTRY_PC_TO_DECODE_PC(pc) pc
-#endif
-
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates which processor mode to use.  This routine sets that flag to the
- * indicated value and optionally returns the old value.  Be sure to restore the
- * old value prior to any further application execution to avoid problems in
- * mis-interpreting application code.
- */
-bool
-dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
-                dr_isa_mode_t *old_mode OUT);
-
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates which processor mode to use.  This routine returns the value of
- * that flag.
- */
-dr_isa_mode_t
-dr_get_isa_mode(dcontext_t *dcontext);
-
-/* Switches the ISA mode, if necessary, and returns the (potentially modified) pc */
-app_pc
-canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
-
-void
-decode_init(void);
 
 /* in encode.c */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */

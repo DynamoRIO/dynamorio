@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2479,7 +2479,8 @@ coarse_stubs_create(coarse_info_t *info, cache_pc pc, size_t size)
            (int)(COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info))*
                  num_coarse_stubs_for_prefix(info)));
     DOCHECK(1, {
-        SET_TO_NOPS(end_pc, info->fcache_return_prefix +
+        /* FIXME i#1551: need diff versions for diff isa modes */
+        SET_TO_NOPS(DEFAULT_ISA_MODE, end_pc, info->fcache_return_prefix +
                     COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info))*
                     num_coarse_stubs_for_prefix(info) - end_pc);
     });
@@ -2609,7 +2610,7 @@ entrance_stub_create(dcontext_t *dcontext, coarse_info_t *info,
         stub_pc, EXIT_TARGET_TAG(dcontext, f, l), f->id, f->tag, FCACHE_ENTRY_PC(f));
     ASSERT(emit_sz <= stub_size);
     DOCHECK(1, {
-        SET_TO_NOPS(stub_pc + emit_sz, stub_size - emit_sz);
+        SET_TO_NOPS(dr_get_isa_mode(dcontext), stub_pc + emit_sz, stub_size - emit_sz);
     });
     STATS_ADD(separate_shared_bb_entrance_stubs, stub_size);
     STATS_INC(num_entrance_stubs);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -867,7 +867,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     if (PAD_FRAGMENT_JMPS(flags) && !INTERNAL_OPTION(pad_jmps_return_excess_padding)) {
         /* these can never be reached, but will be decoded by shift
          * fcache pointers */
-        SET_TO_NOPS(pc, f->size - (pc - f->start_pc));
+        SET_TO_NOPS(dr_get_isa_mode(dcontext), pc, f->size - (pc - f->start_pc));
     } else {
         ASSERT(f->size - (pc - f->start_pc) == 0);
     }
