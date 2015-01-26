@@ -159,7 +159,8 @@ else ()
     arch/${ARCH_NAME}/table_encode.c
     arch/${ARCH_NAME}/table_t32_base.c
     arch/${ARCH_NAME}/table_t32_coproc.c
-    arch/${ARCH_NAME}/table_t32_16.c)
+    arch/${ARCH_NAME}/table_t32_16.c
+    arch/${ARCH_NAME}/table_t32_16_it.c)
 endif ()
 
 set(ARCH_SRCS

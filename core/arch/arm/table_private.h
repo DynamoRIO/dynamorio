@@ -184,6 +184,17 @@
 #define y76   (ptr_int_t)&T32_16_ext_bits_7_6
 #define y64   (ptr_int_t)&T32_16_ext_bits_6_4
 #define y30   (ptr_int_t)&T32_16_ext_imm_3_0
+/* T32.16 IT block tables */
+#define ztop  (ptr_int_t)&T32_16_it_opc4
+#define z11   (ptr_int_t)&T32_16_it_ext_bit_11
+#define z1110 (ptr_int_t)&T32_16_it_ext_bits_11_10
+#define z119  (ptr_int_t)&T32_16_it_ext_bits_11_9
+#define z118  (ptr_int_t)&T32_16_it_ext_bits_11_8
+#define z96   (ptr_int_t)&T32_16_it_ext_bits_9_6
+#define z7    (ptr_int_t)&T32_16_it_ext_bit_7
+#define z109  (ptr_int_t)&T32_16_it_ext_bits_10_9
+#define z76   (ptr_int_t)&T32_16_it_ext_bits_7_6
+#define z64   (ptr_int_t)&T32_16_it_ext_bits_6_4
 
 /* operands */
 #define xx  TYPE_NONE, OPSZ_NA
