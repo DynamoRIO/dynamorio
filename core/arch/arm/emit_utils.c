@@ -464,9 +464,18 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     /* FIXME i#1551: NYI on ARM */
 }
 
+#define DR_REG_LIST_HEAD                                      \
+    opnd_create_reg(DR_REG_R0),  opnd_create_reg(DR_REG_R1),  \
+    opnd_create_reg(DR_REG_R2),  opnd_create_reg(DR_REG_R3),  \
+    opnd_create_reg(DR_REG_R4),  opnd_create_reg(DR_REG_R5),  \
+    opnd_create_reg(DR_REG_R6),  opnd_create_reg(DR_REG_R7),  \
+    opnd_create_reg(DR_REG_R8),  opnd_create_reg(DR_REG_R9),  \
+    opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
+    opnd_create_reg(DR_REG_R12)
+
 #ifdef X64
-# define DR_GPR_LIST_LENGTH 32
-# define DR_REG_LIST_TAIL                                      \
+# define DR_REG_LIST_LENGTH_ARM 32
+# define DR_REG_LIST_ARM DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), \
     opnd_create_reg(DR_REG_X14), opnd_create_reg(DR_REG_X15),  \
     opnd_create_reg(DR_REG_X16), opnd_create_reg(DR_REG_X17),  \
     opnd_create_reg(DR_REG_X18), opnd_create_reg(DR_REG_X19),  \
@@ -477,19 +486,13 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     opnd_create_reg(DR_REG_X28), opnd_create_reg(DR_REG_X29),  \
     opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X31)
 #else
-# define DR_REG_LIST_LENGTH 15 /* no R15 (pc) */
-# define DR_REG_LIST_TAIL opnd_create_reg(DR_REG_R14)
+# define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
+# define DR_REG_LIST_ARM DR_REG_LIST_HEAD, \
+    opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
 #endif
+#define DR_REG_LIST_LENGTH_T32 13 /* no R13+ (sp, lr, pc) */
+#define DR_REG_LIST_T32 DR_REG_LIST_HEAD
 
-#define DR_REG_LIST                                           \
-    opnd_create_reg(DR_REG_R0),  opnd_create_reg(DR_REG_R1),  \
-    opnd_create_reg(DR_REG_R2),  opnd_create_reg(DR_REG_R3),  \
-    opnd_create_reg(DR_REG_R4),  opnd_create_reg(DR_REG_R5),  \
-    opnd_create_reg(DR_REG_R6),  opnd_create_reg(DR_REG_R7),  \
-    opnd_create_reg(DR_REG_R8),  opnd_create_reg(DR_REG_R9),  \
-    opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
-    opnd_create_reg(DR_REG_R12), opnd_create_reg(DR_REG_R13), \
-    DR_REG_LIST_TAIL
 
 /* Append instructions to restore gpr on fcache enter, to be executed
  * right before jump to fcache target.
@@ -500,6 +503,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
     /* FIXME i#1573: NYI on ARM with SELFPROT_DCONTEXT */
     ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     ASSERT(dr_reg_stolen != SCRATCH_REG0);
@@ -519,10 +523,20 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                                 opnd_create_reg(REG_DCXT),
                                 OPND_CREATE_INT(R0_OFFSET)));
     /* load all regs from mcontext */
-    APP(ilist, INSTR_CREATE_ldm(dcontext,
-                                OPND_CREATE_MEMLIST(REG_DCXT),
-                                DR_REG_LIST_LENGTH,
-                                DR_REG_LIST));
+    if (isa_mode == DR_ISA_ARM_THUMB) {
+        /* We can't use sp with ldm */
+        APP(ilist, INSTR_CREATE_ldr
+            (dcontext, opnd_create_reg(DR_REG_SP),
+             OPND_CREATE_MEM32(REG_DCXT, sizeof(void*)*DR_REG_LIST_LENGTH_T32)));
+        APP(ilist, INSTR_CREATE_ldr
+            (dcontext, opnd_create_reg(DR_REG_LR),
+             OPND_CREATE_MEM32(REG_DCXT, sizeof(void*)*(1+DR_REG_LIST_LENGTH_T32))));
+        APP(ilist, INSTR_CREATE_ldm(dcontext, OPND_CREATE_MEMLIST(REG_DCXT),
+                                    DR_REG_LIST_LENGTH_T32, DR_REG_LIST_T32));
+    } else {
+        APP(ilist, INSTR_CREATE_ldm(dcontext, OPND_CREATE_MEMLIST(REG_DCXT),
+                                    DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
+    }
 }
 
 /* helper functions for append_fcache_return_common */
@@ -539,6 +553,7 @@ void
 append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool absolute,
                 generated_code_t *code, linkstub_t *linkstub, bool coarse_info)
 {
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
     ASSERT_NOT_IMPLEMENTED(!absolute &&
                            !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     APP(ilist, INSTR_CREATE_add(dcontext,
@@ -546,10 +561,24 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
                                 opnd_create_reg(REG_DCXT),
                                 OPND_CREATE_INT(R0_OFFSET)));
     /* save current register state to dcontext's mcontext, some are in TLS */
-    APP(ilist, INSTR_CREATE_stm(dcontext,
-                                OPND_CREATE_MEMLIST(REG_DCXT),
-                                DR_REG_LIST_LENGTH,
-                                DR_REG_LIST));
+    if (isa_mode == DR_ISA_ARM_THUMB) {
+        /* We can't use sp with stm */
+        APP(ilist, INSTR_CREATE_stm(dcontext, OPND_CREATE_MEMLIST(REG_DCXT),
+                                    DR_REG_LIST_LENGTH_T32, DR_REG_LIST_T32));
+        APP(ilist, INSTR_CREATE_str
+            (dcontext,
+             OPND_CREATE_MEM32(REG_DCXT, sizeof(void*)*DR_REG_LIST_LENGTH_T32),
+             opnd_create_reg(DR_REG_SP)));
+        APP(ilist, INSTR_CREATE_str
+            (dcontext,
+             OPND_CREATE_MEM32(REG_DCXT, sizeof(void*)*(1+DR_REG_LIST_LENGTH_T32)),
+             opnd_create_reg(DR_REG_LR)));
+    } else {
+        APP(ilist, INSTR_CREATE_stm(dcontext,
+                                    OPND_CREATE_MEMLIST(REG_DCXT),
+                                    DR_REG_LIST_LENGTH_ARM,
+                                    DR_REG_LIST_ARM));
+    }
 
     /* app's r0 was spilled to DIRECT_STUB_SPILL_SLOT by exit stub */
     APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, DIRECT_STUB_SPILL_SLOT));
