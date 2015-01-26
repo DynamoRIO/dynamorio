@@ -269,7 +269,7 @@ const instr_info_t T32_16_ext_bits_6_4[][8] = {
     },
 };
 
-/* fouth-level table */
+/* fourth-level table */
 /* indexed by whether bits 3:0 is zero or not */
 const instr_info_t T32_16_ext_imm_3_0[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */

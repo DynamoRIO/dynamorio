@@ -4990,14 +4990,14 @@ update_syscalls(dcontext_t *dcontext)
 {
     byte *pc;
     pc = get_do_syscall_entry(dcontext);
-    update_syscall(dcontext, pc);
+    update_syscall(dcontext, ENTRY_PC_TO_DECODE_PC(pc));
 #ifdef X64
     /* PR 286922: for 32-bit, we do NOT update the clone syscall as it
      * always uses int (since can't use call to vsyscall when swapping
      * stacks!)
      */
     pc = get_do_clone_syscall_entry(dcontext);
-    update_syscall(dcontext, pc);
+    update_syscall(dcontext, ENTRY_PC_TO_DECODE_PC(pc));
 #endif
 }
 #endif /* !WINDOWS */

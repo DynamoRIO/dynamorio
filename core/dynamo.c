@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -502,6 +502,7 @@ dynamorio_app_init(void)
 #endif
 
         dynamo_vm_areas_init();
+        decode_init();
         proc_init();
         modules_init(); /* before vm_areas_init() */
         os_init();
@@ -844,6 +845,7 @@ standalone_init(void)
     heap_init();
     dynamo_heap_initialized = true;
     dynamo_vm_areas_init();
+    decode_init();
     proc_init();
     os_init();
     config_heap_init();

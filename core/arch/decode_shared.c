@@ -44,11 +44,10 @@
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)
 /* case 10450: give messages to clients */
-# undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
+/* we can't undef ASSERT b/c of DYNAMO_OPTION */
 # undef ASSERT_TRUNCATE
 # undef ASSERT_BITFIELD_TRUNCATE
 # undef ASSERT_NOT_REACHED
-# define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
@@ -226,9 +225,11 @@ const instr_info_t invalid_instr =
 #undef xx
 
 /* PR 302344: used for shared traces -tracedump_origins where we
- * need to change the mode but we have no dcontext
+ * need to change the mode but we have no dcontext.
+ * We update this in decode_init() once we have runtime options,
+ * but this is the only version for drdecodelib.
  */
-static dr_isa_mode_t initexit_isa_mode = DEFAULT_ISA_MODE;
+static dr_isa_mode_t initexit_isa_mode = DEFAULT_ISA_MODE_STATIC;
 
 /* The decode and encode routines use a per-thread persistent flag that
  * indicates which processor mode to use.  This routine sets that flag to the
@@ -294,3 +295,12 @@ decode_debug_checks(void)
     decode_debug_checks_arch();
 }
 #endif
+
+void
+decode_init(void)
+{
+    /* DEFAULT_ISA_MODE is no longer constant so we set it here */
+    initexit_isa_mode = DEFAULT_ISA_MODE;
+
+    DODEBUG({ decode_debug_checks(); });
+}

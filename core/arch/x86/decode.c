@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -104,6 +104,12 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 #else
     return (mode == DR_ISA_IA32);
 #endif
+}
+
+app_pc
+canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
+{
+    return pc;
 }
 
 #ifdef X64

@@ -57,6 +57,28 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 #endif
 }
 
+app_pc
+canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
+{
+    if (TEST(0x1, (ptr_uint_t)pc)) {
+        dr_isa_mode_t old_mode;
+        dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, &old_mode);
+        DOLOG(2, LOG_TOP, {
+            if (old_mode != DR_ISA_ARM_THUMB)
+                LOG(THREAD, LOG_TOP, 2, "Switching to Thumb mode @"PFX"\n", pc);
+        });
+        return (app_pc) (((ptr_uint_t)pc) & ~0x1);
+    } else {
+        dr_isa_mode_t old_mode;
+        dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, &old_mode);
+        DOLOG(2, LOG_TOP, {
+            if (old_mode != DR_ISA_ARM_THUMB)
+                LOG(THREAD, LOG_TOP, 2, "Switching to ARM mode @"PFX"\n", pc);
+        });
+        return pc;
+    }
+}
+
 static bool
 reg_is_past_last_simd(reg_id_t reg, uint add)
 {

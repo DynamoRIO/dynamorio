@@ -92,13 +92,12 @@ dynamo_start(priv_mcontext_t *mc)
     dynamorio_take_over_threads(dcontext);
 
     /* Set return address */
-#ifdef ARM
-    if (TEST(0x1, (ptr_uint_t)mc->pc)) {
-        LOG(THREAD, LOG_TOP, 2, "%s: entry "PFX" is Thumb\n", __FUNCTION__, mc->pc);
-        dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, NULL);
-        mc->pc = (app_pc) (((ptr_uint_t)mc->pc) & ~0x1);
-    }
-#endif
+    /* FIXME i#1551: we also need to call canonicalize_pc_target() on all
+     * next_tag-writing instances in signal handling, ibl, etc..
+     * We can't put it in dispatch() b/c with our decision to store
+     * tags and addresses as LSB=0, we can easily double-mode-switch.
+     */
+    mc->pc = canonicalize_pc_target(dcontext, mc->pc);
     dcontext->next_tag = mc->pc;
     ASSERT(dcontext->next_tag != NULL);
 

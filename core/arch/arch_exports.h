@@ -1129,7 +1129,6 @@ use_addr_prefix_on_short_disp(void)
 #endif /* STANDALONE_DECODER */
 }
 
-
 /***************************************************************************
  * Arch-specific defines
  */
@@ -1644,9 +1643,23 @@ typedef enum _dr_isa_mode_t {
 } dr_isa_mode_t;
 /* DR_API EXPORT END */
 
+/* static version for drdecodelib */
+#define DEFAULT_ISA_MODE_STATIC \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+
+/* use this one in DR proper */
 #define DEFAULT_ISA_MODE \
     IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_A32))
+                IF_X64_ELSE(DR_ISA_ARM_A64, (INTERNAL_OPTION(isa_mode_arm) ? \
+                                             DR_ISA_ARM_A32 : DR_ISA_ARM_THUMB)))
+
+/* We store gencode entry points with LSB set to 1 for Thumb */
+#ifdef ARM
+# define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
+#else
+# define ENTRY_PC_TO_DECODE_PC(pc) pc
+#endif
 
 DR_API
 /**
@@ -1668,6 +1681,13 @@ DR_API
  */
 dr_isa_mode_t
 dr_get_isa_mode(dcontext_t *dcontext);
+
+/* Switches the ISA mode, if necessary, and returns the (potentially modified) pc */
+app_pc
+canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
+
+void
+decode_init(void);
 
 /* in encode.c */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
