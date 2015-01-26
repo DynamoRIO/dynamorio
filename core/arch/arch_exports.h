@@ -1301,17 +1301,18 @@ decode_init(void);
 # endif
 
 # define FRAGMENT_BASE_PREFIX_SIZE(flags) \
-    (FRAG_IS_THUMB(flags) ? (ASSERT_NOT_IMPLEMENTED(false), 0) : ARM_INSTR_SIZE)
+    (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)
 
 /* exported for DYNAMO_OPTION(separate_private_stubs) */
 # define ARM_INSTR_SIZE 4
 # define THUMB_SHORT_INSTR_SIZE 2
 # define THUMB_LONG_INSTR_SIZE 4
-# define DIRECT_EXIT_STUB_ARM_INSTR_COUNT 4
-/* FIXME i#1551: implement Thumb support */
+# define DIRECT_EXIT_STUB_INSTR_COUNT 4
+/* all instrs are wide in the Thumb version */
 # define DIRECT_EXIT_STUB_SIZE(flags) \
-    (FRAG_IS_THUMB(flags) ? (ASSERT_NOT_IMPLEMENTED(false), 0) : \
-     (DIRECT_EXIT_STUB_ARM_INSTR_COUNT*ARM_INSTR_SIZE))
+    (FRAG_IS_THUMB(flags) ? \
+     (DIRECT_EXIT_STUB_INSTR_COUNT*THUMB_LONG_INSTR_SIZE) : \
+     (DIRECT_EXIT_STUB_INSTR_COUNT*ARM_INSTR_SIZE))
 
 /* FIXME i#1575: implement coarse-grain support */
 # define STUB_COARSE_DIRECT_SIZE(flags) \

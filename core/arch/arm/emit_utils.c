@@ -69,12 +69,66 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
     return NULL;
 }
 
-static void
-insert_ldr_tls_to_pc(byte *pc, uint offs)
+static byte *
+insert_spill_reg(byte *pc, fragment_t *f, reg_id_t src)
+{
+    /* str src, [r10, #r0-slot] */
+    if (FRAG_IS_THUMB(f->flags)) {
+        *(ushort *)pc = 0xf8c0 | (dr_reg_stolen - DR_REG_R0);
+        pc += THUMB_SHORT_INSTR_SIZE;
+        *(ushort *)pc = ((src - DR_REG_R0) << 12) | TLS_REG0_SLOT;
+        pc += THUMB_SHORT_INSTR_SIZE;
+    } else {
+        *(uint *)pc = 0xe5800000 | ((src - DR_REG_R0) << 12) |
+            ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
+        pc += ARM_INSTR_SIZE;
+    }
+    return pc;
+}
+
+static byte *
+insert_ldr_tls_to_pc(byte *pc, fragment_t *f, uint offs)
 {
     /* ldr pc, [r10, #offs] */
-    *(uint*)pc =
-        0xe590f000 | ((dr_reg_stolen - DR_REG_R0) << 16) | offs;
+    if (FRAG_IS_THUMB(f->flags)) {
+        *(ushort*)pc = 0xf8d0 | (dr_reg_stolen - DR_REG_R0);
+        pc += THUMB_SHORT_INSTR_SIZE;
+        *(ushort*)pc = 0xf000 | offs;
+        return pc + THUMB_SHORT_INSTR_SIZE;
+    } else {
+        *(uint*)pc =
+            0xe590f000 | ((dr_reg_stolen - DR_REG_R0) << 16) | offs;
+        return pc + ARM_INSTR_SIZE;
+    }
+}
+
+static byte *
+insert_mov_linkstub(byte *pc, fragment_t *f, linkstub_t *l, reg_id_t dst)
+{
+    ptr_int_t ls = (ptr_int_t) l;
+    if (FRAG_IS_THUMB(f->flags)) {
+        /* movw dst, #bottom-half-&linkstub */
+        *(ushort *)pc = 0xf240 | ((ls & 0xf000) >> 12) | ((ls & 0x0800) >> 1);
+        pc += THUMB_SHORT_INSTR_SIZE;
+        *(ushort *)pc = ((ls & 0x0700) << 4) | ((dst - DR_REG_R0) << 8) | (ls & 0xff);
+        pc += THUMB_SHORT_INSTR_SIZE;
+        /* movt dst, #top-half-&linkstub */
+        *(ushort *)pc = 0xf2c0 | ((ls & 0xf0000000) >> 28) | ((ls & 0x08000000) >> 17);
+        pc += THUMB_SHORT_INSTR_SIZE;
+        *(ushort *)pc = ((ls & 0x07000000) >> 12) | ((dst - DR_REG_R0) << 8) |
+            ((ls & 0xff0000) >> 16);
+        pc += THUMB_SHORT_INSTR_SIZE;
+    } else {
+        /* movw dst, #bottom-half-&linkstub */
+        *(uint*)pc = 0xe3000000 | ((ls & 0xf000) << 4) |
+            ((dst - DR_REG_R0) << 12) | (ls & 0xfff);
+        pc += ARM_INSTR_SIZE;
+        /* movt dst, #top-half-&linkstub */
+        *(uint *)pc = 0xe3400000 | ((ls & 0xf0000000) >> 12) |
+            ((dst - DR_REG_R0) << 12) | ((ls & 0x0fff0000) >> 16);
+        pc += ARM_INSTR_SIZE;
+    }
+    return pc;
 }
 
 /* inserts any nop padding needed to ensure patchable branch offsets don't
@@ -147,69 +201,42 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
     byte *pc = (byte *) stub_pc;
     /* FIXME i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    /* XXX: should we use our IR and encoder instead?  Then we could
+     * share code with emit_do_syscall(), though at a perf cost.
+     */
     if (LINKSTUB_DIRECT(l_flags)) {
-        if (FRAG_IS_THUMB(f->flags)) {
-            /* FIXME i#1551: add Thumb support */
-            ASSERT_NOT_IMPLEMENTED(false);
-        } else {
-            ptr_int_t ls = (ptr_int_t) l;
-            /* XXX: should we use our IR and encoder instead?  Then we could
-             * share code with emit_do_syscall(), though at a perf cost.
-             */
-            /* XXX: we can shrink from 16 bytes to 12 if we keep &linkstub as
-             * data at the end of the stub and use a pc-rel load instead of the 2
-             * mov-immed instrs (followed by the same ldr into pc):
-             *    ldr r0 [pc]
-             *    ldr pc, [r10, #fcache-return-offs]
-             *    <&linkstub>
-             * However, that may incur dcache misses w/ separate icache.
-             * Another idea is to spill lr instead of r0 and use "bl fcache_return"
-             * (again with &linkstub as data), though it has reachability problems.
-             */
-            /* str r0, [r10, #r0-slot] */
-            *(uint *)pc =
-                0xe5800000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
-            pc += ARM_INSTR_SIZE;
-            /* movw r0, #bottom-half-&linkstub */
-            *(uint*)pc =
-                0xe3000000 | ((ls & 0xf000) << 4) | (ls & 0xfff);
-            pc += ARM_INSTR_SIZE;
-            /* movt r0, #top-half-&linkstub */
-            *(uint *)pc =
-                0xe3400000 | ((ls & 0xf0000000) >> 12) | ((ls & 0x0fff0000) >> 16);
-            pc += ARM_INSTR_SIZE;
-            /* ldr pc, [r10, #fcache-return-offs] */
-            insert_ldr_tls_to_pc(pc, get_fcache_return_tls_offs(dcontext, f->flags));
-            pc += ARM_INSTR_SIZE;
-        }
-        return (int) (pc - stub_pc);
+        /* XXX: we can shrink from 16 bytes to 12 if we keep &linkstub as
+         * data at the end of the stub and use a pc-rel load instead of the 2
+         * mov-immed instrs (followed by the same ldr into pc):
+         *    ldr r0 [pc]
+         *    ldr pc, [r10, #fcache-return-offs]
+         *    <&linkstub>
+         * However, that may incur dcache misses w/ separate icache.
+         * Another idea is to spill lr instead of r0 and use "bl fcache_return"
+         * (again with &linkstub as data), though it has reachability problems.
+         */
+        /* str r0, [r10, #r0-slot] */
+        pc = insert_spill_reg(pc, f, DR_REG_R0);
+        /* movw dst, #bottom-half-&linkstub */
+        /* movt dst, #top-half-&linkstub */
+        pc = insert_mov_linkstub(pc, f, l, DR_REG_R0);
+        /* ldr pc, [r10, #fcache-return-offs] */
+        pc = insert_ldr_tls_to_pc(pc, f,
+                                  get_fcache_return_tls_offs(dcontext, f->flags));
     } else {
-        if (FRAG_IS_THUMB(f->flags)) {
-            /* FIXME i#1551: add Thumb support */
-            ASSERT_NOT_IMPLEMENTED(false);
-        } else {
-            ptr_int_t ls = (ptr_int_t) l;
-            /* stub starts out unlinked */
-            cache_pc exit_target = get_unlinked_entry(dcontext,
-                                                      EXIT_TARGET_TAG(dcontext, f, l));
-            /* str r1, [r10, #r1-slot] */
-            *(uint *)pc =
-                0xe5801000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG1_SLOT;
-            pc += ARM_INSTR_SIZE;
-            /* movw r1, #bottom-half-&linkstub */
-            *(uint*)pc =
-                0xe3001000 | ((ls & 0xf000) << 4) | (ls & 0xfff);
-            pc += ARM_INSTR_SIZE;
-            /* movt r1, #top-half-&linkstub */
-            *(uint *)pc =
-                0xe3401000 | ((ls & 0xf0000000) >> 12) | ((ls & 0x0fff0000) >> 16);
-            pc += ARM_INSTR_SIZE;
-            /* ldr pc, [r10, #ibl-offs] */
-            insert_ldr_tls_to_pc(pc, get_ibl_entry_tls_offs(dcontext, exit_target));
-            pc += ARM_INSTR_SIZE;
-        }
-        return (int) (pc - stub_pc);
+        /* stub starts out unlinked */
+        cache_pc exit_target = get_unlinked_entry(dcontext,
+                                                  EXIT_TARGET_TAG(dcontext, f, l));
+        /* str r1, [r10, #r1-slot] */
+        pc = insert_spill_reg(pc, f, DR_REG_R1);
+        /* movw dst, #bottom-half-&linkstub */
+        /* movt dst, #top-half-&linkstub */
+        pc = insert_mov_linkstub(pc, f, l, DR_REG_R1);
+        /* ldr pc, [r10, #ibl-offs] */
+        pc = insert_ldr_tls_to_pc(pc, f,
+                                  get_ibl_entry_tls_offs(dcontext, exit_target));
     }
+    return (int) (pc - stub_pc);
 }
 
 void
@@ -277,7 +304,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
     pc = stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - ARM_INSTR_SIZE;
     /* ldr pc, [r10, #ibl-offs] */
-    insert_ldr_tls_to_pc(pc, get_ibl_entry_tls_offs(dcontext, exit_target));
+    insert_ldr_tls_to_pc(pc, f, get_ibl_entry_tls_offs(dcontext, exit_target));
     /* XXX: since we need a syscall to sync, we should start out linked */
     machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
 }
@@ -362,12 +389,18 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     byte *pc = (byte *) f->start_pc;
     ASSERT(f->prefix_size == 0);
     if (use_ibt_prefix(f->flags)) {
-        /* FIXME i#1551: add Thumb support */
-        ASSERT_NOT_IMPLEMENTED(!FRAG_IS_THUMB(f->flags));
-        /* ldr r0, [r10, #r0-slot] */
-        *(uint *)pc =
-            0xe5900000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
-        pc += ARM_INSTR_SIZE;
+        if (FRAG_IS_THUMB(f->flags)) {
+            /* ldr r0, [r10, #r0-slot] */
+            *(ushort *)pc = 0xf8d0 | ((dr_reg_stolen - DR_REG_R0) << 16);
+            pc += THUMB_SHORT_INSTR_SIZE;
+            *(ushort *)pc = TLS_REG0_SLOT;
+            pc += THUMB_SHORT_INSTR_SIZE;
+        } else {
+            /* ldr r0, [r10, #r0-slot] */
+            *(uint *)pc =
+                0xe5900000 | ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
+            pc += ARM_INSTR_SIZE;
+        }
     }
     f->prefix_size = (byte)(((cache_pc) pc) - f->start_pc);
     /* make sure emitted size matches size we requested */
