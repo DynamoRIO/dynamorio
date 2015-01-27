@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -611,7 +611,7 @@ static void hotp_dump_reg_state(const hotp_context_t *reg_state,
 static void hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
                                    const thread_record_t **all_threads,
                                    const int num_threads);
-static void hotp_only_remove_patch(const hotp_module_t *module,
+static void hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
                                    hotp_patch_point_t *cur_ppoint);
 after_intercept_action_t hotp_only_gateway(app_state_at_intercept_t *state);
 static uint hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash);
@@ -1740,7 +1740,7 @@ hotp_remove_patches_from_module(const hotp_vul_t *vul_tab, const uint num_vuls,
                              * of them should be injected if one is injected).
                              */
                             if (ppoint->trampoline != NULL)
-                                hotp_only_remove_patch(module, ppoint);
+                                hotp_only_remove_patch(dcontext, module, ppoint);
                             else {
                                 /* If module is matched and mode is on, then
                                  * hotp_only patch targeting the current
@@ -2355,7 +2355,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
 
                             if (DYNAMO_OPTION(hotp_only)) {
                                 if (ppoint->trampoline != NULL) {
-                                     hotp_only_remove_patch(module, ppoint);
+                                    hotp_only_remove_patch(dcontext, module, ppoint);
                                 } else {
                                     /* If module is matched & mode is on, then the
                                      * patch must be injected unless it has been
@@ -4290,7 +4290,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
  * each thread shouldn't be in all of the following: dr, hotp_dll and dr_stack.
  */
 static void
-hotp_only_remove_patch(const hotp_module_t *module,
+hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
                        hotp_patch_point_t *cur_ppoint)
 {
     bool res;
@@ -4357,7 +4357,8 @@ hotp_only_remove_patch(const hotp_module_t *module,
      * This is done by bypassing the whole trampoline and jumping to the part
      * that executes the original app code and returns to the address after
      * the hook point.  */
-    insert_jmp_at_tramp_entry(cur_ppoint->trampoline, cur_ppoint->app_code_copy);
+    insert_jmp_at_tramp_entry(dcontext, cur_ppoint->trampoline,
+                              cur_ppoint->app_code_copy);
 
     /* Note, all thread synch locks & hot patch locks must be held before
      * removing anything from the vector.

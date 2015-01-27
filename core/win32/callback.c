@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -8293,7 +8293,7 @@ unhook_text(byte *hook_code_buf, app_pc image_addr)
 
 /* Introduced as part of fix for case 9593, which required leaking trampolines. */
 void
-insert_jmp_at_tramp_entry(byte *trampoline, byte *target)
+insert_jmp_at_tramp_entry(dcontext_t *dcontext, byte *trampoline, byte *target)
 {
     ASSERT(trampoline != NULL && target != NULL);
 
@@ -8301,7 +8301,8 @@ insert_jmp_at_tramp_entry(byte *trampoline, byte *target)
      * was overwritten with the hook;  so, entry point is 5 bytes after that.
      */
     *(trampoline + 5) = JMP_REL32_OPCODE;
-    patch_branch(trampoline + 5, target, false /* Don't have to hot_patch. */);
+    patch_branch(dr_get_isa_mode(dcontext), trampoline + 5, target,
+                 false /* Don't have to hot_patch. */);
 }
 #endif
 

@@ -1427,7 +1427,8 @@ enum {
     NOT_HOT_PATCHABLE=false,
     HOT_PATCHABLE=true
 };
-void patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch);
+void patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
+                  bool hot_patch);
 bool link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                       fragment_t *targetf, bool hot_patch);
 void unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);

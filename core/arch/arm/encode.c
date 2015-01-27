@@ -1881,15 +1881,15 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         ptr_int_t val = get_immed_val_rel(di, opnd);
         if (size_temp == OPSZ_3) {
             /* 26,13,11,25:16,10:0 x2, but bits 13 and 11 are flipped if bit 26 is 0 */
-            uint bit26 = (val >> 26) & 0x1;
-            uint bit13 = (val >> 13) & 0x1;
-            uint bit11 = (val >> 11) & 0x1;
+            uint bit26 = (val >> 24) & 0x1; /* +1 for the x2 */
+            uint bit13 = (val >> 23) & 0x1;
+            uint bit11 = (val >> 22) & 0x1;
             if (bit26 == 0) {
                 bit13 = (bit13 == 0 ? 1 : 0);
                 bit11 = (bit11 == 0 ? 1 : 0);
             }
             encode_immed(di, 0, OPSZ_11b, val >> 1, false/*unsigned*/);
-            encode_immed(di, 16, OPSZ_6b, val >> 12, false/*unsigned*/);
+            encode_immed(di, 16, OPSZ_10b, val >> 12, false/*unsigned*/);
             encode_immed(di, 13, OPSZ_1b, bit13, false/*unsigned*/);
             encode_immed(di, 11, OPSZ_1b, bit11, false/*unsigned*/);
             encode_immed(di, 26, OPSZ_1b, bit26, false/*unsigned*/);

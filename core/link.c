@@ -3061,7 +3061,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
             LOG(THREAD, LOG_LINKS, 4,
                 "  linking coarse "PFX"."PFX"->"PFX" to entrance stub\n",
                 f->tag, FCACHE_ENTRY_PC(f), local_stub);
-            patch_branch(EXIT_CTI_PC(f, l), local_stub,
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), local_stub,
                          /*new, unreachable*/NOT_HOT_PATCHABLE);
             /* case 9009: can't link stub to self until self fully linked;
              * no incoming needed so fine to rely on self link below.
@@ -3854,7 +3854,8 @@ coarse_unit_shift_links(dcontext_t *dcontext, coarse_info_t *info)
                     } else
                         ASSERT(EXIT_TARGET_TAG(dcontext, in_f, l) == tag);
                     ASSERT(new_tgt != NULL);
-                    patch_branch(EXIT_CTI_PC(in_f, l), new_tgt, hot_patch);
+                    patch_branch(FRAG_ISA_MODE(in_f->flags), EXIT_CTI_PC(in_f, l),
+                                 new_tgt, hot_patch);
                 }
             }
         }

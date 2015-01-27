@@ -240,30 +240,76 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
 }
 
 void
-patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
+patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
+             bool hot_patch)
 {
-    /* FIXME i#1551: support Thumb: need to pass in isa mode somehow */
     /* FIXME i#1551: link reachability: we either need to support OP_ldr into pc
      * as an exit cti and live w/ ind br cost always, or we need to go
      * though the stub and replace its 1st instr w/ OP_ldr into pc
      * when the target is far away.
      */
-    if (((*(branch_pc + 3)) & 0xf) == 0xa) {
-        /* OP_b with 3-byte immed that's stored as >>2 */
-        uint val = (*(uint *)branch_pc) & 0xff000000;
-        /* FIXME i#1551: need isa mode to call decode_cur_pc_offs() here */
-        int disp = (target_pc - (branch_pc + ARM_CUR_PC_OFFS));
-        ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
-        ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
-        val |= ((disp >> 2) & 0xffffff);
-        *(uint *)branch_pc = val;
-        machine_cache_sync(branch_pc, branch_pc + ARM_INSTR_SIZE, true);
-    } else {
-        /* FIXME i#1551: support patching OP_ldr into pc using TLS-stored offset.
-         * We'll need to add the unlinked ibl addresses to TLS?
-         */
-        ASSERT_NOT_IMPLEMENTED(false);
+    if (isa_mode == DR_ISA_ARM_A32) {
+        if (((*(branch_pc + 3)) & 0xf) == 0xa) {
+            /* OP_b with 3-byte immed that's stored as >>2 */
+            uint val = (*(uint *)branch_pc) & 0xff000000;
+            int disp = (target_pc - (branch_pc + decode_cur_pc_offs(isa_mode)));
+            ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
+            ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+            val |= ((disp >> 2) & 0xffffff);
+            *(uint *)branch_pc = val;
+            machine_cache_sync(branch_pc, branch_pc + ARM_INSTR_SIZE, true);
+            return;
+        }
+    } else if (isa_mode == DR_ISA_ARM_THUMB) {
+        /* Remember that we have 2 little-endian shorts */
+        if (((*(branch_pc + 1)) & 0xf0) == 0xf0 &&
+            /* Match uncond and cond OP_b */
+            ((*(branch_pc + 3)) & 0xc0) == 0x80) {
+            int disp = (target_pc - (branch_pc + decode_cur_pc_offs(isa_mode)));
+            /* First, get the non-immed bits */
+            ushort valA;
+            ushort valB = (*(ushort *)(branch_pc+2)) & 0xd000;
+            ASSERT(ALIGNED(disp, THUMB_SHORT_INSTR_SIZE));
+            if (((*(branch_pc + 3)) & 0xd0) == 0x90) {
+                /* Unconditional OP_b: 3-byte immed that's stored, split up, as >>2 */
+                /* A10,B13,B11,A9:0,B10:0 x2, but B13 and B11 are flipped if A10 is 0 */
+                uint bitA10 = (disp >> 24) & 0x1; /* +1 for the x2 */
+                uint bitB13 = (disp >> 23) & 0x1;
+                uint bitB11 = (disp >> 22) & 0x1;
+                ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+                valA = (*(ushort *)branch_pc) & 0xf800;
+                /* XXX: share with encoder's TYPE_J_b26_b13_b11_b16_b0 */
+                if (bitA10 == 0) {
+                    bitB13 = (bitB13 == 0 ? 1 : 0);
+                    bitB11 = (bitB11 == 0 ? 1 : 0);
+                }
+                valB |= (disp >> 1) & 0x7ff; /* B10:0 */
+                valA |= (disp >> 12) & 0x3ff; /* A9:0 */
+                valB |= bitB13 << 13;
+                valB |= bitB11 << 11;
+                valA |= bitA10 << 10;
+            } else {
+                /* Conditional OP_b: 20-bit immed */
+                valA = (*(ushort *)branch_pc) & 0xfbc0;
+                /* A10,B11,B13,A5:0,B10:0 x2 */
+                ASSERT(disp < 0x300000 || disp > -4*1024*1024); /* 22-bit max */
+                /* XXX: share with encoder's TYPE_J_b26_b11_b13_b16_b0 */
+                valB |= (disp >> 1) & 0x7ff; /* B10:0 */
+                valA |= (disp >> 12) & 0x3f; /* A5:0 */
+                valB |= ((disp >> 18) & 0x1) << 13; /* B13 */
+                valB |= ((disp >> 19) & 0x1) << 11; /* B11 */
+                valA |= ((disp >> 20) & 0x1) << 10; /* A10 */
+            }
+            *(ushort *)branch_pc = valA;
+            *(ushort *)(branch_pc+2) = valB;
+            machine_cache_sync(branch_pc, branch_pc + THUMB_LONG_INSTR_SIZE, true);
+            return;
+        }
     }
+    /* FIXME i#1551: support patching OP_ldr into pc using TLS-stored offset.
+     * We'll need to add the unlinked ibl addresses to TLS?
+     */
+    ASSERT_NOT_IMPLEMENTED(false);
 }
 
 uint

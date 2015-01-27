@@ -727,7 +727,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
             ASSERT(prev_stub_pc != NULL);
             /* pointing at start of stub is the unlink entry */
             ASSERT(linkstub_unlink_entry_offset(dcontext, f, l) == 0);
-            patch_branch(EXIT_CTI_PC(f, l), EXIT_STUB_PC(dcontext, f, l), false);
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
+                         EXIT_STUB_PC(dcontext, f, l), false);
 #ifdef CUSTOM_EXIT_STUBS
             /* we don't currently support separate custom stubs */
             ASSERT(instr_exit_stub_code(inst) == NULL);
@@ -782,7 +783,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
         ASSERT_TRUNCATE(l->fixed_stub_offset, ushort, (pc - old_pc));
         l->fixed_stub_offset = (ushort) (pc - old_pc);
         /* relocate the exit branch target so it takes to the stub */
-        patch_branch(EXIT_CTI_PC(f, l), old_pc, false);
+        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), old_pc, false);
 #else
         if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
             direct_linkstub_t *dl = (direct_linkstub_t *) l;
@@ -791,7 +792,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
         /* relocate the exit branch target so it takes to the unlink
          * entry to the stub
          */
-        patch_branch(EXIT_CTI_PC(f, l),
+        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
                      pc + linkstub_unlink_entry_offset(dcontext, f, l), false);
         LOG(THREAD, LOG_EMIT, 3,
             "Exit cti "PFX" is targeting "PFX" + 0x%x => "PFX"\n",

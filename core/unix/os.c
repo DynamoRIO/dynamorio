@@ -8529,7 +8529,7 @@ unhook_text(byte *hook_code_buf, app_pc image_addr)
 }
 
 void
-insert_jmp_at_tramp_entry(byte *trampoline, byte *target)
+insert_jmp_at_tramp_entry(dcontext_t *dcontext, byte *trampoline, byte *target)
 {
     ASSERT_NOT_IMPLEMENTED(false);
 }

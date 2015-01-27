@@ -620,7 +620,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
              * For now we assume only when unlinked:
              */
             /* skip custom code */
-            patch_branch(EXIT_CTI_PC(f, l), stub_pc,
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc,
                          TEST(FRAG_SHARED, f->flags) ? hot_patch : NOT_HOT_PATCHABLE);
 # endif
         } else {
@@ -630,7 +630,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
              * For now we assume only when unlinked:
              */
             /* skip custom code */
-            patch_branch(EXIT_CTI_PC(f, l), stub_pc, hot_patch);
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, hot_patch);
 # endif
             change_linkcount_target(stub_pc, FCACHE_ENTRY_PC(targetf));
         }
@@ -648,7 +648,8 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
             LOG(THREAD, LOG_LINKS, 4,
                 "\tlinking F%d."PFX" to incr routine b/c F%d is trace head\n",
                 f->id, EXIT_CTI_PC(f, l), targetf->id);
-            patch_branch(stub_pc + LINKCOUNT_UNLINKED_ENTRY(f->flags) + 10,
+            patch_branch(FRAG_ISA_MODE(f->flags),
+                         stub_pc + LINKCOUNT_UNLINKED_ENTRY(f->flags) + 10,
                          trace_head_incr_routine(dcontext), hot_patch);
         }
 # endif
@@ -663,7 +664,8 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
             f->id, EXIT_CTI_PC(f, l), targetf->id);
         /* FIXME: more efficient way than multiple calls to get size-5? */
         ASSERT(linkstub_size(dcontext, f, l) == DIRECT_EXIT_STUB_SIZE(f->flags));
-        patch_branch(stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) - 5,
+        patch_branch(FRAG_ISA_MODE(f->flags),
+                     stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) - 5,
                      trace_head_incr_routine(dcontext), hot_patch);
         return false; /* going through stub */
     }
@@ -675,11 +677,13 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
         /* want to target just the xcx restore, not the eflags restore
          * (only ibl targets eflags restore)
          */
-        patch_branch(EXIT_CTI_PC(f, l), FCACHE_PREFIX_ENTRY_PC(targetf),
+        patch_branch(FRAG_ISA_MODE(f->flags),
+                     EXIT_CTI_PC(f, l), FCACHE_PREFIX_ENTRY_PC(targetf),
                      hot_patch);
     } else
 #endif
-        patch_branch(EXIT_CTI_PC(f, l), FCACHE_ENTRY_PC(targetf), hot_patch);
+        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
+                     FCACHE_ENTRY_PC(targetf), hot_patch);
     return true; /* do not need stub anymore */
 }
 
@@ -711,14 +715,15 @@ unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
          * For now we assume only when unlinked.
          */
         /* go through custom code again */
-        patch_branch(EXIT_CTI_PC(f, l), stub_pc, HOT_PATCHABLE);
+        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, HOT_PATCHABLE);
 # else
         pc = (byte *) stub_pc;
 # endif
 # ifdef TRACE_HEAD_CACHE_INCR
         if (dl->target_fragment != NULL) { /* HACK to tell if targeted trace head */
             /* make unlinked jmp go back to fcache_return */
-            patch_branch(pc + LINKCOUNT_UNLINKED_ENTRY(f->flags) + 10,
+            patch_branch(FRAG_ISA_MODE(f->flags),
+                         pc + LINKCOUNT_UNLINKED_ENTRY(f->flags) + 10,
                          get_direct_exit_target(dcontext, f->flags),
                          HOT_PATCHABLE);
         } else
@@ -738,14 +743,14 @@ unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 # endif
         /* FIXME: more efficient way than multiple calls to get size-5? */
         ASSERT(linkstub_size(dcontext, f, l) == DIRECT_EXIT_STUB_SIZE(f->flags));
-        patch_branch(pc + DIRECT_EXIT_STUB_SIZE(f->flags) - 5,
+        patch_branch(FRAG_ISA_MODE(f->flags), pc + DIRECT_EXIT_STUB_SIZE(f->flags) - 5,
                      get_direct_exit_target(dcontext, f->flags),
                      HOT_PATCHABLE);
     }
 #endif
 
     /* change jmp target to point to top of exit stub */
-    patch_branch(EXIT_CTI_PC(f, l), stub_pc, HOT_PATCHABLE);
+    patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, HOT_PATCHABLE);
 }
 
 /* NOTE : for inlined indirect branches linking is !NOT! atomic with respect
@@ -786,7 +791,7 @@ link_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool hot_
 
         if (ibl_code->ibl_head_is_inlined) {
             /* need to make branch target the top of the exit stub */
-            patch_branch(EXIT_CTI_PC(f, l), stub_pc, hot_patch);
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, hot_patch);
             if (DYNAMO_OPTION(atomic_inlined_linking)) {
                 return;
             }
@@ -1043,7 +1048,7 @@ entrance_stub_linked(cache_pc stub, coarse_info_t *info /*OPTIONAL*/)
 
 /* Returns whether it had to change page protections */
 static bool
-patch_coarse_branch(cache_pc stub, cache_pc tgt, bool hot_patch,
+patch_coarse_branch(dcontext_t *dcontext, cache_pc stub, cache_pc tgt, bool hot_patch,
                     coarse_info_t *info /*OPTIONAL*/)
 {
     bool stubs_readonly = false;
@@ -1074,7 +1079,8 @@ patch_coarse_branch(cache_pc stub, cache_pc tgt, bool hot_patch,
             }
         }
     }
-    patch_branch(entrance_stub_jmp(stub), tgt, HOT_PATCHABLE);
+    /* FIXME i#1551: for proper ARM support we'll need the ISA mode of the coarse unit */
+    patch_branch(dr_get_isa_mode(dcontext), entrance_stub_jmp(stub), tgt, HOT_PATCHABLE);
     if (stubs_restore)
         make_unwritable((byte *)PAGE_START(entrance_stub_jmp(stub)), PAGE_SIZE);
     return stubs_readonly;
@@ -1088,7 +1094,7 @@ link_entrance_stub(dcontext_t *dcontext, cache_pc stub, cache_pc tgt,
     ASSERT(DYNAMO_OPTION(coarse_units));
     ASSERT(self_owns_recursive_lock(&change_linking_lock));
     LOG(THREAD, LOG_LINKS, 5, "link_entrance_stub "PFX"\n", stub);
-    if (patch_coarse_branch(stub, tgt, hot_patch, info))
+    if (patch_coarse_branch(dcontext, stub, tgt, hot_patch, info))
         STATS_INC(pcache_unprot_link);
     /* We check this afterward since this link may be what makes it consistent
      * FIXME: pass in arg to not check target?  Then call before and after */
@@ -1110,7 +1116,7 @@ unlink_entrance_stub(dcontext_t *dcontext, cache_pc stub, uint flags,
         tgt = trace_head_return_coarse_prefix(stub, info);
     else
         tgt = fcache_return_coarse_prefix(stub, info);
-    if (patch_coarse_branch(stub, tgt, HOT_PATCHABLE, info))
+    if (patch_coarse_branch(dcontext, stub, tgt, HOT_PATCHABLE, info))
         STATS_INC(pcache_unprot_unlink);
 }
 

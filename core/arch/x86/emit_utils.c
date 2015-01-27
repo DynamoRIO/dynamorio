@@ -157,7 +157,8 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
  * not cross a cache line.
  */
 void
-patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch)
+patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
+             bool hot_patch)
 {
     cache_pc byte_ptr = exit_cti_disp_pc(branch_pc);
     insert_relative_target(byte_ptr, target_pc, hot_patch);
@@ -548,8 +549,8 @@ insert_inlined_ibl(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, byte *pc,
     memcpy(start_pc, ibl_code->inline_ibl_stub_template, ibl_code->inline_stub_length);
 
     /* exit should be unlinked initially */
-    patch_branch(EXIT_CTI_PC(f, l), start_pc + ibl_code->inline_unlink_offs,
-                 NOT_HOT_PATCHABLE);
+    patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
+                 start_pc + ibl_code->inline_unlink_offs, NOT_HOT_PATCHABLE);
 
     if (DYNAMO_OPTION(indirect_stubs)) {
         /* fixup linked/unlinked targets */
@@ -998,7 +999,8 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 
             /* now add offset of unlinked entry */
             target += ibl_code->inline_unlink_offs;
-            patch_branch(EXIT_CTI_PC(f, l), target, HOT_PATCHABLE);
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), target,
+                         HOT_PATCHABLE);
         }
     }
 }
