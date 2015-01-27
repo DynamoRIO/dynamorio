@@ -1951,8 +1951,9 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
             /* DR_REG_PC as an index register is not allowed */
             if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
                 if (target != NULL) {
-                    *target = instr_get_app_pc(instr) + opnd_get_disp(curop) +
-                        decode_cur_pc_offs(instr_get_isa_mode(instr));
+                    *target = opnd_get_disp(curop) +
+                        decode_cur_pc(instr_get_app_pc(instr), instr_get_isa_mode(instr),
+                                      instr_get_opcode(instr));
                 }
             }
         }, {
@@ -1969,8 +1970,9 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
             /* DR_REG_PC as an index register is not allowed */
             if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
                 if (target != NULL) {
-                    *target = instr_get_app_pc(instr) + opnd_get_disp(curop) +
-                        decode_cur_pc_offs(instr_get_isa_mode(instr));
+                    *target = opnd_get_disp(curop) +
+                        decode_cur_pc(instr_get_app_pc(instr), instr_get_isa_mode(instr),
+                                      instr_get_opcode(instr));
                 }
                 return true;
             }

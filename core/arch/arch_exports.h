@@ -1782,26 +1782,6 @@ byte *
 instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc,
                          byte *final_pc, byte *max_pc, bool has_instr_jmp_targets);
 
-#ifdef ARM
-/* The "current" pc has an offset in pc-relative computations */
-# define ARM_CUR_PC_OFFS 8
-# define THUMB_CUR_PC_OFFS 4
-
-static inline int
-decode_cur_pc_offs(dr_isa_mode_t mode)
-{
-    if (mode == DR_ISA_ARM_A32)
-        return ARM_CUR_PC_OFFS;
-    else if (mode == DR_ISA_ARM_THUMB)
-        return THUMB_CUR_PC_OFFS;
-    else {
-        /* FIXME i#1569: A64 NYI */
-        ASSERT_NOT_IMPLEMENTED(false);
-        return 0;
-    }
-}
-#endif
-
 /* in mangle.c */
 void insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext, instrlist_t *ilist,
         instr_t *instr, void *callee, int arg, app_pc jmp_tag, instr_t *jmp_instr);

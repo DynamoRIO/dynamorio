@@ -583,6 +583,14 @@ void
 decode_debug_checks(void);
 #endif
 
+#ifdef ARM
+/* The "current" pc has an offset in pc-relative computations that varies
+ * by mode and opcode.
+ */
+app_pc
+decode_cur_pc(app_pc instr_pc, dr_isa_mode_t mode, uint opcode);
+#endif
+
 /* for debugging: printing out types and sizes */
 extern const char * const type_names[];
 extern const char * const size_names[];

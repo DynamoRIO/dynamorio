@@ -79,6 +79,30 @@ canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
     }
 }
 
+/* The "current" pc has an offset in pc-relative computations */
+#define ARM_CUR_PC_OFFS 8
+#define THUMB_CUR_PC_OFFS 4
+
+app_pc
+decode_cur_pc(app_pc instr_pc, dr_isa_mode_t mode, uint opcode)
+{
+    if (mode == DR_ISA_ARM_A32)
+        return instr_pc + ARM_CUR_PC_OFFS;
+    else if (mode == DR_ISA_ARM_THUMB) {
+        if (opcode == OP_b || opcode == OP_b_short || opcode == OP_bl ||
+            opcode == OP_cbnz || opcode == OP_cbz)
+            return instr_pc + THUMB_CUR_PC_OFFS;
+        else {
+            return (app_pc)
+                ALIGN_BACKWARD(instr_pc + THUMB_CUR_PC_OFFS, THUMB_CUR_PC_OFFS);
+        }
+    } else {
+        /* FIXME i#1569: A64 NYI */
+        ASSERT_NOT_IMPLEMENTED(false);
+        return instr_pc;
+    }
+}
+
 static bool
 reg_is_past_last_simd(reg_id_t reg, uint add)
 {
@@ -935,14 +959,14 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     }
     case TYPE_J_b0: /* T32.16 OP_b, imm11 = 10:0, imm32 = SignExtend(imm11:'0', 32) */
         array[(*counter)++] =
-            /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
-            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) +
+            /* For A32, "cur pc" is PC + 8; for T32, PC + 4, sometimes aligned. */
+            opnd_create_pc(decode_cur_pc(di->orig_pc, di->isa_mode, di->opcode) +
                            (decode_immed(di, 0, opsize, true/*signed*/) << 1));
         return true;
     case TYPE_J_x4_b0: /* OP_b, OP_bl */
         array[(*counter)++] =
-            /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
-            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) +
+            /* For A32, "cur pc" is PC + 8; for T32, PC + 4, sometimes aligned. */
+            opnd_create_pc(decode_cur_pc(di->orig_pc, di->isa_mode, di->opcode) +
                            (decode_immed(di, 0, opsize, true/*signed*/) << 2));
         return true;
     case TYPE_J_b0_b24: { /* OP_blx imm24:H:0 */
@@ -951,9 +975,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 0, OPSZ_3, false/*unsigned*/) << 2);
         } else
             CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
-        /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
+        /* For A32, "cur pc" is PC + 8; for T32, PC + 4, sometimes aligned. */
         array[(*counter)++] =
-            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) + val);
+            opnd_create_pc(decode_cur_pc(di->orig_pc, di->isa_mode, di->opcode) + val);
         return true;
     }
     case TYPE_J_b26_b11_b13_b16_b0: { /* OP_b T32-26,11,13,21:16,10:0 x2 */
@@ -965,9 +989,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 26, OPSZ_1b, true/*signed*/) << 20);
         } else
             CLIENT_ASSERT(false, "unsupported 26-11-13-16-0 split immed size");
-        /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
+        /* For A32, "cur pc" is PC + 8; for T32, PC + 4, sometimes aligned. */
         array[(*counter)++] =
-            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) + val);
+            opnd_create_pc(decode_cur_pc(di->orig_pc, di->isa_mode, di->opcode) + val);
         return true;
     }
     case TYPE_J_b26_b13_b11_b16_b0: {
@@ -985,9 +1009,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= bit26 << 24;
         } else
             CLIENT_ASSERT(false, "unsupported 26-13-11-16-0 split immed size");
-        /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
+        /* For A32, "cur pc" is PC + 8; for T32, PC + 4, sometimes aligned. */
         array[(*counter)++] =
-            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) + val);
+            opnd_create_pc(decode_cur_pc(di->orig_pc, di->isa_mode, di->opcode) + val);
         return true;
     }
     case TYPE_J_b9_b3: { /* T32.16 OP_cb{n}z, ZeroExtend(i:imm5:0), i.e., [9,7:3]:0 */
@@ -995,9 +1019,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         val  = decode_immed(di, 3, OPSZ_5b, false/*unsigned*/);
         val |= (bit9 << 5);
         val  = val << 1 /* x2 */;
-        /* For A32, "cur pc" is PC + 8; for T32, PC + 4. */
+        /* For A32, "cur pc" is PC + 8; for T32, PC + 4, sometimes aligned. */
         array[(*counter)++] =
-            opnd_create_pc(di->orig_pc + decode_cur_pc_offs(di->isa_mode) + val);
+            opnd_create_pc(decode_cur_pc(di->orig_pc, di->isa_mode, di->opcode) + val);
         return true;
     }
     case TYPE_SHIFT_b4:
@@ -1828,6 +1852,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
+    di.opcode = info->type; /* needed for decode_cur_pc */
     /* failure up to this point handled fine -- we set opcode to OP_INVALID */
     if (next_pc == NULL) {
         LOG(THREAD, LOG_INTERP, 3, "decode: invalid instr at "PFX"\n", pc);
@@ -1996,7 +2021,7 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
         int disp = word & 0xffffff;
         if (TEST(0x800000, disp))
             disp |= 0xff000000; /* sign-extend */
-        return pc + decode_cur_pc_offs(mode) + (disp << 2);
+        return decode_cur_pc(pc, mode, OP_b) + (disp << 2);
     } else {
         /* A10,B13,B11,A9:0,B10:0 x2, but B13 and B11 are flipped if A10 is 0 */
         /* XXX: share with decoder's TYPE_J_b26_b13_b11_b16_b0 */
@@ -2012,7 +2037,7 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
         disp |= bitA10 << 23;
         if (bitA10 == 1)
             disp |= 0xff000000; /* sign-extend */
-        return pc + decode_cur_pc_offs(mode) + (disp << 1);
+        return decode_cur_pc(pc, mode, OP_b) + (disp << 1);
     }
     return NULL;
 }

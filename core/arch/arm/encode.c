@@ -560,18 +560,19 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
         if (selected)
             di->has_instr_opnds = true;
         if (relative) {
-            /* For A32, "cur PC" is really "PC + 8"; "PC + 4" for Thumb */
+            /* For A32, "cur PC" is "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
             return (ptr_int_t)opnd_get_instr(opnd)->note -
-                (di->cur_note + decode_cur_pc_offs(di->isa_mode));
+                (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode) -
+                 di->final_pc);
         } else {
             return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note) +
                 (ptr_int_t)di->final_pc;
         }
     } else if (opnd_is_near_pc(opnd)) {
         if (relative) {
-            /* For A32, "cur PC" is really "PC + 8"; "PC + 4" for Thumb */
-            return (ptr_int_t)
-                (opnd_get_pc(opnd) - (di->final_pc + decode_cur_pc_offs(di->isa_mode)));
+            /* For A32, "cur PC" is "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
+            return (ptr_int_t)(opnd_get_pc(opnd) -
+                               decode_cur_pc(di->final_pc, di->isa_mode, di->opcode));
         } else {
             return (ptr_int_t)opnd_get_pc(opnd);
         }
@@ -691,10 +692,10 @@ encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
 static ptr_int_t
 get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 {
-    /* For A32, "cur PC" is really "PC + 8"; "PC + 4" for Thumb */
+    /* For A32, "cur PC" is really "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
     return (ptr_int_t)opnd_get_instr(opnd)->note -
-        (di->cur_note + decode_cur_pc_offs(di->isa_mode)) +
-        opnd_get_mem_instr_disp(opnd);
+        (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode) -
+         di->final_pc) + opnd_get_mem_instr_disp(opnd);
 }
 
 static bool
