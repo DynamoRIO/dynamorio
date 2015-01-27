@@ -51,13 +51,22 @@
 #
 #   tools/arm_table_chain.pl -v -o <opc> core/arch/arm/table_{private,encode,t32}*.[ch]
 #
-# To run on all T32 opcodes:
+# To run on all T32 opcodes for outside of IT blocks:
 #
 #   tools/arm_table_chain.pl core/arch/arm/table_{private,encode,t32}*.[ch]
+#
+# To run on all T32 opcodes for inside of IT blocks:
+#
+#   tools/arm_table_chain.pl -it core/arch/arm/table_{private,encode,t32}*.[ch]
+#
+# Assuming the .n format are always first and thus always the entries,
+# we can run arm_table_chain.pl twice for inside and outside of IT blocks
+# with T32 tables without affecting the in-table chaining.
+
 
 my $verbose = 0;
 
-die "Usage: $0 [-o OP_<opcode>] <table-files>\n" if ($#ARGV < 1);
+die "Usage: $0 [-o OP_<opcode>] [-it] <table-files>\n" if ($#ARGV < 1);
 my $single_op = '';
 while ($ARGV[0] eq '-v') {
     shift;
@@ -67,13 +76,32 @@ if ($ARGV[0] eq '-o') {
     shift;
     $single_op = shift;
 }
-my @infiles = @ARGV;
+if ($ARGV[0] eq '-it') {
+    $it_block = 1;
+    shift;
+}
+my @allfiles = @ARGV;
 my $table = "";
 my $shape = "";
 my $major = 0;
 my $minor = 0;
 my $instance = 0;
 my $t32 = 0;
+my @infiles;
+
+foreach $infile (@allfiles) {
+    print "$infile\n";
+}
+exit;
+
+# Remove table_t32_16.c or table_t32_16_it.c
+foreach $infile (@allfiles) {
+    if ($it_block) {
+        push(@infiles, $infile) if ($infile !~/t32_16\.c/);
+    } else {
+        push(@infiles, $infile) if ($infile !~/t32_16_it\.c/);
+    }
+}
 
 # Must process headers first
 @infiles = sort({return -1 if($a =~ /\.h$/);return 1 if($b =~ /\.h$/); return 0;}
@@ -82,6 +110,7 @@ my $t32 = 0;
 foreach $infile (@infiles) {
     print "Processing $infile\n" if ($verbose > 0);
     $t32 = 1 if ($infile =~ /_t32_/);
+
     open(INFILE, "< $infile") || die "Couldn't open $file\n";
     while (<INFILE>) {
         print "xxx $_\n" if ($verbose > 2);
@@ -193,9 +222,21 @@ foreach $infile (@infiles) {
             if (defined($entry{$opc}[0]{'addr_long'})) {
                 my $start = $entry{$opc}[0]{'addr_long'};
                 if ($t32) {
-                    s/{(&.*,\s*)&.*}/{\1&$start}/;
+                    if ($it_block) {
+                        # Assuming the .n format are always first and thus always
+                        # the entries, we can implement here for IT block and
+                        # not inside the in-table chaining.
+                        if ($opc !~ /OP_cps/ && $opc !~ /OP_setend$/) {
+                            # OP_cps* and OP_setend are not permitted in IT block.
+                            # We exclude OP_cps* and OP_setend to avoid creating
+                            # separate table for T32.32 IT block instructions.
+                            s/{(&.*,\s*&.*,\s*)&.*}/{\1&$start}/;
+                        }
+                    } else {
+                        s/{(&.*,\s*)&.*(,\s*&.*)}/{\1&$start\2}/;
+                    }
                 } else {
-                    s/{&.*,(\s*&.*)}/{&$start,\1}/;
+                    s/{&.*,(\s*&.*\s*&.*)}/{&$start,\1}/;
                 }
             }
         }

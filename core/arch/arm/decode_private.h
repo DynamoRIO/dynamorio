@@ -223,6 +223,7 @@ struct _decode_info_t {
 typedef struct _op_to_instr_info_t {
     const instr_info_t * const A32;
     const instr_info_t * const T32;
+    const instr_info_t * const T32_it;
 } op_to_instr_info_t;
 
 /* N.B.: if you change the type enum, change the string names for
@@ -562,6 +563,17 @@ extern const instr_info_t T32_16_ext_bits_10_9[][4];
 extern const instr_info_t T32_16_ext_bits_7_6[][4];
 extern const instr_info_t T32_16_ext_bits_6_4[][8];
 extern const instr_info_t T32_16_ext_imm_3_0[][2];
+
+extern const instr_info_t T32_16_it_opc4[];
+extern const instr_info_t T32_16_it_ext_bit_11[][2];
+extern const instr_info_t T32_16_it_ext_bits_11_10[][4];
+extern const instr_info_t T32_16_it_ext_bits_11_9[][8];
+extern const instr_info_t T32_16_it_ext_bits_11_8[][16];
+extern const instr_info_t T32_16_it_ext_bits_9_6[][16];
+extern const instr_info_t T32_16_it_ext_bit_7[][2];
+extern const instr_info_t T32_16_it_ext_bits_10_9[][4];
+extern const instr_info_t T32_16_it_ext_bits_7_6[][4];
+extern const instr_info_t T32_16_it_ext_bits_6_4[][8];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const op_to_instr_info_t const op_instr[];

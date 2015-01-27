@@ -357,7 +357,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
 const instr_info_t T32_ext_A9_7_eq1[][2] = {
   { /* 0 */
     {EXT_A10_6_4, 0xf3808000, "(ext a10_6_4 0)", xx, xx, xx, xx, xx, no, x, 0},
-    {OP_b,        0xf0008000, "b",      xx, xx, j20x26_11_13_16_0, xx, xx, pred22, x, END_LIST},
+    {OP_b,        0xf0008000, "b",      xx, xx, j20x26_11_13_16_0, xx, xx, pred22, x, END_LIST},/*FIXME i#1551: not permitted in IT block*/
   },
 };
 
