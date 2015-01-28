@@ -89,11 +89,6 @@ my $instance = 0;
 my $t32 = 0;
 my @infiles;
 
-foreach $infile (@allfiles) {
-    print "$infile\n";
-}
-exit;
-
 # Remove table_t32_16.c or table_t32_16_it.c
 foreach $infile (@allfiles) {
     if ($it_block) {
