@@ -1034,7 +1034,11 @@ void dr_fpu_exception_init(void);
  * the mcontext and the SP of the caller of dr_app_start() and
  * dynamorio_app_take_over().
  */
-#define DYNAMO_START_XSP_ADJUST 16
+#ifdef X86
+# define DYNAMO_START_XSP_ADJUST 16
+#else
+# define DYNAMO_START_XSP_ADJUST 0
+#endif
 
 /* x86_code.c */
 void dynamo_start(priv_mcontext_t *mc);

@@ -40,6 +40,7 @@ START_FILE
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
 DECL_EXTERN(initstack_mutex)
+DECL_EXTERN(dynamorio_app_take_over_helper)
 
 #define POUND #
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
@@ -50,6 +51,13 @@ DECL_EXTERN(initstack_mutex)
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
+#ifdef X64
+# error NYI
+#else
+# define PRIV_MCXT_SIZE (17*4)
+# define PRIV_MCXT_SP_FROM_TOP (-4*4) /* flags, pc, lr, then sp */
+# define PRIV_MCXT_PC_FROM_TOP (-2*4) /* flags, then pc */
+#endif
 
 /* FIXME i#1551: just a shell to get things compiling.  We need to fill
  * in all the real functions later.
@@ -191,14 +199,32 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
         END_FUNC(dr_app_running_under_dynamorio)
 #endif /* DR_APP_EXPORTS */
 
+
 /*
  * dynamorio_app_take_over - Causes application to run under Dynamo
  * control.  Dynamo never releases control.
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+        push     {lr}
+        mrs      REG_R0, cpsr /* r0 is scratch */
+        push     {REG_R0}
+        /* We can't push all regs w/ writeback */
+#ifdef X64
+# error NYI
+#endif
+        stmdb    sp, {REG_R0-r15}
+        str      lr, [sp, #(PRIV_MCXT_PC_FROM_TOP+4)] /* +4 b/c we pushed cpsr */
+        /* we need the sp at function entry */
+        mov      REG_R0, sp
+        add      REG_R0, REG_R0, #8 /* offset cpsr and lr pushes */
+        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_TOP+4)] /* +4 b/c we pushed cpsr */
+        sub      sp, sp, #(PRIV_MCXT_SIZE-4) /* -4 b/c we pushed cpsr */
+        mov      REG_R0, sp
+        CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), REG_R0)
+        /* if we get here, DR is not taking over */
+        add      sp, sp, #PRIV_MCXT_SIZE
+        pop      {pc}
         END_FUNC(dynamorio_app_take_over)
 
 
