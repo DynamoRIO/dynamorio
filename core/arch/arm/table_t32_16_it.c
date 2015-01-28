@@ -249,7 +249,7 @@ const instr_info_t T32_16_it_ext_bits_7_6[][4] = {
 const instr_info_t T32_16_it_ext_bits_6_4[][8] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {INVALID,    0xbf00, "(bad)",     xx, xx, xx, xx, xx, no, x, NA},
+      {OP_nop,     0xbf00, "nop",       xx, xx, xx, xx, xx, no, x, xb20[0][0x00]},
       {OP_yield,   0xbf10, "yield",     xx, xx, xx, xx, xx, no, x, xb20[0][0x01]},
       {OP_wfe,     0xbf20, "wfe",       xx, xx, xx, xx, xx, no, x, xb20[0][0x02]},
       {OP_wfi,     0xbf30, "wfi",       xx, xx, xx, xx, xx, no, x, xb20[0][0x03]},

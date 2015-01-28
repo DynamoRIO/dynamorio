@@ -1584,14 +1584,14 @@ decode_instr_info_T32_16(decode_info_t *di)
         } else if (info->type == EXT_7_6) {
             idx = (di->instr_word >> 6) & 0x3; /* bits 7:6 */
             info = &T32_16_ext_bits_7_6[info->code][idx];
-        } else if (info->type == EXT_6_4) {
-            idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
-            info = &T32_16_ext_bits_6_4[info->code][idx];
         } else if (info->type == EXT_3_0) {
             idx = di->instr_word & 0xf; /* bits 3:0 */
             if (idx != 0)
                 idx = 1;
             info = &T32_16_ext_imm_3_0[info->code][idx];
+        } else if (info->type == EXT_6_4) {
+            idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
+            info = &T32_16_ext_bits_6_4[info->code][idx];
         } else {
             ASSERT_NOT_REACHED();
             info = NULL;

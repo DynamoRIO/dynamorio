@@ -170,7 +170,7 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_muls           */ {&A32_ext_opc4x[1][0x02],    &T32_16_ext_bits_9_6[0][0x0d],    &invalid_instr},
     /* OP_mvn            */ {&A32_pred_opc8[0x3e],       &T32_ext_RAPC[6][0x01],           &T32_16_it_ext_bits_9_6[0][0x0f]},
     /* OP_mvns           */ {&A32_pred_opc8[0x3f],       &T32_16_ext_bits_9_6[0][0x0f],    &T32_ext_RAPC[7][0x01]},
-    /* OP_nop            */ {&A32_ext_bits0[0][0x00],    &T32_16_ext_imm_3_0[0][0x00],     &T32_ext_bits_B2_0[0][0x00]},
+    /* OP_nop            */ {&A32_ext_bits0[0][0x00],    &T32_16_ext_bits_6_4[0][0x00],    &T32_16_it_ext_bits_6_4[0][0x00]},
     /* OP_orn            */ {&invalid_instr,             &T32_ext_RAPC[6][0x00],           &T32_ext_RAPC[6][0x00]},
     /* OP_orns           */ {&invalid_instr,             &T32_ext_RAPC[7][0x00],           &T32_ext_RAPC[7][0x00]},
     /* OP_orr            */ {&A32_pred_opc8[0x38],       &T32_ext_RAPC[4][0x00],           &T32_16_it_ext_bits_9_6[0][0x0c]},

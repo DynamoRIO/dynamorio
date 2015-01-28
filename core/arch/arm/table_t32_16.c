@@ -146,7 +146,7 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
       {OP_ldm,   0xbc00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, y11[9][0x01]},/*"pop"*/
       {OP_ldm,   0xbd00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, DUP_ENTRY},/*P=1*//*"pop"*/
       {OP_bkpt,  0xbe00, "bkpt",              xx,  xx,     i8,  xx, xx, no, x, END_LIST},
-      {EXT_6_4,  0xbf00, "(ext 6:4 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
+      {EXT_3_0,  0xbf00, "(ext 3:0 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
     }, { /* 1 */
       {OP_b_short, 0xd000, "b",            xx, xx, j8, xx, xx, pred8, x, END_LIST},
       {OP_b_short, 0xd100, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
@@ -254,11 +254,21 @@ const instr_info_t T32_16_ext_bits_7_6[][4] = {
     },
 };
 
+/* indexed by whether bits 3:0 is zero or not */
+const instr_info_t T32_16_ext_imm_3_0[][2] = {
+    /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
+    { /* 0 */
+      {EXT_6_4,    0xbf00, "ext 6:4 0", xx, xx,   xx, xx, xx, no, x,        0},
+      {OP_it,      0xbf00, "it",        xx, xx, i4_4, i4, xx, no, x, END_LIST},
+    },
+};
+
+/* fourth-level table */
 /* indexed by bits 6:4 */
 const instr_info_t T32_16_ext_bits_6_4[][8] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {EXT_3_0,    0xbf00, "ext 3:0 0", xx, xx, xx, xx, xx, no, x,        0},
+      {OP_nop,     0xbf00, "nop",      xx, xx,  xx, xx, xx, no, x, xb20[0][0x00]},
       {OP_yield,   0xbf10, "yield",     xx, xx, xx, xx, xx, no, x, xb20[0][0x01]},
       {OP_wfe,     0xbf20, "wfe",       xx, xx, xx, xx, xx, no, x, xb20[0][0x02]},
       {OP_wfi,     0xbf30, "wfi",       xx, xx, xx, xx, xx, no, x, xb20[0][0x03]},
@@ -266,15 +276,5 @@ const instr_info_t T32_16_ext_bits_6_4[][8] = {
       {OP_sevl,    0xbf50, "sevl",      xx, xx, xx, xx, xx, v8, x, xb20[0][0x05]},
       {INVALID,    0xbf60, "(bad)",     xx, xx, xx, xx, xx, no, x,       NA},
       {INVALID,    0xbf70, "(bad)",     xx, xx, xx, xx, xx, no, x,       NA},
-    },
-};
-
-/* fourth-level table */
-/* indexed by whether bits 3:0 is zero or not */
-const instr_info_t T32_16_ext_imm_3_0[][2] = {
-    /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
-    { /* 0 */
-      {OP_nop,     0xbf00, "nop",    xx, xx,   xx, xx, xx, no, x, xb20[0][0x00]},
-      {OP_it,      0xbf00, "it",     xx, xx, i4_4, i4, xx, no, x, END_LIST},
     },
 };
