@@ -447,10 +447,6 @@
   instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_LR), (pc))
 #define INSTR_CREATE_blx(dc, pc) \
   instr_create_1dst_1src((dc), OP_blx, opnd_create_reg(DR_REG_LR), (pc))
-#define INSTR_CREATE_cbnz(dc, pc) \
-  instr_create_0dst_1src((dc), OP_cbnz, (pc))
-#define INSTR_CREATE_cbz(dc, pc) \
-  instr_create_0dst_1src((dc), OP_cbz, (pc))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm) */
@@ -501,6 +497,24 @@
   instr_create_1dst_1src((dc), OP_uxtb, (Rd), (Rn))
 #define INSTR_CREATE_uxth(dc, Rd, Rn) \
   instr_create_1dst_1src((dc), OP_uxth, (Rd), (Rn))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (pc, Rn) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param pc The program counter constant opnd_t operand.
+ * \param Rn The source register opnd_t operand.
+ */
+#define INSTR_CREATE_cbnz(dc, pc, Rn) \
+  instr_create_0dst_2src((dc), OP_cbnz, (pc), (Rn))
+#define INSTR_CREATE_cbz(dc, pc, Rn) \
+  instr_create_0dst_2src((dc), OP_cbz, (pc), (Rn))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, statreg) */
@@ -1195,7 +1209,7 @@
   instr_create_1dst_2src((dc), OP_mrs_priv, (Rd), (statreg), (imm))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (statreg, imm, Rn) */
+/** @name Signature: (statreg, imm, Rm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1206,10 +1220,10 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param imm The integer constant opnd_t operand.
- * \param Rn The source register opnd_t operand.
+ * \param Rm The source register opnd_t operand.
  */
-#define INSTR_CREATE_msr_priv(dc, statreg, imm, Rn) \
-  instr_create_1dst_2src((dc), OP_msr_priv, (statreg), (imm), (Rn))
+#define INSTR_CREATE_msr_priv(dc, statreg, imm, Rm) \
+  instr_create_1dst_2src((dc), OP_msr_priv, (statreg), (imm), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (statreg, imm, imm2) */
@@ -1229,7 +1243,7 @@
   instr_create_1dst_2src((dc), OP_msr, (statreg), (imm), (imm2))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (statreg, imm_msr, Rn) */
+/** @name Signature: (statreg, imm_msr, Rm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1240,10 +1254,10 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param imm_msr The integer constant (typically from OPND_CREATE_INT_MSR*) opnd_t operand.
- * \param Rn The source register opnd_t operand.
+ * \param Rm The source register opnd_t operand.
  */
-#define INSTR_CREATE_msr(dc, statreg, imm_msr, Rn) \
-  instr_create_1dst_2src((dc), OP_msr, (statreg), (imm_msr), (Rn))
+#define INSTR_CREATE_msr(dc, statreg, imm_msr, Rm) \
+  instr_create_1dst_2src((dc), OP_msr, (statreg), (imm_msr), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm, imm) */

@@ -132,17 +132,17 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
       {EXT_7,    0xb000, "(ext 7 0)",         xx,  xx,     xx,  xx, xx, no, x,        0},
-      {OP_cbz,   0xb100, "cbz",               xx,  xx, j6x9_3,  xx, xx, no, x, END_LIST},/*i=0*/
+      {OP_cbz,   0xb100, "cbz",               xx,  xx, j6x9_3, RZw, xx, no, x, END_LIST},/*i=0*//*XXX: disasm srcs reordered vs instr_get_target() */
       {EXT_7_6,  0xb200, "(ext 7:6 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
-      {OP_cbz,   0xb300, "cbz",               xx,  xx, j6x9_3,  xx, xx, no, x, DUP_ENTRY},/*i=1*/
+      {OP_cbz,   0xb300, "cbz",               xx,  xx, j6x9_3, RZw, xx, no, x, DUP_ENTRY},/*i=1*//*XXX: disasm srcs reordered vs instr_get_target() */
       {OP_stmdb, 0xb400, "stmdb",         MSPDBl, SPw,   L9Lw, SPw, xx, no, x, xbase[0x10]},/*"push"*/
       {OP_stmdb, 0xb500, "stmdb",         MSPDBl, SPw,   L9Lw, SPw, xx, no, x, DUP_ENTRY},/*M=1*//*"push"*/
       {EXT_5_4,  0xb600, "(ext 5:4 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
       {INVALID,  0xb700, "(bad)",             xx,  xx,     xx,  xx, xx, no, x,       NA},
       {INVALID,  0xb800, "(bad)",             xx,  xx,     xx,  xx, xx, no, x,       NA},
-      {OP_cbnz,  0xb900, "cbnz",              xx,  xx, j6x9_3,  xx, xx, no, x, END_LIST},/*i=0*/
+      {OP_cbnz,  0xb900, "cbnz",              xx,  xx, j6x9_3, RZw, xx, no, x, END_LIST},/*i=0*//*XXX: disasm srcs reordered vs instr_get_target() */
       {EXT_7_6,  0xba00, "(ext 7:6 1)",       xx,  xx,     xx,  xx, xx, no, x,        1},
-      {OP_cbnz,  0xbb00, "cbnz",              xx,  xx, j6x9_3,  xx, xx, no, x, DUP_ENTRY},/*i=1*/
+      {OP_cbnz,  0xbb00, "cbnz",              xx,  xx, j6x9_3, RZw, xx, no, x, DUP_ENTRY},/*i=1*//*XXX: disasm srcs reordered vs instr_get_target() */
       {OP_ldm,   0xbc00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, y11[9][0x01]},/*"pop"*/
       {OP_ldm,   0xbd00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, DUP_ENTRY},/*P=1*//*"pop"*/
       {OP_bkpt,  0xbe00, "bkpt",              xx,  xx,     i8,  xx, xx, no, x, END_LIST},
