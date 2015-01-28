@@ -1778,35 +1778,6 @@ reg_parameter_num(reg_id_t reg)
 }
 
 int
-opnd_get_reg_dcontext_offs(reg_id_t reg)
-{
-    switch (reg) {
-#ifdef X86
-    case REG_XAX: return XAX_OFFSET;
-    case REG_XBX: return XBX_OFFSET;
-    case REG_XCX: return XCX_OFFSET;
-    case REG_XDX: return XDX_OFFSET;
-    case REG_XSP: return XSP_OFFSET;
-    case REG_XBP: return XBP_OFFSET;
-    case REG_XSI: return XSI_OFFSET;
-    case REG_XDI: return XDI_OFFSET;
-# ifdef X64
-    case REG_R8:  return  R8_OFFSET;
-    case REG_R9:  return  R9_OFFSET;
-    case REG_R10: return R10_OFFSET;
-    case REG_R11: return R11_OFFSET;
-    case REG_R12: return R12_OFFSET;
-    case REG_R13: return R13_OFFSET;
-    case REG_R14: return R14_OFFSET;
-    case REG_R15: return R15_OFFSET;
-# endif
-#endif
-    default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
-        return -1;
-    }
-}
-
-int
 opnd_get_reg_mcontext_offs(reg_id_t reg)
 {
     return opnd_get_reg_dcontext_offs(reg) - MC_OFFS;
@@ -1924,7 +1895,7 @@ reg_get_size(reg_id_t reg)
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
 # ifdef X64
-#  error FIXME i#1551: NYI on AArch64
+#  error FIXME i#1569: NYI on AArch64
 # endif
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");

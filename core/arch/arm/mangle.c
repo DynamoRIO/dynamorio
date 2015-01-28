@@ -52,17 +52,108 @@ byte *
 remangle_short_rewrite(dcontext_t *dcontext,
                        instr_t *instr, byte *pc, app_pc target)
 {
-    /* FIXME i#1551: refactor the caller and make this routine x86-only. */
-    ASSERT_NOT_REACHED();
-    return NULL;
+    uint mangled_sz = CTI_SHORT_REWRITE_LENGTH;
+    uint raw_jmp;
+    ASSERT(instr_is_cti_short_rewrite(instr, pc));
+    if (target == NULL)
+        target = decode_raw_jmp_target(dcontext, pc + CTI_SHORT_REWRITE_B_OFFS);
+    instr_set_target(instr, opnd_create_pc(target));
+    instr_allocate_raw_bits(dcontext, instr, mangled_sz);
+    instr_set_raw_bytes(instr, pc, mangled_sz);
+    encode_raw_jmp(dr_get_isa_mode(dcontext), target, (byte *)&raw_jmp,
+                   pc + CTI_SHORT_REWRITE_B_OFFS);
+    instr_set_raw_word(instr, CTI_SHORT_REWRITE_B_OFFS, raw_jmp);
+    instr_set_operands_valid(instr, true);
+    return (pc+mangled_sz);
 }
 
-void
-convert_to_near_rel(dcontext_t *dcontext, instr_t *instr)
+instr_t *
+convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    int opcode = instr_get_opcode(instr);
+    if (opcode == OP_b_short) {
+        instr_set_opcode(instr, OP_b);
+        return instr;
+    } else if (opcode == OP_cbz || opcode == OP_cbnz) {
+        /* While for non-trace-mode we could get by w/o converting,
+         * as we use local stubs with a far-away link-through-stub
+         * soln needed even for regular branches and thus these would
+         * reach the stub, they won't reach for traces.
+         * Thus we mirror what x86 does for jecxz:
+         *       cbz foo
+         *  =>
+         *       cbnz fall
+         *       jmp foo
+         *  fall:
+         *
+         * The fact that we invert the cbr ends up requiring extra logic
+         * in linkstub_cbr_disambiguate().
+        */
+        app_pc target = NULL;
+        uint mangled_sz, offs, raw_jmp;
+        reg_id_t src_reg;
+
+        if (ilist != NULL) {
+            /* PR 266292: for meta instrs, insert separate instrs */
+            opnd_t tgt = instr_get_target(instr);
+            instr_t *fall = INSTR_CREATE_label(dcontext);
+            instr_t *jmp = INSTR_CREATE_b(dcontext, tgt);
+            ASSERT(instr_is_meta(instr));
+            /* reverse order */
+            instrlist_meta_postinsert(ilist, instr, fall);
+            instrlist_meta_postinsert(ilist, instr, jmp);
+            instrlist_meta_postinsert(ilist, instr, instr);
+            instr_set_target(instr, opnd_create_instr(fall));
+            instr_invert_cbr(instr);
+            return jmp; /* API specifies we return the long-reach cti */
+        }
+
+        if (opnd_is_near_pc(instr_get_target(instr)))
+            target = opnd_get_pc(instr_get_target(instr));
+        else if (opnd_is_near_instr(instr_get_target(instr))) {
+            instr_t *tgt = opnd_get_instr(instr_get_target(instr));
+            /* assumption: target's translation or raw bits are set properly */
+            target = instr_get_translation(tgt);
+            if (target == NULL && instr_raw_bits_valid(tgt))
+                target = instr_get_raw_bits(tgt);
+            ASSERT(target != NULL);
+        } else
+            ASSERT_NOT_REACHED();
+
+        /* PR 251646: cti_short_rewrite: target is in src0, so operands are
+         * valid, but raw bits must also be valid, since they hide the multiple
+         * instrs.  For x64, it is marked for re-relativization, but it's
+         * special since the target must be obtained from src0 and not
+         * from the raw bits (since that might not reach).
+         */
+        /* query IR before we set raw bits */
+        ASSERT(opnd_is_reg(instr_get_src(instr, 1)));
+        src_reg = opnd_get_reg(instr_get_src(instr, 1));
+        /* need 6 bytes */
+        mangled_sz = CTI_SHORT_REWRITE_LENGTH;
+        instr_allocate_raw_bits(dcontext, instr, mangled_sz);
+        offs = 0;
+        /* first 2 bytes: cbz or cbnz to "cur pc" + 2 which means immed is 1 */
+        instr_set_raw_byte(instr, offs, 0x08 | (src_reg - DR_REG_R0));
+        offs++;
+        instr_set_raw_byte(instr, offs, (opcode == OP_cbz) ? CBNZ_BYTE_A : CBZ_BYTE_A);
+        offs++;
+        /* next 4 bytes: b to target */
+        ASSERT(offs == CTI_SHORT_REWRITE_B_OFFS);
+        encode_raw_jmp(dr_get_isa_mode(dcontext), target, (byte *)&raw_jmp,
+                       instr->bytes + offs);
+        instr_set_raw_word(instr, offs, raw_jmp);
+        offs += sizeof(int);
+        ASSERT(offs == mangled_sz);
+        LOG(THREAD, LOG_INTERP, 2, "convert_to_near_rel: cbz/cbnz opcode\n");
+        /* original target operand is still valid */
+        instr_set_operands_valid(instr, true);
+        return instr;
+    }
+    ASSERT_NOT_REACHED();
+    return instr;
 }
+
 /***************************************************************************/
 #if !defined(STANDALONE_DECODER)
 
@@ -115,7 +206,7 @@ reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg)
 {
 #ifdef X64
-    /* FIXME i#1551: NYI on AArch64 */
+    /* FIXME i#1569: NYI on AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
     return regular;

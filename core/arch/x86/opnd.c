@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,6 +39,7 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "arch.h"
 
 enum {
     FLOAT_ZERO    = 0x00000000,
@@ -75,6 +76,32 @@ reg_is_stolen(reg_id_t reg)
     return false;
 }
 
+int
+opnd_get_reg_dcontext_offs(reg_id_t reg)
+{
+    switch (reg) {
+    case REG_XAX: return XAX_OFFSET;
+    case REG_XBX: return XBX_OFFSET;
+    case REG_XCX: return XCX_OFFSET;
+    case REG_XDX: return XDX_OFFSET;
+    case REG_XSP: return XSP_OFFSET;
+    case REG_XBP: return XBP_OFFSET;
+    case REG_XSI: return XSI_OFFSET;
+    case REG_XDI: return XDI_OFFSET;
+#ifdef X64
+    case REG_R8:  return  R8_OFFSET;
+    case REG_R9:  return  R9_OFFSET;
+    case REG_R10: return R10_OFFSET;
+    case REG_R11: return R11_OFFSET;
+    case REG_R12: return R12_OFFSET;
+    case REG_R13: return R13_OFFSET;
+    case REG_R14: return R14_OFFSET;
+    case REG_R15: return R15_OFFSET;
+#endif
+    default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
+        return -1;
+    }
+}
 
 #ifndef STANDALONE_DECODER
 /****************************************************************************/

@@ -121,6 +121,15 @@ mixed_mode_enabled(void)
 # define R3_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r3)))
 # define R4_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r4)))
 # define R5_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r5)))
+# define R6_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r6)))
+# define R7_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r7)))
+# define R8_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r8)))
+# define R9_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r9)))
+# define R10_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r10)))
+# define R11_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r11)))
+# define R12_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
+# define R13_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
+# define R14_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
 # define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 # define PC_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 # define SCRATCH_REG0      DR_REG_R0
@@ -442,6 +451,8 @@ void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        instr_t **first, instr_t **second);
+instr_t *
+convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 void
 mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     instr_t *instr, instr_t *next_instr);
@@ -1142,6 +1153,10 @@ byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, by
                                       bool *has_instr_opnds/*OUT OPTIONAL*/);
 byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                        byte *dst_pc, byte *final_pc);
+#ifdef ARM
+byte *encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc,
+                     byte *final_pc);
+#endif
 
 /* in instr_shared.c */
 uint

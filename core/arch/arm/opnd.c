@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,7 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "arch.h"
 
 reg_id_t dr_reg_stolen = DR_REG_NULL;
 
@@ -52,6 +53,30 @@ reg_is_stolen(reg_id_t reg)
     return false;
 }
 
+int
+opnd_get_reg_dcontext_offs(reg_id_t reg)
+{
+    switch (reg) {
+    case DR_REG_R0:  return  R0_OFFSET;
+    case DR_REG_R1:  return  R1_OFFSET;
+    case DR_REG_R2:  return  R2_OFFSET;
+    case DR_REG_R3:  return  R3_OFFSET;
+    case DR_REG_R4:  return  R4_OFFSET;
+    case DR_REG_R5:  return  R5_OFFSET;
+    case DR_REG_R6:  return  R6_OFFSET;
+    case DR_REG_R7:  return  R7_OFFSET;
+    case DR_REG_R8:  return  R8_OFFSET;
+    case DR_REG_R9:  return  R9_OFFSET;
+    case DR_REG_R10: return R10_OFFSET;
+    case DR_REG_R11: return R11_OFFSET;
+    case DR_REG_R12: return R12_OFFSET;
+    case DR_REG_R13: return R13_OFFSET;
+    case DR_REG_R14: return R14_OFFSET;
+    case DR_REG_R15: return PC_OFFSET;
+    default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
+        return -1;
+    }
+}
 
 /****************************************************************************/
 #ifndef STANDALONE_DECODER

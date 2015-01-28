@@ -860,13 +860,16 @@ linkstub_cbr_disambiguate(dcontext_t *dcontext, fragment_t *f,
 {
     instr_t instr;
     linkstub_t *taken;
+    bool inverted = false;
     instr_init(dcontext, &instr);
     decode(dcontext, EXIT_CTI_PC(f, l1), &instr);
     ASSERT(instr_is_cbr(&instr));
+    /* On ARM, we invert the logic of OP_cb{,n}z when we mangle it */
+    IF_ARM(inverted = instr_is_cti_short_rewrite(&instr, EXIT_CTI_PC(f, l1)));
     if (instr_cbr_taken(&instr, get_mcontext(dcontext), false/*post-state*/))
-        taken = l1;
+        taken = inverted ? l2 : l1;
     else
-        taken = l2;
+        taken = inverted ? l1 : l2;
     instr_free(dcontext, &instr);
     return taken;
 }

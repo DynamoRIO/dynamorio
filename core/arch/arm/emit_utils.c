@@ -265,44 +265,35 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
         if (((*(branch_pc + 1)) & 0xf0) == 0xf0 &&
             /* Match uncond and cond OP_b */
             ((*(branch_pc + 3)) & 0xc0) == 0x80) {
-            int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b);
-            /* First, get the non-immed bits */
-            ushort valA;
-            ushort valB = (*(ushort *)(branch_pc+2)) & 0xd000;
-            ASSERT(ALIGNED(disp, THUMB_SHORT_INSTR_SIZE));
             if (((*(branch_pc + 3)) & 0xd0) == 0x90) {
                 /* Unconditional OP_b: 3-byte immed that's stored, split up, as >>2 */
-                /* A10,B13,B11,A9:0,B10:0 x2, but B13 and B11 are flipped if A10 is 0 */
-                uint bitA10 = (disp >> 24) & 0x1; /* +1 for the x2 */
-                uint bitB13 = (disp >> 23) & 0x1;
-                uint bitB11 = (disp >> 22) & 0x1;
-                ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
-                valA = (*(ushort *)branch_pc) & 0xf800;
-                /* XXX: share with encoder's TYPE_J_b26_b13_b11_b16_b0 */
-                if (bitA10 == 0) {
-                    bitB13 = (bitB13 == 0 ? 1 : 0);
-                    bitB11 = (bitB11 == 0 ? 1 : 0);
-                }
-                valB |= (disp >> 1) & 0x7ff; /* B10:0 */
-                valA |= (disp >> 12) & 0x3ff; /* A9:0 */
-                valB |= bitB13 << 13;
-                valB |= bitB11 << 11;
-                valA |= bitA10 << 10;
+                encode_raw_jmp(isa_mode, target_pc, branch_pc, branch_pc);
             } else {
                 /* Conditional OP_b: 20-bit immed */
-                valA = (*(ushort *)branch_pc) & 0xfbc0;
-                /* A10,B11,B13,A5:0,B10:0 x2 */
+                /* First, get the non-immed bits */
+                ushort valA = (*(ushort *)branch_pc) & 0xfbc0;
+                ushort valB = (*(ushort *)(branch_pc+2)) & 0xd000;
+                int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b);
+                ASSERT(ALIGNED(disp, THUMB_SHORT_INSTR_SIZE));
                 ASSERT(disp < 0x300000 || disp > -4*1024*1024); /* 22-bit max */
+                /* A10,B11,B13,A5:0,B10:0 x2 */
                 /* XXX: share with encoder's TYPE_J_b26_b11_b13_b16_b0 */
                 valB |= (disp >> 1) & 0x7ff; /* B10:0 */
                 valA |= (disp >> 12) & 0x3f; /* A5:0 */
                 valB |= ((disp >> 18) & 0x1) << 13; /* B13 */
                 valB |= ((disp >> 19) & 0x1) << 11; /* B11 */
                 valA |= ((disp >> 20) & 0x1) << 10; /* A10 */
+                *(ushort *)branch_pc = valA;
+                *(ushort *)(branch_pc+2) = valB;
             }
-            *(ushort *)branch_pc = valA;
-            *(ushort *)(branch_pc+2) = valB;
             machine_cache_sync(branch_pc, branch_pc + THUMB_LONG_INSTR_SIZE, true);
+            return;
+        } else if (instr_is_cti_short_rewrite(NULL, branch_pc)) {
+            encode_raw_jmp(isa_mode, target_pc, branch_pc + CTI_SHORT_REWRITE_B_OFFS,
+                           branch_pc + CTI_SHORT_REWRITE_B_OFFS);
+            machine_cache_sync(branch_pc + CTI_SHORT_REWRITE_B_OFFS,
+                               branch_pc + CTI_SHORT_REWRITE_B_OFFS +
+                               THUMB_LONG_INSTR_SIZE, true);
             return;
         }
     }

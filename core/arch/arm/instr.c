@@ -32,6 +32,7 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "decode.h"
 
 /* FIXME i#1551: add A64 and Thumb support throughout */
 
@@ -279,10 +280,35 @@ instr_is_cti_loop(instr_t *instr)
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 {
-    /* FIXME i#1551: NYI: we need to mangle OP_cbz and OP_cbnz in a similar
-     * manner to OP_jecxz on x86
+    /* We assume all app's cbz/cbnz have been mangled.
+     * See comments in x86/'s version of this routine.
      */
-    return false;
+    dcontext_t *dcontext;
+    dr_isa_mode_t old_mode;
+    if (pc == NULL) {
+        if (instr == NULL || !instr_has_allocated_bits(instr) ||
+            instr->length != CTI_SHORT_REWRITE_LENGTH)
+            return false;
+        pc = instr_get_raw_bits(instr);
+    }
+    if (instr != NULL && instr_opcode_valid(instr)) {
+        int opc = instr_get_opcode(instr);
+        if (opc != OP_cbz && opc != OP_cbnz)
+            return false;
+    }
+    if ((*(pc+1) != CBNZ_BYTE_A && *(pc+1) != CBZ_BYTE_A) ||
+        /* Further verify by checking for a disp of 1 */
+        (*pc & 0xf8) != 0x08)
+        return false;
+    /* XXX: this would be easier if decode_raw_is_jmp took in isa_mode */
+    dcontext = get_thread_private_dcontext();
+    if (instr != NULL)
+        dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
+    if (!decode_raw_is_jmp(dcontext, pc + CTI_SHORT_REWRITE_B_OFFS))
+        return false;
+    if (instr != NULL)
+        dr_set_isa_mode(dcontext, old_mode, NULL);
+    return true;
 }
 
 bool
@@ -403,25 +429,28 @@ instr_is_undefined(instr_t *instr)
     return instr_opcode_valid(instr);
 }
 
-DR_API
-/* Given a cbr, change the opcode (and potentially branch hint
- * prefixes) to that of the inverted branch condition.
- */
+static dr_pred_type_t
+invert_predicate(dr_pred_type_t pred)
+{
+    CLIENT_ASSERT(pred != DR_PRED_NONE && pred != DR_PRED_AL &&
+                  pred != DR_PRED_OP, "invalid cbr predicate");
+    /* Flipping the bottom bit inverts a predicate */
+    return (dr_pred_type_t) (((uint)pred - DR_PRED_EQ) ^ 0x1);
+}
+
 void
 instr_invert_cbr(instr_t *instr)
 {
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-}
-
-DR_API
-instr_t *
-instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
-                                     instr_t *instr)
-{
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    return NULL;
+    int opc = instr_get_opcode(instr);
+    dr_pred_type_t pred = instr_get_predicate(instr);
+    CLIENT_ASSERT(instr_is_cbr(instr), "instr_invert_cbr: instr not a cbr");
+    if (opc == OP_cbnz) {
+        instr_set_opcode(instr, OP_cbz);
+    } else if (opc ==  OP_cbz) {
+        instr_set_opcode(instr, OP_cbnz);
+    } else {
+        instr_set_predicate(instr, invert_predicate(pred));
+    }
 }
 
 static dr_pred_trigger_t
@@ -523,7 +552,9 @@ opc_jcc_taken(int opc, reg_t eflags)
 bool
 instr_jcc_taken(instr_t *instr, reg_t eflags)
 {
-    /* FIXME i#1551: NYI */
+    /* FIXME i#1551: NYI -- make exported routine x86-only and export
+     * instr_cbr_taken() (but need public mcontext)?
+     */
     return opc_jcc_taken(instr_get_opcode(instr), eflags);
 }
 

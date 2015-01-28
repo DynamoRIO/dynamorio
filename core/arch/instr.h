@@ -2060,13 +2060,13 @@ instr_invert_cbr(instr_t *instr);
 DR_API
 /**
  * Assumes that instr is a meta instruction (instr_is_meta())
- * and an instr_is_cti_short() (8-bit reach). Converts instr's opcode
- * to a long form (32-bit reach).  If instr's opcode is OP_loop* or
- * OP_jecxz, converts it to a sequence of multiple instructions (which
- * is different from instr_is_cti_short_rewrite()).  Each added instruction
- * is marked instr_is_meta().
+ * and an instr_is_cti_short() (<=8-bit reach). Converts instr's opcode
+ * to a long form (32-bit reach for x86).  If instr's opcode is OP_loop* or
+ * OP_jecxz for x86 or OP_cbnz or OP_cbz for ARM, converts it to a sequence of
+ * multiple instructions (which is different from instr_is_cti_short_rewrite()).
+ * Each added instruction is marked instr_is_meta().
  * Returns the long form of the instruction, which is identical to \p instr
- * unless \p instr is OP_loop* or OP_jecxz, in which case the return value
+ * unless \p instr is OP_{loop*,jecxz,cbnz,cbz}, in which case the return value
  * is the final instruction in the sequence, the one that has long reach.
  * \note DR automatically converts app short ctis to long form.
  */
@@ -2678,7 +2678,13 @@ enum {
 #define PC_RELATIVE_TARGET(addr) ( *((int *)(addr)) + (addr) + 4 )
 
 /* length of our mangling of jecxz/loop*, beyond a possible addr prefix byte */
-#define CTI_SHORT_REWRITE_LENGTH 9
+#ifdef X86
+# define CTI_SHORT_REWRITE_LENGTH 9
+#else
+/* cbz/cbnz + b */
+# define CTI_SHORT_REWRITE_LENGTH 6
+# define CTI_SHORT_REWRITE_B_OFFS 2
+#endif
 
 #include "instr_inline.h"
 

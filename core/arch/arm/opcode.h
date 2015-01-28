@@ -1013,4 +1013,9 @@ enum {
 /****************************************************************************/
 /* DR_API EXPORT END */
 
+enum {
+    CBZ_BYTE_A        = 0xb1, /* this assumes the top bit of the disp is 0 */
+    CBNZ_BYTE_A       = 0xb9, /* this assumes the top bit of the disp is 0 */
+};
+
 #endif /* _OPCODE_H_ */

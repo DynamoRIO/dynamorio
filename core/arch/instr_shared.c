@@ -2359,6 +2359,35 @@ instr_uses_fp_reg(instr_t *instr)
     return false;
 }
 
+/* We place these here rather than in mangle_shared.c to avoid the work of
+ * linking mangle_shared.c into drdecodelib.
+ */
+instr_t *
+convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    return convert_to_near_rel_arch(dcontext, ilist, instr);
+}
+
+void
+convert_to_near_rel(dcontext_t *dcontext, instr_t *instr)
+{
+    convert_to_near_rel_arch(dcontext, NULL, instr);
+}
+
+instr_t *
+instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
+                                     instr_t *instr)
+{
+    /* PR 266292: we convert to a sequence of separate meta instrs for jecxz, etc. */
+    CLIENT_ASSERT(instr_is_meta(instr),
+                  "instr_convert_short_meta_jmp_to_long: instr is not meta");
+    CLIENT_ASSERT(instr_is_cti_short(instr),
+                  "instr_convert_short_meta_jmp_to_long: instr is not a short cti");
+    if (instr_is_app(instr) || !instr_is_cti_short(instr))
+        return instr;
+    return convert_to_near_rel_meta(dcontext, ilist, instr);
+}
+
 /***********************************************************************
  * instr_t creation routines
  * To use 16-bit data sizes, must call set_prefix after creating instr

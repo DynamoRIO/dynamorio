@@ -2389,3 +2389,43 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
     memcpy(dst_pc, instr->bytes, instr->length);
     return dst_pc + instr->length;
 }
+
+byte *
+encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc, byte *final_pc)
+{
+     if (isa_mode == DR_ISA_ARM_A32) {
+         uint val = 0xea000000; /* unconditional OP_b */
+         int disp = target_pc - decode_cur_pc(final_pc, isa_mode, OP_b);
+         ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
+         ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+         val |= ((disp >> 2) & 0xffffff);
+         *(uint *)dst_pc = val;
+         return dst_pc + ARM_INSTR_SIZE;
+    } else if (isa_mode == DR_ISA_ARM_THUMB) {
+         ushort valA = 0xf000; /* OP_b */
+         ushort valB = 0x9000; /* OP_b */
+         int disp = target_pc - decode_cur_pc(final_pc, isa_mode, OP_b);
+         ASSERT(ALIGNED(disp, THUMB_SHORT_INSTR_SIZE));
+         /* A10,B13,B11,A9:0,B10:0 x2, but B13 and B11 are flipped if A10 is 0 */
+         uint bitA10 = (disp >> 24) & 0x1; /* +1 for the x2 */
+         uint bitB13 = (disp >> 23) & 0x1;
+         uint bitB11 = (disp >> 22) & 0x1;
+         ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+         /* XXX: share with regular encode's TYPE_J_b26_b13_b11_b16_b0 */
+         if (bitA10 == 0) {
+             bitB13 = (bitB13 == 0 ? 1 : 0);
+             bitB11 = (bitB11 == 0 ? 1 : 0);
+         }
+         valB |= (disp >> 1) & 0x7ff; /* B10:0 */
+         valA |= (disp >> 12) & 0x3ff; /* A9:0 */
+         valB |= bitB13 << 13;
+         valB |= bitB11 << 11;
+         valA |= bitA10 << 10;
+         *(ushort *)dst_pc = valA;
+         *(ushort *)(dst_pc+2) = valB;
+         return dst_pc + THUMB_LONG_INSTR_SIZE;
+     }
+     /* FIXME i#1569: add AArch64 support */
+     ASSERT_NOT_IMPLEMENTED(false);
+     return NULL;
+}

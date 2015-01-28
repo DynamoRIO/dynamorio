@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -85,8 +85,8 @@
  * absolute PC, so we can just pretend instructions are longer
  * than they really are.
  */
-static instr_t *
-convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+instr_t *
+convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);
     DEBUG_DECLARE(const instr_info_t * info = instr_get_instr_info(instr);)
@@ -222,18 +222,6 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         opcode, info->name);
     ASSERT_NOT_REACHED();      /* conversion not possible OR not a short-form cti */
     return instr;
-}
-
-instr_t *
-convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
-{
-    return convert_to_near_rel_common(dcontext, ilist, instr);
-}
-
-void
-convert_to_near_rel(dcontext_t *dcontext, instr_t *instr)
-{
-    convert_to_near_rel_common(dcontext, NULL, instr);
 }
 
 /* For jecxz and loop*, we create 3 instructions in a single
