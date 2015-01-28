@@ -1141,17 +1141,31 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
-                                  4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
+                                  decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_NEG_I8:
         CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_POS_I8x4:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_NEG_I8x4:
+        CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
                                   -4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
                                   opsize);
         return true;
-    case TYPE_M_SP_POS_I8:
+    case TYPE_M_SP_POS_I8x4:
         CLIENT_ASSERT(di->T32_16,
                       "32-bit instrs should use general types, not TYPE_M_SP_POS_I8");
         array[(*counter)++] =
@@ -1177,7 +1191,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, -val, opsize);
         return true;
     }
-    case TYPE_M_POS_I5:
+    case TYPE_M_POS_I5x4:
         CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regY(di), REG_NULL, 0,
@@ -1208,7 +1222,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                                   -(int)opnd_size_in_bytes(opsize)*sizeof(void*),
                                   opsize);
         return true;
-    case TYPE_M_PCREL_POS_I8: {
+    case TYPE_M_PCREL_POS_I8x4: {
         ptr_int_t disp = decode_immed(di, 0, OPSZ_1, false/*unsigned*/) << 2;
         CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
         array[(*counter)++] = opnd_create_base_disp(DR_REG_PC, REG_NULL, 0, disp, opsize);
@@ -2272,9 +2286,9 @@ decode_check_writeback(int src_type[], uint num_srcs, int dst_type[], uint num_d
     uint i;
     for (i = 0; i < num_srcs; i++) {
         switch (src_type[i]) {
-        case TYPE_M_POS_I5:
-        case TYPE_M_SP_POS_I8:
-        case TYPE_M_PCREL_POS_I8:
+        case TYPE_M_POS_I5x4:
+        case TYPE_M_SP_POS_I8x4:
+        case TYPE_M_PCREL_POS_I8x4:
             /* no writeback */
             ASSERT(dst_type[1] == TYPE_NONE);
             break;
@@ -2282,9 +2296,9 @@ decode_check_writeback(int src_type[], uint num_srcs, int dst_type[], uint num_d
     }
     for (i = 0; i < num_dsts; i++) {
         switch (dst_type[i]) {
-        case TYPE_M_POS_I5:
-        case TYPE_M_SP_POS_I8:
-        case TYPE_M_PCREL_POS_I8:
+        case TYPE_M_POS_I5x4:
+        case TYPE_M_SP_POS_I8x4:
+        case TYPE_M_PCREL_POS_I8x4:
             /* no writeback */
             ASSERT(dst_type[1] == TYPE_NONE);
             break;

@@ -403,26 +403,28 @@ enum {
      * opnds to figure out how to write down the memref, and single-memref-opnd
      * disasm will NOT contain writeback or post-index info.
      */
-    TYPE_M,           /* mem w/ just base */
-    TYPE_M_SP,        /* mem w/ just SP as base */
-    TYPE_M_POS_REG,   /* mem offs + reg index */
-    TYPE_M_NEG_REG,   /* mem offs - reg index */
-    TYPE_M_POS_SHREG, /* mem offs + reg-shifted (or extended for A64) index */
-    TYPE_M_NEG_SHREG, /* mem offs - reg-shifted (or extended for A64) index */
-    TYPE_M_POS_LSHREG, /* mem offs + LSL reg-shifted (T32: by 5:4) index */
+    TYPE_M,             /* mem w/ just base */
+    TYPE_M_SP,          /* mem w/ just SP as base */
+    TYPE_M_POS_REG,     /* mem offs + reg index */
+    TYPE_M_NEG_REG,     /* mem offs - reg index */
+    TYPE_M_POS_SHREG,   /* mem offs + reg-shifted (or extended for A64) index */
+    TYPE_M_NEG_SHREG,   /* mem offs - reg-shifted (or extended for A64) index */
+    TYPE_M_POS_LSHREG,  /* mem offs + LSL reg-shifted (T32: by 5:4) index */
     TYPE_M_POS_LSH1REG, /* mem offs + LSL reg-shifted by 1 index */
-    TYPE_M_POS_I12,   /* mem offs + 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
-    TYPE_M_NEG_I12,   /* mem offs - 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
-    TYPE_M_SI9,       /* mem offs + signed 9-bit immed @ 20:12 */
-    TYPE_M_POS_I8,    /* mem offs + 4 * 8-bit immed @ 7:0 */
-    TYPE_M_NEG_I8,    /* mem offs - 4 * 8-bit immed @ 7:0 */
-    TYPE_M_SP_POS_I8, /* mem offs + 4 * 8-bit immed @ 7:0 with SP as base */
-    TYPE_M_POS_I4_4,  /* mem offs + 8-bit immed split @ 11:8|3:0 */
-    TYPE_M_NEG_I4_4,  /* mem offs - 8-bit immed split @ 11:8|3:0 */
-    TYPE_M_SI7,       /* mem offs + signed 7-bit immed @ 6:0 */
-    TYPE_M_POS_I5,    /* mem offs + 4 * 5-bit immed @ 10:6 */
+    TYPE_M_POS_I12,     /* mem offs + 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
+    TYPE_M_NEG_I12,     /* mem offs - 12-bit immed @ 11:0 (A64: 21:10 + scaled) */
+    TYPE_M_SI9,         /* mem offs + signed 9-bit immed @ 20:12 */
+    TYPE_M_POS_I8,      /* mem offs + 8-bit immed @ 7:0 */
+    TYPE_M_NEG_I8,      /* mem offs - 8-bit immed @ 7:0 */
+    TYPE_M_POS_I8x4,    /* mem offs + 4 * 8-bit immed @ 7:0 */
+    TYPE_M_NEG_I8x4,    /* mem offs - 4 * 8-bit immed @ 7:0 */
+    TYPE_M_SP_POS_I8x4, /* mem offs + 4 * 8-bit immed @ 7:0 with SP as base */
+    TYPE_M_POS_I4_4,    /* mem offs + 8-bit immed split @ 11:8|3:0 */
+    TYPE_M_NEG_I4_4,    /* mem offs - 8-bit immed split @ 11:8|3:0 */
+    TYPE_M_SI7,         /* mem offs + signed 7-bit immed @ 6:0 */
+    TYPE_M_POS_I5x4,    /* mem offs + 4 * 5-bit immed @ 10:6 */
 
-    TYPE_M_PCREL_POS_I8,  /* mem offs pc-relative + 4 * 8-bit immed @  7:0 */
+    TYPE_M_PCREL_POS_I8x4,/* mem offs pc-relative + 4 * 8-bit immed @  7:0 */
     TYPE_M_PCREL_POS_I12, /* mem offs pc-relative + 12-bit immed @ 11:0 */
     TYPE_M_PCREL_NEG_I12, /* mem offs pc-relative - 12-bit immed @ 11:0 */
     TYPE_M_PCREL_S9,  /* mem offs pc-relative w/ signed 9-bit immed 23:5 scaled */

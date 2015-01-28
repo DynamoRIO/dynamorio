@@ -210,22 +210,22 @@ const instr_info_t A32_ext_bits20[][16] = {
     {OP_stc2l,   0xfce00000, "stc2l",   Mw, RAw, i4_8, CRBw, i8x4, xop_wb, x, tb20[0][0x0c]},/*PUW=011*/
     {OP_ldc2l,   0xfcf00000, "ldc2l",   CRBw, RAw, Mw, i4_8, i8x4, xop_wb, x, tb20[0][0x0d]},/*PUW=011*/
   }, { /* 1 */
-    {OP_stc2,    0xfd000000, "stc2",    MN8w, xx, i4_8, CRBw, n8x4, no, x, tb20[1][0x0a]},/*PUW=100*/
-    {OP_ldc2,    0xfd100000, "ldc2",    CRBw, xx, MN8w, i4_8, i8x4, no, x, tb20[1][0x0b]},/*PUW=100*/
-    {OP_stc2,    0xfd200000, "stc2",    MN8w, RAw, i4_8, CRBw, n8x4, xop_wb, x, tb20[0][0x0a]},/*PUW=101*/
-    {OP_ldc2,    0xfd300000, "ldc2",    CRBw, RAw, MN8w, i4_8, n8x4, xop_wb, x, tb20[0][0x0b]},/*PUW=101*/
-    {OP_stc2l,   0xfd400000, "stc2l",   MN8w, xx, i4_8, CRBw, n8x4, no, x, tb20[1][0x0e]},/*PUW=100*/
-    {OP_ldc2l,   0xfd500000, "ldc2l",   CRBw, xx, MN8w, i4_8, i8x4, no, x, tb20[1][0x0f]},/*PUW=100*/
-    {OP_stc2l,   0xfd600000, "stc2l",   MN8w, RAw, i4_8, CRBw, n8x4, xop_wb, x, tb20[0][0x0e]},/*PUW=101*/
-    {OP_ldc2l,   0xfd700000, "ldc2l",   CRBw, RAw, MN8w, i4_8, n8x4, xop_wb, x, tb20[0][0x0f]},/*PUW=101*/
-    {OP_stc2,    0xfd800000, "stc2",    MP8w, xx, i4_8, CRBw, i8x4, no, x, tb20[1][0x00]},/*PUW=110*/
-    {OP_ldc2,    0xfd900000, "ldc2",    CRBw, xx, MP8w, i4_8, i8x4, no, x, tb20[1][0x01]},/*PUW=110*/
-    {OP_stc2,    0xfda00000, "stc2",    MP8w, RAw, i4_8, CRBw, i8x4, xop_wb, x, tb20[1][0x02]},/*PUW=111*/
-    {OP_ldc2,    0xfdb00000, "ldc2",    CRBw, RAw, MP8w, i4_8, i8x4, xop_wb, x, tb20[1][0x03]},/*PUW=111*/
-    {OP_stc2l,   0xfdc00000, "stc2l",   MP8w, xx, i4_8, CRBw, i8x4, no, x, tb20[1][0x04]},/*PUW=110*/
-    {OP_ldc2l,   0xfdd00000, "ldc2l",   CRBw, xx, MP8w, i4_8, i8x4, no, x, tb20[1][0x05]},/*PUW=110*/
-    {OP_stc2l,   0xfde00000, "stc2l",   MP8w, RAw, i4_8, CRBw, i8x4, xop_wb, x, tb20[1][0x06]},/*PUW=111*/
-    {OP_ldc2l,   0xfdf00000, "ldc2l",   CRBw, RAw, MP8w, i4_8, i8x4, xop_wb, x, tb20[1][0x07]},/*PUW=111*/
+    {OP_stc2,    0xfd000000, "stc2",    MN8Xw, xx, i4_8, CRBw, n8x4, no, x, tb20[1][0x0a]},/*PUW=100*/
+    {OP_ldc2,    0xfd100000, "ldc2",    CRBw, xx, MN8Xw, i4_8, i8x4, no, x, tb20[1][0x0b]},/*PUW=100*/
+    {OP_stc2,    0xfd200000, "stc2",    MN8Xw, RAw, i4_8, CRBw, n8x4, xop_wb, x, tb20[0][0x0a]},/*PUW=101*/
+    {OP_ldc2,    0xfd300000, "ldc2",    CRBw, RAw, MN8Xw, i4_8, n8x4, xop_wb, x, tb20[0][0x0b]},/*PUW=101*/
+    {OP_stc2l,   0xfd400000, "stc2l",   MN8Xw, xx, i4_8, CRBw, n8x4, no, x, tb20[1][0x0e]},/*PUW=100*/
+    {OP_ldc2l,   0xfd500000, "ldc2l",   CRBw, xx, MN8Xw, i4_8, i8x4, no, x, tb20[1][0x0f]},/*PUW=100*/
+    {OP_stc2l,   0xfd600000, "stc2l",   MN8Xw, RAw, i4_8, CRBw, n8x4, xop_wb, x, tb20[0][0x0e]},/*PUW=101*/
+    {OP_ldc2l,   0xfd700000, "ldc2l",   CRBw, RAw, MN8Xw, i4_8, n8x4, xop_wb, x, tb20[0][0x0f]},/*PUW=101*/
+    {OP_stc2,    0xfd800000, "stc2",    MP8Xw, xx, i4_8, CRBw, i8x4, no, x, tb20[1][0x00]},/*PUW=110*/
+    {OP_ldc2,    0xfd900000, "ldc2",    CRBw, xx, MP8Xw, i4_8, i8x4, no, x, tb20[1][0x01]},/*PUW=110*/
+    {OP_stc2,    0xfda00000, "stc2",    MP8Xw, RAw, i4_8, CRBw, i8x4, xop_wb, x, tb20[1][0x02]},/*PUW=111*/
+    {OP_ldc2,    0xfdb00000, "ldc2",    CRBw, RAw, MP8Xw, i4_8, i8x4, xop_wb, x, tb20[1][0x03]},/*PUW=111*/
+    {OP_stc2l,   0xfdc00000, "stc2l",   MP8Xw, xx, i4_8, CRBw, i8x4, no, x, tb20[1][0x04]},/*PUW=110*/
+    {OP_ldc2l,   0xfdd00000, "ldc2l",   CRBw, xx, MP8Xw, i4_8, i8x4, no, x, tb20[1][0x05]},/*PUW=110*/
+    {OP_stc2l,   0xfde00000, "stc2l",   MP8Xw, RAw, i4_8, CRBw, i8x4, xop_wb, x, tb20[1][0x06]},/*PUW=111*/
+    {OP_ldc2l,   0xfdf00000, "ldc2l",   CRBw, RAw, MP8Xw, i4_8, i8x4, xop_wb, x, tb20[1][0x07]},/*PUW=111*/
   },
 };
 
