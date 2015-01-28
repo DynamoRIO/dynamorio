@@ -436,7 +436,7 @@ pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore 
     ushort slot;
     *should_restore = true;
     for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
-         reg <= SCRATCH_REG5; reg++, slot++) {
+         reg <= SCRATCH_REG5; reg++, slot+=sizeof(reg_t)) {
         if (!instr_uses_reg(instr, reg))
             break;
     }
@@ -445,7 +445,7 @@ pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore 
          * could come in: i#400).
          */
         for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
-             reg <= SCRATCH_REG5; reg++, slot++) {
+             reg <= SCRATCH_REG5; reg++, slot+=sizeof(reg_t)) {
             if (!instr_reads_from_reg(instr, reg, DR_QUERY_INCLUDE_ALL))
                 break;
         }
