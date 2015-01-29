@@ -252,7 +252,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
         if (((*(branch_pc + 3)) & 0xf) == 0xa) {
             /* OP_b with 3-byte immed that's stored as >>2 */
             uint val = (*(uint *)branch_pc) & 0xff000000;
-            int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b);
+            int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b, NULL);
             ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
             ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
             val |= ((disp >> 2) & 0xffffff);
@@ -273,7 +273,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
                 /* First, get the non-immed bits */
                 ushort valA = (*(ushort *)branch_pc) & 0xfbc0;
                 ushort valB = (*(ushort *)(branch_pc+2)) & 0xd000;
-                int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b);
+                int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b, NULL);
                 ASSERT(ALIGNED(disp, THUMB_SHORT_INSTR_SIZE));
                 ASSERT(disp < 0x300000 || disp > -4*1024*1024); /* 22-bit max */
                 /* A10,B11,B13,A5:0,B10:0 x2 */

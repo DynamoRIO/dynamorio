@@ -585,10 +585,11 @@ decode_debug_checks(void);
 
 #ifdef ARM
 /* The "current" pc has an offset in pc-relative computations that varies
- * by mode and opcode.
+ * by mode, opcode, and even operands.  Callers can pass NULL for instr
+ * if their opcode is OP_b, OP_b_short, OP_bl, OP_cbnz, OP_cbz, or OP_blx.
  */
 app_pc
-decode_cur_pc(app_pc instr_pc, dr_isa_mode_t mode, uint opcode);
+decode_cur_pc(app_pc instr_pc, dr_isa_mode_t mode, uint opcode, instr_t *instr);
 #endif
 
 /* for debugging: printing out types and sizes */

@@ -564,7 +564,8 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
         if (relative) {
             /* For A32, "cur PC" is "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
             return (ptr_int_t)opnd_get_instr(opnd)->note -
-                (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode) -
+                (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode,
+                                              di->opcode, NULL) -
                  di->final_pc);
         } else {
             return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note) +
@@ -574,7 +575,8 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
         if (relative) {
             /* For A32, "cur PC" is "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
             return (ptr_int_t)(opnd_get_pc(opnd) -
-                               decode_cur_pc(di->final_pc, di->isa_mode, di->opcode));
+                               decode_cur_pc(di->final_pc, di->isa_mode,
+                                             di->opcode, NULL));
         } else {
             return (ptr_int_t)opnd_get_pc(opnd);
         }
@@ -696,7 +698,7 @@ get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 {
     /* For A32, "cur PC" is really "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
     return (ptr_int_t)opnd_get_instr(opnd)->note -
-        (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode) -
+        (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL) -
          di->final_pc) + opnd_get_mem_instr_disp(opnd);
 }
 
@@ -2395,7 +2397,7 @@ encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc, byte *fina
 {
      if (isa_mode == DR_ISA_ARM_A32) {
          uint val = 0xea000000; /* unconditional OP_b */
-         int disp = target_pc - decode_cur_pc(final_pc, isa_mode, OP_b);
+         int disp = target_pc - decode_cur_pc(final_pc, isa_mode, OP_b, NULL);
          ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
          ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
          val |= ((disp >> 2) & 0xffffff);
@@ -2404,7 +2406,7 @@ encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc, byte *fina
     } else if (isa_mode == DR_ISA_ARM_THUMB) {
          ushort valA = 0xf000; /* OP_b */
          ushort valB = 0x9000; /* OP_b */
-         int disp = target_pc - decode_cur_pc(final_pc, isa_mode, OP_b);
+         int disp = target_pc - decode_cur_pc(final_pc, isa_mode, OP_b, NULL);
          ASSERT(ALIGNED(disp, THUMB_SHORT_INSTR_SIZE));
          /* A10,B13,B11,A9:0,B10:0 x2, but B13 and B11 are flipped if A10 is 0 */
          uint bitA10 = (disp >> 24) & 0x1; /* +1 for the x2 */
