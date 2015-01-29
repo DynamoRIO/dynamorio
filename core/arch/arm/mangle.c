@@ -405,10 +405,25 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Unfortunately while there is OP_blx with an immed, OP_bx requires
          * indirection through a register.  We thus need to swap modes separately,
          * but our ISA doesn't support mixing modes in one fragment, making
-         * a local "blx next_instr" not easy.
+         * a local "blx next_instr" not easy.  We have two potential solutions:
+         *   A) Implement far linking through stub's "ldr pc, [pc + 8]" and use
+         *      it for blx.  We need to implement that anyway for reachability,
+         *      but as it's not implemented yet, I'm going w/ B) for now.
+         *   B) Pretend this is an indirect branch and use the ibl.
+         *      This is slower so FIXME i#1551: switch to A once we have far links.
          */
-        /* FIXME i#1551: handling OP_blx NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
+        ptr_int_t target;
+        ASSERT(opnd_is_pc(instr_get_target(instr)));
+        target = (ptr_int_t) opnd_get_pc(instr_get_target(instr));
+        if (instr_get_isa_mode(instr) == DR_ISA_ARM_A32)
+            target = (ptr_int_t) PC_AS_JMP_TGT(DR_ISA_ARM_THUMB, (app_pc)target);
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
+        insert_mov_immed_ptrsz(dcontext, target, opnd_create_reg(DR_REG_R2),
+                               ilist, instr, NULL, NULL);
+        /* remove OP_blx */
+        instrlist_remove(ilist, instr);
+        instr_destroy(dcontext, instr);
     }
     return next_instr;
 }

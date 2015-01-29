@@ -85,7 +85,13 @@ uint
 instr_branch_type(instr_t *cti_instr)
 {
     instr_get_opcode(cti_instr); /* ensure opcode is valid */
-    if (instr_is_call_direct(cti_instr))
+    if (instr_get_opcode(cti_instr) == OP_blx) {
+        /* To handle the mode switch we go through the ibl.
+         * FIXME i#1551: once we have far linking through stubs we should
+         * remove this and have a faster link through the stub.
+         */
+        return LINK_INDIRECT|LINK_CALL;
+    } else if (instr_is_call_direct(cti_instr))
         return LINK_DIRECT|LINK_CALL;
     else if (instr_is_call_indirect(cti_instr))
         return LINK_INDIRECT|LINK_CALL;
@@ -125,7 +131,12 @@ instr_is_call_direct(instr_t *instr)
 bool
 instr_is_near_call_direct(instr_t *instr)
 {
-    return instr_is_call_direct(instr);
+    int opc = instr_get_opcode(instr);
+    /* Mode-switch call is not "near".
+     * FIXME i#1551: once we switch OP_blx to use far-stub linking instead of
+     * ibl we can then consider it "near".
+     */
+    return (opc == OP_bl);
 }
 
 bool

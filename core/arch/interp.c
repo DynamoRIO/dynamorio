@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3461,7 +3461,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
 
         if (instr_is_near_call_direct(bb->instr)) {
-            if (!bb_process_call_direct(dcontext, bb)) {
+           if (!bb_process_call_direct(dcontext, bb)) {
                 if (bb->instr != NULL)
                     bb->exit_type |= instr_branch_type(bb->instr);
                 break;
@@ -3470,7 +3470,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         else if (instr_is_mbr(bb->instr) /* including indirect calls */
                  IF_X86(/* far direct is treated as indirect (i#823) */
                         || instr_get_opcode(bb->instr) == OP_jmp_far
-                        || instr_get_opcode(bb->instr) == OP_call_far)) {
+                        || instr_get_opcode(bb->instr) == OP_call_far)
+                 IF_ARM(/* mode-switch direct is treated as indirect */
+                        || instr_get_opcode(bb->instr) == OP_blx)) {
 
             /* Manage the case where we don't need to perform 'normal'
              * indirect branch processing.
@@ -3522,6 +3524,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 bb->ibl_branch_type = IBL_INDJMP;
             } else if (instr_get_opcode(bb->instr) == OP_call_far) {
                  /* far direct is treated as indirect (i#823) */
+                bb->ibl_branch_type = IBL_INDCALL;
+#elif defined(ARM)
+            } else if (instr_get_opcode(bb->instr) == OP_blx) {
+                 /* mode-changing direct call is treated as indirect */
                 bb->ibl_branch_type = IBL_INDCALL;
 #endif /* X86 */
             } else {
