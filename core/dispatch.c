@@ -478,7 +478,10 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     else
         fcache_enter = get_fcache_enter_private_routine(dcontext);
 
-    enter_fcache(dcontext, fcache_enter,
+    enter_fcache(dcontext, (fcache_enter_func_t)
+                 /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
+                 convert_data_to_function
+                 (PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
                  PC_AS_JMP_TGT(FRAG_ISA_MODE(targetf->flags), FCACHE_ENTRY_PC(targetf)));
     ASSERT_NOT_REACHED();
     return true;
@@ -1908,7 +1911,11 @@ handle_system_call(dcontext_t *dcontext)
 
         set_at_syscall(dcontext, true);
         KSTART_DC(dcontext, syscall_fcache); /* stopped in dispatch_exit_fcache_stats */
-        enter_fcache(dcontext, fcache_enter, do_syscall);
+        enter_fcache(dcontext, (fcache_enter_func_t)
+                     /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
+                     convert_data_to_function
+                     (PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
+                     PC_AS_JMP_TGT(DEFAULT_ISA_MODE, do_syscall));
         /* will handle post processing in handle_post_system_call */
         ASSERT_NOT_REACHED();
     }
@@ -2086,8 +2093,12 @@ issue_last_system_call_from_app(dcontext_t *dcontext)
     if (is_couldbelinking(dcontext))
         enter_nolinking(dcontext, NULL, true);
     KSTART(syscall_fcache); /* stopped in dispatch_exit_fcache_stats */
-    enter_fcache(dcontext, get_fcache_enter_private_routine(dcontext),
-                 (app_pc) get_global_do_syscall_entry());
+    enter_fcache(dcontext, (fcache_enter_func_t)
+                 /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
+                 convert_data_to_function
+                 (PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)
+                                get_fcache_enter_private_routine(dcontext))),
+                 PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_global_do_syscall_entry()));
     ASSERT_NOT_REACHED();
 }
 

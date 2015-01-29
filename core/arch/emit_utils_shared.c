@@ -3357,9 +3357,9 @@ update_ibl_routine(dcontext_t *dcontext, ibl_code_t *ibl_code)
                                         &ibl_brtype);
         LOG(THREAD, LOG_EMIT, 2, "Just updated indirect branch lookup\n%s_%s:\n",
             ibl_name, ibl_brtype);
-        disassemble_with_annotations(dcontext, &ibl_code->ibl_patch,
-                                     ibl_code->indirect_branch_lookup_routine,
-                                     ibl_code->indirect_branch_lookup_routine + ibl_code->ibl_routine_length);
+        disassemble_with_annotations
+            (dcontext, &ibl_code->ibl_patch, ibl_code->indirect_branch_lookup_routine,
+             ibl_code->indirect_branch_lookup_routine + ibl_code->ibl_routine_length);
     });
 
     if (ibl_code->ibl_head_is_inlined) {
@@ -3582,8 +3582,7 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
          * XXX i#823: store cs into xbx when mangling, and then do cs
          * change here.
          */
-        APP(&ilist, XINST_CREATE_jump
-            (dcontext, opnd_create_pc(ibl_same_mode_tgt)));
+        APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_same_mode_tgt)));
 #ifdef X64
     }
 #endif
@@ -5020,14 +5019,14 @@ update_syscalls(dcontext_t *dcontext)
 {
     byte *pc;
     pc = get_do_syscall_entry(dcontext);
-    update_syscall(dcontext, ENTRY_PC_TO_DECODE_PC(pc));
+    update_syscall(dcontext, pc);
 #ifdef X64
     /* PR 286922: for 32-bit, we do NOT update the clone syscall as it
      * always uses int (since can't use call to vsyscall when swapping
      * stacks!)
      */
     pc = get_do_clone_syscall_entry(dcontext);
-    update_syscall(dcontext, ENTRY_PC_TO_DECODE_PC(pc));
+    update_syscall(dcontext, pc);
 #endif
 }
 #endif /* !WINDOWS */

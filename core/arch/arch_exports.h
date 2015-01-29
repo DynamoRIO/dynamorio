@@ -1155,7 +1155,7 @@ typedef enum _dr_isa_mode_t {
                 IF_X64_ELSE(DR_ISA_ARM_A64, (INTERNAL_OPTION(isa_mode_arm) ? \
                                              DR_ISA_ARM_A32 : DR_ISA_ARM_THUMB)))
 
-/* We store gencode entry points with LSB set to 1 for Thumb */
+/* For converting back from PC_AS_JMP_TGT on Thumb */
 #ifdef ARM
 # define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
 #else
