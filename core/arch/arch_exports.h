@@ -1138,8 +1138,8 @@ typedef enum _dr_isa_mode_t {
     DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
     DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
     DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
-    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
     DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
+    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
     DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
 } dr_isa_mode_t;
 /* DR_API EXPORT END */

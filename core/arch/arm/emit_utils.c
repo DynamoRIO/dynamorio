@@ -756,7 +756,6 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     instr_t *target_delete_entry = INSTR_CREATE_label(dc);
     patch_list_t *patch = &ibl_code->ibl_patch;
     bool absolute = false; /* XXX: for SAVE_TO_DC: should eliminate it */
-    dr_isa_mode_t isa_mode = dr_get_isa_mode(dc);
     IF_DEBUG(bool table_in_tls = SHARED_IB_TARGETS() &&
              (target_trace_table || SHARED_BB_ONLY_IB_TARGETS()) &&
              DYNAMO_OPTION(ibl_table_in_tls);)
@@ -779,14 +778,27 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
 
-    /* Check LSB for mode changes */
-    if (isa_mode == DR_ISA_ARM_A32) {
-        /* FIXME i#1551: mode change NYI */
-    } else {
-        /* FIXME i#1551: mode change NYI.  For now we just clear LSB. */
-        APP(&ilist, INSTR_CREATE_bic
-            (dc, OPREG(DR_REG_R2), OPREG(DR_REG_R2), OPND_CREATE_INT(0x1)));
-    }
+    /* Check LSB for mode changes: store the new mode in the dcontext.
+     * XXX i#1551: to avoid this store every single time even when there's no
+     * mode change, we'd need to generate separate thumb and arm IBL versions.
+     * We'd still need to check LSB and branch.
+     * Unfortunately it's hard to not do this in the IBL and instead back in DR:
+     * what about signal handler, other places who decode?
+     */
+    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_DCONTEXT_SLOT));
+    /* Get LSB from target address */
+    APP(&ilist, INSTR_CREATE_and(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R2),
+                                 OPND_CREATE_INT(1)));
+    /* Get right enum value. arch_init() ensures A32 + 1 == Thumb. */
+    APP(&ilist, INSTR_CREATE_add(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R0),
+                                 OPND_CREATE_INT(DR_ISA_ARM_A32)));
+    APP(&ilist, XINST_CREATE_store
+        (dc, OPND_CREATE_MEM32(DR_REG_R1, (int)offsetof(dcontext_t, isa_mode)),
+         OPREG(DR_REG_R0)));
+    /* Now clear the bit for the table lookup */
+    APP(&ilist, INSTR_CREATE_bic
+        (dc, OPREG(DR_REG_R2), OPREG(DR_REG_R2), OPND_CREATE_INT(0x1)));
 
     /* Now apply the hash, the *8, and add to the table base */
     APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),

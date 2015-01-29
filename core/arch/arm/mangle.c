@@ -448,7 +448,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* remove OP_blx_ind (final added jmp already targets the callee) */
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
-    /* FIXME i#1551: handle mode switch */
     /* FIXME i#1551: handle predication where instr is skipped */
 }
 
@@ -525,7 +524,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         ASSERT(found_pc);
     }
-    /* FIXME i#1551: handle mode switch */
     /* FIXME i#1551: handle predication where instr is skipped
      * For ind branch: need to add cbr -- will emit do right thing?
      * For pc read or rip-rel: b/c post-app-instr restore can't
