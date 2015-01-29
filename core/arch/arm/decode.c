@@ -743,13 +743,13 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
     case TYPE_NI_b0:
         array[(*counter)++] =
-            opnd_create_immed_uint(-decode_immed(di, 0, opsize, false/*unsign*/),
+            opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsign*/),
                                   opsize);
         return true;
     case TYPE_NI_x4_b0:
         array[(*counter)++] =
-            opnd_create_immed_uint(-decode_immed(di, 0, opsize, false/*unsign*/) * 4,
-                                   opnd_size_scale(opsize, 4));
+            opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsign*/) * 4,
+                                  opnd_size_scale(opsize, 4));
         return true;
     case TYPE_I_b3:
         array[(*counter)++] =
@@ -857,8 +857,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         } else
             CLIENT_ASSERT(false, "unsupported 8-0 split immed size");
         if (optype == TYPE_NI_b8_b0)
-            val = -val;
-        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
+            array[(*counter)++] = opnd_create_immed_int(-val, opsize);
+        else
+            array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
     case TYPE_I_b8_b16: { /* OP_msr */
@@ -972,7 +973,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             int amt = (val >> 7) & 0x1f;
             val = (toror >> amt) | (toror << (32 - amt));
         }
-        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
+        array[(*counter)++] = opnd_create_immed_uint(val, OPSZ_4/*to fit tiling*/);
         return true;
     }
     case TYPE_J_b0: /* T32.16 OP_b, imm11 = 10:0, imm32 = SignExtend(imm11:'0', 32) */
@@ -990,7 +991,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_J_b0_b24: { /* OP_blx imm24:H:0 */
         if (opsize == OPSZ_25b) {
             val = decode_immed(di, 24, OPSZ_1b, false/*unsigned*/) << 1; /*x2*/
-            val |= (decode_immed(di, 0, OPSZ_3, false/*unsigned*/) << 2);
+            val |= (decode_immed(di, 0, OPSZ_3, true/*signed*/) << 2);
         } else
             CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
         /* For A32, "cur pc" is PC + 8; for T32, PC + 4, sometimes aligned. */
