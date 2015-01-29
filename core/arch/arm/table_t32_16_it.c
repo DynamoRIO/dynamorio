@@ -95,8 +95,8 @@ const instr_info_t T32_16_it_ext_bit_11[][2] = {
       {OP_str,   0x9000, "str",     MSPP8w, xx,    RWw,   xx, xx, no,      x, z119[0][0x00]},
       {OP_ldr,   0x9800, "ldr",        RWw, xx, MSPP8w,   xx, xx, no,      x, z119[0][0x04]},
     }, { /* 8 */
-      {OP_add,   0xa000, "add",        RWw, xx,    PCw,   i8, xx, no,      x, z109[0][0x02]},
-      {OP_add,   0xa800, "add",        RWw, xx,    SPw,   i8, xx, no,      x, z11[8][0x00]},
+      {OP_add,   0xa000, "add",        RWw, xx,    PCw, i8x4, xx, no,      x, z109[0][0x02]},
+      {OP_add,   0xa800, "add",        RWw, xx,    SPw, i8x4, xx, no,      x, z11[8][0x00]},
     }, { /* 9 */
       {OP_stm,   0xc000, "stm",        Ml, RWw,    L8w,  RWw, xx, no,      x, xbase[0x0a]},
       {OP_ldm,   0xc800, "ldm",        L8w, xx,     Ml,   xx, xx, no,      x, xbase[0x0b]},
