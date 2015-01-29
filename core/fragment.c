@@ -610,7 +610,8 @@ dump_lookuptable_tls(dcontext_t *dcontext)
 /*******************************************************************************
  * IBL HASHTABLE INSTANTIATION
  */
-#define FRAGENTRY_FROM_FRAGMENT(f) { (f)->tag, (f)->start_pc }
+#define FRAGENTRY_FROM_FRAGMENT(f) \
+    { (f)->tag, PC_AS_JMP_TGT(FRAG_ISA_MODE(f->flags), (f)->start_pc) }
 
 /* macros w/ name and types are duplicated in fragment.h -- keep in sync */
 #define NAME_KEY ibl

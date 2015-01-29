@@ -395,8 +395,9 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     uint opc = instr_get_opcode(instr);
     ASSERT(opc == OP_bl || opc == OP_blx);
     retaddr = get_call_return_address(dcontext, ilist, instr);
-    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)retaddr, opnd_create_reg(DR_REG_LR),
-                           ilist, instr, NULL, NULL);
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
+                           PC_AS_JMP_TGT(instr_get_isa_mode(instr), (app_pc)retaddr),
+                           opnd_create_reg(DR_REG_LR), ilist, instr, NULL, NULL);
     if (opc == OP_bl) {
         /* remove OP_bl (final added jmp already targets the callee) */
         instrlist_remove(ilist, instr);
@@ -441,8 +442,9 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                               instr_get_target(instr)));
     }
     retaddr = get_call_return_address(dcontext, ilist, instr);
-    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)retaddr, opnd_create_reg(DR_REG_LR),
-                           ilist, instr, NULL, NULL);
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
+                           PC_AS_JMP_TGT(instr_get_isa_mode(instr), (app_pc)retaddr),
+                           opnd_create_reg(DR_REG_LR), ilist, instr, NULL, NULL);
     /* remove OP_blx_ind (final added jmp already targets the callee) */
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
