@@ -85,41 +85,41 @@ const instr_info_t A32_pred_opc8[] = {
     {EXT_OPC4X,  0x01e00000, "(ext opc4x 24)", xx, xx, xx, xx, xx, no, x, 24},
     {EXT_OPC4,   0x01f00000, "(ext opc4 7)", xx, xx, xx, xx, xx, no, x, 7},
     /* 20 */
-    {OP_and,     0x02000000, "and",    RBw, xx, RAw, i12, xx, pred, x, top4x[0][0x00]},
-    {OP_ands,    0x02100000, "ands",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[1][0x00]},
-    {OP_eor,     0x02200000, "eor",    RBw, xx, RAw, i12, xx, pred, x, top4x[2][0x00]},
-    {OP_eors,    0x02300000, "eors",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[3][0x00]},
-    {OP_sub,     0x02400000, "sub",    RBw, xx, RAw, i12, xx, pred, x, top4x[4][0x00]},/* XXX disasm: RA=r15 => "adr" */
-    {OP_subs,    0x02500000, "subs",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[5][0x00]},
-    {OP_rsb,     0x02600000, "rsb",    RBw, xx, RAw, i12, xx, pred, x, top4x[6][0x00]},
-    {OP_rsbs,    0x02700000, "rsbs",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[7][0x00]},
+    {OP_and,     0x02000000, "and",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[0][0x00]},
+    {OP_ands,    0x02100000, "ands",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[1][0x00]},
+    {OP_eor,     0x02200000, "eor",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[2][0x00]},
+    {OP_eors,    0x02300000, "eors",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[3][0x00]},
+    {OP_sub,     0x02400000, "sub",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[4][0x00]},/* XXX disasm: RA=r15 => "adr" */
+    {OP_subs,    0x02500000, "subs",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[5][0x00]},
+    {OP_rsb,     0x02600000, "rsb",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[6][0x00]},
+    {OP_rsbs,    0x02700000, "rsbs",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[7][0x00]},
     /* 28 */
-    {OP_add,     0x02800000, "add",    RBw, xx, RAw, i12, xx, pred, x, top4x[8][0x00]}, /* XXX disasm: RA=r15 => "adr" */
-    {OP_adds,    0x02900000, "adds",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[9][0x00]},
-    {OP_adc,     0x02a00000, "adc",    RBw, xx, RAw, i12, xx, pred, x, top4x[10][0x00]},
-    {OP_adcs,    0x02b00000, "adcs",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[11][0x00]},
-    {OP_sbc,     0x02c00000, "sbc",    RBw, xx, RAw, i12, xx, pred, x, top4x[12][0x00]},
-    {OP_sbcs,    0x02d00000, "sbcs",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[13][0x00]},
-    {OP_rsc,     0x02e00000, "rsc",    RBw, xx, RAw, i12, xx, pred, x, top4x[14][0x00]},
-    {OP_rscs,    0x02f00000, "rscs",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[15][0x00]},
+    {OP_add,     0x02800000, "add",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[8][0x00]}, /* XXX disasm: RA=r15 => "adr" */
+    {OP_adds,    0x02900000, "adds",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[9][0x00]},
+    {OP_adc,     0x02a00000, "adc",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[10][0x00]},
+    {OP_adcs,    0x02b00000, "adcs",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[11][0x00]},
+    {OP_sbc,     0x02c00000, "sbc",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[12][0x00]},
+    {OP_sbcs,    0x02d00000, "sbcs",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[13][0x00]},
+    {OP_rsc,     0x02e00000, "rsc",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[14][0x00]},
+    {OP_rscs,    0x02f00000, "rscs",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[15][0x00]},
     /* 30 */
     {OP_movw,    0x03000000, "movw",   RBw, xx, i16x16_0, xx, xx, pred, x, END_LIST},
-    {OP_tst,     0x03100000, "tst",    xx, xx, RAw, i12, xx, pred, fWNZC, top4x[16][0x00]},
+    {OP_tst,     0x03100000, "tst",    xx, xx, RAw, i12sh, xx, pred, fWNZC, top4x[16][0x00]},
     {EXT_IMM1916,0x03200000, "(ext imm1916 0)", xx, xx, xx, xx, xx, no, x, 0},
-    {OP_teq,     0x03300000, "teq",    xx, xx, RAw, i12, xx, pred, fWNZC, top4x[17][0x00]},
+    {OP_teq,     0x03300000, "teq",    xx, xx, RAw, i12sh, xx, pred, fWNZC, top4x[17][0x00]},
     {OP_movt,    0x03400000, "movt",   RBt, xx, i16x16_0, xx, xx, pred, x, END_LIST},
-    {OP_cmp,     0x03500000, "cmp",    xx, xx, RAw, i12, xx, pred, fWNZCV, top4x[18][0x00]},
-    {OP_msr,     0x03600000, "msr",    SPSR, xx, i4_16, i12, xx, pred, x, END_LIST},
-    {OP_cmn,     0x03700000, "cmn",    xx, xx, RAw, i12, xx, pred, fWNZCV, top4x[19][0x00]},
+    {OP_cmp,     0x03500000, "cmp",    xx, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[18][0x00]},
+    {OP_msr,     0x03600000, "msr",    SPSR, xx, i4_16, i12sh, xx, pred, x, END_LIST},
+    {OP_cmn,     0x03700000, "cmn",    xx, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[19][0x00]},
     /* 38 */
-    {OP_orr,     0x03800000, "orr",    RBw, xx, RAw, i12, xx, pred, x, top4x[20][0x00]},
-    {OP_orrs,    0x03900000, "orrs",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[21][0x00]},
-    {OP_mov,     0x03a00000, "mov",    RBw, xx, i12, xx, xx, pred, x, ti5[0][0x00]},
-    {OP_movs,    0x03b00000, "movs",   RBw, xx, i12, xx, xx, pred, fWNZCV, ti5[2][0x00]},
-    {OP_bic,     0x03c00000, "bic",    RBw, xx, RAw, i12, xx, pred, x, top4x[22][0x00]},
-    {OP_bics,    0x03d00000, "bics",   RBw, xx, RAw, i12, xx, pred, fWNZCV, top4x[23][0x00]},
-    {OP_mvn,     0x03e00000, "mvn",    RBw, xx, i12, xx, xx, pred, x, top4x[24][0x00]},
-    {OP_mvns,    0x03f00000, "mvns",   RBw, xx, i12, xx, xx, pred, fWNZCV, top4x[25][0x00]},
+    {OP_orr,     0x03800000, "orr",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[20][0x00]},
+    {OP_orrs,    0x03900000, "orrs",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[21][0x00]},
+    {OP_mov,     0x03a00000, "mov",    RBw, xx, i12sh, xx, xx, pred, x, ti5[0][0x00]},
+    {OP_movs,    0x03b00000, "movs",   RBw, xx, i12sh, xx, xx, pred, fWNZCV, ti5[2][0x00]},
+    {OP_bic,     0x03c00000, "bic",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[22][0x00]},
+    {OP_bics,    0x03d00000, "bics",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[23][0x00]},
+    {OP_mvn,     0x03e00000, "mvn",    RBw, xx, i12sh, xx, xx, pred, x, top4x[24][0x00]},
+    {OP_mvns,    0x03f00000, "mvns",   RBw, xx, i12sh, xx, xx, pred, fWNZCV, top4x[25][0x00]},
     /* 40 */
     {OP_str,     0x04000000, "str",    Mw, RAw, RBw, RAw, n12, pred, x, top4y[6][0x00]},/*PUW=000*/
     {OP_ldr,     0x04100000, "ldr",    RBw, RAw, Mw, RAw, n12, pred, x, top8[0x69]},/*PUW=000*/
@@ -883,8 +883,8 @@ const instr_info_t A32_ext_opc4[][16] = {
 const instr_info_t A32_ext_imm1916[][3] = {
   { /* 0 */
     {EXT_OPC4,   0x03200000, "(ext opc4 6)", xx, xx, xx, xx, xx, no, x, 6},
-    {OP_msr,     0x0320f000, "msr",    CPSR, xx, i4_16, i12, xx, pred, x, top8[0x36]},
-    {OP_msr,     0x0320f000, "msr",    CPSR, xx, i4_16, i12, xx, pred, x, DUP_ENTRY},
+    {OP_msr,     0x0320f000, "msr",    CPSR, xx, i4_16, i12sh, xx, pred, x, top8[0x36]},
+    {OP_msr,     0x0320f000, "msr",    CPSR, xx, i4_16, i12sh, xx, pred, x, DUP_ENTRY},
   }, { /* 1 */
     {OP_vmovl_s16, 0xf2900a10, "vmovl.s16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
     {OP_vshll_s16, 0xf2900a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/

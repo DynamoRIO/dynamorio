@@ -273,11 +273,9 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 {
     instr_t *mov1, *mov2;
     ASSERT(opnd_is_reg(dst));
-    /* FIXME i#1551: we may handle Thumb and ARM mode differently.
-     * Now we assume ARM mode only.
-     */
     /* MVN writes the bitwise inverse of an immediate value to the dst register */
-    if (~val >= 0 && ~val <= 0xfff) {
+    /* XXX: we could check for larger tile/rotate immed patterns */
+    if (~val >= 0 && ~val <= 0xff) {
         mov1 = INSTR_CREATE_mvn(dcontext, dst, OPND_CREATE_INT(~val));
         PRE(ilist, instr, mov1);
         mov2 = NULL;
@@ -295,10 +293,6 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
             /* movw zero-extends so we're done */
             mov2 = NULL;
         } else {
-            /* XXX: movw expects reg size to be OPSZ_PTR but
-             * movt expects reg size to be OPSZ_PTR_HALF.
-             */
-            opnd_set_size(&dst, OPSZ_PTR_HALF);
             mov2 = INSTR_CREATE_movt(dcontext, dst, OPND_CREATE_INT(val));
             PRE(ilist, instr, mov2);
         }

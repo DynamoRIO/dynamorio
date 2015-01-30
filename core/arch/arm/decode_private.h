@@ -311,6 +311,7 @@ enum {
      */
     TYPE_I_b0,
     TYPE_I_x4_b0,
+    TYPE_I_SHIFTED_b0,
     TYPE_NI_b0, /* negated immed */
     TYPE_NI_x4_b0, /* negated immed */
     TYPE_I_b3,

@@ -253,6 +253,7 @@ const char * const type_names[] = {
     "TYPE_PC",
     "TYPE_I_b0",
     "TYPE_I_x4_b0",
+    "TYPE_I_SHIFTED_b0",
     "TYPE_NI_b0",
     "TYPE_NI_x4_b0",
     "TYPE_I_b3",
@@ -633,6 +634,70 @@ encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multi
                  val % multiply == 0));
     }
     return false;
+}
+
+static bool
+encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
+{
+    ptr_int_t val;
+    int i, startA, stopA, startB, stopB, rot, val8;
+    if (di->isa_mode != DR_ISA_ARM_A32) {
+        CLIENT_ASSERT(false, "encoding chains are mixed up: thumb pointing at arm");
+        return false;
+    }
+    if (size_temp != OPSZ_12b)
+        return false;
+    if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
+        return false;
+    val = get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    /* Check for each possible rotated pattern, and store the encoding
+     * now to avoid re-doing this work at real encode time.
+     * The rotation can produce two separate non-zero sequences which we look for.
+     */
+    startA = -1, stopA = -1;
+    startB = -1;
+    for (i = 31; i >= 0; i--) {
+        if (TEST(1 << i, val)) {
+            if (startA == -1) {
+                startA = i;
+                stopA = startA;
+            } else if (startA - i < 8)
+                stopA = i;
+            else if (startB == -1) {
+                startB = i;
+                stopB = startB;
+            } else if (startB - i < 8)
+                stopB = i;
+            else
+                return false;
+        }
+    }
+    /* Clamp to the edges */
+    if (startB != -1) {
+        startA = 31;
+        stopB = 0;
+    }
+    /* Clamp to even bits (rotation value is x2) */
+    if (startB != -1)
+        startB = ALIGN_FORWARD(startB + 1, 2) - 1;
+    if (startA != -1)
+        stopA = ALIGN_BACKWARD(stopA - 1, 2) + 1;
+    if ((startA != -1 && startB != -1 && (stopA - startA) + (stopB - startB) > 8) ||
+        (startA != -1 && (stopA - startA)) > 8)
+        return false;
+    ASSERT(startB <= 7);
+    if (startB != -1) {
+        rot = 7 - startB;
+        val8 = ((val & 0xff000000) >> (32 - rot)) | ((val & 0xff) << rot);
+    } else if (startA != -1) {
+        rot = 8 + (31 - startA);
+        val8 = val & (0xff << (startA -7));
+    } else {
+        rot = 0;
+        val8 = 0;
+    }
+    di->mod_imm_enc = ((rot/2) << 8) | val8;
+    return true;
 }
 
 static bool
@@ -1073,6 +1138,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             return true;
         }
         return false;
+    case TYPE_I_SHIFTED_b0:
+        return encode_A32_modified_immed_ok(di, size_temp, opnd);
     case TYPE_I_b26_b12_b0:
         return encode_T32_modified_immed_ok(di, size_temp, opnd);
     case TYPE_SHIFT_b4:
@@ -1808,6 +1875,14 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         break;
     case TYPE_I_x4_b0:
         encode_immed(di, 0, size_temp, get_immed_val_abs(di, opnd)>>2, false/*unsigned*/);
+        break;
+    case TYPE_I_SHIFTED_b0:
+        if (size_temp == OPSZ_12b) {
+            /* encode_A32_modified_immed_ok stored the encoded value for us */
+            ptr_int_t val = di->mod_imm_enc;
+            encode_immed(di, 0, OPSZ_12b, val, false/*unsigned*/);
+        } else
+            CLIENT_ASSERT(false, "unsupported shifted-12 immed size");
         break;
     case TYPE_NI_b0:
         encode_immed(di, 0, size_temp, -get_immed_val_abs(di, opnd), false/*unsigned*/);

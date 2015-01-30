@@ -249,6 +249,7 @@
 #define i8x28_16_0 TYPE_I_b28_b16_b0, OPSZ_1
 #define i9       TYPE_I_b0, OPSZ_9b
 #define i12      TYPE_I_b0, OPSZ_12b
+#define i12sh    TYPE_I_SHIFTED_b0, OPSZ_12b
 #define i12x26_12_0 TYPE_I_b26_b12_b0, OPSZ_12b
 #define n12      TYPE_NI_b0, OPSZ_12b
 #define i16x8_0  TYPE_I_b8_b0, OPSZ_2

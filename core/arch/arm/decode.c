@@ -741,6 +741,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             opnd_create_immed_uint(decode_immed(di, 0, opsize, false/*unsign*/) * 4,
                                    opnd_size_scale(opsize, 4));
         return true;
+    case TYPE_I_SHIFTED_b0: {
+        /* This is an A32 "modified immediate constant" (ARMExpandImm in the manual).
+         * Top 4 bits x2 specify how much to right-rotate the bottom 8 bits.
+         */
+        int rot = 2*decode_immed(di, 8, OPSZ_4b, false/*unsign*/);
+        val = decode_immed(di, 0, OPSZ_1, false/*unsign*/);
+        val = (val >> rot) | (val << (32 - rot));
+        array[(*counter)++] = opnd_create_immed_uint(val, OPSZ_4/*to fit rotations*/);
+        return true;
+    }
     case TYPE_NI_b0:
         array[(*counter)++] =
             opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsign*/),
@@ -952,7 +962,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 26, OPSZ_1b, false/*unsigned*/) << 11);
         } else
             CLIENT_ASSERT(false, "unsupported 26-12-0 split immed size");
-        /* This is a T32 "modified immediate constant" with complex rules.
+        /* This is a T32 "modified immediate constant" with complex rules
+         * (ThumbExpandImm in the manual).
          * Bottom 8 bits are "abcdefgh" and the other bits indicate
          * whether to tile or rotate the bottom bits.
          */
