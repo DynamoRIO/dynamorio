@@ -182,7 +182,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_get_stolen_reg(), dr_insert_get_stolen_reg_value(),
    and reg_is_stolen().
  - Added opnd_create_immed_uint().
- - Added instr_remove_dsts().
+ - Added instr_remove_srcs() and instr_remove_dsts().
 
 **************************************************
 <hr>

@@ -878,6 +878,17 @@ instr_set_dst(instr_t *instr, uint pos, opnd_t opnd);
 
 DR_API
 /**
+ * Removes \p instr's source operands from position \p start up to
+ * but not including position \p end (so pass n,n+1 to remove just position n).
+ * Shifts all subsequent source operands (if any) down in the operand array.
+ * Also calls instr_set_raw_bits_valid(\p instr, false) and
+ * instr_set_operands_valid(\p instr, true).
+ */
+void
+instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end);
+
+DR_API
+/**
  * Removes \p instr's destination operands from position \p start up to
  * but not including position \p end (so pass n,n+1 to remove just position n).
  * Shifts all subsequent destination operands (if any) down in the operand array.

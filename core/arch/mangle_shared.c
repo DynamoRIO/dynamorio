@@ -664,9 +664,13 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                 continue;
         }
 #endif /* X64 || ARM */
-#if defined(ARM) && !defined(X64)
+#ifdef ARM
+# ifndef X64
         if (instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
             mangle_pc_read(dcontext, ilist, instr, next_instr);
+# endif
+        if (instr_uses_reg(instr, dr_reg_stolen))
+            next_instr = mangle_stolen_reg(dcontext, ilist, instr, next_instr);
 #endif
 
         if (instr_is_exit_cti(instr)) {
