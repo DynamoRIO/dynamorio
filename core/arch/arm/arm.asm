@@ -37,10 +37,13 @@
 #include "../asm_defines.asm"
 START_FILE
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+DECL_EXTERN(dynamorio_app_take_over_helper)
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
 DECL_EXTERN(initstack_mutex)
-DECL_EXTERN(dynamorio_app_take_over_helper)
 
 #define POUND #
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
@@ -162,6 +165,7 @@ call_dispatch_alt_stack_no_free:
         pop      {REG_R4, pc}
         END_FUNC(call_switch_stack)
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* FIXME i#1551: NYI on ARM */
 /*
@@ -199,7 +203,6 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
         END_FUNC(dr_app_running_under_dynamorio)
 #endif /* DR_APP_EXPORTS */
 
-
 /*
  * dynamorio_app_take_over - Causes application to run under Dynamo
  * control.  Dynamo never releases control.
@@ -228,29 +231,6 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         END_FUNC(dynamorio_app_take_over)
 
 
-/* Pass in the pointer-sized address to modify in ARG1 and the val to add in ARG2. */
-        DECLARE_FUNC(atomic_add)
-GLOBAL_LABEL(atomic_add:)
-1:      ldrex    REG_R2, [ARG1]
-        add      REG_R2, REG_R2, ARG2
-        strex    REG_R3, REG_R2, [ARG1]
-        cmp      REG_R3, #0
-        bne      1b
-        bx       lr
-        END_FUNC(atomic_add)
-
-/* Pass in the memory address in ARG1 and register w/ value in ARG2. */
-        DECLARE_FUNC(atomic_xchg)
-GLOBAL_LABEL(atomic_xchg:)
-1:      ldrex    REG_R2, [ARG1]
-        strex    REG_R3, ARG2, [ARG1]
-        cmp      REG_R3, #0
-        bne      1b
-        mov      REG_R0, REG_R2
-        bx       lr
-        END_FUNC(atomic_xchg)
-
-#ifndef NOT_DYNAMORIO_CORE_PROPER
 /*
  * cleanup_and_terminate(dcontext_t *dcontext,     // 0*ARG_SZ+sp
  *                       int sysnum,               // 1*ARG_SZ+sp = syscall #
@@ -361,6 +341,27 @@ cat_have_lock:
         .word   initstack_mutex(GOT)
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
 
+/* Pass in the pointer-sized address to modify in ARG1 and the val to add in ARG2. */
+        DECLARE_FUNC(atomic_add)
+GLOBAL_LABEL(atomic_add:)
+1:      ldrex    REG_R2, [ARG1]
+        add      REG_R2, REG_R2, ARG2
+        strex    REG_R3, REG_R2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        bx       lr
+        END_FUNC(atomic_add)
+
+/* Pass in the memory address in ARG1 and register w/ value in ARG2. */
+        DECLARE_FUNC(atomic_xchg)
+GLOBAL_LABEL(atomic_xchg:)
+1:      ldrex    REG_R2, [ARG1]
+        strex    REG_R3, ARG2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        mov      REG_R0, REG_R2
+        bx       lr
+        END_FUNC(atomic_xchg)
 
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
