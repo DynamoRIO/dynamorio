@@ -250,11 +250,10 @@
  * This platform-independent macro creates an instr_t for a comparison
  * instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param s1  The opnd_t explicit destination operand for the instruction.
+ * \param s1  The opnd_t explicit source operand for the instruction.
  * \param s2  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_cmp(dc, s1, s2) \
-  instr_create_0dst_2src((dc), OP_cmp, (s1), (s2))
+#define XINST_CREATE_cmp(dc, s1, s2) INSTR_CREATE_cmp((dc), (s1), (s2))
 
 /**
  * This platform-independent macro creates an instr_t for a software
