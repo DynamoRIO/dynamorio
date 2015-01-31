@@ -562,7 +562,7 @@ void
 instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 {
     opnd_t *new_srcs;
-    CLIENT_ASSERT(start >= 0 && end < instr->num_srcs && start < end,
+    CLIENT_ASSERT(start >= 0 && end <= instr->num_srcs && start < end,
                   "instr_remove_srcs: ordinals invalid");
     if (instr->num_srcs - 1 > (byte)(end - start)) {
         new_srcs = (opnd_t *) heap_alloc
@@ -576,7 +576,7 @@ instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
         }
     } else
         new_srcs = NULL;
-    if (start == 0)
+    if (start == 0 && end < instr->num_srcs)
         instr->src0 = instr->srcs[end - 1];
     heap_free(dcontext, instr->srcs, (instr->num_srcs-1)*sizeof(opnd_t)
               HEAPACCT(ACCT_IR));
@@ -591,7 +591,7 @@ void
 instr_remove_dsts(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 {
     opnd_t *new_dsts;
-    CLIENT_ASSERT(start >= 0 && end < instr->num_dsts && start < end,
+    CLIENT_ASSERT(start >= 0 && end <= instr->num_dsts && start < end,
                   "instr_remove_dsts: ordinals invalid");
     if (instr->num_dsts > (byte)(end - start)) {
         new_dsts = (opnd_t *) heap_alloc
