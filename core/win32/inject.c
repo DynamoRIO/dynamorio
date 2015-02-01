@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,12 +55,13 @@
 #include "instr_create.h"
 #include "decode.h"
 
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-# include "os_private.h" /* for get_proc_address() */
-# define GET_PROC_ADDR get_proc_address
-#else
-# define GET_PROC_ADDR GetProcAddress
-#endif
+/* i#1597: to prevent an IAT hooking injected library in drrun or a tool
+ * front-end from redirecting kernel32!LoadLibrary and kernel32!GetProcAddress
+ * to the inject lib itself, which won't be there in the child, it's best
+ * to use DR's get_proc_address().  We're already linking w/ the files we need.
+ */
+#include "os_private.h" /* for get_proc_address() */
+#define GET_PROC_ADDR get_proc_address
 
 /* this entry point is hardcoded, FIXME : abstract */
 #define DYNAMORIO_ENTRY "dynamo_auto_start"
