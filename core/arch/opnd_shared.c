@@ -500,6 +500,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     }, {
         opnd.aux.flags = 0;
         opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
+        opnd.value.base_disp.shift_amount_minus_1 = 0;
         CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                       "opnd_create_*base_disp*: cannot have both disp and index");
     });
