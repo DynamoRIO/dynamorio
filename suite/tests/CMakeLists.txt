@@ -1740,8 +1740,11 @@ if (CLIENT_INTERFACE)
     add_test(samples_proj ${CMAKE_CTEST_COMMAND}
       --build-and-test "${sample_proj_dir}" "${sample_proj_dir}/build_and_test"
       --build-generator ${CMAKE_GENERATOR}
+      --build-project DynamoRIO_samples # needed for VS generators
       --build-makeprogram ${CMAKE_MAKE_PROGRAM}
-      --build-options -DDynamoRIO_DIR:PATH=${public_config_dir})
+      # If we don't set Debug, we only have RelWithDebInfo available (b/c we
+      # collapse configs) but --build-and-test still tries to build Debug:
+      --build-options -DDEBUG=ON -DDynamoRIO_DIR:PATH=${public_config_dir})
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)

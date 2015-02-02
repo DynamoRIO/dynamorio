@@ -225,7 +225,9 @@ if (WIN32)
   # Although we no longer use the WDK/DDK ntdll.lib (i#938), we still use a
   # separate name "ntdll_imports" to avoid conflicts in containing projects.
   add_library(ntdll_imports SHARED win32/ntdll_imports.c ${ntimp_def})
-  get_target_property(ntimp_flags ntdll_imports LOCATION)
+  # i#1137: ignore 'specified multiple times' linker warnings
+  append_property_string(TARGET ntdll_imports LINK_FLAGS "/ignore:4197")
+  get_target_property(ntimp_flags ntdll_imports LOCATION${location_suffix})
   string(REPLACE ".dll" ".lib" ntimp_flags ${ntimp_flags})
   DR_export_target(ntdll_imports)
   # We need separate 32-bit and 64-bit versions so we put into lib dir

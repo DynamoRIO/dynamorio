@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -171,17 +171,6 @@ testbuild_ex("debug-internal-64" ON "
   ${install_path_cache}
   TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
   " OFF ON "${install_build_args}")
-# ensure extensions built as static libraries work
-# no tests needed: we ensure instrcalls and drsyms_bench build
-testbuild("debug-i32-static-ext" OFF "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  DR_EXT_DRWRAP_STATIC:BOOL=ON
-  DR_EXT_DRUTIL_STATIC:BOOL=ON
-  DR_EXT_DRMGR_STATIC:BOOL=ON
-  DR_EXT_DRSYMS_STATIC:BOOL=ON
-  ${install_path_cache}
-  ")
 # we don't really support debug-external anymore
 if (DO_ALL_BUILDS_NOT_SUPPORTED)
   testbuild("debug-external-64" ON "
