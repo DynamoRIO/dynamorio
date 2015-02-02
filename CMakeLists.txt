@@ -1249,8 +1249,24 @@ option(BUILD_TOOLS "build tools" ON)
 if (WIN32)
   option(BUILD_DRSTATS "build DRstats viewer (requires MFC)" ON)
 endif (WIN32)
-option(BUILD_EXT "build Extension libraries" ON)
-option(BUILD_DOCS "build documentation" ON)
+
+if (ARM)
+  # FIXME i#1551: port extension libraries to ARM
+  option(BUILD_EXT "build Extension libraries" OFF)
+  # FIXME i#1551: port client tools to ARM
+  option(BUILD_CLIENTS "build client tools" OFF)
+  # FIXME i#1551: port sample clients to ARM
+  option(BUILD_SAMPLES "build client samples" OFF)
+  # FIXME i#1551: fail to install necessary package on Linux ARM
+  option(BUILD_DOCS "build documentation" OFF)
+else (ARM)
+  option(BUILD_EXT "build Extension libraries" ON)
+  option(BUILD_CLIENTS "build client tools" ON)
+  # should we disallow selecting samples when core is not built?
+  # right now the samples build will just fail
+  option(BUILD_SAMPLES "build client samples" ON)
+  option(BUILD_DOCS "build documentation" ON)
+endif (ARM)
 
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to
@@ -1260,11 +1276,6 @@ if (VMSAFE)
   set(BUILD_DOCS OFF)
 endif (VMSAFE)
 
-option(BUILD_CLIENTS "build client tools" ON)
-
-# should we disallow selecting samples when core is not built?
-# right now the samples build will just fail
-option(BUILD_SAMPLES "build client samples" ON)
 if (NOT CLIENT_INTERFACE)
   set(BUILD_SAMPLES OFF)
   set(BUILD_EXT OFF)
