@@ -6437,8 +6437,20 @@ get_pc_after_call(byte *entry, byte **cbret)
         pc = decode_cti(dcontext, pc, &instr);
         ASSERT(pc != NULL);
         num_instrs++;
-        ASSERT_CURIOSITY(num_instrs <= 12); /* win7 x64 call* is 12th instr */
-    } while (!instr_opcode_valid(&instr) || !instr_is_call(&instr));
+        ASSERT_CURIOSITY(num_instrs <= 15); /* win8.1 x86 call* is 13th instr */
+        if (instr_opcode_valid(&instr)) {
+            if (instr_is_call_indirect(&instr)) {
+                /* i#1599: Win8.1 has an extra call that we have to rule out:
+                 * 77ce0c9e ff15d031da77  call  dword ptr [ntdll!__guard_check_icall_fptr]
+                 * 77ce0ca4 ffd1          call  ecx
+                 */
+                opnd_t tgt = instr_get_target(&instr);
+                if (opnd_is_base_disp(tgt) && opnd_get_base(tgt) == REG_NULL)
+                    continue;
+            }
+            break; /* don't expect any other decode_cti instrs */
+        }
+    } while (true);
     after_call = pc;
 
     /* find next cti, see if it's an int 2b or a call to ZwCallbackReturn */
@@ -6458,7 +6470,7 @@ get_pc_after_call(byte *entry, byte **cbret)
                             "after dispatcher found int 2b @"PFX"\n", pc);
                         *cbret = pc;
                     }
-                } else if (instr_is_call(&instr)) {
+                } else if (instr_is_call_direct(&instr)) {
                     GET_NTDLL(NtCallbackReturn, (IN PVOID Result OPTIONAL,
                                                  IN ULONG ResultLength,
                                                  IN NTSTATUS Status));
