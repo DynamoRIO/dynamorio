@@ -1872,11 +1872,13 @@ check_option_compatibility_helper(int recurse_count)
 
 #if defined(UNIX) && defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(private_loader)) {
+# ifdef X86
         if (!INTERNAL_OPTION(mangle_app_seg)) {
             USAGE_ERROR("-private_loader requires -mangle_app_seg");
             dynamo_options.mangle_app_seg = true;
             changed_options = true;
         }
+# endif
         if (INTERNAL_OPTION(client_lib_tls_size) < 1) {
             USAGE_ERROR("client_lib_tls_size is too small, set back to default");
             dynamo_options.client_lib_tls_size = 1;

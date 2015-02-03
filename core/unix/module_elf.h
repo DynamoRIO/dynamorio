@@ -76,64 +76,91 @@
 # define ELF_AUXV_TYPE Elf32_auxv_t
 #endif
 
-#ifdef X64
+#ifdef X86
+# ifdef X64
 /* AMD x86-64 relocations.  */
-# define ELF_R_TYPE   ELF64_R_TYPE
-# define ELF_R_SYM    ELF64_R_SYM
-# define ELF_R_INFO   ELF64_R_INFO
+#  define ELF_R_TYPE   ELF64_R_TYPE
+#  define ELF_R_SYM    ELF64_R_SYM
+#  define ELF_R_INFO   ELF64_R_INFO
 /* relocation type */
-# define ELF_R_NONE      R_X86_64_NONE        /* No reloc */
-# define ELF_R_DIRECT    R_X86_64_64          /* Direct 64 bit */
-# define ELF_R_PC32      R_X86_64_PC32        /* PC relative 32-bit signed */
-# define ELF_R_COPY      R_X86_64_COPY        /* copy symbol at runtime */
-# define ELF_R_GLOB_DAT  R_X86_64_GLOB_DAT    /* GOT entry */
-# define ELF_R_JUMP_SLOT R_X86_64_JUMP_SLOT   /* PLT entry */
-# define ELF_R_RELATIVE  R_X86_64_RELATIVE    /* Adjust by program delta */
-# ifndef R_X86_64_IRELATIVE
-#  define R_X86_64_IRELATIVE 37
-# endif
-# define ELF_R_IRELATIVE R_X86_64_IRELATIVE   /* Adjust indirectly by program base */
+#  define ELF_R_NONE      R_X86_64_NONE        /* No reloc */
+#  define ELF_R_DIRECT    R_X86_64_64          /* Direct 64 bit */
+#  define ELF_R_PC32      R_X86_64_PC32        /* PC relative 32-bit signed */
+#  define ELF_R_COPY      R_X86_64_COPY        /* copy symbol at runtime */
+#  define ELF_R_GLOB_DAT  R_X86_64_GLOB_DAT    /* GOT entry */
+#  define ELF_R_JUMP_SLOT R_X86_64_JUMP_SLOT   /* PLT entry */
+#  define ELF_R_RELATIVE  R_X86_64_RELATIVE    /* Adjust by program delta */
+#  ifndef R_X86_64_IRELATIVE
+#   define R_X86_64_IRELATIVE 37
+#  endif
+#  define ELF_R_IRELATIVE R_X86_64_IRELATIVE   /* Adjust indirectly by program base */
 /* TLS hanlding */
-# define ELF_R_TLS_DTPMOD   R_X86_64_DTPMOD64 /* Module ID */
-# define ELF_R_TLS_TPOFF    R_X86_64_TPOFF64  /* Offset in module's TLS block */
-# define ELF_R_TLS_DTPOFF   R_X86_64_DTPOFF64 /* Offset in initial TLS block */
-# ifndef R_X86_64_TLSDESC
-#  define R_X86_64_TLSDESC   36
-# endif
-# define ELF_R_TLS_DESC     R_X86_64_TLSDESC  /* TLS descriptor containing
-                                               * pointer to code and to
-                                               * argument, returning the TLS
-                                               * offset for the symbol.
-                                               */
-#else /* 32-bit */
-# define ELF_R_TYPE   ELF32_R_TYPE
-# define ELF_R_SYM    ELF32_R_SYM
-# define ELF_R_INFO   ELF32_R_INFO
+#  define ELF_R_TLS_DTPMOD   R_X86_64_DTPMOD64 /* Module ID */
+#  define ELF_R_TLS_TPOFF    R_X86_64_TPOFF64  /* Offset in module's TLS block */
+#  define ELF_R_TLS_DTPOFF   R_X86_64_DTPOFF64 /* Offset in initial TLS block */
+#  ifndef R_X86_64_TLSDESC
+#   define R_X86_64_TLSDESC   36
+#  endif
+#  define ELF_R_TLS_DESC     R_X86_64_TLSDESC  /* TLS descriptor containing
+                                                * pointer to code and to
+                                                * argument, returning the TLS
+                                                * offset for the symbol.
+                                                */
+# else /* 32-bit */
+#  define ELF_R_TYPE   ELF32_R_TYPE
+#  define ELF_R_SYM    ELF32_R_SYM
+#  define ELF_R_INFO   ELF32_R_INFO
 /* relocation type */
-# define ELF_R_NONE      R_386_NONE      /* No reloc */
-# define ELF_R_DIRECT    R_386_32        /* Direct 32 bit */
-# define ELF_R_PC32      R_386_PC32      /* PC relative 32 bit */
-# define ELF_R_COPY      R_386_COPY      /* Copy symbol at runtime */
-# define ELF_R_GLOB_DAT  R_386_GLOB_DAT  /* GOT entry */
-# define ELF_R_JUMP_SLOT R_386_JMP_SLOT  /* PLT entry */
-# define ELF_R_RELATIVE  R_386_RELATIVE  /* Adjust by program delta */
-# ifndef R_386_IRELATIVE
-#  define R_386_IRELATIVE 42
-# endif
-# define ELF_R_IRELATIVE R_386_IRELATIVE /* Adjust indirectly by program base */
+#  define ELF_R_NONE      R_386_NONE      /* No reloc */
+#  define ELF_R_DIRECT    R_386_32        /* Direct 32 bit */
+#  define ELF_R_PC32      R_386_PC32      /* PC relative 32 bit */
+#  define ELF_R_COPY      R_386_COPY      /* Copy symbol at runtime */
+#  define ELF_R_GLOB_DAT  R_386_GLOB_DAT  /* GOT entry */
+#  define ELF_R_JUMP_SLOT R_386_JMP_SLOT  /* PLT entry */
+#  define ELF_R_RELATIVE  R_386_RELATIVE  /* Adjust by program delta */
+#  ifndef R_386_IRELATIVE
+#   define R_386_IRELATIVE 42
+#  endif
+#  define ELF_R_IRELATIVE R_386_IRELATIVE /* Adjust indirectly by program base */
 /* tls related */
-# define ELF_R_TLS_DTPMOD  R_386_TLS_DTPMOD32 /* Module ID */
-# define ELF_R_TLS_TPOFF   R_386_TLS_TPOFF    /* Negated offsets in static TLS block */
-# define ELF_R_TLS_DTPOFF  R_386_TLS_DTPOFF32 /* Offset in TLS block */
-# ifndef R_386_TLS_DESC
-#  define R_386_TLS_DESC   41
+#  define ELF_R_TLS_DTPMOD  R_386_TLS_DTPMOD32 /* Module ID */
+#  define ELF_R_TLS_TPOFF   R_386_TLS_TPOFF    /* Negated offsets in static TLS block */
+#  define ELF_R_TLS_DTPOFF  R_386_TLS_DTPOFF32 /* Offset in TLS block */
+#  ifndef R_386_TLS_DESC
+#   define R_386_TLS_DESC   41
+#  endif
+#  define ELF_R_TLS_DESC    R_386_TLS_DESC     /* TLS descriptor containing
+                                                * pointer to code and to
+                                                * argument, returning the TLS
+                                                * offset for the symbol.
+                                                */
 # endif
-# define ELF_R_TLS_DESC    R_386_TLS_DESC     /* TLS descriptor containing
-                                               * pointer to code and to
-                                               * argument, returning the TLS
-                                               * offset for the symbol.
-                                               */
-#endif
+#elif defined(ARM)
+# ifdef X64
+#  error NYI
+# else
+#  define ELF_R_TYPE   ELF32_R_TYPE
+#  define ELF_R_SYM    ELF32_R_SYM
+#  define ELF_R_INFO   ELF32_R_INFO
+/* relocation type */
+#  define ELF_R_NONE      R_ARM_NONE      /* No reloc */
+#  define ELF_R_DIRECT    R_ARM_ABS32     /* Direct 32 bit */
+#  define ELF_R_COPY      R_ARM_COPY      /* Copy symbol at runtime */
+#  define ELF_R_GLOB_DAT  R_ARM_GLOB_DAT  /* GOT entry */
+#  define ELF_R_JUMP_SLOT R_ARM_JUMP_SLOT /* PLT entry */
+#  define ELF_R_RELATIVE  R_ARM_RELATIVE  /* Adjust by program delta */
+#  define ELF_R_IRELATIVE R_ARM_IRELATIVE /* Adjust indirectly by program base */
+/* tls related */
+#  define ELF_R_TLS_DTPMOD  R_ARM_TLS_DTPMOD32 /* Module ID */
+#  define ELF_R_TLS_TPOFF   R_ARM_TLS_TPOFF32  /* Negated offsets in static TLS block */
+#  define ELF_R_TLS_DTPOFF  R_ARM_TLS_DTPOFF32 /* Offset in TLS block */
+#  define ELF_R_TLS_DESC    R_ARM_TLS_DESC     /* TLS descriptor containing
+                                                * pointer to code and to
+                                                * argument, returning the TLS
+                                                * offset for the symbol.
+                                                */
+# endif /* 64/32 */
+#endif /* X86/ARM */
 
 bool
 get_elf_platform(file_t f, dr_platform_t *platform);

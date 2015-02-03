@@ -341,9 +341,7 @@
      * regular loader list
      */
     /* XXX i#1285: MacOS private loader is NYI */
-    OPTION_DEFAULT_INTERNAL(bool, private_loader,
-                            IF_X86_ELSE(IF_MACOS_ELSE(false, true),
-                                        false /* i#1551 NYI on ARM */),
+    OPTION_DEFAULT_INTERNAL(bool, private_loader, IF_MACOS_ELSE(false, true),
                             "use private loader for clients and dependents")
 # ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
@@ -532,15 +530,16 @@
      */
     OPTION_DEFAULT(bool, cleancall_ignore_eflags, true,
                    "skip eflags clear code with assumption that clean call does not rely on cleared eflags")
+#ifdef X86
     /* i#107: To handle app using same segment register that DR uses, we should
      * mangle the app's segment usage.
      * It cannot be used with DGC_DIAGNOSTICS.
      */
     OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
-                            IF_X86_ELSE(IF_WINDOWS_ELSE(false, true),
-                                        false /* FIXME i#1551: NYI on ARM for private loader */),
+                            /* On ARM, we do not steal TLS, so no mangling. */
+                            IF_X86_ELSE(IF_WINDOWS_ELSE(false, true), false),
                             "mangle application's segment usage.")
-
+#endif /* X86 */
 #ifdef X64
     OPTION_COMMAND(bool, x86_to_x64, false, "x86_to_x64", {
         /* i#1494: to avoid decode_fragment messing up the 32-bit/64-bit mode,

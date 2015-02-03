@@ -1571,13 +1571,13 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
 #endif /* X86/ARM */
 }
 
+#ifdef X86
 /* initialization for mangle_app_seg, must be called before
  * DR setup its own segment.
  */
 static void
 os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 {
-#ifdef X86
     int i, index;
     our_modify_ldt_t *desc;
     app_pc app_fs_base, app_gs_base;
@@ -1624,11 +1624,8 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
     LOG(THREAD_GET, LOG_THREADS, 1, "thread "TIDFMT" DR fs: "PFX", gs: "PFX"\n",
         get_thread_id(), os_tls->os_seg_info.dr_fs_base, os_tls->os_seg_info.dr_gs_base);
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_REACHED();
-#endif /* X86/ARM */
 }
+#endif /* X86 */
 
 void
 os_tls_init(void)
@@ -1660,9 +1657,11 @@ os_tls_init(void)
     /* Verify that local_state_extended_t should indeed be used. */
     ASSERT(DYNAMO_OPTION(ibl_table_in_tls));
 
+# ifdef X86
     /* get application's GS/FS segment base before being replaced by DR. */
     if (INTERNAL_OPTION(mangle_app_seg))
         os_tls_app_seg_init(os_tls, segment);
+# endif
 
     tls_thread_init(os_tls, segment);
     ASSERT(os_tls->tls_type != TLS_TYPE_NONE);
@@ -1856,6 +1855,7 @@ os_thread_init(dcontext_t *dcontext)
      */
     ostd->dr_gs_base = os_tls->os_seg_info.dr_gs_base;
     ostd->dr_fs_base = os_tls->os_seg_info.dr_fs_base;
+#ifdef X86
     if (INTERNAL_OPTION(mangle_app_seg)) {
         ostd->app_thread_areas =
             heap_alloc(dcontext, sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS
@@ -1864,6 +1864,7 @@ os_thread_init(dcontext_t *dcontext)
                os_tls->os_seg_info.app_thread_areas,
                sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS);
     }
+#endif
 
     LOG(THREAD, LOG_THREADS, 1, "cur %s base is "PFX"\n",
         IF_X86_ELSE("gs", "tpidruro"),
@@ -1901,17 +1902,19 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
 
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
+#ifdef X86
         if (INTERNAL_OPTION(mangle_app_seg)) {
             heap_free(dcontext, ostd->app_thread_areas,
                       sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS
                       HEAPACCT(ACCT_OTHER));
-#ifdef CLIENT_INTERFACE
+# ifdef CLIENT_INTERFACE
             if (INTERNAL_OPTION(private_loader)) {
                 privload_tls_exit(IF_X64_ELSE(ostd->dr_fs_base,
                                               ostd->dr_gs_base));
             }
-#endif
+# endif
         }
+#endif /* X86 */
         heap_free(dcontext, ostd, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));
     });
 }
@@ -2032,14 +2035,20 @@ os_fork_init(dcontext_t *dcontext)
 bool
 os_should_swap_state(void)
 {
+#ifdef X86
     /* -private_loader currently implies -mangle_app_seg, but let's be safe. */
     return (INTERNAL_OPTION(mangle_app_seg) &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
+#elif defined(ARM)
+    /* FIXME i#1551: we may need swap TLS for private libraries */
+    return false;
+#endif
 }
 
 bool
 os_using_app_state(dcontext_t *dcontext)
 {
+#ifdef X86
     /* FIXME: This could be optimized to avoid the syscall by keeping state in
      * the dcontext.
      */
@@ -2047,6 +2056,7 @@ os_using_app_state(dcontext_t *dcontext)
         return (get_segment_base(LIB_SEG_TLS) ==
                 os_get_app_seg_base(dcontext, LIB_SEG_TLS));
     }
+#endif
     /* We're always in the app state if we're not mangling. */
     return true;
 }

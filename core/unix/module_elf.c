@@ -1669,16 +1669,19 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
         if (sym != NULL)
             memcpy(r_addr, res, sym->st_size);
         break;
+#ifdef X86
     case ELF_R_PC32:
         res += addend - (reg_t)r_addr;
         *(uint *)r_addr = (uint)(reg_t)res;
         break;
-#ifdef X64
+# ifdef X64
     case R_X86_64_32:
         res += addend;
         *(uint *)r_addr = (uint)(reg_t)res;
         break;
+# endif
 #endif
+    /* FIXME i#1551: add ARM specific relocs type handling */
     default:
         /* unhandled rel type */
         ASSERT_NOT_REACHED();

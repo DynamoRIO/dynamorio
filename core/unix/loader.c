@@ -72,12 +72,17 @@ static const char *system_lib_paths[] = {
     "/lib",
     "/usr/local/lib",       /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
 #ifndef X64
-    "/lib32/tls/i686/cmov",
     "/usr/lib32",
     "/lib32",
+# ifdef X86
+    "/lib32/tls/i686/cmov",
     /* 32-bit Ubuntu */
     "/lib/i386-linux-gnu",
     "/usr/lib/i386-linux-gnu",
+# elif defined(ARM)
+    "/lib/arm-linux-gnueabihf",
+    "/usr/lib/arm-linux-gnueabihf",
+# endif
 #else
     "/lib64/tls/i686/cmov",
     "/usr/lib64",
