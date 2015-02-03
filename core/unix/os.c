@@ -806,7 +806,8 @@ os_file_init(void)
     if (DYNAMO_OPTION(steal_fds) > 0) {
         struct rlimit rlimit_nofile;
         /* SYS_getrlimit uses an old 32-bit-field struct so we want SYS_ugetrlimit */
-        if (dynamorio_syscall(IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit),
+        if (dynamorio_syscall(IF_MACOS_ELSE(SYS_getrlimit,
+                                            IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit)),
                               2, RLIMIT_NOFILE, &rlimit_nofile) != 0) {
             /* linux default is 1024 */
             SYSLOG_INTERNAL_WARNING("getrlimit RLIMIT_NOFILE failed"); /* can't LOG yet */
@@ -4309,7 +4310,7 @@ ignorable_system_call_normalized(int num)
 #if defined(X64) || !defined(ARM)
     case SYS_getrlimit:
 #endif
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_ugetrlimit:
 #endif
     case SYS_setrlimit:
@@ -6295,10 +6296,10 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
-#if defined(X64) || !defined(ARM)
+#if defined(X64) || !defined(ARM) || defined(MACOS)
     case SYS_getrlimit:
 #endif
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_ugetrlimit:
 #endif
         /* save for post */
@@ -6803,7 +6804,7 @@ post_system_call(dcontext_t *dcontext)
 #if defined(LINUX) && !defined(X64) && !defined(ARM)
     case SYS_mmap:
 #endif
-    case IF_X64_ELSE(SYS_mmap, SYS_mmap2): {
+    case IF_MACOS_ELSE(SYS_mmap, IF_X64_ELSE(SYS_mmap, SYS_mmap2)): {
         uint flags;
         DEBUG_DECLARE(const char *map_type;)
         RSTATS_INC(num_app_mmaps);
@@ -7161,7 +7162,7 @@ post_system_call(dcontext_t *dcontext)
 #endif
     }
 
-    case IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit): {
+    case IF_MACOS_ELSE(SYS_getrlimit, IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit)): {
         int resource = dcontext->sys_param0;
         if (success && resource == RLIMIT_NOFILE) {
             /* we stole some space: hide it from app */
@@ -7173,7 +7174,7 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
-#if !defined(ARM) && !defined(X64)
+#if !defined(ARM) && !defined(X64) && !defined(MACOS)
     /* Old struct w/ smaller fields */
     case SYS_getrlimit: {
         int resource = dcontext->sys_param0;
