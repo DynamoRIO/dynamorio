@@ -672,6 +672,8 @@ encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
                 return false;
         }
     }
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s: val=%d, initial A=%d-%d, B=%d-%d\n",
+        __FUNCTION__, val, startA, stopA, startB, stopB);
     /* Clamp to the edges */
     if (startB != -1) {
         startA = 31;
@@ -680,8 +682,12 @@ encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
     /* Clamp to even bits (rotation value is x2) */
     if (startB != -1)
         startB = ALIGN_FORWARD(startB + 1, 2) - 1;
-    if (startA != -1)
-        stopA = ALIGN_BACKWARD(stopA - 1, 2) + 1;
+    if (startA != -1) {
+        startA = ALIGN_FORWARD(startA + 1, 2) - 1;
+        stopA = ALIGN_BACKWARD(stopA, 2);
+    }
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s: val=%d, clamped A=%d-%d, B=%d-%d\n",
+        __FUNCTION__, val, startA, stopA, startB, stopB);
     if ((startA != -1 && startB != -1 && (stopA - startA) + (stopB - startB) > 8) ||
         (startA != -1 && (stopA - startA)) > 8)
         return false;
@@ -690,8 +696,13 @@ encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
         rot = 7 - startB;
         val8 = ((val & 0xff000000) >> (32 - rot)) | ((val & 0xff) << rot);
     } else if (startA != -1) {
-        rot = 8 + (31 - startA);
-        val8 = val & (0xff << (startA -7));
+        if (startA < 8) {
+            rot = 0;
+            val8 = val & 0xff;
+        } else {
+            rot = 8 + (31 - startA);
+            val8 = val & (0xff << (startA -7));
+        }
     } else {
         rot = 0;
         val8 = 0;
