@@ -1,4 +1,4 @@
-Copyright (c) 2010-2014 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
+Copyright (c) 2010-2015 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
 Copyright (c) 2000-2010 VMware, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,11 @@ On Linux:
   % bin32/drrun -c samples/bin32/libbbsize.so -- ls
 64-bit:
   % bin64/drrun -c samples/bin64/libbbsize.so -- ls
-For additional options:
+
+To run the Dr. Memory tool which is included in release packages:
+  % bin32/drrun -t drmemory -- <my-32-bit-app> <args-to-app>
+
+For additional options and to list available tools for -t:
   % bin32/drrun
 
 For full control over child processes use a two-step process:
@@ -72,6 +76,12 @@ Method 1: directly invoke an application:
   % bin32/drrun.exe -c samples/bin32/bbsize.dll -- calc
 64-bit:
   % bin64/drrun.exe -c samples/bin64/bbsize.dll -- calc
+
+To run the Dr. Memory tool which is included in release packages:
+  % bin32/drrun.exe -t drmemory -- <my-32-bit-app> <args-to-app>
+
+For additional options and to list available tools for -t:
+  % bin32/drrun.exe
 
 Method 2: configure an application and launch it separately.
 This requires administrative privileges:
