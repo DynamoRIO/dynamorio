@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -94,6 +94,17 @@ START_FILE
 #else
 # define UPCXT_EXTRA UPCXT_BEFORE_INLINE_SLOTS
 #endif
+
+/* XXX: duplicated in os_exports.h */
+#ifdef X64
+# define TOP_STACK_TIB_OFFSET      8
+# define BASE_STACK_TIB_OFFSET     16
+#else
+# define TOP_STACK_TIB_OFFSET      4
+# define BASE_STACK_TIB_OFFSET     8
+#endif
+/* Upper bound is all we need */
+#define DYNAMORIO_STACK_SIZE_UPPER_BOUND 128*1024
 
 /* We should give asm_defines.asm all unique names and then include globals.h
  * and avoid all this duplication!
@@ -439,12 +450,29 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         /* we need a callee-saved reg across our call so save it onto stack */
         push     REG_XBX
         push     REG_XBP /* alignment doesn't matter: swapping stacks */
+# ifdef WINDOWS
+        /* DrMem i#1676: we have to preserve the app's TEB stack fields */
+        push     REG_XSI
+        push     REG_XDI
+        mov      REG_XSI, SEG_TLS:[TOP_STACK_TIB_OFFSET]
+        mov      REG_XDI, SEG_TLS:[BASE_STACK_TIB_OFFSET]
+# endif
         mov      REG_XBX, REG_XAX
         mov      REG_XBP, REG_XSP
         /* set up for call */
         mov      SCRATCH1, [2*ARG_SZ + REG_XAX] /* func */
         mov      SCRATCH2, [1*ARG_SZ + REG_XAX] /* drcontext */
         RESTORE_FROM_DCONTEXT_VIA_REG(SCRATCH2, dstack_OFFSET, REG_XSP)
+# ifdef WINDOWS
+        /* DrMem i#1676: update TEB stack fields for Win8.1.
+         * XXX: to avoid this cost on pre-Win8.1 we could change this to become
+         * a gencode routine.
+         */
+        mov      SEG_TLS:[TOP_STACK_TIB_OFFSET], REG_XSP
+        mov      SCRATCH2, REG_XSP
+        sub      SCRATCH2, DYNAMORIO_STACK_SIZE_UPPER_BOUND
+        mov      SEG_TLS:[BASE_STACK_TIB_OFFSET], SCRATCH2
+# endif
         STACK_PAD_NOPUSH(8, 4, 0)
         mov      SCRATCH2, [10*ARG_SZ + REG_XAX]
         mov      ARG8_NORETADDR, SCRATCH2
@@ -467,6 +495,13 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         STACK_UNPAD(8, 4, 0)
         mov      REG_XSP, REG_XBP
         mov      REG_XCX, REG_XBX
+# ifdef WINDOWS
+        /* DrMem i#1676: we have to preserve the app's TEB stack fields */
+        mov      SEG_TLS:[TOP_STACK_TIB_OFFSET], REG_XSI
+        mov      SEG_TLS:[BASE_STACK_TIB_OFFSET], REG_XDI
+        pop      REG_XDI
+        pop      REG_XSI
+# endif
         pop      REG_XBP
         pop      REG_XBX
 # ifdef X64

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5100,6 +5100,10 @@ DR_API
  * Passes in 8 arguments.  Uses the C calling convention, so \p func will work
  * just fine even if if takes fewer than 8 args.
  * Swaps the stack back upon return and returns the value returned by \p func.
+ *
+ * On Windows, this routine does swap the TEB stack fields, avoiding
+ * issues with fault handling on Windows 8.1.  This means there is no need
+ * for the callee to use dr_switch_to_dr_state_ex() with DR_STATE_STACK_BOUNDS.
  */
 void *
 dr_call_on_clean_stack(void *drcontext, void *(*func)(void),

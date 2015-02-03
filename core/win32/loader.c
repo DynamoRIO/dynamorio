@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -361,7 +361,8 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
             dcontext->priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
             dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
             dcontext->priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
-            IF_X64(dcontext->app_stack_limit = get_tls(BASE_STACK_TIB_OFFSET));
+            dcontext->app_stack_limit = get_tls(BASE_STACK_TIB_OFFSET);
+            dcontext->app_stack_base = get_tls(TOP_STACK_TIB_OFFSET);
             dcontext->app_nls_cache = pre_nls_cache;
             dcontext->app_fls_data = pre_fls_data;
             dcontext->app_nt_rpc = pre_nt_rpc;
@@ -370,7 +371,8 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
             set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
         } else {
             /* The real value will be set by swap_peb_pointer */
-            IF_X64(dcontext->app_stack_limit = NULL);
+            dcontext->app_stack_limit = NULL;
+            dcontext->app_stack_base = NULL;
             dcontext->app_nls_cache = NULL;
             dcontext->app_fls_data = NULL;
             dcontext->app_nt_rpc = NULL;
@@ -379,9 +381,8 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
             dcontext->priv_fls_data = NULL;
             dcontext->priv_nt_rpc = NULL;
         }
-#ifdef X64
         LOG(THREAD, LOG_LOADER, 2, "app stack limit="PFX"\n", dcontext->app_stack_limit);
-#endif
+        LOG(THREAD, LOG_LOADER, 2, "app stack base="PFX"\n", dcontext->app_stack_base);
         LOG(THREAD, LOG_LOADER, 2, "app nls_cache="PFX", priv nls_cache="PFX"\n",
             dcontext->app_nls_cache, dcontext->priv_nls_cache);
         LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
@@ -473,7 +474,8 @@ is_using_app_peb(dcontext_t *dcontext)
 {
     /* don't use get_own_peb() as we want what's actually pointed at by TEB */
     PEB *cur_peb = get_teb_field(dcontext, PEB_TIB_OFFSET);
-    IF_X64(void *cur_stack_limit;)
+    void *cur_stack_limit;
+    void *cur_stack_base;
     void *cur_nls_cache;
     void *cur_fls;
     void *cur_rpc;
@@ -483,7 +485,8 @@ is_using_app_peb(dcontext_t *dcontext)
         !should_swap_peb_pointer())
         return true;
     ASSERT(cur_peb != NULL);
-    IF_X64(cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET));
+    cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
+    cur_stack_base = get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
     cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
     cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
     cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
@@ -491,8 +494,10 @@ is_using_app_peb(dcontext_t *dcontext)
         /* won't nec equal the priv_ value since could have changed: but should
          * not have the app value!
          */
-        IF_X64(ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
-                      IS_CLIENT_THREAD(dcontext)));
+        ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
+               IS_CLIENT_THREAD(dcontext));
+        ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
+               IS_CLIENT_THREAD(dcontext));
         ASSERT(cur_nls_cache == NULL ||
                cur_nls_cache != dcontext->app_nls_cache);
         ASSERT(cur_fls == NULL ||
@@ -504,7 +509,8 @@ is_using_app_peb(dcontext_t *dcontext)
         /* won't nec equal the app_ value since could have changed: but should
          * not have the priv value!
          */
-        IF_X64(ASSERT(!is_dynamo_address(cur_stack_limit)));
+        ASSERT(!is_dynamo_address(cur_stack_limit));
+        ASSERT(!is_dynamo_address((byte *)cur_stack_base-1));
         ASSERT(cur_nls_cache == NULL ||
                cur_nls_cache != dcontext->priv_nls_cache);
         ASSERT(cur_fls == NULL ||
@@ -530,20 +536,26 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         /* We preserve TEB->LastErrorValue and we swap TEB->FlsData,
          * TEB->ReservedForNtRpc, and TEB->NlsCache.
          */
-        IF_X64(void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);)
+        void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
+        void *cur_stack_base = get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
         void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
         void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
         if (to_priv) {
-#ifdef X64
             if (TEST(DR_STATE_STACK_BOUNDS, flags) &&
-                dynamo_initialized /* on app stack until init finished */ &&
-                !is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
-                dcontext->app_stack_limit = cur_stack_limit;
-                set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
-                              dcontext->dstack - DYNAMORIO_STACK_SIZE);
+                dynamo_initialized /* on app stack until init finished */) {
+                if (SWAP_TEB_STACKLIMIT() &&
+                    !is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
+                    dcontext->app_stack_limit = cur_stack_limit;
+                    set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
+                                  dcontext->dstack - DYNAMORIO_STACK_SIZE);
+                }
+                if (SWAP_TEB_STACKBASE() &&
+                    !is_dynamo_address(cur_stack_base)) { /* handle two in a row */
+                    dcontext->app_stack_base = cur_stack_base;
+                    set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
+                }
             }
-#endif
             if (TEST(DR_STATE_TEB_MISC, flags)) {
                 /* note: two calls in a row will clobber app_errno w/ wrong value! */
                 dcontext->app_errno = (int)(ptr_int_t)
@@ -563,13 +575,18 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                 }
             }
         } else {
-#ifdef X64
-            if (TEST(DR_STATE_STACK_BOUNDS, flags) &&
-                is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
-                set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
-                              dcontext->app_stack_limit);
+            if (TEST(DR_STATE_STACK_BOUNDS, flags)) {
+                if (SWAP_TEB_STACKLIMIT() &&
+                    is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
+                    set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
+                                  dcontext->app_stack_limit);
+                }
+                if (SWAP_TEB_STACKBASE() &&
+                    is_dynamo_address(cur_stack_base)) { /* handle two in a row */
+                    set_teb_field(dcontext, TOP_STACK_TIB_OFFSET,
+                                  dcontext->app_stack_base);
+                }
             }
-#endif
             if (TEST(DR_STATE_TEB_MISC, flags)) {
                 /* two calls in a row should be fine */
                 set_teb_field(dcontext, ERRNO_TIB_OFFSET,
@@ -589,8 +606,10 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                 }
             }
         }
-        IF_X64(ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
-                      IS_CLIENT_THREAD(dcontext)));
+        ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
+               IS_CLIENT_THREAD(dcontext));
+        ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
+               IS_CLIENT_THREAD(dcontext));
         ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
         ASSERT(!is_dynamo_address(dcontext->app_fls_data));
         ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
@@ -598,10 +617,10 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
          * that priv_fls_data is either NULL or a DR address: but on
          * notepad w/ drinject it's neither: need to investigate.
          */
-#ifdef X64
         LOG(THREAD, LOG_LOADER, 3, "cur stack_limit="PFX", app stack_limit="PFX"\n",
             cur_stack_limit, dcontext->app_stack_limit);
-#endif
+        LOG(THREAD, LOG_LOADER, 3, "cur stack_base="PFX", app stack_base="PFX"\n",
+            cur_stack_base, dcontext->app_stack_base);
         LOG(THREAD, LOG_LOADER, 3,
             "cur nls_cache="PFX", app nls_cache="PFX", priv nls_cache="PFX"\n",
             cur_nls_cache, dcontext->app_nls_cache, dcontext->priv_nls_cache);

@@ -1884,36 +1884,57 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
              opnd_create_reg(scratch32)));
     }
 
-#ifdef X64
-    /* We have to swap TEB->StackLimit (i#1102).  For now I'm only doing this
-     * on X64, though it seems possible for 32-bit stacks to be up high too?
-     * We have never seen that.
+    /* We have to swap TEB->StackLimit (i#1102) for x64.
+     * For Win8.1 we have to swap both StackLimit and StackBase (DrMem i#1676).
      */
-    if (to_priv) {
-        PRE(ilist, next, XINST_CREATE_load
-            (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
-             (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR)));
-        PRE(ilist, next, SAVE_TO_DC_VIA_REG
-            (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_LIMIT_OFFSET));
-        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
-            (absolute, dcontext, reg_dr, reg_scratch, DSTACK_OFFSET));
-        PRE(ilist, next, INSTR_CREATE_lea
-            (dcontext, opnd_create_reg(reg_scratch),
-             opnd_create_base_disp(reg_scratch, REG_NULL, 0,
-                                   -(int)DYNAMORIO_STACK_SIZE, OPSZ_lea)));
-        PRE(ilist, next, XINST_CREATE_store
-            (dcontext, opnd_create_far_base_disp
-             (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR),
-             opnd_create_reg(reg_scratch)));
-    } else {
-        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
-            (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_LIMIT_OFFSET));
-        PRE(ilist, next, XINST_CREATE_store
-            (dcontext, opnd_create_far_base_disp
-             (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR),
-             opnd_create_reg(reg_scratch)));
+    if (SWAP_TEB_STACKLIMIT()) {
+        if (to_priv) {
+            PRE(ilist, next, XINST_CREATE_load
+                (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR)));
+            PRE(ilist, next, SAVE_TO_DC_VIA_REG
+                (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_LIMIT_OFFSET));
+            PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+                (absolute, dcontext, reg_dr, reg_scratch, DSTACK_OFFSET));
+            PRE(ilist, next, INSTR_CREATE_lea
+                (dcontext, opnd_create_reg(reg_scratch),
+                 opnd_create_base_disp(reg_scratch, REG_NULL, 0,
+                                       -(int)DYNAMORIO_STACK_SIZE, OPSZ_lea)));
+            PRE(ilist, next, XINST_CREATE_store
+                (dcontext, opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR),
+                 opnd_create_reg(reg_scratch)));
+        } else {
+            PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+                (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_LIMIT_OFFSET));
+            PRE(ilist, next, XINST_CREATE_store
+                (dcontext, opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, BASE_STACK_TIB_OFFSET, OPSZ_PTR),
+                 opnd_create_reg(reg_scratch)));
+        }
     }
-#endif
+    if (SWAP_TEB_STACKBASE()) {
+        if (to_priv) {
+            PRE(ilist, next, XINST_CREATE_load
+                (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, TOP_STACK_TIB_OFFSET, OPSZ_PTR)));
+            PRE(ilist, next, SAVE_TO_DC_VIA_REG
+                (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_BASE_OFFSET));
+            PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+                (absolute, dcontext, reg_dr, reg_scratch, DSTACK_OFFSET));
+            PRE(ilist, next, XINST_CREATE_store
+                (dcontext, opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, TOP_STACK_TIB_OFFSET, OPSZ_PTR),
+                 opnd_create_reg(reg_scratch)));
+        } else {
+            PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+                (absolute, dcontext, reg_dr, reg_scratch, APP_STACK_BASE_OFFSET));
+            PRE(ilist, next, XINST_CREATE_store
+                (dcontext, opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, TOP_STACK_TIB_OFFSET, OPSZ_PTR),
+                 opnd_create_reg(reg_scratch)));
+        }
+    }
 
     /* We also swap TEB->NlsCache.  Unlike TEB->ProcessEnvironmentBlock, which is
      * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain

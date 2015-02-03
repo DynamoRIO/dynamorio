@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -162,6 +162,13 @@ set_tls(ushort tls_offs, void *value)
 
 /* even INLINE_FORCED isn't inlining this into get_thread_id() in debug build (i#655) */
 #define get_own_teb() ((TEB *)get_tls(SELF_TIB_OFFSET))
+
+/* We have to swap TEB->StackLimit (i#1102) for x64.
+ * For Win8.1 we have to swap both StackLimit and StackBase (DrMem i#1676).
+ * To be safest, we swap on all platforms.
+ */
+#define SWAP_TEB_STACKLIMIT() (true)
+#define SWAP_TEB_STACKBASE() (true)
 
 /* If this changes our persisted caches may all fail.
  * We assert that this matches SYSTEM_BASIC_INFORMATION.AllocationGranularity

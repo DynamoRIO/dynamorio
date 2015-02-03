@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -758,9 +758,8 @@ struct _dcontext_t {
     void *         priv_nt_rpc;
     void *         app_nls_cache;
     void *         priv_nls_cache;
-#  ifdef X64
     void *         app_stack_limit;
-#  endif
+    void *         app_stack_base;
     /* we need this to restore ptrs for other threads on detach */
     byte *         teb_base;
 # endif
