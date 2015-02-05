@@ -345,6 +345,83 @@ const char * const type_names[] = {
     "TYPE_K",
 };
 
+/* Global data structure to track the decode state,
+ * it should be only used for drdecodelib or early init/late exit.
+ * FIXME i#1595: add multi-dcontext support to drdecodelib.
+ */
+static encode_state_t global_encode_state;
+
+static inline bool
+encode_in_it_block(encode_state_t state)
+{
+    return (state.itb_info.num_instrs != 0);
+}
+
+static encode_state_t *
+get_encode_state(dcontext_t *dcontext)
+{
+    ASSERT(sizeof(encode_state_t) <= sizeof(dcontext->encode_state));
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
+        return &global_encode_state;
+    else
+        return (encode_state_t *)&dcontext->encode_state;
+}
+
+static void
+set_encode_state(dcontext_t *dcontext, encode_state_t *state)
+{
+    ASSERT(sizeof(*state) <= sizeof(dcontext->encode_state));
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
+        global_encode_state = *state;
+    else {
+        *(encode_state_t *)&dcontext->decode_state = *state;
+    }
+}
+
+static void
+encode_state_init(encode_state_t *state, decode_info_t *di)
+{
+    if (!state->itb_info.track)
+        return;
+    it_block_info_init(&state->itb_info, di);
+}
+
+static void
+encode_state_reset(encode_state_t *state)
+{
+    it_block_info_reset(&state->itb_info);
+}
+
+static dr_pred_type_t
+encode_state_advance(encode_state_t *state)
+{
+    dr_pred_type_t pred;
+    pred = it_block_instr_predicate(state->itb_info, state->itb_info.cur_instr);
+    if (!it_block_info_advance(&state->itb_info))
+        encode_state_reset(state);
+    return pred;
+}
+
+void
+dr_start_encode_state_track(dcontext_t *dcontext)
+{
+    encode_state_t *state = get_encode_state(dcontext);
+    encode_state_reset(state);
+    state->itb_info.track = true;
+}
+
+void
+dr_stop_encode_state_track(dcontext_t *dcontext)
+{
+    encode_state_t *state = get_encode_state(dcontext);
+    encode_state_reset(state);
+    state->itb_info.track = false;
+}
+
 #ifdef DEBUG
 void
 encode_debug_checks(void)
@@ -1478,31 +1555,45 @@ bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 {
     uint num_dsts = 0, num_srcs = 0;
-    dr_pred_type_t pred = instr_get_predicate(in);
+    dr_pred_type_t pred;
 
     if (ii == NULL || in == NULL)
         return false;
+    pred = instr_get_predicate(in);
 
     LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s 0x%08x\n", __FUNCTION__, ii->opcode);
     decode_info_init_from_instr_info(di, ii);
 
-    /* Check predicate.  We're fine with DR_PRED_NONE == DR_PRED_AL. */
-    if (pred == DR_PRED_OP) {
-        di->errmsg = "DR_PRED_OP is an illegal predicate request";
-        return false;
-    } else if (TEST(DECODE_PREDICATE_28_AL, ii->flags) && pred != DR_PRED_AL &&
-               pred != DR_PRED_NONE) {
-        di->errmsg = "DR_PRED_AL is the only valid predicate";
-        return false;
-    } else if (TESTANY(DECODE_PREDICATE_22|DECODE_PREDICATE_8, ii->flags) &&
-               (pred == DR_PRED_AL || pred == DR_PRED_OP || pred == DR_PRED_NONE)) {
-        di->errmsg = "A predicate is required";
-        return false;
-    } else if (!TESTANY(DECODE_PREDICATE_28|DECODE_PREDICATE_22|DECODE_PREDICATE_8,
+    if (encode_in_it_block(di->encode_state)) {
+        /* check if predicate match in IT block */
+        if (pred != it_block_instr_predicate(di->encode_state.itb_info,
+                                             di->encode_state.itb_info.cur_instr) &&
+            in->opcode != OP_bkpt/* bkpt is always executed */) {
+            di->errmsg = "predicate conflict with IT block";
+            return false;
+        }
+    } else {
+        /* Check predicate.  We're fine with DR_PRED_NONE == DR_PRED_AL. */
+        if (pred == DR_PRED_OP) {
+            di->errmsg = "DR_PRED_OP is an illegal predicate request";
+            return false;
+        } else if (TEST(DECODE_PREDICATE_28_AL, ii->flags) && pred != DR_PRED_AL &&
+                   pred != DR_PRED_NONE) {
+            di->errmsg = "DR_PRED_AL is the only valid predicate";
+            return false;
+        } else if (TESTANY(DECODE_PREDICATE_22|DECODE_PREDICATE_8, ii->flags) &&
+                   (pred == DR_PRED_AL || pred == DR_PRED_OP || pred == DR_PRED_NONE)) {
+            di->errmsg = "A predicate is required";
+            return false;
+        } else if (!TESTANY(DECODE_PREDICATE_28|DECODE_PREDICATE_22|DECODE_PREDICATE_8,
                         ii->flags) &&
-               pred != DR_PRED_NONE) {
-        di->errmsg = "No predicate is supported";
-        return false;
+                   pred != DR_PRED_NONE) {
+            di->errmsg = "No predicate is supported";
+            return false;
+        } else if (pred != DR_PRED_NONE && in->opcode == OP_bkpt) {
+            di->errmsg = "No predicate is allowed for bkpt instr";
+            return false;
+        }
     }
 
     /* Check each operand */
@@ -2404,6 +2495,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     di.start_pc = copy_pc;
     di.final_pc = final_pc;
     di.cur_note = (ptr_int_t) instr->note;
+    di.encode_state = *get_encode_state(dcontext);
 
     info = instr_get_instr_info(instr);
     if (info == NULL) {
@@ -2459,6 +2551,14 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         }
         *((ushort *)copy_pc) = (ushort) di.instr_word;
         copy_pc += THUMB_SHORT_INSTR_SIZE;
+        if (info->type == OP_it) {
+            encode_state_init(&di.encode_state, &di);
+            set_encode_state(dcontext, &di.encode_state);
+        } else if (encode_in_it_block(di.encode_state)) {
+            /* encode_state is reset if reach the end of IT block */
+            encode_state_advance(&di.encode_state);
+            set_encode_state(dcontext, &di.encode_state);
+        }
     } else {
         *((uint *)copy_pc) = di.instr_word;
         copy_pc += ARM_INSTR_SIZE;

@@ -830,6 +830,14 @@ struct _dcontext_t {
      * other way around: PR 236203).  For ARM we must support swapping.
      */
     dr_isa_mode_t  isa_mode;
+#ifdef ARM
+    /* Extra state (e.g., IT block state) used for decode/encode
+     * The actual type is not uint, we use them for better abstraction
+     * and better performace (avoiding a void * with separate allocation).
+     */
+    uint encode_state;    /* encode_state_t in arm/decode_private.h */
+    uint decode_state[2]; /* decode_state_t in arm/decode_private.h */
+#endif
 
     /* to make things more modular these are void*: */
     void *         link_field;

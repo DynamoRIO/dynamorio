@@ -1714,6 +1714,10 @@ DR_API
  * (instrlist_encode does this automatically, if the target is in the list).
  * x86 instructions can occupy up to 17 bytes, so the caller should ensure
  * the target location has enough room to avoid overflow.
+ * \note: In Thumb mode, some instructions have different behavior depending
+ * on whether they are in an IT block. To correctly encode such instructions,
+ * they should be encoded within an instruction list with the corresponding
+ * IT instruction using instrlist_encode().
  */
 byte *
 instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc);
@@ -1732,6 +1736,10 @@ DR_API
  * (instrlist_encode does this automatically, if the target is in the list).
  * x86 instructions can occupy up to 17 bytes, so the caller should ensure
  * the target location has enough room to avoid overflow.
+ * \note: In Thumb mode, some instructions have different behavior depending
+ * on whether they are in an IT block. To correctly encode such instructions,
+ * they should be encoded within an instruction list with the corresponding
+ * IT instruction using instrlist_encode().
  */
 byte *
 instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc,

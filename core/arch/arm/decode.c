@@ -44,6 +44,77 @@
 /* FIXME i#1551: add Thumb support: for now just A32 */
 /* FIXME i#1551: add A64 support: for now just A32 */
 
+/* Global data structure to track the decode state,
+ * it should be only used for drdecodelib or early init/late exit.
+ * FIXME i#1595: add multi-dcontext support to drdecodelib.
+ */
+static decode_state_t global_decode_state;
+
+static decode_state_t *
+get_decode_state(dcontext_t *dcontext)
+{
+    ASSERT(sizeof(decode_state_t) <= sizeof(dcontext->decode_state));
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
+        return &global_decode_state;
+    else
+        return (decode_state_t *)&dcontext->decode_state;
+}
+
+static void
+set_decode_state(dcontext_t *dcontext, decode_state_t *state)
+{
+    ASSERT(sizeof(*state) <= sizeof(dcontext->decode_state));
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
+        global_decode_state = *state;
+    else {
+        *(decode_state_t *)&dcontext->decode_state = *state;
+    }
+}
+
+static void
+decode_state_init(decode_state_t *state, decode_info_t *di, app_pc pc)
+{
+    it_block_info_init(&state->itb_info, di);
+    state->pc = pc + THUMB_SHORT_INSTR_SIZE/*IT instr length*/;
+}
+
+static void
+decode_state_reset(decode_state_t *state)
+{
+    it_block_info_reset(&state->itb_info);
+    state->pc = NULL;
+}
+
+/* Return current predicate and advance to next instr in the IT block.
+ * Clear the state if finish the current IT block.
+ */
+static dr_pred_type_t
+decode_state_advance(decode_state_t *state, decode_info_t *di)
+{
+    dr_pred_type_t pred;
+    pred = it_block_instr_predicate(state->itb_info, state->itb_info.cur_instr);
+    state->pc += (di->T32_16 ? THUMB_SHORT_INSTR_SIZE : THUMB_LONG_INSTR_SIZE);
+    if (!it_block_info_advance(&state->itb_info))
+        decode_state_reset(state);
+    return pred;
+}
+
+static bool
+decode_in_it_block(decode_state_t *state, app_pc pc)
+{
+    if (state->itb_info.num_instrs != 0) {
+        if (state->pc == pc)
+            return true;
+        /* pc not match, reset the state */
+        decode_state_reset(state);
+    }
+    return false;
+}
+
 /* With register lists we can see quite long operand lists */
 #define MAX_OPNDS IF_X64_ELSE(8, 22)
 
@@ -1404,6 +1475,38 @@ decode_ext_vtb_idx(uint instr_word)
     return idx;
 }
 
+static inline uint
+decode_it_block_num_instrs(byte mask)
+{
+    if ((mask & 0xf) == 0x8)
+        return 1;
+    if ((mask & 0x7) == 0x4)
+        return 2;
+    if ((mask & 0x3) == 0x2)
+        return 3;
+    ASSERT((mask & 0x1) == 0x1);
+    return 4;
+}
+
+void
+it_block_info_init(it_block_info_t *info, decode_info_t *di)
+{
+    byte i;
+    byte mask;
+
+    mask = (byte)decode_immed(di, 0, OPSZ_4b, false);
+    info->firstcond  = (byte)decode_immed(di, 4, OPSZ_4b, false);
+    info->num_instrs = decode_it_block_num_instrs(mask);
+    info->cur_instr  = 0;
+
+    info->preds = 1; /* first instr use firstcond */
+    /* mask[3..1] for predicate instr[1..3] */
+    for (i = 1; i < info->num_instrs; i++) {
+        if (TEST(BITMAP_MASK(4-i), mask))
+            info->preds |= BITMAP_MASK(i);
+    }
+}
+
 const instr_info_t *
 decode_instr_info_T32_32(decode_info_t *di)
 {
@@ -1570,6 +1673,55 @@ decode_instr_info_T32_32(decode_info_t *di)
             info = &T32_ext_vldC[info->code][decode_ext_vldc_idx(instr_word)];
         } else if (info->type == EXT_VTB) {
             info = &T32_ext_vtb[info->code][decode_ext_vtb_idx(instr_word)];
+        } else {
+            ASSERT_NOT_REACHED();
+            info = NULL;
+            break;
+        }
+    }
+
+    return info;
+}
+
+const instr_info_t *
+decode_instr_info_T32_it(decode_info_t *di)
+{
+    const instr_info_t *info;
+    uint idx;
+    idx  = (di->instr_word >> 12) & 0xf; /* bits 15:12 */
+    info = &T32_16_it_opc4[idx];
+    while (info->type > INVALID) {
+        /* XXX: we compare info->type in the order listed in table_t32_16_it.c,
+         * we may want to optimize the order by puting more common instrs
+         * or larger tables earler.
+         */
+        if (info->type == EXT_11) {
+            idx = (di->instr_word >> 11) & 0x1; /* bit 11 */
+            info = &T32_16_it_ext_bit_11[info->code][idx];
+        } else if (info->type == EXT_11_10) {
+            idx = (di->instr_word >> 10) & 0x3; /* bits 11:10 */
+            info = &T32_16_it_ext_bits_11_10[info->code][idx];
+        } else if (info->type == EXT_11_9) {
+            idx = (di->instr_word >> 9) & 0x7; /* bits 11:9 */
+            info = &T32_16_it_ext_bits_11_9[info->code][idx];
+        } else if (info->type == EXT_11_8) {
+            idx = (di->instr_word >> 8) & 0xf; /* bits 11:8 */
+            info = &T32_16_it_ext_bits_11_8[info->code][idx];
+        } else if (info->type == EXT_9_6) {
+            idx = (di->instr_word >> 6) & 0xf; /* bits 9:6 */
+            info = &T32_16_it_ext_bits_9_6[info->code][idx];
+        } else if (info->type == EXT_7) {
+            idx = (di->instr_word >> 7) & 0x1; /* bit 7 */
+            info = &T32_16_it_ext_bit_7[info->code][idx];
+        } else if (info->type == EXT_10_9) {
+            idx = (di->instr_word >> 9) & 0x3; /* bits 10:9 */
+            info = &T32_16_it_ext_bits_10_9[info->code][idx];
+        } else if (info->type == EXT_7_6) {
+            idx = (di->instr_word >> 6) & 0x3; /* bits 7:6 */
+            info = &T32_16_it_ext_bits_7_6[info->code][idx];
+        } else if (info->type == EXT_6_4) {
+            idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
+            info = &T32_16_it_ext_bits_6_4[info->code][idx];
         } else {
             ASSERT_NOT_REACHED();
             info = NULL;
@@ -1799,12 +1951,29 @@ read_instruction(byte *pc, byte *orig_pc,
             pc += sizeof(ushort);
             /* We put A up high (so this does NOT match little-endianness) */
             di->instr_word = (di->halfwordA << 16) | di->halfwordB;
+            /* We use the same table for T32.32 instructions both
+             * inside and outside IT blocks.
+             */
             info = decode_instr_info_T32_32(di);
         } else {
             /* 16 bits */
             di->T32_16 = true;
             di->instr_word = di->halfwordA;
-            info = decode_instr_info_T32_16(di);
+            if (decode_in_it_block(&di->decode_state, orig_pc))
+                info = decode_instr_info_T32_it(di);
+            else
+                info = decode_instr_info_T32_16(di);
+        }
+        if (decode_in_it_block(&di->decode_state, orig_pc)) {
+            if (info != NULL && info != &invalid_instr) {
+                di->predicate = decode_state_advance(&di->decode_state, di);
+                /* bkpt is always executed */
+                if (info->type == OP_bkpt)
+                    di->predicate = DR_PRED_NONE;
+            } else
+                decode_state_reset(&di->decode_state);
+        } else if (info != NULL && info->type == OP_it) {
+            decode_state_init(&di->decode_state, di, orig_pc);
         }
     } else if (di->isa_mode == DR_ISA_ARM_A32) {
         di->instr_word = *(uint *)pc;
@@ -1855,7 +2024,11 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
     const instr_info_t *info;
     decode_info_t di;
     di.isa_mode = dr_get_isa_mode(dcontext);
+    if (di.isa_mode == DR_ISA_ARM_THUMB)
+        di.decode_state = *get_decode_state(dcontext);
     pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
+    if (di.isa_mode == DR_ISA_ARM_THUMB)
+        set_decode_state(dcontext, &di.decode_state);
     *usage = instr_eflags_conditionally(info->eflags, di.predicate, flags);
     /* we're fine returning NULL on failure */
     return pc;
@@ -1867,7 +2040,11 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
     const instr_info_t *info;
     decode_info_t di;
     di.isa_mode = dr_get_isa_mode(dcontext);
+    if (di.isa_mode == DR_ISA_ARM_THUMB)
+        di.decode_state = *get_decode_state(dcontext);
     pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
+    if (di.isa_mode == DR_ISA_ARM_THUMB)
+        set_decode_state(dcontext, &di.decode_state);
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     if (!instr_valid(instr)) {
@@ -1896,8 +2073,12 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                   "decode: instr is already decoded, may need to call instr_reset()");
 
     di.isa_mode = dr_get_isa_mode(dcontext);
+    if (di.isa_mode == DR_ISA_ARM_THUMB)
+        di.decode_state = *get_decode_state(dcontext);
     next_pc = read_instruction(pc, orig_pc, &info, &di
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
+    if (di.isa_mode == DR_ISA_ARM_THUMB)
+        set_decode_state(dcontext, &di.decode_state);
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     di.opcode = info->type; /* needed for decode_cur_pc */
@@ -2151,13 +2332,16 @@ decode_first_opcode_byte(int opcode)
     return 0;
 }
 
+/* In addition to ISA mode, we use in_block to indicate if we are in an IT block
+ * for Thumb mode and select correct op_instr entries.
+ */
 const instr_info_t *
-opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
+opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode, bool it_block)
 {
     if (isa_mode == DR_ISA_ARM_A32)
         return op_instr[opc].A32;
     else if (isa_mode == DR_ISA_ARM_THUMB)
-        return op_instr[opc].T32;
+        return (it_block ? op_instr[opc].T32_it : op_instr[opc].T32);
     else {
         CLIENT_ASSERT(false, "NYI i#1551");
         return &invalid_instr;
@@ -2169,7 +2353,10 @@ const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t * info =
-        opcode_to_encoding_info(opcode, dr_get_isa_mode(get_thread_private_dcontext()));
+        opcode_to_encoding_info(opcode,
+                                dr_get_isa_mode(get_thread_private_dcontext()),
+                                /* names do not change in IT block */
+                                false);
     if (info != NULL)
         return info->name;
     else
@@ -2356,40 +2543,44 @@ check_ISA(dr_isa_mode_t isa_mode)
 #   define MAX_TYPES 8
     DOCHECK(2, {
         uint opc;
+        uint i;
         for (opc = OP_FIRST; opc < OP_AFTER_LAST; opc++) {
-            const instr_info_t *info = opcode_to_encoding_info(opc, isa_mode);
-            while (info != NULL && info != &invalid_instr && info->type != OP_CONTD) {
-                const instr_info_t *ops = info;
-                uint num_srcs = 0;
-                uint num_dsts = 0;
-                /* XXX: perhaps we should make an iterator and use it everywhere.
-                 * For now, for simplicity here we use two passes.
-                 */
-                int src_type[MAX_TYPES];
-                int dst_type[MAX_TYPES];
-                while (ops != NULL) {
-                    dst_type[num_dsts++] = ops->dst1_type;
-                    if (TEST(DECODE_4_SRCS, ops->flags))
+            const instr_info_t *info;
+            for (i = 0; i < 2; i++) {
+                info = opcode_to_encoding_info(opc, isa_mode, i == 0 ? true : false);
+                while (info != NULL && info != &invalid_instr && info->type != OP_CONTD) {
+                    const instr_info_t *ops = info;
+                    uint num_srcs = 0;
+                    uint num_dsts = 0;
+                    /* XXX: perhaps we should make an iterator and use it everywhere.
+                     * For now, for simplicity here we use two passes.
+                     */
+                    int src_type[MAX_TYPES];
+                    int dst_type[MAX_TYPES];
+                    while (ops != NULL) {
+                        dst_type[num_dsts++] = ops->dst1_type;
+                        if (TEST(DECODE_4_SRCS, ops->flags))
                         src_type[num_srcs++] = ops->dst2_type;
-                    else
-                        dst_type[num_dsts++] = ops->dst2_type;
-                    if (TEST(DECODE_3_DSTS, ops->flags))
-                        dst_type[num_dsts++] = ops->src1_type;
-                    else
-                        src_type[num_srcs++] = ops->src1_type;
-                    src_type[num_srcs++] = ops->src2_type;
-                    src_type[num_srcs++] = ops->src3_type;
-                    ops = instr_info_extra_opnds(ops);
+                        else
+                            dst_type[num_dsts++] = ops->dst2_type;
+                        if (TEST(DECODE_3_DSTS, ops->flags))
+                            dst_type[num_dsts++] = ops->src1_type;
+                        else
+                            src_type[num_srcs++] = ops->src1_type;
+                        src_type[num_srcs++] = ops->src2_type;
+                        src_type[num_srcs++] = ops->src3_type;
+                        ops = instr_info_extra_opnds(ops);
+                    }
+                    ASSERT(num_dsts <= MAX_TYPES);
+                    ASSERT(num_srcs <= MAX_TYPES);
+
+                    /* Sanity-check encoding chain */
+                    ASSERT(info->type == opc);
+
+                    decode_check_opnds(src_type, num_srcs, dst_type, num_dsts);
+
+                    info = get_next_instr_info(info);
                 }
-                ASSERT(num_dsts <= MAX_TYPES);
-                ASSERT(num_srcs <= MAX_TYPES);
-
-                /* Sanity-check encoding chain */
-                ASSERT(info->type == opc);
-
-                decode_check_opnds(src_type, num_srcs, dst_type, num_dsts);
-
-                info = get_next_instr_info(info);
             }
         }
     });

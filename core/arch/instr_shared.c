@@ -342,7 +342,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
             SYSLOG_INTERNAL_WARNING("cannot encode %s\n", opcode_to_encoding_info
-                                    (instr->opcode, instr_get_isa_mode(instr))->name);
+                                    (instr->opcode, instr_get_isa_mode(instr)
+                                     _IF_ARM(false))->name);
             heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
             return 0;
         }
@@ -469,15 +470,38 @@ instr_opcode_valid(instr_t *instr)
 const instr_info_t *
 instr_get_instr_info(instr_t *instr)
 {
-    return opcode_to_encoding_info(instr_get_opcode(instr),
-                                   instr_get_isa_mode(instr));
+    dr_isa_mode_t isa_mode;
+#ifdef ARM
+    bool in_it_block = false;
+#endif
+    if (instr == NULL)
+        return NULL;
+    isa_mode = instr_get_isa_mode(instr);
+
+#ifdef ARM
+    if (isa_mode == DR_ISA_ARM_THUMB) {
+        /* A predicated OP_b_short could be either in an IT block or not,
+         * we assume it is not in an IT block in the case of OP_b_short.
+         */
+        if (instr_get_opcode(instr) != OP_b_short &&
+            instr_get_predicate(instr) != DR_PRED_NONE)
+            in_it_block = true;
+    }
+#endif
+    return opcode_to_encoding_info(instr_get_opcode(instr), isa_mode
+                                   _IF_ARM(in_it_block));
 }
 
 const instr_info_t *
 get_instr_info(int opcode)
 {
+    /* Assuming the use case of this function is to get the opcode related info,
+     *e.g., eflags in instr_get_opcode_eflags for OP_adds vs OP_add, so it does
+     * not matter whether it is in an IT block or not.
+     */
     return opcode_to_encoding_info(opcode,
-                                   dr_get_isa_mode(get_thread_private_dcontext()));
+                                   dr_get_isa_mode(get_thread_private_dcontext())
+                                   _IF_ARM(false));
 }
 
 #undef instr_get_src

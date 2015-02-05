@@ -147,6 +147,33 @@ enum {
      */
 };
 
+
+/* Because instructions in an IT block are correlated with the IT instruction,
+ * we need a way to keep track of IT block state and avoid using stale state
+ * on encode/decode.
+ * For decoding, we added pc information in addition to it_block_info_t,
+ * to only continue if the pc match.
+ * For encoding, we use trace field to manually enable/disable the tracking,
+ * which is off by default and turned on for encoding in an instrlist.
+ */
+/* it_block_info_t: keeps track of the IT block state */
+typedef struct _it_block_info_t {
+    byte num_instrs;
+    byte firstcond;
+    byte preds; /* bitmap for */
+    byte cur_instr : 4; /* 0-3 */
+    bool track : 1; /* for encode state track */
+} it_block_info_t;
+
+typedef struct _encode_state_t {
+    it_block_info_t itb_info;
+} encode_state_t;
+
+typedef struct _decode_state_t {
+    it_block_info_t itb_info;
+    app_pc pc;
+} decode_state_t;
+
 /* instr_info_t.code:
  * + for EXTENSION and *_EXT: index into extensions table
  * + for OP_: pointer to next entry of that opcode
@@ -178,6 +205,10 @@ struct _decode_info_t {
     /* For instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;
+
+    /* For IT block */
+    decode_state_t decode_state;
+    encode_state_t encode_state;
 
     /***************************************************
      * The rest of the fields are zeroed when encoding each template
@@ -590,5 +621,35 @@ optype_is_reg(int optype);
 
 uint
 gpr_list_num_bits(byte optype);
+
+void
+it_block_info_init(it_block_info_t *info, decode_info_t *di);
+
+static inline void
+it_block_info_reset(it_block_info_t *info)
+{
+    *(uint *)info = 0;
+}
+
+/* move to the next instr,
+ * - return true if still in the IT block,
+ * - return false if finish current IT block
+ */
+static inline bool
+it_block_info_advance(it_block_info_t *info)
+{
+    ASSERT(info->num_instrs != 0);
+    if (++info->cur_instr == info->num_instrs)
+        return false; /* reach the end */
+    return true;
+}
+
+static inline dr_pred_type_t
+it_block_instr_predicate(it_block_info_t info, uint index)
+{
+    return (DR_PRED_EQ +
+            (TEST(BITMAP_MASK(index), info.preds) ?
+             info.firstcond : (info.firstcond ^ 0x1)));
+}
 
 #endif /* DECODE_PRIVATE_H */
