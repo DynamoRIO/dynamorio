@@ -2794,14 +2794,22 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                                                instr_branch_type(inst));
                 }
                 else {
-                    ASSERT(instr_is_mbr(inst) || instr_is_far_cti(inst));
+                    ibl_branch_type_t branch_type;
+                    ASSERT(instr_is_mbr(inst) || instr_is_far_cti(inst)
+                           IF_ARM(/* mode-switch direct is treated as indirect */
+                                  || instr_get_opcode(bb->instr) == OP_blx));
                     CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
                                   "an exit mbr or far cti must terminate the block");
                     bb->exit_type = instr_branch_type(inst);
+#ifdef ARM
+                    if (instr_get_opcode(bb->instr) == OP_blx)
+                        branch_type = IBL_INDCALL;
+                    else
+#endif
+                        branch_type = get_ibl_branch_type(inst);
                     bb->exit_target = get_ibl_routine(dcontext,
                                                       get_ibl_entry_type(bb->exit_type),
-                                                      DEFAULT_IBL_BB(),
-                                                      get_ibl_branch_type(inst));
+                                                      DEFAULT_IBL_BB(), branch_type);
                 }
 
                 /* since we're walking backward, at the first exit cti
