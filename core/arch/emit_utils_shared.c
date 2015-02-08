@@ -4969,9 +4969,14 @@ update_syscall(dcontext_t *dcontext, byte *pc)
 {
     LOG_DECLARE(byte *start_pc = pc;)
     byte *prev_pc;
+    IF_ARM(dr_isa_mode_t old_mode;)
     instr_t instr;
     instr_init(dcontext, &instr);
 
+# ifdef ARM
+    /* We need to switch to the mode of our gencode */
+    dr_set_isa_mode(dcontext, DEFAULT_ISA_MODE, &old_mode);
+# endif
     do {
         prev_pc = pc;
         instr_reset(dcontext, &instr);
@@ -5002,6 +5007,9 @@ update_syscall(dcontext_t *dcontext, byte *pc)
     } while (1);
 
     instr_free(dcontext, &instr);
+# ifdef ARM
+    dr_set_isa_mode(dcontext, old_mode, NULL);
+# endif
 
     DOLOG(3, LOG_EMIT, {
         LOG(THREAD, LOG_EMIT, 3, "Just updated syscall routine:\n");
