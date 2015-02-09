@@ -444,10 +444,9 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
 {
     ptr_uint_t retaddr, curaddr;
 
-    ASSERT(instr_is_call(instr));
 #ifdef CLIENT_INTERFACE
     /* i#620: provide API to set fall-through and retaddr targets at end of bb */
-    if (instrlist_get_return_target(ilist) != NULL) {
+    if (instr_is_call(instr) && instrlist_get_return_target(ilist) != NULL) {
         retaddr = (ptr_uint_t)instrlist_get_return_target(ilist);
         LOG(THREAD, LOG_INTERP, 3, "set return target "PFX" by client\n", retaddr);
         return retaddr;

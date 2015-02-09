@@ -941,7 +941,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     }
 
     DOLOG(ENC_LEVEL, LOG_EMIT, {
-        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  %s_ok %s %d %-15s ", __FUNCTION__,
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  %s %s %d %-15s ", __FUNCTION__,
             is_dst ? "dst" : "src", *counter - 1, type_names[optype]);
         opnd_disassemble(GLOBAL_DCONTEXT, opnd, THREAD_GET);
         LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "\n");

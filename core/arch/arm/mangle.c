@@ -485,9 +485,60 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_dst(single, 0, opnd_create_reg(DR_REG_R2));
         instrlist_preinsert(ilist, next_instr, single); /* non-meta */
     } else if (opc == OP_bx || opc ==  OP_bxj) {
-        PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
-                              instr_get_target(instr)));
+        if (instr_is_predicated(instr)) {
+            /* Our approach is to simply add a move-immediate of the fallthrough
+             * address under the inverted predicate.  This is much simpler to
+             * implement than adding a new kind of indirect branch ("conditional
+             * indirect") and plumbing it through all the optimized emit and link
+             * code (in particular, cbr stub sharing and other complex features).
+             */
+            /* FIXME i#1551: generalize this code for all ind branches.  For now we
+             * only handle OP_bx.  See comment at end of this function as well.
+             */
+            dr_pred_type_t pred = instr_get_predicate(instr);
+            ptr_int_t fall_through = get_call_return_address(dcontext, ilist, instr);
+            instr_t *mov_imm, *mov_imm2;
+            dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
+            instr_t *prev = NULL;
+            if (isa_mode == DR_ISA_ARM_THUMB) {
+                /* First, move the OP_it instr after the reg spill */
+                prev = instr_get_prev(instr_get_prev(instr));
+                ASSERT(prev != NULL && instr_get_opcode(prev) == OP_it);
+                instrlist_remove(ilist, prev);
+                instrlist_preinsert(ilist, instr, prev);
+                /* FIXME i#1551: handle >1-instr IT block */
+                ASSERT_NOT_IMPLEMENTED(opnd_get_immed_int(instr_get_src(prev, 1)) == 8);
+            }
+            PRE(ilist, instr,
+                INSTR_PRED(XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
+                                             instr_get_target(instr)),
+                           pred));
+            insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
+                                   PC_AS_JMP_TGT(instr_get_isa_mode(instr),
+                                                 (app_pc)fall_through),
+                                   opnd_create_reg(DR_REG_R2), ilist, instr, &mov_imm,
+                                   &mov_imm2);
+            instr_set_predicate(mov_imm, invert_predicate(pred));
+            if (mov_imm2 == NULL) {
+                if (isa_mode == DR_ISA_ARM_THUMB) {
+                    /* FIXME i#1551: provide API to tweak IT block?  Here we make
+                     * it "itee" but via raw immeds.
+                     */
+                    instr_set_src(prev, 1, OPND_CREATE_INT((pred - DR_PRED_EQ) % 2 == 0 ?
+                                                           0xc : 0x4));
+                }
+            } else {
+                if (isa_mode == DR_ISA_ARM_THUMB) {
+                    instr_set_src(prev, 1, OPND_CREATE_INT((pred - DR_PRED_EQ) % 2 == 0 ?
+                                                           0xe : 0x2));
+                }
+                instr_set_predicate(mov_imm2, invert_predicate(pred));
+            }
+        } else {
+            PRE(ilist, instr,
+                XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
+                                  instr_get_target(instr)));
+        }
         /* remove the bx */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);

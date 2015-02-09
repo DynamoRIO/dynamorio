@@ -1222,6 +1222,12 @@ DR_API
 dr_pred_type_t
 instr_get_predicate(instr_t *instr);
 
+#ifdef ARM
+/* XXX: should we export this? */
+dr_pred_type_t
+invert_predicate(dr_pred_type_t pred);
+#endif
+
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred);
 

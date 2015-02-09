@@ -440,13 +440,13 @@ instr_is_undefined(instr_t *instr)
     return instr_opcode_valid(instr);
 }
 
-static dr_pred_type_t
+dr_pred_type_t
 invert_predicate(dr_pred_type_t pred)
 {
     CLIENT_ASSERT(pred != DR_PRED_NONE && pred != DR_PRED_AL &&
                   pred != DR_PRED_OP, "invalid cbr predicate");
     /* Flipping the bottom bit inverts a predicate */
-    return (dr_pred_type_t) (((uint)pred - DR_PRED_EQ) ^ 0x1);
+    return (dr_pred_type_t)(DR_PRED_EQ + (((uint)pred - DR_PRED_EQ) ^ 0x1));
 }
 
 void
