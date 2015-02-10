@@ -1162,6 +1162,7 @@ byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
 #ifdef ARM
 byte *encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc,
                      byte *final_pc);
+void encode_track_it_block(dcontext_t *dcontext, instr_t *instr);
 #endif
 
 /* in instr_shared.c */

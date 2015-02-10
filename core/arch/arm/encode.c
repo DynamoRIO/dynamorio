@@ -351,12 +351,6 @@ const char * const type_names[] = {
  */
 static encode_state_t global_encode_state;
 
-static inline bool
-encode_in_it_block(encode_state_t state)
-{
-    return (state.itb_info.num_instrs != 0);
-}
-
 static encode_state_t *
 get_encode_state(dcontext_t *dcontext)
 {
@@ -383,43 +377,88 @@ set_encode_state(dcontext_t *dcontext, encode_state_t *state)
 }
 
 static void
-encode_state_init(encode_state_t *state, decode_info_t *di)
+encode_state_init(encode_state_t *state, decode_info_t *di, instr_t *instr)
 {
-    if (!state->itb_info.track)
-        return;
+    /* We need to set di->instr_word for it_block_info_init */
+    if (instr_raw_bits_valid(instr))
+        di->instr_word = *(ushort *)instr->bytes;
+    else {
+        ASSERT(instr_operands_valid(instr));
+        di->instr_word = (opnd_get_immed_int(instr_get_src(instr, 0)) << 4) |
+            opnd_get_immed_int(instr_get_src(instr, 1));
+    }
     it_block_info_init(&state->itb_info, di);
+    state->itb_info.cur_instr = -1;
+    state->instr = instr_get_next(instr);
 }
 
 static void
 encode_state_reset(encode_state_t *state)
 {
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "exited IT block\n");
     it_block_info_reset(&state->itb_info);
+    state->instr = NULL;
 }
 
 static dr_pred_type_t
-encode_state_advance(encode_state_t *state)
+encode_state_advance(encode_state_t *state, instr_t *instr)
 {
     dr_pred_type_t pred;
     pred = it_block_instr_predicate(state->itb_info, state->itb_info.cur_instr);
+    if (instr == instr_get_prev(state->instr)) {
+        /* Don't advance: assume a re-encode is in progress */
+        return pred;
+    }
+    state->instr = instr_get_next(instr);
     if (!it_block_info_advance(&state->itb_info))
         encode_state_reset(state);
     return pred;
 }
 
-void
-dr_start_encode_state_track(dcontext_t *dcontext)
+static inline bool
+encode_in_it_block(encode_state_t *state, instr_t *instr)
 {
-    encode_state_t *state = get_encode_state(dcontext);
-    encode_state_reset(state);
-    state->itb_info.track = true;
+    if (state->itb_info.num_instrs != 0) {
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "in IT: cur=%d, in="PFX" vs "PFX"\n",
+            state->itb_info.cur_instr, state->instr, instr);
+        /* IT instr is *not* in block, yet shouldn't reset */
+        if ((state->itb_info.cur_instr < 0 ||
+             /* Work around gcc signed-bitfield bug where it extracts the 4 bits
+             * of cur_instr and zero-extends instead of sign-extending them, thus
+             * failing to properly compare < 0:
+             */
+             state->itb_info.cur_instr == 15) &&
+            instr == instr_get_prev(state->instr))
+            return false;
+        if (instr == state->instr || instr == instr_get_prev(state->instr))
+            return true;
+        /* no match, reset the state */
+        encode_state_reset(state);
+    }
+    return false;
+}
+
+static void
+encode_track_it_block_di(dcontext_t *dcontext, decode_info_t *di, instr_t *instr)
+{
+    if (instr_opcode_valid(instr) && instr_get_opcode(instr) == OP_it) {
+        LOG(THREAD, LOG_EMIT, ENC_LEVEL, "start IT block\n");
+        encode_state_init(&di->encode_state, di, instr);
+        set_encode_state(dcontext, &di->encode_state);
+    } else if (encode_in_it_block(&di->encode_state, instr)) {
+        LOG(THREAD, LOG_EMIT, ENC_LEVEL, "inside IT block\n");
+        /* encode_state is reset if reach the end of IT block */
+        encode_state_advance(&di->encode_state, instr);
+        set_encode_state(dcontext, &di->encode_state);
+    }
 }
 
 void
-dr_stop_encode_state_track(dcontext_t *dcontext)
+encode_track_it_block(dcontext_t *dcontext, instr_t *instr)
 {
-    encode_state_t *state = get_encode_state(dcontext);
-    encode_state_reset(state);
-    state->itb_info.track = false;
+    decode_info_t di;
+    di.encode_state = *get_encode_state(dcontext);
+    encode_track_it_block_di(dcontext, &di, instr);
 }
 
 #ifdef DEBUG
@@ -1564,7 +1603,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
     LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s 0x%08x\n", __FUNCTION__, ii->opcode);
     decode_info_init_from_instr_info(di, ii);
 
-    if (encode_in_it_block(di->encode_state)) {
+    if (encode_in_it_block(&di->encode_state, in)) {
         /* check if predicate match in IT block */
         if (pred != it_block_instr_predicate(di->encode_state.itb_info,
                                              di->encode_state.itb_info.cur_instr) &&
@@ -2472,7 +2511,29 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 {
     const instr_info_t * info;
     decode_info_t di;
+
+    if (instr_is_label(instr)) {
+        if (has_instr_opnds != NULL)
+            *has_instr_opnds = false;
+        return copy_pc;
+    }
+
+    decode_info_init_for_instr(&di, instr);
+    di.opcode = instr_get_opcode(instr);
     di.check_reachable = check_reachable;
+    di.start_pc = copy_pc;
+    di.final_pc = final_pc;
+    di.cur_note = (ptr_int_t) instr->note;
+    di.encode_state = *get_encode_state(dcontext);
+
+    /* We need to track the IT block state even for raw-bits-valid instrs.
+     * Unlike x86, we have no fast decoder that skips opcodes, so we should
+     * always have the opcode, except for decode_fragment cases:
+     * FIXME i#1551: investigate handling for decode_fragment for a branch inside
+     * an IT block.  We should probably change decode_fragment() to fully
+     * and separately decode all IT block instrs.
+     */
+    encode_track_it_block_di(dcontext, &di, instr);
 
     /* First, handle the already-encoded instructions */
     if (instr_raw_bits_valid(instr)) {
@@ -2483,19 +2544,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             *has_instr_opnds = false;
         return copy_and_re_relativize_raw_instr(dcontext, instr, copy_pc, final_pc);
     }
-    if (instr_is_label(instr)) {
-        if (has_instr_opnds != NULL)
-            *has_instr_opnds = false;
-        return copy_pc;
-    }
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
-
-    decode_info_init_for_instr(&di, instr);
-    di.opcode = instr_get_opcode(instr);
-    di.start_pc = copy_pc;
-    di.final_pc = final_pc;
-    di.cur_note = (ptr_int_t) instr->note;
-    di.encode_state = *get_encode_state(dcontext);
 
     info = instr_get_instr_info(instr);
     if (info == NULL) {
@@ -2551,14 +2600,6 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         }
         *((ushort *)copy_pc) = (ushort) di.instr_word;
         copy_pc += THUMB_SHORT_INSTR_SIZE;
-        if (info->type == OP_it) {
-            encode_state_init(&di.encode_state, &di);
-            set_encode_state(dcontext, &di.encode_state);
-        } else if (encode_in_it_block(di.encode_state)) {
-            /* encode_state is reset if reach the end of IT block */
-            encode_state_advance(&di.encode_state);
-            set_encode_state(dcontext, &di.encode_state);
-        }
     } else {
         *((uint *)copy_pc) = di.instr_word;
         copy_pc += ARM_INSTR_SIZE;

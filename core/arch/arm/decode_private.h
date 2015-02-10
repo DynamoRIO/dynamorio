@@ -153,20 +153,25 @@ enum {
  * on encode/decode.
  * For decoding, we added pc information in addition to it_block_info_t,
  * to only continue if the pc match.
- * For encoding, we use trace field to manually enable/disable the tracking,
- * which is off by default and turned on for encoding in an instrlist.
+ * For encoding, we store the instr pointer to ensure we're still encoding
+ * in the same block.  We briefly tried requiring a call to enable tracking,
+ * only used during full instrlist encoding, but too many cases perform
+ * individual encoding (e.g., instr_length()) for that to easily work.
  */
 /* it_block_info_t: keeps track of the IT block state */
 typedef struct _it_block_info_t {
     byte num_instrs;
     byte firstcond;
     byte preds; /* bitmap for */
-    byte cur_instr : 4; /* 0-3 */
-    bool track : 1; /* for encode state track */
+    /* XXX: gcc generates incorrect code for this signed bitfield.  We
+     * work around it in encode_in_it_block(), where we assume 4 bits.
+     */
+    char cur_instr : 4; /* 0-3 */
 } it_block_info_t;
 
 typedef struct _encode_state_t {
     it_block_info_t itb_info;
+    instr_t *instr;
 } encode_state_t;
 
 typedef struct _decode_state_t {

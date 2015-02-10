@@ -1229,6 +1229,14 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
 {
     int res;
 
+#ifdef ARM
+    /* We can't handle IT blocks if we only track state on some instrs that
+     * we have to encode for length, so unfortunately we must pay the cost
+     * of tracking for every length call.
+     */
+    encode_track_it_block(dcontext, instr);
+#endif
+
     if (!instr_needs_encoding(instr))
         return instr->length;
 

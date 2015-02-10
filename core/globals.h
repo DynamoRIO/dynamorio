@@ -835,7 +835,7 @@ struct _dcontext_t {
      * The actual type is not uint, we use them for better abstraction
      * and better performace (avoiding a void * with separate allocation).
      */
-    uint encode_state;    /* encode_state_t in arm/decode_private.h */
+    uint encode_state[2]; /* encode_state_t in arm/decode_private.h */
     uint decode_state[2]; /* decode_state_t in arm/decode_private.h */
 #endif
 

@@ -393,12 +393,6 @@ byte instr_info_opnd_type(const instr_info_t *info, bool src, int num);
 extern const instr_info_t invalid_instr;
 
 /* in decode.c */
-#ifdef ARM
-void
-dr_start_encode_state_track(dcontext_t *dcontext);
-void
-dr_stop_encode_state_track(dcontext_t *dcontext);
-#endif
 const instr_info_t * opcode_to_encoding_info(uint opc,
                                              dr_isa_mode_t isa_mode
                                              _IF_ARM(bool it_block));

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,9 +41,6 @@
 #include "instrlist.h"
 #include "instr.h"
 #include <string.h>
-#ifdef ARM
-# include "decode.h" /* for dr_start_encode_state_track */
-#endif
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)
 /* case 10450: give messages to clients */
@@ -473,13 +470,6 @@ instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc
 {
     instr_t *inst;
     int len = 0;
-#ifdef ARM
-    /* We track the encode state while encoding an instrlist to
-     * correctly encode instructions in IT blocks in Thumb mode,
-     * Xref comment in decode_private.h for it_blokc_info_t.
-     */
-    dr_start_encode_state_track(dcontext);
-#endif
     if (has_instr_jmp_targets || max_pc != NULL) {
         /* must set note fields first with offset, or compute length */
         for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
@@ -498,12 +488,6 @@ instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc
         final_pc += pc - copy_pc;
         copy_pc = pc;
     }
-#ifdef ARM
-    /* We track the encode state while encoding an instrlist to
-     * correctly encode instructions in IT blocks in Thumb mode,
-     */
-    dr_stop_encode_state_track(dcontext);
-#endif
     return copy_pc;
 }
 
