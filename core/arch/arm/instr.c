@@ -67,6 +67,14 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_get_opcode(instr) == OP_LABEL)
         return 0;
+    /* Avoid encoding OP_b to avoid reachability checks for added fall-through
+     * jumps, whose targets are later changed to the stub prior to emit.
+     * Another option is to remove the assert on bad encoding, so that the
+     * instr_encode_check_reachability() call in private_instr_encode() can
+     * gracefully fail: which we now do, but this is a nice optimization.
+     */
+    if (instr_get_opcode(instr) == OP_b)
+        return 4;
     if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB) {
         /* We have to encode to find the size */
         return -1;

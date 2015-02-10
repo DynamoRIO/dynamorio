@@ -2559,7 +2559,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         info = get_next_instr_info(info);
         if (info == NULL || info->type == OP_CONTD) {
             /* Use the errmsg to try and give a more helpful message */
-            if (di.errmsg != NULL)
+            if (di.errmsg != NULL && assert_reachable)
                 SYSLOG_INTERNAL_ERROR(di.errmsg, di.errmsg_param);
             DOLOG(1, LOG_EMIT, {
                 LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
@@ -2570,7 +2570,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                 }
                 LOG(THREAD, LOG_EMIT, 1, "\n");
             });
-            CLIENT_ASSERT(false, "instr_encode error: no encoding found (see log)");
+            CLIENT_ASSERT(!assert_reachable,
+                          "instr_encode error: no encoding found (see log)");
             return NULL;
         }
         /* We need to clear all the checking fields for each new template */
