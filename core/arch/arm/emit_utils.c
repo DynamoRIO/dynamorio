@@ -756,6 +756,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     instr_t *target_delete_entry = INSTR_CREATE_label(dc);
     patch_list_t *patch = &ibl_code->ibl_patch;
     bool absolute = false; /* XXX: for SAVE_TO_DC: should eliminate it */
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dc);
     IF_DEBUG(bool table_in_tls = SHARED_IB_TARGETS() &&
              (target_trace_table || SHARED_BB_ONLY_IB_TARGETS()) &&
              DYNAMO_OPTION(ibl_table_in_tls);)
@@ -816,8 +817,13 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, INSTR_CREATE_ldr
         (dc, OPREG(DR_REG_R0),
          OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
-    APP(&ilist, INSTR_CREATE_cmp(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R2)));
-    APP(&ilist, INSTR_PRED(INSTR_CREATE_b(dc, opnd_create_instr(miss)), DR_PRED_NE));
+    /* Using OP_cmp requires saving the flags so we instead subtract and then cbz.
+     * XXX: if we add stats, cbz might not reach.
+     */
+    ASSERT_NOT_IMPLEMENTED(isa_mode == DR_ISA_ARM_THUMB);
+    APP(&ilist, INSTR_CREATE_sub(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R0),
+                                 OPREG(DR_REG_R2)));
+    APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(miss), OPREG(DR_REG_R0)));
 
     /* Hit path */
     /* XXX: add stats via sharing code with x86 */

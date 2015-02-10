@@ -1149,11 +1149,14 @@ typedef enum _dr_isa_mode_t {
     IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
                 IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
 
-/* use this one in DR proper */
+/* Use this one in DR proper.
+ * This one is now static as well after we removed the runtime option that
+ * used to be here: but I'm leaving the split to make it easier to add
+ * an option in the future.
+ */
 #define DEFAULT_ISA_MODE \
     IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, (INTERNAL_OPTION(isa_mode_arm) ? \
-                                             DR_ISA_ARM_A32 : DR_ISA_ARM_THUMB)))
+                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
 
 /* For converting back from PC_AS_JMP_TGT on Thumb */
 #ifdef ARM

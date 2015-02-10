@@ -308,11 +308,8 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     bool x86_mode = false;
     bool x86_to_x64_mode = false;
 #endif
-    /* FIXME i#1551: we should generalize gencode_mode_t to include
-     * ARM vs Thumb as we'll want separate copies of each.
-     * We'll need to store the mode in generated_code_t for
-     * emit_ibl_routines().
-     * For now we only support one or the other via -isa_mode_arm.
+    /* As ARM mode switches are inexpensive, we do not need separate gencode
+     * versions and stick with Thumb for all our gencode.
      */
     dr_isa_mode_t isa_mode = dr_get_isa_mode(GLOBAL_DCONTEXT);
 

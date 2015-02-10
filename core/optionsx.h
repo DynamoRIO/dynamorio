@@ -559,11 +559,6 @@
     /* we only allow register between r8 and r12(A32)/r29(A64) to be used */
     OPTION_DEFAULT_INTERNAL(uint, steal_reg, IF_X64_ELSE(28/*r28*/, 10/*r10*/),
                             "the register stolen/used by DynamoRIO")
-    /* XXX i#1551: once we fully support mode switches between Thumb and ARM,
-     * this option can be removed.  For now, we only support one or the other.
-     */
-    OPTION_DEFAULT_INTERNAL(bool, isa_mode_arm, false,
-                            "use ARM mode for gencode")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
