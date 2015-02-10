@@ -73,15 +73,18 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 static byte *
 insert_spill_reg(byte *pc, fragment_t *f, reg_id_t src)
 {
-    /* str src, [r10, #r0-slot] */
+    ushort slot;
+    ASSERT(src >= DR_REG_R0 && src <= DR_REG_R4);
+    slot = TLS_REG0_SLOT + (src - DR_REG_R0) * sizeof(reg_t);
+    /* str src, [r10, #src-slot] */
     if (FRAG_IS_THUMB(f->flags)) {
         *(ushort *)pc = 0xf8c0 | (dr_reg_stolen - DR_REG_R0);
         pc += THUMB_SHORT_INSTR_SIZE;
-        *(ushort *)pc = ((src - DR_REG_R0) << 12) | TLS_REG0_SLOT;
+        *(ushort *)pc = ((src - DR_REG_R0) << 12) | slot;
         pc += THUMB_SHORT_INSTR_SIZE;
     } else {
         *(uint *)pc = 0xe5800000 | ((src - DR_REG_R0) << 12) |
-            ((dr_reg_stolen - DR_REG_R0) << 16) | TLS_REG0_SLOT;
+            ((dr_reg_stolen - DR_REG_R0) << 16) | slot;
         pc += ARM_INSTR_SIZE;
     }
     return pc;
