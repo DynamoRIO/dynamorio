@@ -1498,11 +1498,10 @@ it_block_info_init(it_block_info_t *info, decode_info_t *di)
     info->firstcond  = (byte)decode_immed(di, 4, OPSZ_4b, false);
     info->num_instrs = decode_it_block_num_instrs(mask);
     info->cur_instr  = 0;
-
     info->preds = 1; /* first instr use firstcond */
     /* mask[3..1] for predicate instr[1..3] */
     for (i = 1; i < info->num_instrs; i++) {
-        if (TEST(BITMAP_MASK(4-i), mask))
+        if ((mask & BITMAP_MASK(4-i)) >> (4-i) == (info->firstcond & 0x1))
             info->preds |= BITMAP_MASK(i);
     }
 }

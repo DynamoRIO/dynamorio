@@ -378,7 +378,7 @@ set_encode_state(dcontext_t *dcontext, encode_state_t *state)
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
         global_encode_state = *state;
     else {
-        *(encode_state_t *)&dcontext->decode_state = *state;
+        *(encode_state_t *)&dcontext->encode_state = *state;
     }
 }
 
