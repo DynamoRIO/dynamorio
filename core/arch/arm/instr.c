@@ -509,18 +509,18 @@ instr_predicate_triggered_priv(instr_t *instr, priv_mcontext_t *mc)
         return (!TEST(EFLAGS_C, mc->apsr) || TEST(EFLAGS_Z, mc->apsr)) ?
             DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
    case DR_PRED_GE: /* N == V */
-       return (TEST(EFLAGS_N, mc->apsr) == TEST(EFLAGS_V, mc->apsr)) ?
+       return BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)) ?
            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LT: /* N != V */
-        return (TEST(EFLAGS_N, mc->apsr) == TEST(EFLAGS_V, mc->apsr)) ?
+        return !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)) ?
             DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_GT /* Z == 0 and N == V */:
         return (!TEST(EFLAGS_Z, mc->apsr) &&
-                (TEST(EFLAGS_N, mc->apsr) == TEST(EFLAGS_V, mc->apsr))) ?
+                BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))) ?
             DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LE: /* Z == 1 or N != V */
         return (TEST(EFLAGS_Z, mc->apsr) ||
-                (TEST(EFLAGS_N, mc->apsr) != TEST(EFLAGS_V, mc->apsr))) ?
+                !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))) ?
             DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_AL: return DR_PRED_TRIGGER_MATCH;
     case DR_PRED_OP: return DR_PRED_TRIGGER_NOPRED;
