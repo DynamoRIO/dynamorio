@@ -752,6 +752,9 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         ushort slot;
         bool should_restore;
         reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
+        opnd_t new_op;
+        dr_shift_type_t shift_type;
+        uint shift_amt;
         if (opc == OP_ldr) {
             reg_op = instr_get_dst(instr, 0);
             mem_op = instr_get_src(instr, 0);
@@ -761,19 +764,17 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         ASSERT(opnd_is_reg(reg_op) && opnd_is_base_disp(mem_op));
         ASSERT_NOT_IMPLEMENTED(!instr_is_cti(instr));
+        shift_type = opnd_get_index_shift(mem_op, &shift_amt);
+        new_op = opnd_create_base_disp_arm
+            (reg, opnd_get_index(mem_op), shift_type, shift_amt, opnd_get_disp(mem_op),
+             opnd_get_flags(mem_op), opnd_get_size(mem_op));
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
         insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
                                ilist, instr, NULL, NULL);
         if (opc == OP_ldr) {
-            instr_set_src(instr, 0,
-                          opnd_create_base_disp(reg, REG_NULL, 0,
-                                                opnd_get_disp(mem_op),
-                                                opnd_get_size(mem_op)));
+            instr_set_src(instr, 0, new_op);
         } else {
-            instr_set_dst(instr, 0,
-                          opnd_create_base_disp(reg, REG_NULL, 0,
-                                                opnd_get_disp(mem_op),
-                                                opnd_get_size(mem_op)));
+            instr_set_dst(instr, 0, new_op);
         }
         if (should_restore)
             PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
