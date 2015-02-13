@@ -2617,8 +2617,12 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_READ_6    0x0000011f
+/** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
+# define EFLAGS_READ_ARITH EFLAGS_READ_6
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_WRITE_6   0x0008f800
+/** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
+# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Platform-independent macro for reads all arithmetic flags. */
 # define EFLAGS_READ_ARITH   EFLAGS_READ_6
@@ -2654,7 +2658,8 @@ enum {
 # define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
                              EFLAGS_READ_C | EFLAGS_READ_V)
-# define EFLAGS_READ_ALL    EFLAGS_READ_NZCV /**< Reads all flags. */
+# define EFLAGS_READ_ARITH  EFLAGS_READ_NZCV /**< Reads all arithmetic flags. */
+# define EFLAGS_READ_ALL    (EFLAGS_READ_NZCV | EFLAGS_READ_GE) /**< Reads all flags. */
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
 # define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */
@@ -2663,7 +2668,8 @@ enum {
 # define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
                              EFLAGS_WRITE_C | EFLAGS_WRITE_V)
-# define EFLAGS_WRITE_ALL   EFLAGS_WRITE_NZCV /**< Writes all flags. */
+# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_NZCV /**< Reads all arithmetic flags. */
+# define EFLAGS_WRITE_ALL   (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_GE) /**< Reads all flags. */
 
 /** Platform-independent macro for reads all arithmetic flags. */
 # define EFLAGS_READ_ARITH   EFLAGS_READ_NZCV

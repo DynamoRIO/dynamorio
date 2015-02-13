@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -357,10 +357,12 @@ enum {
     DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
 # ifdef X64
     DR_REG_START_GPR = DR_REG_X0,  /**< Start of general register registers */
+    DR_REG_STOP_GPR  = DR_REG_X31, /**< End of general register registers */
     DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
 # else
     DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
+    DR_REG_STOP_GPR  = DR_REG_R15, /**< End of general register registers */
     DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
 # endif
