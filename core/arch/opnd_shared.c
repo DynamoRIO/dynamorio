@@ -585,8 +585,12 @@ opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
         CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
         return DR_SHIFT_NONE;
     }
-    if (amount != NULL && opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
-        *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
+    if (amount != NULL) {
+        if (opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
+            *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
+        else
+            *amount = 0;
+    }
     return opnd.value.base_disp.shift_type;
 }
 
