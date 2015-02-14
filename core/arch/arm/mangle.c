@@ -861,7 +861,9 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     return false;
 }
 
-void
+#ifndef X64
+/* mangle simple pc read, pc read in gpr_list is handled in mangle_gpr_list_read */
+static void
 mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
@@ -872,7 +874,10 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                       instr_get_opcode(instr), instr);
     int i;
-    ASSERT(!instr_is_meta(instr));
+
+    ASSERT(!instr_is_meta(instr) &&
+           instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL));
+
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
     insert_mov_immed_ptrsz(dcontext, app_r15, opnd_create_reg(reg),
                            ilist, instr, NULL, NULL);
@@ -886,10 +891,52 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (should_restore)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
 }
+#endif /* !X64 */
+
+/* save tls_base from dr_stolen_reg to reg and load app value to dr_reg_stolen */
+static void
+restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                                instr_t *instr, reg_id_t reg, ushort slot)
+{
+    PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+    PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
+                                       opnd_create_reg(reg),
+                                       opnd_create_reg(dr_reg_stolen)));
+    /* We always read the app value to make sure we write back
+     * the correct value in the case of predicated execution.
+     */
+    /* XXX: optimize, we can skip this load and instead predicate the writeback
+     * in restore_tls_base_to_stolen_reg (if app instr doesn't change flags).
+     */
+    PRE(ilist, instr, instr_create_restore_from_tls(dcontext, dr_reg_stolen,
+                                                    TLS_REG_STOLEN_SLOT));
+}
+
+/* store app value from dr_reg_stolen to slot if writback is true and
+ * restore tls_base from reg back to dr_reg_stolen
+ */
+static void
+restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                               instr_t *instr, reg_id_t reg, ushort slot,
+                               bool writeback)
+{
+    if (writeback) {
+        /* store app val back to its mem location */
+        PRE(ilist, instr, XINST_CREATE_store
+            (dcontext, opnd_create_base_disp(reg, REG_NULL, 0,
+                                             os_tls_offset(TLS_REG_STOLEN_SLOT),
+                                             OPSZ_PTR),
+             opnd_create_reg(dr_reg_stolen)));
+    }
+    /* restore stolen reg from spill reg */
+    PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
+                                       opnd_create_reg(dr_reg_stolen),
+                                       opnd_create_reg(reg)));
+}
 
 static void
 swap_to_app_val_in_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                              bool reads)
+                              bool writeback)
 {
     ushort slot;
     bool should_restore;
@@ -897,190 +944,337 @@ swap_to_app_val_in_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t 
     instr_t *next_instr = instr_get_next(instr);
     /* move stolen reg value into tmp reg for app instr execution */
     tmp = pick_scratch_reg(instr, &slot, &should_restore);
-    PRE(ilist, instr, instr_create_save_to_tls(dcontext, tmp, slot));
-    PRE(ilist, instr, INSTR_CREATE_mov(dcontext, opnd_create_reg(tmp),
-                                       opnd_create_reg(dr_reg_stolen)));
-    if (reads) {
-        PRE(ilist, instr, instr_create_restore_from_tls(dcontext, dr_reg_stolen,
-                                                        TLS_REG_STOLEN_SLOT));
-    }
+    restore_app_value_to_stolen_reg(dcontext, ilist, instr, tmp, slot);
+
     /* -- app instr executes here -- */
-    /* store app val to its mem location */
-    PRE(ilist, next_instr, XINST_CREATE_store
-        (dcontext, opnd_create_base_disp(tmp, REG_NULL, 0,
-                                         os_tls_offset(TLS_REG_STOLEN_SLOT),
-                                         OPSZ_PTR),
-         opnd_create_reg(dr_reg_stolen)));
-    /* restore stolen reg and tmp reg */
-    PRE(ilist, next_instr, INSTR_CREATE_mov(dcontext, opnd_create_reg(dr_reg_stolen),
-                                            opnd_create_reg(tmp)));
+
+    /* restore tls_base back to dr_reg_stolen */
+    restore_tls_base_to_stolen_reg(dcontext, ilist, next_instr, tmp, slot, writeback);
+    /* restore tmp if necessary */
     if (should_restore)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, tmp, slot));
 }
 
-/* XXX; merge with or refactor out old STEAL_REGISTER x86 code? */
-instr_t *
-mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                  instr_t *next_instr)
+static void
+store_reg_to_memlist(dcontext_t *dcontext,
+                     instrlist_t *ilist,
+                     instr_t *instr,
+                     instr_t *next_instr,
+                     reg_id_t base_reg,     /* reg holding memlist base */
+                     ushort   app_val_slot, /* slot holding app value */
+                     reg_id_t tmp_reg,      /* scratch reg */
+                     reg_id_t fix_reg,      /* reg to be fixed up */
+                     uint     fix_reg_idx)
 {
-    /* Our stolen reg model is to expose to the client.  We assume that any
-     * meta instrs using it are using it as TLS.
-     */
-    ASSERT(!instr_is_meta(instr));
-    /* We cannot guarantee to find a scratch reg for reg list instrs so we have
-     * to special-case them.
-     */
-    /* FIXME i#1551: interactions w/ pc mangling: avoid same scratch reg */
-    /* FIXME i#1551: interactions w/ branch mangling: any problems? */
-    if (instr_writes_gpr_list(instr)) {
-        /* Approach: split instr into 3 pieces to isolate the write.
-         * OP_ldm* disallows ! if reglist includes base reg, so we should only see
-         * either A) writeback of stolen reg or B) stolen reg in reglist.
-         * Either way we want to split up the reglist to ensure we can get
-         * a scratch reg.
+    bool writeback = instr_num_dsts(instr) > 1;
+    uint num_srcs = instr_num_srcs(instr);
+    int offs;
+
+    switch (instr_get_opcode(instr)) {
+    case OP_stmia:
+        if (writeback)
+            offs = -((num_srcs - 1/*writeback*/ - fix_reg_idx) * sizeof(reg_t));
+        else
+            offs = fix_reg_idx * sizeof(reg_t);
+        break;
+    case OP_stmdb:
+        if (writeback)
+            offs = fix_reg_idx * sizeof(reg_t);
+        else
+            offs = -((num_srcs - fix_reg_idx) * sizeof(reg_t));
+        break;
+    default:
+        offs = 0;
+        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551: NYI */
+    }
+
+    /* load proper value into spill reg */
+    if (fix_reg == DR_REG_PC) {
+        ptr_int_t app_r15 = (ptr_int_t)
+            decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
+                          instr_get_opcode(instr), instr);
+        insert_mov_immed_ptrsz(dcontext, app_r15, opnd_create_reg(tmp_reg),
+                               ilist, next_instr, NULL, NULL);
+    } else {
+        /* load from app_val_slot */
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, tmp_reg, app_val_slot));
+    }
+    /* store to proper location */
+    PRE(ilist, next_instr, XINST_CREATE_store
+        (dcontext, opnd_create_base_disp(base_reg, REG_NULL, 0,
+                                         offs, OPSZ_PTR),
+         opnd_create_reg(tmp_reg)));
+}
+
+/* mangle dr_stolen_reg or pc read in a reglist store (i.e., stm).
+ * Approach: fix up memory slot w/ app value after the store.
+ */
+static void
+mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                     instr_t *next_instr)
+{
+    reg_id_t spill_regs[2]  = {DR_REG_R0, DR_REG_R1};
+    reg_id_t spill_slots[2] = {TLS_REG0_SLOT, TLS_REG1_SLOT};
+    /* regs that need fix up in the memory slots */
+    reg_id_t fix_regs[2] = { DR_REG_PC, dr_reg_stolen};
+    bool reg_found[2] = { false, false };
+    uint reg_pos[2]; /* position of those fix_regs in reglist  */
+    uint i, j, num_srcs = instr_num_srcs(instr);
+    bool writeback = instr_num_dsts(instr) > 1;
+    bool stolen_reg_is_base = false;
+    opnd_t memop = instr_get_dst(instr, 0);
+
+    ASSERT(dr_reg_stolen != spill_regs[0] && dr_reg_stolen != spill_regs[1]);
+
+    /* check base reg */
+    /* base reg cannot be PC, so could only be dr_reg_stolen */
+    if (opnd_uses_reg(memop, dr_reg_stolen)) {
+        stolen_reg_is_base = true;
+        restore_app_value_to_stolen_reg(dcontext, ilist, instr,
+                                        spill_regs[0], spill_slots[0]);
+        /* We do not need fix up memory slot for dr_reg_stolen since it holds
+         * app value now, but we may need fix up the slot for spill_regs[0].
          */
-        uint i, num_dsts = instr_num_dsts(instr);
-        bool found_reg;
-        opnd_t memop = instr_get_src(instr, 0);
-        instr_t *tomangle, *tail;
-        bool writeback;
-        reg_id_t last_reg;
-        for (i = 0; i < num_dsts; i++) {
-            ASSERT(opnd_is_reg(instr_get_dst(instr, i)));
-            if (opnd_get_reg(instr_get_dst(instr, i)) == dr_reg_stolen) {
-                found_reg = true;
-                break;
+        fix_regs[1] = spill_regs[0];
+    }
+
+    /* -- app instr executes here -- */
+
+    /* restore dr_reg_stolen if used as base */
+    if (stolen_reg_is_base) {
+        ASSERT(fix_regs[1] == spill_regs[0]);
+        ASSERT(opnd_uses_reg(memop, dr_reg_stolen));
+        /* restore dr_reg_stolen from spill_regs[0]  */
+        restore_tls_base_to_stolen_reg(dcontext, ilist,
+                                       /* XXX: we must restore tls base right after instr
+                                        * for other TLS usage, so we use instr_get_next
+                                        * instead of next_instr.
+                                        */
+                                       instr_get_next(instr),
+                                       spill_regs[0], spill_slots[0],
+                                       writeback);
+        /* do not restore spill_reg[0] as we may use it as scratch reg later */
+    }
+
+    /* fix up memory slot w/ app value after the store */
+    for (i = 0; i < (writeback ? (num_srcs - 1) : num_srcs); i++) {
+        reg_id_t reg;
+        ASSERT(opnd_is_reg(instr_get_src(instr, i)));
+        reg = opnd_get_reg(instr_get_src(instr, i));
+        for (j = 0; j < 2; j++) {
+            if (reg == fix_regs[j]) {
+                reg_found[j] = true;
+                reg_pos[j] = i;
             }
         }
-        ASSERT(opnd_is_base_disp(memop) && opnd_get_index(memop) == REG_NULL);
-        last_reg = opnd_get_reg(instr_get_dst(instr, num_dsts - 1));
-        writeback = opnd_uses_reg(memop, last_reg);
-        opnd_set_size(&memop, OPSZ_VAR_REGLIST);
-        instr_set_src(instr, 0, memop);
+    }
 
-        if (opnd_uses_reg(memop, dr_reg_stolen)) {
-            /* Writeback reg for OP_ldm* is always last */
-            ASSERT(!found_reg || i == num_dsts - 1);
-            /* Ensure we can get one of r0-r3 */
-            if (num_dsts > 3) {
-                /* split off 1st 3 and mangle both sides */
-                i = 3;
-                tail = instr_clone(dcontext, instr);
-                instr_remove_dsts(dcontext, instr, i,
-                                  writeback ? num_dsts - 1 : num_dsts);
-                if (writeback) {
-                    instr_set_dst(instr, instr_num_dsts(instr) - 1,
-                                  opnd_create_reg(last_reg));
-                }
-                instr_remove_dsts(dcontext, tail, 0, i + 1);
-                swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, false);
-                instrlist_preinsert(ilist, next_instr, tail); /* non-meta */
-                swap_to_app_val_in_stolen_reg(dcontext, ilist, tail, false);
-                return tail; /* could write pc */
-            } else {
-                /* no split necessary */
-                swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, false);
-            }
+    if (reg_found[0] || reg_found[1]) {
+        ushort app_val_slot; /* slot holding app value */
+        reg_id_t base_reg;
+        if (stolen_reg_is_base) {
+            /* dr_reg_stolen is used as the base in the app, but it is holding
+             * TLS base, so we now put dr_reg_stolen app value into spill_regs[0]
+             * to use it as the base instead.
+             */
+            ASSERT(fix_regs[1] == spill_regs[0]);
+            app_val_slot = spill_slots[0];
+            base_reg = spill_regs[0];
+            PRE(ilist, next_instr,
+                instr_create_restore_from_tls(dcontext, spill_regs[0],
+                                              TLS_REG_STOLEN_SLOT));
         } else {
-            /* 3-piece split */
-            ASSERT(found_reg);
-            tomangle = instr_clone(dcontext, instr);
+            ASSERT(fix_regs[1] == dr_reg_stolen);
+            app_val_slot = TLS_REG_STOLEN_SLOT;
+            base_reg = opnd_get_base(memop);
+        }
+
+        /* save spill reg */
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(dcontext, spill_regs[1], spill_slots[1]));
+
+        /* fixup the slot in memlist */
+        for (i = 0; i < 2; i++) {
+            if (reg_found[i]) {
+                store_reg_to_memlist(dcontext, ilist, instr, next_instr,
+                                     base_reg, app_val_slot,
+                                     spill_regs[1], fix_regs[i], reg_pos[i]);
+            }
+        }
+
+        /* restore spill reg */
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, spill_regs[1], spill_slots[1]));
+    }
+
+    if (stolen_reg_is_base) {
+        ASSERT(fix_regs[1] == spill_regs[0]);
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, spill_regs[0], spill_slots[0]));
+    }
+}
+
+static instr_t *
+mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                      instr_t *next_instr)
+{
+    /* This is extracted from mangle_stolen_reg, it handles reglist write
+     * if dr_reg_stolen is in the reglist or in memop.
+     * Other cases:
+     * - pc cannot be used in memop,
+     * - write to pc is to be handled in mangle_indirect_jump
+     */
+
+    /* FIXME i#1551: interactions w/ pc mangling: avoid same scratch reg */
+    /* FIXME i#1551: interactions w/ branch mangling: any problems? */
+    ASSERT(instr_writes_gpr_list(instr));
+    /* Approach: split instr into 3 pieces to isolate the write.
+     * OP_ldm* disallows ! if reglist includes base reg, so we should only see
+     * either A) writeback of stolen reg or B) stolen reg in reglist.
+     * Either way we want to split up the reglist to ensure we can get
+     * a scratch reg.
+     */
+    uint i, num_dsts = instr_num_dsts(instr);
+    bool found_reg;
+    opnd_t memop = instr_get_src(instr, 0);
+    instr_t *tomangle, *tail;
+    bool writeback;
+    reg_id_t last_reg;
+
+    for (i = 0; i < num_dsts; i++) {
+        ASSERT(opnd_is_reg(instr_get_dst(instr, i)));
+        if (opnd_get_reg(instr_get_dst(instr, i)) == dr_reg_stolen) {
+            found_reg = true;
+            break;
+        }
+    }
+    if (!found_reg && !opnd_uses_reg(memop, dr_reg_stolen))
+        return next_instr;
+    ASSERT(opnd_is_base_disp(memop) && opnd_get_index(memop) == REG_NULL);
+    last_reg = opnd_get_reg(instr_get_dst(instr, num_dsts - 1));
+    writeback = opnd_uses_reg(memop, last_reg);
+    opnd_set_size(&memop, OPSZ_VAR_REGLIST);
+    instr_set_src(instr, 0, memop);
+
+    if (opnd_uses_reg(memop, dr_reg_stolen)) {
+        /* Writeback reg for OP_ldm* is always last */
+        ASSERT(!found_reg || i == num_dsts - 1);
+        /* Ensure we can get one of r0-r3 */
+        if (num_dsts > 3) {
+            /* split off 1st 3 and mangle both sides */
+            i = 3;
             tail = instr_clone(dcontext, instr);
-            /* do the split but leave writeback reg */
-            instr_remove_dsts(dcontext, instr, i, writeback ? num_dsts - 1 : num_dsts);
+            instr_remove_dsts(dcontext, instr, i,
+                              writeback ? num_dsts - 1 : num_dsts);
             if (writeback) {
                 instr_set_dst(instr, instr_num_dsts(instr) - 1,
                               opnd_create_reg(last_reg));
             }
-            if (i + 1 < (writeback ? num_dsts - 1 : num_dsts)) {
-                instr_remove_dsts(dcontext, tomangle, i + 1,
-                                  writeback ? num_dsts - 1 : num_dsts);
-            }
-            instr_remove_dsts(dcontext, tomangle, 0, i); /* leave stolen reg */
-            if (writeback) {
-                instr_set_dst(tomangle, instr_num_dsts(tomangle) - 1,
-                              opnd_create_reg(last_reg));
-            }
             instr_remove_dsts(dcontext, tail, 0, i + 1);
-            instrlist_preinsert(ilist, next_instr, tomangle); /* non-meta */
-            swap_to_app_val_in_stolen_reg(dcontext, ilist, tomangle, false);
+            swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, writeback);
             instrlist_preinsert(ilist, next_instr, tail); /* non-meta */
+            swap_to_app_val_in_stolen_reg(dcontext, ilist, tail, writeback);
             return tail; /* could write pc */
-        }
-    } else if (instr_reads_gpr_list(instr)) {
-        /* Approach: fix up memory slot w/ app value after the store */
-        uint i, num_srcs = instr_num_srcs(instr);
-        bool found_reg;
-        opnd_t memop = instr_get_dst(instr, 0);
-        bool writeback = instr_num_dsts(instr) > 1;
-        int offs = 0;
-        for (i = 0; i < num_srcs; i++) {
-            ASSERT(opnd_is_reg(instr_get_src(instr, i)));
-            if (opnd_get_reg(instr_get_src(instr, i)) == dr_reg_stolen) {
-                found_reg = true;
-                break;
-            }
-        }
-        if (!found_reg || (opnd_uses_reg(memop, dr_reg_stolen) && i == num_srcs - 1)) {
-            /* Stolen reg is not in the reg list: just base reg + (optional) writeback */
-            /* XXX i#1551: optimize: don't write r10 back for !writeback */
-            /* Ensure we can get one of r0-r3 */
-            if (num_srcs > 3) {
-                /* split off 1st 3 and mangle both sides */
-                /* XXX i#1551: try to share reads_gpr w/ writes_gpr code above.
-                 * The src vs dst separate routine names make it painful though.
-                 */
-                instr_t *tail;
-                reg_id_t last_reg = opnd_get_reg(instr_get_src(instr, num_srcs - 1));
-                opnd_set_size(&memop, OPSZ_VAR_REGLIST);
-                instr_set_dst(instr, 0, memop);
-                i = 3;
-                tail = instr_clone(dcontext, instr);
-                instr_remove_srcs(dcontext, instr, i,
-                                  writeback ? num_srcs - 1 : num_srcs);
-                if (writeback) {
-                    instr_set_src(instr, instr_num_srcs(instr) - 1,
-                                  opnd_create_reg(last_reg));
-                }
-                instr_remove_srcs(dcontext, tail, 0, i);
-                swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, true);
-                instrlist_preinsert(ilist, next_instr, tail); /* non-meta */
-                swap_to_app_val_in_stolen_reg(dcontext, ilist, tail, true);
-            } else {
-                /* no split necessary */
-                swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, true);
-            }
         } else {
-            /* FIXME i#1551: handle being base reg AND in the reg list */
-            ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(memop, dr_reg_stolen));
-            ASSERT(found_reg);
-            switch (instr_get_opcode(instr)) {
-            case OP_stmdb:
-                if (writeback)
-                    offs = (num_srcs - 2 - i) * sizeof(reg_t);
-                else
-                    offs = -((i + 1) * sizeof(reg_t));
-                break;
-                /* FIXME i#1551: add the other opcodes */
-            default: ASSERT_NOT_IMPLEMENTED(false);
-            }
-            PRE(ilist, next_instr,
-                instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
-            PRE(ilist, next_instr,
-                instr_create_restore_from_tls(dcontext, DR_REG_R0, TLS_REG_STOLEN_SLOT));
-            PRE(ilist, next_instr, XINST_CREATE_store
-                (dcontext, opnd_create_base_disp(opnd_get_base(memop), REG_NULL, 0,
-                                                 offs, OPSZ_PTR),
-                 opnd_create_reg(DR_REG_R0)));
-            PRE(ilist, next_instr,
-                instr_create_restore_from_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
+            /* no split necessary */
+            swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, writeback);
         }
     } else {
-        /* Approach: store TLS value in a scratch reg during app instr */
-        bool reads = instr_reads_from_reg(instr, dr_reg_stolen, DR_QUERY_INCLUDE_ALL);
-        /* XXX i#1551: optimize: if just read, swap app's reg used */
-        swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, reads);
+        /* 3-piece split */
+        ASSERT(found_reg);
+        tomangle = instr_clone(dcontext, instr);
+        tail = instr_clone(dcontext, instr);
+        /* do the split but leave writeback reg */
+        instr_remove_dsts(dcontext, instr, i, writeback ? num_dsts - 1 : num_dsts);
+        if (writeback) {
+            instr_set_dst(instr, instr_num_dsts(instr) - 1,
+                          opnd_create_reg(last_reg));
+        }
+        if (i + 1 < (writeback ? num_dsts - 1 : num_dsts)) {
+            instr_remove_dsts(dcontext, tomangle, i + 1,
+                              writeback ? num_dsts - 1 : num_dsts);
+        }
+        instr_remove_dsts(dcontext, tomangle, 0, i); /* leave stolen reg */
+        if (writeback) {
+            instr_set_dst(tomangle, instr_num_dsts(tomangle) - 1,
+                          opnd_create_reg(last_reg));
+        }
+        instr_remove_dsts(dcontext, tail, 0, i + 1);
+        instrlist_preinsert(ilist, next_instr, tomangle); /* non-meta */
+        swap_to_app_val_in_stolen_reg(dcontext, ilist, tomangle, false);
+        instrlist_preinsert(ilist, next_instr, tail); /* non-meta */
+        return tail; /* could write pc */
     }
+    return next_instr;
+}
+
+/* XXX; merge with or refactor out old STEAL_REGISTER x86 code? */
+/* mangle simple dr_reg_stolen access, dr_reg_stolen in gpr_list
+ * is handled in mangle_gpr_list_{read/write}
+ */
+static void
+mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                  instr_t *next_instr)
+{
+    ushort slot;
+    bool should_restore;
+    reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
+    /* Our stolen reg model is to expose to the client.  We assume that any
+     * meta instrs using it are using it as TLS.
+     */
+    ASSERT(!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen));
+
+    /* move stolen reg value into reg for app instr execution */
+    restore_app_value_to_stolen_reg(dcontext, ilist, instr, reg, slot);
+
+    /* -- app instr executes here -- */
+
+    /* store app value to its mem location */
+    restore_tls_base_to_stolen_reg(dcontext, ilist,
+                                   /* XXX: we must restore tls base right after instr
+                                    * for other TLS usage, so we use instr_get_next
+                                    * instead of next_instr.
+                                    */
+                                   instr_get_next(instr),
+                                   reg, slot, true);
+    if (should_restore)
+        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
+}
+
+/* On ARM, we need mangle app instr accessing registers pc and dr_reg_stolen.
+ * We use this centralized mangling routine here to handle complex issues with
+ * more efficient mangling code.
+ */
+instr_t *
+mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                         instr_t *next_instr)
+{
+    /* FIXME i#1551: for indirect branch mangling, we first mangle the instr here
+     * for possible pc read and dr_reg_stolen read/write,
+     * and leave pc write mangling later in mangle_indirect_jump, which is
+     * error-prone and inefficient.
+     * We should split the mangling and only mangle non-ind-branch instructions
+     * here and leave mbr instruction mangling to mangle_indirect_jump.
+     */
+    /* special handling reglist read */
+    if (instr_reads_gpr_list(instr)) {
+        mangle_gpr_list_read(dcontext, ilist, instr, next_instr);
+        return next_instr;
+    }
+
+    /* special handling reglist write */
+    if (instr_writes_gpr_list(instr))
+        return mangle_gpr_list_write(dcontext, ilist, instr, next_instr);
+
+#ifndef X64
+    if (instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
+        mangle_pc_read(dcontext, ilist, instr, next_instr);
+#endif /* !X64 */
+
+    /* mangle_stolen_reg must happen after mangle_pc_read to avoid reg conflict */
+    if (instr_uses_reg(instr, dr_reg_stolen))
+        mangle_stolen_reg(dcontext, ilist, instr, next_instr);
     return next_instr;
 }
 

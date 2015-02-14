@@ -658,18 +658,15 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                 continue;
         }
 #endif /* X64 || ARM */
+
 #ifdef ARM
-# ifndef X64
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
          */
         if (!instr_is_meta(instr) &&
-            instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
-            mangle_pc_read(dcontext, ilist, instr, next_instr);
-# endif
-        if (!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen))
-            next_instr = mangle_stolen_reg(dcontext, ilist, instr, next_instr);
-#endif
+            (instr_uses_reg(instr, DR_REG_PC) || instr_uses_reg(instr, dr_reg_stolen)))
+            next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
+#endif /* ARM */
 
         if (instr_is_exit_cti(instr)) {
 #ifdef X86

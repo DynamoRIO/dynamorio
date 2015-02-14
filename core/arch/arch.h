@@ -477,15 +477,11 @@ bool
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
-#if defined(ARM) && !defined(X64)
-void
-mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-               instr_t *next_instr);
-#endif
 #ifdef ARM
+/* mangle instructions that use pc or dr_reg_stolen */
 instr_t *
-mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                  instr_t *next_instr);
+mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                         instr_t *next_instr);
 #endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *instr, bool skip
