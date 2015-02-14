@@ -2049,6 +2049,7 @@
  * \param mem The memory opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_ldm(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_ldm, 0, 1, list_len, 0, (mem), __VA_ARGS__)
@@ -2139,6 +2140,7 @@
  * \param Rm The source register opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vld1_dup_8_wbreg(dc, mem, Rm, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_8, 1, 3, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
@@ -2163,6 +2165,7 @@
  * \param imm The integer constant opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vld1_16(dc, mem, imm, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 0, 2, list_len, 0, (mem), (imm), __VA_ARGS__)
@@ -2340,6 +2343,7 @@
  * \param imm The integer constant opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vldm_imm(dc, Rd, mem, imm, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vldm, 1, 2, list_len, 0, (Rd), (mem), (imm), __VA_ARGS__)
@@ -2361,6 +2365,7 @@
  * \param imm The integer constant opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vstm_imm(dc, mem, Rd, imm, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_vstm, 2, 1, list_len, 0, (mem), (Rd), (imm), __VA_ARGS__)
@@ -2382,6 +2387,7 @@
  * \param Rm The source register opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vld1_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 1, 4, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
@@ -2479,6 +2485,7 @@
  * \param imm2 The second integer constant opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vld2_lane_16(dc, mem, imm, imm2, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 0, 3, list_len, 0, (mem), (imm), (imm2), __VA_ARGS__)
@@ -2545,6 +2552,7 @@
  * \param Rm The source register opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vld2_lane_16_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 1, 5, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
@@ -4440,6 +4448,7 @@
  * \param Vm The source SIMD register opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
+ * The registers in the list must be in increasing order.
  */
 #define INSTR_CREATE_vtbl_8(dc, Vd, Vm, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_vtbl_8, 1, 1, list_len, 0, (Vd), (Vm), __VA_ARGS__)

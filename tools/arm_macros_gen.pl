@@ -649,6 +649,7 @@ foreach my $args (@order) {
             print " * \\param $param The number of registers in the register list.\n";
         } elsif ($tomap eq '...') {
             print " * \\param $param The register list as separate opnd_t arguments.\n";
+            print " * The registers in the list must be in increasing order.\n";
         } else {
             die "XXXX No mapping for $param\n" if (!defined($mapping{$tomap}));
             my $full = $mapping{$tomap};

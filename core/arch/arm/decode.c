@@ -729,6 +729,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_L_16b: {
         uint num = gpr_list_num_bits(optype);
         di->reglist_sz = 0;
+        /* we must create regs in reglist in order for possible split in mangling */
         for (i = 0; i < num; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
                 if ((optype == TYPE_L_16b_NO_SP || optype == TYPE_L_16b_NO_SP_PC) &&

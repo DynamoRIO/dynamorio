@@ -2775,6 +2775,8 @@ instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts, fixed_srcs + var_srcs);
     uint i;
+    reg_id_t prev_reg = REG_NULL;
+    bool check_order;
     va_start(ap, var_ord);
     for (i = 0; i < fixed_dsts; i++)
         instr_set_dst(in, i, va_arg(ap, opnd_t));
@@ -2782,8 +2784,18 @@ instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
         instr_set_src(in, i, va_arg(ap, opnd_t));
     for (i = var_ord; i < fixed_srcs; i++)
         instr_set_src(in, var_srcs + i, va_arg(ap, opnd_t));
-    for (i = 0; i < var_srcs; i++)
-        instr_set_src(in, var_ord + i, va_arg(ap, opnd_t));
+    /* we require regs in reglist are stored in order for easy split if necessary */
+    check_order = IF_ARM_ELSE(true, false);
+    for (i = 0; i < var_srcs; i++) {
+        opnd_t opnd = va_arg(ap, opnd_t);
+        /* assuming non-reg opnds (if any) are in the fixed positon */
+        CLIENT_ASSERT(!check_order ||
+                      (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
+                      "instr_create_Ndst_Msrc_varsrc: wrong register order in reglist");
+        instr_set_src(in, var_ord + i, opnd);
+        if (check_order)
+            prev_reg = opnd_get_reg(opnd);
+    }
     va_end(ap);
     return in;
 }
@@ -2795,6 +2807,8 @@ instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts + var_dsts, fixed_srcs);
     uint i;
+    reg_id_t prev_reg = REG_NULL;
+    bool check_order;
     va_start(ap, var_ord);
     for (i = 0; i < MIN(var_ord, fixed_dsts); i++)
         instr_set_dst(in, i, va_arg(ap, opnd_t));
@@ -2802,8 +2816,18 @@ instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
         instr_set_dst(in, var_dsts + i, va_arg(ap, opnd_t));
     for (i = 0; i < fixed_srcs; i++)
         instr_set_src(in, i, va_arg(ap, opnd_t));
-    for (i = 0; i < var_dsts; i++)
-        instr_set_dst(in, var_ord + i, va_arg(ap, opnd_t));
+    /* we require regs in reglist are stored in order for easy split if necessary */
+    check_order = IF_ARM_ELSE(true, false);
+    for (i = 0; i < var_dsts; i++) {
+        opnd_t opnd = va_arg(ap, opnd_t);
+        /* assuming non-reg opnds (if any) are in the fixed positon */
+        CLIENT_ASSERT(!check_order ||
+                      (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
+                      "instr_create_Ndst_Msrc_vardst: wrong register order in reglist");
+        instr_set_dst(in, var_ord + i, opnd);
+        if (check_order)
+            prev_reg = opnd_get_reg(opnd);
+    }
     va_end(ap);
     return in;
 }
