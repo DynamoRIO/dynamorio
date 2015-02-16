@@ -246,17 +246,28 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                     byte *encode_pc, byte *target, bool jmp, bool precise,
+                     byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr)
 {
+    instr_t *post_call = INSTR_CREATE_label(dcontext);
     /* load target into scratch register */
-    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)target,
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
+                           PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), target),
                            opnd_create_reg(scratch), ilist, where, NULL, NULL);
+    /* even if a call and not a jmp, we can skip this if it doesn't return */
+    if (!jmp && returns) {
+        /* Trying to compute cur pc ourselves is fragile b/c for Thumb it
+         * varies due to the back-align so we use an instr.
+         */
+        insert_mov_instr_addr(dcontext, post_call, encode_pc,
+                              opnd_create_reg(DR_REG_LR), ilist, where, NULL, NULL);
+    }
     /* mov target from scratch register to pc */
     PRE(ilist, where, INSTR_CREATE_mov(dcontext,
                                        opnd_create_reg(DR_REG_PC),
                                        opnd_create_reg(scratch)));
-    return true /* an ind branch */;
+    PRE(ilist, where, post_call);
+    return false /* an ind branch */;
 }
 
 /*###########################################################################

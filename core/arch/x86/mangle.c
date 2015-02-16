@@ -936,7 +936,7 @@ insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext,
  */
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                     byte *encode_pc, byte *target, bool jmp, bool precise,
+                     byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr)
 {
     byte *encode_start;
@@ -2138,8 +2138,8 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
      */
     insert_reachable_cti(dcontext, ilist, in, vmcode_get_start(),
                          (byte *) get_new_thread_start(dcontext _IF_X64(mode)),
-                         true/*jmp*/, false/*!precise*/, DR_REG_NULL/*no scratch*/,
-                         NULL);
+                         true/*jmp*/, false/*!returns*/, false/*!precise*/,
+                         DR_REG_NULL/*no scratch*/, NULL);
     instr_set_meta(instr_get_prev(in));
     PRE(ilist, in, parent);
     PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),

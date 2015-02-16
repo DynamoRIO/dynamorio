@@ -414,7 +414,7 @@ parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
 bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, byte *encode_pc, void *callee,
+                       bool clean_call, bool returns, byte *encode_pc, void *callee,
                        uint num_args, opnd_t *args);
 void
 mangle_init(void);
@@ -511,7 +511,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          uint alignment);
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                     byte *encode_pc, byte *target, bool jmp, bool precise,
+                     byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr);
 void
 insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,

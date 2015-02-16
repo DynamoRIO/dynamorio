@@ -4701,7 +4701,7 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
         va_end(ap);
     }
-    insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
+    insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/, true/*returns*/,
                            vmcode_get_start(), callee, num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
@@ -4722,10 +4722,30 @@ dr_insert_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
         va_end(ap);
     }
     direct = insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
-                                    encode_pc, callee, num_args, args);
+                                    true/*returns*/, encode_pc, callee, num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
     return direct;
+}
+
+/* Not exported.  Currently used for ARM to avoid storing to %lr. */
+void
+dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        void *callee, uint num_args, ...)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    opnd_t *args = NULL;
+    va_list ap;
+    CLIENT_ASSERT(drcontext != NULL, "dr_insert_call_noreturn: drcontext cannot be NULL");
+    if (num_args != 0) {
+        va_start(ap, num_args);
+        convert_va_list_to_opnd(dcontext, &args, num_args, ap);
+        va_end(ap);
+    }
+    insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/, false/*!returns*/,
+                           vmcode_get_start(), callee, num_args, args);
+    if (num_args != 0)
+        free_va_opnd_list(dcontext, num_args, args);
 }
 
 /* Internal utility routine for inserting context save for a clean call.
@@ -4905,7 +4925,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         encode_pc = vmcode_unreachable_pc();
     else
         encode_pc = vmcode_get_start();
-    insert_meta_call_vargs(dcontext, ilist, where, true/*clean*/,
+    insert_meta_call_vargs(dcontext, ilist, where, true/*clean*/, true/*returns*/,
                            encode_pc, callee, num_args, args);
     instrlist_set_our_mangling(ilist, false);
 

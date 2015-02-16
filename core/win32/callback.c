@@ -1319,7 +1319,8 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
             encode_pc = (alt_after_tgt_p != NULL) ? vmcode_unreachable_pc() : pc;
             IF_DEBUG(direct = )
                 insert_reachable_cti(dcontext, &ilist, NULL, encode_pc,
-                                     alternate_after, true/*jmp*/, false/*!precise*/,
+                                     alternate_after, true/*jmp*/, false/*!returns*/,
+                                     false/*!precise*/,
                                      DR_REG_NULL/*no scratch*/, &alt_after);
             ASSERT(alt_after_tgt_p == NULL || !direct);
         }

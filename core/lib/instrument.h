@@ -5038,6 +5038,11 @@ bool
 dr_insert_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
                   byte *encode_pc, void *callee, uint num_args, ...);
 
+/* Not exported.  Currently used for ARM to avoid storing to %lr. */
+void
+dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        void *callee, uint num_args, ...);
+
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to save state for a call.

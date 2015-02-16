@@ -357,7 +357,7 @@ parameters_stack_padded(void)
  */
 bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, byte *encode_pc, void *callee,
+                       bool clean_call, bool returns, byte *encode_pc, void *callee,
                        uint num_args, opnd_t *args)
 {
     instr_t *in = (instr == NULL) ? instrlist_last(ilist) : instr_get_prev(instr);
@@ -370,7 +370,8 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * We document this to clients using dr_insert_call_ex() or DR_CLEANCALL_INDIRECT.
      */
     direct = insert_reachable_cti(dcontext, ilist, instr, encode_pc, (byte *)callee,
-                                  false/*call*/, false/*!precise*/, DR_REG_R11, NULL);
+                                  false/*call*/, returns, false/*!precise*/,
+                                  DR_REG_R11, NULL);
     if (stack_for_params > 0) {
         /* XXX PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?

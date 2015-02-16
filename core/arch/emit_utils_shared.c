@@ -2449,15 +2449,16 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     /* call central dispatch routine */
     /* for x64 linux we could optimize and avoid the "mov rdi, rdi" */
-    dr_insert_call((void *)dcontext, ilist, NULL/*append*/,
-                   (void *)dispatch, 1,
-                   absolute ?
-                   OPND_CREATE_INTPTR((ptr_int_t)dcontext) : opnd_create_reg(REG_DCTXT));
+    /* for ARM we use _noreturn to avoid storing to %lr */
+    dr_insert_call_noreturn((void *)dcontext, ilist, NULL/*append*/,
+                            (void *)dispatch, 1,
+                            absolute ? OPND_CREATE_INTPTR((ptr_int_t)dcontext) :
+                            opnd_create_reg(REG_DCTXT));
 
     /* dispatch() shouldn't return! */
     insert_reachable_cti(dcontext, ilist, NULL, vmcode_get_start(),
-                         (byte *)unexpected_return, true/*jmp*/, false/*!precise*/,
-                         DR_REG_R11/*scratch*/, NULL);
+                         (byte *)unexpected_return, true/*jmp*/, false/*!returns*/,
+                         false/*!precise*/, DR_REG_R11/*scratch*/, NULL);
 }
 
 /*
@@ -5163,8 +5164,8 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 
     /* should not return */
     insert_reachable_cti(dcontext, &ilist, NULL, vmcode_get_start(),
-                         (byte *)unexpected_return, true/*jmp*/, false/*!precise*/,
-                         DR_REG_R11/*scratch*/, NULL);
+                         (byte *)unexpected_return, true/*jmp*/, false/*!returns*/,
+                         false/*!precise*/, DR_REG_R11/*scratch*/, NULL);
 
     /* now encode the instructions */
     pc = instrlist_encode(dcontext, &ilist, pc, true /* instr targets */);
