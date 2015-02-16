@@ -679,14 +679,25 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
         if (selected)
             di->has_instr_opnds = true;
         if (relative) {
+            /* We ignore instr's shift for relative: shouldn't happen */
+            CLIENT_ASSERT(opnd_get_shift(opnd) == 0,
+                          "relative shifted instr not supported");
             /* For A32, "cur PC" is "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
             return (ptr_int_t)opnd_get_instr(opnd)->note -
                 (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode,
                                               di->opcode, NULL) -
                  di->final_pc);
         } else {
-            return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note) +
+            ptr_int_t val = (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note) +
                 (ptr_int_t)di->final_pc;
+            /* Support insert_mov_instr_addr() by truncating to opnd size */
+            uint bits = opnd_size_in_bits(opnd_get_size(opnd));
+            val >>= opnd_get_shift(opnd);
+            val &= ((1 << bits) -1);
+            if (opnd_get_shift(opnd) == 0)
+                return (ptr_int_t) PC_AS_JMP_TGT(di->isa_mode, (byte*)val);
+            else
+                return val; /* don't add 1 to the top part! */
         }
     } else if (opnd_is_near_pc(opnd)) {
         if (relative) {

@@ -272,10 +272,12 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
                       instr_t **first, instr_t **second)
 {
     instr_t *mov1, *mov2;
+    if (src_inst != NULL)
+        val = (ptr_int_t) encode_estimate;
     ASSERT(opnd_is_reg(dst));
     /* MVN writes the bitwise inverse of an immediate value to the dst register */
     /* XXX: we could check for larger tile/rotate immed patterns */
-    if (~val >= 0 && ~val <= 0xff) {
+    if (src_inst == NULL && ~val >= 0 && ~val <= 0xff) {
         mov1 = INSTR_CREATE_mvn(dcontext, dst, OPND_CREATE_INT(~val));
         PRE(ilist, instr, mov1);
         mov2 = NULL;
@@ -286,14 +288,20 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
          * ignore immed sizes at instr creation time (only at encode time do we
          * check them).
          */
-        mov1 = INSTR_CREATE_movw(dcontext, dst, OPND_CREATE_INT(val & 0xffff));
+        mov1 = INSTR_CREATE_movw(dcontext, dst,
+                                 (src_inst == NULL) ?
+                                 OPND_CREATE_INT(val & 0xffff) :
+                                 opnd_create_instr_ex(src_inst, OPSZ_2, 0));
         PRE(ilist, instr, mov1);
         val = (val >> 16) & 0xffff;
         if (val == 0) {
             /* movw zero-extends so we're done */
             mov2 = NULL;
         } else {
-            mov2 = INSTR_CREATE_movt(dcontext, dst, OPND_CREATE_INT(val));
+            mov2 = INSTR_CREATE_movt(dcontext, dst,
+                                     (src_inst == NULL) ?
+                                     OPND_CREATE_INT(val) :
+                                     opnd_create_instr_ex(src_inst, OPSZ_2, 16));
             PRE(ilist, instr, mov2);
         }
     }
