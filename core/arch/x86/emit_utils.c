@@ -1241,6 +1241,20 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 
 
 void
+insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t scratch1, reg_id_t scratch2)
+{
+    /* nothing to do */
+}
+
+void
+insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                         reg_id_t scratch1, reg_id_t scratch2)
+{
+    /* nothing to do */
+}
+
+void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     if (!absolute) {

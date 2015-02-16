@@ -216,21 +216,17 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * this while hotpatching cannot (hotp_inject_gateway_call() fixes it up every
      * time) b/c the callee has to ask for the priv_mcontext_t.
      */
-#ifdef X86
     if (cci->out_of_line_swap) {
         dstack_offs +=
             insert_out_of_line_context_switch(dcontext, ilist, instr, true);
     } else {
         dstack_offs +=
             insert_push_all_registers(dcontext, cci, ilist, instr, PAGE_SIZE,
-                                      INSTR_CREATE_push_imm
-                                      (dcontext, OPND_CREATE_INT32(0)));
+                                      OPND_CREATE_INT32(0));
         insert_clear_eflags(dcontext, cci, ilist, instr);
+        /* XXX: add a cci field for optimizing this away if callee makes no calls */
+        insert_swap_from_app_tls(dcontext, ilist, instr, SCRATCH_REG0, SCRATCH_REG1);
     }
-#elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif
 
     /* We no longer need to preserve the app's errno on Windows except
      * when using private libraries, so its preservation is in
@@ -291,13 +287,11 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /* now restore everything */
     if (cci->out_of_line_swap) {
-#ifdef X86
         insert_out_of_line_context_switch(dcontext, ilist, instr, false);
-#elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_REACHED();
-#endif
     } else {
+        /* XXX: add a cci field for optimizing this away if callee makes no calls */
+        insert_swap_to_app_tls(dcontext, ilist, instr, SCRATCH_REG0, SCRATCH_REG1);
+
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
                                  PAGE_SIZE);
@@ -666,10 +660,14 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 #endif /* X64 || ARM */
 #ifdef ARM
 # ifndef X64
-        if (instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
+        /* Our stolen reg model is to expose to the client.  We assume that any
+         * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
+         */
+        if (!instr_is_meta(instr) &&
+            instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
             mangle_pc_read(dcontext, ilist, instr, next_instr);
 # endif
-        if (instr_uses_reg(instr, dr_reg_stolen))
+        if (!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen))
             next_instr = mangle_stolen_reg(dcontext, ilist, instr, next_instr);
 #endif
 

@@ -161,13 +161,7 @@ void
 insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr)
 {
-    /* clear eflags for callee's usage */
-    if (cci == NULL || !cci->skip_clear_eflags) {
-        if (!dynamo_options.cleancall_ignore_eflags) {
-            /* FIXME i#1551: NYI on ARM */
-            ASSERT_NOT_IMPLEMENTED(false);
-        }
-    }
+    /* There is no DF on ARM, so we do not need clear xflags. */
 }
 
 /* Pushes not only the GPRs but also simd regs, xip, and xflags, in
@@ -182,11 +176,74 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, instr_t *push_pc)
+                          uint alignment, opnd_t push_pc)
 {
-    /* FIXME i#1551: NYI on ARM */
+    uint dstack_offs = 0;
+    if (cci == NULL)
+        cci = &default_clean_call_info;
+    if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
+        /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
+    }
+    /* FIXME i#1551: push SIMD regs once we add to mcontext */
+
+    /* pc and aflags */
+    if (!cci->skip_save_aflags) {
+        reg_id_t scratch = DR_REG_R0;
+        uint slot = TLS_REG0_SLOT;
+        if (opnd_is_reg(push_pc) && opnd_get_reg(push_pc) == scratch) {
+            scratch = DR_REG_R1;
+            slot = TLS_REG1_SLOT;
+        }
+        /* XXX: actually, r0 was just used as scratch for swapping stack
+         * via dcontext, so an optimization opportunity exists to avoid
+         * that restore and the re-spill here.
+         */
+        PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch, slot));
+        PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch),
+                                           opnd_create_reg(DR_REG_CPSR)));
+        PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(scratch)));
+        dstack_offs += XSP_SZ;
+        if (opnd_is_immed_int(push_pc)) {
+            PRE(ilist, instr, XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch),
+                                                    push_pc));
+            PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(scratch)));
+        } else {
+            ASSERT(opnd_is_reg(push_pc));
+            PRE(ilist, instr, INSTR_CREATE_push(dcontext, push_pc));
+        }
+        PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
+        dstack_offs += XSP_SZ;
+    }
+
+#ifdef X64
+    /* FIXME i#1569: NYI on AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
-    return 0;
+#else
+    /* We rely on dr_get_mcontext_priv() to fill in the app's stolen reg value
+     * and sp value.
+     */
+    if (dr_get_isa_mode(dcontext) == DR_ISA_ARM_THUMB) {
+        /* We can't use sp with stm */
+        PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(DR_REG_LR)));
+        /* We can't push sp w/ writeback, and in fact dr_get_mcontext() gets
+         * sp from the stack swap so we can leave this empty.
+         */
+        PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
+                                           OPND_CREATE_INT8(XSP_SZ)));
+        PRE(ilist, instr, INSTR_CREATE_stmdb_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
+                                                DR_REG_LIST_LENGTH_T32, DR_REG_LIST_T32));
+    } else {
+        PRE(ilist, instr,
+            INSTR_CREATE_stmdb_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
+                                  DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
+    }
+    dstack_offs += 15 * XSP_SZ;
+#endif
+    ASSERT(cci->skip_save_aflags   ||
+           cci->num_xmms_skip != 0 ||
+           cci->num_regs_skip != 0 ||
+           dstack_offs == (uint)get_clean_call_switch_stack_size());
+    return dstack_offs;
 }
 
 /* User should pass the alignment from insert_push_all_registers: i.e., the
@@ -198,8 +255,41 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
                          uint alignment)
 {
-    /* FIXME i#1551: NYI on ARM */
+    if (cci == NULL)
+        cci = &default_clean_call_info;
+    /* FIXME i#1551: pop SIMD regs once we add to mcontext */
+
+#ifdef X64
+    /* FIXME i#1569: NYI on AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
+#else
+    /* We rely on dr_set_mcontext_priv() to set the app's stolen reg value,
+     * and the stack swap to set the sp value: we assume the stolen reg on
+     * the stack still has our TLS base in it.
+     */
+    /* We can't use sp with ldm for Thumb, and we don't want to write sp for ARM. */
+    PRE(ilist, instr, INSTR_CREATE_ldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
+                                          DR_REG_LIST_LENGTH_T32, DR_REG_LIST_T32));
+    /* We don't want the sp value */
+    PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                                       OPND_CREATE_INT8(XSP_SZ)));
+    PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_LR)));
+#endif
+
+    /* pc and aflags */
+    if (!cci->skip_save_aflags) {
+        reg_id_t scratch = DR_REG_R0;
+        uint slot = TLS_REG0_SLOT;
+        PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch, slot));
+        PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(scratch)));
+        PRE(ilist, instr, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_CPSR),
+                                           OPND_CREATE_INT_MSR_NZCVQG(),
+                                           opnd_create_reg(scratch)));
+        /* just throw pc slot away */
+        PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                                           OPND_CREATE_INT8(XSP_SZ)));
+        PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
+    }
 }
 
 reg_id_t
@@ -225,17 +315,18 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     ASSERT_NOT_IMPLEMENTED(num_args <= NUM_REGPARM);
     for (i = 0; i < num_args; i++) {
         /* FIXME i#1551: we only implement naive parameter preparation,
-         * where args are all regs and do not conflict with param regs.
+         * where args are all regs or immeds and do not conflict with param regs.
          */
-        ASSERT_NOT_IMPLEMENTED(opnd_is_reg(args[i]) &&
-                               opnd_get_size(args[i]) == OPSZ_PTR);
+        ASSERT_NOT_IMPLEMENTED((opnd_is_reg(args[i]) &&
+                                opnd_get_size(args[i]) == OPSZ_PTR) ||
+                               opnd_is_immed_int(args[i]));
         DODEBUG({
             uint j;
             /* assume no reg used by arg conflicts with regparms */
             for (j = 0; j < i; j++)
                 ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
         });
-        if (regparms[i] != opnd_get_reg(args[i])) {
+        if (!opnd_is_reg(args[i]) || regparms[i] != opnd_get_reg(args[i])) {
             POST(ilist, mark, XINST_CREATE_move(dcontext,
                                                 opnd_create_reg(regparms[i]),
                                                 args[i]));
@@ -268,6 +359,15 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                                        opnd_create_reg(scratch)));
     PRE(ilist, where, post_call);
     return false /* an ind branch */;
+}
+
+int
+insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
+                                  instr_t *instr, bool save)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
 }
 
 /*###########################################################################
@@ -695,6 +795,7 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                       instr_get_opcode(instr), instr);
     int i;
+    ASSERT(!instr_is_meta(instr));
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
     insert_mov_immed_ptrsz(dcontext, app_r15, opnd_create_reg(reg),
                            ilist, instr, NULL, NULL);
@@ -745,6 +846,10 @@ instr_t *
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                   instr_t *next_instr)
 {
+    /* Our stolen reg model is to expose to the client.  We assume that any
+     * meta instrs using it are using it as TLS.
+     */
+    ASSERT(!instr_is_meta(instr));
     /* We cannot guarantee to find a scratch reg for reg list instrs so we have
      * to special-case them.
      */

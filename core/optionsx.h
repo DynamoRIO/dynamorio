@@ -527,6 +527,7 @@
      * i.e., initialize the eflags before using it, we can skip the eflags
      * clear code.
      * Note: we still clear DF for string instructions.
+     * Note: this option is ignored for ARM.
      */
     OPTION_DEFAULT(bool, cleancall_ignore_eflags, true,
                    "skip eflags clear code with assumption that clean call does not rely on cleared eflags")

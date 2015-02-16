@@ -5985,6 +5985,12 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     else if (TEST(DR_MC_CONTROL, dmc->flags))
         dmc->xsp = get_mcontext(dcontext)->xsp;
 
+#ifdef ARM
+    /* get the stolen register's app value */
+    *(reg_t*)(((byte *)dcontext)+opnd_get_reg_dcontext_offs(dr_reg_stolen)) =
+        (reg_t) get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT));
+#endif
+
     /* XXX: should we set the pc field? */
 
     return true;
@@ -6026,6 +6032,19 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      * will override any save_fpstate xmm values, as desired.
      */
     state = get_priv_mcontext_from_dstack(dcontext);
+#ifdef ARM
+    if (TEST(DR_MC_INTEGER, context->flags)) {
+        /* Set the stolen register's app value in TLS, not on stack (we rely
+         * on our stolen reg retaining its value on the stack)
+         */
+        set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT),
+                (void *) *(reg_t*)(((byte *)dcontext) +
+                                   opnd_get_reg_dcontext_offs(dr_reg_stolen)));
+        /* Avoid the copy below clobbering the reg val on the stack */
+        *(reg_t*)(((byte *)dcontext)+opnd_get_reg_dcontext_offs(dr_reg_stolen)) =
+            *(reg_t*)(((byte *)state)+opnd_get_reg_dcontext_offs(dr_reg_stolen)-MC_OFFS);
+    }
+#endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
 

@@ -5129,9 +5129,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * we emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc)
      */
     offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL,
-                                       IF_X64_ELSE(16, 4),
-                                       INSTR_CREATE_push(dcontext,
-                                                         opnd_create_reg(SCRATCH_REG0)));
+                                       IF_X64_ELSE(16, 4), opnd_create_reg(SCRATCH_REG0));
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == sizeof(priv_mcontext_t));
     APP(&ilist, INSTR_CREATE_lea
@@ -5546,8 +5544,7 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 
     /* save all registers */
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, PAGE_SIZE,
-                              INSTR_CREATE_push_imm(dcontext,
-                                                    OPND_CREATE_INT32(0)));
+                              OPND_CREATE_INT32(0));
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);

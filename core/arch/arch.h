@@ -504,11 +504,17 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, instr_t *push_pc);
+                          uint alignment, opnd_t push_pc);
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
                          uint alignment);
+void
+insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t scratch1, reg_id_t scratch2);
+void
+insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                         reg_id_t scratch1, reg_id_t scratch2);
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
@@ -531,11 +537,11 @@ instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter);
 #endif
 int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 
-/* in mangle.c  but not exported to non-x86 files */
-#ifdef X86
+/* in mangle.c  but not exported to non-arch files */
 int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr, bool save);
+#ifdef X86
 /* mangle the instruction that reference memory via segment register */
 void
 mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1415,6 +1421,38 @@ add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
     ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
                    instr_create_save_to_dcontext((dc), (reg), (offs))) : \
      instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
+
+#ifdef ARM
+/* Push/pop GPR helpers */
+# define DR_REG_LIST_HEAD                                     \
+    opnd_create_reg(DR_REG_R0),  opnd_create_reg(DR_REG_R1),  \
+    opnd_create_reg(DR_REG_R2),  opnd_create_reg(DR_REG_R3),  \
+    opnd_create_reg(DR_REG_R4),  opnd_create_reg(DR_REG_R5),  \
+    opnd_create_reg(DR_REG_R6),  opnd_create_reg(DR_REG_R7),  \
+    opnd_create_reg(DR_REG_R8),  opnd_create_reg(DR_REG_R9),  \
+    opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
+    opnd_create_reg(DR_REG_R12)
+
+# ifdef X64
+#  define DR_REG_LIST_LENGTH_ARM 32
+#  define DR_REG_LIST_ARM DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), \
+    opnd_create_reg(DR_REG_X14), opnd_create_reg(DR_REG_X15),  \
+    opnd_create_reg(DR_REG_X16), opnd_create_reg(DR_REG_X17),  \
+    opnd_create_reg(DR_REG_X18), opnd_create_reg(DR_REG_X19),  \
+    opnd_create_reg(DR_REG_X20), opnd_create_reg(DR_REG_X21),  \
+    opnd_create_reg(DR_REG_X22), opnd_create_reg(DR_REG_X23),  \
+    opnd_create_reg(DR_REG_X24), opnd_create_reg(DR_REG_X25),  \
+    opnd_create_reg(DR_REG_X26), opnd_create_reg(DR_REG_X27),  \
+    opnd_create_reg(DR_REG_X28), opnd_create_reg(DR_REG_X29),  \
+    opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X31)
+# else
+#  define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
+#  define DR_REG_LIST_ARM DR_REG_LIST_HEAD, \
+    opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
+# endif
+# define DR_REG_LIST_LENGTH_T32 13 /* no R13+ (sp, lr, pc) */
+# define DR_REG_LIST_T32 DR_REG_LIST_HEAD
+#endif
 
 int
 fragment_ibt_prefix_size(uint flags);

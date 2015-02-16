@@ -44,6 +44,7 @@
 
 /* shorten code generation lines */
 #define APP    instrlist_meta_append
+#define PRE    instrlist_meta_preinsert
 #define OPREG  opnd_create_reg
 
 /***************************************************************************/
@@ -459,24 +460,55 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
  * This should be only used on emitting fcache enter/return code.
  */
 static void
-append_load_app_tls_slot(dcontext_t *dcontext, instrlist_t *ilist,
+insert_load_app_tls_slot(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                          reg_id_t reg_base, reg_id_t reg_slot)
 {
     /* load app's TLS base from user-read-only-thread-ID register
      * mrc p15, 0, reg_base, c13, c0, 3
      */
-    APP(ilist, INSTR_CREATE_mrc(dcontext,
-                                opnd_create_reg(reg_base),
-                                OPND_CREATE_INT(15),
-                                OPND_CREATE_INT(0),
-                                opnd_create_reg(DR_REG_CR13),
-                                opnd_create_reg(DR_REG_CR0),
-                                OPND_CREATE_INT(APP_TLS_REG_OPCODE)));
+    PRE(ilist, where,
+        INSTR_CREATE_mrc(dcontext, opnd_create_reg(reg_base),
+                         OPND_CREATE_INT(15),
+                         OPND_CREATE_INT(0),
+                         opnd_create_reg(DR_REG_CR13),
+                         opnd_create_reg(DR_REG_CR0),
+                         OPND_CREATE_INT(APP_TLS_REG_OPCODE)));
     /* ldr reg_slot, [reg, APP_TLS_SLOT_SWAP] */
-    APP(ilist, XINST_CREATE_load(dcontext,
-                                 opnd_create_reg(reg_slot),
-                                 OPND_CREATE_MEMPTR(reg_base,
-                                                    APP_TLS_SWAP_SLOT)));
+    PRE(ilist, where,
+        XINST_CREATE_load(dcontext, opnd_create_reg(reg_slot),
+                          OPND_CREATE_MEMPTR(reg_base, APP_TLS_SWAP_SLOT)));
+}
+
+void
+insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t scratch1, reg_id_t scratch2)
+{
+    /* load app's TLS base into r0 and DR's TLS base into dr_reg_stolen */
+    insert_load_app_tls_slot(dcontext, ilist, where, scratch1, dr_reg_stolen);
+    /* load app original value from os_tls->app_tls_swap */
+    PRE(ilist, where,
+        RESTORE_FROM_TLS(dcontext, scratch2, os_get_app_tls_swap_offset()));
+    /* store app value back to app's TLS swap slot ([r0, APP_TLS_SWAP_SLOT]) */
+    PRE(ilist, where,
+        XINST_CREATE_store(dcontext,
+                           OPND_CREATE_MEMPTR(scratch1, APP_TLS_SWAP_SLOT),
+                           opnd_create_reg(scratch2)));
+}
+
+void
+insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                         reg_id_t scratch1, reg_id_t scratch2)
+{
+    /* steal app's TLS slot for DR's TLS base */
+    /* load app's TLS base into r1 and app's tls slot value into r2 */
+    insert_load_app_tls_slot(dcontext, ilist, where, scratch1, scratch2);
+    /* save r2 into os_tls->app_tls_swap */
+    PRE(ilist, where, SAVE_TO_TLS(dcontext, scratch2, os_get_app_tls_swap_offset()));
+    /* save dr_reg_stolen into app's tls slot */
+    PRE(ilist, where,
+        XINST_CREATE_store(dcontext,
+                           OPND_CREATE_MEMPTR(scratch1, APP_TLS_SWAP_SLOT),
+                           opnd_create_reg(dr_reg_stolen)));
 }
 
 /* Having only one thread register (TPIDRURO) shared between app and DR,
@@ -498,15 +530,8 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
     APP(ilist, XINST_CREATE_move(dcontext,
                                  opnd_create_reg(REG_DCXT),
                                  OPND_ARG1/*r0*/));
-    /* load app's TLS base into r0 and DR's TLS base into dr_reg_stolen */
-    append_load_app_tls_slot(dcontext, ilist, SCRATCH_REG0, dr_reg_stolen);
-    /* load app original value from os_tls->app_tls_swap */
-    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, os_get_app_tls_swap_offset()));
-    /* store app value back to app's TLS swap slot ([r0, APP_TLS_SWAP_SLOT]) */
-    APP(ilist, XINST_CREATE_store(dcontext,
-                                  OPND_CREATE_MEMPTR(SCRATCH_REG0,
-                                                     APP_TLS_SWAP_SLOT),
-                                  opnd_create_reg(SCRATCH_REG1)));
+    /* set up stolen reg and restore app's TLS slot */
+    insert_swap_to_app_tls(dcontext, ilist, NULL/*append*/, SCRATCH_REG0, SCRATCH_REG1);
 }
 
 void
@@ -533,36 +558,6 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     /* s16–s31 (d8–d15, q4–q7) are callee save */
     /* FIXME i#1551: NYI on ARM */
 }
-
-#define DR_REG_LIST_HEAD                                      \
-    opnd_create_reg(DR_REG_R0),  opnd_create_reg(DR_REG_R1),  \
-    opnd_create_reg(DR_REG_R2),  opnd_create_reg(DR_REG_R3),  \
-    opnd_create_reg(DR_REG_R4),  opnd_create_reg(DR_REG_R5),  \
-    opnd_create_reg(DR_REG_R6),  opnd_create_reg(DR_REG_R7),  \
-    opnd_create_reg(DR_REG_R8),  opnd_create_reg(DR_REG_R9),  \
-    opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
-    opnd_create_reg(DR_REG_R12)
-
-#ifdef X64
-# define DR_REG_LIST_LENGTH_ARM 32
-# define DR_REG_LIST_ARM DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), \
-    opnd_create_reg(DR_REG_X14), opnd_create_reg(DR_REG_X15),  \
-    opnd_create_reg(DR_REG_X16), opnd_create_reg(DR_REG_X17),  \
-    opnd_create_reg(DR_REG_X18), opnd_create_reg(DR_REG_X19),  \
-    opnd_create_reg(DR_REG_X20), opnd_create_reg(DR_REG_X21),  \
-    opnd_create_reg(DR_REG_X22), opnd_create_reg(DR_REG_X23),  \
-    opnd_create_reg(DR_REG_X24), opnd_create_reg(DR_REG_X25),  \
-    opnd_create_reg(DR_REG_X26), opnd_create_reg(DR_REG_X27),  \
-    opnd_create_reg(DR_REG_X28), opnd_create_reg(DR_REG_X29),  \
-    opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X31)
-#else
-# define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
-# define DR_REG_LIST_ARM DR_REG_LIST_HEAD, \
-    opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
-#endif
-#define DR_REG_LIST_LENGTH_T32 13 /* no R13+ (sp, lr, pc) */
-#define DR_REG_LIST_T32 DR_REG_LIST_HEAD
-
 
 /* Append instructions to restore gpr on fcache enter, to be executed
  * right before jump to fcache target.
@@ -668,16 +663,8 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
      */
     APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_REG_STOLEN_SLOT));
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_OFFSET(dr_reg_stolen)));
-    /* steal app's TLS slot for DR's TLS base */
-    /* load app's TLS base into r1 and app's tls slot value into r2 */
-    append_load_app_tls_slot(dcontext, ilist, SCRATCH_REG1, SCRATCH_REG2);
-    /* save r2 into os_tls->app_tls_swap */
-    APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, os_get_app_tls_swap_offset()));
-    /* save dr_reg_stolen into app's tls slot */
-    APP(ilist, XINST_CREATE_store(dcontext,
-                                  OPND_CREATE_MEMPTR(SCRATCH_REG1,
-                                                     APP_TLS_SWAP_SLOT),
-                                  opnd_create_reg(dr_reg_stolen)));
+    /* move stolen reg val into TLS slot for DR's C code */
+    insert_swap_from_app_tls(dcontext, ilist, NULL/*append*/, SCRATCH_REG1, SCRATCH_REG2);
     /* FIXME i#1551: how should we handle register pc? */
 }
 

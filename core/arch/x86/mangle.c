@@ -328,7 +328,7 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, instr_t *push_pc)
+                          uint alignment, opnd_t push_pc)
 {
     uint dstack_offs = 0;
     int  offs_beyond_xmm = 0;
@@ -377,14 +377,16 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* pc and aflags */
     if (!cci->skip_save_aflags) {
         ASSERT(offs_beyond_xmm == 0);
-        PRE(ilist, instr, push_pc);
+        if (opnd_is_immed_int(push_pc))
+            PRE(ilist, instr, INSTR_CREATE_push_imm(dcontext, push_pc));
+        else
+            PRE(ilist, instr, INSTR_CREATE_push(dcontext, push_pc));
         dstack_offs += XSP_SZ;
         PRE(ilist, instr, INSTR_CREATE_pushf(dcontext));
         dstack_offs += XSP_SZ;
     } else {
         ASSERT(offs_beyond_xmm == 2*XSP_SZ || !cci->preserve_mcontext);
-        /* for cci->preserve_mcontext we added to the lea above */
-        instr_destroy(dcontext, push_pc);
+        /* for cci->preserve_mcontext we added to the lea above so we ignore push_pc */
     }
 
 #ifdef X64
