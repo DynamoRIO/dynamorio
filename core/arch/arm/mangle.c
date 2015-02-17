@@ -577,6 +577,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags)
 {
     int opc = instr_get_opcode(instr);
+    dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
     if (instr_writes_gpr_list(instr)) {
@@ -617,7 +618,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             dr_pred_type_t pred = instr_get_predicate(instr);
             ptr_int_t fall_through = get_call_return_address(dcontext, ilist, instr);
             instr_t *mov_imm, *mov_imm2;
-            dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
             instr_t *prev = NULL;
             if (isa_mode == DR_ISA_ARM_THUMB) {
                 /* First, move the OP_it instr after the reg spill */
@@ -687,6 +687,21 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             }
         }
         ASSERT(found_pc);
+        if (isa_mode == DR_ISA_ARM_THUMB) {
+            /* Thumb writes to the PC (OP_add and OP_mov are all that's allowed)
+             * are non-mode-changing branches, so we set LSB to 1.
+             */
+            opnd_t src = opnd_create_reg(DR_REG_R2);
+            if (instr_get_opcode(instr) == OP_mov && !instr_is_predicated(instr)) {
+                /* Optimization: we can replace the mov */
+                src = instr_get_src(instr, 0);
+                instrlist_remove(ilist, instr);
+                instr_destroy(dcontext, instr);
+            }
+            PRE(ilist, next_instr,
+                INSTR_CREATE_orr(dcontext, opnd_create_reg(DR_REG_R2), src,
+                                 OPND_CREATE_INT(1)));
+        }
     }
     /* FIXME i#1551: handle predication where instr is skipped
      * For ind branch: need to add cbr -- will emit do right thing?
