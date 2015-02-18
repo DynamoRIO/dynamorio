@@ -661,16 +661,65 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* remove the bx */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
+    } else if (opc == OP_tbb || opc == OP_tbh) {
+        /* XXX: should we add add dr_insert_get_mbr_branch_target() for use
+         * internally and by clients?  OP_tb{b,h} break our assumptions of the target
+         * simply being stored as an absolute address at the memory operand location.
+         * Instead, these are pc-relative: pc += memval*2.  However, it's non-trivial
+         * to add that, as it requires duplicating all this mangling code.  Really
+         * clients should use dr_insert_mbr_instrumentation(), and instr_get_target()
+         * isn't that useful for mbrs.
+         */
+        ptr_int_t cur_pc = (ptr_int_t)
+            decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
+                          opc, instr);
+        if (opc == OP_tbb) {
+            PRE(ilist, instr,
+                INSTR_CREATE_ldrb(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                  instr_get_src(instr, 0)));
+        } else {
+            PRE(ilist, instr,
+                INSTR_CREATE_ldrh(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                  instr_get_src(instr, 0)));
+        }
+        PRE(ilist, instr,
+            INSTR_CREATE_lsl(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                             opnd_create_reg(IBL_TARGET_REG), OPND_CREATE_INT(1)));
+        /* Rather than steal another register and using movw,movt to put the pc
+         * into it, we split the add up into 4 pieces.
+         * Even if the memref is pc-relative, this is still faster than sharing
+         * the pc from mangle_rel_addr() if we have mangle_rel_addr() use r2
+         * as the scratch reg.
+         * XXX: arrange for that to happen, when we refactor the ind br vs PC
+         * and stolen reg mangling, if memref doesn't already use r2.
+         */
+        if (opc == OP_tbb) {
+            /* One byte x2 won't touch the top half, so we use a movt to add: */
+            PRE(ilist, instr,
+                INSTR_CREATE_movt(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                  OPND_CREATE_INT((cur_pc & 0xffff0000) >> 16)));
+        } else {
+            PRE(ilist, instr,
+                XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                 OPND_CREATE_INT(cur_pc & 0xff000000)));
+            PRE(ilist, instr,
+                XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                 OPND_CREATE_INT(cur_pc & 0x00ff0000)));
+        }
+        PRE(ilist, instr,
+            XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                             OPND_CREATE_INT(cur_pc & 0x0000ff00)));
+        PRE(ilist, instr,
+            XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                             /* These do not switch modes so we set LSB */
+                             OPND_CREATE_INT((cur_pc & 0x000000ff) | 0x1)));
+        /* remove the instr */
+        instrlist_remove(ilist, instr);
+        instr_destroy(dcontext, instr);
     } else if (opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
-               opc == OP_eret || opc == OP_tbb || opc == OP_tbh) {
+               opc == OP_eret) {
         /* FIXME i#1551: NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
-        /* FIXME i#1551: we should add add dr_insert_get_mbr_branch_target() for
-         * use internally and by clients, as OP_tb{b,h} break our assumptions
-         * of the target simply being stored as an absolute address at
-         * the memory operand location.  Instead, these are pc-relative:
-         * pc += memval*2.
-         */
     } else {
         /* Explicitly writes just the pc */
         uint i;
@@ -726,7 +775,12 @@ pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore 
     *should_restore = true;
     for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
          reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
-        if (!instr_uses_reg(instr, reg))
+        if (!instr_uses_reg(instr, reg) &&
+            /* Ensure no conflict in scratch regs for PC or stolen reg
+             * mangling vs ind br mangling.  We can't just check for mbr b/c
+             * of OP_blx.
+             */
+            (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
             break;
     }
     if (reg > SCRATCH_REG3) {
@@ -735,7 +789,9 @@ pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore 
          */
         for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
              reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
-            if (!instr_reads_from_reg(instr, reg, DR_QUERY_INCLUDE_ALL))
+            if (!instr_reads_from_reg(instr, reg, DR_QUERY_INCLUDE_ALL) &&
+                /* Ensure no conflict vs ind br mangling */
+                (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
                 break;
         }
         *should_restore = false;
@@ -760,25 +816,22 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ptr_int_t r15 = (ptr_int_t)
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                       instr_get_opcode(instr), instr);
-    opnd_t reg_op, mem_op;
+    opnd_t mem_op;
     ASSERT(instr_has_rel_addr_reference(instr));
 
-    if (opc == OP_ldr || opc == OP_str) {
+    if (opc == OP_ldr || opc == OP_str || opc == OP_tbb || opc == OP_tbh) {
         ushort slot;
         bool should_restore;
         reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
         opnd_t new_op;
         dr_shift_type_t shift_type;
         uint shift_amt;
-        if (opc == OP_ldr) {
-            reg_op = instr_get_dst(instr, 0);
-            mem_op = instr_get_src(instr, 0);
-        } else {
-            reg_op = instr_get_src(instr, 0);
+        if (opc == OP_str) {
             mem_op = instr_get_dst(instr, 0);
+        } else {
+            mem_op = instr_get_src(instr, 0);
         }
-        ASSERT(opnd_is_reg(reg_op) && opnd_is_base_disp(mem_op));
-        ASSERT_NOT_IMPLEMENTED(!instr_is_cti(instr));
+        ASSERT(opnd_is_base_disp(mem_op));
         shift_type = opnd_get_index_shift(mem_op, &shift_amt);
         new_op = opnd_create_base_disp_arm
             (reg, opnd_get_index(mem_op), shift_type, shift_amt, opnd_get_disp(mem_op),
@@ -786,10 +839,10 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
         insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
                                ilist, instr, NULL, NULL);
-        if (opc == OP_ldr) {
-            instr_set_src(instr, 0, new_op);
-        } else {
+        if (opc == OP_str) {
             instr_set_dst(instr, 0, new_op);
+        } else {
+            instr_set_src(instr, 0, new_op);
         }
         if (should_restore)
             PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
