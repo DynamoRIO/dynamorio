@@ -195,6 +195,8 @@ typedef struct _local_state_extended_t {
 # define SCRATCH_REG2             DR_REG_R2
 # define SCRATCH_REG3             DR_REG_R3
 #endif /* X86/ARM */
+#define IBL_TARGET_REG           SCRATCH_REG2
+#define IBL_TARGET_SLOT          TLS_REG2_SLOT
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
 #ifdef ARM
 # define TLS_FCACHE_RETURN_SLOT  ((ushort)offsetof(spill_state_t, fcache_return))

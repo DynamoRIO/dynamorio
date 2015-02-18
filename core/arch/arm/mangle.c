@@ -532,8 +532,8 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (instr_get_isa_mode(instr) == DR_ISA_ARM_A32)
             target = (ptr_int_t) PC_AS_JMP_TGT(DR_ISA_ARM_THUMB, (app_pc)target);
         PRE(ilist, instr,
-            instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
-        insert_mov_immed_ptrsz(dcontext, target, opnd_create_reg(DR_REG_R2),
+            instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+        insert_mov_immed_ptrsz(dcontext, target, opnd_create_reg(IBL_TARGET_REG),
                                ilist, instr, NULL, NULL);
         /* remove OP_blx */
         instrlist_remove(ilist, instr);
@@ -548,10 +548,10 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     ptr_uint_t retaddr;
     PRE(ilist, instr,
-        instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
-    if (!opnd_same(instr_get_target(instr), opnd_create_reg(DR_REG_R2))) {
+        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    if (!opnd_same(instr_get_target(instr), opnd_create_reg(IBL_TARGET_REG))) {
         PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
+            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
                               instr_get_target(instr)));
     }
     retaddr = get_call_return_address(dcontext, ilist, instr);
@@ -579,7 +579,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     int opc = instr_get_opcode(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
     PRE(ilist, instr,
-        instr_create_save_to_tls(dcontext, DR_REG_R2, TLS_REG2_SLOT));
+        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
     if (instr_writes_gpr_list(instr)) {
         /* The load into pc will always be last (r15) so we remove it and add
          * a single-load instr into r2, with the same inc/dec and writeback.
@@ -602,7 +602,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         ASSERT(found_pc);
         instr_remove_dsts(dcontext, single, 0, i); /* leave pc => r2 */
-        instr_set_dst(single, 0, opnd_create_reg(DR_REG_R2));
+        instr_set_dst(single, 0, opnd_create_reg(IBL_TARGET_REG));
         instrlist_preinsert(ilist, next_instr, single); /* non-meta */
     } else if (opc == OP_bx || opc ==  OP_bxj) {
         if (instr_is_predicated(instr)) {
@@ -629,14 +629,14 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 ASSERT_NOT_IMPLEMENTED(opnd_get_immed_int(instr_get_src(prev, 1)) == 8);
             }
             PRE(ilist, instr,
-                INSTR_PRED(XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
+                INSTR_PRED(XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
                                              instr_get_target(instr)),
                            pred));
             insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
                                    PC_AS_JMP_TGT(instr_get_isa_mode(instr),
                                                  (app_pc)fall_through),
-                                   opnd_create_reg(DR_REG_R2), ilist, instr, &mov_imm,
-                                   &mov_imm2);
+                                   opnd_create_reg(IBL_TARGET_REG), ilist, instr,
+                                   &mov_imm, &mov_imm2);
             instr_set_predicate(mov_imm, invert_predicate(pred));
             if (mov_imm2 == NULL) {
                 if (isa_mode == DR_ISA_ARM_THUMB) {
@@ -655,7 +655,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             }
         } else {
             PRE(ilist, instr,
-                XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R2),
+                XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
                                   instr_get_target(instr)));
         }
         /* remove the bx */
@@ -676,13 +676,13 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         uint i;
         bool found_pc;
         /* XXX: can anything (non-OP_ldm) have r2 as an additional dst? */
-        ASSERT_NOT_IMPLEMENTED(!instr_writes_to_reg(instr, DR_REG_R2,
+        ASSERT_NOT_IMPLEMENTED(!instr_writes_to_reg(instr, IBL_TARGET_REG,
                                                     DR_QUERY_INCLUDE_ALL));
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_reg(instr_get_dst(instr, i)) &&
                 opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
                 found_pc = true;
-                instr_set_dst(instr, i, opnd_create_reg(DR_REG_R2));
+                instr_set_dst(instr, i, opnd_create_reg(IBL_TARGET_REG));
                 break;
             }
         }
@@ -691,7 +691,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* Thumb writes to the PC (OP_add and OP_mov are all that's allowed)
              * are non-mode-changing branches, so we set LSB to 1.
              */
-            opnd_t src = opnd_create_reg(DR_REG_R2);
+            opnd_t src = opnd_create_reg(IBL_TARGET_REG);
             if (instr_get_opcode(instr) == OP_mov && !instr_is_predicated(instr)) {
                 /* Optimization: we can replace the mov */
                 src = instr_get_src(instr, 0);
@@ -699,7 +699,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_destroy(dcontext, instr);
             }
             PRE(ilist, next_instr,
-                INSTR_CREATE_orr(dcontext, opnd_create_reg(DR_REG_R2), src,
+                INSTR_CREATE_orr(dcontext, opnd_create_reg(IBL_TARGET_REG), src,
                                  OPND_CREATE_INT(1)));
         }
     }
