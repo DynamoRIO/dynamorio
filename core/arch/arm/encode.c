@@ -593,10 +593,10 @@ static bool
 encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
                   bool is_dst, uint *counter INOUT, uint max_num,
                   bool is_simd, uint stride, uint prior,
-                  reg_id_t excludeA, reg_id_t excludeB)
+                  reg_id_t excludeA, reg_id_t excludeB, reg_id_t base_reg)
 {
     opnd_size_t size_temp_up = resolve_size_upward(size_temp);
-    uint i;
+    uint i, base_reg_cnt = 0;
     opnd_t opnd;
     opnd_size_t size_op;
     reg_id_t reg, last_reg = DR_REG_NULL;
@@ -623,6 +623,8 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
         if (!opnd_is_reg(opnd))
             break;
         reg = opnd_get_reg(opnd);
+        if (reg == base_reg)
+            base_reg_cnt++;
         if (i > 0 && stride > 0 && reg != last_reg + stride)
             break;
         if (is_simd ? !reg_is_simd(reg) : !reg_is_gpr(reg))
@@ -648,6 +650,11 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
     di->reglist_sz = (prior + di->reglist_stop - di->reglist_start) *
         /* Be sure to use the sub-reg size from the template */
         opnd_size_in_bytes(size_temp);
+    /* For T32.16, the base reg should appear either in the reglist or as
+     * a writeback reg once and only once.
+     */
+    if (di->T32_16 && max_num == 8 && base_reg != REG_NULL && base_reg_cnt != 1)
+        return false;
     return true;
 }
 
@@ -1137,11 +1144,22 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
          * wrong-order-vs-asm for OP_vtbl and others).
          */
         uint max_num = gpr_list_num_bits(optype);
+        reg_id_t base_reg = REG_NULL;
+        if (optype == TYPE_L_8b) {
+            /* For T32.16 the base reg should appear either in the reglist or as
+             * a writeback reg once and only once.
+             */
+            opnd_t memop = is_dst ? instr_get_src(in, 0) : instr_get_dst(in, 0);
+            if (!opnd_is_base_disp(memop))
+                return false;
+            base_reg = opnd_get_base(memop);
+        }
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, false/*gpr*/,
                                0/*no restrictions*/, 0,
                                (optype == TYPE_L_16b_NO_SP ||
                                 optype == TYPE_L_16b_NO_SP_PC) ? DR_REG_SP : DR_REG_NULL,
-                               (optype == TYPE_L_16b_NO_SP_PC) ? DR_REG_PC : DR_REG_NULL))
+                               (optype == TYPE_L_16b_NO_SP_PC) ? DR_REG_PC : DR_REG_NULL,
+                               base_reg))
             return false;
         /* We refuse to encode as an empty list ("unpredictable", and harder to ensure
          * encoding templates are distinguishable)
@@ -1166,7 +1184,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (!opnd_is_reg(prior) || !reg_is_simd(opnd_get_reg(prior)))
             return false;
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, true/*simd*/,
-                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         /* We have to allow an empty list b/c the template has the 1st entry */
         return true;
@@ -1174,35 +1192,39 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_L_VAx2:
     case TYPE_L_VBx2:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
-                               1/*consec*/, 1/*prior entry*/, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 1/*prior entry*/,
+                               DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VAx3:
     case TYPE_L_VBx3:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, true/*simd*/,
-                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VAx4:
     case TYPE_L_VBx4:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, true/*simd*/,
-                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
 
     case TYPE_L_VBx2D:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
-                               2/*doubly-spaced*/, 0, DR_REG_NULL, DR_REG_NULL))
+                               2/*doubly-spaced*/, 0,
+                               DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VBx3D:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, true/*simd*/,
-                               2/*doubly-spaced*/, 0, DR_REG_NULL, DR_REG_NULL))
+                               2/*doubly-spaced*/, 0,
+                               DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VBx4D:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, true/*simd*/,
-                               2/*doubly-spaced*/, 0, DR_REG_NULL, DR_REG_NULL))
+                               2/*doubly-spaced*/, 0,
+                               DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
 

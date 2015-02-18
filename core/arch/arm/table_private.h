@@ -181,6 +181,7 @@
 #define y7    (ptr_int_t)&T32_16_ext_bit_7
 #define y54   (ptr_int_t)&T32_16_ext_bits_5_4
 #define y109  (ptr_int_t)&T32_16_ext_bits_10_9
+#define y108  (ptr_int_t)&T32_16_ext_bits_10_8
 #define y76   (ptr_int_t)&T32_16_ext_bits_7_6
 #define y64   (ptr_int_t)&T32_16_ext_bits_6_4
 #define y30   (ptr_int_t)&T32_16_ext_imm_3_0
@@ -193,6 +194,7 @@
 #define z96   (ptr_int_t)&T32_16_it_ext_bits_9_6
 #define z7    (ptr_int_t)&T32_16_it_ext_bit_7
 #define z109  (ptr_int_t)&T32_16_it_ext_bits_10_9
+#define z108  (ptr_int_t)&T32_16_it_ext_bits_10_8
 #define z76   (ptr_int_t)&T32_16_it_ext_bits_7_6
 #define z64   (ptr_int_t)&T32_16_it_ext_bits_6_4
 

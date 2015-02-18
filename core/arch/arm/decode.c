@@ -1477,6 +1477,19 @@ decode_ext_vtb_idx(uint instr_word)
 }
 
 static inline uint
+decode_T32_16_ext_bits_10_8_idx(uint instr_word)
+{
+    uint idx;
+    /* check whether Rn is also listed in reglist */
+    if (TEST((1 << ((instr_word >> 8) & 0x7)/*Rn*/),
+             (instr_word & 0xff)/*reglist*/))
+        idx = 0;
+    else
+        idx = 1;
+    return idx;
+}
+
+static inline uint
 decode_it_block_num_instrs(byte mask)
 {
     if ((mask & 0xf) == 0x8)
@@ -1716,6 +1729,9 @@ decode_instr_info_T32_it(decode_info_t *di)
         } else if (info->type == EXT_10_9) {
             idx = (di->instr_word >> 9) & 0x3; /* bits 10:9 */
             info = &T32_16_it_ext_bits_10_9[info->code][idx];
+        } else if (info->type == EXT_10_8) {
+            idx = decode_T32_16_ext_bits_10_8_idx(di->instr_word);
+            info = &T32_16_it_ext_bits_10_8[info->code][idx];
         } else if (info->type == EXT_7_6) {
             idx = (di->instr_word >> 6) & 0x3; /* bits 7:6 */
             info = &T32_16_it_ext_bits_7_6[info->code][idx];
@@ -1767,6 +1783,10 @@ decode_instr_info_T32_16(decode_info_t *di)
         } else if (info->type == EXT_10_9) {
             idx = (di->instr_word >> 9) & 0x3; /* bits 10:9 */
             info = &T32_16_ext_bits_10_9[info->code][idx];
+        } else if (info->type == EXT_10_8) {
+            /* check whether Rn is also listed in reglist */
+            idx = decode_T32_16_ext_bits_10_8_idx(di->instr_word);
+            info = &T32_16_ext_bits_10_8[info->code][idx];
         } else if (info->type == EXT_7_6) {
             idx = (di->instr_word >> 6) & 0x3; /* bits 7:6 */
             info = &T32_16_ext_bits_7_6[info->code][idx];

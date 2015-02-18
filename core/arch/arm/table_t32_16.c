@@ -41,7 +41,7 @@
  */
 
 /* top-level table */
-/* indexed by bits 15:12*/
+/* Indexed by bits 15:12*/
 const instr_info_t T32_16_opc4[] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     /* 0 */
@@ -65,7 +65,7 @@ const instr_info_t T32_16_opc4[] = {
 };
 
 /* second-level table */
-/* indexed by bit 11 */
+/* Indexed by bit 11 */
 const instr_info_t T32_16_ext_bit_11[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -97,11 +97,11 @@ const instr_info_t T32_16_ext_bit_11[][2] = {
       {OP_add,   0xa800, "add",        RWw, xx,    SPw, i8x4, xx, no,      x, y11[8][0x00]},
     }, { /* 9 */
       {OP_stm,   0xc000, "stm",        Ml, RWw,    L8w,  RWw, xx, no,      x, xbase[0x0a]},
-      {OP_ldm,   0xc800, "ldm",        L8w, xx,     Ml,   xx, xx, no,      x, xbase[0x0b]},
+      {EXT_10_8, 0xc800, "ext 10:8 0", xx,  xx,     xx,   xx, xx, no,      x, 0},
     },
 };
 
-/* indexed by bit 11:10 */
+/* Indexed by bit 11:10 */
 const instr_info_t T32_16_ext_bits_11_10[][4] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -112,7 +112,7 @@ const instr_info_t T32_16_ext_bits_11_10[][4] = {
     },
 };
 
-/* indexed by bits 11:9 */
+/* Indexed by bits 11:9 */
 const instr_info_t T32_16_ext_bits_11_9[][8] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -127,7 +127,7 @@ const instr_info_t T32_16_ext_bits_11_9[][8] = {
     },
 };
 
-/* indexed by bits 11:8 */
+/* Indexed by bits 11:8 */
 const instr_info_t T32_16_ext_bits_11_8[][16] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -143,7 +143,7 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
       {OP_cbnz,  0xb900, "cbnz",              xx,  xx, j6x9_3, RZw, xx, no, x, END_LIST},/*i=0*//*XXX: disasm srcs reordered vs instr_get_target() */
       {EXT_7_6,  0xba00, "(ext 7:6 1)",       xx,  xx,     xx,  xx, xx, no, x,        1},
       {OP_cbnz,  0xbb00, "cbnz",              xx,  xx, j6x9_3, RZw, xx, no, x, DUP_ENTRY},/*i=1*//*XXX: disasm srcs reordered vs instr_get_target() */
-      {OP_ldm,   0xbc00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, y11[9][0x01]},/*"pop"*/
+      {OP_ldm,   0xbc00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, y108[0][0x01]},/*"pop"*/
       {OP_ldm,   0xbd00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, DUP_ENTRY},/*P=1*//*"pop"*/
       {OP_bkpt,  0xbe00, "bkpt",              xx,  xx,     i8,  xx, xx, no, x, END_LIST},
       {EXT_3_0,  0xbf00, "(ext 3:0 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
@@ -168,7 +168,7 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
 };
 
 /* third level table */
-/* indexed by bits 9:6 */
+/* Indexed by bits 9:6 */
 const instr_info_t T32_16_ext_bits_9_6[][16] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -216,7 +216,7 @@ const instr_info_t T32_16_ext_bit_7[][2] = {
     },
 };
 
-/* indexed by bits 5 and 4 */
+/* Indexed by bits 5 and 4 */
 const instr_info_t T32_16_ext_bits_5_4[][4] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -227,7 +227,7 @@ const instr_info_t T32_16_ext_bits_5_4[][4] = {
     },
 };
 
-/* indexed by bits 10:9 */
+/* Indexed by bits 10:9 */
 const instr_info_t T32_16_ext_bits_10_9[][4] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -238,7 +238,19 @@ const instr_info_t T32_16_ext_bits_10_9[][4] = {
     },
 };
 
-/* indexed by bits 7:6 */
+/* Indexed by if Rn is listed in reglist:
+ * + whether TEST(1 << Rn, reglistbits), take entry 0
+ * + else, take entry 1
+ */
+const instr_info_t T32_16_ext_bits_10_8[][2] = {
+    /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
+    { /* 0 */
+      {OP_ldm,   0xc800, "ldm",  L8w, xx,  Ml,  xx, xx, no, x, xbase[0x0b]},
+      {OP_ldm,   0xc800, "ldm",  L8w, RWw, Ml, RWw, xx, no, x, y108[0][0x00]},
+    },
+};
+
+/* Indexed by bits 7:6 */
 const instr_info_t T32_16_ext_bits_7_6[][4] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -254,7 +266,7 @@ const instr_info_t T32_16_ext_bits_7_6[][4] = {
     },
 };
 
-/* indexed by whether bits 3:0 is zero or not */
+/* Indexed by whether bits 3:0 is zero or not */
 const instr_info_t T32_16_ext_imm_3_0[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
@@ -264,7 +276,7 @@ const instr_info_t T32_16_ext_imm_3_0[][2] = {
 };
 
 /* fourth-level table */
-/* indexed by bits 6:4 */
+/* Indexed by bits 6:4 */
 const instr_info_t T32_16_ext_bits_6_4[][8] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
