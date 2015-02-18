@@ -235,6 +235,7 @@ struct _decode_info_t {
     /* For decoding and encoding shift types.  We need to coordinate across two
      * adjacent immediates.  This is set to point at the first one.
      */
+    bool shift_has_type;
     uint shift_type_idx;
     bool shift_uses_immed;
     dr_shift_type_t shift_type;

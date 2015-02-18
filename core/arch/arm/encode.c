@@ -1248,7 +1248,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                                 false/*unsigned*/, true/*negated*/));
     case TYPE_I_b12_b6:
     case TYPE_I_b7:
-        if (size_temp == OPSZ_5b && di->shift_type_idx == opnum - 1)
+        if (size_temp == OPSZ_5b && di->shift_has_type && di->shift_type_idx == opnum - 1)
             di->shift_uses_immed = true;
         /* Allow one bit larger for shifts of 32, and check actual values in
          * encode_shift_values()
@@ -1298,6 +1298,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 if (opnd_get_immed_int(opnd) % 2 != 0)
                     return false;
             }
+            di->shift_has_type = true;
             di->shift_type_idx = opnum;
             /* Store the shift type for TYPE_I_b7/TYPE_I_b12_b6, here + in real encode */
             di->shift_type = opnd_get_immed_int(opnd);
@@ -1815,7 +1816,7 @@ encode_index_shift(decode_info_t *di, opnd_t opnd, bool encode_type, bool encode
             encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32,
                          DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32, val, false);
         }
-    } else if (di->isa_mode == DR_ISA_ARM_A32) {
+    } else if (di->isa_mode == DR_ISA_ARM_THUMB) {
         if (encode_type) {
             encode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS_T32,
                          DECODE_INDEX_SHIFT_TYPE_SIZE, sh2, false);
@@ -2055,8 +2056,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         encode_immed(di, 6, size_temp, get_immed_val_abs(di, opnd), false/*unsigned*/);
         break;
     case TYPE_I_b7:
-        if (size_temp == OPSZ_5b && di->shift_type_idx == opnum - 1 &&
-            di->shift_uses_immed) {
+        if (size_temp == OPSZ_5b && di->shift_has_type &&
+            di->shift_type_idx == opnum - 1 && di->shift_uses_immed) {
             /* Convert to raw values */
             ptr_int_t sh2, val;
             if (!encode_shift_values(di->shift_type, opnd_get_immed_int(opnd),
@@ -2163,8 +2164,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     }
     case TYPE_I_b12_b6: {
         ptr_int_t val = 0;
-        if (size_temp == OPSZ_5b && di->shift_type_idx == opnum - 1 &&
-            di->shift_uses_immed) {
+        if (size_temp == OPSZ_5b && di->shift_has_type &&
+            di->shift_type_idx == opnum - 1 && di->shift_uses_immed) {
             /* Convert to raw values */
             ptr_int_t sh2, val;
             if (!encode_shift_values(di->shift_type, opnd_get_immed_int(opnd),
