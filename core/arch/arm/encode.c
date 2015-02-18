@@ -1798,7 +1798,8 @@ encode_immed(decode_info_t *di, uint start_bit, opnd_size_t size_temp,
 }
 
 static void
-encode_index_shift(decode_info_t *di, opnd_t opnd, bool encode_type, bool encode_amt)
+encode_index_shift(decode_info_t *di, opnd_t opnd, bool encode_type, bool encode_amt,
+                   uint custom_amt_pos, opnd_size_t custom_amt_size)
 {
     ptr_int_t sh2, val;
     uint amount;
@@ -1822,11 +1823,17 @@ encode_index_shift(decode_info_t *di, opnd_t opnd, bool encode_type, bool encode
                          DECODE_INDEX_SHIFT_TYPE_SIZE, sh2, false);
         }
         if (encode_amt) {
-            encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS1_T32,
-                         DECODE_INDEX_SHIFT_AMOUNT_SIZE1_T32,
-                         val >> DECODE_INDEX_SHIFT_AMOUNT_SIZE1_SHIFT, false);
-            encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS2_T32,
-                         DECODE_INDEX_SHIFT_AMOUNT_SIZE2_T32, val, false);
+            if (custom_amt_size != OPSZ_NA) {
+                /* Custom single immed, most likely for TYPE_M_POS_LSHREG */
+                encode_immed(di, custom_amt_pos, custom_amt_size, val, false);
+            } else {
+                /* Standard split immed */
+                encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS1_T32,
+                             DECODE_INDEX_SHIFT_AMOUNT_SIZE1_T32,
+                             val >> DECODE_INDEX_SHIFT_AMOUNT_SIZE1_SHIFT, false);
+                encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS2_T32,
+                             DECODE_INDEX_SHIFT_AMOUNT_SIZE2_T32, val, false);
+            }
         }
     } else
         CLIENT_ASSERT(false, "mode not supported");
@@ -2377,12 +2384,13 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_M_NEG_SHREG:
         encode_regA(di, opnd_get_base(opnd));
         encode_regD(di, opnd_get_index(opnd));
-        encode_index_shift(di, opnd, true, true);
+        encode_index_shift(di, opnd, true, true, 0, OPSZ_NA);
         break;
     case TYPE_M_POS_LSHREG:
         encode_regA(di, opnd_get_base(opnd));
         encode_regD(di, opnd_get_index(opnd));
-        encode_index_shift(di, opnd, false/*type implicit*/, true);
+        /* This shift is at 5:4, unlike the regular shifts */
+        encode_index_shift(di, opnd, false/*type implicit*/, true, 4, OPSZ_2b);
         break;
     case TYPE_M_POS_LSH1REG:
         encode_regA(di, opnd_get_base(opnd));
