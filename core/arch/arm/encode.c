@@ -2579,8 +2579,10 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         info = get_next_instr_info(info);
         if (info == NULL || info->type == OP_CONTD) {
             /* Use the errmsg to try and give a more helpful message */
-            if (di.errmsg != NULL && assert_reachable)
-                SYSLOG_INTERNAL_ERROR(di.errmsg, di.errmsg_param);
+            DODEBUG({
+                if (di.errmsg != NULL && assert_reachable)
+                    SYSLOG_INTERNAL_ERROR_ONCE(di.errmsg, di.errmsg_param);
+            });
             DOLOG(1, LOG_EMIT, {
                 LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
                 instr_disassemble(dcontext, instr, THREAD);
