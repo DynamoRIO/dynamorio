@@ -1733,6 +1733,34 @@ typedef union _dr_ymm_t {
     reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
 
+#ifdef ARM
+/**
+ * 128-bit ARM SIMD Vn register.
+ * We're not using any uint64 fields here to avoid alignment padding in
+ * sensitive structs.  We could alternatively use pragam pack.
+ */
+typedef union _dr_simd_t {
+# ifdef X64
+    byte   b;      /**< Bottom  8 bits of Vn == Bn. */
+    ushort h;      /**< Bottom 16 bits of Vn == Hn. */
+    uint   s;      /**< Bottom 32 bits of Vn == Sn. */
+    uint   d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
+    uint   q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
+    uint   u32[4]; /**< The full 128-bit register. */
+# else
+    uint   s[4];   /**< Representation as 4 32-bit Sn elements. */
+    uint   d[4];   /**< Representation as 2 64-bit Dn elements: d[3]:d[2]; d[1]:d[0]. */
+    uint   u32[4]; /**< The full 128-bit register. */
+# endif
+} dr_simd_t;
+# ifdef X64
+#  define NUM_SIMD_SLOTS 32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
+# else
+#  define NUM_SIMD_SLOTS 16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
+# endif
+# define PRE_SIMD_PADDING 0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+#endif /* ARM */
+
 #ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).

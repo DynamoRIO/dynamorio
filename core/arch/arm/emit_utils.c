@@ -555,11 +555,19 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                                 opnd_create_reg(SCRATCH_REG0)));
 }
 
+/* dcontext is in REG_DCXT. other registers can be used as scratch.
+ */
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* s16–s31 (d8–d15, q4–q7) are callee save */
-    /* FIXME i#1551: NYI on ARM */
+    /* s16–s31 (d8–d15, q4–q7) are callee-saved, but we save them to be safe */
+    APP(ilist, INSTR_CREATE_add(dcontext, opnd_create_reg(DR_REG_R1),
+                                opnd_create_reg(REG_DCXT),
+                                OPND_CREATE_INT(offsetof(priv_mcontext_t, simd))));
+    APP(ilist, INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_R1),
+                                    SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
+    APP(ilist, INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_R1),
+                                    SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
 }
 
 /* Append instructions to restore gpr on fcache enter, to be executed
@@ -586,10 +594,11 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      */
     APP(ilist, SAVE_TO_DC(dcontext, dr_reg_stolen, REG_OFFSET(dr_reg_stolen)));
     /* prepare for ldm */
-    APP(ilist, INSTR_CREATE_add(dcontext,
-                                opnd_create_reg(REG_DCXT),
-                                opnd_create_reg(REG_DCXT),
-                                OPND_CREATE_INT(R0_OFFSET)));
+    if (R0_OFFSET != 0) {
+        APP(ilist, INSTR_CREATE_add(dcontext, opnd_create_reg(REG_DCXT),
+                                    opnd_create_reg(REG_DCXT),
+                                    OPND_CREATE_INT(R0_OFFSET)));
+    }
     /* load all regs from mcontext */
     if (isa_mode == DR_ISA_ARM_THUMB) {
         /* We can't use sp with ldm */
@@ -624,10 +633,11 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
     dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
     ASSERT_NOT_IMPLEMENTED(!absolute &&
                            !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
-    APP(ilist, INSTR_CREATE_add(dcontext,
-                                opnd_create_reg(REG_DCXT),
-                                opnd_create_reg(REG_DCXT),
-                                OPND_CREATE_INT(R0_OFFSET)));
+    if (R0_OFFSET != 0) {
+        APP(ilist, INSTR_CREATE_add(dcontext, opnd_create_reg(REG_DCXT),
+                                    opnd_create_reg(REG_DCXT),
+                                    OPND_CREATE_INT(R0_OFFSET)));
+    }
     /* save current register state to dcontext's mcontext, some are in TLS */
     if (isa_mode == DR_ISA_ARM_THUMB) {
         /* We can't use sp with stm */
@@ -671,11 +681,20 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
     /* FIXME i#1551: how should we handle register pc? */
 }
 
+/* dcontext base is held in REG_DCXT, and exit stub in r0.
+ * GPR's are already saved.
+ */
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* s16–s31 (d8–d15, q4–q7) are callee save */
-    /* FIXME i#1551: NYI on ARM */
+    /* s16–s31 (d8–d15, q4–q7) are callee-saved, but we save them to be safe */
+    APP(ilist, INSTR_CREATE_add(dcontext, opnd_create_reg(DR_REG_R1),
+                                opnd_create_reg(REG_DCXT),
+                                OPND_CREATE_INT(offsetof(priv_mcontext_t, simd))));
+    APP(ilist, INSTR_CREATE_vstm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_R1),
+                                    SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
+    APP(ilist, INSTR_CREATE_vstm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_R1),
+                                    SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
 }
 
 /* scratch reg0 is holding exit stub */

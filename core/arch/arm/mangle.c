@@ -184,8 +184,13 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
     }
-    /* FIXME i#1551: push SIMD regs once we add to mcontext */
-
+    /* FIXME i#1551: once we have cci->num_xmms_skip, skip this if possible */
+    /* vstmdb always does writeback */
+    PRE(ilist, instr, INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
+                                          SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
+    PRE(ilist, instr, INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
+                                          SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
+    dstack_offs += NUM_SIMD_SLOTS*sizeof(dr_simd_t);
     /* pc and aflags */
     if (!cci->skip_save_aflags) {
         reg_id_t scratch = DR_REG_R0;
@@ -257,8 +262,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
-    /* FIXME i#1551: pop SIMD regs once we add to mcontext */
-
 #ifdef X64
     /* FIXME i#1569: NYI on AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -290,6 +293,11 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                            OPND_CREATE_INT8(XSP_SZ)));
         PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
     }
+    /* FIXME i#1551: once we have cci->num_xmms_skip, skip this if possible */
+    PRE(ilist, instr, INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
+                                           SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
+    PRE(ilist, instr, INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
+                                           SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
 }
 
 reg_id_t

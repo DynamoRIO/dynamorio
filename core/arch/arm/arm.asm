@@ -50,17 +50,26 @@ DECL_EXTERN(initstack_mutex)
 #define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) str src, PTRSZ [reg, POUND (offs)]
 
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x6c
+#define dstack_OFFSET     0x16c
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
 #ifdef X64
-# error NYI
+# define NUM_SIMD_SLOTS 32
+# define SIMD_REG_SIZE  16
+# define NUM_GPR_SLOTS  33 /* incl flags */
+# define GPR_REG_SIZE    8
 #else
-# define PRIV_MCXT_SIZE (17*4)
-# define PRIV_MCXT_SP_FROM_TOP (-4*4) /* flags, pc, lr, then sp */
-# define PRIV_MCXT_PC_FROM_TOP (-2*4) /* flags, then pc */
+# define NUM_SIMD_SLOTS 16
+# define SIMD_REG_SIZE  16
+# define NUM_GPR_SLOTS  17 /* incl flags */
+# define GPR_REG_SIZE    4
 #endif
+#define PRE_SIMD_PADDING 0
+#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + NUM_SIMD_SLOTS*SIMD_REG_SIZE)
+#define PRIV_MCXT_SIZE (NUM_GPR_SLOTS*GPR_REG_SIZE + PRIV_MCXT_SIMD_SIZE)
+#define PRIV_MCXT_SP_FROM_SIMD (-(4*GPR_REG_SIZE)) /* flags, pc, lr, then sp */
+#define PRIV_MCXT_PC_FROM_SIMD (-(2*GPR_REG_SIZE)) /* flags, then pc */
 
 /* FIXME i#1551: just a shell to get things compiling.  We need to fill
  * in all the real functions later.
@@ -204,12 +213,14 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
 #endif /* DR_APP_EXPORTS */
 
 /*
- * dynamorio_app_take_over - Causes application to run under Dynamo
- * control.  Dynamo never releases control.
+ * dynamorio_app_take_over - Causes application to run under DR
+ * control.  DR never releases control.
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
         push     {lr}
+        vstmdb   sp!, {d16-d31}
+        vstmdb   sp!, {d0-d15}
         mrs      REG_R0, cpsr /* r0 is scratch */
         push     {REG_R0}
         /* We can't push all regs w/ writeback */
@@ -217,12 +228,12 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
 # error NYI
 #endif
         stmdb    sp, {REG_R0-r15}
-        str      lr, [sp, #(PRIV_MCXT_PC_FROM_TOP+4)] /* +4 b/c we pushed cpsr */
+        str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
         /* we need the sp at function entry */
         mov      REG_R0, sp
-        add      REG_R0, REG_R0, #8 /* offset cpsr and lr pushes */
-        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_TOP+4)] /* +4 b/c we pushed cpsr */
-        sub      sp, sp, #(PRIV_MCXT_SIZE-4) /* -4 b/c we pushed cpsr */
+        add      REG_R0, REG_R0, #(PRIV_MCXT_SIMD_SIZE + 8) /* offset simd,cpsr,lr */
+        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        sub      sp, sp, #(PRIV_MCXT_SIZE-PRIV_MCXT_SIMD_SIZE-4) /* simd,cpsr */
         mov      REG_R0, sp
         CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), REG_R0)
         /* if we get here, DR is not taking over */

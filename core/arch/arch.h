@@ -1452,6 +1452,27 @@ add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
 # endif
 # define DR_REG_LIST_LENGTH_T32 13 /* no R13+ (sp, lr, pc) */
 # define DR_REG_LIST_T32 DR_REG_LIST_HEAD
+
+/* we can only push or pop 16 32-bit-sized SIMD registers at a time */
+# define SIMD_REG_LIST_LEN 16
+# define SIMD_REG_LIST_0_15                                    \
+    opnd_create_reg(DR_REG_D0),  opnd_create_reg(DR_REG_D1),  \
+    opnd_create_reg(DR_REG_D2),  opnd_create_reg(DR_REG_D3),  \
+    opnd_create_reg(DR_REG_D4),  opnd_create_reg(DR_REG_D5),  \
+    opnd_create_reg(DR_REG_D6),  opnd_create_reg(DR_REG_D7),  \
+    opnd_create_reg(DR_REG_D8),  opnd_create_reg(DR_REG_D9),  \
+    opnd_create_reg(DR_REG_D10), opnd_create_reg(DR_REG_D11), \
+    opnd_create_reg(DR_REG_D12), opnd_create_reg(DR_REG_D13), \
+    opnd_create_reg(DR_REG_D14), opnd_create_reg(DR_REG_D15)
+# define SIMD_REG_LIST_16_31                                   \
+    opnd_create_reg(DR_REG_D16), opnd_create_reg(DR_REG_D17), \
+    opnd_create_reg(DR_REG_D18), opnd_create_reg(DR_REG_D19), \
+    opnd_create_reg(DR_REG_D20), opnd_create_reg(DR_REG_D21), \
+    opnd_create_reg(DR_REG_D22), opnd_create_reg(DR_REG_D23), \
+    opnd_create_reg(DR_REG_D24), opnd_create_reg(DR_REG_D25), \
+    opnd_create_reg(DR_REG_D26), opnd_create_reg(DR_REG_D27), \
+    opnd_create_reg(DR_REG_D28), opnd_create_reg(DR_REG_D29), \
+    opnd_create_reg(DR_REG_D30), opnd_create_reg(DR_REG_D31)
 #endif
 
 int
