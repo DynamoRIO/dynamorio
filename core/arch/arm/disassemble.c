@@ -215,6 +215,19 @@ print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT
     dr_pred_type_t pred = instr_get_predicate(instr);
     size_t pre_sofar = *sofar;
     print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);
+    if (instr_get_opcode(instr) == OP_it &&
+        opnd_is_immed_int(instr_get_src(instr, 0)) &&
+        opnd_is_immed_int(instr_get_src(instr, 1))) {
+        it_block_info_t info;
+        int i;
+        it_block_info_init_immeds(&info, opnd_get_immed_int(instr_get_src(instr, 1)),
+                                  opnd_get_immed_int(instr_get_src(instr, 0)));
+        for (i = 1/*1st is implied*/; i < info.num_instrs; i++) {
+            print_to_buffer(buf, bufsz, sofar, "%c",
+                            TEST(BITMAP_MASK(i), info.preds) ? 't' : 'e');
+
+        }
+    }
     return *sofar - pre_sofar;
 }
 

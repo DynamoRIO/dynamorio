@@ -632,6 +632,9 @@ uint
 gpr_list_num_bits(byte optype);
 
 void
+it_block_info_init_immeds(it_block_info_t *info, byte mask, byte firstcond);
+
+void
 it_block_info_init(it_block_info_t *info, decode_info_t *di);
 
 static inline void

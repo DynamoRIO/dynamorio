@@ -1441,13 +1441,21 @@ instrlist_disassemble(dcontext_t *dcontext,
         /* Print out individual instructions.  Remember that multiple
          * instructions may be packed into a single instr.
          */
-        if (level > 3) {
+        if (level > 3 ||
+            /* Print as an instr for L3 to get IT predicates */
+            (level == 3 && !instr_is_cti_short_rewrite(instr, addr))) {
+
             /* for L4 we want to see instr targets and don't care
              * as much about raw bytes
              */
             int extra_sz;
-            print_file(outfile, " +%-4d %c%d @"PFX" ",
-                       offs, instr_is_app(instr) ? 'L' : 'm', level, instr);
+            if (level == 3) {
+                print_file(outfile, " +%-4d %c%d "IF_X64_ELSE("%20s","%12s"),
+                           offs, instr_is_app(instr) ? 'L' : 'm', level, " ");
+            } else {
+                print_file(outfile, " +%-4d %c%d @"PFX" ",
+                           offs, instr_is_app(instr) ? 'L' : 'm', level, instr);
+            }
             extra_sz = print_bytes_to_file(outfile, addr, addr+len, instr);
             instr_disassemble(dcontext, instr, outfile);
             print_file(outfile, "\n");

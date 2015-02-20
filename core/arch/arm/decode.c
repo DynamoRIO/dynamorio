@@ -1537,13 +1537,10 @@ decode_it_block_num_instrs(byte mask)
 }
 
 void
-it_block_info_init(it_block_info_t *info, decode_info_t *di)
+it_block_info_init_immeds(it_block_info_t *info, byte mask, byte firstcond)
 {
     byte i;
-    byte mask;
-
-    mask = (byte)decode_immed(di, 0, OPSZ_4b, false);
-    info->firstcond  = (byte)decode_immed(di, 4, OPSZ_4b, false);
+    info->firstcond  = firstcond;
     info->num_instrs = decode_it_block_num_instrs(mask);
     info->cur_instr  = 0;
     info->preds = 1; /* first instr use firstcond */
@@ -1552,6 +1549,13 @@ it_block_info_init(it_block_info_t *info, decode_info_t *di)
         if ((mask & BITMAP_MASK(4-i)) >> (4-i) == (info->firstcond & 0x1))
             info->preds |= BITMAP_MASK(i);
     }
+}
+
+void
+it_block_info_init(it_block_info_t *info, decode_info_t *di)
+{
+    it_block_info_init_immeds(info, (byte)decode_immed(di, 0, OPSZ_4b, false),
+                              (byte)decode_immed(di, 4, OPSZ_4b, false));
 }
 
 const instr_info_t *
