@@ -78,6 +78,7 @@ set_decode_state(dcontext_t *dcontext, decode_state_t *state)
 static void
 decode_state_init(decode_state_t *state, decode_info_t *di, app_pc pc)
 {
+    LOG(THREAD_GET, LOG_EMIT, 5, "start IT block\n");
     it_block_info_init(&state->itb_info, di);
     state->pc = pc + THUMB_SHORT_INSTR_SIZE/*IT instr length*/;
 }
@@ -85,21 +86,25 @@ decode_state_init(decode_state_t *state, decode_info_t *di, app_pc pc)
 static void
 decode_state_reset(decode_state_t *state)
 {
+    LOG(THREAD_GET, LOG_EMIT, 5, "exited IT block\n");
     it_block_info_reset(&state->itb_info);
     state->pc = NULL;
 }
 
 /* Return current predicate and advance to next instr in the IT block.
- * Clear the state if finish the current IT block.
+ * Leaves the pc where it was if we are at the end of the current IT block,
+ * so we can handle a duplicate call to the same pc in decode_in_it_block().
  */
 static dr_pred_type_t
 decode_state_advance(decode_state_t *state, decode_info_t *di)
 {
     dr_pred_type_t pred;
     pred = it_block_instr_predicate(state->itb_info, state->itb_info.cur_instr);
-    state->pc += (di->T32_16 ? THUMB_SHORT_INSTR_SIZE : THUMB_LONG_INSTR_SIZE);
-    if (!it_block_info_advance(&state->itb_info))
-        decode_state_reset(state);
+    /* We don't want to point pc beyond the end of the IT block to avoid our
+     * prior-pc-matching logic in decode_in_it_block().
+     */
+    if (it_block_info_advance(&state->itb_info))
+        state->pc += (di->T32_16 ? THUMB_SHORT_INSTR_SIZE : THUMB_LONG_INSTR_SIZE);
     return pred;
 }
 
@@ -107,8 +112,37 @@ static bool
 decode_in_it_block(decode_state_t *state, app_pc pc)
 {
     if (state->itb_info.num_instrs != 0) {
-        if (state->pc == pc)
+        LOG(THREAD_GET, LOG_EMIT, 5, "in IT?: cur=%d/%d, "PFX" vs "PFX"\n",
+            state->itb_info.cur_instr, state->itb_info.num_instrs, state->pc, pc);
+        if (pc == state->pc) {
+            /* Look for a duplicate call to the final instr in the block, where
+             * we left pc where it was.
+             */
+            if (state->itb_info.cur_instr == state->itb_info.num_instrs) {
+                /* Undo the advance */
+                state->pc = pc;
+                state->itb_info.cur_instr--;
+                LOG(THREAD_GET, LOG_EMIT, 5, "in IT block 2x\n");
+            } else /* Normal advance */
+                LOG(THREAD_GET, LOG_EMIT, 5, "in IT block\n");
             return true;
+        }
+        /* Handle the caller invoking decode 2x in a row on the same
+         * pc on the OP_itj* instr or a non-final instr in the block.
+         */
+        if (pc == state->pc - THUMB_SHORT_INSTR_SIZE ||
+            pc == state->pc - THUMB_LONG_INSTR_SIZE) {
+            if (state->itb_info.cur_instr == 0) {
+                ASSERT(pc == state->pc - THUMB_SHORT_INSTR_SIZE);
+                return false; /* still on OP_it */
+            } else {
+                /* Undo the advance */
+                state->pc = pc;
+                state->itb_info.cur_instr--;
+                LOG(THREAD_GET, LOG_EMIT, 5, "in IT block 2x\n");
+                return true;
+            }
+        }
         /* pc not match, reset the state */
         decode_state_reset(state);
     }
