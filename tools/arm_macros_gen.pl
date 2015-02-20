@@ -408,11 +408,11 @@ foreach my $opc (keys %entry) {
             # For us, writeback or post-indexed look the same.  We have
             # two variants: immed disp or index (possibly shifted) reg.
             if ($sig =~ /;.*RD/) {
-                $name .= "_wbreg";
+                $name .= "_wbreg" unless (scalar(keys %sigs) == 1);
             } elsif ($sig =~ /;.*\bi/) {
-                $name .= "_wbimm";
+                $name .= "_wbimm" unless (scalar(keys %sigs) == 1);
             } else {
-                $name .= "_wb";
+                $name .= "_wb" unless (scalar(keys %sigs) == 1);
             }
             if ($sig =~ /sp;.*sp/) {
                 $sig =~ s/sp/opnd_create_reg(opnd_get_base(mem))/g;

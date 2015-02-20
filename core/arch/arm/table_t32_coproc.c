@@ -209,12 +209,12 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_vldm,    0xec900b00, "vldm",   VBq, LCq, Ml, xx, xx, vfp, x, xfp[9][0x00]},/*PUW=010*/
     {OP_ldc,     0xec900000, "ldc",    CRBw, xx, Mw, i4_8, i8, no, x, xfp[1][0x02]},/*PUW=010*/
   }, { /* 8 */
-    {OP_vstm,    0xeca00a00, "vstm",   Ml, RAw, WBd, LCd, i8, vfp, x, xfp[6][0x00]},/*PUW=011*/
-    {OP_vstm,    0xeca00b00, "vstm",   Ml, RAw, VBq, LCq, i8, vfp, x, xfp[6][0x01]},/*PUW=011*/
+    {OP_vstm,    0xeca00a00, "vstm",   Ml, RAw, WBd, LCd, RAw, vfp, x, xfp[6][0x00]},/*PUW=011*/
+    {OP_vstm,    0xeca00b00, "vstm",   Ml, RAw, VBq, LCq, RAw, vfp, x, xfp[6][0x01]},/*PUW=011*/
     {OP_stc,     0xeca00000, "stc",    Mw, RAw, i4_8, CRBw, i8x4, xop_wb, x, xfp[6][0x02]},/*PUW=011*/
   }, { /* 9 */
-    {OP_vldm,    0xecb00a00, "vldm",   WBd, LCd, RAw, Ml, i8, vfp|dstX3, x, xfp[7][0x00]},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
-    {OP_vldm,    0xecb00b00, "vldm",   VBq, LCq, RAw, Ml, i8, vfp|dstX3, x, xfp[7][0x01]},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
+    {OP_vldm,    0xecb00a00, "vldm",   WBd, LCd, RAw, Ml, RAw, vfp|dstX3, x, xfp[7][0x00]},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
+    {OP_vldm,    0xecb00b00, "vldm",   VBq, LCq, RAw, Ml, RAw, vfp|dstX3, x, xfp[7][0x01]},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
     {OP_ldc,     0xecb00000, "ldc",    CRBw, RAw, Mw, i4_8, i8x4, xop_wb, x, xfp[7][0x02]},/*PUW=011*/
   }, { /* 10 */
     {OP_vstm,    0xecc00a00, "vstm",   Ml, xx, WBd, LCd, xx, vfp, x, DUP_ENTRY},/*PUW=010*/
@@ -225,12 +225,12 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_vldm,    0xecd00b00, "vldm",   VBq, LCq, Ml, xx, xx, vfp, x, DUP_ENTRY},/*PUW=010*/
     {OP_ldcl,    0xecd00000, "ldcl",   CRBw, xx, Mw, i4_8, i8, no, x, xfp[5][0x02]},/*PUW=010*/
   }, { /* 12 */
-    {OP_vstm,    0xece00a00, "vstm",   Ml, RAw, WBd, LCd, i8, vfp, x, DUP_ENTRY},/*PUW=011*/
-    {OP_vstm,    0xece00b00, "vstm",   Ml, RAw, VBq, LCq, i8, vfp, x, DUP_ENTRY},/*PUW=011*/
+    {OP_vstm,    0xece00a00, "vstm",   Ml, RAw, WBd, LCd, RAw, vfp, x, DUP_ENTRY},/*PUW=011*/
+    {OP_vstm,    0xece00b00, "vstm",   Ml, RAw, VBq, LCq, RAw, vfp, x, DUP_ENTRY},/*PUW=011*/
     {OP_stcl,    0xece00000, "stcl",   Mw, RAw, i4_8, CRBw, i8x4, xop_wb, x, xfp[10][0x02]},/*PUW=011*/
   }, { /* 13 */
-    {OP_vldm,    0xecf00a00, "vldm",   WBd, LCd, RAw, Ml, i8, vfp|dstX3, x, DUP_ENTRY},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
-    {OP_vldm,    0xecf00b00, "vldm",   VBq, LCq, RAw, Ml, i8, vfp|dstX3, x, DUP_ENTRY},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
+    {OP_vldm,    0xecf00a00, "vldm",   WBd, LCd, RAw, Ml, RAw, vfp|dstX3, x, DUP_ENTRY},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
+    {OP_vldm,    0xecf00b00, "vldm",   VBq, LCq, RAw, Ml, RAw, vfp|dstX3, x, DUP_ENTRY},/*PUW=011*//*XXX: if RA=sp then "vpop"*/
     {OP_ldcl,    0xecf00000, "ldcl",   CRBw, RAw, Mw, i4_8, i8x4, xop_wb, x, xfp[11][0x02]},/*PUW=011*/
   }, { /* 14 */
     {OP_vstr,    0xed000a00, "vstr",   MN8Xd, xx, WBd, xx, xx, vfp, x, END_LIST},
@@ -241,12 +241,12 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_vldr,    0xed100b00, "vldr",   VBq, xx, MN8Xq, xx, xx, vfp, x, xfp[23][0x00]},
     {OP_ldc,     0xed100000, "ldc",    CRBw, xx, MN8Xw, i4_8, xx, no, x, xfp[25][0x02]},/*PUW=100*/
   }, { /* 16 */
-    {OP_vstmdb,  0xed200a00, "vstmdb", Ml, RAw, WBd, LCd, n8, vfp, x, END_LIST},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
-    {OP_vstmdb,  0xed200b00, "vstmdb", Ml, RAw, VBq, LCq, n8, vfp, x, xfp[16][0x00]},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
+    {OP_vstmdb,  0xed200a00, "vstmdb", Ml, RAw, WBd, LCd, RAw, vfp, x, END_LIST},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
+    {OP_vstmdb,  0xed200b00, "vstmdb", Ml, RAw, VBq, LCq, RAw, vfp, x, xfp[16][0x00]},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
     {OP_stc,     0xed200000, "stc",    MN8Xw, RAw, i4_8, CRBw, n8x4, xop_wb, x, xfp[8][0x02]},/*PUW=101*/
   }, { /* 17 */
-    {OP_vldmdb,  0xed300a00, "vldmdb", WBd, LCd, RAw, Ml, n8, vfp|dstX3, x, END_LIST},/*PUW=101*/
-    {OP_vldmdb,  0xed300b00, "vldmdb", VBq, LCq, RAw, Ml, n8, vfp|dstX3, x, xfp[17][0x00]},/*PUW=101*/
+    {OP_vldmdb,  0xed300a00, "vldmdb", WBd, LCd, RAw, Ml, RAw, vfp|dstX3, x, END_LIST},/*PUW=101*/
+    {OP_vldmdb,  0xed300b00, "vldmdb", VBq, LCq, RAw, Ml, RAw, vfp|dstX3, x, xfp[17][0x00]},/*PUW=101*/
     {OP_ldc,     0xed300000, "ldc",    CRBw, RAw, MN8Xw, i4_8, n8x4, xop_wb, x, xfp[9][0x02]},/*PUW=101*/
   }, { /* 18 */
     {OP_vstr,    0xed400a00, "vstr",   MN8Xd, xx, WBd, xx, xx, vfp, x, DUP_ENTRY},
@@ -257,12 +257,12 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_vldr,    0xed500b00, "vldr",   VBq, xx, MN8Xq, xx, xx, vfp, x, DUP_ENTRY},
     {OP_ldcl,    0xed500000, "ldcl",   CRBw, xx, MN8Xw, i4_8, xx, no, x, xfp[29][0x02]},/*PUW=100*/
   }, { /* 20 */
-    {OP_vstmdb,  0xed600a00, "vstmdb", Ml, RAw, WBd, LCd, n8, vfp, x, DUP_ENTRY},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
-    {OP_vstmdb,  0xed600b00, "vstmdb", Ml, RAw, VBq, LCq, n8, vfp, x, DUP_ENTRY},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
+    {OP_vstmdb,  0xed600a00, "vstmdb", Ml, RAw, WBd, LCd, RAw, vfp, x, DUP_ENTRY},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
+    {OP_vstmdb,  0xed600b00, "vstmdb", Ml, RAw, VBq, LCq, RAw, vfp, x, DUP_ENTRY},/*PUW=101*//*XXX: if RA=sp then "vpush"*/
     {OP_stcl,    0xed600000, "stcl",   MN8Xw, RAw, i4_8, CRBw, n8x4, xop_wb, x, xfp[12][0x02]},/*PUW=101*/
   }, { /* 21 */
-    {OP_vldmdb,  0xed700a00, "vldmdb", WBd, LCd, RAw, Ml, n8, vfp|dstX3, x, DUP_ENTRY},/*PUW=101*/
-    {OP_vldmdb,  0xed700b00, "vldmdb", VBq, LCq, RAw, Ml, n8, vfp|dstX3, x, DUP_ENTRY},/*PUW=101*/
+    {OP_vldmdb,  0xed700a00, "vldmdb", WBd, LCd, RAw, Ml, RAw, vfp|dstX3, x, DUP_ENTRY},/*PUW=101*/
+    {OP_vldmdb,  0xed700b00, "vldmdb", VBq, LCq, RAw, Ml, RAw, vfp|dstX3, x, DUP_ENTRY},/*PUW=101*/
     {OP_ldcl,    0xed700000, "ldcl",   CRBw, RAw, MN8Xw, i4_8, n8x4, xop_wb, x, xfp[13][0x02]},/*PUW=101*/
   }, { /* 22 */
     {OP_vstr,    0xed800a00, "vstr",   MP8Xd, xx, WBd, xx, xx, vfp, x, xfp[14][0x00]},

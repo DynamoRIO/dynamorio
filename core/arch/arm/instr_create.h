@@ -2123,8 +2123,16 @@
   instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_vldm(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_vardst((dc), OP_vldm, 0, 1, list_len, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vldm_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vldm, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vldmdb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vldmdb, 1, 2, list_len, 0, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 #define INSTR_CREATE_vstm(dc, mem, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_vstm, 1, 0, list_len, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vstm_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vstm, 2, 1, list_len, 0, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vstmdb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmdb, 2, 1, list_len, 0, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rm, list_len, ...) */
@@ -2327,50 +2335,6 @@
   instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 1, 1, list_len, 0, (mem), (imm), __VA_ARGS__)
 #define INSTR_CREATE_vst4_8_wbimm(dc, mem, imm, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 2, 2, list_len, 0, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-/* @} */ /* end doxygen group */
-
-/** @name Signature: (Rd, mem, imm, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param mem The memory opnd_t operand.
- * \param imm The integer constant opnd_t operand.
- * \param list_len The number of registers in the register list.
- * \param ... The register list as separate opnd_t arguments.
- * The registers in the list must be in increasing order.
- */
-#define INSTR_CREATE_vldm_imm(dc, Rd, mem, imm, list_len, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vldm, 1, 2, list_len, 0, (Rd), (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vldmdb(dc, Rd, mem, imm, list_len, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vldmdb, 1, 2, list_len, 0, (Rd), (mem), (imm), __VA_ARGS__)
-/* @} */ /* end doxygen group */
-
-/** @name Signature: (mem, Rd, imm, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param mem The memory opnd_t operand.
- * \param Rd The destination register opnd_t operand.
- * \param imm The integer constant opnd_t operand.
- * \param list_len The number of registers in the register list.
- * \param ... The register list as separate opnd_t arguments.
- * The registers in the list must be in increasing order.
- */
-#define INSTR_CREATE_vstm_imm(dc, mem, Rd, imm, list_len, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vstm, 2, 1, list_len, 0, (mem), (Rd), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vstmdb(dc, mem, Rd, imm, list_len, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmdb, 2, 1, list_len, 0, (mem), (Rd), (imm), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, Rm, list_len, ...) */
