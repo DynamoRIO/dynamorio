@@ -1361,11 +1361,41 @@ opnd_size_in_bytes(opnd_size_t size)
         return 60;
     case OPSZ_64:
         return 64;
+    case OPSZ_68:
+        return 68;
+    case OPSZ_72:
+        return 72;
+    case OPSZ_76:
+        return 76;
+    case OPSZ_80:
+        return 80;
+    case OPSZ_84:
+        return 84;
+    case OPSZ_88:
+        return 88;
+    case OPSZ_92:
+        return 92;
     case OPSZ_94:
         return 94;
+    case OPSZ_96:
+        return 96;
+    case OPSZ_100:
+        return 100;
+    case OPSZ_104:
+        return 104;
     case OPSZ_108_short94: /* default size */
     case OPSZ_108:
         return 108;
+    case OPSZ_112:
+        return 112;
+    case OPSZ_116:
+        return 116;
+    case OPSZ_120:
+        return 120;
+    case OPSZ_124:
+        return 124;
+    case OPSZ_128:
+        return 128;
     case OPSZ_512:
         return 512;
     case OPSZ_VAR_REGLIST:
@@ -1430,8 +1460,23 @@ opnd_size_from_bytes(uint bytes)
     case 56: return OPSZ_56;
     case 60: return OPSZ_60;
     case 64: return OPSZ_64;
+    case 68: return OPSZ_68;
+    case 72: return OPSZ_72;
+    case 76: return OPSZ_76;
+    case 80: return OPSZ_80;
+    case 84: return OPSZ_84;
+    case 88: return OPSZ_88;
+    case 92: return OPSZ_92;
     case 94: return OPSZ_94;
+    case 96: return OPSZ_96;
+    case 100: return OPSZ_100;
+    case 104: return OPSZ_104;
     case 108: return OPSZ_108;
+    case 112: return OPSZ_112;
+    case 116: return OPSZ_116;
+    case 120: return OPSZ_120;
+    case 124: return OPSZ_124;
+    case 128: return OPSZ_128;
     case 512: return OPSZ_512;
     default: return OPSZ_NA;
     }

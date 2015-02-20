@@ -305,6 +305,22 @@ enum {
     OPSZ_56,  /**< 56 bytes.  Needed for load/store of register lists. */
     OPSZ_60,  /**< 60 bytes.  Needed for load/store of register lists. */
     OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists. */
+    OPSZ_68,  /**< 68 bytes.  Needed for load/store of register lists. */
+    OPSZ_72,  /**< 72 bytes.  Needed for load/store of register lists. */
+    OPSZ_76,  /**< 76 bytes.  Needed for load/store of register lists. */
+    OPSZ_80,  /**< 80 bytes.  Needed for load/store of register lists. */
+    OPSZ_84,  /**< 84 bytes.  Needed for load/store of register lists. */
+    OPSZ_88,  /**< 88 bytes.  Needed for load/store of register lists. */
+    OPSZ_92,  /**< 92 bytes.  Needed for load/store of register lists. */
+    OPSZ_96,  /**< 96 bytes.  Needed for load/store of register lists. */
+    OPSZ_100, /**< 100 bytes. Needed for load/store of register lists. */
+    OPSZ_104, /**< 104 bytes. Needed for load/store of register lists. */
+    /* OPSZ_108 already exists */
+    OPSZ_112, /**< 112 bytes. Needed for load/store of register lists. */
+    OPSZ_116, /**< 116 bytes. Needed for load/store of register lists. */
+    OPSZ_120, /**< 120 bytes. Needed for load/store of register lists. */
+    OPSZ_124, /**< 124 bytes. Needed for load/store of register lists. */
+    OPSZ_128, /**< 128 bytes. Needed for load/store of register lists. */
     /* Add new size here.  Also update size_names[] in decode_shared.c along with
      * the size routines in opnd_shared.c.
      */

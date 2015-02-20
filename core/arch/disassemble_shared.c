@@ -207,8 +207,23 @@ opnd_size_suffix_dr(opnd_t opnd)
     case 56: return "56byte";
     case 60: return "60byte";
     case 64: return "64byte";
+    case 68: return "68byte";
+    case 72: return "72byte";
+    case 76: return "76byte";
+    case 80: return "80byte";
+    case 84: return "84byte";
+    case 88: return "88byte";
+    case 92: return "92byte";
     case 94: return "94byte";
+    case 96: return "96byte";
+    case 100: return "100byte";
+    case 104: return "104byte";
     case 108: return "108byte";
+    case 112: return "112byte";
+    case 116: return "116byte";
+    case 120: return "120byte";
+    case 124: return "124byte";
+    case 128: return "128byte";
     case 512: return "512byte";
     }
     return "";

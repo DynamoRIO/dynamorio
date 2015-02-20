@@ -1149,10 +1149,16 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return (di->reglist_stop > di->reglist_start);
     }
     case TYPE_L_CONSEC: {
-        uint max_num = 32; /* # of simd regs */
+        uint max_num;
         opnd_t prior;
         if (opnum == 0)
             return false;
+        if (size_temp_up == OPSZ_8)
+            max_num = 16; /* max for 64-bit regs */
+        else {
+            CLIENT_ASSERT(size_temp_up == OPSZ_4, "invalid LC size");
+            max_num = 32;
+        }
         if (is_dst)
             prior = instr_get_dst(in, opnum - 1);
         else
@@ -1944,7 +1950,7 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->instr_word |= ((val & 0x8) << 19) | ((val & 0x7) << 13);
         else
             di->instr_word |= ((val & 0x10) << 18) | ((val & 0xf) << 12);
-        if (di->reglist_stop > 0)
+        if (optype != TYPE_V_B && di->reglist_stop > 0)
             (*counter) += (di->reglist_stop - 1 - di->reglist_start);
         break;
     }

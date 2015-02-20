@@ -406,12 +406,12 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     first_reg = opnd_get_reg(array[*counter-1]);
     di->reglist_sz = 0;
     for (i = 0; i < count; i++) {
-        LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n", reg_names[first_reg],
-            reg_names[first_reg + i]);
-        if ((upsz == OPSZ_8 && first_reg + i > DR_REG_D31) ||
-            (upsz == OPSZ_4 && first_reg + i > DR_REG_S31))
+        LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n",
+            reg_names[first_reg], reg_names[first_reg + i]);
+        if ((upsz == OPSZ_8 && first_reg + 1 + i > DR_REG_D31) ||
+            (upsz == OPSZ_4 && first_reg + 1 + i > DR_REG_S31))
             return false; /* invalid */
-        array[(*counter)++] = opnd_create_reg_ex(first_reg + i, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(first_reg + 1 + i, downsz, 0);
         di->reglist_sz += opnd_size_in_bytes(downsz);
     }
     if (di->mem_needs_reglist_sz != NULL)
