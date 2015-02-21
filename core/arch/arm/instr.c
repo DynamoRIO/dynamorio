@@ -99,7 +99,11 @@ instr_branch_type(instr_t *cti_instr)
          * remove this and have a faster link through the stub.
          */
         return LINK_INDIRECT|LINK_CALL;
-    } else if (instr_is_call_direct(cti_instr))
+    }
+    /* We treate a predicated call as a cbr, not a call */
+    else if (instr_is_cbr_arch(cti_instr) || instr_is_ubr_arch(cti_instr))
+        return LINK_DIRECT|LINK_JMP;
+    else if (instr_is_call_direct(cti_instr))
         return LINK_DIRECT|LINK_CALL;
     else if (instr_is_call_indirect(cti_instr))
         return LINK_INDIRECT|LINK_CALL;
@@ -107,8 +111,6 @@ instr_branch_type(instr_t *cti_instr)
         return LINK_INDIRECT|LINK_RETURN;
     else if (instr_is_mbr_arch(cti_instr))
         return LINK_INDIRECT|LINK_JMP;
-    else if (instr_is_cbr_arch(cti_instr) || instr_is_ubr_arch(cti_instr))
-        return LINK_DIRECT|LINK_JMP;
     else
         CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -229,10 +231,10 @@ instr_is_cbr_arch(instr_t *instr)
     int opc = instr->opcode; /* caller ensures opcode is valid */
     if (opc == OP_cbnz || opc ==  OP_cbz)
         return true;
-    /* A predicated unconditional branch is a cbr */
-    if (opc == OP_b || opc == OP_b_short || opc == OP_bx || opc == OP_bxj ||
+    /* We don't consider a predicated indirect branch to be a cbr */
+    if (opc == OP_b || opc == OP_b_short ||
         /* Yes, conditional calls are considered cbr */
-        opc == OP_bl || opc == OP_blx || opc == OP_blx_ind) {
+        opc == OP_bl || opc == OP_blx) {
         dr_pred_type_t pred = instr_get_predicate(instr);
         return (pred != DR_PRED_NONE && pred != DR_PRED_AL);
     }

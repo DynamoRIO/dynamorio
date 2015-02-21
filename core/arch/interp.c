@@ -1078,7 +1078,12 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
         BBPRINT(bb, 3, "        NOT following direct call from "PFX" to "PFX"\n",
                 bb->instr_start, callee);
         /* End this bb now */
-        bb->exit_target = callee;
+        if (instr_is_cbr(bb->instr)) {
+            /* Treat as cbr, not call */
+            instr_exit_branch_set_type(bb->instr, instr_branch_type(bb->instr));
+        } else {
+            bb->exit_target = callee;
+        }
         return false; /* end bb now */
     }
     return true; /* keep bb going */
@@ -2770,7 +2775,16 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 found_exit_cti = true;
                 bb->instr = inst;
 
-                if (instr_is_near_ubr(inst) || instr_is_near_call_direct(inst)) {
+                if (instr_is_cbr(inst)) {
+                    CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+                                  "an exit cbr must terminate the block");
+                    /* A null exit target specifies a cbr (see below). */
+                    bb->exit_target = NULL;
+                    bb->exit_type = 0;
+                    instr_exit_branch_set_type(bb->instr,
+                                               instr_branch_type(inst));
+                }
+                else if (instr_is_near_ubr(inst) || instr_is_near_call_direct(inst)) {
                     CLIENT_ASSERT(instr_is_near_ubr(inst) ||
                                   inst == instrlist_last(bb->ilist) ||
                                   /* for elision we assume calls are followed
@@ -2783,15 +2797,6 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                         bb->exit_target = instr_get_branch_target_pc(inst);
                         bb->exit_type = instr_branch_type(inst);
                     }
-                }
-                else if (instr_is_cbr(inst)) {
-                    CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
-                                  "an exit cbr must terminate the block");
-                    /* A null exit target specifies a cbr (see below). */
-                    bb->exit_target = NULL;
-                    bb->exit_type = 0;
-                    instr_exit_branch_set_type(bb->instr,
-                                               instr_branch_type(inst));
                 }
                 else {
                     ibl_branch_type_t branch_type;
@@ -3587,7 +3592,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 /* fall through for -max_bb_instrs check */
             }
         }
-        else if (instr_is_cti(bb->instr) && !instr_is_call(bb->instr)) {
+        else if (instr_is_cti(bb->instr) &&
+                 (!instr_is_call(bb->instr) || instr_is_cbr(bb->instr))) {
             total_branches++;
             if (total_branches >= BRANCH_LIMIT) {
                 /* set type of 1st exit cti for cbr (bb->exit_type is for fall-through) */

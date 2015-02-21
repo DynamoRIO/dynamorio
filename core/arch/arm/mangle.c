@@ -451,12 +451,15 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
     if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
         return; /* nothing to do */
     for (instr = start; instr != NULL && instr != end; instr = instr_get_next(instr)) {
+        bool instr_predicated = instr_is_predicated(instr) &&
+            /* Do not put OP_b exit cti into block: patch_branch can't handle */
+            instr_get_opcode(instr) != OP_b;
         if (block_start != NULL) {
             ASSERT(block_count < IT_BLOCK_MAX_INSTRS);
-            if (instr_is_predicated(instr)) {
+            if (instr_predicated) {
                 block_pred[block_count++] = instr_get_predicate(instr);
             }
-            if (!instr_is_predicated(instr) || block_count == IT_BLOCK_MAX_INSTRS) {
+            if (!instr_predicated || block_count == IT_BLOCK_MAX_INSTRS) {
                 instrlist_preinsert
                     (ilist, block_start, instr_it_block_create
                      (dcontext, block_pred[0],
@@ -474,7 +477,7 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
             it_count--;
         else if (instr_get_opcode(instr) == OP_it)
             it_count = instr_it_block_get_count(instr);
-        else if (instr_is_predicated(instr)) {
+        else if (instr_predicated) {
             block_start = instr;
             block_pred[0] = instr_get_predicate(instr);
             block_count = 1;
@@ -669,6 +672,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* Strategy: replace OP_bl with 2-step mov immed into lr + OP_b */
     ptr_uint_t retaddr;
     uint opc = instr_get_opcode(instr);
+    ptr_int_t target;
     instr_t *mov_imm, *mov_imm2;
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
@@ -680,14 +684,24 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
     PRE(ilist, instr, bound_start);
     ASSERT(opc == OP_bl || opc == OP_blx);
+    ASSERT(opnd_is_pc(instr_get_target(instr)));
+    target = (ptr_int_t) opnd_get_pc(instr_get_target(instr));
     retaddr = get_call_return_address(dcontext, ilist, instr);
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
                            PC_AS_JMP_TGT(instr_get_isa_mode(instr), (app_pc)retaddr),
                            opnd_create_reg(DR_REG_LR), ilist, instr, &mov_imm, &mov_imm2);
     if (opc == OP_bl) {
         /* OP_blx predication is handled below */
-        /* FIXME i#1551: handle predicated direct call: requires interp.c changes */
-        ASSERT_NOT_IMPLEMENTED(!instr_is_predicated(instr));
+        if (instr_is_predicated(instr)) {
+            instr_set_predicate(mov_imm, instr_get_predicate(instr));
+            if (mov_imm2 != NULL)
+                instr_set_predicate(mov_imm2, instr_get_predicate(instr));
+            /* Add exit cti for taken direction b/c we're removing the OP_bl */
+            instrlist_preinsert
+                (ilist, instr, INSTR_PRED
+                 (XINST_CREATE_jump(dcontext, opnd_create_pc((app_pc)target)),
+                  instr_get_predicate(instr)));
+        }
     } else {
         /* Unfortunately while there is OP_blx with an immed, OP_bx requires
          * indirection through a register.  We thus need to swap modes separately,
@@ -699,9 +713,6 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          *   B) Pretend this is an indirect branch and use the ibl.
          *      This is slower so FIXME i#1551: switch to A once we have far links.
          */
-        ptr_int_t target;
-        ASSERT(opnd_is_pc(instr_get_target(instr)));
-        target = (ptr_int_t) opnd_get_pc(instr_get_target(instr));
         if (instr_get_isa_mode(instr) == DR_ISA_ARM_A32)
             target = (ptr_int_t) PC_AS_JMP_TGT(DR_ISA_ARM_THUMB, (app_pc)target);
         PRE(ilist, instr,
