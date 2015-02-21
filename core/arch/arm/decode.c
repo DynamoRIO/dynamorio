@@ -121,7 +121,6 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
              */
             if (state->itb_info.cur_instr == state->itb_info.num_instrs) {
                 /* Undo the advance */
-                state->pc = pc;
                 state->itb_info.cur_instr--;
                 LOG(THREAD_GET, LOG_EMIT, 5, "in IT block 2x\n");
             } else /* Normal advance */
@@ -129,7 +128,7 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
             return true;
         }
         /* Handle the caller invoking decode 2x in a row on the same
-         * pc on the OP_itj* instr or a non-final instr in the block.
+         * pc on the OP_it instr or a non-final instr in the block.
          */
         if (pc == state->pc - THUMB_SHORT_INSTR_SIZE ||
             pc == state->pc - THUMB_LONG_INSTR_SIZE) {

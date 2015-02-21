@@ -388,7 +388,6 @@ encode_state_init(encode_state_t *state, decode_info_t *di, instr_t *instr)
             opnd_get_immed_int(instr_get_src(instr, 1));
     }
     it_block_info_init(&state->itb_info, di);
-    state->itb_info.cur_instr = -1;
     state->instr = instr_get_next(instr);
 }
 
@@ -405,13 +404,12 @@ encode_state_advance(encode_state_t *state, instr_t *instr)
 {
     dr_pred_type_t pred;
     pred = it_block_instr_predicate(state->itb_info, state->itb_info.cur_instr);
-    if (instr == instr_get_prev(state->instr)) {
-        /* Don't advance: assume a re-encode is in progress */
-        return pred;
-    }
-    state->instr = instr_get_next(instr);
-    if (!it_block_info_advance(&state->itb_info))
-        encode_state_reset(state);
+    /* We don't want to point state->instr beyond end IT block, to avoid our
+     * prior-instr matching logic matching too far.  We also don't want to
+     * reset yet, so we can handle a prior-instr on the last instr.
+     */
+    if (it_block_info_advance(&state->itb_info))
+        state->instr = instr_get_next(instr);
     return pred;
 }
 
@@ -421,17 +419,26 @@ encode_in_it_block(encode_state_t *state, instr_t *instr)
     if (state->itb_info.num_instrs != 0) {
         LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "in IT: cur=%d, in="PFX" vs "PFX"\n",
             state->itb_info.cur_instr, state->instr, instr);
-        /* IT instr is *not* in block, yet shouldn't reset */
-        if ((state->itb_info.cur_instr < 0 ||
-             /* Work around gcc signed-bitfield bug where it extracts the 4 bits
-             * of cur_instr and zero-extends instead of sign-extending them, thus
-             * failing to properly compare < 0:
+        ASSERT(state->instr != NULL);
+        if (instr == state->instr) {
+            /* Look for a duplicate call to the final instr in the block, where
+             * we left state->instr where it was.
              */
-             state->itb_info.cur_instr == 15) &&
-            instr == instr_get_prev(state->instr))
-            return false;
-        if (instr == state->instr || instr == instr_get_prev(state->instr))
+            if (state->itb_info.cur_instr == state->itb_info.num_instrs) {
+                /* Undo the advance */
+                state->itb_info.cur_instr--;
+            }
             return true;
+        }
+        if (instr == instr_get_prev(state->instr)) {
+            if (state->itb_info.cur_instr == 0)
+                return false; /* still on OP_it */
+            else {
+                /* Undo the advance */
+                state->itb_info.cur_instr--;
+                return true;
+            }
+        }
         /* no match, reset the state */
         encode_state_reset(state);
     }
@@ -445,10 +452,12 @@ encode_track_it_block_di(dcontext_t *dcontext, decode_info_t *di, instr_t *instr
         LOG(THREAD, LOG_EMIT, ENC_LEVEL, "start IT block\n");
         encode_state_init(&di->encode_state, di, instr);
         set_encode_state(dcontext, &di->encode_state);
-    } else if (encode_in_it_block(&di->encode_state, instr)) {
-        LOG(THREAD, LOG_EMIT, ENC_LEVEL, "inside IT block\n");
-        /* encode_state is reset if reach the end of IT block */
-        encode_state_advance(&di->encode_state, instr);
+    } else if (di->encode_state.itb_info.num_instrs != 0) {
+        if (encode_in_it_block(&di->encode_state, instr)) {
+            LOG(THREAD, LOG_EMIT, ENC_LEVEL, "inside IT block\n");
+            /* encode_state is reset if reach the end of IT block */
+            encode_state_advance(&di->encode_state, instr);
+        }
         set_encode_state(dcontext, &di->encode_state);
     }
 }

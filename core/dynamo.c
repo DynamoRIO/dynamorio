@@ -1546,6 +1546,12 @@ initialize_dynamo_context(dcontext_t *dcontext)
     memset(dcontext->native_retstack, 0, sizeof(dcontext->native_retstack));
     dcontext->native_retstack_cur = 0;
     dcontext->isa_mode = DEFAULT_ISA_MODE;
+#ifdef ARM
+    dcontext->encode_state[0] = 0;
+    dcontext->encode_state[1] = 0;
+    dcontext->decode_state[0] = 0;
+    dcontext->decode_state[1] = 0;
+#endif
     dcontext->sys_num = 0;
 #ifdef WINDOWS
 #ifdef CLIENT_INTERFACE
