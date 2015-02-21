@@ -284,14 +284,14 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (!cci->skip_save_aflags) {
         reg_id_t scratch = DR_REG_R0;
         uint slot = TLS_REG0_SLOT;
+        /* just throw pc slot away */
+        PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                                           OPND_CREATE_INT8(XSP_SZ)));
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch, slot));
         PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(scratch)));
         PRE(ilist, instr, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_CPSR),
                                            OPND_CREATE_INT_MSR_NZCVQG(),
                                            opnd_create_reg(scratch)));
-        /* just throw pc slot away */
-        PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
-                                           OPND_CREATE_INT8(XSP_SZ)));
         PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
     }
     /* FIXME i#1551: once we have cci->num_xmms_skip, skip this if possible */
