@@ -1253,9 +1253,12 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_t *tomangle, *tail;
     bool writeback;
     reg_id_t last_reg;
+    uint scratch_writes = 0;
 
     for (i = 0; i < num_dsts; i++) {
         ASSERT(opnd_is_reg(instr_get_dst(instr, i)));
+        if (opnd_get_reg(instr_get_dst(instr, i)) <= SCRATCH_REG3)
+            scratch_writes++;
         if (opnd_get_reg(instr_get_dst(instr, i)) == dr_reg_stolen) {
             found_reg = true;
             break;
@@ -1273,7 +1276,7 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Writeback reg for OP_ldm* is always last */
         ASSERT(!found_reg || i == num_dsts - 1);
         /* Ensure we can get one of r0-r3 */
-        if (num_dsts > 3) {
+        if (scratch_writes > 3) {
             /* split off 1st 3 and mangle both sides */
             i = 3;
             tail = instr_clone(dcontext, instr);
@@ -1283,7 +1286,7 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_set_dst(instr, instr_num_dsts(instr) - 1,
                               opnd_create_reg(last_reg));
             }
-            instr_remove_dsts(dcontext, tail, 0, i + 1);
+            instr_remove_dsts(dcontext, tail, 0, i);
             swap_to_app_val_in_stolen_reg(dcontext, ilist, instr, writeback);
             instrlist_preinsert(ilist, next_instr, tail); /* non-meta */
             swap_to_app_val_in_stolen_reg(dcontext, ilist, tail, writeback);
