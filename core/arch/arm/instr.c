@@ -449,7 +449,7 @@ instr_is_undefined(instr_t *instr)
 }
 
 dr_pred_type_t
-invert_predicate(dr_pred_type_t pred)
+instr_invert_predicate(dr_pred_type_t pred)
 {
     CLIENT_ASSERT(pred != DR_PRED_NONE && pred != DR_PRED_AL &&
                   pred != DR_PRED_OP, "invalid cbr predicate");
@@ -468,7 +468,7 @@ instr_invert_cbr(instr_t *instr)
     } else if (opc ==  OP_cbz) {
         instr_set_opcode(instr, OP_cbnz);
     } else {
-        instr_set_predicate(instr, invert_predicate(pred));
+        instr_set_predicate(instr, instr_invert_predicate(pred));
     }
 }
 

@@ -73,6 +73,14 @@ static const char * const pred_names[] = {
     "",    /* DR_PRED_OP */
 };
 
+const char *
+instr_predicate_name(dr_pred_type_t pred)
+{
+    if (pred > DR_PRED_OP)
+        return NULL;
+    return pred_names[pred];
+}
+
 int
 print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
                       byte *pc, byte *next_pc, instr_t *instr)

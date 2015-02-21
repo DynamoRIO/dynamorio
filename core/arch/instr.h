@@ -1223,9 +1223,23 @@ dr_pred_type_t
 instr_get_predicate(instr_t *instr);
 
 #ifdef ARM
-/* XXX: should we export this? */
+DR_API
+/**
+ * Returns the string name corresponding to the given DR_PRED_ constant.
+ * \note ARM-only.
+ */
+const char *
+instr_predicate_name(dr_pred_type_t pred);
+
+DR_API
+/**
+ * Returns the DR_PRED_ constant that represents the opposite condition
+ * from \p pred.  A valid conditional branch predicate must be passed (i.e.,
+ * not #DR_PRED_NONE, DR_PRED_AL, or DR_PRED_OP).
+ * \note ARM-only.
+ */
 dr_pred_type_t
-invert_predicate(dr_pred_type_t pred);
+instr_invert_predicate(dr_pred_type_t pred);
 #endif
 
 bool

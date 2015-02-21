@@ -645,7 +645,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                                  (app_pc)fall_through),
                                    opnd_create_reg(IBL_TARGET_REG), ilist, instr,
                                    &mov_imm, &mov_imm2);
-            instr_set_predicate(mov_imm, invert_predicate(pred));
+            instr_set_predicate(mov_imm, instr_invert_predicate(pred));
             if (mov_imm2 == NULL) {
                 if (isa_mode == DR_ISA_ARM_THUMB) {
                     /* FIXME i#1551: provide API to tweak IT block?  Here we make
@@ -659,7 +659,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     instr_set_src(prev, 1, OPND_CREATE_INT((pred - DR_PRED_EQ) % 2 == 0 ?
                                                            0xe : 0x2));
                 }
-                instr_set_predicate(mov_imm2, invert_predicate(pred));
+                instr_set_predicate(mov_imm2, instr_invert_predicate(pred));
             }
         } else {
             PRE(ilist, instr,

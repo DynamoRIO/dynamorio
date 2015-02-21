@@ -321,9 +321,11 @@ enum {
     OPSZ_120, /**< 120 bytes. Needed for load/store of register lists. */
     OPSZ_124, /**< 124 bytes. Needed for load/store of register lists. */
     OPSZ_128, /**< 128 bytes. Needed for load/store of register lists. */
+#ifdef AVOID_API_EXPORT
     /* Add new size here.  Also update size_names[] in decode_shared.c along with
      * the size routines in opnd_shared.c.
      */
+#endif
     OPSZ_LAST,
 };
 
