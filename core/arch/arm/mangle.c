@@ -36,6 +36,7 @@
 #include "arch.h"
 #include "instr_create.h"
 #include "instrument.h" /* instrlist_meta_preinsert */
+#include "disassemble.h"
 
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
@@ -383,6 +384,115 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
  *
  *   M A N G L I N G   R O U T I N E S
  */
+
+/* If instr is inside an IT block, removes it from the block and
+ * leaves it as an isolated (un-encodable) predicated instr, with any
+ * other instrs from the same block made to be legal on both sides by
+ * modifying and adding new OP_it instrs as necessary, which are marked
+ * as app instrs.
+ * Returns a new next_instr.
+ */
+static instr_t *
+mangle_remove_from_it_block(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    instr_t *prev, *it;
+    uint prior, count;
+    if (instr_get_isa_mode(instr) != DR_ISA_ARM_THUMB || !instr_is_predicated(instr))
+        return instr_get_next(instr); /* nothing to do */
+    for (prior = 0, prev = instr_get_prev(instr); prev != NULL;
+         prior++, prev = instr_get_prev(prev)) {
+        if (instr_get_opcode(prev) == OP_it)
+            break;
+        ASSERT(instr_is_predicated(instr));
+    }
+    ASSERT(prev != NULL);
+    it = prev;
+    count = instr_it_block_get_count(it);
+    ASSERT(count > prior && count <= IT_BLOCK_MAX_INSTRS);
+    if (prior > 0) {
+        instrlist_preinsert
+            (ilist, it, instr_it_block_create
+             (dcontext, instr_it_block_get_pred(it, 0),
+              prior > 1 ? instr_it_block_get_pred(it, 1) : DR_PRED_NONE,
+              prior > 2 ? instr_it_block_get_pred(it, 2) : DR_PRED_NONE,
+              DR_PRED_NONE));
+        count -= prior;
+    }
+    count--; /* this instr */
+    if (count > 0) {
+        instrlist_postinsert
+            (ilist, instr, instr_it_block_create
+             (dcontext, instr_it_block_get_pred(it, prior + 1),
+              count > 1 ? instr_it_block_get_pred(it, prior + 2) : DR_PRED_NONE,
+              count > 2 ? instr_it_block_get_pred(it, prior + 3) : DR_PRED_NONE,
+              DR_PRED_NONE));
+    }
+    /* It is now safe to remove the original OP_it instr */
+    instrlist_remove(ilist, it);
+    instr_destroy(dcontext, it);
+    DOLOG(5, LOG_INTERP, {
+        LOG(THREAD, LOG_INTERP, 4, "bb ilist after removing from IT block:\n");
+        instrlist_disassemble(dcontext, NULL, ilist, THREAD);
+    });
+    return instr_get_next(instr);
+}
+
+/* Adds enough OP_it instrs to ensure that each predicated instr in [start, end)
+ * (open-ended, so pass NULL to go to the final instr in ilist) is inside an IT
+ * block and is thus legally encodable.  Marks the OP_it instrs as app instrs.
+ */
+static void
+mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
+                           instr_t *end)
+{
+    instr_t *instr, *block_start = NULL;
+    uint it_count = 0, block_count = 0;
+    dr_pred_type_t block_pred[IT_BLOCK_MAX_INSTRS];
+    if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
+        return; /* nothing to do */
+    for (instr = start; instr != NULL && instr != end; instr = instr_get_next(instr)) {
+        if (block_start != NULL) {
+            ASSERT(block_count < IT_BLOCK_MAX_INSTRS);
+            if (instr_is_predicated(instr)) {
+                block_pred[block_count++] = instr_get_predicate(instr);
+            }
+            if (!instr_is_predicated(instr) || block_count == IT_BLOCK_MAX_INSTRS) {
+                instrlist_preinsert
+                    (ilist, block_start, instr_it_block_create
+                     (dcontext, block_pred[0],
+                      block_count > 1 ? block_pred[1] : DR_PRED_NONE,
+                      block_count > 2 ? block_pred[2] : DR_PRED_NONE,
+                      block_count > 3 ? block_pred[3] : DR_PRED_NONE));
+                block_start = NULL;
+            } else
+                continue;
+        }
+        /* Skip existing IT blocks.
+         * XXX: merge w/ adjacent blocks.
+         */
+        if (it_count > 0)
+            it_count--;
+        else if (instr_get_opcode(instr) == OP_it)
+            it_count = instr_it_block_get_count(instr);
+        else if (instr_is_predicated(instr)) {
+            block_start = instr;
+            block_pred[0] = instr_get_predicate(instr);
+            block_count = 1;
+        }
+    }
+    if (block_start != NULL) {
+        instrlist_preinsert
+            (ilist, block_start, instr_it_block_create
+             (dcontext, block_pred[0],
+              block_count > 1 ? block_pred[1] : DR_PRED_NONE,
+              block_count > 2 ? block_pred[2] : DR_PRED_NONE,
+              block_count > 3 ? block_pred[3] : DR_PRED_NONE));
+    }
+    DOLOG(5, LOG_INTERP, {
+        LOG(THREAD, LOG_INTERP, 4, "bb ilist after reinstating IT blocks:\n");
+        instrlist_disassemble(dcontext, NULL, ilist, THREAD);
+    });
+}
 
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
@@ -1250,6 +1360,18 @@ instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr)
 {
+    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
+    bool finished = false;
+    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+        instr_is_predicated(instr);
+    instr_t *bound_start = NULL;
+    if (in_it) {
+        /* split instr off from its IT block for easier mangling (we reinstate later) */
+        next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+        bound_start = INSTR_CREATE_label(dcontext);
+        PRE(ilist, instr, bound_start);
+    }
+
     /* FIXME i#1551: for indirect branch mangling, we first mangle the instr here
      * for possible pc read and dr_reg_stolen read/write,
      * and leave pc write mangling later in mangle_indirect_jump, which is
@@ -1260,21 +1382,27 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     /* special handling reglist read */
     if (instr_reads_gpr_list(instr)) {
         mangle_gpr_list_read(dcontext, ilist, instr, next_instr);
-        return next_instr;
+        finished = true;
     }
 
     /* special handling reglist write */
-    if (instr_writes_gpr_list(instr))
-        return mangle_gpr_list_write(dcontext, ilist, instr, next_instr);
+    if (!finished && instr_writes_gpr_list(instr)) {
+        next_instr = mangle_gpr_list_write(dcontext, ilist, instr, next_instr);
+        finished = true;
+    }
 
 #ifndef X64
-    if (instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
+    if (!finished && instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
         mangle_pc_read(dcontext, ilist, instr, next_instr);
 #endif /* !X64 */
 
     /* mangle_stolen_reg must happen after mangle_pc_read to avoid reg conflict */
-    if (instr_uses_reg(instr, dr_reg_stolen))
+    if (!finished && instr_uses_reg(instr, dr_reg_stolen))
         mangle_stolen_reg(dcontext, ilist, instr, next_instr);
+
+    if (in_it) {
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
+    }
     return next_instr;
 }
 

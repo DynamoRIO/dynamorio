@@ -402,6 +402,8 @@ enum {
 # define OPSZ_STATS OPSZ_4
 #endif
 
+#define IT_BLOCK_MAX_INSTRS 4
+
 /* in encode.c, not exported to non-arch/ files */
 const instr_info_t * get_encoding_info(instr_t *instr);
 const instr_info_t * instr_info_extra_opnds(const instr_info_t *info);

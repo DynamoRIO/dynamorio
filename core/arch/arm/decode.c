@@ -34,6 +34,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
+#include "instr_create.h"
 #include <string.h> /* for memcpy */
 
 /* ARM decoder.
@@ -1556,6 +1557,79 @@ it_block_info_init(it_block_info_t *info, decode_info_t *di)
 {
     it_block_info_init_immeds(info, (byte)decode_immed(di, 0, OPSZ_4b, false),
                               (byte)decode_immed(di, 4, OPSZ_4b, false));
+}
+
+uint
+instr_it_block_get_count(instr_t *it_instr)
+{
+    if (instr_get_opcode(it_instr) != OP_it ||
+        !opnd_is_immed_int(instr_get_src(it_instr, 1)))
+        return 0;
+    return decode_it_block_num_instrs(opnd_get_immed_int(instr_get_src(it_instr, 1)));
+}
+
+dr_pred_type_t
+instr_it_block_get_pred(instr_t *it_instr, uint index)
+{
+    it_block_info_t info;
+    if (instr_get_opcode(it_instr) != OP_it ||
+        !opnd_is_immed_int(instr_get_src(it_instr, 0)) ||
+        !opnd_is_immed_int(instr_get_src(it_instr, 1)))
+        return DR_PRED_NONE;
+    it_block_info_init_immeds(&info, opnd_get_immed_int(instr_get_src(it_instr, 1)),
+                              opnd_get_immed_int(instr_get_src(it_instr, 0)));
+    if (index >= info.num_instrs)
+        return DR_PRED_NONE;
+    return it_block_instr_predicate(info, index);
+}
+
+static byte
+set_bit(byte mask, int pos, int val)
+{
+    if (val == 1)
+        mask |= 1 << pos;
+    else
+        mask &= ~(1 << pos);
+    return mask;
+}
+
+instr_t *
+instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
+                      dr_pred_type_t pred2, dr_pred_type_t pred3)
+{
+    byte mask = 0;
+    byte firstcond = pred0 - DR_PRED_EQ;
+    byte first_bit0 = firstcond & 0x1;
+    byte first_not0 = (~first_bit0) & 0x1;
+    IF_DEBUG(dr_pred_type_t invert0 = instr_invert_predicate(pred0);)
+    uint num_instrs = IT_BLOCK_MAX_INSTRS;
+    LOG(THREAD_GET, LOG_EMIT, 5, "%s: %s, %s, %s, %s; bit0=%d\n", __FUNCTION__,
+        instr_predicate_name(pred0), instr_predicate_name(pred1),
+        instr_predicate_name(pred2), instr_predicate_name(pred3), first_bit0);
+    /* We could take in an array, but that's harder to use for the caller, so we end
+     * up w/ an unrolled loop here:
+     */
+    if (pred1 == DR_PRED_NONE)
+        num_instrs = 1;
+    else {
+        CLIENT_ASSERT(pred1 == pred0 || pred1 == invert0, "invalid pred1");
+        mask = set_bit(mask, 3, (pred1 == pred0) ? first_bit0 : first_not0);
+        if (pred2 == DR_PRED_NONE)
+            num_instrs = 2;
+        else {
+            CLIENT_ASSERT(pred2 == pred0 || pred2 == invert0, "invalid pred1");
+            mask = set_bit(mask, 2, (pred2 == pred0) ? first_bit0 : first_not0);
+            if (pred3 == DR_PRED_NONE)
+                num_instrs = 3;
+            else {
+                CLIENT_ASSERT(pred3 == pred0 || pred3 == invert0, "invalid pred1");
+                mask = set_bit(mask, 1, (pred3 == pred0) ? first_bit0 : first_not0);
+            }
+        }
+    }
+    mask |= BITMAP_MASK(IT_BLOCK_MAX_INSTRS - num_instrs);
+    /* I did not want to include the massive instr_create.h here */
+    return INSTR_CREATE_it(dcontext, OPND_CREATE_INT(firstcond), OPND_CREATE_INT(mask));
 }
 
 const instr_info_t *

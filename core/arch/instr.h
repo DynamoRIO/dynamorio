@@ -1240,6 +1240,36 @@ DR_API
  */
 dr_pred_type_t
 instr_invert_predicate(dr_pred_type_t pred);
+
+DR_API
+/**
+ * Assumes that \p it_instr's opcode is #OP_it.  Returns the number of instructions
+ * in the IT block that \p it_instr heads.
+ * \note ARM-only.
+ */
+uint
+instr_it_block_get_count(instr_t *it_instr);
+
+DR_API
+/**
+ * Assumes that \p it_instr's opcode is #OP_it.  Returns the predicate for the
+ * instruction with ordinal \p index in IT block that \p it_instr heads.
+ * \note ARM-only.
+ */
+dr_pred_type_t
+instr_it_block_get_pred(instr_t *it_instr, uint index);
+
+DR_API
+/**
+ * Creates a new instruction with opcode #OP_it and immediates set to encode
+ * an IT block with the given predicates.  Up to four instructions can exist
+ * in a single IT block.  Pass #DR_PRED_NONE for all predicates beyond the
+ * desired instruction count in the newly created IT block.
+ * \note ARM-only.
+ */
+instr_t *
+instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
+                      dr_pred_type_t pred2, dr_pred_type_t pred3);
 #endif
 
 bool

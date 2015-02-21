@@ -185,6 +185,8 @@ Further non-compatibility-affecting changes include:
  - Added instr_remove_srcs() and instr_remove_dsts().
  - Added cross-platform #EFLAGS_READ_ARITH and #EFLAGS_WRITE_ARITH.
  - Added instr_invert_predicate() and instr_predicate_name().
+ - Added instr_it_block_get_count(), instr_it_block_get_pred(), and
+   instr_it_block_create() for manipulating IT block instructions on ARM.
 
 **************************************************
 <hr>
