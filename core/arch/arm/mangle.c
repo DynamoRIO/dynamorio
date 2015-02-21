@@ -616,23 +616,78 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
+/* Adds a mov of the fall-through address into IBL_TARGET_REG, predicated
+ * with the inverse of instr's predicate.
+ * The caller must call mangle_reinstate_it_blocks() in Thumb mode afterward
+ * in order to make for legal encodings.
+ */
+static void
+mangle_add_predicated_fall_through(dcontext_t *dcontext, instrlist_t *ilist,
+                                   instr_t *instr, instr_t *next_instr,
+                                   instr_t *mangle_start)
+{
+    /* Our approach is to simply add a move-immediate of the fallthrough
+     * address under the inverted predicate.  This is much simpler to
+     * implement than adding a new kind of indirect branch ("conditional
+     * indirect") and plumbing it through all the optimized emit and link
+     * code (in particular, cbr stub sharing and other complex features).
+     */
+    dr_pred_type_t pred = instr_get_predicate(instr);
+    ptr_int_t fall_through = get_call_return_address(dcontext, ilist, instr);
+    instr_t *mov_imm, *mov_imm2;
+    ASSERT(instr_is_predicated(instr)); /* caller should check */
+
+    /* Mark the taken mangling as predicated.  We are starting after our r2
+     * spill.  It gets complex w/ interactions with mangle_stolen_reg() (b/c
+     * we aren't starting far enough back) so we bail for that.
+     * For mangle_pc_read(), we simply don't predicate the restore (b/c
+     * we aren't predicating the save).
+     */
+    if (!instr_uses_reg(instr, dr_reg_stolen)) {
+        instr_t *prev = instr_get_next(mangle_start);
+        for (; prev != next_instr; prev = instr_get_next(prev)) {
+            if (instr_is_app(prev) ||
+                !instr_is_reg_spill_or_restore(dcontext, prev, NULL, NULL, NULL))
+                instr_set_predicate(prev, pred);
+        }
+    }
+
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
+                           PC_AS_JMP_TGT(instr_get_isa_mode(instr),
+                                         (app_pc)fall_through),
+                           opnd_create_reg(IBL_TARGET_REG), ilist, next_instr,
+                           &mov_imm, &mov_imm2);
+    instr_set_predicate(mov_imm, instr_invert_predicate(pred));
+    if (mov_imm2 != NULL)
+        instr_set_predicate(mov_imm2, instr_invert_predicate(pred));
+}
+
 instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
     /* Strategy: replace OP_bl with 2-step mov immed into lr + OP_b */
-    /* FIXME i#1551: handle predication where instr is skipped */
     ptr_uint_t retaddr;
     uint opc = instr_get_opcode(instr);
+    instr_t *mov_imm, *mov_imm2;
+    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
+    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+        instr_is_predicated(instr);
+    instr_t *bound_start = INSTR_CREATE_label(dcontext);
+    if (in_it) {
+        /* split instr off from its IT block for easier mangling (we reinstate later) */
+        next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+    }
+    PRE(ilist, instr, bound_start);
     ASSERT(opc == OP_bl || opc == OP_blx);
     retaddr = get_call_return_address(dcontext, ilist, instr);
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
                            PC_AS_JMP_TGT(instr_get_isa_mode(instr), (app_pc)retaddr),
-                           opnd_create_reg(DR_REG_LR), ilist, instr, NULL, NULL);
+                           opnd_create_reg(DR_REG_LR), ilist, instr, &mov_imm, &mov_imm2);
     if (opc == OP_bl) {
-        /* remove OP_bl (final added jmp already targets the callee) */
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
+        /* OP_blx predication is handled below */
+        /* FIXME i#1551: handle predicated direct call: requires interp.c changes */
+        ASSERT_NOT_IMPLEMENTED(!instr_is_predicated(instr));
     } else {
         /* Unfortunately while there is OP_blx with an immed, OP_bx requires
          * indirection through a register.  We thus need to swap modes separately,
@@ -653,10 +708,17 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
         insert_mov_immed_ptrsz(dcontext, target, opnd_create_reg(IBL_TARGET_REG),
                                ilist, instr, NULL, NULL);
-        /* remove OP_blx */
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
+        if (instr_is_predicated(instr)) {
+            mangle_add_predicated_fall_through(dcontext, ilist, instr, next_instr,
+                                               bound_start);
+            ASSERT(in_it || instr_get_isa_mode(instr) != DR_ISA_ARM_THUMB);
+        }
     }
+    /* remove OP_bl (final added jmp already targets the callee) or OP_blx */
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    if (in_it)
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
     return next_instr;
 }
 
@@ -665,8 +727,19 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
     ptr_uint_t retaddr;
+    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
+    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+        instr_is_predicated(instr);
+    instr_t *bound_start = INSTR_CREATE_label(dcontext);
+    if (in_it) {
+        /* split instr off from its IT block for easier mangling (we reinstate later) */
+        next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+    }
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    /* We need the spill to be unconditional so start pred processing here */
+    PRE(ilist, instr, bound_start);
+
     if (!opnd_same(instr_get_target(instr), opnd_create_reg(IBL_TARGET_REG))) {
         PRE(ilist, instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
@@ -676,10 +749,17 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
                            PC_AS_JMP_TGT(instr_get_isa_mode(instr), (app_pc)retaddr),
                            opnd_create_reg(DR_REG_LR), ilist, instr, NULL, NULL);
+
+    if (instr_is_predicated(instr)) {
+        mangle_add_predicated_fall_through(dcontext, ilist, instr, next_instr,
+                                           bound_start);
+        ASSERT(in_it || instr_get_isa_mode(instr) != DR_ISA_ARM_THUMB);
+    }
     /* remove OP_blx_ind (final added jmp already targets the callee) */
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
-    /* FIXME i#1551: handle predication where instr is skipped */
+    if (in_it)
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
 }
 
 void
@@ -694,10 +774,21 @@ void
 mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags)
 {
+    bool remove_instr = false;
     int opc = instr_get_opcode(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
+    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
+    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+        instr_is_predicated(instr);
+    instr_t *bound_start = INSTR_CREATE_label(dcontext);
+    if (in_it) {
+        /* split instr off from its IT block for easier mangling (we reinstate later) */
+        next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+    }
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    /* We need the spill to be unconditional so start pred processing here */
+    PRE(ilist, instr, bound_start);
     if (instr_writes_gpr_list(instr)) {
         /* The load into pc will always be last (r15) so we remove it and add
          * a single-load instr into r2, with the same inc/dec and writeback.
@@ -723,62 +814,11 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_dst(single, 0, opnd_create_reg(IBL_TARGET_REG));
         instrlist_preinsert(ilist, next_instr, single); /* non-meta */
     } else if (opc == OP_bx || opc ==  OP_bxj) {
-        if (instr_is_predicated(instr)) {
-            /* Our approach is to simply add a move-immediate of the fallthrough
-             * address under the inverted predicate.  This is much simpler to
-             * implement than adding a new kind of indirect branch ("conditional
-             * indirect") and plumbing it through all the optimized emit and link
-             * code (in particular, cbr stub sharing and other complex features).
-             */
-            /* FIXME i#1551: generalize this code for all ind branches.  For now we
-             * only handle OP_bx.  See comment at end of this function as well.
-             */
-            dr_pred_type_t pred = instr_get_predicate(instr);
-            ptr_int_t fall_through = get_call_return_address(dcontext, ilist, instr);
-            instr_t *mov_imm, *mov_imm2;
-            instr_t *prev = NULL;
-            if (isa_mode == DR_ISA_ARM_THUMB) {
-                /* First, move the OP_it instr after the reg spill */
-                prev = instr_get_prev(instr_get_prev(instr));
-                ASSERT(prev != NULL && instr_get_opcode(prev) == OP_it);
-                instrlist_remove(ilist, prev);
-                instrlist_preinsert(ilist, instr, prev);
-                /* FIXME i#1551: handle >1-instr IT block */
-                ASSERT_NOT_IMPLEMENTED(opnd_get_immed_int(instr_get_src(prev, 1)) == 8);
-            }
-            PRE(ilist, instr,
-                INSTR_PRED(XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
-                                             instr_get_target(instr)),
-                           pred));
-            insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
-                                   PC_AS_JMP_TGT(instr_get_isa_mode(instr),
-                                                 (app_pc)fall_through),
-                                   opnd_create_reg(IBL_TARGET_REG), ilist, instr,
-                                   &mov_imm, &mov_imm2);
-            instr_set_predicate(mov_imm, instr_invert_predicate(pred));
-            if (mov_imm2 == NULL) {
-                if (isa_mode == DR_ISA_ARM_THUMB) {
-                    /* FIXME i#1551: provide API to tweak IT block?  Here we make
-                     * it "itee" but via raw immeds.
-                     */
-                    instr_set_src(prev, 1, OPND_CREATE_INT((pred - DR_PRED_EQ) % 2 == 0 ?
-                                                           0xc : 0x4));
-                }
-            } else {
-                if (isa_mode == DR_ISA_ARM_THUMB) {
-                    instr_set_src(prev, 1, OPND_CREATE_INT((pred - DR_PRED_EQ) % 2 == 0 ?
-                                                           0xe : 0x2));
-                }
-                instr_set_predicate(mov_imm2, instr_invert_predicate(pred));
-            }
-        } else {
-            PRE(ilist, instr,
-                XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
-                                  instr_get_target(instr)));
-        }
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                              instr_get_target(instr)));
         /* remove the bx */
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
+        remove_instr = true;
     } else if (opc == OP_tbb || opc == OP_tbh) {
         /* XXX: should we add add dr_insert_get_mbr_branch_target() for use
          * internally and by clients?  OP_tb{b,h} break our assumptions of the target
@@ -832,8 +872,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              /* These do not switch modes so we set LSB */
                              OPND_CREATE_INT((cur_pc & 0x000000ff) | 0x1)));
         /* remove the instr */
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
+        remove_instr = true;
     } else if (opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
                opc == OP_eret) {
         /* FIXME i#1551: NYI on ARM */
@@ -862,22 +901,24 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             if (instr_get_opcode(instr) == OP_mov && !instr_is_predicated(instr)) {
                 /* Optimization: we can replace the mov */
                 src = instr_get_src(instr, 0);
-                instrlist_remove(ilist, instr);
-                instr_destroy(dcontext, instr);
+                remove_instr = true;
             }
             PRE(ilist, next_instr,
                 INSTR_CREATE_orr(dcontext, opnd_create_reg(IBL_TARGET_REG), src,
                                  OPND_CREATE_INT(1)));
         }
     }
-    /* FIXME i#1551: handle predication where instr is skipped
-     * For ind branch: need to add cbr -- will emit do right thing?
-     * For pc read or rip-rel: b/c post-app-instr restore can't
-     * rely on pred flags (app instr could change them), just
-     * have all the mangling be non-pred?  No hurt, right?
-     * Though may as well have the mov-immed for mangle_rel_addr
-     * be predicated.
-     */
+    if (instr_is_predicated(instr)) {
+        mangle_add_predicated_fall_through(dcontext, ilist, instr, next_instr,
+                                           bound_start);
+        ASSERT(in_it || isa_mode != DR_ISA_ARM_THUMB);
+    }
+    if (remove_instr) {
+        instrlist_remove(ilist, instr);
+        instr_destroy(dcontext, instr);
+    }
+    if (in_it)
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
 }
 
 /* Local single-instr-window scratch reg picker.  Only considers r0-r3, so the

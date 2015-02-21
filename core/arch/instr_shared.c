@@ -3119,10 +3119,17 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
 #endif
     } else
         return false;
-    if (opnd_is_far_base_disp(memop) &&
+    if (opnd_is_reg(regop) &&
+#ifdef X86
+        opnd_is_far_base_disp(memop) &&
         opnd_get_segment(memop) == SEG_TLS &&
-        opnd_is_abs_base_disp(memop) &&
-        opnd_is_reg(regop)) {
+        opnd_is_abs_base_disp(memop)
+#elif defined (ARM)
+        opnd_is_base_disp(memop) &&
+        opnd_get_base(memop) == dr_reg_stolen &&
+        opnd_get_index(memop) == DR_REG_NULL
+#endif
+        ) {
         if (reg != NULL)
             *reg = opnd_get_reg(regop);
         if (offs != NULL)
