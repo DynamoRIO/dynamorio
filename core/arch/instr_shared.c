@@ -2016,6 +2016,7 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
                         decode_cur_pc(instr_get_app_pc(instr), instr_get_isa_mode(instr),
                                       instr_get_opcode(instr), instr);
                 }
+                return true;
             }
         }, {
             if (opnd_is_rel_addr(curop)) {

@@ -994,8 +994,10 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     for (i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_uses_reg(instr_get_src(instr, i), DR_REG_PC)) {
             /* A memref should have been mangled already in mangle_rel_addr */
-            ASSERT(opnd_is_reg(instr_get_src(instr, i)));
-            instr_set_src(instr, i, opnd_create_reg(reg));
+            opnd_t orig = instr_get_src(instr, i);
+            ASSERT(opnd_is_reg(orig));
+            instr_set_src(instr, i, opnd_create_reg_ex(reg, opnd_get_size(orig),
+                                                       opnd_get_flags(orig)));
         }
     }
     if (should_restore)
