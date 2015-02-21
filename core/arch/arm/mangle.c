@@ -808,6 +808,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         bool found_pc;
         opnd_t memop = instr_get_src(instr, 0);
         instr_t *single;
+        bool writeback = instr_num_srcs(instr) > 1;
         ASSERT(opnd_is_base_disp(memop));
         opnd_set_size(&memop, OPSZ_VAR_REGLIST);
         instr_set_src(instr, 0, memop);
@@ -816,12 +817,18 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             ASSERT(opnd_is_reg(instr_get_dst(instr, i)));
             if (opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
                 found_pc = true;
-                instr_remove_dsts(dcontext, instr, i, i+1);
+                if (i == 0 &&
+                    (i == instr_num_dsts(instr) - 1 ||
+                     (writeback && i == instr_num_dsts(instr) - 2)))
+                    remove_instr = true;
+                else
+                    instr_remove_dsts(dcontext, instr, i, i+1);
                 break;
             }
         }
         ASSERT(found_pc);
-        instr_remove_dsts(dcontext, single, 0, i); /* leave pc => r2 */
+        if (i > 0)
+            instr_remove_dsts(dcontext, single, 0, i); /* leave pc => r2 */
         instr_set_dst(single, 0, opnd_create_reg(IBL_TARGET_REG));
         instrlist_preinsert(ilist, next_instr, single); /* non-meta */
     } else if (opc == OP_bx || opc ==  OP_bxj) {
