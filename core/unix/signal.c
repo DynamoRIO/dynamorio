@@ -3628,7 +3628,7 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
  * WARNING: behavior varies with different versions of the kernel!
  * sigaction support was only added with 2.2
  */
-#ifdef X64
+#ifndef X86_32
 /* stub in x86.asm passes our xsp to us */
 # ifdef MACOS
 void
@@ -3648,7 +3648,7 @@ master_signal_handler_C(byte *xsp)
 #endif
 {
     sigframe_rt_t *frame = (sigframe_rt_t *) xsp;
-#ifndef X64
+#ifdef X86_32
     /* Read the normal arguments from the frame. */
     int sig = frame->sig;
     siginfo_t *siginfo = frame->pinfo;
@@ -3762,7 +3762,7 @@ master_signal_handler_C(byte *xsp)
         siginfo->si_code);
     DOLOG(level+1, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
 
-#if !defined(X64) && !defined(VMX86_SERVER) && defined(LINUX)
+#if defined(X86_32) && !defined(VMX86_SERVER) && defined(LINUX)
     /* FIXME case 6700: 2.6.9 (FC3) kernel sets up our frame with a pretcode
      * of 0x440.  This happens if our restorer is unspecified (though 2.6.9
      * src code shows setting the restorer to a default value in that case...)

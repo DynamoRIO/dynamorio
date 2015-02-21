@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -60,8 +60,27 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+#ifdef X64
+  /* FIXME i#1569: NYI */
+# error NYI
+#endif
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr0  ="PFX"\n", sc->SC_R0);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr1  ="PFX"\n", sc->SC_R1);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr2  ="PFX"\n", sc->SC_R2);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr3  ="PFX"\n", sc->SC_R3);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr4  ="PFX"\n", sc->SC_R4);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr5  ="PFX"\n", sc->SC_R5);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr6  ="PFX"\n", sc->SC_R6);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr7  ="PFX"\n", sc->SC_R7);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr8  ="PFX"\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr9  ="PFX"\n", sc->SC_R9);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr10 ="PFX"\n", sc->SC_R10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr11 ="PFX"\n", sc->SC_R11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr12 ="PFX"\n", sc->SC_R12);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tsp  ="PFX"\n", sc->SC_XSP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr14 ="PFX"\n", sc->SC_LR);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpc  ="PFX"\n", sc->SC_XIP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tcpsr="PFX"\n", sc->SC_XFLAGS);
 }
 #endif /* DEBUG */
 

@@ -424,14 +424,9 @@ safe_read_fast(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 bool
 is_safe_read_pc(app_pc pc)
 {
-#ifdef X86
     return (pc == (app_pc)safe_read_asm_pre ||
             pc == (app_pc)safe_read_asm_mid ||
             pc == (app_pc)safe_read_asm_post);
-#elif defined(ARM)
-    /* FIXME i#1551: NYI */
-    return false;
-#endif
 }
 
 app_pc

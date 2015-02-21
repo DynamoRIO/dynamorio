@@ -40,6 +40,9 @@ START_FILE
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 DECL_EXTERN(dynamorio_app_take_over_helper)
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
+#if defined(UNIX)
+DECL_EXTERN(master_signal_handler_C)
+#endif
 
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
@@ -381,6 +384,9 @@ GLOBAL_LABEL(global_do_syscall_int:)
         END_FUNC(global_do_syscall_int)
 
 
+DECLARE_GLOBAL(safe_read_asm_pre)
+DECLARE_GLOBAL(safe_read_asm_mid)
+DECLARE_GLOBAL(safe_read_asm_post)
 DECLARE_GLOBAL(safe_read_asm_recover)
 
 /* i#350: We implement safe_read in assembly and save the PCs that can fault.
@@ -400,7 +406,10 @@ DECLARE_GLOBAL(safe_read_asm_recover)
 GLOBAL_LABEL(safe_read_asm:)
         cmp      ARG3,   #0
 1:      beq      safe_read_asm_recover
+ADDRTAKEN_LABEL(safe_read_asm_pre:)
         ldrb     REG_R3, [ARG2]
+ADDRTAKEN_LABEL(safe_read_asm_mid:)
+ADDRTAKEN_LABEL(safe_read_asm_post:)
         strb     REG_R3, [ARG1]
         subs     ARG3, ARG3, #1
         add      ARG2, ARG2, #1
@@ -551,9 +560,15 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_nonrt_sigreturn)
 
+
+#ifndef HAVE_SIGALTSTACK
+# error NYI
+#endif
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
-        /* FIXME i#1551: NYI on ARM */
+        mov      ARG4, sp /* pass as extra arg */
+        b        GLOBAL_REF(master_signal_handler_C)
+        /* master_signal_handler_C will do the ret */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(master_signal_handler)
 
