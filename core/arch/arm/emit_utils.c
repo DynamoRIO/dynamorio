@@ -432,7 +432,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     if (use_ibt_prefix(f->flags)) {
         if (FRAG_IS_THUMB(f->flags)) {
             /* ldr r0, [r10, #r0-slot] */
-            *(ushort *)pc = 0xf8d0 | ((dr_reg_stolen - DR_REG_R0) << 16);
+            *(ushort *)pc = 0xf8d0 | (dr_reg_stolen - DR_REG_R0);
             pc += THUMB_SHORT_INSTR_SIZE;
             *(ushort *)pc = TLS_REG0_SLOT;
             pc += THUMB_SHORT_INSTR_SIZE;
