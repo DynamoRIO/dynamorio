@@ -1376,7 +1376,7 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         instr_remove_dsts(dcontext, tail, 0, i + 1);
         instrlist_preinsert(ilist, next_instr, tomangle); /* non-meta */
-        swap_to_app_val_in_stolen_reg(dcontext, ilist, tomangle, false);
+        swap_to_app_val_in_stolen_reg(dcontext, ilist, tomangle, writeback);
         instrlist_preinsert(ilist, next_instr, tail); /* non-meta */
         return tail; /* could write pc */
     }
