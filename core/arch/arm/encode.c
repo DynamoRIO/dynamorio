@@ -905,7 +905,7 @@ encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
                 return false;
         }
     }
-    if (first_one <= 8) /* ROR must be from 8 through 31 */
+    if (first_one < 8) /* ROR must be from 8 through 31 */
         return false;
     /* ROR amount runs from 8 through 31: 8 has 1bcdefgh starting at bit 31. */
     di->mod_imm_enc = ((8 + (31 - first_one)) << 7) | ((val >> (first_one - 7)) & 0x7f);
@@ -1411,7 +1411,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_M_NEG_REG:
         if (opnd_is_base_disp(opnd) &&
             opnd_get_base(opnd) != REG_NULL &&
+            !(di->T32_16 && opnd_get_base(opnd) > DR_REG_R7) &&
             opnd_get_index(opnd) != REG_NULL &&
+            !(di->T32_16 && opnd_get_index(opnd) > DR_REG_R7) &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
             BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                         optype == TYPE_M_NEG_REG) &&
@@ -2211,7 +2213,7 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (size_temp == OPSZ_5b && di->shift_has_type &&
             di->shift_type_idx == opnum - 1 && di->shift_uses_immed) {
             /* Convert to raw values */
-            ptr_int_t sh2, val;
+            ptr_int_t sh2;
             if (!encode_shift_values(di->shift_type, opnd_get_immed_int(opnd),
                                      &sh2, &val)) {
                 CLIENT_ASSERT(false, "internal encoding error");
@@ -2221,7 +2223,6 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 encode_immed(di, 21, OPSZ_1b, sh2 >> 1, false/*unsigned*/);
             else
                 encode_immed(di, 4, OPSZ_2b, sh2, false/*unsigned*/);
-            encode_immed(di, 7, size_temp, val, false/*unsigned*/);
         } else
             val = get_immed_val_abs(di, opnd);
         if (size_temp == OPSZ_5b) {
