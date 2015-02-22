@@ -560,6 +560,7 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_nonrt_sigreturn)
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 #ifndef HAVE_SIGALTSTACK
 # error NYI
@@ -574,6 +575,7 @@ GLOBAL_LABEL(master_signal_handler:)
 
 #endif /* LINUX */
 
+#endif /* NOT_DYNAMORIO_CORE_PROPER */
 
 /* void hashlookup_null_handler(void)
  * PR 305731: if the app targets NULL, it ends up here, which indirects
