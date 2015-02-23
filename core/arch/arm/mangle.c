@@ -752,9 +752,17 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr, bound_start);
 
     if (!opnd_same(instr_get_target(instr), opnd_create_reg(IBL_TARGET_REG))) {
-        PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
-                              instr_get_target(instr)));
+        if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
+            /* if the target reg is dr_reg_stolen, the app value is in TLS */
+            PRE(ilist, instr,
+                instr_create_restore_from_tls(dcontext,
+                                              IBL_TARGET_REG,
+                                              TLS_REG_STOLEN_SLOT));
+        } else {
+            PRE(ilist, instr,
+                XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                  instr_get_target(instr)));
+        }
     }
     retaddr = get_call_return_address(dcontext, ilist, instr);
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
@@ -832,9 +840,18 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_dst(single, 0, opnd_create_reg(IBL_TARGET_REG));
         instrlist_preinsert(ilist, next_instr, single); /* non-meta */
     } else if (opc == OP_bx || opc ==  OP_bxj) {
-        PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
-                              instr_get_target(instr)));
+        ASSERT(opnd_is_reg(instr_get_target(instr)));
+        if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
+            /* if the target reg is dr_reg_stolen, the app value is in TLS */
+            PRE(ilist, instr,
+                instr_create_restore_from_tls(dcontext,
+                                              IBL_TARGET_REG,
+                                              TLS_REG_STOLEN_SLOT));
+        } else {
+            PRE(ilist, instr,
+                XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                  instr_get_target(instr)));
+        }
         /* remove the bx */
         remove_instr = true;
     } else if (opc == OP_tbb || opc == OP_tbh) {
@@ -889,6 +906,8 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
                              /* These do not switch modes so we set LSB */
                              OPND_CREATE_INT((cur_pc & 0x000000ff) | 0x1)));
+        /* FIXME i#1551: handle instr using dr_reg_stolen */
+        ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, dr_reg_stolen));
         /* remove the instr */
         remove_instr = true;
     } else if (opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
@@ -902,6 +921,8 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* XXX: can anything (non-OP_ldm) have r2 as an additional dst? */
         ASSERT_NOT_IMPLEMENTED(!instr_writes_to_reg(instr, IBL_TARGET_REG,
                                                     DR_QUERY_INCLUDE_ALL));
+        /* FIXME i#1551: handle instr using dr_reg_stolen */
+        ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, dr_reg_stolen));
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_reg(instr_get_dst(instr, i)) &&
                 opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
@@ -1461,7 +1482,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 #endif /* !X64 */
 
     /* mangle_stolen_reg must happen after mangle_pc_read to avoid reg conflict */
-    if (!finished && instr_uses_reg(instr, dr_reg_stolen))
+    if (!finished && instr_uses_reg(instr, dr_reg_stolen) && !instr_is_mbr(instr))
         mangle_stolen_reg(dcontext, ilist, instr, next_instr);
 
     if (in_it) {
