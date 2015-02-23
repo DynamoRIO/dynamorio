@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,7 +71,7 @@ get_base_named_obj_dir_name(wchar_t *wbuf OUT, size_t wbuflen)
                 *(BASE_STATIC_SERVER_DATA_64 **)(ptr + 2*sizeof(void*));
             /* we assume null-terminated */
             if (data != NULL)
-                return data->NamedObjectDirectory.Buffer;
+                return data->NamedObjectDirectory.u.b32.Buffer32;
         } else
 #endif
         {

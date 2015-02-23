@@ -3118,9 +3118,9 @@ dr_unload_aux_library(dr_auxlib_handle_t lib)
 }
 
 #if defined(WINDOWS) && !defined(X64)
-/* XXX i#1035: these routines all have 64-bit handle and routine types for
+/* XXX i#1633: these routines all have 64-bit handle and routine types for
  * handling win8's high ntdll64 in the future.  For now the implementation
- * treats them as 32-bit types.
+ * treats them as 32-bit types and we do not support win8+.
  */
 
 DR_API
@@ -3153,7 +3153,7 @@ DR_API
 dr_auxlib64_routine_ptr_t
 dr_lookup_aux_x64_library_routine(dr_auxlib64_handle_t lib, const char *name)
 {
-    void *res = get_proc_address_64((HANDLE)(uint)lib, name); /* uint avoids warning */
+    uint64 res = get_proc_address_64((uint64)lib, name);
     return (dr_auxlib64_routine_ptr_t) res;
 }
 

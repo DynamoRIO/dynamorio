@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -118,7 +118,10 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
     void *hook_func;
 # ifndef X64
     if (x64) {
-        hook_func = (void *) get_proc_address_64
+        /* FIXME i#1035: update this routine to handle 64-bit addresses from
+         * 32-bit code using NtWow64ReadVirtualMemory64 to read them.
+         */
+        hook_func = (void *)(ptr_uint_t) get_proc_address_64
             (get_module_handle_64(L_DR_MARKER_HOOKED_DLL),
              DR_MARKER_HOOKED_FUNCTION_STRING);
     } else

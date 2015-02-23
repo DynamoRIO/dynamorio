@@ -458,6 +458,7 @@ GLOBAL_LABEL(get_stack_ptr:)
  * int switch_modes_and_load(void *ntdll64_LdrLoadDll,
  *                           UNICODE_STRING_64 *lib,
  *                           HANDLE *result)
+ * XXX i#1633: this routine does not yet support ntdll64 > 4GB
  */
 # define FUNCNAME switch_modes_and_load
         DECLARE_FUNC(FUNCNAME)
@@ -515,18 +516,19 @@ sml_return_to_32:
         END_FUNC(FUNCNAME)
 
 /*
- * int switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3)
+ * int switch_modes_and_call(uint64 func, void *arg1, void *arg2, void *arg3)
  */
 # undef FUNCNAME
 # define FUNCNAME switch_modes_and_call
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov      eax, ARG1
-        mov      ecx, ARG2
-        mov      edx, ARG3
+        mov      eax, esp    /* get.. */
+        add      eax, ARG_SZ /* ...address of func */
+        mov      ecx, ARG3 /* arg1 */
+        mov      edx, ARG4 /* arg2 */
         /* save callee-saved registers */
         push     ebx
-        mov      ebx, ARG4
+        mov      ebx, ARG6 /* really ARG5==arg3, but we have 1 push */
         /* far jmp to next instr w/ 64-bit switch: jmp 0033:<smc_transfer_to_64> */
         RAW(ea)
         DD offset smc_transfer_to_64
@@ -541,12 +543,14 @@ smc_transfer_to_64:
         RAW(41) push     ebp /* push r13 */
         RAW(41) push     esi /* push r14 */
         RAW(41) push     edi /* push r15 */
-        RAW(44) mov      eax, ebx /* mov ARG4 in ebx to r8d (3rd arg slot) */
+        RAW(44) mov      eax, ebx /* mov arg3 from ebx to r8d (3rd arg slot) */
         /* align the stack pointer */
         mov      ebx, esp        /* save esp in callee-preserved reg */
         sub      esp, 32         /* call conv */
         and      esp, HEX(fffffff0) /* align to 16-byte boundary */
-        call     eax             /* arg1 is already in rcx and arg2 in rdx */
+        /* arg1 is already in rcx, arg2 in rdx, and arg3 now in r8 */
+        RAW(48) mov eax, DWORD [eax] /* mov rax, qword ptr [rax] */
+        call     eax             /* call rax */
         mov      esp, ebx        /* restore esp */
         /* restore WOW64 state */
         RAW(41) pop      edi /* pop r15 */

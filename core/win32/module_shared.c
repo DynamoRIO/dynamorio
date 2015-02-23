@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -770,15 +770,11 @@ ldr_module_statically_linked(LDR_MODULE *mod)
  * We duplicate a bunch of data structures and code here, but this is cleaner
  * than compiling the original code as x64 and hacking the build process to
  * get it linked: stick as char[] inside code section or something.
- * We assume that all addresses are in the low 4GB (above 4GB is off-limits
- * for a WOW64 process), so we can ignore the high dword of each pointer.
  */
 
 typedef struct ALIGN_VAR(8) _LIST_ENTRY_64 {
-    struct _LIST_ENTRY_64 *Flink;
-    uint Flink_hi;
-    struct _LIST_ENTRY_64 *Blink;
-    uint Blink_hi;
+    uint64 /* struct _LIST_ENTRY_64 * */ Flink;
+    uint64 /* struct _LIST_ENTRY_64 * */ Blink;
 } LIST_ENTRY_64;
 
 /* UNICODE_STRING_64 is in ntdll.h */
@@ -801,10 +797,8 @@ typedef struct ALIGN_VAR(8) _LDR_MODULE_64 {
     LIST_ENTRY_64 InLoadOrderModuleList;
     LIST_ENTRY_64 InMemoryOrderModuleList;
     LIST_ENTRY_64 InInitializationOrderModuleList;
-    PVOID BaseAddress;
-    uint BaseAddress_hi;
-    PVOID EntryPoint;
-    uint EntryPoint_hi;
+    uint64 BaseAddress;
+    uint64 EntryPoint;
     ULONG SizeOfImage;
     int padding;
     UNICODE_STRING_64 FullDllName;
@@ -818,6 +812,9 @@ typedef struct ALIGN_VAR(8) _LDR_MODULE_64 {
 
 typedef void (*void_func_t) ();
 
+#define MAX_MODNAME_SIZE 128
+#define MAX_FUNCNAME_SIZE 128
+
 /* in arch/x86.asm */
 extern int
 switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *result);
@@ -828,16 +825,19 @@ switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *
  * as well.
  */
 extern int
-switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3);
+switch_modes_and_call(uint64 func, void *arg1, void *arg2, void *arg3);
 
 /* Here and not in ntdll.c b/c libutil targets link to this file but not
  * ntdll.c
  */
-void *
+uint64
 get_own_x64_peb(void)
 {
     /* __readgsqword is not supported for 32-bit */
-    void *peb64;
+    /* We assume the x64 PEB is in the low 4GB (else we'll need syscall to
+     * get its value).
+     */
+    uint peb64, peb64_hi;
     if (!is_wow64_process(NT_CURRENT_PROCESS)) {
         ASSERT_NOT_REACHED();
         return NULL;
@@ -845,15 +845,30 @@ get_own_x64_peb(void)
     __asm {
         mov eax, dword ptr gs:X64_PEB_TIB_OFFSET
         mov peb64, eax
+        mov eax, dword ptr gs:(X64_PEB_TIB_OFFSET+4)
+        mov peb64_hi, eax
     };
-    return peb64;
+    ASSERT(peb64_hi == 0); /* Though could we even read it if it were high? */
+    return (uint64) peb64;
 }
 
-static PEB_LDR_DATA_64 *
+static bool
+read64(uint64 addr, size_t sz, void *buf)
+{
+    size_t got;
+    NTSTATUS res = nt_wow64_read_virtual_memory64
+        (NT_CURRENT_PROCESS, addr, buf, sz, &got);
+    return (NT_SUCCESS(res) && got == sz);
+}
+
+static uint64
 get_ldr_data_64(void)
 {
-    byte *peb64 = (byte *) get_own_x64_peb();
-    return *(PEB_LDR_DATA_64 **)(peb64 + X64_LDR_PEB_OFFSET);
+    uint64 peb64 = get_own_x64_peb();
+    uint64 ldr64 = 0;
+    if (!read64(peb64 + X64_LDR_PEB_OFFSET, sizeof(ldr64), &ldr64))
+        return 0;
+    return ldr64;
 }
 
 /* Pass either name or base.
@@ -862,34 +877,50 @@ get_ldr_data_64(void)
  * Caller should synchronize w/ other threads, and avoid calling while app
  * holds the x64 loader lock.
  */
-static LDR_MODULE_64 *
-get_ldr_module_64(wchar_t *name, byte *base)
+static bool
+get_ldr_module_64(wchar_t *name, uint64 base, LDR_MODULE_64 *out)
 {
-    PEB_LDR_DATA_64 *ldr = get_ldr_data_64();
-    LIST_ENTRY_64 *e, *mark;
-    LDR_MODULE_64 *mod;
+    /* Be careful: we can't directly de-ref any ptrs b/c they can be >4GB */
+    uint64 ldr_addr = get_ldr_data_64();
+    PEB_LDR_DATA_64 ldr;
+    uint64 e_addr, mark_addr;
+    LIST_ENTRY_64 e, mark;
+    LDR_MODULE_64 mod;
+    wchar_t local_buf[MAX_MODNAME_SIZE];
     uint traversed = 0;     /* a simple infinite loop break out */
+
+    if (ldr_addr == 0 || !read64(ldr_addr, sizeof(ldr), &ldr))
+        return false;
 
     /* Now, you'd think these would actually be in memory order, but they
      * don't seem to be for me!
      */
-    mark = &ldr->InMemoryOrderModuleList;
+    mark_addr = ldr_addr + offsetof(PEB_LDR_DATA_64, InMemoryOrderModuleList);
+    if (!read64(mark_addr, sizeof(mark), &mark))
+        return false;
 
-    for (e = mark->Flink; e != mark; e = e->Flink) {
-        mod = (LDR_MODULE_64 *) ((char *)e -
-                              offsetof(LDR_MODULE_64, InMemoryOrderModuleList));
-        /* NOTE - for comparison we could use pe_name or mod->BaseDllName.
-         * Our current usage is just to get user32.dll for which BaseDllName
-         * is prob. better (can't rename user32, and a random dll could have
-         * user32.dll as a pe_name).  If wanted to be extra certain could
-         * check FullDllName for %systemroot%/system32/user32.dll as that
-         * should ensure uniqueness.
-         */
-        ASSERT(mod->BaseDllName.Length <= mod->BaseDllName.MaximumLength &&
-               mod->BaseDllName.Buffer != NULL);
-        if ((name != NULL && wcscasecmp(name, mod->BaseDllName.Buffer) == 0) ||
-            (base != NULL && (byte *)mod->BaseAddress == base)) {
-            return mod;
+    for (e_addr = mark.Flink; e_addr != mark_addr; e_addr = e.Flink) {
+        if (!read64(e_addr, sizeof(e), &e) ||
+            !read64(e_addr - offsetof(LDR_MODULE_64, InMemoryOrderModuleList),
+                    sizeof(mod), &mod))
+            return false;
+        ASSERT(mod.BaseDllName.Length <= mod.BaseDllName.MaximumLength &&
+               mod.BaseDllName.u.Buffer64 != 0);
+        if (name != NULL) {
+            int len = MIN(mod.BaseDllName.Length, BUFFER_SIZE_BYTES(local_buf));
+            if (!read64(mod.BaseDllName.u.Buffer64, len, local_buf))
+                return false;
+            if (len < BUFFER_SIZE_BYTES(local_buf))
+                local_buf[len/sizeof(wchar_t)] = L'\0';
+            else
+                NULL_TERMINATE_BUFFER(local_buf);
+            if (wcscasecmp(name, local_buf) == 0) {
+                memcpy(out, &mod, sizeof(mod));
+                return true;
+            }
+        } else if (base != 0 && base == mod.BaseAddress) {
+            memcpy(out, &mod, sizeof(mod));
+            return true;
         }
 
         if (traversed++ > MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD) {
@@ -898,10 +929,10 @@ get_ldr_module_64(wchar_t *name, byte *base)
             ASSERT_NOT_REACHED();
             /* TODO: In case we ever hit this we may want to retry the
              * traversal once more */
-            return NULL;
+            return false;
         }
     }
-    return NULL;
+    return false;
 }
 
 /* returns NULL if no loader module is found
@@ -915,21 +946,101 @@ get_ldr_module_64(wchar_t *name, byte *base)
  * This is now used by more than just preinjector, and it's up to the caller
  * to synchronize and avoid calling while the app holds the x64 loader lock.
  */
-HANDLE
+uint64
 get_module_handle_64(wchar_t *name)
 {
-    LDR_MODULE_64 *mod = get_ldr_module_64(name, NULL);
-    if (mod != NULL)
-        return (HANDLE) mod->BaseAddress;
-    else
+    /* Be careful: we can't directly de-ref any ptrs b/c they can be >4GB */
+    LDR_MODULE_64 mod;
+    if (!get_ldr_module_64(name, NULL, &mod))
         return NULL;
+    return mod.BaseAddress;
 }
 
-/* we return void* since that's easier for preinject and drmarker to deal with */
-void *
-get_proc_address_64(HANDLE lib, const char *name)
+uint64
+get_proc_address_64(uint64 lib, const char *name)
 {
-    return (void *) get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(true), NULL);
+    /* Because we have to handle 64-bit addresses, we can't share
+     * get_proc_address_common().  We thus have a specialized routine here.
+     * We ignore forwarders and ordinals.
+     */
+    size_t exports_size;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS64 nt;
+    IMAGE_DATA_DIRECTORY *expdir;
+    IMAGE_EXPORT_DIRECTORY exports;
+    uint i;
+    PULONG functions; /* array of RVAs */
+    PUSHORT ordinals;
+    PULONG fnames; /* array of RVAs */
+    uint ord = UINT_MAX; /* the ordinal to use */
+    uint64 func = 0;
+    char local_buf[MAX_FUNCNAME_SIZE];
+
+    if (!read64(lib, sizeof(dos), &dos) ||
+        !read64(lib + dos.e_lfanew, sizeof(nt), &nt))
+        return 0;
+    ASSERT(dos.e_magic == IMAGE_DOS_SIGNATURE);
+    ASSERT(nt.Signature == IMAGE_NT_SIGNATURE);
+    expdir = &nt.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    exports_size = expdir->Size;
+    if (exports_size <= 0 ||
+        !read64(lib + expdir->VirtualAddress, MIN(exports_size, sizeof(exports)),
+                &exports))
+        return 0;
+    if (exports.NumberOfNames == 0 || exports.AddressOfNames == 0)
+        return 0;
+
+#if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    functions = (PULONG)
+        HeapAlloc(GetProcessHeap(), 0, exports.NumberOfFunctions * sizeof(ULONG));
+    ordinals = (PUSHORT)
+        HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(USHORT));
+    fnames = (PULONG)
+        HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(ULONG));
+#else
+    functions = (PULONG)
+        global_heap_alloc(exports.NumberOfFunctions * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+    ordinals = (PUSHORT)
+        global_heap_alloc(exports.NumberOfNames * sizeof(USHORT) HEAPACCT(ACCT_OTHER));
+    fnames = (PULONG)
+        global_heap_alloc(exports.NumberOfNames * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+#endif
+    if (read64(lib + exports.AddressOfFunctions,
+               exports.NumberOfFunctions * sizeof(ULONG), functions) &&
+        read64(lib + exports.AddressOfNameOrdinals,
+               exports.NumberOfNames * sizeof(USHORT), ordinals) &&
+        read64(lib + exports.AddressOfNames,
+               exports.NumberOfNames * sizeof(ULONG), fnames)) {
+        bool match = false;
+        for (i = 0; i < exports.NumberOfNames; i++) {
+            if (!read64(lib + fnames[i], BUFFER_SIZE_BYTES(local_buf), local_buf))
+                break;
+            NULL_TERMINATE_BUFFER(local_buf);
+            if (strcasecmp(name, local_buf) == 0) {
+                match = true;
+                ord = ordinals[i];
+                break;
+            }
+        }
+        if (match && ord < exports.NumberOfFunctions && functions[ord] != 0 &&
+            /* We don't support forwarded functions */
+            (functions[ord] < expdir->VirtualAddress ||
+             functions[ord] >= expdir->VirtualAddress + exports_size))
+            func = lib + functions[ord];
+    }
+#if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    HeapFree(GetProcessHeap(), 0, functions);
+    HeapFree(GetProcessHeap(), 0, ordinals);
+    HeapFree(GetProcessHeap(), 0, fnames);
+#else
+    global_heap_free(functions, exports.NumberOfFunctions * sizeof(ULONG)
+                     HEAPACCT(ACCT_OTHER));
+    global_heap_free(ordinals, exports.NumberOfNames * sizeof(USHORT)
+                     HEAPACCT(ACCT_OTHER));
+    global_heap_free(fnames, exports.NumberOfNames * sizeof(ULONG)
+                     HEAPACCT(ACCT_OTHER));
+#endif
+    return func;
 }
 
 /* Excluding from libutil b/c it doesn't need it and it would be a pain
@@ -940,7 +1051,7 @@ get_proc_address_64(HANDLE lib, const char *name)
 HANDLE
 load_library_64(const char *path)
 {
-    HANDLE ntdll64;
+    uint64 ntdll64;
     HANDLE result;
     int success;
     byte *ntdll64_LoadLibrary;
@@ -956,20 +1067,22 @@ load_library_64(const char *path)
     us.Length = (USHORT) wcslen(wpath) * sizeof(wchar_t);
     /* If not >= 2 bytes larger then STATUS_INVALID_PARAMETER ((NTSTATUS)0xC000000DL) */
     us.MaximumLength = (USHORT) (wcslen(wpath) + 1) * sizeof(wchar_t);
-    us.Buffer = wpath;
-    us.Buffer_hi = 0;
+    us.u.b32.Buffer32 = wpath;
+    us.u.b32.Buffer32_hi = 0;
 
     /* this is racy, but it's up to the caller to synchronize */
     ntdll64 = get_module_handle_64(L"ntdll.dll");
-    if (ntdll64 == NULL)
+    /* XXX i#1633: this routine does not yet support ntdll64 > 4GB */
+    if (ntdll64 > UINT_MAX || ntdll64 == 0)
         return NULL;
 
-    LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64 at 0x%08x %s\n", ntdll64, path);
+    LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64 at "UINT64_FORMAT_STRING" %s\n",
+        ntdll64, path);
     /* There is no kernel32 so we use LdrLoadDll.
      * 32-bit GetProcAddress is doing some header checks and fails,
      * Our 32-bit get_proc_address does work though.
      */
-    ntdll64_LoadLibrary = (byte *) get_proc_address_64(ntdll64, "LdrLoadDll");
+    ntdll64_LoadLibrary = (byte *)(uint) get_proc_address_64(ntdll64, "LdrLoadDll");
     LOG(THREAD_GET, LOG_LOADER, 3, "Found ntdll64!LdrLoadDll at 0x%08x\n",
         ntdll64_LoadLibrary);
     if (ntdll64_LoadLibrary == NULL)
@@ -997,10 +1110,12 @@ load_library_64(const char *path)
              * FIXME i#979: we should check for the Ldr entry existing already to
              * avoid calling the entry point twice!
              */
-            LDR_MODULE_64 *mod = get_ldr_module_64(NULL, (byte *)result);
+            LDR_MODULE_64 mod;
             dr_auxlib64_routine_ptr_t entry;
-            ASSERT(mod != NULL);
-            entry = (dr_auxlib64_routine_ptr_t) mod->EntryPoint;
+            DEBUG_DECLARE(bool ok = )
+                get_ldr_module_64(NULL, (uint64)result, &mod);
+            ASSERT(ok);
+            entry = (dr_auxlib64_routine_ptr_t) mod.EntryPoint;
             if (entry != NULL) {
                 if (dr_invoke_x64_routine(entry, 3, result, DLL_PROCESS_ATTACH, NULL))
                     return result;
@@ -1020,13 +1135,13 @@ load_library_64(const char *path)
 bool
 free_library_64(HANDLE lib)
 {
-    void_func_t ntdll64_LdrUnloadDll;
+    uint64 ntdll64_LdrUnloadDll;
     int res;
-    HANDLE ntdll64= get_module_handle_64(L"ntdll.dll");
-    if (ntdll64 == NULL)
+    uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
+    /* XXX i#1035: we don't yet support ntdll64 > 4GB (need to update code below) */
+    if (ntdll64 > UINT_MAX || ntdll64 == 0)
         return false;
-    ntdll64_LdrUnloadDll = (void_func_t)
-        convert_data_to_function(get_proc_address_64(ntdll64, "LdrUnloadDll"));
+    ntdll64_LdrUnloadDll = get_proc_address_64(ntdll64, "LdrUnloadDll");
     res = switch_modes_and_call(ntdll64_LdrUnloadDll, (void *)lib, NULL, NULL);
     return (res >= 0);
 }
@@ -1035,13 +1150,17 @@ free_library_64(HANDLE lib)
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 {
-    void_func_t ntdll64_GetContextThread;
+    /* i#1035, DrMem i#1685: we could use a mode switch and then a raw 64-bit syscall,
+     * which would be simpler than all this manipulating of PE structures beyond
+     * our direct reach, but we need PE parsing for drmarker anyway and use the
+     * same routines here.
+     */
+    uint64 ntdll64_GetContextThread;
     NTSTATUS res;
-    HANDLE ntdll64= get_module_handle_64(L"ntdll.dll");
-    if (ntdll64 == NULL)
+    uint64 ntdll64= get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == 0)
         return false;
-    ntdll64_GetContextThread = (void_func_t)
-        convert_data_to_function(get_proc_address_64(ntdll64, "NtGetContextThread"));
+    ntdll64_GetContextThread = get_proc_address_64(ntdll64, "NtGetContextThread");
     res = switch_modes_and_call(ntdll64_GetContextThread, thread, cxt64, NULL);
     return NT_SUCCESS(res);
 }
@@ -1049,13 +1168,12 @@ thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 bool
 thread_set_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 {
-    void_func_t ntdll64_SetContextThread;
+    uint64 ntdll64_SetContextThread;
     NTSTATUS res;
-    HANDLE ntdll64= get_module_handle_64(L"ntdll.dll");
-    if (ntdll64 == NULL)
+    uint64 ntdll64= get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == 0)
         return false;
-    ntdll64_SetContextThread = (void_func_t)
-        convert_data_to_function(get_proc_address_64(ntdll64, "NtSetContextThread"));
+    ntdll64_SetContextThread = get_proc_address_64(ntdll64, "NtSetContextThread");
     res = switch_modes_and_call(ntdll64_SetContextThread, thread, cxt64, NULL);
     return NT_SUCCESS(res);
 }

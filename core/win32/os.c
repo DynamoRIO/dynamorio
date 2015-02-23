@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -814,8 +814,8 @@ os_init(void)
      */
     DOLOG(1, LOG_TOP, {
         if (is_wow64_process(NT_CURRENT_PROCESS)) {
-            ptr_uint_t peb64 = (ptr_uint_t) get_own_x64_peb();
-            LOG(GLOBAL, LOG_TOP, 1, "x64 PEB: "PFX"\n", peb64);
+            uint64 peb64 = (ptr_uint_t) get_own_x64_peb();
+            LOG(GLOBAL, LOG_TOP, 1, "x64 PEB: "UINT64_FORMAT_STRING"\n", peb64);
         }
     });
 #endif

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -282,9 +282,10 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
         int res;
 #ifndef X64
         if (x64_in_wow64) {
-            init_func = (int_func_t) get_proc_address_64(dll, "dynamorio_app_init");
-            take_over_func = (void_func_t)
-                get_proc_address_64(dll, "dynamorio_app_take_over");
+            init_func = (int_func_t)(ptr_uint_t)/*we know <4GB*/
+                get_proc_address_64((uint64)dll, "dynamorio_app_init");
+            take_over_func = (void_func_t)(ptr_uint_t)/*we know <4GB*/
+                get_proc_address_64((uint64)dll, "dynamorio_app_take_over");
             VERBOSE_MESSAGE("dynamorio_app_init: 0x%08x; dynamorio_app_take_over: 0x%08x\n",
                             init_func, take_over_func);
         } else {

@@ -2079,6 +2079,8 @@ else (UNIX)
   tobuild(win32.winthread win32/winthread.c)
   tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
 
+  tobuild_dll(win32.earlythread win32/earlythread.c "")
+
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
 
