@@ -46,7 +46,6 @@ DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
 DECL_EXTERN(initstack_mutex)
 
-#define POUND #
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
 #define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) str src, PTRSZ [reg, POUND (offs)]
 

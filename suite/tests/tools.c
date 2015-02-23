@@ -484,6 +484,7 @@ START_FILE
  */
         DECLARE_FUNC(code_self_mod)
 GLOBAL_LABEL(code_self_mod:)
+#ifdef X86
         mov  REG_XCX, ARG1
         call next_instr
       next_instr:
@@ -502,41 +503,66 @@ GLOBAL_LABEL(code_self_mod:)
         jnz  repeat1
         mov  eax,ecx
         ret
+#elif defined(ARM)
+        adr  r2, tomodify
+        sub  r2, r2, #1
+        strb ARG1, [r2] /* the modifying store */
+        movw r0,#0x1234 /* this instr's immed gets overwritten */
+      tomodify: /* next instr, so we can write to bottom byte of prior */
+        mov  r1, #0 /* counter for diagnostics */
+      repeat1:
+        sub  r0, r0, #1
+        add  r1, r1, #1
+        cmp  r0, #0
+        bne  repeat1
+        mov  r0, r1
+        bx   lr
+#else
+# error NYI
+#endif
         END_FUNC(code_self_mod)
 
 #undef FUNCNAME
 #define FUNCNAME code_inc
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov  REG_XAX, ARG1
-        inc  REG_XAX
-        ret
+        mov  REG_SCRATCH0, ARG1
+        INC(REG_SCRATCH0)
+        RETURN
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME code_dec
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov  REG_XAX, ARG1
-        dec  REG_XAX
-        ret
+        mov  REG_SCRATCH0, ARG1
+        DEC(REG_SCRATCH0)
+        RETURN
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME dummy
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov  REG_XAX, 1
-        ret
+        mov  REG_SCRATCH0, HEX(1)
+        RETURN
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME call_with_retaddr
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
         lea     REG_XAX, [REG_XSP]  /* Load address of retaddr. */
         xchg    REG_XAX, ARG1       /* Swap with function pointer in arg1. */
         jmp     REG_XAX             /* Call function, now with &retaddr as arg1. */
+#elif defined(ARM)
+        mov     r1, ARG1
+        mov     r0, lr
+        bx      r1
+#else
+# error NYI
+#endif
         END_FUNC(FUNCNAME)
 
 END_FILE

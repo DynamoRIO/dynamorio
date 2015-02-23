@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -106,7 +106,12 @@
  */
 #  define SYMREF(sym) =sym
 # endif
-# define HEX(n) 0x##n
+# ifdef X86
+#  define HEX(n) 0x##n
+# else
+#  define POUND #
+#  define HEX(n) POUND 0x##n
+# endif
 # define SEGMEM(seg,mem) [seg:mem]
 # define DECL_EXTERN(symbol) /* nothing */
 /* include newline so we can put multiple on one line */
@@ -621,10 +626,23 @@ ASSUME fs:_DATA @N@\
         call     callee
 #endif
 
+/* For limited cross-platform asm */
 #ifdef X86
+# define REG_SCRATCH0 REG_XAX
+# define REG_SCRATCH1 REG_XCX
+# define REG_SCRATCH2 REG_XDX
 # define JUMP     jmp
+# define RETURN   ret
+# define INC(reg) inc reg
+# define DEC(reg) dec reg
 #elif defined(ARM)
+# define REG_SCRATCH0 REG_R0
+# define REG_SCRATCH1 REG_R1
+# define REG_SCRATCH2 REG_R2
 # define JUMP     b
+# define RETURN   bx lr
+# define INC(reg) add reg, reg, POUND 1
+# define DEC(reg) sub reg, reg, POUND 1
 #endif /* X86/ARM */
 
 #endif /* _ASM_DEFINES_ASM_ */
