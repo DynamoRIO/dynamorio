@@ -932,9 +932,10 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             }
         }
         ASSERT(found_pc);
-        if (isa_mode == DR_ISA_ARM_THUMB) {
-            /* Thumb writes to the PC (OP_add and OP_mov are all that's allowed)
-             * are non-mode-changing branches, so we set LSB to 1.
+        if (isa_mode == DR_ISA_ARM_THUMB &&
+            (instr_get_opcode(instr) == OP_mov || instr_get_opcode(instr) == OP_add)) {
+            /* Some Thumb write-to-PC instructions (OP_add and OP_mov) are simple
+             * non-mode-changing branches, so we set LSB to 1.
              */
             opnd_t src = opnd_create_reg(IBL_TARGET_REG);
             if (instr_get_opcode(instr) == OP_mov && !instr_is_predicated(instr)) {
