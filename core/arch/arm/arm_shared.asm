@@ -61,4 +61,14 @@ GLOBAL_LABEL(dynamorio_syscall:)
         pop      {REG_R4-REG_R8}
         bx       lr
 
+/* FIXME i#1551: just a shell to get things compiling.  We need to fill
+ * in the real implementation.
+ */
+#define FUNCNAME dr_fpu_exception_init
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        bx       lr
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 END_FILE

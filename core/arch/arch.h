@@ -1152,8 +1152,6 @@ void global_do_syscall_syscall(void);
 #endif
 void get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
 void get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
-/* returns the value of mmx register #index in val */
-void get_mmx_val(OUT uint64 *val, uint index);
 
 /* in encode.c */
 byte *instr_encode_ignore_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc);

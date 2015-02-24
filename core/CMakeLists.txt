@@ -45,9 +45,6 @@ set(asm_deps
   "${PROJECT_BINARY_DIR}/configure.h")
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
-add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_noncore_asm_src
-  arch_noncore_asm_tgt
-  "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
@@ -293,7 +290,6 @@ if (UNIX)
     unix/preload.c
     config.c
     unix/os.c
-    ${arch_noncore_asm_src}
     # i#1334: private string routines for libc independence
     string.c
     io.c
@@ -304,7 +300,6 @@ if (UNIX)
     unix/os.c  # for file_t interface
     string.c
     io.c
-    ${arch_noncore_asm_src}  # for dynamorio_syscall
     )
   if (APPLE)
     set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_macho.c)
@@ -346,7 +341,6 @@ else (UNIX)
     win32/ntdll.c
     win32/inject_shared.c
     win32/drmarker.c
-    ${arch_noncore_asm_src}
     ${preinject_asm_src}
     win32/module_shared.c
     win32/resources.rc
@@ -361,7 +355,6 @@ else (UNIX)
     win32/ntdll.c
     win32/inject_shared.c
     win32/module_shared.c
-    ${arch_noncore_asm_src}
     win32/resources.rc
     config.c
     win32/os.c
@@ -473,9 +466,6 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
 add_gen_events_deps(${PRELOAD_NAME})
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  add_dependencies(${PRELOAD_NAME} ${arch_noncore_asm_tgt} ${preinject_asm_tgt})
-endif ()
 target_link_libraries(${PRELOAD_NAME} drhelper)
 
 # static decoding library
@@ -483,7 +473,6 @@ add_library(drdecode
   ${DECODER_SRCS}
   arch/${ARCH_NAME}/mangle.c
   arch/decodelib.c
-  ${arch_noncore_asm_src}
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
@@ -491,10 +480,6 @@ if (UNIX)
   append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
 endif (UNIX)
 add_gen_events_deps(drdecode)
-if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for parallel build correctness we need a target dependence
-  add_dependencies(drdecode ${arch_noncore_asm_tgt})
-endif ()
 target_link_libraries(drdecode drhelper)
 
 ###########################################################################

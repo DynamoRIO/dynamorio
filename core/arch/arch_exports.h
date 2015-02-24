@@ -1022,7 +1022,6 @@ void dr_frstor(byte *buf_aligned);
 void dr_fxsave32(byte *buf_aligned);
 void dr_fxrstor32(byte *buf_aligned);
 #endif
-void dr_fpu_exception_init(void);
 
 /* Keep in synch with x86.asm.  This is the difference between the SP saved in
  * the mcontext and the SP of the caller of dr_app_start() and

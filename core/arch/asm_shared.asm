@@ -37,16 +37,7 @@
 #include "asm_defines.asm"
 START_FILE
 
-/* Default impl is user does not supply a definition, which should look like this:
- *   void internal_error(const char *file, int line, const char *expr);
- * We declare this as weak for Linux and MacOS, and rely on MSVC prioritizing a
- * .obj def over this .lib def.
- */
-        DECLARE_FUNC(internal_error)
-        WEAK(internal_error)
-GLOBAL_LABEL(internal_error:)
-        JUMP  GLOBAL_REF(internal_error)
-        END_FUNC(internal_error)
+DECL_EXTERN(internal_error)
 
 /* For debugging: report an error if the function called by call_switch_stack()
  * unexpectedly returns.  Also used elsewhere.

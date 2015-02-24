@@ -106,89 +106,12 @@ START_FILE
 /* Upper bound is all we need */
 #define DYNAMORIO_STACK_SIZE_UPPER_BOUND 128*1024
 
-/* We should give asm_defines.asm all unique names and then include globals.h
- * and avoid all this duplication!
- */
-#ifdef X64
-# ifdef WINDOWS
-#  define NUM_XMM_SLOTS 6 /* xmm0-5 */
-# else
-#  define NUM_XMM_SLOTS 16 /* xmm0-15 */
-# endif
-# define PRE_XMM_PADDING 16
-#else
-# define NUM_XMM_SLOTS 8 /* xmm0-7 */
-# define PRE_XMM_PADDING 24
-#endif
-#define XMM_SAVED_REG_SIZE 32 /* for ymm */
-/* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
-#define XMM_SAVED_SIZE ((NUM_XMM_SLOTS)*(XMM_SAVED_REG_SIZE))
-
 /* Should we generate all of our asm code instead of having it static?
  * As it is we're duplicating insert_push_all_registers(), dr_insert_call(), etc.,
  * but it's not that much code here in these macros, and this is simpler
  * than emit_utils.c-style code.
  */
-#ifdef X64
-/* push GPR registers in priv_mcontext_t order.  does NOT make xsp have a
- * pre-push value as no callers need that (they all use PUSH_PRIV_MCXT).
- * Leaves space for, but does NOT fill in, the xmm0-5 slots (PR 264138),
- * since it's hard to dynamically figure out during bootstrapping whether
- * movdqu or movups are legal instructions.  The caller is expected
- * to fill in the xmm values prior to any calls that may clobber them.
- */
-# define PUSHGPR \
-        push     r15 @N@\
-        push     r14 @N@\
-        push     r13 @N@\
-        push     r12 @N@\
-        push     r11 @N@\
-        push     r10 @N@\
-        push     r9  @N@\
-        push     r8  @N@\
-        push     rax @N@\
-        push     rcx @N@\
-        push     rdx @N@\
-        push     rbx @N@\
-        /* not the pusha pre-push rsp value but see above */ @N@\
-        push     rsp @N@\
-        push     rbp @N@\
-        push     rsi @N@\
-        push     rdi
-# define POPGPR        \
-        pop      rdi @N@\
-        pop      rsi @N@\
-        pop      rbp @N@\
-        pop      rbx /* rsp into dead rbx */ @N@\
-        pop      rbx @N@\
-        pop      rdx @N@\
-        pop      rcx @N@\
-        pop      rax @N@\
-        pop      r8  @N@\
-        pop      r9  @N@\
-        pop      r10 @N@\
-        pop      r11 @N@\
-        pop      r12 @N@\
-        pop      r13 @N@\
-        pop      r14 @N@\
-        pop      r15 @N@
-# define PRIV_MCXT_SIZE (18*ARG_SZ + PRE_XMM_PADDING + XMM_SAVED_SIZE)
-# define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
-# define MCONTEXT_PC_OFFS  (17*ARG_SZ)
-#else
-# define PUSHGPR \
-        pusha
-# define POPGPR  \
-        popa
-# define PRIV_MCXT_SIZE (10*ARG_SZ + PRE_XMM_PADDING + XMM_SAVED_SIZE)
-# define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
-# define MCONTEXT_PC_OFFS  (9*ARG_SZ)
-#endif
-/* offsetof(dcontext_t, is_exiting) */
-#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
-#define PUSHGPR_XSP_OFFS  (3*ARG_SZ)
-#define MCONTEXT_XSP_OFFS (PUSHGPR_XSP_OFFS)
-#define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- XMM_SAVED_SIZE - PRE_XMM_PADDING)
+#include "x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
 
 /* Pushes a priv_mcontext_t on the stack, with an xsp value equal to the
  * xsp before the pushing.  Clobbers xax!
@@ -225,8 +148,6 @@ START_FILE
 /****************************************************************************/
 
 DECL_EXTERN(unexpected_return)
-
-#ifndef NOT_DYNAMORIO_CORE_PROPER
 
 DECL_EXTERN(get_own_context_integer_control)
 DECL_EXTERN(get_xmm_vals)
@@ -284,6 +205,7 @@ DECL_EXTERN(wow64_index)
 # ifdef X64
 DECL_EXTERN(syscall_argsz)
 # endif
+DECL_EXTERN(load_dynamo_failure)
 #endif
 
 
@@ -1213,8 +1135,6 @@ GLOBAL_LABEL(dynamorio_syscall_wow64_noedx:)
 
 #endif /* WINDOWS */
 
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
 #ifdef UNIX
 /* FIXME: this function should be in #ifdef CLIENT_INTERFACE
  * However, the compiler complains about it in
@@ -1229,7 +1149,7 @@ GLOBAL_LABEL(client_int_syscall:)
         ret
         END_FUNC(client_int_syscall)
 #endif /* UNIX */
-#ifndef NOT_DYNAMORIO_CORE_PROPER
+
 #ifdef UNIX
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader + injector */
@@ -2064,15 +1984,6 @@ GLOBAL_LABEL(FUNCNAME:)
 
 #ifdef WINDOWS /* on linux we use inline asm versions */
 
-/* byte *get_frame_ptr(void)
- * returns the value of ebp
- */
-        DECLARE_FUNC(get_frame_ptr)
-GLOBAL_LABEL(get_frame_ptr:)
-        mov      REG_XAX, REG_XBP
-        ret
-        END_FUNC(get_frame_ptr)
-
 /*
  * void call_modcode_alt_stack(dcontext_t *dcontext,
  *                             EXCEPTION_RECORD *pExcptRec,
@@ -2584,343 +2495,14 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 
 #endif /* UNIX */
 
-/*#############################################################################
- *#############################################################################
- */
-
-/****************************************************************************/
-/****************************************************************************/
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
-/****************************************************************************
- * routines shared with NOT_DYNAMORIO_CORE_PROPER
- */
-
-/* void dr_fpu_exception_init(void)
- * sets the exception mask flags for both regular float and xmm packed float
- */
-#define FUNCNAME dr_fpu_exception_init
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
-        fninit
-        push     HEX(1f80)
-        ldmxcsr  DWORD [REG_XSP]
-        pop      REG_XAX
-        ret
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
-
-/* void get_mmx_val(OUT uint64 *val, uint index)
- * Returns the value of mmx register #index in val.
- */
-#define FUNCNAME get_mmx_val
-        DECLARE_FUNC_SEH(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
-        mov      REG_XAX, ARG1
-        mov      REG_XCX, ARG2
-        END_PROLOG
-        cmp      ecx, 0
-        je       get_mmx_0
-        cmp      ecx, 1
-        je       get_mmx_1
-        cmp      ecx, 2
-        je       get_mmx_2
-        cmp      ecx, 3
-        je       get_mmx_3
-        cmp      ecx, 4
-        je       get_mmx_4
-        cmp      ecx, 5
-        je       get_mmx_5
-        cmp      ecx, 6
-        je       get_mmx_6
-        movq     QWORD [REG_XAX], mm7
-        jmp get_mmx_done
-get_mmx_6:
-        movq     QWORD [REG_XAX], mm6
-        jmp get_mmx_done
-get_mmx_5:
-        movq     QWORD [REG_XAX], mm5
-        jmp get_mmx_done
-get_mmx_4:
-        movq     QWORD [REG_XAX], mm4
-        jmp get_mmx_done
-get_mmx_3:
-        movq     QWORD [REG_XAX], mm3
-        jmp get_mmx_done
-get_mmx_2:
-        movq     QWORD [REG_XAX], mm2
-        jmp get_mmx_done
-get_mmx_1:
-        movq     QWORD [REG_XAX], mm1
-        jmp get_mmx_done
-get_mmx_0:
-        movq     QWORD [REG_XAX], mm0
-get_mmx_done:
-        add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        ret
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
-
-#ifdef WINDOWS
-
-/* byte *get_stack_ptr(void)
- * returns the value of xsp before the call
- */
-        DECLARE_FUNC(get_stack_ptr)
-GLOBAL_LABEL(get_stack_ptr:)
-        mov      REG_XAX, REG_XSP
-        add      REG_XAX, ARG_SZ /* remove return address space */
-        ret
-        END_FUNC(get_stack_ptr)
-
-/* void load_dynamo(void)
- *
- * used for injection into a child process
- * N.B.:  if the code here grows, SIZE_OF_LOAD_DYNAMO in win32/inject.c
- * must be updated.
- */
-        DECLARE_FUNC(load_dynamo)
-GLOBAL_LABEL(load_dynamo:)
-    /* the code for this routine is copied into an allocation in the app
-       and invoked upon return from the injector. When it is invoked,
-       it expects the app's stack to look like this:
-
-                xsp-->| &LoadLibrary  |  for x64 xsp must be 16-aligned
-                      | &dynamo_path  |
-                      | &GetProcAddr  |
-                      | &dynamo_entry |___
-                      |               |   |
-                      |(saved context)| priv_mcontext_t struct
-                      | &code_alloc   |   | pointer to the code allocation
-                      | sizeof(code_alloc)| size of the code allocation
-                      |_______________|___| (possible padding for x64 xsp alignment)
-       &dynamo_path-->|               |   |
-                      | (dynamo path) | TEXT(DYNAMORIO_DLL_PATH)
-                      |_______________|___|
-      &dynamo_entry-->|               |   |
-                      | (dynamo entry)| "dynamo_auto_start"
-                      |               |___|
-
-
-        in separate allocation         ___
-                      |               |   |
-                      |     CODE      |  load_dynamo() code
-                      |               |___|
-
-        The load_dynamo routine will load the dynamo DLL into memory, then jump
-        to its dynamo_auto_start entry point, passing it the saved app context as
-        parameters.
-     */
-        /* two byte NOP to satisfy third party braindead-ness documented in case 3821 */
-        mov      edi, edi
-#ifdef LOAD_DYNAMO_DEBUGBREAK
-        /* having this code in front may hide the problem addressed with the
-         * above padding */
-        /* giant loop so can attach debugger, then change ebx to 1
-         * to step through rest of code */
-        mov      ebx, HEX(7fffffff)
-load_dynamo_repeat_outer:
-        mov      eax, HEX(7fffffff)
-load_dynamo_repeatme:
-        dec      eax
-        cmp      eax, 0
-        jg       load_dynamo_repeatme
-        dec      ebx
-        cmp      ebx, 0
-        jg       load_dynamo_repeat_outer
-
-# ifdef X64
-        /* xsp is 8-aligned and our pop makes it 16-aligned */
-# endif
-        /* TOS has &DebugBreak */
-        pop      REG_XBX /* pop   REG_XBX = &DebugBreak */
-        CALLWIN0(REG_XBX) /* call DebugBreak  (in kernel32.lib) */
-#endif
-        /* TOS has &LoadLibraryA */
-        pop      REG_XBX /* pop   REG_XBX = &LoadLibraryA */
-        /* TOS has &dynamo_path */
-        pop      REG_XAX /* for 32-bit we're doing "pop eax, push eax" */
-        CALLWIN1(REG_XBX, REG_XAX) /* call LoadLibraryA  (in kernel32.lib) */
-
-        /* check result */
-        cmp      REG_XAX, 0
-        jne      load_dynamo_success
-        pop      REG_XBX /* pop off &GetProcAddress */
-        pop      REG_XBX /* pop off &dynamo_entry */
-        jmp      load_dynamo_failure
-load_dynamo_success:
-        /* TOS has &GetProcAddress */
-        pop      REG_XBX /* pop   REG_XBX = &GetProcAddress */
-        /* dynamo_handle is now in REG_XAX (returned by call LoadLibrary) */
-        /* TOS has &dynamo_entry */
-        pop      REG_XDI /* for 32-bit we're doing "pop edi, push edi" */
-        CALLWIN2(REG_XBX, REG_XAX, REG_XDI) /* call GetProcAddress */
-        cmp      REG_XAX, 0
-        je       load_dynamo_failure
-
-        /* jump to dynamo_auto_start (returned by GetProcAddress) */
-        jmp      REG_XAX
-        /* dynamo_auto_start will take over or continue natively at the saved
-         * context via load_dynamo_failure.
-        */
-        END_FUNC(load_dynamo)
-/* N.B.: load_dynamo_failure MUST follow load_dynamo, as both are
- * copied in one fell swoop by inject_into_thread()!
- */
-/* not really a function but having issues getting both masm and gas to
- * let other asm routines jump here.
- * targeted by load_dynamo and dynamo_auto_start by a jump, not a call,
- * when we should not take over and should go native instead.
- * Xref case 7654: we come here to the child's copy from dynamo_auto_start
- * instead of returning to the parent's copy post-load_dynamo to avoid
- * incompatibilites with stack layout accross dr versions.
- */
-        DECLARE_FUNC(load_dynamo_failure)
-GLOBAL_LABEL(load_dynamo_failure:)
-        /* Would be nice if we could free our allocation here as well, but
-         * that's too much of a pain (esp. here).
-         * Note TOS has the saved context at this point, xref layout in
-         * auto_setup. Note this code is duplicated in dynamo_auto_start. */
-        mov      REG_XAX, [MCONTEXT_XSP_OFFS + REG_XSP] /* load app xsp */
-        mov      REG_XBX, [MCONTEXT_PC_OFFS + REG_XSP] /* load app start_pc */
-        /* write app start_pc off top of app stack */
-        mov      [-ARG_SZ + REG_XAX], REG_XBX
-        /* it's ok to write past app TOS since we're just overwriting part of
-         * the dynamo_entry string which is dead at this point, won't affect
-         * the popping of the saved context */
-        POPGPR
-        POPF
-        /* we assume reading beyond TOS is ok here (no signals on windows) */
-        /* we assume xmm0-5 do not need to be restored */
-        /* restore app xsp (POPGPR doesn't) */
-        mov      REG_XSP, [-MCONTEXT_PC_OFFS + MCONTEXT_XSP_OFFS + REG_XSP]
-        jmp      PTRSZ [-ARG_SZ + REG_XSP]      /* jmp to app start_pc */
-
-        ret
-        END_FUNC(load_dynamo_failure)
-
-
 /***************************************************************************/
-#ifndef X64
+#if defined(WINDOWS) && !defined(X64)
 
 /* Routines to switch to 64-bit mode from 32-bit WOW64, make a 64-bit
  * call, and then return to 32-bit mode.
  */
 
-/* FIXME: check these selector values on all platforms: these are for XPSP2.
- * Keep in synch w/ defines in arch.h.
- */
-# define CS32_SELECTOR HEX(23)
-# define CS64_SELECTOR HEX(33)
-
-/*
- * int switch_modes_and_load(void *ntdll64_LdrLoadDll,
- *                           UNICODE_STRING_64 *lib,
- *                           HANDLE *result)
- */
-# define FUNCNAME switch_modes_and_load
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
-        /* get args before we change esp */
-        mov      eax, ARG1
-        mov      ecx, ARG2
-        mov      edx, ARG3
-        /* save callee-saved registers */
-        push     ebx
-        /* far jmp to next instr w/ 64-bit switch: jmp 0033:<sml_transfer_to_64> */
-        RAW(ea)
-        DD offset sml_transfer_to_64
-        DB CS64_SELECTOR
-        RAW(00)
-sml_transfer_to_64:
-    /* Below here is executed in 64-bit mode, but with guarantees that
-     * no address is above 4GB, as this is a WOW64 process.
-     */
-       /* Call LdrLoadDll to load 64-bit lib:
-        *   LdrLoadDll(IN PWSTR DllPath OPTIONAL,
-        *              IN PULONG DllCharacteristics OPTIONAL,
-        *              IN PUNICODE_STRING DllName,
-        *              OUT PVOID *DllHandle));
-        */
-        RAW(4c) RAW(8b) RAW(ca)  /* mov r9, rdx : 4th arg: result */
-        RAW(4c) RAW(8b) RAW(c1)  /* mov r8, rcx : 3rd arg: lib */
-        push     0               /* slot for &DllCharacteristics */
-        lea      edx, dword ptr [esp] /* 2nd arg: &DllCharacteristics */
-        xor      ecx, ecx        /* 1st arg: DllPath = NULL */
-        /* save WOW64 state */
-        RAW(41) push     esp /* push r12 */
-        RAW(41) push     ebp /* push r13 */
-        RAW(41) push     esi /* push r14 */
-        RAW(41) push     edi /* push r15 */
-        /* align the stack pointer */
-        mov      ebx, esp        /* save esp in callee-preserved reg */
-        sub      esp, 32         /* call conv */
-        and      esp, HEX(fffffff0) /* align to 16-byte boundary */
-        call     eax
-        mov      esp, ebx        /* restore esp */
-        /* restore WOW64 state */
-        RAW(41) pop      edi /* pop r15 */
-        RAW(41) pop      esi /* pop r14 */
-        RAW(41) pop      ebp /* pop r13 */
-        RAW(41) pop      esp /* pop r12 */
-        /* far jmp to next instr w/ 32-bit switch: jmp 0023:<sml_return_to_32> */
-        push     offset sml_return_to_32  /* 8-byte push */
-        mov      dword ptr [esp + 4], CS32_SELECTOR /* top 4 bytes of prev push */
-        jmp      fword ptr [esp]
-sml_return_to_32:
-        add      esp, 16         /* clean up far jmp target and &DllCharacteristics */
-        pop      ebx             /* restore callee-saved reg */
-        ret                      /* return value already in eax */
-        END_FUNC(FUNCNAME)
-
-/*
- * int switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3)
- */
-# undef FUNCNAME
-# define FUNCNAME switch_modes_and_call
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
-        mov      eax, ARG1
-        mov      ecx, ARG2
-        mov      edx, ARG3
-        /* save callee-saved registers */
-        push     ebx
-        mov      ebx, ARG4
-        /* far jmp to next instr w/ 64-bit switch: jmp 0033:<smc_transfer_to_64> */
-        RAW(ea)
-        DD offset smc_transfer_to_64
-        DB CS64_SELECTOR
-        RAW(00)
-smc_transfer_to_64:
-    /* Below here is executed in 64-bit mode, but with guarantees that
-     * no address is above 4GB, as this is a WOW64 process.
-     */
-        /* save WOW64 state */
-        RAW(41) push     esp /* push r12 */
-        RAW(41) push     ebp /* push r13 */
-        RAW(41) push     esi /* push r14 */
-        RAW(41) push     edi /* push r15 */
-        RAW(44) mov      eax, ebx /* mov ARG4 in ebx to r8d (3rd arg slot) */
-        /* align the stack pointer */
-        mov      ebx, esp        /* save esp in callee-preserved reg */
-        sub      esp, 32         /* call conv */
-        and      esp, HEX(fffffff0) /* align to 16-byte boundary */
-        call     eax             /* arg1 is already in rcx and arg2 in rdx */
-        mov      esp, ebx        /* restore esp */
-        /* restore WOW64 state */
-        RAW(41) pop      edi /* pop r15 */
-        RAW(41) pop      esi /* pop r14 */
-        RAW(41) pop      ebp /* pop r13 */
-        RAW(41) pop      esp /* pop r12 */
-        /* far jmp to next instr w/ 32-bit switch: jmp 0023:<smc_return_to_32> */
-        push     offset smc_return_to_32  /* 8-byte push */
-        mov      dword ptr [esp + 4], CS32_SELECTOR /* top 4 bytes of prev push */
-        jmp      fword ptr [esp]
-smc_return_to_32:
-        add      esp, 8          /* clean up far jmp target */
-        pop      ebx             /* restore callee-saved reg */
-        ret                      /* return value already in eax */
-        END_FUNC(FUNCNAME)
+/* Some now live in x86_shared.asm */
 
 /*
  * DR_API ptr_int_t
@@ -3023,11 +2605,10 @@ inv64_return_to_32:
         ret                      /* return value in edx:eax */
         END_FUNC(FUNCNAME)
 
-#endif /* !X64 */
+#endif /* defined(WINDOWS) && !defined(X64) */
 /***************************************************************************/
 
-
-# ifndef NOT_DYNAMORIO_CORE_PROPER
+#ifdef WINDOWS
 /* void dynamorio_earliest_init_takeover(void)
  *
  * Called from hook code for earliest injection.
@@ -3063,8 +2644,6 @@ dynamorio_earliest_init_repeatme:
         POPGPR
         ret
         END_FUNC(dynamorio_earliest_init_takeover)
-# endif /* NOT_DYNAMORIO_CORE_PROPER */
-
 #endif /* WINDOWS */
 
 END_FILE

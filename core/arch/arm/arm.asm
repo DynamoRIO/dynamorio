@@ -37,9 +37,7 @@
 #include "../asm_defines.asm"
 START_FILE
 
-#ifndef NOT_DYNAMORIO_CORE_PROPER
 DECL_EXTERN(dynamorio_app_take_over_helper)
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 #if defined(UNIX)
 DECL_EXTERN(master_signal_handler_C)
 #endif
@@ -74,16 +72,6 @@ DECL_EXTERN(initstack_mutex)
 #define PRIV_MCXT_SP_FROM_SIMD (-(4*GPR_REG_SIZE)) /* flags, pc, lr, then sp */
 #define PRIV_MCXT_PC_FROM_SIMD (-(2*GPR_REG_SIZE)) /* flags, then pc */
 
-/* FIXME i#1551: just a shell to get things compiling.  We need to fill
- * in all the real functions later.
- */
-#define FUNCNAME dr_fpu_exception_init
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
-        bx       lr
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
-
 #ifndef UNIX
 # error Non-Unix is not supported
 #endif
@@ -91,10 +79,6 @@ GLOBAL_LABEL(FUNCNAME:)
 #ifdef X64
 #  error AArch64 is not supported
 #endif
-
-/****************************************************************************/
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-/****************************************************************************/
 
 #ifdef UNIX
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
@@ -108,10 +92,6 @@ GLOBAL_LABEL(_start:)
         END_FUNC(_start)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 #endif /* UNIX */
-
-/****************************************************************************/
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
-/****************************************************************************/
 
 /* all of the CPUID registers are only accessible in privileged modes */
         DECLARE_FUNC(cpuid_supported)

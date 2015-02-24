@@ -58,4 +58,17 @@ ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 # endif
 #endif
 
+void dr_fpu_exception_init(void);
+
+#ifdef X86
+/* returns the value of mmx register #index in val */
+void get_mmx_val(OUT uint64 *val, uint index);
+#endif
+
+#ifdef WINDOWS
+/* no intrinsic available, and no inline asm support, so we have asm routines */
+byte * get_frame_ptr(void);
+byte * get_stack_ptr(void);
+#endif
+
 #endif /* _DR_LIBC_H_ */
