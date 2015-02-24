@@ -466,6 +466,9 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
 add_gen_events_deps(${PRELOAD_NAME})
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
+endif ()
 target_link_libraries(${PRELOAD_NAME} drhelper)
 
 # static decoding library
