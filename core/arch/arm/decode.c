@@ -34,6 +34,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
+#include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
 #include "instr_create.h"
 #include <string.h> /* for memcpy */
 

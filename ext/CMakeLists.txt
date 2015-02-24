@@ -104,11 +104,16 @@ macro(install_ext_header header)
   configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${header} COPY_ONLY)
 endmacro()
 
-file(GLOB dirs "*/CMakeLists.txt")
-foreach (dir ${dirs})
-  get_filename_component(dir ${dir} PATH)
-  add_subdirectory(${dir})
-endforeach (dir)
+add_subdirectory(drcontainers)
+add_subdirectory(drgui)
+add_subdirectory(drmgr)
+add_subdirectory(drx)
+# FIXME i#1551: port all extension libraries to ARM
+if (NOT ARM)
+  add_subdirectory(drsyms)
+  add_subdirectory(drutil)
+  add_subdirectory(drwrap)
+endif (NOT ARM)
 
 # documentation is put into main DR docs/ dir
 
