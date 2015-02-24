@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -234,6 +234,18 @@
  * precisely where this instruction will be encoded).
  */
 #define XINST_CREATE_jump_short(dc, t) INSTR_CREATE_jmp_short((dc), (t))
+
+/**
+ * This platform-independent macro creates an instr_t for an unconditional
+ * branch instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define XINST_CREATE_call(dc, t) INSTR_CREATE_call((dc), (t))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
