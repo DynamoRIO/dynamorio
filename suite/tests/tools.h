@@ -218,7 +218,11 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 #else /* UNIX */
 # define NOP asm("nop")
 # define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
-# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
+# ifdef X86
+#  define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
+# elif defined(ARM)
+#  define NOP_NOP_CALL(tgt) asm("nop\n nop\n bl " #tgt)
+# endif
 #endif
 
 /* DynamoRIO prints directly by syscall to stderr, so we need to too to get

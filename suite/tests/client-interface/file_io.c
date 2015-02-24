@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,7 +71,7 @@ int main()
         return 1;
     }
 
-# ifndef X64
+# if defined(X86_32)
     /* Same test but w/ compat struct */
     struct compat_rlimit crlimit;
     if (syscall(SYS_getrlimit, RLIMIT_NOFILE, &crlimit) != 0) {

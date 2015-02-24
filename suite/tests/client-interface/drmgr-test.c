@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -283,6 +283,7 @@ main(int argc, char **argv)
 {
     pthread_t thread0, thread1;
     void * retval;
+#ifdef X86
     char ch;
     /* test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
@@ -297,6 +298,7 @@ main(int argc, char **argv)
      * this gets the right address: for now just making sure
      * it doesn't crash.
      */
+#endif
 
     intervals = 10;
     /* Initialize the lock on pi */
