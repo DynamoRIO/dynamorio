@@ -341,7 +341,9 @@
      * regular loader list
      */
     /* XXX i#1285: MacOS private loader is NYI */
-    OPTION_DEFAULT_INTERNAL(bool, private_loader, IF_MACOS_ELSE(false, true),
+    /* FIXME i#1551: ARM Linux private loader is NYI */
+    OPTION_DEFAULT_INTERNAL(bool, private_loader,
+                            IF_MACOS_ELSE(false, IF_ARM_ELSE(false, true)),
                             "use private loader for clients and dependents")
 # ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
@@ -738,12 +740,14 @@
      * turn them on.
      * We mark as pcache-affecting though we have other explicit checks
      */
-    OPTION_COMMAND(bool, disable_traces, false, "disable_traces", {
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_COMMAND(bool, disable_traces, IF_ARM_ELSE(true, false), "disable_traces", {
         if (options->disable_traces) { /* else leave alone */
             DISABLE_TRACES(options);
         }
      }, "disable trace creation (block fragments only)", STATIC, OP_PCACHE_GLOBAL)
-    OPTION_COMMAND(bool, enable_traces, true, "enable_traces", {
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_COMMAND(bool, enable_traces, IF_ARM_ELSE(false, true), "enable_traces", {
         if (options->enable_traces) { /* else leave alone */
             REENABLE_TRACES(options);
         }
@@ -779,7 +783,8 @@
      * off -shared_traces to avoid tripping over un-initialized ibl tables
      * PR 361894: if no TLS available, we fall back to thread-private
      */
-    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(true, false),
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
                    "shared_traces", {
         /* for -no_shared_traces, set options back to defaults for private traces: */
         IF_NOT_X64_OR_ARM(options->private_ib_in_tls = options->shared_traces;)
@@ -908,7 +913,8 @@
     OPTION_DEFAULT(bool, ibl_table_in_tls, IF_HAVE_TLS_ELSE(true, false),
         "use TLS to hold IBL table addresses & masks")
 
-    OPTION_DEFAULT(bool, bb_ibl_targets, false, "enable BB to BB IBL")
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_DEFAULT(bool, bb_ibl_targets, IF_ARM_ELSE(true, false), "enable BB to BB IBL")
 
      /* IBL code cannot target both single restore prefix and full prefix frags
       * simultaneously since the restore of %eax in the former case means that the
@@ -958,7 +964,9 @@
     /* control sharing of indirect branch lookup routines */
     /* Default TRUE as it's needed for shared_traces (which is on by default) */
     /* PR 361894: if no TLS available, we fall back to thread-private */
-    OPTION_DEFAULT(bool, shared_trace_ibl_routine, IF_HAVE_TLS_ELSE(true, false),
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_DEFAULT(bool, shared_trace_ibl_routine,
+                   IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
                    "share ibl routine for traces")
     OPTION_DEFAULT(bool, speculate_last_exit, false,
         "enable speculative linking of trace last IB exit")
