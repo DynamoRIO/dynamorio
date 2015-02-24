@@ -136,6 +136,7 @@
 #   define inline __inline
 #  endif
 #  define INLINE_FORCED __forceinline
+#  define WEAK /* no equivalent, but .obj overrides .lib */
 #else
 /* We assume gcc is being used.  If the client is using -fvisibility
  * (in gcc >= 3.4) to not export symbols by default, setting
@@ -152,6 +153,7 @@
 #   define inline __inline__
 #  endif
 #  define INLINE_FORCED inline
+#  define WEAK __attribute__ ((weak))
 #endif
 
 /* DR_API EXPORT END */

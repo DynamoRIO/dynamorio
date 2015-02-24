@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -104,10 +104,10 @@ is_wow64(HANDLE hProcess)
                get_windows_version() == WINDOWS_VERSION_2000);
         return false;
     } else {
-        bool res;
+        BOOL res;
         if (!IsWow64Process(hProcess, &res))
             return false;
-        return res;
+        return CAST_TO_bool(res);
     }
 }
 
@@ -271,102 +271,6 @@ reserve_memory(int size)
 /* Pentium (586) */
 #define FAMILY_PENTIUM      5
 
-/*
- * On Pentium through Pentium III and Pentium 4, I-cache lines are 32 bytes.
- * On Pentium IV they are 64 bytes.
- */
-unsigned int
-get_cache_line_size()
-{
-    /* use cpuid to get cache line size */
-    unsigned int cache_line_size, vendor, family;
-    unsigned int res_eax, res_ebx = 0, res_ecx = 0, res_edx = 0;
-#ifdef WINDOWS
-    int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
-#endif
-    /* first verify on Intel processor */
-#ifdef UNIX
-# ifdef X64
-    assert(false); /* no pusha! */
-# else
-    /* GOT pointer is kept in ebx, go ahead and save all the registers */
-    asm("pusha");
-    asm("movl $0, %eax");
-    asm("cpuid");
-    asm("movl %%eax, %0" : "=m"(res_eax));
-    asm("movl %%ebx, %0" : "=m"(res_ebx));
-    asm("movl %%ecx, %0" : "=m"(res_ecx));
-    asm("movl %%edx, %0" : "=m"(res_edx));
-    asm("popa");
-# endif
-#else
-    __cpuid(cpuid_res_local, 0);
-    res_eax = cpuid_res_local[0];
-    res_ebx = cpuid_res_local[1];
-    res_ecx = cpuid_res_local[2];
-    res_edx = cpuid_res_local[3];
-#endif
-
-    if (res_ebx == INTEL_EBX) {
-        vendor = VENDOR_INTEL;
-        assert(res_edx == INTEL_EDX && res_ecx == INTEL_ECX);
-    } else if (res_ebx == AMD_EBX) {
-        vendor = VENDOR_AMD;
-        assert(res_edx == AMD_EDX && res_ecx == AMD_ECX);
-    } else {
-        vendor = VENDOR_UNKNOWN;
-        print("get_cache_line_size: unknown processor type");
-    }
-
-    /* now get processor info */
-#ifdef UNIX
-    /* GOT pointer is kept in ebx, go ahead and save all the registers */
-# ifdef X64
-    assert(false); /* no pusha! */
-# else
-    asm("pusha");
-    asm("movl $1, %eax");
-    asm("cpuid");
-    asm("movl %%eax, %0" : "=m"(res_eax));
-    asm("movl %%ebx, %0" : "=m"(res_ebx));
-    asm("movl %%ecx, %0" : "=m"(res_ecx));
-    asm("movl %%edx, %0" : "=m"(res_edx));
-    asm("popa");
-# endif
-#else
-    __cpuid(cpuid_res_local, 1);
-    res_eax = cpuid_res_local[0];
-    res_ebx = cpuid_res_local[1];
-    res_ecx = cpuid_res_local[2];
-    res_edx = cpuid_res_local[3];
-#endif
-    /* eax contains basic info:
-     *   extended family, extended model, type, family, model, stepping id
-     *   20:27,           16:19,          12:13, 8:11,  4:7,   0:3
-     */
-    /* family bits: 8 through 11 */
-    family = (res_eax & 0x00000f00) >> 8;
-    if (family == FAMILY_PENTIUM_IV) {
-        /* Pentium IV */
-        /* FIXME: need to read extended family bits? */
-        cache_line_size = (res_ebx & 0x0000ff00) >> 5; /* (x >> 8) * 8 == x >> 5 */
-    } else if (vendor == VENDOR_INTEL &&
-               (family == FAMILY_PENTIUM_III || family == FAMILY_PENTIUM_II)) {
-        /* Pentium III, Pentium II */
-        cache_line_size = 32;
-    } else if (vendor == VENDOR_AMD && family == FAMILY_ATHLON) {
-        /* Athlon */
-        cache_line_size = 64;
-    } else {
-        print("get_cache_line_size: unsupported processor family %d\n",
-              family);
-        cache_line_size = 32;
-    }
-    /* people who use this in ALIGN* macros are assuming it's a power of 2 */
-    assert((cache_line_size & (cache_line_size - 1)) == 0);
-    return cache_line_size;
-}
-
 void
 print(const char *fmt, ...)
 {
@@ -457,13 +361,13 @@ nolibc_strlen(const char *str)
 void
 nolibc_print(const char *str)
 {
-    nolibc_syscall(
+    dynamorio_syscall(
 #ifdef MACOS
-                   SYS_write_nocancel,
+                      SYS_write_nocancel,
 #else
-                   SYS_write,
+                      SYS_write,
 #endif
-                   3, stderr->_fileno, str, nolibc_strlen(str));
+                      3, stderr->_fileno, str, nolibc_strlen(str));
 }
 
 /* Safe print int syscall.
@@ -507,7 +411,7 @@ nolibc_print_int(int n)
 void
 nolibc_nanosleep(struct timespec *req)
 {
-    nolibc_syscall(SYS_nanosleep, 2, req, NULL);
+    dynamorio_syscall(SYS_nanosleep, 2, req, NULL);
 }
 
 /* Safe mmap.
@@ -520,8 +424,7 @@ nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset
 #else
     int sysnum = SYS_mmap2;
 #endif
-    return (void*)nolibc_syscall(sysnum, 6, addr, length, prot, flags, fd,
-                               offset);
+    return (void*)dynamorio_syscall(sysnum, 6, addr, length, prot, flags, fd, offset);
 }
 
 /* Safe munmap.
@@ -529,7 +432,7 @@ nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset
 void
 nolibc_munmap(void *addr, size_t length)
 {
-    nolibc_syscall(SYS_munmap, 2, addr, length);
+    dynamorio_syscall(SYS_munmap, 2, addr, length);
 }
 
 void
@@ -626,92 +529,6 @@ GLOBAL_LABEL(FUNCNAME:)
         mov  REG_XAX, 1
         ret
         END_FUNC(FUNCNAME)
-
-#ifdef UNIX
-/* Raw system call adapter for Linux.  Useful for threading and clone tests that
- * need to avoid using libc routines.  Using libc routines can enter the loader
- * and/or touch global state and TLS state.  Our tests use CLONE_VM and don't
- * initialize TLS segments, so the TLS is actually *shared* with the parent
- * (xref i#500).
- *
- * Copied from core/arch/x86.asm dynamorio_syscall.
- */
-#undef FUNCNAME
-#define FUNCNAME nolibc_syscall
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
-        /* x64 kernel doesn't clobber all the callee-saved registers */
-        push     REG_XBX
-# ifdef X64
-        /* reverse order so we don't clobber earlier args */
-        mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
-        mov      rax, ARG1 /* sysnum: only need eax, but need rax to use ARG1 (or movzx) */
-        cmp      REG_XBX, 0
-        je       syscall_ready
-        mov      ARG1, ARG3
-        cmp      REG_XBX, 1
-        je       syscall_ready
-        mov      ARG2, ARG4
-        cmp      REG_XBX, 2
-        je       syscall_ready
-        mov      ARG3, ARG5
-        cmp      REG_XBX, 3
-        je       syscall_ready
-        mov      ARG4, ARG6
-        cmp      REG_XBX, 4
-        je       syscall_ready
-        mov      ARG5, [2*ARG_SZ + REG_XSP] /* arg7: above xbx and retaddr */
-        cmp      REG_XBX, 5
-        je       syscall_ready
-        mov      ARG6, [3*ARG_SZ + REG_XSP] /* arg8: above arg7, xbx, retaddr */
-syscall_ready:
-        mov      r10, rcx
-        syscall
-# else
-        push     REG_XBP
-        push     REG_XSI
-        push     REG_XDI
-        /* add 16 to skip the 4 pushes
-         * FIXME: rather than this dispatch, could have separate routines
-         * for each #args, or could just blindly read upward on the stack.
-         * for dispatch, if assume size of mov instr can do single ind jmp */
-        mov      ecx, [16+ 8 + esp] /* num_args */
-        cmp      ecx, 0
-        je       syscall_0args
-        cmp      ecx, 1
-        je       syscall_1args
-        cmp      ecx, 2
-        je       syscall_2args
-        cmp      ecx, 3
-        je       syscall_3args
-        cmp      ecx, 4
-        je       syscall_4args
-        cmp      ecx, 5
-        je       syscall_5args
-        mov      ebp, [16+32 + esp] /* arg6 */
-syscall_5args:
-        mov      edi, [16+28 + esp] /* arg5 */
-syscall_4args:
-        mov      esi, [16+24 + esp] /* arg4 */
-syscall_3args:
-        mov      edx, [16+20 + esp] /* arg3 */
-syscall_2args:
-        mov      ecx, [16+16 + esp] /* arg2 */
-syscall_1args:
-        mov      ebx, [16+12 + esp] /* arg1 */
-syscall_0args:
-        mov      eax, [16+ 4 + esp] /* sysnum */
-        /* PR 254280: we assume int$80 is ok even for LOL64 */
-        int      HEX(80)
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-# endif /* X64 */
-        pop      REG_XBX
-        /* return val is in eax for us */
-        ret
-        END_FUNC(FUNCNAME)
-#endif /* UNIX */
 
 #undef FUNCNAME
 #define FUNCNAME call_with_retaddr

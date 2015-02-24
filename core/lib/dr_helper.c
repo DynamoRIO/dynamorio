@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,35 +30,17 @@
  * DAMAGE.
  */
 
-/*
- * cross-platform assembly and trampoline code
- */
-
-#include "asm_defines.asm"
-START_FILE
-
-/* Default impl is user does not supply a definition, which should look like this:
- *   void internal_error(const char *file, int line, const char *expr);
+/* Default implementation to avoid the user of drhelper having to supply one.
  * We declare this as weak for Linux and MacOS, and rely on MSVC prioritizing a
- * .obj def over this .lib def.
+ * .obj def over this .lib def (note that the MSVC linker only does that
+ * when the symbol in question is *by itself* in a single .obj: hence this file,
+ * rather than putting this into say asm_shared.asm).
  */
-        DECLARE_FUNC(internal_error)
-        WEAK(internal_error)
-GLOBAL_LABEL(internal_error:)
-        JUMP  GLOBAL_REF(internal_error)
-        END_FUNC(internal_error)
 
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(internal_error), HEX(0), HEX(0), HEX(0))
-        /* internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
+#include "../globals.h"   /* just to disable warning C4206 about an empty file */
 
-END_FILE
+WEAK void
+internal_error(const char *file, int line, const char *expr)
+{
+    /* do nothing by default */
+}

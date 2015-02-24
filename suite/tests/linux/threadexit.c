@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -115,8 +115,8 @@ int run(void *arg)
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
      * clone system call we could get kernel to do this for us.
      */
-    child[threadnum] = nolibc_syscall(SYS_gettid, 0);
-    nolibc_syscall(SYS_set_tid_address, 1, &child[threadnum]);
+    child[threadnum] = dynamorio_syscall(SYS_gettid, 0);
+    dynamorio_syscall(SYS_set_tid_address, 1, &child[threadnum]);
     child_started[threadnum] = true;
     nolibc_print("Sideline thread started\n");
     while (true) {
@@ -132,7 +132,7 @@ int run(void *arg)
      * the default on x64 on returning for some reason which seems
      * like a bug in _clone() (xref i#94).
      */
-    nolibc_syscall(SYS_exit_group, 0);
+    dynamorio_syscall(SYS_exit_group, 0);
     return 0;
 }
 

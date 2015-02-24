@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +14,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,35 +31,31 @@
  * DAMAGE.
  */
 
-/*
- * cross-platform assembly and trampoline code
+/* Copyright (c) 2003-2007 Determina Corp. */
+/* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
+/* Copyright (c) 2000-2001 Hewlett-Packard Company */
+
+/* header for library of core utilites shared with non-core: "drhelper" */
+
+#ifndef _DR_HELPER_H_
+#define _DR_HELPER_H_ 1
+
+/* If the caller is using the DR API they'll have our types that way; else we
+ * include globals_shared.h.
  */
+#ifndef _DR_API_H_
+# include "globals_shared.h"
+#endif
 
-#include "asm_defines.asm"
-START_FILE
+#ifdef UNIX
+# ifdef MACOS
+/* Some 32-bit syscalls return 64-bit values (e.g., SYS_lseek) in eax:edx */
+int64 dynamorio_syscall(uint sysnum, uint num_args, ...);
+int64 dynamorio_mach_dep_syscall(uint sysnum, uint num_args, ...);
+ptr_int_t dynamorio_mach_syscall(uint sysnum, uint num_args, ...);
+# else
+ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
+# endif
+#endif
 
-/* Default impl is user does not supply a definition, which should look like this:
- *   void internal_error(const char *file, int line, const char *expr);
- * We declare this as weak for Linux and MacOS, and rely on MSVC prioritizing a
- * .obj def over this .lib def.
- */
-        DECLARE_FUNC(internal_error)
-        WEAK(internal_error)
-GLOBAL_LABEL(internal_error:)
-        JUMP  GLOBAL_REF(internal_error)
-        END_FUNC(internal_error)
-
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(internal_error), HEX(0), HEX(0), HEX(0))
-        /* internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
-
-END_FILE
+#endif /* _DR_LIBC_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,7 @@
 #endif
 
 #include "configure.h"
+#include "dr_helper.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h> /* memcpy */
@@ -65,11 +66,6 @@
 extern "C" {
 #endif
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
-
 /* check if all bits in mask are set in var */
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 /* check if any bit in mask is set in var */
@@ -86,33 +82,15 @@ extern "C" {
 #  error "must include dr_api.h before tools.h"
 # endif
 #else
-#ifndef __cplusplus
-typedef unsigned int bool;
-#endif
-# ifdef UNIX
-typedef unsigned int uint;
-typedef unsigned long long int uint64;
-typedef long long int int64;
-# else
-typedef unsigned __int64 uint64;
-typedef __int64 int64;
-#  define uint DWORD
-# endif
 # define PAGE_SIZE 0x00001000
 #endif
 
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
 # define IF_WINDOWS_ELSE(x,y) (x)
-# ifndef USE_DYNAMO
-#  define INT64_FORMAT "I64"
-# endif
 #else
 # define IF_WINDOWS(x)
 # define IF_WINDOWS_ELSE(x,y) (y)
-# ifndef USE_DYNAMO
-#  define INT64_FORMAT "ll"
-# endif
 #endif
 
 /* Function attributes. */
@@ -124,27 +102,6 @@ typedef __int64 int64;
 # define EXPORT __attribute__((visibility("default")))
 # define IMPORT extern
 # define NOINLINE __attribute__((noinline))
-#endif
-
-
-/* some tests include dr_api.h and tools.h, so avoid duplicating */
-#ifndef IF_X64
-#  ifdef X64
-   typedef uint64 ptr_uint_t;
-   typedef int64 ptr_int_t;
-#   define PFMT "%016"INT64_FORMAT"x"
-#   define SZFMT "%"INT64_FORMAT"d"
-#   define IF_X64(x) x
-#   define IF_X64_ELSE(x, y) x
-#  else
-   typedef uint ptr_uint_t;
-   typedef int ptr_int_t;
-#   define PFMT "%08x"
-#   define SZFMT "%d"
-#   define IF_X64(x)
-#   define IF_X64_ELSE(x, y) y
-#  endif
-#  define PFX "0x"PFMT
 #endif
 
 /* convenience macros for secure string buffer operations */
@@ -710,7 +667,6 @@ bool find_dynamo_library(void);
 
 /* Staticly linked versions of libc routines that don't touch globals or errno.
  */
-ptr_int_t nolibc_syscall(uint sysnum, uint num_args, ...);
 void nolibc_print(const char *str);
 void nolibc_print_int(int d);
 void nolibc_nanosleep(struct timespec *req);

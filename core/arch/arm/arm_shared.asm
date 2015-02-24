@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
- * **********************************************************/
+ * ********************************************************** */
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -31,34 +31,34 @@
  */
 
 /*
- * cross-platform assembly and trampoline code
+ * ARM-specific assembly and trampoline code, shared w/ non-core-DR-lib.
  */
 
-#include "asm_defines.asm"
+#include "../asm_defines.asm"
 START_FILE
 
-/* Default impl is user does not supply a definition, which should look like this:
- *   void internal_error(const char *file, int line, const char *expr);
- * We declare this as weak for Linux and MacOS, and rely on MSVC prioritizing a
- * .obj def over this .lib def.
+/* we share dynamorio_syscall w/ preload */
+/* To avoid libc wrappers we roll our own syscall here.
+ * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
+ * signature: dynamorio_syscall(sys_num, num_args, arg1, arg2, ...)
+ * For Linux, the argument max is 6.
  */
-        DECLARE_FUNC(internal_error)
-        WEAK(internal_error)
-GLOBAL_LABEL(internal_error:)
-        JUMP  GLOBAL_REF(internal_error)
-        END_FUNC(internal_error)
-
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
+/* Linux system call on AArch32:
+ * - r7: syscall number
+ * - r0..r6: syscall arguments
+ * so we simply set up all r0..r6 as arguments and ignore the passed in num_args.
  */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(internal_error), HEX(0), HEX(0), HEX(0))
-        /* internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
+        DECLARE_FUNC(dynamorio_syscall)
+GLOBAL_LABEL(dynamorio_syscall:)
+        push     {REG_R4-REG_R8}
+        /* shift r7 pointing to the call args */
+        add      REG_R8, sp, #20         /* size for {r4-r8} */
+        mov      REG_R7, ARG1            /* sysnum */
+        mov      REG_R0, ARG3            /* syscall arg1 */
+        mov      REG_R1, ARG4            /* syscall arg2 */
+        ldmfd    REG_R8, {REG_R2-REG_R6} /* syscall arg3..arg7 */
+        svc      #0
+        pop      {REG_R4-REG_R8}
+        bx       lr
 
 END_FILE

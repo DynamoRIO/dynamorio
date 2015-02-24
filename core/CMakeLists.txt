@@ -45,18 +45,30 @@ set(asm_deps
   "${PROJECT_BINARY_DIR}/configure.h")
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
-add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
-  "_core" "" "${asm_deps}")
-set(arch_core_asm_src ${arch_core_asm_src} ${shared_core_asm_src})
-set(arch_core_asm_tgt ${arch_core_asm_tgt} ${shared_core_asm_tgt})
-add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_noncore_asm_src arch_noncore_asm_tgt
+add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_noncore_asm_src
+  arch_noncore_asm_tgt
   "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
-add_asm_target(arch/asm_shared.asm shared_noncore_asm_src shared_noncore_asm_tgt
-  "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
-set(arch_noncore_asm_src ${arch_noncore_asm_src} ${shared_noncore_asm_src})
-set(arch_noncore_asm_tgt ${arch_noncore_asm_tgt} ${shared_noncore_asm_tgt})
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+
+# i#1409: to share core code with non-core, we use the "drhelper" library.
+# XXX: we're using _shared here, and for inject_shared, etc., to mean
+# "shared between multiple libraries", while we've also started using
+# _shared on opnd_shared.c, etc. to mean 'shared between architectures":
+# perhaps we should separate the naming schemes.
+add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
+  "_core" "" "${asm_deps}")
+add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}_shared.asm shared_arch_asm_src
+  shared_arch_asm_tgt
+  "" "" "${asm_deps}")
+add_library(drhelper STATIC ${shared_core_asm_src} ${shared_arch_asm_src}
+  lib/dr_helper.c)
+# CMake on Windows fails to link unless we tell it to use the C linker:
+set_target_properties(drhelper PROPERTIES LINKER_LANGUAGE C)
+if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(drhelper ${shared_core_asm_tgt} ${shared_arch_asm_tgt})
+endif ()
 
 set(CORE_SRCS
   options.c
@@ -389,6 +401,8 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(dynamorio ${arch_core_asm_tgt} ntdll_imports)
 endif ()
 
+target_link_libraries(dynamorio drhelper)
+
 if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
   # We could build this at configure time instead of build time as
@@ -462,6 +476,7 @@ add_gen_events_deps(${PRELOAD_NAME})
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${arch_noncore_asm_tgt} ${preinject_asm_tgt})
 endif ()
+target_link_libraries(${PRELOAD_NAME} drhelper)
 
 # static decoding library
 add_library(drdecode
@@ -475,11 +490,12 @@ set_target_properties(drdecode PROPERTIES
 if (UNIX)
   append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
 endif (UNIX)
+add_gen_events_deps(drdecode)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
   add_dependencies(drdecode ${arch_noncore_asm_tgt})
 endif ()
-add_gen_events_deps(drdecode)
+target_link_libraries(drdecode drhelper)
 
 ###########################################################################
 # linux build customization
@@ -868,7 +884,7 @@ endif (UNIX)
 # drinjectlib
 add_library(drinjectlib SHARED ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
-target_link_libraries(drinjectlib drdecode)
+target_link_libraries(drinjectlib drdecode drhelper)
 set_target_properties(drinjectlib PROPERTIES
   # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
@@ -942,6 +958,7 @@ if (BUILD_TESTS)
     set_target_properties(unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
+  target_link_libraries(unit_tests drhelper)
   add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
 endif (BUILD_TESTS)
 
@@ -983,4 +1000,9 @@ else (UNIX)
   DR_install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
 endif (UNIX)
 
+DR_export_target(drdecode)
 install_exported_target(drdecode ${INSTALL_LIB})
+
+# We have to export drhelper as static libs we're exporting depend on it.
+DR_export_target(drhelper)
+install_exported_target(drhelper ${INSTALL_LIB_BASE})

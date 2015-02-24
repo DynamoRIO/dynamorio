@@ -382,11 +382,10 @@ set(CMAKE_C_FLAGS "${ARCH_CFLAGS}")
 # so we no longer need to clear this and we can just add arch:
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 
-if (WIN32)
-  # for resources.rc to include globals_shared.h
-  # must be AFTER build/include now that dr_api.h is configured
-  include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib)
-endif (WIN32)
+# Must be AFTER build/include now that dr_api.h is configured.
+# We need this for Windows resources.rc to include globals_shared.h, and
+# for tools.c to include dr_helper.h.
+include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib) # dr_helper.h
 
 # Since we're including configure.h we do not want any default defines.
 # Note that the new DynamoRIOConfig.cmake doesn't set these so we can
@@ -435,6 +434,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for correct parallel builds we need a target
   add_dependencies(tools ${generate_tools_asm})
 endif ()
+target_link_libraries(tools drhelper)
 
 if (WIN32)
   set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc

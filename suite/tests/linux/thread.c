@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -97,6 +97,9 @@ int main()
 
 /* Procedure executed by sideline threads
  * XXX i#500: Cannot use libc routines (printf) in the child process.
+ * Using libc routines can enter the loader and/or touch global state
+ * and TLS state.  Our tests use CLONE_VM and don't initialize TLS
+ * segments, so the TLS is actually *shared* with the parent.
  */
 int run(void *arg)
 {
@@ -104,8 +107,8 @@ int run(void *arg)
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
      * clone system call we could get kernel to do this for us.
      */
-    child = nolibc_syscall(SYS_gettid, 0);
-    nolibc_syscall(SYS_set_tid_address, 1, &child);
+    child = dynamorio_syscall(SYS_gettid, 0);
+    dynamorio_syscall(SYS_set_tid_address, 1, &child);
     nolibc_print("Sideline thread started\n");
     while (true) {
         /* do nothing for now */
@@ -126,7 +129,7 @@ int run(void *arg)
     /* FIXME: returning here invokes SYS_exit_group and takes down the
      * parent...what's up with that?  Xref i#94.
      */
-    nolibc_syscall(SYS_exit, 0);
+    dynamorio_syscall(SYS_exit, 0);
 #endif
     return 0;
 }

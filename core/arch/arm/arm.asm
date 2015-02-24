@@ -120,30 +120,6 @@ GLOBAL_LABEL(cpuid_supported:)
         bx       lr
         END_FUNC(cpuid_supported)
 
-/* we share dynamorio_syscall w/ preload */
-/* To avoid libc wrappers we roll our own syscall here.
- * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
- * signature: dynamorio_syscall(sys_num, num_args, arg1, arg2, ...)
- * For Linux, the argument max is 6.
- */
-/* Linux system call on AArch32:
- * - r7: syscall number
- * - r0..r6: syscall arguments
- * so we simply set up all r0..r6 as arguments and ignore the passed in num_args.
- */
-        DECLARE_FUNC(dynamorio_syscall)
-GLOBAL_LABEL(dynamorio_syscall:)
-        push     {REG_R4-REG_R8}
-        /* shift r7 pointing to the call args */
-        add      REG_R8, sp, #20         /* size for {r4-r8} */
-        mov      REG_R7, ARG1            /* sysnum */
-        mov      REG_R0, ARG3            /* syscall arg1 */
-        mov      REG_R1, ARG4            /* syscall arg2 */
-        ldmfd    REG_R8, {REG_R2-REG_R6} /* syscall arg3..arg7 */
-        svc      #0
-        pop      {REG_R4-REG_R8}
-        bx       lr
-
 /* void call_switch_stack(dcontext_t *dcontext,       // REG_R0
  *                        byte *stack,                // REG_R1
  *                        void (*func)(dcontext_t *), // REG_R2

@@ -345,6 +345,7 @@ typedef uint64 linkcount_type_t;
 #include "options.h"
 #include "os_exports.h"
 #include "arch_exports.h"
+#include "dr_helper.h"
 #include "vmareas.h"
 #include "instrlist.h"
 #include "dispatch.h"

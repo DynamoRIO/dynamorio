@@ -78,6 +78,7 @@
 # define GLOBAL_LABEL(label) label
 # define ADDRTAKEN_LABEL(label) label
 # define GLOBAL_REF(label) label
+# define WEAK(name) .weak name
 # ifdef X86
 #  define BYTE byte ptr
 #  define WORD word ptr
@@ -151,6 +152,7 @@ ASSUME fs:_DATA @N@\
 /* use double colon (param always has its own colon) to make label visible outside proc */
 # define ADDRTAKEN_LABEL(label) label:
 # define GLOBAL_REF(label) label
+# define WEAK(name) /* no support */
 # define BYTE byte ptr
 # define WORD word ptr
 # define DWORD dword ptr
@@ -192,6 +194,7 @@ ASSUME fs:_DATA @N@\
 # define GLOBAL_LABEL(label) _##label
 # define ADDRTAKEN_LABEL(label) _##label
 # define GLOBAL_REF(label) _##label
+# define WEAK(name) weak name
 # define BYTE byte
 # define WORD word
 # define DWORD dword
