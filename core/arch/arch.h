@@ -463,17 +463,17 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags);
-void
+instr_t *
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags);
 void
 mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
               instr_t *next_instr, uint flags);
-void
+instr_t *
 mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags);
 #if defined(X64) || defined(ARM)
-bool
+instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif

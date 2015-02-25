@@ -654,8 +654,12 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
          * skip the rest of the loop if instr is destroyed.
          */
         if (instr_has_rel_addr_reference(instr)) {
-            if (mangle_rel_addr(dcontext, ilist, instr, next_instr))
+            instr_t *res = mangle_rel_addr(dcontext, ilist, instr, next_instr);
+            /* Either returns NULL == destroyed "instr", or a new next_instr */
+            if (res == NULL)
                 continue;
+            else
+                next_instr = res;
         }
 #endif /* X64 || ARM */
 
@@ -761,12 +765,12 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             next_instr = mangle_direct_call(dcontext, ilist, instr, next_instr,
                                             mangle_calls, *flags);
         } else if (instr_is_call_indirect(instr)) {
-            mangle_indirect_call(dcontext, ilist, instr, next_instr, mangle_calls,
-                                 *flags);
+            next_instr = mangle_indirect_call(dcontext, ilist, instr, next_instr,
+                                              mangle_calls, *flags);
         } else if (instr_is_return(instr)) {
             mangle_return(dcontext, ilist, instr, next_instr, *flags);
         } else if (instr_is_mbr(instr)) {
-            mangle_indirect_jump(dcontext, ilist, instr, next_instr, *flags);
+            next_instr = mangle_indirect_jump(dcontext, ilist, instr, next_instr, *flags);
 #ifdef X86
         } else if (instr_get_opcode(instr) == OP_jmp_far) {
             mangle_far_direct_jump(dcontext, ilist, instr, next_instr, *flags);

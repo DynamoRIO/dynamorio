@@ -403,7 +403,7 @@ mangle_remove_from_it_block(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
          prior++, prev = instr_get_prev(prev)) {
         if (instr_get_opcode(prev) == OP_it)
             break;
-        ASSERT(instr_is_predicated(instr));
+        ASSERT(instr_is_predicated(prev));
     }
     ASSERT(prev != NULL);
     it = prev;
@@ -733,7 +733,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     return next_instr;
 }
 
-void
+instr_t *
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
@@ -779,6 +779,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_destroy(dcontext, instr);
     if (in_it)
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
+    return next_instr;
 }
 
 void
@@ -789,7 +790,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     mangle_indirect_jump(dcontext, ilist, instr, next_instr, flags);
 }
 
-void
+instr_t *
 mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags)
 {
@@ -944,6 +945,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
     if (in_it)
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
+    return next_instr;
 }
 
 /* Local single-instr-window scratch reg picker.  Only considers r0-r3, so the
@@ -1003,7 +1005,10 @@ pick_scratch_reg(instr_t *instr, bool dead_reg_ok,
     return reg;
 }
 
-bool
+/* Should return NULL if it destroy "instr".  We don't support both destroying
+ * (done only for x86) and changing next_instr (done only for ARM).
+ */
+instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
@@ -1013,6 +1018,16 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                       instr_get_opcode(instr), instr);
     opnd_t mem_op;
+    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
+    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+        instr_is_predicated(instr);
+    instr_t *bound_start = INSTR_CREATE_label(dcontext);
+    if (in_it) {
+        /* split instr off from its IT block for easier mangling (we reinstate later) */
+        next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+    }
+    PRE(ilist, instr, bound_start);
+
     ASSERT(instr_has_rel_addr_reference(instr));
 
     if (opc == OP_ldr || opc == OP_str || opc == OP_tbb || opc == OP_tbh) {
@@ -1047,7 +1062,13 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* FIXME i#1551: NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
     }
-    return false;
+    if (in_it) {
+        /* XXX: we could mark our mangling as predicated in some cases,
+         * like mangle_add_predicated_fall_through() does.
+         */
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
+    }
+    return next_instr;
 }
 
 #ifndef X64

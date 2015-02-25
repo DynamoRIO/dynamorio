@@ -1653,7 +1653,7 @@ mangle_far_indirect_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
     return reg_target;
 }
 
-void
+instr_t *
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
@@ -1664,7 +1664,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     reg_id_t reg_target = REG_XCX;
 
     if (!mangle_calls)
-        return;
+        return next_instr;
     retaddr = get_call_return_address(dcontext, ilist, instr);
 
     /* Convert near, indirect calls.  The jump to the exit_stub that
@@ -1683,7 +1683,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* remove the call */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
-        return;
+        return next_instr;
     }
 
     /* put the push AFTER the instruction that calculates
@@ -1752,6 +1752,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef CHECK_RETURNS_SSE2
     check_return_handle_call(dcontext, ilist, next_instr);
 #endif
+    return next_instr;
 }
 
 /***************************************************************************
@@ -1985,7 +1986,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 /***************************************************************************
  * INDIRECT JUMP
  */
-void
+instr_t *
 mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags)
 {
@@ -2045,6 +2046,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * If it is possible, need to make sure stealing's use of ecx
      * doesn't conflict w/ our use = FIXME
      */
+    return next_instr;
 }
 
 /***************************************************************************
@@ -2926,8 +2928,10 @@ mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr)
 
 #ifdef X64
 /* PR 215397: re-relativize rip-relative data addresses */
-/* i#393, returned bool indicates if the instr is destroyed. */
-bool
+/* Should return NULL if it destroy "instr".  We don't support both destroying
+ * (done only for x86: i#393) and changing next_instr (done only for ARM).
+ */
+instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
@@ -2974,7 +2978,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
         STATS_INC(rip_rel_lea);
-        return true;
+        return NULL; /* == destroyed instr */
     } else {
         /* PR 251479 will automatically re-relativize if it reaches,
          * but if it doesn't we need to handle that here (since that
@@ -3063,7 +3067,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             STATS_INC(rip_rel_unreachable);
         }
     }
-    return false;
+    return next_instr;
 }
 #endif
 
