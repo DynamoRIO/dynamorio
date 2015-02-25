@@ -977,7 +977,7 @@ pick_scratch_reg(instr_t *instr, bool dead_reg_ok,
     /* We can only try to pick a dead register if the scratch reg usage
      * allows so (e.g., not across the app instr).
      */
-    if (reg > SCRATCH_REG3 && !dead_reg_ok) {
+    if (reg > SCRATCH_REG3 && dead_reg_ok) {
         /* Likely OP_ldm.  We'll have to pick a dead reg (non-ideal b/c a fault
          * could come in: i#400).
          */
@@ -1510,7 +1510,7 @@ normalize_ldm_instr(dcontext_t *dcontext,
                              OPND_CREATE_INT(adjust_pre)) :
             XINST_CREATE_sub(dcontext,
                              opnd_create_reg(base),
-                             OPND_CREATE_INT(-adjust_post));
+                             OPND_CREATE_INT(-adjust_pre));
         instr_set_predicate(*pre_ldm_adjust, pred);
         instr_set_translation(*pre_ldm_adjust, pc);
     }
