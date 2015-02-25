@@ -246,10 +246,10 @@ foreach $infile (@infiles) {
                     $first = 1;
                 }
                 if (!$first) {
-                    s/, [\w\[\]_]+},/, DUP_ENTRY},/ unless /exop\[\w+\]},/;
+                    s/, *[\w\[\]_]+},/, DUP_ENTRY},/ unless /exop\[\w+\]},/;
                     $handled = 1;
                 } elsif (@{$entry{$opc}} == 1) {
-                    s/, [\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
+                    s/, *[\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
                     $handled = 1;
                 }
             }
@@ -257,14 +257,14 @@ foreach $infile (@infiles) {
                 for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
                     if ($_ eq $entry{$opc}[$i]{'line'}) {
                         if ($i == @{$entry{$opc}} - 1) {
-                            s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
+                            s/, *[\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
                         } else {
                             if (/exop\[\w+\]},/) {
                                 print STDERR
                                     "ERROR: exop must be final element in chain: $_\n";
                             } else {
                                 my $chain = $entry{$opc}[$i+1]{'addr_short'};
-                                s/, [\w\[\]_]+},/, $chain},/;
+                                s/, *[\w\[\]_]+},/, $chain},/;
                             }
                         }
                         last;

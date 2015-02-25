@@ -43,8 +43,7 @@
  * + We use a data-driven table-based approach, as we need to both encode and
  *   decode and a central source of data lets us move in both directions.
  */
-/* FIXME i#1551: add Thumb support: for now just A32 */
-/* FIXME i#1551: add A64 support: for now just A32 */
+/* FIXME i#1569: add A64 support: for now just A32 */
 
 /* Global data structure to track the decode state,
  * it should be only used for drdecodelib or early init/late exit.

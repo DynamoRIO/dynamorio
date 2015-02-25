@@ -341,7 +341,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (nxt == NULL) {
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
-            SYSLOG_INTERNAL_WARNING("cannot encode %s\n", opcode_to_encoding_info
+            SYSLOG_INTERNAL_WARNING("cannot encode %s", opcode_to_encoding_info
                                     (instr->opcode, instr_get_isa_mode(instr)
                                      _IF_ARM(false))->name);
             heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));

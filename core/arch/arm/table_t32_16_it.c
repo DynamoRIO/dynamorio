@@ -109,7 +109,7 @@ const instr_info_t T32_16_it_ext_bits_11_10[][4] = {
     { /* 0 */
       {EXT_9_6, 0x4000, "ext 9:6 0",  xx, xx,     xx, xx, xx, no, x, 0},
       {EXT_9_6, 0x4400, "ext 9:6 1",  xx, xx,     xx, xx, xx, no, x, 1},
-      {OP_ldr,  0x4800, "ldr",       RWw, xx, MPCP8w, xx, xx, no, x,  END_LIST},
+      {OP_ldr,  0x4800, "ldr",       RWw, xx, MPCP8w, xx, xx, no, x, z11[7][0x01]},
       {OP_ldr,  0x4C00, "ldr",       RWw, xx, MPCP8w, xx, xx, no, x, DUP_ENTRY},
     },
 };
@@ -164,8 +164,8 @@ const instr_info_t T32_16_it_ext_bits_11_8[][16] = {
       {INVALID,  0xdb00, "(bad)",             xx,  xx, xx,  xx, xx,     no, x,       NA},
       {INVALID,  0xdc00, "(bad)",             xx,  xx, xx,  xx, xx,     no, x,       NA},
       {INVALID,  0xdd00, "(bad)",             xx,  xx, xx,  xx, xx,     no, x,       NA},
-      {OP_udf,   0xde00, "udf",               xx,  xx, i8,  xx, xx, no, x,  END_LIST},/*depreciated*/
-      {OP_svc,   0xdf00, "svc",               xx,  xx, i8,  xx, xx, no, x,  END_LIST},/*UNKNOWN*/
+      {OP_udf,   0xde00, "udf",               xx,  xx, i8,  xx, xx, no, x, xb13[0][0x01]},/*deprecated*/
+      {OP_svc,   0xdf00, "svc",               xx,  xx, i8,  xx, xx, no, x, END_LIST},/*UNKNOWN*/
     },
 };
 

@@ -31,6 +31,7 @@
  */
 
 /* ARM encoder */
+/* FIXME i#1569: add A64 support: for now just A32 */
 
 #include "../globals.h"
 #include "arch.h"
