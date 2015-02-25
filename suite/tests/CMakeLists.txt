@@ -1456,6 +1456,21 @@ endif (NOT ARM)
 #tobuild(common.ops common/ops.c)
 #tobuild(common.recurse common/recurse.c)
 
+if (ARM)
+  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
+    # XXX i#1551: once -private_loader is on by default we can remove it here
+    "-early_inject -private_loader" "")
+  set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(common.allasm_thumb
+    "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")
+
+  tobuild_ops(common.allasm_arm common/allasm_arm.asm
+    # XXX i#1551: once -private_loader is on by default we can remove it here
+    "-early_inject -private_loader" "")
+  set_target_properties(common.allasm_arm PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -Wl,-static")
+endif (ARM)
+
 tobuild(libutil.frontend_test libutil/frontend_test.c)
 configure_DynamoRIO_standalone(libutil.frontend_test)
 target_link_libraries(libutil.frontend_test drfrontendlib)
