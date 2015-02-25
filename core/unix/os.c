@@ -1304,7 +1304,12 @@ is_thread_tls_initialized(void)
         /* We use the app slot's value to identify a now-exited thread (i#1578) */
         *tls_swap_slot == APP_TLS_VAL_EXITED)
         return false;
-    ASSERT(is_dynamo_address(*tls_swap_slot));
+    /* We would like to ASSERT is_dynamo_address(*tls_swap_slot) but that leads
+     * to infinite recursion for an address not in the vm_reserve area, as
+     * dynamo_vm_areas_start_reading() ending up calling
+     * deadlock_avoidance_unlock() which calls get_thread_private_dcontext()
+     * which comes here.
+     */
     return true;
 #endif
 }
