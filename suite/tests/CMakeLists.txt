@@ -1478,10 +1478,10 @@ if (CLIENT_INTERFACE)
   include_directories("${PROJECT_BINARY_DIR}/include/annotations")
   include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
+  tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
     tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
-    tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
     tobuild_ci(client.modules client-interface/modules.c "" "" "")
     tobuild_appdll(client.modules client-interface/modules.c)
     # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
@@ -1808,32 +1808,36 @@ if (UNIX)
     tobuild(linux.clone linux/clone.c)
   endif (NOT ARM)
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    # Cross-arch execve test: can only be done via a suite of tests that
-    # build both 32-bit and 64-bit.  We have 32-bit just build, and
-    # 64-bit then builds and runs both directions.
-    if (TEST_SUITE OR TEST_32BIT_PATH)
-      if (X64)
-        add_exe(linux.execve-sub64 linux/execve-sub.c)
-        tobuild_ops(linux.execve64 linux/execve.c ""
-          "${TEST_32BIT_PATH}/linux.execve-sub32")
-        torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
-          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
-      else (X64)
-        add_exe(linux.execve-sub32 linux/execve-sub.c)
-        add_exe(linux.execve32 linux/execve.c)
-      endif (X64)
-    endif (TEST_SUITE OR TEST_32BIT_PATH)
+  # Cross-arch execve test: can only be done via a suite of tests that
+  # build both 32-bit and 64-bit.  We have 32-bit just build, and
+  # 64-bit then builds and runs both directions.
+  if (TEST_SUITE OR TEST_32BIT_PATH)
+    if (X64)
+      add_exe(linux.execve-sub64 linux/execve-sub.c)
+      tobuild_ops(linux.execve64 linux/execve.c ""
+        "${TEST_32BIT_PATH}/linux.execve-sub32")
+      torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
+    else (X64)
+      add_exe(linux.execve-sub32 linux/execve-sub.c)
+      add_exe(linux.execve32 linux/execve.c)
+    endif (X64)
+  endif (TEST_SUITE OR TEST_32BIT_PATH)
 
+  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
+  # this test running on ARM.
+  if (NOT ARM)
     # helper app for execve-null
     add_exe(linux.execve-sub linux/execve-sub.c)
     tobuild_ops(linux.execve-null linux/execve-null.c ""
       "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
-
-    tobuild(linux.execve-rec linux/execve-rec.c)
   endif (NOT ARM)
+
+  tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
+  # the fork tests running on ARM.
+  if (NOT ARM)
     tobuild(linux.fork linux/fork.c)
     # i#1537: test MSR for fs/gs in fork
     torunonly(linux.fork-MSR linux.fork linux/fork.c
@@ -1912,7 +1916,7 @@ if (UNIX)
   append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
   append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  if (NOT ARM) # FIXME i#1551: add thread support to ARM
     # FIXME i#125: bugs in these, were disabled in the past
     tobuild_ops(linux.vfork linux/vfork.c ""
       "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
@@ -1942,7 +1946,7 @@ if (UNIX)
       tochcon(security-linux.stacktest execmem_exec_t)
       mark_execstack(security-linux.stacktest)
     endif (NOT X64 AND NOT ARM)
-    if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    if (NOT ARM) # FIXME i#1551: signal TLS on ARM
       tobuild(security-linux.trampoline security-linux/trampoline.c)
     endif (NOT ARM)
   endif (NOT CMAKE_COMPILER_IS_CLANG)

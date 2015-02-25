@@ -221,7 +221,11 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 # ifdef X86
 #  define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 # elif defined(ARM)
-#  define NOP_NOP_CALL(tgt) asm("nop\n nop\n bl " #tgt)
+/* Make sure to mark $lr as clobbered to avoid functions like
+ * client-interface/call-retarget.c:main() being interpreted as a leaf
+ * function that does not need $lr preserved.
+ */
+#  define NOP_NOP_CALL(tgt) asm("nop\n nop\n bl " #tgt : : : "lr")
 # endif
 #endif
 
