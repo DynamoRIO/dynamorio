@@ -6944,6 +6944,42 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
     return true;
 }
 
+DR_API
+int
+dr_remove_it_instrs(void *drcontext, instrlist_t *ilist)
+{
+#ifdef X86
+    return 0;
+#elif defined(ARM)
+    int res = 0;
+    instr_t *inst, *next;
+    for (inst = instrlist_first(ilist); inst != NULL; inst = next) {
+        next = instr_get_next(inst);
+        if (instr_get_opcode(inst) == OP_it) {
+            res++;
+            instrlist_remove(ilist, inst);
+            instr_destroy(drcontext, inst);
+        }
+    }
+    return res;
+#endif
+}
+
+DR_API
+int
+dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
+{
+#ifdef X86
+    return 0;
+#elif defined(ARM)
+    instr_t *first = instrlist_first(ilist);
+    if (first == NULL || instr_get_isa_mode(first) != DR_ISA_ARM_THUMB)
+        return 0;
+    return reinstate_it_blocks((dcontext_t*)drcontext, ilist,
+                               instrlist_first(ilist), NULL);
+#endif
+}
+
 /***************************************************************************
  * PERSISTENCE
  */

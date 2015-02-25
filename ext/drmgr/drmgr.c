@@ -647,6 +647,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     pt->first_app = instrlist_first(bb);
     pt->last_app = instrlist_last(bb);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
+#ifdef ARM
+        instr_t *prev = instr_get_prev(inst);
+#endif
         next_inst = instr_get_next(inst);
         for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num; i++) {
             e = &iter_insert.cbs.bb[i];
@@ -667,6 +670,21 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             }
             /* XXX: add checks that cb followed the rules */
         }
+#ifdef ARM
+        /* We auto-magically predicate instrumentation inserted prior to a
+         * predicated app instr, in Thumb mode.
+         * XXX: we should add a mechanism to avoid this for particular instru!
+         * Add a custom dr_emit_flags_t return value?
+         */
+        if (instr_get_isa_mode(inst) == DR_ISA_ARM_THUMB &&
+            instr_is_predicated(inst) && !instr_is_cbr(inst)) {
+            prev = (prev == NULL) ? instrlist_first(bb) : instr_get_next(prev);
+            for (; prev != inst && prev != NULL; prev = instr_get_next(prev)) {
+                if (!instr_is_app(prev))
+                    instr_set_predicate(prev, instr_get_predicate(inst));
+            }
+        }
+#endif
     }
 
     /* Pass 4: final */
@@ -685,6 +703,19 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
 
     /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
     drmgr_fix_app_ctis(drcontext, bb);
+
+#ifdef ARM
+    /* Pass 6: private pass to legalize conditional Thumb instrs.
+     * Xref various discussions about removing IT instrs earlier, but there's a
+     * conflict w/ tools who want to see the original instr stream and it's not
+     * clear *when* to remove them.  Thus, we live w/ an inconsistent state
+     * until this point.
+     */
+    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
+        dr_remove_it_instrs(drcontext, bb);
+        dr_insert_it_instrs(drcontext, bb);
+    }
+#endif
 
     pt->cur_phase = DRMGR_PHASE_NONE;
 

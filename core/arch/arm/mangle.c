@@ -500,33 +500,40 @@ mangle_remove_from_it_block(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
  * (open-ended, so pass NULL to go to the final instr in ilist) is inside an IT
  * block and is thus legally encodable.  Marks the OP_it instrs as app instrs.
  */
-static void
-mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
-                           instr_t *end)
+int
+reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
+                    instr_t *end)
 {
     instr_t *instr, *block_start = NULL;
+    app_pc block_xl8 = NULL;
+    int res = 0;
     uint it_count = 0, block_count = 0;
     dr_pred_type_t block_pred[IT_BLOCK_MAX_INSTRS];
-    if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
-        return; /* nothing to do */
     for (instr = start; instr != NULL && instr != end; instr = instr_get_next(instr)) {
         bool instr_predicated = instr_is_predicated(instr) &&
             /* Do not put OP_b exit cti into block: patch_branch can't handle */
-            instr_get_opcode(instr) != OP_b;
+            instr_get_opcode(instr) != OP_b &&
+            instr_get_opcode(instr) != OP_b_short;
         if (block_start != NULL) {
+            bool matches = true;
             ASSERT(block_count < IT_BLOCK_MAX_INSTRS);
             if (instr_predicated) {
-                block_pred[block_count++] = instr_get_predicate(instr);
+                if (instr_get_predicate(instr) != block_pred[0] &&
+                    instr_get_predicate(instr) != instr_invert_predicate(block_pred[0]))
+                    matches = false;
+                else
+                    block_pred[block_count++] = instr_get_predicate(instr);
             }
-            if (!instr_predicated || block_count == IT_BLOCK_MAX_INSTRS) {
+            if (!matches || !instr_predicated || block_count == IT_BLOCK_MAX_INSTRS) {
+                res++;
                 instrlist_preinsert
-                    (ilist, block_start, instr_it_block_create
+                    (ilist, block_start, INSTR_XL8(instr_it_block_create
                      (dcontext, block_pred[0],
                       block_count > 1 ? block_pred[1] : DR_PRED_NONE,
                       block_count > 2 ? block_pred[2] : DR_PRED_NONE,
-                      block_count > 3 ? block_pred[3] : DR_PRED_NONE));
+                      block_count > 3 ? block_pred[3] : DR_PRED_NONE), block_xl8));
                 block_start = NULL;
-                if (instr_predicated)
+                if (instr_predicated && matches)
                     continue;
             } else
                 continue;
@@ -539,19 +546,43 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
         else if (instr_get_opcode(instr) == OP_it)
             it_count = instr_it_block_get_count(instr);
         else if (instr_predicated) {
+            instr_t *app;
             block_start = instr;
             block_pred[0] = instr_get_predicate(instr);
             block_count = 1;
+            /* XXX i#1695: we want the xl8 to be the original app IT instr, if
+             * it existed, as using the first instr inside the block will not
+             * work on relocation.  Should we insert labels to keep that info
+             * when we remove IT instrs?
+             */
+            for (app = instr; app != NULL && instr_get_app_pc(app) == NULL;
+                 app = instr_get_next(app))
+                /*nothing*/;
+            if (app != NULL)
+                block_xl8 = instr_get_app_pc(app);
+            else
+                block_xl8 = NULL;
         }
     }
     if (block_start != NULL) {
+        res++;
         instrlist_preinsert
-            (ilist, block_start, instr_it_block_create
+            (ilist, block_start, INSTR_XL8(instr_it_block_create
              (dcontext, block_pred[0],
               block_count > 1 ? block_pred[1] : DR_PRED_NONE,
               block_count > 2 ? block_pred[2] : DR_PRED_NONE,
-              block_count > 3 ? block_pred[3] : DR_PRED_NONE));
+              block_count > 3 ? block_pred[3] : DR_PRED_NONE), block_xl8));
     }
+    return res;
+}
+
+static void
+mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
+                           instr_t *end)
+{
+    if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
+        return; /* nothing to do */
+    reinstate_it_blocks(dcontext, ilist, start, end);
     DOLOG(5, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist after reinstating IT blocks:\n");
         instrlist_disassemble(dcontext, NULL, ilist, THREAD);

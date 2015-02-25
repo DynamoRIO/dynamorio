@@ -228,6 +228,12 @@ DR_API
  * - A system call or interrupt instruction can only be added
  * if it satisfies the above constraints: i.e., if it is the final
  * instruction in the block and the only system call or interrupt.
+ * - All IT blocks must be legal.  For example, application instructions
+ * inside an IT block cannot be removed or added to without also
+ * updating the OP_it instruction itself.  Clients can use
+ * the combination of dr_remove_it_instrs() and dr_insert_it_instrs()
+ * to more easily manage IT blocks while maintaining the simplicity
+ * of examining individual instructions in isolation.
  * - The block's application source code (as indicated by the
  * translation targets, set by #instr_set_translation()) must remain
  * within the original bounds of the block (the one exception to this
@@ -5542,6 +5548,40 @@ DR_API
 bool
 dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
                                instr_t *instr, reg_id_t reg);
+
+DR_API
+/**
+ * Removes all OP_it instructions from \p ilist without changing the
+ * instructions that were inside each IT block.  This is intended to
+ * be paired with dr_insert_it_instrs(), where a client's examination
+ * of the application instruction list and insertion of
+ * instrumentation occurs in between the two calls and thus does not
+ * have to worry about groups of instructions that cannot be separated
+ * or changed.  The resulting predicated instructions are not
+ * encodable in Thumb mode (#DR_ISA_ARM_THUMB): dr_insert_it_instrs()
+ * must be called before encoding.
+ *
+ * \return the number of OP_it instructions removed; -1 on error.
+ *
+ * \note ARM-only
+ */
+int
+dr_remove_it_instrs(void *drcontext, instrlist_t *ilist);
+
+DR_API
+/**
+ * Inserts enough OP_it instructions with proper parameters into \p
+ * ilist to make all predicated instructions in \p ilist legal in
+ * Thumb mode (#DR_ISA_ARM_THUMB).  Treats predicated app and tool
+ * instructions identically, but marks inserted OP_it instructions as
+ * app instructions (see instr_set_app()).
+ *
+ * \return the number of OP_it instructions inserted; -1 on error.
+ *
+ * \note ARM-only
+ */
+int
+dr_insert_it_instrs(void *drcontext, instrlist_t *ilist);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */

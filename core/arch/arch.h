@@ -438,6 +438,12 @@ insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        instr_t **first, instr_t **second);
 
 /* in mangle.c arch-specific implementation */
+#ifdef ARM
+int
+reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
+                    instr_t *end);
+#endif
+
 reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg);
 uint
