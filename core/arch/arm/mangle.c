@@ -950,9 +950,15 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * caller must split up any GPR reg list first.  Assumes we only care about instrs
  * that read or write regs outside of r0-r3, so we'll only fail on instrs that
  * can access 5 GPR's, and again caller should split those up.
+ *
+ * For some use case (e.g., mangle stolen reg), the scratch reg will be
+ * used across the app instr, so we cannot pick a dead reg.
+ *
+ * Returns REG_NULL if fail to find a scratch reg.
  */
 static reg_id_t
-pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore OUT)
+pick_scratch_reg(instr_t *instr, bool dead_reg_ok,
+                 ushort *scratch_slot OUT, bool *should_restore OUT)
 {
     reg_id_t reg;
     ushort slot;
@@ -968,7 +974,10 @@ pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore 
             (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
             break;
     }
-    if (reg > SCRATCH_REG3) {
+    /* We can only try to pick a dead register if the scratch reg usage
+     * allows so (e.g., not across the app instr).
+     */
+    if (reg > SCRATCH_REG3 && !dead_reg_ok) {
         /* Likely OP_ldm.  We'll have to pick a dead reg (non-ideal b/c a fault
          * could come in: i#400).
          */
@@ -985,9 +994,10 @@ pick_scratch_reg(instr_t *instr, ushort *scratch_slot OUT, bool *should_restore 
     /* Only OP_stm could read all 4 of our scratch regs and also read or write
      * the PC or stolen reg (OP_smlal{b,t}{b,t} can read 4 GPR's but not a 4th),
      * and it's not allowed to have PC as a base reg (it's "unpredictable" at
-     * least).  For stolen reg as base, we split it up before calling here.
+     * least).  For stolen reg as base, we should split it up before calling here.
      */
-    ASSERT(reg <= SCRATCH_REG3);
+    if (reg > SCRATCH_REG3)
+        reg = REG_NULL;
     if (scratch_slot != NULL)
         *scratch_slot = slot;
     return reg;
@@ -1008,10 +1018,11 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (opc == OP_ldr || opc == OP_str || opc == OP_tbb || opc == OP_tbh) {
         ushort slot;
         bool should_restore;
-        reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
+        reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
         opnd_t new_op;
         dr_shift_type_t shift_type;
         uint shift_amt;
+        ASSERT(reg != REG_NULL);
         if (opc == OP_str) {
             mem_op = instr_get_dst(instr, 0);
         } else {
@@ -1047,12 +1058,13 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     ushort slot;
     bool should_restore;
-    reg_id_t reg = pick_scratch_reg(instr, &slot, &should_restore);
+    reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
     ptr_int_t app_r15 = (ptr_int_t)
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                       instr_get_opcode(instr), instr);
     int i;
 
+    ASSERT(reg != REG_NULL);
     ASSERT(!instr_is_meta(instr) &&
            instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL));
 
@@ -1135,7 +1147,8 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     ASSERT(!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen));
 
     /* move stolen reg value into tmp reg for app instr execution */
-    tmp = pick_scratch_reg(instr, &slot, &should_restore);
+    tmp = pick_scratch_reg(instr, false, &slot, &should_restore);
+    ASSERT(tmp != REG_NULL);
     restore_app_value_to_stolen_reg(dcontext, ilist, instr, tmp, slot);
 
     /* -- app instr executes here -- */
@@ -1469,7 +1482,7 @@ normalize_ldm_instr(dcontext_t *dcontext,
     }
 
     if (instr_uses_reg(instr, dr_reg_stolen) &&
-        pick_scratch_reg(instr, NULL, NULL) == REG_NULL) {
+        pick_scratch_reg(instr, false, NULL, NULL) == REG_NULL) {
         /* We need split the ldm.
          * We need a scratch reg from r0-r3, so by splitting the bottom reg we're
          * guaranteed to get one.  And since cti uses r2 it works out there.
