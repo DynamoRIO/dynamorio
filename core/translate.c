@@ -135,9 +135,9 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
         return false;
     /* Look for the load of either segment base */
     if (instr_is_tls_restore(inst, REG_NULL/*don't care*/,
-                             os_tls_offset(os_get_app_seg_base_offset(SEG_FS))) ||
+                             os_tls_offset(os_get_app_tls_base_offset(SEG_FS))) ||
         instr_is_tls_restore(inst, REG_NULL/*don't care*/,
-                             os_tls_offset(os_get_app_seg_base_offset(SEG_GS))))
+                             os_tls_offset(os_get_app_tls_base_offset(SEG_GS))))
         return true;
     /* Look for the lea */
     if (instr_get_opcode(inst) == OP_lea) {

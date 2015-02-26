@@ -413,7 +413,7 @@ static int libc_errno_tls_offs;
 static int *
 our_libc_errno_loc(void)
 {
-    void *app_tls = os_get_app_seg_base(NULL, LIB_SEG_TLS);
+    void *app_tls = os_get_app_tls_base(NULL, TLS_REG_LIB);
     if (app_tls == NULL)
         return NULL;
     return (int *)(app_tls + libc_errno_tls_offs);
@@ -481,9 +481,9 @@ get_libc_errno_location(bool do_init)
          * then we don't need to do this.
          */
         if (INTERNAL_OPTION(private_loader) && libc_errno_loc != NULL) {
-            void *dr_lib_tls_base = os_get_dr_seg_base(NULL, LIB_SEG_TLS);
-            ASSERT(dr_lib_tls_base != NULL);
-            libc_errno_tls_offs = (void *)libc_errno_loc() - dr_lib_tls_base;
+            void *priv_lib_tls_base = os_get_priv_tls_base(NULL, TLS_REG_LIB);
+            ASSERT(priv_lib_tls_base != NULL);
+            libc_errno_tls_offs = (void *)libc_errno_loc() - priv_lib_tls_base;
             libc_errno_loc = &our_libc_errno_loc;
         }
 #endif
@@ -1194,10 +1194,10 @@ os_timeout(int time_in_milliseconds)
 #define TLS_DCONTEXT_OFFSET    (TLS_OS_LOCAL_STATE + TLS_DCONTEXT_SLOT)
 
 /* they should be used with os_tls_offset, so do not need add TLS_OS_LOCAL_STATE here */
-#define TLS_APP_GS_BASE_OFFSET (offsetof(os_local_state_t, app_gs_base))
-#define TLS_APP_FS_BASE_OFFSET (offsetof(os_local_state_t, app_fs_base))
-#define TLS_APP_GS_OFFSET (offsetof(os_local_state_t, app_gs))
-#define TLS_APP_FS_OFFSET (offsetof(os_local_state_t, app_fs))
+#define TLS_APP_LIB_TLS_BASE_OFFSET (offsetof(os_local_state_t, app_lib_tls_base))
+#define TLS_APP_ALT_TLS_BASE_OFFSET (offsetof(os_local_state_t, app_alt_tls_base))
+#define TLS_APP_LIB_TLS_REG_OFFSET  (offsetof(os_local_state_t, app_lib_tls_reg))
+#define TLS_APP_ALT_TLS_REG_OFFSET  (offsetof(os_local_state_t, app_alt_tls_reg))
 
 /* N.B.: imm and idx are ushorts!
  * We use %c[0-9] to get gcc to emit an integer constant without a leading $ for
@@ -1328,25 +1328,23 @@ os_tls_offset(ushort tls_offs)
  * ostd->dr_fs/gs_base.
  */
 void *
-os_get_dr_seg_base(dcontext_t *dcontext, reg_id_t seg)
+os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t reg)
 {
     os_thread_data_t *ostd;
 
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
-    /* FIXME i#1551: we need a better alias name for FS/GS on X86 and
-     * DR_REG_TPIDRURW/DR_REG_TPIDRURO on ARM.
-     */
-    ASSERT(seg == SEG_TLS || seg == LIB_SEG_TLS);
+    ASSERT(reg == TLS_REG_ALT || reg == TLS_REG_LIB);
 
     if (dcontext == NULL)
         dcontext = get_thread_private_dcontext();
     if (dcontext == NULL)
         return NULL;
     ostd = (os_thread_data_t *)dcontext->os_field;
-    if (seg == IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW))
-        return ostd->dr_fs_base;
-    else
-        return ostd->dr_gs_base;
+    if (reg == TLS_REG_LIB)
+        return ostd->priv_lib_tls_base;
+    else if (reg == TLS_REG_ALT)
+        return ostd->priv_alt_tls_base;
+    ASSERT_NOT_REACHED();
     return NULL;
 }
 
@@ -1374,12 +1372,11 @@ get_os_tls_from_dc(dcontext_t *dcontext)
 }
 
 void *
-os_get_app_seg_base(dcontext_t *dcontext, reg_id_t seg)
+os_get_app_tls_base(dcontext_t *dcontext, reg_id_t reg)
 {
     os_local_state_t *os_tls;
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
-    ASSERT(IF_X86_ELSE((seg == SEG_FS || seg == SEG_GS),
-                       (seg == DR_REG_TPIDRURW || DR_REG_TPIDRURO)));
+    ASSERT(reg == TLS_REG_LIB || reg == TLS_REG_ALT);
     if (dcontext == NULL)
         dcontext = get_thread_private_dcontext();
     if (dcontext == NULL) {
@@ -1387,44 +1384,39 @@ os_get_app_seg_base(dcontext_t *dcontext, reg_id_t seg)
          * the app's segments.  get_segment_base is expensive, but this should
          * be rare.  Re-examine if it pops up in a profile.
          */
-        return get_segment_base(seg);
+        return get_segment_base(reg);
     }
     os_tls = get_os_tls_from_dc(dcontext);
-    if (seg == IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW))
-        return os_tls->app_fs_base;
-    else
-        return os_tls->app_gs_base;
+    if (reg == TLS_REG_LIB)
+        return os_tls->app_lib_tls_base;
+    else if (reg == TLS_REG_ALT)
+        return os_tls->app_alt_tls_base;
+    ASSERT_NOT_REACHED();
     return NULL;
 }
 
 ushort
-os_get_app_seg_base_offset(reg_id_t seg)
+os_get_app_tls_base_offset(reg_id_t reg)
 {
-#ifdef X86
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    if (seg == SEG_FS)
-        return TLS_APP_FS_BASE_OFFSET;
-    else if (seg == SEG_GS)
-        return TLS_APP_GS_BASE_OFFSET;
-#endif
-    /* FIXME i#1551: NYI on ARM */
+    if (reg == TLS_REG_LIB)
+        return TLS_APP_LIB_TLS_BASE_OFFSET;
+    else if (reg == TLS_REG_ALT)
+        return TLS_APP_ALT_TLS_BASE_OFFSET;
     ASSERT_NOT_REACHED();
     return 0;
 }
 
 ushort
-os_get_app_seg_offset(reg_id_t seg)
+os_get_app_tls_reg_offset(reg_id_t reg)
 {
-#ifdef X86
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    if (seg == SEG_FS)
-        return TLS_APP_FS_OFFSET;
-    else if (seg == SEG_GS)
-        return TLS_APP_GS_OFFSET;
-#endif
-    /* FIXME i#1551: NYI on ARM */
+    if (reg == TLS_REG_LIB)
+        return TLS_APP_LIB_TLS_REG_OFFSET;
+    else if (reg == TLS_REG_ALT)
+        return TLS_APP_ALT_TLS_REG_OFFSET;
     ASSERT_NOT_REACHED();
     return 0;
 }
@@ -1477,7 +1469,7 @@ get_app_segment_base(uint seg)
         return NULL;
 #endif /* X86 */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-        return get_tls(os_get_app_seg_base_offset(seg));
+        return get_tls(os_get_app_tls_base_offset(seg));
     }
     return get_segment_base(seg);
 }
@@ -1559,17 +1551,19 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     }
     /* calculate the entry_number */
     desc_idx = SELECTOR_INDEX(sel) - tls_min_index();
-    if (seg == SEG_GS) {
-        os_tls->app_gs = sel;
-        os_tls->app_gs_base = (void *)(ptr_uint_t) desc[desc_idx].base_addr;
+    if (seg == TLS_REG_LIB) {
+        os_tls->app_lib_tls_reg  = sel;
+        os_tls->app_lib_tls_base = (void *)(ptr_uint_t) desc[desc_idx].base_addr;
     } else {
-        os_tls->app_fs = sel;
-        os_tls->app_fs_base = (void *)(ptr_uint_t) desc[desc_idx].base_addr;
+        os_tls->app_alt_tls_reg  = sel;
+        os_tls->app_alt_tls_base = (void *)(ptr_uint_t) desc[desc_idx].base_addr;
     }
     instr_free(dcontext, &instr);
     LOG(THREAD_GET, LOG_THREADS, 2,
-        "thread "TIDFMT" segment change %s to selector 0x%x => app fs: "PFX", gs: "PFX"\n",
-        get_thread_id(), reg_names[seg], sel, os_tls->app_fs_base, os_tls->app_gs_base);
+        "thread "TIDFMT" segment change %s to selector 0x%x => "
+        "app lib tls base: "PFX", alt tls base: "PFX"\n",
+        get_thread_id(), reg_names[seg], sel,
+        os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_REACHED();
@@ -1585,21 +1579,18 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 {
     int i, index;
     our_modify_ldt_t *desc;
-    app_pc app_fs_base, app_gs_base;
+    app_pc app_lib_tls_base, app_alt_tls_base;
 
-    os_tls->app_fs = read_thread_register(SEG_FS);
-    os_tls->app_gs = read_thread_register(SEG_GS);
-    app_fs_base = get_segment_base(SEG_FS);
-    app_gs_base = get_segment_base(SEG_GS);
-    /* If we're a non-initial thread, fs/gs will be set to the parent's value */
-    if (!is_dynamo_address(app_gs_base))
-        os_tls->app_gs_base = app_gs_base;
-    else
-        os_tls->app_gs_base = NULL;
-    if (!is_dynamo_address(app_fs_base))
-        os_tls->app_fs_base = app_fs_base;
-    else
-        os_tls->app_fs_base = NULL;
+    os_tls->app_lib_tls_reg = read_thread_register(TLS_REG_LIB);
+    os_tls->app_alt_tls_reg = read_thread_register(TLS_REG_ALT);
+    app_lib_tls_base = get_segment_base(TLS_REG_LIB);
+    app_alt_tls_base = get_segment_base(TLS_REG_ALT);
+
+    /* If we're a non-initial thread, tls will be set to the parent's value */
+    os_tls->app_lib_tls_base =
+        is_dynamo_address(app_lib_tls_base) ? NULL : app_lib_tls_base;
+    os_tls->app_alt_tls_base =
+        is_dynamo_address(app_alt_tls_base) ? NULL : app_alt_tls_base;
 
     /* get all TLS thread area value */
     /* XXX: is get_thread_area supported in 64-bit kernel?
@@ -1614,23 +1605,26 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         tls_get_descriptor(i + index, &desc[i]);
     }
 
-    os_tls->os_seg_info.dr_fs_base = IF_X64_ELSE(NULL, segment);
-    os_tls->os_seg_info.dr_gs_base = IF_X64_ELSE(segment, NULL);
+    os_tls->os_seg_info.dr_tls_base = segment;
+    os_tls->os_seg_info.priv_alt_tls_base = segment;
     /* now allocate the tls segment for client libraries */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-# ifdef X64
-        os_tls->os_seg_info.dr_fs_base = privload_tls_init(os_tls->app_fs_base);
-# else
-        os_tls->os_seg_info.dr_gs_base = privload_tls_init(os_tls->app_gs_base);
-# endif
+        os_tls->os_seg_info.priv_lib_tls_base =
+            privload_tls_init(os_tls->app_lib_tls_base);
     }
 
-    LOG(THREAD_GET, LOG_THREADS, 1, "thread "TIDFMT" app fs: "PFX", gs: "PFX"\n",
-        get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
-    LOG(THREAD_GET, LOG_THREADS, 1, "thread "TIDFMT" DR fs: "PFX", gs: "PFX"\n",
-        get_thread_id(), os_tls->os_seg_info.dr_fs_base, os_tls->os_seg_info.dr_gs_base);
+    LOG(THREAD_GET, LOG_THREADS, 1,
+        "thread "TIDFMT" app lib tls base: "PFX", alt tls base: "PFX"\n",
+        get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
+    LOG(THREAD_GET, LOG_THREADS, 1,
+        "thread "TIDFMT" priv lib tls base: "PFX", alt tls base: "PFX", "
+        "DR's tls base: "PFX"\n",
+        get_thread_id(),
+        os_tls->os_seg_info.priv_lib_tls_base,
+        os_tls->os_seg_info.priv_alt_tls_base,
+        os_tls->os_seg_info.dr_tls_base);
 }
-#endif /* X86 */
+#endif
 
 void
 os_tls_init(void)
@@ -1657,7 +1651,7 @@ os_tls_init(void)
      * even when -no_mangle_app_seg is set.  If -mangle_app_seg is set, this
      * will be overwritten in os_tls_app_seg_init().
      */
-    os_tls->os_seg_info.IF_X64_ELSE(dr_gs_base, dr_fs_base) = segment;
+    os_tls->os_seg_info.dr_tls_base = segment;
     ASSERT(proc_is_cache_aligned(os_tls->self + TLS_LOCAL_STATE_OFFSET));
     /* Verify that local_state_extended_t should indeed be used. */
     ASSERT(DYNAMO_OPTION(ibl_table_in_tls));
@@ -1858,8 +1852,9 @@ os_thread_init(dcontext_t *dcontext)
     /* i#107, initialize thread area information,
      * the value was first get in os_tls_init and stored in os_tls
      */
-    ostd->dr_gs_base = os_tls->os_seg_info.dr_gs_base;
-    ostd->dr_fs_base = os_tls->os_seg_info.dr_fs_base;
+    ostd->priv_lib_tls_base = os_tls->os_seg_info.priv_lib_tls_base;
+    ostd->priv_alt_tls_base = os_tls->os_seg_info.priv_alt_tls_base;
+    ostd->dr_tls_base = os_tls->os_seg_info.dr_tls_base;
 #ifdef X86
     if (INTERNAL_OPTION(mangle_app_seg)) {
         ostd->app_thread_areas =
@@ -1913,10 +1908,8 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
                       sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS
                       HEAPACCT(ACCT_OTHER));
 # ifdef CLIENT_INTERFACE
-            if (INTERNAL_OPTION(private_loader)) {
-                privload_tls_exit(IF_X64_ELSE(ostd->dr_fs_base,
-                                              ostd->dr_gs_base));
-            }
+            if (INTERNAL_OPTION(private_loader))
+                privload_tls_exit(ostd->priv_lib_tls_base);
 # endif
         }
 #endif /* X86 */
@@ -2058,8 +2051,8 @@ os_using_app_state(dcontext_t *dcontext)
      * the dcontext.
      */
     if (INTERNAL_OPTION(mangle_app_seg)) {
-        return (get_segment_base(LIB_SEG_TLS) ==
-                os_get_app_seg_base(dcontext, LIB_SEG_TLS));
+        return (get_segment_base(TLS_REG_LIB) ==
+                os_get_app_tls_base(dcontext, TLS_REG_LIB));
     }
 #endif
     /* We're always in the app state if we're not mangling. */
@@ -5446,9 +5439,9 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     ASSERT(IF_X86_ELSE((seg == SEG_FS || seg == SEG_GS),
                        (seg == DR_REG_TPIDRURW || DR_REG_TPIDRURO)));
     if (to_app) {
-        base = os_get_app_seg_base(dcontext, seg);
+        base = os_get_app_tls_base(dcontext, seg);
     } else {
-        base = os_get_dr_seg_base(dcontext, seg);
+        base = os_get_priv_tls_base(dcontext, seg);
     }
     switch (os_tls->tls_type) {
 # ifdef X64
@@ -5472,7 +5465,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         uint index;
         uint selector;
         if (to_app) {
-            selector = (seg == SEG_FS ? os_tls->app_fs : os_tls->app_gs);
+            selector = os_tls->app_lib_tls_reg;
             index = SELECTOR_INDEX(selector);
         } else {
             index = (seg == LIB_SEG_TLS ? tls_priv_lib_index() : tls_dr_index());
@@ -5514,7 +5507,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
          */
         ASSERT_NOT_TESTED();
         if (to_app) {
-            selector = (seg == SEG_FS ? os_tls->app_fs : os_tls->app_gs);
+            selector = os_tls->app_lib_tls_reg;
             index = SELECTOR_INDEX(selector);
         } else {
             index = (seg == LIB_SEG_TLS ? tls_priv_lib_index() : tls_dr_index());

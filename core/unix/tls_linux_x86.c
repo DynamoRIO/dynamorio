@@ -367,8 +367,7 @@ choose_gdt_slots(os_local_state_t *os_tls)
         /* Use the app's selector with our own TLS base for libraries.  app_fs
          * and app_gs are initialized by the caller in os_tls_app_seg_init().
          */
-        int index = SELECTOR_INDEX(IF_X64_ELSE(os_tls->app_fs,
-                                               os_tls->app_gs));
+        int index = SELECTOR_INDEX(os_tls->app_lib_tls_reg);
         if (index == 0) {
             /* An index of zero means the app has no TLS (yet), and happens
              * during early injection.  We use -1 to grab a new entry.  When the
@@ -450,7 +449,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 }
                 if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
                     res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS,
-                                            os_tls->os_seg_info.dr_fs_base);
+                                            os_tls->os_seg_info.priv_lib_tls_base);
                     /* Assuming set fs must be successful if set gs succeeded. */
                     ASSERT(res >= 0);
                 }
@@ -517,8 +516,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 #ifdef CLIENT_INTERFACE
         /* Install the library TLS base. */
         if (INTERNAL_OPTION(private_loader) && res >= 0) {
-            app_pc base = IF_X64_ELSE(os_tls->os_seg_info.dr_fs_base,
-                                      os_tls->os_seg_info.dr_gs_base);
+            app_pc base = os_tls->os_seg_info.priv_lib_tls_base;
             /* lib_tls_gdt_index is picked in choose_gdt_slots. */
             ASSERT(lib_tls_gdt_index >= gdt_entry_tls_min);
             initialize_ldt_struct(&desc, base, GDT_NO_SIZE_LIMIT,
@@ -778,7 +776,7 @@ os_set_dr_seg(dcontext_t *dcontext, reg_id_t seg)
     res = dynamorio_syscall(SYS_arch_prctl, 2,
                             seg == SEG_GS ? ARCH_SET_GS : ARCH_SET_FS,
                             seg == SEG_GS ?
-                            ostd->dr_gs_base : ostd->dr_fs_base);
+                            ostd->priv_alt_tls_base : ostd->priv_lib_tls_base);
     ASSERT(res >= 0);
 }
 
@@ -794,8 +792,8 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
             os_thread_data_t *ostd;
             our_modify_ldt_t *desc;
             /* update new value set by app */
-            os_tls->app_fs = read_thread_register(SEG_FS);
-            os_tls->app_fs_base = (void *) base;
+            os_tls->app_lib_tls_reg = read_thread_register(SEG_FS);
+            os_tls->app_lib_tls_base = (void *) base;
             /* update the app_thread_areas */
             ostd = (os_thread_data_t *)dcontext->os_field;
             desc = (our_modify_ldt_t *)ostd->app_thread_areas;
@@ -808,15 +806,16 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     }
     case ARCH_GET_FS: {
         if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
-            safe_write_ex((void *)base, sizeof(void *), &os_tls->app_fs_base, NULL);
+            safe_write_ex((void *)base, sizeof(void *),
+                          &os_tls->app_lib_tls_base, NULL);
         break;
     }
     case ARCH_SET_GS: {
         os_thread_data_t *ostd;
         our_modify_ldt_t *desc;
         /* update new value set by app */
-        os_tls->app_gs = read_thread_register(SEG_GS);
-        os_tls->app_gs_base = (void *) base;
+        os_tls->app_alt_tls_reg = read_thread_register(SEG_GS);
+        os_tls->app_alt_tls_base = (void *) base;
         /* update the app_thread_areas */
         ostd = (os_thread_data_t *)dcontext->os_field;
         desc = ostd->app_thread_areas;
@@ -827,7 +826,8 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         break;
     }
     case ARCH_GET_GS: {
-        safe_write_ex((void*)base, sizeof(void *), &os_tls->app_gs_base, NULL);
+        safe_write_ex((void*)base, sizeof(void *),
+                      &os_tls->app_alt_tls_base, NULL);
         break;
     }
     default: {
@@ -836,8 +836,9 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     }
     } /* switch (dcontext->sys_param0) */
     LOG(THREAD_GET, LOG_THREADS, 2,
-        "thread "TIDFMT" segment change => app fs: "PFX", gs: "PFX"\n",
-        get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
+        "thread "TIDFMT" segment change => app lib tls base: "PFX", "
+        "alt tls base: "PFX"\n",
+        get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
 }
 #endif /* X64 */
 

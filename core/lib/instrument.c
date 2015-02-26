@@ -6804,7 +6804,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
         instrlist_meta_preinsert
             (ilist, instr,
              instr_create_restore_from_tls(drcontext, reg,
-                                           os_get_app_seg_base_offset(seg)));
+                                           os_get_app_tls_base_offset(seg)));
     } else {
         instrlist_meta_preinsert
             (ilist, instr,

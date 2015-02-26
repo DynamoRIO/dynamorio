@@ -1546,7 +1546,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
     /* get app's segment base into reg. */
     PRE(ilist, where,
         instr_create_restore_from_tls(dcontext, reg,
-                                      os_get_app_seg_base_offset(seg)));
+                                      os_get_app_tls_base_offset(seg)));
     if (opnd_get_index(oldop) != REG_NULL &&
         opnd_get_base(oldop) != REG_NULL) {
         /* if both base and index are used, use
@@ -3171,7 +3171,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     dst = instr_get_dst(instr, 0);
     dst_sz = opnd_get_size(dst);
     opnd = opnd_create_sized_tls_slot
-        (os_tls_offset(os_get_app_seg_offset(seg)), dst_sz);
+        (os_tls_offset(os_get_app_tls_reg_offset(seg)), dst_sz);
     if (opnd_is_reg(dst)) { /* dst is a register */
         /* mov %gs:off => reg */
         instr_set_src(instr, 0, opnd);

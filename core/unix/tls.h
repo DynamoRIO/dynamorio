@@ -188,9 +188,12 @@ read_thread_register(reg_id_t reg)
 /* i#107: handle segment reg usage conflicts */
 typedef struct _os_seg_info_t {
     int   tls_type;
-    void *dr_fs_base;
-    void *dr_gs_base;
+    void *priv_lib_tls_base;
+    void *priv_alt_tls_base;
+    void *dr_tls_base;
+#ifdef X86
     our_modify_ldt_t app_thread_areas[GDT_NUM_TLS_SLOTS];
+#endif
 } os_seg_info_t;
 
 /* layout of our TLS */
@@ -215,11 +218,11 @@ typedef struct _os_local_state_t {
      */
     byte *app_tls_swap;
 #endif
-    /* i#107 application's gs/fs value and pointed-at base */
-    ushort app_gs;      /* for mangling seg update/query */
-    ushort app_fs;      /* for mangling seg update/query */
-    void  *app_gs_base; /* for mangling segmented memory ref */
-    void  *app_fs_base; /* for mangling segmented memory ref */
+    /* i#107 application's tls value and pointed-at base */
+    ushort app_lib_tls_reg;  /* for mangling seg update/query */
+    ushort app_alt_tls_reg;  /* for mangling seg update/query */
+    void  *app_lib_tls_base; /* for mangling segmented memory ref */
+    void  *app_alt_tls_base; /* for mangling segmented memory ref */
     union {
         /* i#107: We use space in os_tls to store thread area information
          * thread init. It will not conflict with the client_tls usage,

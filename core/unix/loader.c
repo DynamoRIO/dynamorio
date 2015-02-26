@@ -39,7 +39,6 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
-#include "os_exports.h"   /* os_get_dr_seg_base */
 #include "../arch/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
@@ -492,7 +491,7 @@ bool
 privload_call_entry(privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
-    if (os_get_dr_seg_base(NULL, LIB_SEG_TLS) == NULL) {
+    if (os_get_priv_tls_base(NULL, TLS_REG_LIB) == NULL) {
         /* HACK: i#338
          * The privload_call_entry is called in privload_load_finalize
          * from loader_init.
@@ -1221,7 +1220,7 @@ redirect___tls_get_addr(tls_index_t *ti)
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
         ti->ti_module, ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) -
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
@@ -1242,7 +1241,7 @@ redirect____tls_get_addr()
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
         ti->ti_module, ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) -
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
