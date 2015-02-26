@@ -499,7 +499,7 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, opnd_t push_pc);
+                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/);
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,

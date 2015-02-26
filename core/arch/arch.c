@@ -468,6 +468,12 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     gencode->do_syscall = pc;
     pc = emit_do_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
                          true/*shared*/, 0, &gencode->do_syscall_offs);
+# ifdef ARM
+    /* ARM has no thread-private gencode, so our clone syscall is shared */
+    gencode->do_clone_syscall = pc;
+    pc = emit_do_clone_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
+                               true/*shared*/, &gencode->do_clone_syscall_offs);
+# endif
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
@@ -3263,6 +3269,19 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                context->xflags, context->pc);
 }
 
+#ifdef ARM
+reg_t
+get_stolen_reg_val(priv_mcontext_t *mc)
+{
+    return *(reg_t*)(((byte *)mc)+opnd_get_reg_dcontext_offs(dr_reg_stolen));
+}
+
+void
+set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval)
+{
+    *(reg_t*)(((byte *)mc)+opnd_get_reg_dcontext_offs(dr_reg_stolen)) = newval;
+}
+#endif
 
 #ifdef PROFILE_RDTSC
 /* This only works on Pentium I or later */

@@ -222,7 +222,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     } else {
         dstack_offs +=
             insert_push_all_registers(dcontext, cci, ilist, instr, PAGE_SIZE,
-                                      OPND_CREATE_INT32(0));
+                                      OPND_CREATE_INT32(0), REG_NULL);
         insert_clear_eflags(dcontext, cci, ilist, instr);
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
         insert_swap_from_app_tls(dcontext, ilist, instr, SCRATCH_REG0, SCRATCH_REG1);

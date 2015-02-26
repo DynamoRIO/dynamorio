@@ -1135,7 +1135,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         (dcontext, NULL, &ilist, NULL, XSP_SZ,
          /* pc slot not used: could use instead of state->start_pc */
          /* sign-extended */
-         OPND_CREATE_INT32(0));
+         OPND_CREATE_INT32(0), REG_NULL);
 
     /* clear eflags for callee's usage */
     APP(&ilist,

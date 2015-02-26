@@ -4801,7 +4801,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     instr_t *post_syscall;
 #endif
 
-#if defined(UNIX) && !defined(X64)
+#if defined(UNIX) && defined(X86_32)
     /* PR 286922: 32-bit clone syscall cannot use vsyscall: must be int */
     if (handle_clone) {
         ASSERT(interrupt == 0 || interrupt == 0x80);
@@ -5102,18 +5102,14 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
  * new_thread_dynamo_start - for initializing a new thread created
  * via the clone system call.
  * assumptions:
- *   1) app's xcx is in xax.
- *   2) xcx contains clone_record_t, which is not 0.
- *   3) app's xax should contain 0.
- *   4) this thread holds initstack_mutex
+ *   1) The clone_record_t is on the base of the stack.
+ *   2) App's IF_X86_ELSE(xax, r0) is scratch (app expects 0 in it).
  */
 byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 {
     instrlist_t ilist;
-#ifdef X86
     uint offset;
-#endif
 
     /* initialize the ilist */
     instrlist_init(&ilist);
@@ -5124,28 +5120,27 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * (xref i#101/PR 207903).
      */
 
-    /* Restore app xcx and xax, which were swapped post-syscall to distinguish
-     * parent from child.
-     */
-#ifdef X86
-    APP(&ilist, INSTR_CREATE_xchg
-        (dcontext, opnd_create_reg(SCRATCH_REG0), opnd_create_reg(SCRATCH_REG2)));
-
-    /* grab exec state and pass as param in a priv_mcontext_t struct
-     * new_thread_setup will restore real app xsp and xax
-     * we emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc)
+    /* Grab exec state and pass as param in a priv_mcontext_t struct.
+     * new_thread_setup() will restore real app xsp.
+     * We emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc).
      */
     offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL,
-                                       IF_X64_ELSE(16, 4), opnd_create_reg(SCRATCH_REG0));
+                                       IF_X64_ELSE(16, 4), opnd_create_reg(SCRATCH_REG0),
+                                       /* we have to pass in scratch to prevent
+                                        * use of the stolen reg, which would be
+                                        * a race w/ the parent's use of it!
+                                        */
+                                       SCRATCH_REG0);
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == sizeof(priv_mcontext_t));
-    APP(&ilist, INSTR_CREATE_lea
+    APP(&ilist, XINST_CREATE_add_2src
         (dcontext, opnd_create_reg(SCRATCH_REG0),
-         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, sizeof(priv_mcontext_t))));
+         opnd_create_reg(REG_XSP), OPND_CREATE_INT32(sizeof(priv_mcontext_t))));
     APP(&ilist, XINST_CREATE_store
         (dcontext, OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xsp)),
          opnd_create_reg(SCRATCH_REG0)));
 
+#ifdef X86
     /* We avoid get_thread_id syscall in get_thread_private_dcontext()
      * by clearing the segment register here (cheaper check than syscall)
      * (xref PR 192231).  If we crash prior to this point though, the
@@ -5156,16 +5151,14 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         (dcontext, opnd_create_reg(REG_AX), OPND_CREATE_INT16(0)));
     APP(&ilist, INSTR_CREATE_mov_seg
         (dcontext, opnd_create_reg(SEG_TLS), opnd_create_reg(REG_AX)));
-    /* stack grew down, so priv_mcontext_t at tos */
-    APP(&ilist, INSTR_CREATE_lea
-        (dcontext, opnd_create_reg(SCRATCH_REG0),
-         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, 0)));
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM (no assert here, it's in new_thread_setup()) */
 #endif
 
-    dr_insert_call(dcontext, &ilist, NULL, (void *)new_thread_setup,
-                   1, opnd_create_reg(SCRATCH_REG0));
+    /* stack grew down, so priv_mcontext_t at tos */
+    APP(&ilist, XINST_CREATE_move
+        (dcontext, opnd_create_reg(SCRATCH_REG0), opnd_create_reg(REG_XSP)));
+
+    dr_insert_call_noreturn(dcontext, &ilist, NULL, (void *)new_thread_setup,
+                            1, opnd_create_reg(SCRATCH_REG0));
 
     /* should not return */
     insert_reachable_cti(dcontext, &ilist, NULL, vmcode_get_start(),
@@ -5551,7 +5544,7 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 
     /* save all registers */
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, PAGE_SIZE,
-                              OPND_CREATE_INT32(0));
+                              OPND_CREATE_INT32(0), REG_NULL);
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);

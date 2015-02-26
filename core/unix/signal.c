@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -209,6 +209,14 @@ typedef struct _clone_record_t {
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
     void *pcprofile_info;
+#ifdef ARM
+    /* To ensure we have the right value as of the point of the clone, we
+     * store it here (we'll have races if we try to get it during new thread
+     * init).
+     */
+    reg_t app_stolen_value;
+    dr_isa_mode_t isa_mode;
+#endif
     /* we leave some padding at base of stack for dynamorio_clone
      * to store values
      */
@@ -548,14 +556,17 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
     record->parent_info = (thread_sig_info_t *) dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
+#ifdef ARM
+    record->app_stolen_value = get_stolen_reg_val(get_mcontext(dcontext));
+    record->isa_mode = dr_get_isa_mode(dcontext);
+#endif
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: thread "TIDFMT", pc "PFX"\n",
         record->caller_id, record->continuation_pc);
 
-#ifdef X86
-# ifdef MACOS
+#ifdef MACOS
     if (app_thread_xsp != NULL) {
-# endif
+#endif
         /* Set the thread stack to point to the dstack, below the clone record.
          * Note: it's glibc who sets up the arg to the thread start function;
          * the kernel just does a fork + stack swap, so we can get away w/ our
@@ -564,13 +575,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         /* i#754: set stack to be XSTATE aligned for saving YMM registers */
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
         *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
-# ifdef MACOS
+#ifdef MACOS
     }
-# endif
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#endif
 
     return (void *) record;
 }
@@ -650,6 +657,22 @@ get_clone_record_dstack(void *record)
     ASSERT(record != NULL);
     return ((clone_record_t *) record)->dstack;
 }
+
+#ifdef ARM
+reg_t
+get_clone_record_stolen_value(void *record)
+{
+    ASSERT(record != NULL);
+    return ((clone_record_t *) record)->app_stolen_value;
+}
+
+uint /* dr_isa_mode_t but we have a header ordering problem */
+get_clone_record_isa_mode(void *record)
+{
+    ASSERT(record != NULL);
+    return ((clone_record_t *) record)->isa_mode;
+}
+#endif
 
 /* Initializes info's app_sigaction, restorer_valid, and we_intercept fields */
 static void

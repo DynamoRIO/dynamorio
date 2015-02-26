@@ -223,6 +223,19 @@
 
 /**
  * This platform-independent macro creates an instr_t for an addition
+ * instruction that does not affect the status flags and takes two sources
+ * plus a destination.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s1  The opnd_t explicit first source operand for the instruction.  This
+ * must be a register.
+ * \param s2  The opnd_t explicit source operand for the instruction.  This
+ * can be either a register or a 32-bit immediate integer on x86.
+ */
+#define XINST_CREATE_add_2src(dc, d, s1, s2) INSTR_CREATE_add((dc), (d), (s1), (s2))
+
+/**
+ * This platform-independent macro creates an instr_t for an addition
  * instruction that does affect the status flags.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.

@@ -328,7 +328,7 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, opnd_t push_pc)
+                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/)
 {
     uint dstack_offs = 0;
     int  offs_beyond_xmm = 0;
@@ -2072,8 +2072,6 @@ mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 /* Inserts code to handle clone into ilist.
  * instr is the syscall instr itself.
  * Assumes that instructions exist beyond instr in ilist.
- * pc_to_ecx is an instr that puts the pc after the app's syscall instr
- * into xcx.
  *
  * CAUTION: don't use a lot of stack in the generated code because
  *          get_clone_record() makes assumptions about the usage of stack being
@@ -2088,6 +2086,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
      *    jecxz child
      *    jmp parent
      *  child:
+     *    xchg xax,xcx
      *    # i#149/PR 403015: the child is on the dstack so no need to swap stacks
      *    jmp new_thread_dynamo_start
      *  parent:
@@ -2106,6 +2105,8 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(parent)));
 
     PRE(ilist, in, child);
+    PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
+                                     opnd_create_reg(REG_XCX)));
     /* We used to insert this directly into fragments for inlined system
      * calls, but not once we eliminated clean calls out of the DR cache
      * for security purposes.  Thus it can be a meta jmp, or an indirect jmp.

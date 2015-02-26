@@ -1944,8 +1944,9 @@ if (UNIX)
       "-reset_at_fragment_count 100" "")
     torunonly(linux.clone-reset linux.clone linux/clone.c
       "-reset_at_fragment_count 100" "")
-
-    tobuild(pthreads.pthreads pthreads/pthreads.c)
+  endif (NOT ARM)
+  tobuild(pthreads.pthreads pthreads/pthreads.c)
+  if (NOT ARM) # FIXME i#1551: add synchall (signal) + fork support to ARM
     tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
     tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
     # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY

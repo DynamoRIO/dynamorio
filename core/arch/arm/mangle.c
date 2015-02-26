@@ -173,11 +173,13 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
  * to be the value prior to any pushes for x64 as no caller needs that
  * currently (they all build a priv_mcontext_t and have to do further xsp
  * fixups anyway).
+ * Does NOT push the app's value of the stolen register.
+ * If scratch is REG_NULL, spills a register for scratch space.
  */
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, opnd_t push_pc)
+                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/)
 {
     uint dstack_offs = 0;
     if (cci == NULL)
@@ -194,17 +196,21 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     dstack_offs += NUM_SIMD_SLOTS*sizeof(dr_simd_t);
     /* pc and aflags */
     if (!cci->skip_save_aflags) {
-        reg_id_t scratch = DR_REG_R0;
         uint slot = TLS_REG0_SLOT;
-        if (opnd_is_reg(push_pc) && opnd_get_reg(push_pc) == scratch) {
-            scratch = DR_REG_R1;
-            slot = TLS_REG1_SLOT;
+        bool spill = scratch == REG_NULL;
+        if (spill) {
+            scratch = DR_REG_R0;
+            if (opnd_is_reg(push_pc) && opnd_get_reg(push_pc) == scratch) {
+                scratch = DR_REG_R1;
+                slot = TLS_REG1_SLOT;
+            }
         }
         /* XXX: actually, r0 was just used as scratch for swapping stack
          * via dcontext, so an optimization opportunity exists to avoid
          * that restore and the re-spill here.
          */
-        PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch, slot));
+        if (spill)
+            PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch, slot));
         PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch),
                                            opnd_create_reg(DR_REG_CPSR)));
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(scratch)));
@@ -217,7 +223,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             ASSERT(opnd_is_reg(push_pc));
             PRE(ilist, instr, INSTR_CREATE_push(dcontext, push_pc));
         }
-        PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
+        if (spill)
+            PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
         dstack_offs += XSP_SZ;
     }
 
@@ -350,6 +357,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      reg_id_t scratch, instr_t **inlined_tgt_instr)
 {
     instr_t *post_call = INSTR_CREATE_label(dcontext);
+    ASSERT(scratch != REG_NULL); /* required */
     /* load target into scratch register */
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
                            PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), target),
@@ -595,12 +603,32 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
     return false;
 }
 
+/* Inserts code to handle clone into ilist.
+ * instr is the syscall instr itself.
+ * Assumes that instructions exist beyond instr in ilist.
+ */
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
                          _IF_X64(gencode_mode_t mode))
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /*    svc 0
+     *    cbnz r0, parent
+     *    jmp new_thread_dynamo_start
+     *  parent:
+     *    <post system call, etc.>
+     */
+    instr_t *in = instr_get_next(instr);
+    instr_t *parent = INSTR_CREATE_label(dcontext);
+    ASSERT(in != NULL);
+    PRE(ilist, in,
+        INSTR_CREATE_cbnz(dcontext, opnd_create_instr(parent),
+                          opnd_create_reg(DR_REG_R0)));
+    insert_reachable_cti(dcontext, ilist, in, vmcode_get_start(),
+                         (byte *) get_new_thread_start(dcontext _IF_X64(mode)),
+                         true/*jmp*/, false/*!returns*/, false/*!precise*/,
+                         DR_REG_R0/*scratch*/, NULL);
+    instr_set_meta(instr_get_prev(in));
+    PRE(ilist, in, parent);
 }
 #endif /* UNIX */
 

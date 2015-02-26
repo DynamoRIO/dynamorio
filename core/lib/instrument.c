@@ -5987,8 +5987,12 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
 
 #ifdef ARM
     /* get the stolen register's app value */
-    *(reg_t*)(((byte *)dcontext)+opnd_get_reg_dcontext_offs(dr_reg_stolen)) =
-        (reg_t) get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT));
+    if (mc != NULL)
+        set_stolen_reg_val(mc, (reg_t) get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+    else {
+        set_stolen_reg_val(dr_mcontext_as_priv_mcontext(dmc),
+                           (reg_t) get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+    }
 #endif
 
     /* XXX: should we set the pc field? */
@@ -6037,12 +6041,10 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
         /* Set the stolen register's app value in TLS, not on stack (we rely
          * on our stolen reg retaining its value on the stack)
          */
-        set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT),
-                (void *) *(reg_t*)(((byte *)dcontext) +
-                                   opnd_get_reg_dcontext_offs(dr_reg_stolen)));
+        priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(context);
+        set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT), (void *) get_stolen_reg_val(mc));
         /* Avoid the copy below clobbering the reg val on the stack */
-        *(reg_t*)(((byte *)dcontext)+opnd_get_reg_dcontext_offs(dr_reg_stolen)) =
-            *(reg_t*)(((byte *)state)+opnd_get_reg_dcontext_offs(dr_reg_stolen)-MC_OFFS);
+        set_stolen_reg_val(mc, get_stolen_reg_val(state));
     }
 #endif
     if (!dr_mcontext_to_priv_mcontext(state, context))

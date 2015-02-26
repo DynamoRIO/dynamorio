@@ -406,6 +406,15 @@ reg_t
 get_clone_record_app_xsp(void *record);
 byte *
 get_clone_record_dstack(void *record);
+
+#ifdef ARM
+reg_t
+get_clone_record_stolen_value(void *record);
+
+uint /* dr_isa_mode_t but we have a header ordering problem */
+get_clone_record_isa_mode(void *record);
+#endif
+
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
 void

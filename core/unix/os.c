@@ -1301,6 +1301,7 @@ is_thread_tls_initialized(void)
         return false;
     tls_swap_slot = (byte **)get_app_tls_swap_addr();
     if (tls_swap_slot == NULL ||
+        *tls_swap_slot == NULL ||
         /* We use the app slot's value to identify a now-exited thread (i#1578) */
         *tls_swap_slot == APP_TLS_VAL_EXITED)
         return false;

@@ -820,6 +820,10 @@ priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
 priv_mcontext_t *get_priv_mcontext_from_dstack(dcontext_t *dcontext);
 void dr_mcontext_init(dr_mcontext_t *mc);
 void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
+#ifdef ARM
+reg_t get_stolen_reg_val(priv_mcontext_t *context);
+void set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
+#endif
 const char *get_branch_type_name(ibl_branch_type_t branch_type);
 ibl_branch_type_t get_ibl_branch_type(instr_t *instr);
 

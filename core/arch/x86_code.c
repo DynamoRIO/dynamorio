@@ -263,9 +263,6 @@ new_thread_setup(priv_mcontext_t *mc)
      */
     ENTERING_DR();
 
-    /* FIXME i#1551: NYI on ARM (we need emit_new_thread_dynamo_start()) */
-    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
-
     /* i#149/PR 403015: clone_record_t is passed via dstack. */
     crec = get_clone_record(mc->xsp);
     LOG(GLOBAL, LOG_INTERP, 1,
@@ -276,11 +273,14 @@ new_thread_setup(priv_mcontext_t *mc)
      * to switch back to the real app thread stack before continuing.
      */
     mc->xsp = get_clone_record_app_xsp(crec);
-    /* clear xax/r0 (was used to hold clone record) */
-    ASSERT(mc->IF_X86_ELSE(xax, r0) == (reg_t) mc->pc);
+    /* clear xax/r0 (was used as scratch in gencode, and app expects 0) */
     mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
+#ifdef ARM
+    /* set the stolen register's app value */
+    set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
+#endif
 
     rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
                             _IF_CLIENT_INTERFACE(false));
@@ -292,6 +292,9 @@ new_thread_setup(priv_mcontext_t *mc)
      */
     next_tag = signal_thread_inherit(dcontext, (void *) crec);
     ASSERT(next_tag != NULL);
+#ifdef ARM
+    dr_set_isa_mode(dcontext, get_clone_record_isa_mode(crec), NULL);
+#endif
     thread_starting(dcontext);
     dcontext->next_tag = next_tag;
 
