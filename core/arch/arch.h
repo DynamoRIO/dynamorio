@@ -484,8 +484,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                          instr_t *next_instr);
 #endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
-                              instr_t *instr, bool skip
-                              _IF_X64(gencode_mode_t mode));
+                              instr_t *instr _IF_X64(gencode_mode_t mode));
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void);

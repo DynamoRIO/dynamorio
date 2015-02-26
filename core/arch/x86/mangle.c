@@ -2074,60 +2074,30 @@ mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * Assumes that instructions exist beyond instr in ilist.
  * pc_to_ecx is an instr that puts the pc after the app's syscall instr
  * into xcx.
- * skip decides whether the clone code is skipped by default or not.
- *
- * N.B.: mangle_clone_code() makes assumptions about this exact code layout
  *
  * CAUTION: don't use a lot of stack in the generated code because
  *          get_clone_record() makes assumptions about the usage of stack being
  *          less than a page.
  */
 void
-mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                         bool skip _IF_X64(gencode_mode_t mode))
+mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
+                         _IF_X64(gencode_mode_t mode))
 {
-            /*
-                int 0x80
-            .if don't know sysnum statically:
-                jmp ignore  <-- modifiable jmp
-            .else
-                jmp xchg    # need this so can jmp to ignore if !CLONE_VM
-            .endif
-              xchg:
-                xchg xax,xcx
-                jecxz child
-                jmp parent
-              child:
-                # i#149/PR 403015: the child is on the dstack so no need to swap stacks
-                jmp new_thread_dynamo_start
-              parent:
-                xchg xax,xcx
-              ignore:
-                <post system call, etc.>
-            */
+    /*    int 0x80
+     *    xchg xax,xcx
+     *    jecxz child
+     *    jmp parent
+     *  child:
+     *    # i#149/PR 403015: the child is on the dstack so no need to swap stacks
+     *    jmp new_thread_dynamo_start
+     *  parent:
+     *    xchg xax,xcx
+     *    <post system call, etc.>
+     */
     instr_t *in = instr_get_next(instr);
-    instr_t *xchg = INSTR_CREATE_label(dcontext);
     instr_t *child = INSTR_CREATE_label(dcontext);
     instr_t *parent = INSTR_CREATE_label(dcontext);
     ASSERT(in != NULL);
-    /* we have to dynamically skip or not skip the clone code
-     * see mangle_clone_code below
-     */
-    if (skip) {
-        /* Insert a jmp that normally skips the clone stuff,
-         * pre_system_call will modify it if it really is SYS_clone.
-         */
-        PRE(ilist, in,
-            INSTR_CREATE_jmp(dcontext, opnd_create_instr(in)));
-    } else {
-        /* We have to do this even if we statically know the sysnum
-         * because if CLONE_VM is not set this is a fork, and we then
-         * want to skip our clone code.
-         */
-        PRE(ilist, in,
-            INSTR_CREATE_jmp(dcontext, opnd_create_instr(xchg)));
-    }
-    PRE(ilist, in, xchg);
     PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
                                      opnd_create_reg(REG_XCX)));
     PRE(ilist, in,
@@ -2384,63 +2354,6 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 }
 
 #ifdef UNIX
-
-/* Makes sure the jmp immediately after the syscall instruction
- * either skips or doesn't skip the clone code following it,
- * as indicated by the parameter skip.
- * pc must be either the return address of pre_system_call or
- * the address of do_syscall.
- */
-void
-mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip)
-{
-    byte *target, *prev_pc;
-    instr_t instr;
-    instr_init(dcontext, &instr);
-    LOG(THREAD, LOG_SYSCALLS, 3,
-        "mangle_clone_code: pc="PFX", skip=%d\n", pc, skip);
-    do {
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        ASSERT(pc != NULL); /* our own code! */
-    } while (!instr_is_syscall(&instr));
-    /* jmp is right after syscall */
-    instr_reset(dcontext, &instr);
-    prev_pc = pc;
-    pc = decode(dcontext, pc, &instr);
-    ASSERT(pc != NULL); /* our own code! */
-    ASSERT(instr_get_opcode(&instr) == OP_jmp);
-    if (skip) {
-        /* target is after 3rd xchg */
-        instr_t tmp_instr;
-        int num_xchg = 0;
-        target = pc;
-        instr_init(dcontext, &tmp_instr);
-        while (num_xchg <= 2) {
-            instr_reset(dcontext, &tmp_instr);
-            target = decode(dcontext, target, &tmp_instr);
-            ASSERT(target != NULL); /* our own code! */
-            if (instr_get_opcode(&tmp_instr) == OP_xchg)
-                num_xchg++;
-        }
-        instr_free(dcontext, &tmp_instr);
-    } else {
-        target = pc;
-    }
-    if (opnd_get_pc(instr_get_target(&instr)) != target) {
-        DEBUG_DECLARE(byte *nxt_pc;)
-        LOG(THREAD, LOG_SYSCALLS, 3,
-            "\tmodifying target of after-clone jmp to "PFX"\n", target);
-        instr_set_target(&instr, opnd_create_pc(target));
-        DEBUG_DECLARE(nxt_pc = ) instr_encode(dcontext, &instr, prev_pc);
-        ASSERT(nxt_pc != NULL && nxt_pc == pc);
-    } else {
-        LOG(THREAD, LOG_SYSCALLS, 3,
-            "\ttarget of after-clone jmp is already "PFX"\n", target);
-    }
-    instr_free(dcontext, &instr);
-}
-
 /* If skip is false:
  *   changes the jmp right before the next syscall (after pc) to target the
  *   exit cti immediately following it;

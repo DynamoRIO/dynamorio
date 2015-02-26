@@ -587,13 +587,6 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 }
 
 #ifdef UNIX
-void
-mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip)
-{
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-}
-
 bool
 mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 {
@@ -603,8 +596,8 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
 }
 
 void
-mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                         bool skip _IF_X64(gencode_mode_t mode))
+mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
+                         _IF_X64(gencode_mode_t mode))
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);

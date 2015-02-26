@@ -4864,8 +4864,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
         /* put in clone code, and make sure to target it.
          * do it here since it assumes an instr after the syscall exists.
          */
-        mangle_insert_clone_code(dcontext, &ilist, post_syscall,
-                                 false /*do not skip*/
+        mangle_insert_clone_code(dcontext, &ilist, post_syscall
                                  _IF_X64(code->gencode_mode));
     }
 #endif

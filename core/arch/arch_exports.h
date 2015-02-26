@@ -1795,7 +1795,6 @@ void insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext, instrlist_
         instr_t *instr, void *callee, int arg, app_pc jmp_tag, instr_t *jmp_instr);
 
 #ifdef UNIX
-void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
 bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
 void finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
