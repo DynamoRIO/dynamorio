@@ -504,12 +504,6 @@ void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
                          uint alignment);
-void
-insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                       reg_id_t scratch1, reg_id_t scratch2);
-void
-insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t scratch1, reg_id_t scratch2);
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
@@ -565,6 +559,12 @@ bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags
                             app_pc start_pc, app_pc end_pc, /* end is open */
                             bool record_translation, bool for_cache);
 #endif /* X86 */
+
+#ifdef ARM
+/* mangle the instruction that reads thread register */
+void
+mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+#endif /* ARM */
 
 /* offsets within local_state_t used for specific scratch purposes */
 enum {

@@ -1203,6 +1203,46 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, tmp, slot));
 }
 
+/* replace thread register read instruction with a TLS load instr */
+void
+mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    opnd_t opnd;
+    reg_id_t reg;
+    ASSERT(!instr_is_meta(instr) && instr_reads_thread_register(instr));
+    reg = opnd_get_reg(instr_get_dst(instr, 0));
+    ASSERT(reg_is_gpr(reg) && opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR);
+    /* convert mrc to load */
+    opnd = opnd_create_sized_tls_slot
+        (os_tls_offset(os_get_app_tls_base_offset(TLS_REG_LIB)), OPSZ_PTR);
+    instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
+    instr_set_src(instr, 0, opnd);
+    instr_set_opcode(instr, OP_ldr);
+    ASSERT(reg != DR_REG_PC);
+    /* special case: dst reg is dr_reg_stolen */
+    if (reg == dr_reg_stolen) {
+        instr_t *next_instr;
+        /* we do not mangle r10 in [r10, disp], but need save r10 after execution,
+         * so we cannot use mangle_stolen_reg.
+         */
+        PRE(ilist, instr, instr_create_save_to_tls(dcontext,
+                                                   SCRATCH_REG0,
+                                                   TLS_REG0_SLOT));
+        PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
+                                           opnd_create_reg(SCRATCH_REG0),
+                                           opnd_create_reg(dr_reg_stolen)));
+
+        /* -- "ldr r10, [r10, disp]" executes here -- */
+
+        next_instr = instr_get_next(instr);
+        restore_tls_base_to_stolen_reg(dcontext, ilist, instr, next_instr,
+                                       SCRATCH_REG0, TLS_REG0_SLOT);
+        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext,
+                                                             SCRATCH_REG0,
+                                                             TLS_REG0_SLOT));
+    }
+}
+
 static void
 store_reg_to_memlist(dcontext_t *dcontext,
                      instrlist_t *ilist,

@@ -688,3 +688,34 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
+
+bool
+instr_reads_thread_register(instr_t *instr)
+{
+    opnd_t opnd;
+
+#ifdef X64
+# error NYI on AArch64
+#else
+    /* mrc p15, 0, reg_base, c13, c0, 3 */
+    if (instr_get_opcode(instr) != OP_mrc)
+        return false;
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)));
+    opnd = instr_get_src(instr, 0);
+    if (!opnd_is_immed_int(opnd) || opnd_get_immed_int(opnd) != USR_TLS_COPROC_15)
+        return false;
+    opnd = instr_get_src(instr, 1);
+    if (!opnd_is_immed_int(opnd) || opnd_get_immed_int(opnd) != 0)
+        return false;
+    opnd = instr_get_src(instr, 2);
+    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_CR13)
+        return false;
+    opnd = instr_get_src(instr, 3);
+    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_CR0)
+        return false;
+    opnd = instr_get_src(instr, 4);
+    if (!opnd_is_immed_int(opnd) || opnd_get_immed_int(opnd) != USR_TLS_REG_OPCODE)
+        return false;
+#endif /* 64/32 */
+    return true;
+}

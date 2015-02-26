@@ -343,7 +343,7 @@
     /* XXX i#1285: MacOS private loader is NYI */
     /* FIXME i#1551: ARM Linux private loader is NYI */
     OPTION_DEFAULT_INTERNAL(bool, private_loader,
-                            IF_MACOS_ELSE(false, IF_ARM_ELSE(false, true)),
+                            IF_MACOS_ELSE(false, true),
                             "use private loader for clients and dependents")
 # ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
@@ -534,13 +534,26 @@
     OPTION_DEFAULT(bool, cleancall_ignore_eflags, true,
                    "skip eflags clear code with assumption that clean call does not rely on cleared eflags")
 #ifdef X86
+    /* TLS handling summary:
+     * On X86, we use -mangle_app_seg to control if we will steal app's TLS.
+     * If -mangle_app_seg is true, DR steals app's TLS and monitors/mangles all
+     * accesses to app's TLS.  This provides better isolation between app and DR.
+     * Private loader and libraries (-private_loader) also relies on -mangle_app_seg
+     * for better transparency with separate copy of TLS used by client libraries.
+     *
+     * On ARM, we want to steal app's TLS for similar reason (better transparaency).
+     * In addition, because monitoring app's TLS is easier (we only need mangle simple
+     * thread register read instruction) and more robust (fewer assumptions about
+     * app's TLS layout for storing DR's TLS base), we decide to always steal the
+     * app's TLS, and so no option is needed. Also, we cannot easily handle
+     * raw threads created without CLONE_SETTLS without stealing TLS.
+     */
     /* i#107: To handle app using same segment register that DR uses, we should
      * mangle the app's segment usage.
      * It cannot be used with DGC_DIAGNOSTICS.
      */
     OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
-                            /* On ARM, we do not steal TLS, so no mangling. */
-                            IF_X86_ELSE(IF_WINDOWS_ELSE(false, true), false),
+                            IF_WINDOWS_ELSE(false, true),
                             "mangle application's segment usage.")
 #endif /* X86 */
 #ifdef X64

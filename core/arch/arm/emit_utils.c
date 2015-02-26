@@ -592,14 +592,12 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 
 #define OPND_ARG1    opnd_create_reg(DR_REG_R0)
 
-/* Load app's TLS base to reg_base and then APP_TLS_SWAP_SLOT value to reg_slot.
- * This should be only used on emitting fcache enter/return code.
- */
+/* Load DR's TLS base to dr_reg_stolen via reg_base */
 static void
-insert_load_app_tls_slot(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t reg_base, reg_id_t reg_slot)
+insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t reg_base)
 {
-    /* load app's TLS base from user-read-only-thread-ID register
+    /* load TLS base from user-read-only-thread-ID register
      * mrc p15, 0, reg_base, c13, c0, 3
      */
     PRE(ilist, where,
@@ -608,54 +606,19 @@ insert_load_app_tls_slot(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
                          OPND_CREATE_INT(0),
                          opnd_create_reg(DR_REG_CR13),
                          opnd_create_reg(DR_REG_CR0),
-                         OPND_CREATE_INT(APP_TLS_REG_OPCODE)));
-    /* ldr reg_slot, [reg, APP_TLS_SLOT_SWAP] */
+                         OPND_CREATE_INT(USR_TLS_REG_OPCODE)));
+    /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
     PRE(ilist, where,
-        XINST_CREATE_load(dcontext, opnd_create_reg(reg_slot),
-                          OPND_CREATE_MEMPTR(reg_base, APP_TLS_SWAP_SLOT)));
-}
-
-void
-insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                       reg_id_t scratch1, reg_id_t scratch2)
-{
-    /* load app's TLS base into r0 and DR's TLS base into dr_reg_stolen */
-    insert_load_app_tls_slot(dcontext, ilist, where, scratch1, dr_reg_stolen);
-    /* load app original value from os_tls->app_tls_swap */
-    PRE(ilist, where,
-        RESTORE_FROM_TLS(dcontext, scratch2, os_get_app_tls_swap_offset()));
-    /* store app value back to app's TLS swap slot ([r0, APP_TLS_SWAP_SLOT]) */
-    PRE(ilist, where,
-        XINST_CREATE_store(dcontext,
-                           OPND_CREATE_MEMPTR(scratch1, APP_TLS_SWAP_SLOT),
-                           opnd_create_reg(scratch2)));
-}
-
-void
-insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t scratch1, reg_id_t scratch2)
-{
-    /* steal app's TLS slot for DR's TLS base */
-    /* load app's TLS base into r1 and app's tls slot value into r2 */
-    insert_load_app_tls_slot(dcontext, ilist, where, scratch1, scratch2);
-    /* save r2 into os_tls->app_tls_swap */
-    PRE(ilist, where, SAVE_TO_TLS(dcontext, scratch2, os_get_app_tls_swap_offset()));
-    /* save dr_reg_stolen into app's tls slot */
-    PRE(ilist, where,
-        XINST_CREATE_store(dcontext,
-                           OPND_CREATE_MEMPTR(scratch1, APP_TLS_SWAP_SLOT),
-                           opnd_create_reg(dr_reg_stolen)));
+        XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
+                          OPND_CREATE_MEMPTR(reg_base, DR_TLS_BASE_OFFSET)));
 }
 
 /* Having only one thread register (TPIDRURO) shared between app and DR,
  * we steal a register for DR's TLS base in the code cache,
- * and steal an app's TLS slot for DR's TLS base in the C code.
+ * and store DR's TLS base into an private lib's TLS slot for accessing in C code.
  * On entering the code cache (fcache_enter):
  * - grab gen routine's parameter dcontext and put it into REG_DCXT
- * - load app's TLS base from TPIDRURO to r0
- * - load DR's TLS base from app's TLS slot we steal ([r0, APP_TLS_SWAP_SLOT])
- * - restore the app original value (stored in os_tls->app_tls_swap)
- *   back to app's TLS slot ([r0, APP_TLS_SWAP_SLOT])
+ * - load DR's TLS base into dr_reg_stolen from privlib's TLS
  */
 void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
@@ -666,8 +629,8 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
     APP(ilist, XINST_CREATE_move(dcontext,
                                  opnd_create_reg(REG_DCXT),
                                  OPND_ARG1/*r0*/));
-    /* set up stolen reg and restore app's TLS slot */
-    insert_swap_to_app_tls(dcontext, ilist, NULL/*append*/, SCRATCH_REG0, SCRATCH_REG1);
+    /* set up stolen reg */
+    insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
 }
 
 void
@@ -809,9 +772,6 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
      */
     APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_REG_STOLEN_SLOT));
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_OFFSET(dr_reg_stolen)));
-    /* move stolen reg val into TLS slot for DR's C code */
-    insert_swap_from_app_tls(dcontext, ilist, NULL/*append*/, SCRATCH_REG1, SCRATCH_REG2);
-    /* FIXME i#1551: how should we handle register pc? */
 }
 
 /* dcontext base is held in REG_DCXT, and exit stub in r0.

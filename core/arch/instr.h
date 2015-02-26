@@ -2603,6 +2603,9 @@ instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs);
 bool
 instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
                               bool *tls, bool *spill, reg_id_t *reg);
+#ifdef ARM
+bool instr_reads_thread_register(instr_t *instr);
+#endif
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other
  * then TLS_XAX_SLOT unless the client has specified a slot to use as we let the

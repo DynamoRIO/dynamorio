@@ -58,6 +58,7 @@
 #include <stdlib.h>     /* getenv */
 #include <dlfcn.h>      /* dlopen/dlsym */
 #include <unistd.h>     /* __environ */
+#include <stddef.h>     /* offsetof */
 
 /* Written during initialization only */
 /* FIXME: i#460, the path lookup itself is a complicated process,
@@ -1058,33 +1059,76 @@ static tls_info_t tls_info;
  * install.  The allocator used by the loader has no headers, so we don't have a
  * good way to guess how big this allocation was.  Instead we use this estimate.
  */
-static size_t tcb_size = IF_X64_ELSE(0x900, 0x490);
+/* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
+static size_t tcb_size = IF_X86_ELSE(IF_X64_ELSE(0x900, 0x490), 0x40);
 
-/* thread control block header type from
- * nptl/sysdeps/x86_64/tls.h and nptl/sysdeps/i386/tls.h
+/* thread contol block header type from
+ * - sysdeps/x86_64/nptl/tls.h
+ * - sysdeps/i386/nptl/tls.h
+ * - sysdeps/arm/nptl/tls.h
  */
 typedef struct _tcb_head_t {
+#ifdef X86
     void *tcb;
     void *dtv;
     void *self;
     int multithread;
-#ifdef X64
+# ifdef X64
     int gscope_flag;
-#endif
+# endif
     ptr_uint_t sysinfo;
     /* Later fields are copied verbatim. */
 
     ptr_uint_t stack_guard;
     ptr_uint_t pointer_guard;
+#elif defined(ARM)
+# ifdef X64
+#  error NYI on AArch64
+# else
+    void *dtv;
+    void *private;
+    byte  padding[2]; /* make it 16-byte align */
+# endif
+#endif /* X86/ARM */
 } tcb_head_t;
 
+#ifdef X86
+# define TLS_PRE_TCB_SIZE 0
+#elif defined(ARM)
+# ifdef X64
+#  error NYI on AArch64
+# else
+/* Data structure to match libc pthread.
+ * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
+ * the size and member locations match to avoid gdb crash.
+ */
+typedef struct _dr_pthread_t {
+    byte data1[0x68];  /* # of bytes before tid within pthread */
+    process_id_t tid;
+    thread_id_t pid;
+    byte data2[0x450]; /* # of bytes after pid within pthread */
+} dr_pthread_t;
+#  define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
+#  define LIBC_PTHREAD_SIZE 0x4c0
+#  define LIBC_PTHREAD_TID_OFFSET 0x68
+# endif
+#endif /* X86/ARM */
+
+#ifdef X86
 /* An estimate of the size of the static TLS data before the thread pointer that
  * we need to copy on behalf of libc.  When loading modules that have variables
  * stored in static TLS space, the loader stores them prior to the thread
  * pointer and lets the app intialize them.  Until we stop using the app's libc
  * (i#46), we need to copy this data from before the thread pointer.
  */
-#define APP_LIBC_TLS_SIZE 0x400
+# define APP_LIBC_TLS_SIZE 0x400
+#elif defined(ARM)
+/* FIXME i#1551: investigate the difference between ARM and X86 on TLS.
+ * On ARM, it seems that TLS variables are not put before the thread pointer
+ * as they are on X86.
+ */
+# define APP_LIBC_TLS_SIZE 0
+#endif
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
 /* FIXME: add description here to talk how TLS is setup. */
@@ -1144,6 +1188,14 @@ privload_tls_init(void *app_tp)
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is "PFX"\n",
         __FUNCTION__, app_tp);
     dr_tp = heap_mmap(max_client_tls_size);
+    ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= max_client_tls_size);
+#ifdef ARM
+    /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
+     * the size and member locations match to avoid gdb crash.
+     */
+    ASSERT(TLS_PRE_TCB_SIZE == LIBC_PTHREAD_SIZE);
+    ASSERT(LIBC_PTHREAD_TID_OFFSET == offsetof(dr_pthread_t, tid));
+#endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocates %d at "PFX"\n",
         __FUNCTION__, max_client_tls_size, dr_tp);
     dr_tp = dr_tp + max_client_tls_size - tcb_size;
@@ -1160,22 +1212,36 @@ privload_tls_init(void *app_tp)
      * libc.
      */
     if (app_tp != NULL &&
-        !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE, APP_LIBC_TLS_SIZE + tcb_size,
-                      dr_tp  - APP_LIBC_TLS_SIZE, &tls_bytes_read)) {
+        !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
+                      APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size,
+                      dr_tp  - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
+                      &tls_bytes_read)) {
         LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed, tcb was 0x%lx bytes "
             "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
             APP_LIBC_TLS_SIZE, tcb_size);
+#ifdef ARM
+    } else {
+        dr_pthread_t *dp =
+            (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE);
+        dp->pid = get_process_id();
+        dp->tid = get_sys_thread_id();
+#endif
     }
     /* We do not assert or warn on a truncated read as it does happen when TCB
      * + our over-estimate crosses a page boundary (our estimate is for latest
      * libc and is larger than on older libc versions): i#855.
      */
-    ASSERT(tls_info.offset <= max_client_tls_size - tcb_size);
+    ASSERT(tls_info.offset <= max_client_tls_size - TLS_PRE_TCB_SIZE - tcb_size);
+#ifdef X86
     /* Update two self pointers. */
     dr_tcb->tcb  = dr_tcb;
     dr_tcb->self = dr_tcb;
     /* i#555: replace app's vsyscall with DR's int0x80 syscall */
     dr_tcb->sysinfo = (ptr_uint_t)client_int_syscall;
+#elif defined(ARM)
+    dr_tcb->dtv = NULL;
+    dr_tcb->private = NULL;
+#endif
 
     for (i = 0; i < tls_info.num_mods; i++) {
         os_privmod_data_t *opd = tls_info.mods[i]->os_privmod_data;
@@ -1484,9 +1550,6 @@ privload_early_inject(void **sp)
     elf_loader_destroy(&exe_ld);
 
     reserve_brk();
-
-    /* TLS in some cases needs different init than the normal later path */
-    tls_early_init();
 
     /* Initialize DR *after* we map the app image.  This is consistent with our
      * old behavior, and allows the client to do things like call

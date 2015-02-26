@@ -1871,6 +1871,16 @@ check_option_compatibility_helper(int recurse_count)
 #endif
 
 #if defined(UNIX) && defined(CLIENT_INTERFACE)
+# ifdef ARM
+    if (!INTERNAL_OPTION(private_loader)) {
+        /* to make DR work in gdb, we must use private loader to make
+         * the TLS format match what gdb wants to see
+         */
+        USAGE_ERROR("-private_loader must be true on ARM");
+        dynamo_options.private_loader = true;
+        changed_options = true;
+    }
+#endif
     if (INTERNAL_OPTION(private_loader)) {
 # ifdef X86
         if (!INTERNAL_OPTION(mangle_app_seg)) {
