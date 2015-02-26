@@ -40,6 +40,26 @@ set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_per_config_ouput_to_match_single_config()
 
+# These custom commands are per-subdir so can't just place at top level
+include(../make/CMake_events.cmake)
+
+# i#801: For generated headers, we need to use add_dependencies to ensure that
+# they are generated before compiling the other sources.  Listing the header as
+# a source in the target isn't enough because it's really the source files
+# themselves that need the header.  We can't put this in CMake_events.cmake b/c
+# we end up w/ duplicate targets then.  Note that libutil/ uses these same
+# targets but core is always enabled.
+add_custom_target(generate_syslog DEPENDS "${SYSLOG_SRCS}")
+if (WIN32)
+  add_custom_target(generate_events DEPENDS "${EVENTS_SRCS}")
+endif (WIN32)
+function (add_gen_events_deps target)
+  add_dependencies(${target} generate_syslog)
+  if (WIN32)
+    add_dependencies(${target} generate_events)
+  endif ()
+endfunction (add_gen_events_deps)
+
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
@@ -62,6 +82,7 @@ add_library(drhelper STATIC ${shared_core_asm_src} ${shared_arch_asm_src}
   lib/dr_helper.c)
 # CMake on Windows fails to link unless we tell it to use the C linker:
 set_target_properties(drhelper PROPERTIES LINKER_LANGUAGE C)
+add_gen_events_deps(drhelper)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
   add_dependencies(drhelper ${shared_core_asm_tgt} ${shared_arch_asm_tgt})
@@ -194,26 +215,6 @@ set(ARCH_SRCS
 if (X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
 endif (X64)
-
-# These custom commands are per-subdir so can't just place at top level
-include(../make/CMake_events.cmake)
-
-# i#801: For generated headers, we need to use add_dependencies to ensure that
-# they are generated before compiling the other sources.  Listing the header as
-# a source in the target isn't enough because it's really the source files
-# themselves that need the header.  We can't put this in CMake_events.cmake b/c
-# we end up w/ duplicate targets then.  Note that libutil/ uses these same
-# targets but core is always enabled.
-add_custom_target(generate_syslog DEPENDS "${SYSLOG_SRCS}")
-if (WIN32)
-  add_custom_target(generate_events DEPENDS "${EVENTS_SRCS}")
-endif (WIN32)
-function (add_gen_events_deps target)
-  add_dependencies(${target} generate_syslog)
-  if (WIN32)
-    add_dependencies(${target} generate_events)
-  endif ()
-endfunction (add_gen_events_deps)
 
 if (WIN32)
   # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.
