@@ -3385,9 +3385,14 @@ update_indirect_branch_lookup(dcontext_t *dcontext)
     generated_code_t *code = THREAD_GENCODE(dcontext);
 
     ibl_branch_type_t branch_type;
+    IF_ARM(dr_isa_mode_t old_mode;)
 #ifdef X64
     ASSERT(is_shared_gencode(code));
     return; /* nothing to do: routines are all thread-shared */
+#endif
+#ifdef ARM
+    /* We need to switch to the mode of our gencode */
+    dr_set_isa_mode(dcontext, DEFAULT_ISA_MODE, &old_mode);
 #endif
     protect_generated_code(code, WRITABLE);
     for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
@@ -3410,6 +3415,9 @@ update_indirect_branch_lookup(dcontext_t *dcontext)
     }
 #endif
     protect_generated_code(code, READONLY);
+#ifdef ARM
+    dr_set_isa_mode(dcontext, old_mode, NULL);
+#endif
 }
 
 /* i#823: handle far cti transitions.  For now only handling known cs values
