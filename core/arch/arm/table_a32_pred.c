@@ -1248,7 +1248,7 @@ const instr_info_t A32_ext_fp[][3] = {
     {EXT_BIT4,   0x0eb00000, "(ext bit4 10)",  xx, xx, xx, xx, xx, no, x, 10},
   }, { /* 42 */
     {EXT_FPA,    0x0ec00a00, "(ext fpA 11)",  xx, xx, xx, xx, xx, no, x, 11},
-    {EXT_FPB,    0x0ec00b00, "(ext fpB 11)",  xx, xx, xx, xx, xx, no, x, 10},
+    {EXT_FPB,    0x0ec00b00, "(ext fpB 11)",  xx, xx, xx, xx, xx, no, x, 11},
     {EXT_BIT4,   0x0ec00000, "(ext bit4 9)",  xx, xx, xx, xx, xx, no, x, 9},
   }, { /* 43 */
     {EXT_FPA,    0x0ed00a00, "(ext fpB 12)",  xx, xx, xx, xx, xx, no, x, 12},
@@ -1435,7 +1435,7 @@ const instr_info_t A32_ext_opc4fpB[][8] = {
   }, { /* 8 */
     {OP_vdiv_f64, 0x0e800b00, "vdiv.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, END_LIST},
     {OP_vdup_32,  0x0e800b10, "vdup.32",  WAd, xx, RBd, xx, xx, pred|vfp, x, END_LIST},
-    {INVALID,     0x0e800b20, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vdiv_f64, 0x0e800b20, "vdiv.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vdup_16,  0x0e800b30, "vdup.16",  WAd, xx, RBh, xx, xx, pred|vfp, x, END_LIST},
     {INVALID,     0x0e800b40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0e800b50, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -1462,7 +1462,7 @@ const instr_info_t A32_ext_opc4fpB[][8] = {
   }, { /* 11 */
     {OP_vdiv_f64, 0x0ec00b00, "vdiv.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vdup_8,   0x0ec00b10, "vdup.8",   WAd, xx, RBb, xx, xx, pred|vfp, x, END_LIST},
-    {INVALID,     0x0ec00b20, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vdiv_f64, 0x0ec00b20, "vdiv.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {INVALID,     0x0ec00b30, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0ec00b40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0ec00b50, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
