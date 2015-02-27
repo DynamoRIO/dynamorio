@@ -162,8 +162,8 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
       {OP_b_short, 0xdb00, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
       {OP_b_short, 0xdc00, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
       {OP_b_short, 0xdd00, "b",            xx, xx, j8, xx, xx, pred8, x, DUP_ENTRY},
-      {OP_udf,     0xde00, "udf",          xx, xx, i8, xx, xx,    no, x,  END_LIST},
-      {OP_svc,     0xdf00, "svc",          xx, xx, i8, xx, xx,    no, x,  END_LIST},
+      {OP_udf,     0xde00, "udf",          xx, xx, i8, xx, xx,    no, x, xb13[0][0x01]},
+      {OP_svc,     0xdf00, "svc",          xx, xx, i8, xx, xx,    no, x, END_LIST},
     },
 };
 
