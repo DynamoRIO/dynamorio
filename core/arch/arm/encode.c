@@ -840,12 +840,16 @@ encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
         rot = 7 - startB;
         val8 = ((val & 0xff000000) >> (32 - rot)) | ((val & 0xff) << rot);
     } else if (startA != -1) {
+        /* XXX: for multiple possible encodings, we're supposed to pick the one
+         * with the smallest rotation.  Currently we do not do that.
+         * E.g., for "0x00100000" we pick "0x940" instead of "0x601".
+         */
         if (startA < 8) {
             rot = 0;
             val8 = val & 0xff;
         } else {
             rot = 8 + (31 - startA);
-            val8 = val & (0xff << (startA -7));
+            val8 = (val & (0xff << (startA -7))) >> (startA - 7);
         }
     } else {
         rot = 0;
