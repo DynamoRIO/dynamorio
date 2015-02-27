@@ -3244,7 +3244,16 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         });
     }
 #elif defined(ARM)
-    /* FIXME i#1551: add NEON registers */
+    {
+        int i, j;
+        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+            print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
+            for (j = 0; j < 4; j++) {
+                print_file(f, "%08x ", context->simd[i].u32[j]);
+            }
+            print_file(f, dump_xml ? "\"\n" : "\n");
+        }
+    }
 #endif
 
     print_file(f, dump_xml ?

@@ -692,9 +692,9 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                                 opnd_create_reg(REG_DCXT),
                                 OPND_CREATE_INT(offsetof(priv_mcontext_t, simd))));
     APP(ilist, INSTR_CREATE_vstm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_R1),
-                                    SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
-    APP(ilist, INSTR_CREATE_vstm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_R1),
                                     SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
+    APP(ilist, INSTR_CREATE_vstm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_R1),
+                                    SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
 }
 
 /* scratch reg0 is holding exit stub */
