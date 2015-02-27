@@ -1005,12 +1005,18 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
-    uint opc = instr_get_opcode(instr);
     /* Compute the value of r15==pc for orig app instr */
     ptr_int_t r15 = (ptr_int_t)
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                       instr_get_opcode(instr), instr);
     opnd_t mem_op;
+    ushort slot;
+    bool should_restore;
+    reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
+    opnd_t new_op;
+    dr_shift_type_t shift_type;
+    uint shift_amt;
+    bool store = instr_writes_memory(instr);
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
         instr_is_predicated(instr);
@@ -1022,39 +1028,31 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr, bound_start);
 
     ASSERT(instr_has_rel_addr_reference(instr));
-
-    if (opc == OP_ldr || opc == OP_str || opc == OP_tbb || opc == OP_tbh) {
-        ushort slot;
-        bool should_restore;
-        reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
-        opnd_t new_op;
-        dr_shift_type_t shift_type;
-        uint shift_amt;
-        ASSERT(reg != REG_NULL);
-        if (opc == OP_str) {
-            mem_op = instr_get_dst(instr, 0);
-        } else {
-            mem_op = instr_get_src(instr, 0);
-        }
-        ASSERT(opnd_is_base_disp(mem_op));
-        shift_type = opnd_get_index_shift(mem_op, &shift_amt);
-        new_op = opnd_create_base_disp_arm
-            (reg, opnd_get_index(mem_op), shift_type, shift_amt, opnd_get_disp(mem_op),
-             opnd_get_flags(mem_op), opnd_get_size(mem_op));
-        PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
-        insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
-                               ilist, instr, NULL, NULL);
-        if (opc == OP_str) {
-            instr_set_dst(instr, 0, new_op);
-        } else {
-            instr_set_src(instr, 0, new_op);
-        }
-        if (should_restore)
-            PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
+    /* Manual says "unpredicatable" if PC is base of ldm/stm */
+    ASSERT(!instr_reads_gpr_list(instr) &&
+           !instr_writes_gpr_list(instr));
+    ASSERT(reg != REG_NULL);
+    if (store) {
+        mem_op = instr_get_dst(instr, 0);
     } else {
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
+        mem_op = instr_get_src(instr, 0);
     }
+    ASSERT(opnd_is_base_disp(mem_op));
+    shift_type = opnd_get_index_shift(mem_op, &shift_amt);
+    new_op = opnd_create_base_disp_arm
+        (reg, opnd_get_index(mem_op), shift_type, shift_amt, opnd_get_disp(mem_op),
+         opnd_get_flags(mem_op), opnd_get_size(mem_op));
+    PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+    insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
+                           ilist, instr, NULL, NULL);
+    if (store) {
+        instr_set_dst(instr, 0, new_op);
+    } else {
+        instr_set_src(instr, 0, new_op);
+    }
+    if (should_restore)
+        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
+
     if (in_it) {
         /* XXX: we could mark our mangling as predicated in some cases,
          * like mangle_add_predicated_fall_through() does.
