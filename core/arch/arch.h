@@ -541,6 +541,10 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
 void
 mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                instr_t *next_instr);
+# ifdef ANNOTATIONS
+void
+mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist);
+# endif
 /* mangle the instruction OP_mov_seg, i.e. the instruction that
  * read/update the segment register.
  */

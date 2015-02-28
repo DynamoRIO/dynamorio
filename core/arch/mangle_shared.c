@@ -44,6 +44,10 @@
 #include "instrument.h" /* for insert_get_mcontext_base */
 #include "decode_fast.h" /* for decode_next_pc */
 
+#ifdef ANNOTATIONS
+# include "../annotations.h"
+#endif
+
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
  */
