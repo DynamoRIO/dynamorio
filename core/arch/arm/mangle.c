@@ -1673,10 +1673,14 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     bool finished = false;
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
         instr_is_predicated(instr);
-    instr_t *bound_start = NULL;
+    instr_t *bound_start = NULL, *bound_end = next_instr;
     if (in_it) {
         /* split instr off from its IT block for easier mangling (we reinstate later) */
         next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+        /* We do NOT want the next_instr from mangle_gpr_list_write(), which can
+         * point at the split-off OP_ldr of pc: but we need to go past that.
+         */
+        bound_end = next_instr;
         bound_start = INSTR_CREATE_label(dcontext);
         PRE(ilist, instr, bound_start);
     }
@@ -1710,7 +1714,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         mangle_stolen_reg(dcontext, ilist, instr);
 
     if (in_it) {
-        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, bound_end);
     }
     return next_instr;
 }
