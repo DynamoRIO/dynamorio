@@ -74,6 +74,12 @@
 #endif
 #endif
 
+#ifdef API_EXPORT_ONLY
+#if defined(X86_32) || defined(X86_64)
+# define X86
+#endif
+#endif
+
 #if defined(X86_64) && !defined(X64)
 # define X64
 #endif
@@ -605,6 +611,38 @@ typedef struct _instr_t instr_t;
 
 /* DR_API EXPORT TOFILE dr_defines.h */
 /* DR_API EXPORT BEGIN */
+#ifdef X86
+# define IF_X86(x) x
+# define IF_X86_ELSE(x, y) x
+# define IF_X86_(x) x,
+# define _IF_X86(x) , x
+# define IF_NOT_X86(x)
+# define _IF_NOT_X86(x)
+#else
+# define IF_X86(x)
+# define IF_X86_ELSE(x, y) y
+# define IF_X86_(x)
+# define _IF_X86(x)
+# define IF_NOT_X86(x) x
+# define _IF_NOT_X86(x) , x
+#endif
+
+#ifdef ARM
+# define IF_ARM(x) x
+# define IF_ARM_ELSE(x, y) x
+# define IF_ARM_(x) x,
+# define _IF_ARM(x) , x
+# define IF_NOT_ARM(x)
+# define _IF_NOT_ARM(x)
+#else
+# define IF_ARM(x)
+# define IF_ARM_ELSE(x, y) y
+# define IF_ARM_(x)
+# define _IF_ARM(x)
+# define IF_NOT_ARM(x) x
+# define _IF_NOT_ARM(x) , x
+#endif
+
 #ifdef X64
 # define IF_X64(x) x
 # define IF_X64_ELSE(x, y) x
@@ -619,6 +657,22 @@ typedef struct _instr_t instr_t;
 # define _IF_X64(x)
 # define IF_NOT_X64(x) x
 # define _IF_NOT_X64(x) , x
+#endif
+
+#if defined(X86) && defined(X64)
+# define IF_X86_X64(x) x
+# define IF_X86_X64_ELSE(x, y) x
+# define IF_X86_X64_(x) x,
+# define _IF_X86_X64(x) , x
+# define IF_NOT_X86_X64(x)
+# define _IF_NOT_X86_X64(x)
+#else
+# define IF_X86_X64(x)
+# define IF_X86_X64_ELSE(x, y) y
+# define IF_X86_X64_(x)
+# define _IF_X86_X64(x)
+# define IF_NOT_X86_X64(x) x
+# define _IF_NOT_X86_X64(x) , x
 #endif
 /* DR_API EXPORT END */
 
@@ -1591,13 +1645,13 @@ enum {
  *
  * If any field offsets are changed, or fields are added, update
  * the following:
- *   - OFFSET defines in x86/arch.h and their uses in fcache_{enter,return}
- *   - DR_MCONTEXT_SIZE and PUSH_DR_MCONTEXT in x86/x86.asm
- *   - clean call layout of dr_mcontext_t on the stack in x86/mangle.c
+ *   - OFFSET defines in arch/arch.h and their uses in fcache_{enter,return}
+ *   - DR_MCONTEXT_SIZE and PUSH_DR_MCONTEXT in arch/x86.asm
+ *   - clean call layout of dr_mcontext_t on the stack in arch/mangle.c
  *   - interception layout of dr_mcontext_t on the stack in win32/callback.c
  *   - context_to_mcontext (and vice versa) in win32/ntdll.c
  *   - sigcontext_to_mcontext (and vice versa) in unix/signal.c
- *   - dump_mcontext in x86/arch.c
+ *   - dump_mcontext in arch/arch.c
  *   - inject_into_thread in win32/inject.c
  * Also, hotp_context_t exposes the dr_mcontext_t struct to hot patches,
  * so be careful when changing any field offsets.

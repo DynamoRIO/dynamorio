@@ -30,11 +30,11 @@
  * DAMAGE.
  */
 
-#include "../globals.h"
-#include "../hashtable.h"
-#include "../x86/instr.h"
-#include "../x86/instr_create.h"
-#include "../x86/decode_fast.h"
+#include "globals.h"
+#include "hashtable.h"
+#include "instr.h"
+#include "instr_create.h"
+#include "decode_fast.h"
 #include "utils.h"
 #include "annotations.h"
 

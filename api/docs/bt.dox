@@ -49,6 +49,7 @@ following sections:
  - \ref sec_64bit
  - \ref sec_IR_utils
  - \ref sec_translation
+ - \ref sec_predication
  - \ref sec_pcache
  - \ref bt_examples
  - \ref sec_startstop
@@ -717,19 +718,19 @@ The 64-bit build of DynamoRIO uses 64-bit decoding and encoding by
 default, while the 32-bit build uses 32-bit.  The 64-bit build is also
 capable of decoding and encoding 32-bit instructions.  Each thread has a
 current mode that is used to determine how to interpret instructions while
-decoding, whose default matches the DynamoRIO build.  The set_x86_mode()
-routine changes the current mode, while get_x86_mode() queries the current
+decoding, whose default matches the DynamoRIO build.  The dr_set_isa_mode()
+routine changes the current mode, while dr_get_isa_mode() queries the current
 mode.
 
 Each instruction contains a flag indicating whether it should be encoded in
 32-bit or 64-bit mode.  When an instruction is created or decoded, the
 instruction's flag is set to the thread's current mode.  It can be queried
-with instr_get_x86_mode() and changed with instr_set_x86_mode().
+with instr_get_isa_mode() and changed with instr_set_isa_mode().
 
 For a 64-bit build of DynamoRIO, the instruction creation macros all use
 64-bit-sized registers.  The recommended model when generating 32-bit code
 is to use the macros to create an instruction list and before encoding to
-call instr_set_x86_mode() and instr_shrink_to_32_bits() on each
+call instr_set_isa_mode(DR_ISA_IA32) and instr_shrink_to_32_bits() on each
 instruction.  Naturally any instruction that differs in more than register
 selection must be special-cased.
 
@@ -1086,6 +1087,41 @@ field for a meta instruction:
 app_pc xl8 = instr_get_app_pc(inst);
 PREM(bb, inst, INSTR_XL8(INSTR_CREATE_mov_st(drcontext, dst, src), xl8));
 \endcode
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_predication Conditionally Executed Instructions
+
+DynamoRIO models conditionally executed, or "predicated", instructions as
+regular instructions with extra predication attributes.  Use
+instr_is_predicated() to determine whether an instruction is conditionally
+executed.  If so, use instr_get_predicate() to determine the type of
+condition.  At execution time, instr_predicate_triggered() can be used to
+query whether an instruction will execute or not.
+
+The degree of conditional execution varies.  In some cases, when an
+instruction is not executed, it will not read any source operands nor write
+any destination operands.  In other cases, the condition on which it depends
+involves the value of a source operand (e.g., OP_bsf or OP_maskmovq).
+However, all conditionally executed instructions share the same property
+that their destination operands are conditionally written.  This does not
+apply to eflags, which are written to unconditionally by some conditional
+instructions.
+
+To aid in analyzing liveness and other properties of application code, all
+API routines that query whether registers or flags are written take a
+parameter of type #dr_opnd_query_flags_t that controls how to treat
+conditionally accessed operands: whether to include them or skip them.
+
+API routines that operate on raw instruction information, such as
+instr_num_dsts(), include all possible operands.  Clients should explicitly
+query instr_is_predicated() when using API routines that do not take in
+#dr_opnd_query_flags_t.
 
 \ifnot vmsafe
 ***************************************************************************

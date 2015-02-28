@@ -31,6 +31,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 option(CBR_COVERAGE "build with conditional branch coverage checks" OFF)
 if (CBR_COVERAGE)
   add_definitions(-DCBR_COVERAGE)
@@ -73,7 +75,10 @@ if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
 endif ()
 
 # add drcov2lcov
-add_executable(drcov2lcov drcov2lcov.c)
+add_executable(drcov2lcov
+  postprocess/main.c
+  # add more here
+  )
 # We do want an rpath, which is on by default for standalone
 configure_DynamoRIO_standalone(drcov2lcov)
 use_DynamoRIO_extension(drcov2lcov drsyms_static)

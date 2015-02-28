@@ -176,16 +176,15 @@ struct _local_state_extended_t; /* in arch_exports.h */
 struct _local_state_t *get_local_state(void);
 struct _local_state_extended_t *get_local_state_extended(void);
 
-#ifdef X86
 /* Returns POINTER_MAX on failure.
- * Assumes that cs, ss, ds, and es are flat.
+ * On X86, we assume that cs, ss, ds, and es are flat.
+ * On ARM, there is no segment. We use it to get TLS base instead.
  */
 byte *
 get_segment_base(uint seg);
 
 byte *
 get_app_segment_base(uint seg);
-#endif
 
 #ifdef CLIENT_INTERFACE
 /* Allocates num_slots tls slots aligned with alignment align */
@@ -986,7 +985,7 @@ typedef after_intercept_action_t intercept_function_t(app_state_at_intercept_t *
 
 /* opcodes and encoding constants that we sometimes directly use */
 #ifdef X86
-/* FIXME: if we add more opcodes maybe should be exported by x86/ */
+/* FIXME: if we add more opcodes maybe should be exported by arch/ */
 enum {
     JMP_REL32_OPCODE  = 0xe9,
     JMP_REL32_SIZE    = 5,      /* size in bytes of 32-bit rel jmp */
@@ -997,8 +996,15 @@ enum {
     JMP_ABS_MEM_IND64_MODRM = 0x25,
 # endif
 };
-#else /* !X86 */
-#  error only X86 supported
+#elif defined(ARM)
+enum {
+    /* FIXME i#1551: this is for A32 for now to get things compiling */
+    JMP_REL32_OPCODE  = 0xec000000,
+    JMP_REL32_SIZE    = 4,
+    CALL_REL32_OPCODE = 0xed000000,
+};
+#else
+#  error only X86 and ARM supported
 #endif /* X86 */
 
 #ifdef WINDOWS

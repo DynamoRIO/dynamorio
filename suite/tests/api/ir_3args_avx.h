@@ -291,6 +291,19 @@ OPCODE(vpsrlq_b_256, vpsrlq, vpsrlq, 0, REGARG(YMM0), IMMARG(OPSZ_1),
 OPCODE(vpsllq_b_256, vpsllq, vpsllq, 0, REGARG(YMM0), IMMARG(OPSZ_1),
        REGARG(YMM1))
 
+OPCODE(vpmaskmovd_ld_256, vpmaskmovd, vpmaskmovd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vpmaskmovq_ld_256, vpmaskmovq, vpmaskmovq, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32))
+OPCODE(vpmaskmovd_st_256, vpmaskmovd, vpmaskmovd, 0, MEMARG(OPSZ_32), REGARG(YMM0),
+       REGARG(YMM1))
+OPCODE(vpmaskmovq_st_256, vpmaskmovq, vpmaskmovq, 0, MEMARG(OPSZ_32), REGARG(YMM0),
+       REGARG(YMM1))
+OPCODE(vpsllvd_256, vpsllvd, vpsllvd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsllvq_256, vpsllvq, vpsllvq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsrlvd_256, vpsrlvd, vpsrlvd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsrlvq_256, vpsrlvq, vpsrlvq, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+
 /****************************************************************************/
 /* FMA */
 OPCODE(vfmadd132ps, vfmadd132ps, vfmadd132ps, 0, REGARG(XMM0), REGARG(XMM1),

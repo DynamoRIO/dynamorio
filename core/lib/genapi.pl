@@ -168,6 +168,8 @@ if ($header) {
     }
 }
 
+$arch = defined($defines{"ARM"}) ? "arm" : "x86";
+
 # I used to just do
 #   open(FIND, "find . -name \\*.h |")
 # but there are dependencies between header files, and certain orders
@@ -176,20 +178,24 @@ if ($header) {
 # by comments in the header files.
 @headers =
     (
-     "$core/instrlist.h",
+     "$core/arch/instrlist.h",
      "$core/lib/globals_shared.h", # defs
      "$core/globals.h",
-     "$core/x86/arch_exports.h", # encode routines
-     "$core/x86/proc.h",
+     "$core/arch/arch_exports.h", # encode routines
+     "$core/arch/proc.h",
      "$core/os_shared.h",        # before instrument.h
      "$core/module_shared.h",    # before instrument.h
      "$core/lib/instrument.h",
-     "$core/x86/instr.h",
-     "$core/x86/instr_inline.h",
-     "$core/x86/instr_create.h",
-     "$core/x86/decode.h",       # OPSZ_ consts, decode routines
-     "$core/x86/decode_fast.h",  # decode routines
-     "$core/x86/disassemble.h",  # disassemble routines
+     "$core/arch/x86/opcode.h",
+     "$core/arch/arm/opcode.h",
+     "$core/arch/opnd.h",
+     "$core/arch/instr.h",
+     "$core/arch/instr_inline.h",
+     "$core/arch/instr_create_shared.h",
+     "$core/arch/$arch/instr_create.h",
+     "$core/arch/decode.h",       # OPSZ_ consts, decode routines
+     "$core/arch/decode_fast.h",  # decode routines
+     "$core/arch/disassemble.h",  # disassemble routines
      "$core/fragment.h",         # binary tracedump format
      "$core/win32/os_private.h", # rsrc section walking
      "$core/hotpatch.c",         # probe api
@@ -254,6 +260,7 @@ sub keep_define($)
     my ($def) = @_;
     return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "UNIX" ||
             $def eq "MACOS" || $def eq "X64" ||
+            $def eq "X86" || $def eq "ARM" || $def eq "X86_32" ||
             $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR");
 }
@@ -343,7 +350,7 @@ sub process_header_line($)
         # Enforce the rename to DR_REG_ and DR_SEG_
         if (($l =~ /[^_]REG_/ || $l =~ /[^_]SEG_/) &&
             # We have certain exceptions
-            ($l !~ /^# define [RS]EG_/ &&
+            ($l !~ /^# *define [RS]EG_/ &&
              $l !~ /DR_REG_ENUM_COMPATIBILITY/ &&
              $l !~ /REG_SPECIFIER_BITS/ &&
              $l !~ /REG_kind/ &&
@@ -557,7 +564,7 @@ sub process_header_line($)
                 $l =~ s/(OP_[a-zA-Z0-9_]*,) *\/\*[^\*]*\*\/(.*)/\1\2/;
             }
             # PR 227381: auto-insert doxygen comments for DR_REG_ enum lines w/o any
-            if ($file =~ "/instr.h" &&
+            if ($file =~ "/opnd.h" &&
                 $l =~ /^ *DR_[RS]EG_/ && $l !~ /\/\*\*</) {
                 $l =~ s|(DR_[RS]EG_)(\w+), *|\1\2, /**< The "\L\2" register. */\n    |g;
             }

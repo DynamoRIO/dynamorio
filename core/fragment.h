@@ -65,6 +65,7 @@
 
 /* this flag indicates fragment writes all 6 flags prior to reading */
 #define FRAG_WRITES_EFLAGS_6        0x000200
+#define FRAG_WRITES_EFLAGS_ARITH    FRAG_WRITES_EFLAGS_6
 /* this flag indicates fragment writes OF before reading it */
 #define FRAG_WRITES_EFLAGS_OF       0x000400
 
@@ -114,9 +115,12 @@
 # define FRAG_HAS_MOV_SEG           0x200000
 #endif
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* this fragment contains 32-bit code */
 # define FRAG_32_BIT                0x400000
+#elif defined(ARM) && !defined(X64)
+/* this fragment contains Thumb code */
+# define FRAG_THUMB                 0x400000
 #endif
 
 #define FRAG_MUST_END_TRACE         0x800000
@@ -170,6 +174,39 @@
 #define FUTURE_FLAGS_ALLOWED (FUTURE_FLAGS_TRANSFER|FRAG_FAKE|FRAG_IS_FUTURE|\
                               FRAG_WAS_DELETED|FRAG_SHARED|FRAG_TEMP_PRIVATE)
 
+#define FRAG_ISA_MODE(flags)                                                   \
+    IF_X86_ELSE(IF_X64_ELSE((FRAG_IS_32(flags) || FRAG_IS_X86_TO_X64(flags)) ? \
+                            DR_ISA_IA32 : DR_ISA_AMD64, DR_ISA_IA32),          \
+                IF_X64_ELSE(DR_ISA_ARM_A64,                                    \
+                            (TEST(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB :    \
+                             DR_ISA_ARM_A32)))
+
+static inline uint
+frag_flags_from_isa_mode(dr_isa_mode_t mode)
+{
+#ifdef X86
+# ifdef X64
+    if (mode == DR_ISA_IA32)
+        return FRAG_32_BIT;
+    ASSERT(mode == DR_ISA_AMD64);
+    return 0;
+# else
+    ASSERT(mode == DR_ISA_IA32);
+    return 0;
+# endif
+#elif defined(ARM)
+# ifdef X64
+    ASSERT(mode == DR_ISA_ARM_A64);
+    return 0;
+# else
+    if (mode == DR_ISA_ARM_THUMB)
+        return FRAG_THUMB;
+    ASSERT(mode == DR_ISA_ARM_A32);
+    return 0;
+# endif
+#endif
+}
+
 /* to save space size field is a ushort => maximum fragment size */
 enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
 
@@ -178,7 +215,7 @@ enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
  * trace heads and traces extend it below
  */
 struct _fragment_t {
-    /* WARNING: the tag offset is assumed to be 0 in x86/emit_utils.c
+    /* WARNING: the tag offset is assumed to be 0 in arch/emit_utils.c
      * Also, next and flags' offsets must match future_fragment_t's
      * And flags' offset must match fcache.c's empty_slot_t as well as
      * vmarea.c's multi_entry_t structs
@@ -354,7 +391,7 @@ typedef struct _unprot_ht_statistics_t {
     hashtable_statistics_t trace_ibl_stats[IBL_BRANCH_TYPE_END];
     hashtable_statistics_t bb_ibl_stats[IBL_BRANCH_TYPE_END];
 
-    /* FIXME: this should really go to x86/arch.c instead of here */
+    /* FIXME: this should really go to arch/arch.c instead of here */
 # ifdef WINDOWS
     hashtable_statistics_t shared_syscall_hit_stats; /* miss path is shared with trace_ibl */
 #  endif
@@ -379,7 +416,7 @@ typedef struct _fragment_entry_t {
  * IBL targeted tables
  */
 /* Updates to these flags should be reflected in
- * x86/arch.c:table_flags_to_frag_flags() */
+ * arch/arch.c:table_flags_to_frag_flags() */
 #define FRAG_TABLE_INCLUSIVE_HIERARCHY   HASHTABLE_NOT_PRIMARY_STORAGE
 /* Set for IBL targeted tables, used in conjuction with FRAG_INCLUSIVE_HIERARCHY */
 #define FRAG_TABLE_IBL_TARGETED          HASHTABLE_LOCKLESS_ACCESS
@@ -1122,7 +1159,7 @@ void study_all_hashtables(dcontext_t *dcontext);
 #endif /* DEBUG */
 
 #ifdef HASHTABLE_STATISTICS
-/* in x86/interp.c */
+/* in arch/interp.c */
 int
 append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
                                    app_pc speculate_next_tag);

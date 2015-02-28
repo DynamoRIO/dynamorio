@@ -230,7 +230,7 @@ static void at_taken(app_pc src, app_pc targ)
      */
     dr_flush_region(src, 1);
     dr_get_mcontext(drcontext, &mcontext);
-    mcontext.xip = targ;
+    mcontext.pc = targ;
     dr_redirect_execution(&mcontext);
 }
 
@@ -256,7 +256,7 @@ static void at_not_taken(app_pc src, app_pc fall)
      */
     dr_flush_region(src, 1);
     dr_get_mcontext(drcontext, &mcontext);
-    mcontext.xip = fall;
+    mcontext.pc = fall;
     dr_redirect_execution(&mcontext);
 }
 

@@ -201,6 +201,13 @@
 # should have a "_DR_" prefix.  Public functions and variables should have DynamoRIO
 # in the name.
 
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
+  # XXX i#1557: update our code to satisfy the changes in 3.x
+  cmake_policy(PUSH)
+  cmake_policy(SET CMP0026 OLD)
+endif ()
+
 INCLUDEFILE make/utils_exposed.cmake
 
 if (UNIX)
@@ -242,6 +249,12 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 if (NOT DEFINED DynamoRIO_USE_LIBC)
   # i#714: the default is now ON
   set(DynamoRIO_USE_LIBC ON)
+endif ()
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(ARM 1)
+else ()
+  set(X86 1) # This means IA-32 or AMD64
 endif ()
 
 ###########################################################################
@@ -795,7 +808,11 @@ function (configure_DynamoRIO_client target)
         set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
         # We do NOT add ${LD_SCRIPT} as an ADDITIONAL_MAKE_CLEAN_FILES since it's
         # configure-time built not make-time built
-        set(LD_FLAGS "-melf_x86_64")
+        if (X86)
+          set(LD_FLAGS "-melf_x86_64")
+        elseif (ARM)
+          set(LD_FLAGS "-marmelf_linux_eabi")
+        endif ()
 
         # In order to just tweak the default linker script we start with exactly that.
         execute_process(COMMAND
@@ -1011,4 +1028,9 @@ endfunction (use_DynamoRIO_annotations target target_srcs)
 if (NOT DrMemoryFramework_DIR AND EXISTS "${DynamoRIO_DIR}/../drmemory/drmf")
   set(DrMemoryFramework_DIR "${DynamoRIO_DIR}/../drmemory/drmf")
   find_package(DrMemoryFramework)
+endif ()
+
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
+  cmake_policy(POP)
 endif ()

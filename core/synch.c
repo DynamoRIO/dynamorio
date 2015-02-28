@@ -327,17 +327,17 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
             return true;
         }
 #endif
-        if (is_native_thread_state_valid(trec->dcontext, (app_pc)mcontext->xip,
+        if (is_native_thread_state_valid(trec->dcontext, (app_pc)mcontext->pc,
                                          (byte *)mcontext->xsp)) {
 #ifdef WINDOWS
-            if ((app_pc)mcontext->xip == (app_pc) thread_attach_takeover) {
+            if ((app_pc)mcontext->pc == (app_pc) thread_attach_takeover) {
                 LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" at "
                     "takeover point\n", trec->id);
                 thread_attach_translate(trec->dcontext, mcontext, restore_memory);
                 return true;
             }
 #endif
-            if (is_at_do_syscall(trec->dcontext, (app_pc)mcontext->xip,
+            if (is_at_do_syscall(trec->dcontext, (app_pc)mcontext->pc,
                                  (byte *)mcontext->xsp)) {
                 LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" running "
                     "natively, at do_syscall so translation needed\n", trec->id);
@@ -1542,12 +1542,12 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
 
     res = thread_get_mcontext(tr, mc);
     ASSERT(res);
-    pre_translation = (app_pc) mc->xip;
+    pre_translation = (app_pc) mc->pc;
     LOG(GLOBAL, LOG_CACHE, 2,
-        "\trecreating address for "PFX"\n", mc->xip);
+        "\trecreating address for "PFX"\n", mc->pc);
     LOG(THREAD, LOG_CACHE, 2,
         "translate_from_synchall_to_dispatch: being translated from "PFX"\n",
-        mc->xip);
+        mc->pc);
     if (get_at_syscall(dcontext)) {
         /* Don't need to do anything as shared_syscall and do_syscall will not
          * change due to a reset and will have any inlined ibl updated.  If we
@@ -1571,7 +1571,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
     } else {
         res = translate_mcontext(tr, mc, true/*restore memory*/, NULL);
         ASSERT(res);
-        if (!thread_synch_successful(tr) || mc->xip == 0) {
+        if (!thread_synch_successful(tr) || mc->pc == 0) {
             /* Better to risk failure on accessing a freed cache than
              * to have a guaranteed crash by sending to NULL.
              * FIXME: it's possible the real translation is NULL,
@@ -1582,16 +1582,16 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             goto translate_from_synchall_to_dispatch_exit;
         }
         LOG(GLOBAL, LOG_CACHE, 2,
-            "\ttranslation pc = "PFX"\n", mc->xip);
-        ASSERT(!is_dynamo_address((app_pc)mc->xip) &&
-               !in_fcache((app_pc)mc->xip));
+            "\ttranslation pc = "PFX"\n", mc->pc);
+        ASSERT(!is_dynamo_address((app_pc)mc->pc) &&
+               !in_fcache((app_pc)mc->pc));
         /* We send all threads, regardless of whether was in DR or not, to
          * re-interp from translated cxt, to avoid having to handle stale
          * local state problems if we simply resumed.
          * We assume no KSTATS or other state issues to deal with.
          * FIXME: enter hook w/o an exit?
          */
-        dcontext->next_tag = (app_pc) mc->xip;
+        dcontext->next_tag = (app_pc) mc->pc;
         /* FIXME PR 212266: for linux if we're at an inlined syscall
          * we may have problems: however, we might be able to rely on the kernel
          * not clobbering any registers besides eax (which is ok: reset stub
@@ -1650,9 +1650,9 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          * Note that a thread in check_wait_at_safe_spot() spins and will NOT be
          * at a syscall, avoiding problems there (case 5074).
          */
-        mc->xip = (app_pc) get_reset_exit_stub(dcontext);
+        mc->pc = (app_pc) get_reset_exit_stub(dcontext);
         LOG(GLOBAL, LOG_CACHE, 2,
-            "\tsent to reset exit stub "PFX"\n", mc->xip);
+            "\tsent to reset exit stub "PFX"\n", mc->pc);
         /* make dispatch happy */
         dcontext->whereami = WHERE_FCACHE;
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)

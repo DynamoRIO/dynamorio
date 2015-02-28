@@ -173,7 +173,7 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
                 dcontext->nudge_exit_code = exit_code;
             }
             call_switch_stack(dcontext, dcontext->dstack, nudge_terminate_on_dstack,
-                              false /* not on initstack */, false /* don't return */);
+                              NULL /* not on initstack */, false /* don't return */);
         } else {
             /* Already on dstack or nudge creator will free app stack. */
             if (exit_process) {

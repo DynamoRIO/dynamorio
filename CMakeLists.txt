@@ -54,11 +54,7 @@ else ()
   cmake_minimum_required(VERSION 2.6.4) # VERSION_LESS
 endif ()
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.11" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.11")
-  # XXX i#1418: update to cmake 2.8.12's better handling of interface imports
-  cmake_policy(SET CMP0020 OLD)
-endif ()
+include(make/policies.cmake NO_POLICY_SCOPE)
 
 # for non-makefile-based generators (i.e., Visual Studio) there is no
 # CMAKE_BUILD_TYPE and instead there are multiple configs.
@@ -176,7 +172,7 @@ if ("${INTERNAL}" STREQUAL "")
   set(INTERNAL ${INTERNAL_DEFAULT})
 endif()
 
-# target
+# The target OS:
 if (APPLE)
   set(MACOS 1)
 elseif (UNIX)
@@ -186,6 +182,25 @@ if (WIN32)
   set(WINDOWS 1)
 endif (WIN32)
 
+# The target architecture.
+# For cross-compilation this should still work as you're supposed to set this var.
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(ARM 1)
+else ()
+  set(X86 1) # This means IA-32 or AMD64
+endif ()
+
+if (X86)
+  set(ARCH_NAME x86)
+else ()
+  if (ARM)
+    set(ARCH_NAME arm)
+  else ()
+    message(FATAL_ERROR "Unknown architecture target")
+  endif ()
+endif ()
+
+# The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
 # Whether 64-bit is expected to be selected by user setting up compiler
 # prior to invoking CMake: it has to be that way for Windows, and for
 # Linux the user should set CFLAGS to -m32 or -m64
@@ -591,21 +606,31 @@ if (UNIX)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
   # now that the user must set non-default -mNN we don't nec. need these:
-  if (X64)
-    set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
-    set(BASE_CXXFLAGS "-m64")
-    set(LD_FLAGS "-melf_x86_64")
-  else (X64)
-    set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
-    set(BASE_CXXFLAGS "-m32")
-    # i#847 keep stack boundary 4-byte aligned (except on Mac)
-    # XXX i#1346: what is clang equivalent?
-    if (NOT CMAKE_COMPILER_IS_CLANG AND NOT APPLE)
-      set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
-      set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
-    endif ()
-    set(LD_FLAGS "-melf_i386")
-  endif (X64)
+  if (X86)
+    if (X64)
+      set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
+      set(BASE_CXXFLAGS "-m64")
+      set(LD_FLAGS "-melf_x86_64")
+    else (X64)
+      set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
+      set(BASE_CXXFLAGS "-m32")
+      # i#847 keep stack boundary 4-byte aligned (except on Mac)
+      # XXX i#1346: what is clang equivalent?
+      if (NOT CMAKE_COMPILER_IS_CLANG AND NOT APPLE)
+        set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
+        set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
+      endif ()
+      set(LD_FLAGS "-melf_i386")
+    endif (X64)
+  elseif (ARM)
+    # i#1551: add necessary flags for ARM build.
+    if (X64)
+    else (X64)
+      set(BASE_CFLAGS "-march=armv7-a ${BASE_CFLAGS}")
+      set(BASE_CXXFLAGS "-march=armv7-a")
+      set(LD_FLAGS "-marmelf_linux_eabi")
+    endif (X64)
+  endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
     # Ensure our binaries can run on older OSX
     set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.7")
@@ -1293,7 +1318,7 @@ configure_file(${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   ${BUILD_CMAKE}/cpp2asm_add_newlines.cmake COPYONLY)
 # we need to strip out the #include of configure.h
 # XXX: this should be a build-time rule as it depends on asm_defines.asm!
-file(READ "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm" str)
+file(READ "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm" str)
 string(REPLACE "#include \"configure.h\"" "" str "${str}")
 file(WRITE "${BUILD_CMAKE}/cpp2asm_defines.h" "${str}")
 
@@ -1323,7 +1348,8 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     DEPENDS ${EXTRA_HEADERS})
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
-  file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c ext/*/*.h)
+  file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
+    core/arch/*/*.h ext/*/*.h)
   add_custom_command(
     OUTPUT ${EXTRA_HEADERS} # among other files
     DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
@@ -1575,7 +1601,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
 )
 # we need to strip out the #include of configure.h
-DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm\" str)
+DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
   string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
   file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
 

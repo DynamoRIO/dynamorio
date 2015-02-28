@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -166,10 +166,9 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
     LOG(THREAD, LOG_MONITOR, 4,
         "Creating private copy of F%d ("PFX") for trace creation\n", f->id, f->tag);
 
-    IF_X64(ASSERT((get_x86_mode(dcontext) && FRAG_IS_32(f->flags)) ||
-                  (!get_x86_mode(dcontext) && !FRAG_IS_32(f->flags)) ||
-                  (get_x86_mode(dcontext) && !FRAG_IS_32(f->flags) &&
-                   DYNAMO_OPTION(x86_to_x64))));
+    ASSERT(dr_get_isa_mode(dcontext) == FRAG_ISA_MODE(f->flags)
+           IF_X64(|| (dr_get_isa_mode(dcontext) == DR_ISA_IA32 &&
+                      !FRAG_IS_32(f->flags) && DYNAMO_OPTION(x86_to_x64))));
 
     /* only keep one private copy around at a time
      * we delete here, when we add a new copy, and not in internal_restore_last
@@ -1499,7 +1498,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     });
 
     /* WARNING: if you change how optimizations are performed, you
-     * must change recreate_app_state in x86/arch.c as well
+     * must change recreate_app_state in arch/arch.c as well
      */
 
 #ifdef INTERNAL

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -259,7 +259,7 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t *bb,
              * for the second one: xchg xbp, xbp */
             if (next != NULL && instr_is_nop(next) &&
                 instr_get_opcode(next) == OP_xchg &&
-                instr_writes_to_exact_reg(next, REG_XBP)) {
+                instr_writes_to_exact_reg(next, REG_XBP, DR_QUERY_DEFAULT)) {
 
                 bb_build_count++;
 

@@ -818,11 +818,11 @@ typedef struct ALIGN_VAR(8) _LDR_MODULE_64 {
 
 typedef void (*void_func_t) ();
 
-/* in x86/x86.asm */
+/* in arch/x86.asm */
 extern int
 switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *result);
 
-/* in x86/x86.asm */
+/* in arch/x86.asm */
 /* Switches from 32-bit mode to 64-bit mode and invokes func, passing
  * arg1, arg2, and arg3.  Works fine when func takes fewer than 3 args
  * as well.

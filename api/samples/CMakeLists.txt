@@ -51,6 +51,11 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 project(DynamoRIO_samples)
 
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
+  # XXX i#1557: update our code to satisfy the changes in 3.x
+  cmake_policy(SET CMP0026 OLD)
+endif ()
 
 set(output_dir "${PROJECT_BINARY_DIR}/bin")
 # For a DR build dir, ensure rpath to DR lib matches install dir: # NON-PUBLIC

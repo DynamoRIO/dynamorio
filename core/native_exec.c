@@ -44,9 +44,9 @@
 #include "../globals.h"
 #include "../vmareas.h"
 #include "../module_shared.h"
-#include "../instrlist.h"
 #include "arch_exports.h"
 #include "instr.h"
+#include "instrlist.h"
 #include "decode_fast.h"
 #include "monitor.h"
 
@@ -183,7 +183,7 @@ native_exec_module_unload(module_area_t *ma)
 
 /* Clean call called on every fcache to native transition.  Turns on and off
  * asynch handling and updates some state.  Called from native bbs built by
- * build_native_exec_bb() in x86/interp.c.
+ * build_native_exec_bb() in arch/interp.c.
  *
  * N.B.: all the actions of this routine are mirrored in insert_enter_native(),
  * so any changes here should be mirrored there.
@@ -341,7 +341,7 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     });
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 

@@ -932,13 +932,13 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     hardware_perfctr_exit();
 #endif
 #ifdef DEBUG
-#  ifdef INTERNAL
+# if defined(INTERNAL) && defined(X86)
     print_optimization_stats();
-#  endif
+# endif /* INTERNAL && X86 */
     DOLOG(1, LOG_STATS, {
         dump_global_stats(false);
     });
-#endif
+#endif /* DEBUG */
 
     if (SELF_PROTECT_ON_CXT_SWITCH) {
         DELETE_LOCK(protect_info->lock);
@@ -1444,11 +1444,15 @@ create_new_dynamo_context(bool initial, byte *dstack_in)
          global_heap_alloc(alloc HEAPACCT(ACCT_OTHER)));
     dcontext = (dcontext_t*) proc_bump_to_end_of_cache_line((ptr_uint_t)alloc_start);
     ASSERT(proc_is_cache_aligned(dcontext));
+#ifdef X86
     /* 264138: ensure xmm/ymm slots are aligned so we can use vmovdqa */
     ASSERT(ALIGNED(get_mcontext(dcontext)->ymm, YMM_REG_SIZE));
     /* also ensure we don't have extra padding beyond x86.asm defines */
     ASSERT(sizeof(priv_mcontext_t) == IF_X64_ELSE(18,10)*sizeof(reg_t) +
            PRE_XMM_PADDING + XMM_SLOTS_SIZE);
+#elif defined(ARM)
+    /* FIXME i#1551: add arm alignment check if any */
+#endif /* X86/ARM */
 
     /* Put here all one-time dcontext field initialization
      * Make sure to update create_callback_dcontext to shared
@@ -1545,9 +1549,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
     dcontext->native_exec_postsyscall = NULL;
     memset(dcontext->native_retstack, 0, sizeof(dcontext->native_retstack));
     dcontext->native_retstack_cur = 0;
-#ifdef X64
-    dcontext->x86_mode = false;
-#endif
+    dcontext->isa_mode = DEFAULT_ISA_MODE;
     dcontext->sys_num = 0;
 #ifdef WINDOWS
 #ifdef CLIENT_INTERFACE
@@ -1643,9 +1645,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     /* now that we have clean stack usage we can share a single stack */
     ASSERT(old_dcontext->dstack != NULL);
     new_dcontext->dstack = old_dcontext->dstack;
-#ifdef X64
-    new_dcontext->x86_mode = old_dcontext->x86_mode;
-#endif
+    new_dcontext->isa_mode = old_dcontext->isa_mode;
     new_dcontext->link_field = old_dcontext->link_field;
     new_dcontext->monitor_field = old_dcontext->monitor_field;
     new_dcontext->fcache_field = old_dcontext->fcache_field;

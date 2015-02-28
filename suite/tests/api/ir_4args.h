@@ -312,3 +312,8 @@ OPCODE(vpblendd, vpblendd, vpblendd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_
        IMMARG(OPSZ_1))
 OPCODE(vpblendd_256, vpblendd, vpblendd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32),
        IMMARG(OPSZ_1))
+
+/****************************************************************************/
+/* AVX2 */
+OPCODE(vperm2i128, vperm2i128, vperm2i128, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32),
+       IMMARG(OPSZ_1))

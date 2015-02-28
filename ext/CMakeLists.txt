@@ -33,12 +33,7 @@
 
 cmake_minimum_required(VERSION 2.6)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.11" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.11")
-  # XXX i#1418: update to cmake 2.8.12's better handling of interface imports
-  cmake_policy(SET CMP0020 OLD)
-endif ()
-
+include(../make/policies.cmake NO_POLICY_SCOPE)
 
 set(DynamoRIO_INTERNAL ON) # do not import dynamorio lib target
 set(DynamoRIO_DIR ${PROJECT_BINARY_DIR}/cmake)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -513,7 +513,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
 +         /* Since it doesn't matter where we insert, look for a place
 +          * where the eflags are dead. */
-+         uint flags = instr_get_arith_flags(instr);
++         uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
 +         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
 +             where = instr;
 +             eflags_saved = false;
@@ -697,7 +697,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         /* Since it doesn't matter where we insert, look for a place
          * where the eflags are dead. */
-        uint flags = instr_get_arith_flags(instr);
+        uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
             where = instr;
             eflags_saved = false;
@@ -884,7 +884,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         /* Since it doesn't matter where we insert, look for a place
          * where the eflags are dead. */
-        uint flags = instr_get_arith_flags(instr);
+        uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
             where = instr;
             eflags_saved = false;
@@ -1087,7 +1087,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         /* Since it doesn't matter where we insert, look for a place
          * where the eflags are dead. */
-        uint flags = instr_get_arith_flags(instr);
+        uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
             where = instr;
             eflags_saved = false;
