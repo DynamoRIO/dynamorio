@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -158,9 +158,16 @@ Further non-compatibility-affecting changes include:
 
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
- - Added INSTR_CREATE_debug_instr(), INSTR_CREATE_load(),
-   INSTR_CREATE_store(), INSTR_CREATE_mov(), INSTR_CREATE_load_mm(),
-   INSTR_CREATE_store_mm(), and INSTR_CREATE_jmp_ind_mem().
+ - Added cross-platform instruction creation macros
+   XINST_CREATE_debug_instr(), XINST_CREATE_load(), XINST_CREATE_store(),
+   XINST_CREATE_move(), XINST_CREATE_load_simd(), XINST_CREATE_store_simd(),
+   XINST_CREATE_jump_mem(), XINST_CREATE_load_int(),
+   XINST_CREATE_jump(), XINST_CREATE_jump_short(),
+   XINST_CREATE_call(), XINST_CREATE_return(),
+   XINST_CREATE_add(), XINST_CREATE_add_2src(), XINST_CREATE_add_s(),
+   XINST_CREATE_sub(), XINST_CREATE_sub_s(),
+   XINST_CREATE_and_s(), XINST_CREATE_cmp(),
+   XINST_CREATE_interrupt(), and XINST_CREATE_nop().
  - Added instr_is_predicated(), instr_get_predicate(), and
    instr_set_predicate().
  - Added instr_predicate_triggered().
@@ -169,6 +176,18 @@ Further non-compatibility-affecting changes include:
  - Added opnd_create_reg_ex() and opnd_get_flags().
  - Added opnd_create_base_disp_arm().
  - Added reg_is_simd().
+ - Added instr_create_0dst_4src(), instr_create_1dst_4src(),
+   instr_create_2dst_5src(), instr_create_Ndst_Msrc_vardst(),
+   and instr_create_Ndst_Msrc_varsrc().
+ - Added OPND_CREATE_MEMLIST().
+ - Added dr_get_stolen_reg(), dr_insert_get_stolen_reg_value(),
+   and reg_is_stolen().
+ - Added opnd_create_immed_uint().
+ - Added instr_remove_srcs() and instr_remove_dsts().
+ - Added cross-platform #EFLAGS_READ_ARITH and #EFLAGS_WRITE_ARITH.
+ - Added instr_invert_predicate() and instr_predicate_name().
+ - Added instr_it_block_get_count(), instr_it_block_get_pred(), and
+   instr_it_block_create() for manipulating IT block instructions on ARM.
 
 **************************************************
 <hr>

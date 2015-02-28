@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -98,11 +98,22 @@ macro(configure_extension target)
   install_exported_target(${target} ${INSTALL_EXT_LIB})
 endmacro(configure_extension)
 
-file(GLOB dirs "*/CMakeLists.txt")
-foreach (dir ${dirs})
-  get_filename_component(dir ${dir} PATH)
-  add_subdirectory(${dir})
-endforeach (dir)
+macro(install_ext_header header)
+  DR_install(FILES ${header} DESTINATION ${INSTALL_EXT_INCLUDE})
+  # We also need a copy in the build dir for our --build-and-test (i#1586)
+  configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${header} COPY_ONLY)
+endmacro()
+
+add_subdirectory(drcontainers)
+add_subdirectory(drgui)
+add_subdirectory(drmgr)
+add_subdirectory(drx)
+# FIXME i#1551: port all extension libraries to ARM
+if (NOT ARM)
+  add_subdirectory(drsyms)
+  add_subdirectory(drutil)
+  add_subdirectory(drwrap)
+endif (NOT ARM)
 
 # documentation is put into main DR docs/ dir
 

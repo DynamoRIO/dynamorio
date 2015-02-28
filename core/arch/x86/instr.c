@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -347,8 +347,9 @@ instr_is_mov(instr_t *instr)
 }
 
 bool
-opcode_is_call(int opc)
+instr_is_call_arch(instr_t *instr)
 {
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return (opc == OP_call ||
             opc == OP_call_far ||
             opc == OP_call_ind ||
@@ -386,23 +387,18 @@ instr_is_return(instr_t *instr)
 /*** WARNING!  The following rely on ordering of opcodes! ***/
 
 bool
-opcode_is_cbr(int opc)
+instr_is_cbr_arch(instr_t *instr)      /* conditional branch */
 {
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return ((opc >= OP_jo && opc <= OP_jnle) ||
             (opc >= OP_jo_short && opc <= OP_jnle_short) ||
             (opc >= OP_loopne && opc <= OP_jecxz));
 }
 
 bool
-instr_is_cbr(instr_t *instr)      /* conditional branch */
+instr_is_mbr_arch(instr_t *instr)      /* multi-way branch */
 {
-    int opc = instr_get_opcode(instr);
-    return opcode_is_cbr(opc);
-}
-
-bool
-opcode_is_mbr(int opc)
-{
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return (opc == OP_jmp_ind ||
             opc == OP_call_ind ||
             opc == OP_ret ||
@@ -432,18 +428,12 @@ instr_is_far_abs_cti(instr_t *instr)
 }
 
 bool
-opcode_is_ubr(int opc)
+instr_is_ubr_arch(instr_t *instr)      /* unconditional branch */
 {
+    int opc = instr->opcode; /* caller ensures opcode is valid */
     return (opc == OP_jmp ||
             opc == OP_jmp_short ||
             opc == OP_jmp_far);
-}
-
-bool
-instr_is_ubr(instr_t *instr)      /* unconditional branch */
-{
-    int opc = instr_get_opcode(instr);
-    return opcode_is_ubr(opc);
 }
 
 bool
@@ -1090,33 +1080,6 @@ instr_invert_cbr(instr_t *instr)
         }
     } else
         CLIENT_ASSERT(false, "instr_invert_cbr: unknown opcode");
-}
-
-DR_API
-/**
- * PR 266292:
- * Assumes that instr is a meta instruction (instr_is_meta())
- * and an instr_is_cti_short() (8-bit reach).  Converts instr's opcode
- * to a long form (32-bit reach).  If instr's opcode is OP_loop* or
- * OP_jecxz, converts it to a sequence of multiple instructions (which
- * is different from instr_is_cti_short_rewrite()).  Each added instruction
- * is marked instr_is_meta().
- * Returns the long form of the instruction, which is identical to \p instr
- * unless \p instr is OP_loop* or OP_jecxz, in which case the return value
- * is the final instruction in the sequence, the long jump to the taken target.
- * \note DR automatically converts non-meta short ctis to long form.
- */
-instr_t *
-instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
-                                     instr_t *instr)
-{
-    CLIENT_ASSERT(instr_is_meta(instr),
-                  "instr_convert_short_meta_jmp_to_long: instr is not meta");
-    CLIENT_ASSERT(instr_is_cti_short(instr),
-                  "instr_convert_short_meta_jmp_to_long: instr is not a short cti");
-    if (instr_is_app(instr) || !instr_is_cti_short(instr))
-        return instr;
-    return convert_to_near_rel_meta(dcontext, ilist, instr);
 }
 
 /* Given a machine state, returns whether or not the cbr instr would be taken

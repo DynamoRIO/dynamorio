@@ -49,6 +49,9 @@
 #      include("${PATH_TO_DR_EXPORTS}/cmake/runsuite_common_post.cmake")
 #    Also define build_source_package to build the package_source
 #    CPack target (only for non-Visual Studio generators).
+#
+# extra_ctest_args can also be defined to pass extra args to ctest_test(),
+# such as INCLUDE_LABEL.
 
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
@@ -189,7 +192,7 @@ if (arg_nightly)
   # We assume a manual check out was done, and that CTest can just do "update".
   # If we want a fresh checkout we can set CTEST_BACKUP_AND_RESTORE
   # and CTEST_CHECKOUT_COMMAND but the update should be fine.
-  find_program(CTEST_UPDATE_COMMAND svn DOC "source code update command")
+  find_program(CTEST_UPDATE_COMMAND git DOC "source code update command")
 
   set(SUITE_TYPE Nightly)
   set(DO_UPDATE ON)
@@ -585,6 +588,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
         endif ("${cmake_ver_string}" VERSION_LESS "2.6.3")
       endif (NOT "${arg_exclude}" STREQUAL "")
+      set(ctest_test_args ${ctest_test_args} ${extra_ctest_args})
       if ("${cmake_ver_string}" VERSION_LESS "2.8.")
         # Parallel tests not supported
         set(RUN_PARALLEL OFF)
@@ -601,9 +605,9 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         # Note that adding -j to CMAKE_COMMAND does not work, though invoking
         # this script with -j does work, but we want parallel by default.
         ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}"
-          PARALLEL_LEVEL ${PROCESSOR_COUNT})
+          PARALLEL_LEVEL ${PROCESSOR_COUNT} ${ctest_test_args})
       else (RUN_PARALLEL)
-        ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}")
+        ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" ${ctest_test_args})
       endif (RUN_PARALLEL)
     endif (NOT test_only_in_long OR ${TEST_LONG})
   endif (build_success EQUAL 0 AND run_tests)

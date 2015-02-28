@@ -92,8 +92,21 @@ void global_test(void)
 
 #ifdef X64
 # define PREFERRED_ADDR (char *)0x1000000000
+#endif
+
+/* Defines the size and alignment of the probe allocation in tests that must probe for
+ * a free address (such that their allocation at a preferred address does not fail with
+ * a collision). Windows allocations will always be aligned to 64k, so the preferred
+ * address must likewise be 64k-aligned--otherwise the resulting allocation will not
+ * exactly match the preferred address, causing the test to inadvertently fail. Linux
+ * allocations need only be aligned to a page, so better to test unaligned.
+ */
+#ifdef WINDOWS
+# define HINT_ALLOC_SIZE 0x20000
+# define HINT_OFFSET 0x10000
 #else
-# define PREFERRED_ADDR (char *)0x2000000
+# define HINT_ALLOC_SIZE (PAGE_SIZE * 2)
+# define HINT_OFFSET PAGE_SIZE
 #endif
 
 #ifdef X64
@@ -106,8 +119,8 @@ test_instr_as_immed(void)
     instr_t *ins0, *ins1, *ins2;
     opnd_t opnd;
     byte *highmem = PREFERRED_ADDR;
-    pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|
-                               DR_MEMPROT_EXEC, highmem);
+    pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC,
+                          highmem);
     ASSERT(pc == highmem);
 
     /* Test push_imm of instr */
@@ -156,8 +169,8 @@ reachability_test(void)
     byte *pc;
     int res;
     byte *highmem = PREFERRED_ADDR;
-    pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|
-                               DR_MEMPROT_EXEC, highmem);
+    pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC,
+                          highmem);
     ASSERT(pc == highmem);
 
     dr_fprintf(STDERR, "  reachability test...");
@@ -242,10 +255,22 @@ static
 void raw_alloc_test(void)
 {
     uint prot;
-    char *array = PREFERRED_ADDR;
+    char *array, *preferred;
     dr_mem_info_t info;
     bool res;
     dr_fprintf(STDERR, "  testing raw memory alloc...");
+
+    /* Find a free region of memory without inadvertently "preloading" it.
+     * First probe by allocating 2x the platform allocation alignment unit.
+     */
+    array = dr_raw_mem_alloc(HINT_ALLOC_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    /* Then select the second half as the preferred address for the allocation test. */
+    preferred = (void *)((ptr_uint_t)array + HINT_OFFSET);
+    /* Free the probe allocation. */
+    dr_raw_mem_free(array, HINT_ALLOC_SIZE);
+    array = preferred;
+
+    /* Now `array` is guaranteed to be available. */
     res = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE,
                            array) != NULL;
     if (!res) {
@@ -299,7 +324,7 @@ static
 void custom_test(void)
 {
     void *drcontext = dr_get_current_drcontext();
-    void *array;
+    void *array, *preferred;
     size_t size;
     uint prot;
 
@@ -333,9 +358,20 @@ void custom_test(void)
     write_array(array);
     dr_custom_free(NULL, DR_ALLOC_NON_HEAP, array, PAGE_SIZE);
 
+    /* Find a free region of memory without inadvertently "preloading" it.
+     * First probe by allocating 2x the platform allocation alignment unit.
+     */
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, HINT_ALLOC_SIZE,
+                            DR_MEMPROT_READ|DR_MEMPROT_WRITE, NULL);
+    /* Then select the second half as the preferred address for the allocation test. */
+    preferred = (void *)((ptr_uint_t)array + HINT_OFFSET);
+    /* Free the probe allocation. */
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, array, HINT_ALLOC_SIZE);
+
+    /* Now `preferred` is guaranteed to be available. */
     array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_FIXED_LOCATION, PAGE_SIZE,
-                            DR_MEMPROT_READ|DR_MEMPROT_WRITE, PREFERRED_ADDR);
-    ASSERT(array == (void *)PREFERRED_ADDR);
+                            DR_MEMPROT_READ|DR_MEMPROT_WRITE, preferred);
+    ASSERT(array == preferred);
     write_array(array);
     dr_custom_free(NULL, DR_ALLOC_NON_HEAP|DR_ALLOC_FIXED_LOCATION, array, PAGE_SIZE);
 

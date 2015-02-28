@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -290,8 +290,10 @@
 #  endif
 #endif /* DEBUG */
 #ifdef KSTATS
-     /* turn on kstats by default for debug builds */
-    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(true), "enable path timing statistics")
+    /* turn on kstats by default for debug builds */
+    /* For ARM we have no cheap tsc so we disable by default (i#1581) */
+    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(IF_ARM_ELSE(false, true)),
+                   "enable path timing statistics")
 #endif
 
 #ifdef DEADLOCK_AVOIDANCE
@@ -340,7 +342,9 @@
      * regular loader list
      */
     /* XXX i#1285: MacOS private loader is NYI */
-    OPTION_DEFAULT_INTERNAL(bool, private_loader, IF_MACOS_ELSE(false, true),
+    /* FIXME i#1551: ARM Linux private loader is NYI */
+    OPTION_DEFAULT_INTERNAL(bool, private_loader,
+                            IF_MACOS_ELSE(false, IF_ARM_ELSE(false, true)),
                             "use private loader for clients and dependents")
 # ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
@@ -519,22 +523,27 @@
      * All the optimizations assume that clean callee will not be changed
      * later.
      */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
+    /* FIXME i#1551: NYI on ARM */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_ARM_ELSE(0, 2),
                             "optimization level on optimizing clean call sequences")
     /* Assuming the client's clean call does not rely on the cleared eflags,
      * i.e., initialize the eflags before using it, we can skip the eflags
      * clear code.
      * Note: we still clear DF for string instructions.
+     * Note: this option is ignored for ARM.
      */
     OPTION_DEFAULT(bool, cleancall_ignore_eflags, true,
                    "skip eflags clear code with assumption that clean call does not rely on cleared eflags")
+#ifdef X86
     /* i#107: To handle app using same segment register that DR uses, we should
      * mangle the app's segment usage.
      * It cannot be used with DGC_DIAGNOSTICS.
      */
-    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, IF_WINDOWS_ELSE(false, true),
+    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
+                            /* On ARM, we do not steal TLS, so no mangling. */
+                            IF_X86_ELSE(IF_WINDOWS_ELSE(false, true), false),
                             "mangle application's segment usage.")
-
+#endif /* X86 */
 #ifdef X64
     OPTION_COMMAND(bool, x86_to_x64, false, "x86_to_x64", {
         /* i#1494: to avoid decode_fragment messing up the 32-bit/64-bit mode,
@@ -548,6 +557,12 @@
      }, "translate x86 code to x64 when on a 64-bit kernel.", STATIC, OP_PCACHE_GLOBAL)
     OPTION_DEFAULT(bool, x86_to_x64_ibl_opt, false,
                    "Optimize ibl code with extra 64-bit registers in x86_to_x64 mode.")
+#endif
+
+#ifdef ARM
+    /* we only allow register between r8 and r12(A32)/r29(A64) to be used */
+    OPTION_DEFAULT_INTERNAL(uint, steal_reg, IF_X64_ELSE(28/*r28*/, 10/*r10*/),
+                            "the register stolen/used by DynamoRIO")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -654,7 +669,7 @@
 
     /* For MacOS, set to 0 to disable the check */
     OPTION_DEFAULT(uint, max_supported_os_version,
-        IF_WINDOWS_ELSE(63, IF_MACOS_ELSE(13, 0)),
+        IF_WINDOWS_ELSE(63, IF_MACOS_ELSE(14, 0)),
         /* case 447, defaults to supporting NT, 2000, XP, 2003, and Vista.
          * Windows 7 added with i#218
          * Windows 8 added with i#565
@@ -726,12 +741,14 @@
      * turn them on.
      * We mark as pcache-affecting though we have other explicit checks
      */
-    OPTION_COMMAND(bool, disable_traces, false, "disable_traces", {
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_COMMAND(bool, disable_traces, IF_ARM_ELSE(true, false), "disable_traces", {
         if (options->disable_traces) { /* else leave alone */
             DISABLE_TRACES(options);
         }
      }, "disable trace creation (block fragments only)", STATIC, OP_PCACHE_GLOBAL)
-    OPTION_COMMAND(bool, enable_traces, true, "enable_traces", {
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_COMMAND(bool, enable_traces, IF_ARM_ELSE(false, true), "enable_traces", {
         if (options->enable_traces) { /* else leave alone */
             REENABLE_TRACES(options);
         }
@@ -767,10 +784,11 @@
      * off -shared_traces to avoid tripping over un-initialized ibl tables
      * PR 361894: if no TLS available, we fall back to thread-private
      */
-    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(true, false),
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
                    "shared_traces", {
         /* for -no_shared_traces, set options back to defaults for private traces: */
-        IF_NOT_X64(options->private_ib_in_tls = options->shared_traces;)
+        IF_NOT_X64_OR_ARM(options->private_ib_in_tls = options->shared_traces;)
         options->atomic_inlined_linking = options->shared_traces;
         options->shared_trace_ibl_routine = options->shared_traces;
         /* private on by default, shared off until proven stable FIXME */
@@ -792,7 +810,7 @@
         options->finite_trace_cache = !options->thread_private;
         if (options->thread_private && options->indirect_stubs)
             options->coarse_units = true;
-        IF_NOT_X64(options->private_ib_in_tls = !options->thread_private;)
+        IF_NOT_X64_OR_ARM(options->private_ib_in_tls = !options->thread_private;)
         options->atomic_inlined_linking = !options->thread_private;
         options->shared_trace_ibl_routine = !options->thread_private;
         /* we prefer -no_indirect_stubs to inlining, though should actually
@@ -831,13 +849,15 @@
     OPTION_INTERNAL(bool, single_thread_in_DR, "only one thread in DR at a time")
      /* deprecated: we have finer-grained synch that works now */
 
-    OPTION_DEFAULT(bool, separate_private_stubs, true,
+    /* Due to ARM reachability complexities we only support local stubs */
+    OPTION_DEFAULT(bool, separate_private_stubs, IF_X86_ELSE(true, false),
         "place private direct exit stubs in a separate area from the code cache")
 
-    OPTION_DEFAULT(bool, separate_shared_stubs, true,
+    /* Due to ARM reachability complexities we only support local stubs */
+    OPTION_DEFAULT(bool, separate_shared_stubs, IF_X86_ELSE(true, false),
         "place shared direct exit stubs in a separate area from the code cache")
 
-    OPTION_DEFAULT(bool, free_private_stubs, true,
+    OPTION_DEFAULT(bool, free_private_stubs, IF_X86_ELSE(true, false),
         "free separated private direct exit stubs when not pointed at")
 
     /* FIXME Freeing shared stubs is currently an unsafe option due to a lack of
@@ -852,7 +872,11 @@
      * Core2, and on IIS on P4.  Note that this gets disabled if
      * coarse_units is on (PR 213262 covers supporting it there).
      */
-    OPTION_COMMAND(bool, indirect_stubs, false, "indirect_stubs", {
+    /* For ARM, reachability concerns make it difficult to avoid a stub unless we
+     * use "ldr pc, [r10+offs]" as an exit cti, which complicates the code that handles
+     * exit ctis and doesn't work for A64.
+     */
+    OPTION_COMMAND(bool, indirect_stubs, IF_ARM_ELSE(true, false), "indirect_stubs", {
         /* we put inlining back in place if we have stubs, for private,
          * though should re-measure whether inlining is worthwhile */
         if (options->thread_private && options->indirect_stubs) {
@@ -890,7 +914,8 @@
     OPTION_DEFAULT(bool, ibl_table_in_tls, IF_HAVE_TLS_ELSE(true, false),
         "use TLS to hold IBL table addresses & masks")
 
-    OPTION_DEFAULT(bool, bb_ibl_targets, false, "enable BB to BB IBL")
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_DEFAULT(bool, bb_ibl_targets, IF_ARM_ELSE(true, false), "enable BB to BB IBL")
 
      /* IBL code cannot target both single restore prefix and full prefix frags
       * simultaneously since the restore of %eax in the former case means that the
@@ -920,7 +945,7 @@
             options->shared_traces = false;
             /* undo things that the default-on shared_traces turns on */
             IF_NOT_X64(IF_WINDOWS(options->shared_fragment_shared_syscalls = false;))
-            IF_NOT_X64(options->private_ib_in_tls = false;)
+            IF_NOT_X64_OR_ARM(options->private_ib_in_tls = false;)
             options->shared_trace_ibl_routine = false;
             /* will work w/ wset but let's not clutter creation count stats */
             options->finite_bb_cache = false;
@@ -940,7 +965,9 @@
     /* control sharing of indirect branch lookup routines */
     /* Default TRUE as it's needed for shared_traces (which is on by default) */
     /* PR 361894: if no TLS available, we fall back to thread-private */
-    OPTION_DEFAULT(bool, shared_trace_ibl_routine, IF_HAVE_TLS_ELSE(true, false),
+    /* FIXME i#1551: enable traces on ARM once we have them working */
+    OPTION_DEFAULT(bool, shared_trace_ibl_routine,
+                   IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
                    "share ibl routine for traces")
     OPTION_DEFAULT(bool, speculate_last_exit, false,
         "enable speculative linking of trace last IB exit")
@@ -2125,7 +2152,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
       * modules loaded by natively-executed modules
       * these don't affect pcaches since the trampoline bbs won't be coarse-grain.
       */
-    OPTION_DEFAULT(bool, native_exec, true, "attempt to execute certain libraries natively (WARNING: lots of issues with this, use at own risk)")
+    /* XXX i#1582: add ARM support for native_exec */
+    OPTION_DEFAULT(bool, native_exec, IF_ARM_ELSE(false, true),
+                   "attempt to execute certain libraries natively (WARNING: lots of issues with this, use at own risk)")
      /* initially populated w/ all dlls we've needed to get .NET, MS JVM, Sun JVM,
       * Symantec JVM, and Panda AV working, but with very limited workload testing so far
       */
@@ -2596,7 +2625,8 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 #if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     OPTION_DEFAULT(bool, pad_jmps, false, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #else
-    OPTION_DEFAULT(bool, pad_jmps, true, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
+    /* No need to pad on ARM with fixed-width instructions */
+    OPTION_DEFAULT(bool, pad_jmps, IF_X86_ELSE(true, false), "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #endif
     /* FIXME PR 215179 on getting rid of this tracing restriction. */
 #if defined(UNIX)

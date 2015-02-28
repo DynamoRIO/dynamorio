@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1228,6 +1228,11 @@ check_option_compatibility_helper(int recurse_count)
     }
 #ifdef EXPOSE_INTERNAL_OPTIONS
     if (!DYNAMO_OPTION(indirect_stubs)) {
+# ifdef ARM
+        USAGE_ERROR("ARM requires -indirect_stubs, enabling");
+        dynamo_options.indirect_stubs = true;
+        changed_options = true;
+# endif
 # ifdef PROGRAM_SHEPHERDING
         if (DYNAMO_OPTION(ret_after_call) ||
             DYNAMO_OPTION(rct_ind_call) != OPTION_DISABLED ||
@@ -1266,6 +1271,13 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.cache_shared_free_list = true;
         changed_options = true;
     }
+#if defined(X64) || defined(ARM)
+    if (!DYNAMO_OPTION(private_ib_in_tls)) {
+        USAGE_ERROR("-private_ib_in_tls is required for x64 and ARM");
+        dynamo_options.private_ib_in_tls = true;
+        changed_options = true;
+    }
+#endif
 #ifdef WINDOWS
     if (DYNAMO_OPTION(shared_fragment_shared_syscalls) &&
         !DYNAMO_OPTION(shared_syscalls)) {
@@ -1278,11 +1290,6 @@ check_option_compatibility_helper(int recurse_count)
         /* we use tls for the continuation pc, and the shared gencode, always */
         USAGE_ERROR("-shared_fragment_shared_syscalls is required for x64");
         dynamo_options.shared_fragment_shared_syscalls = true;
-        changed_options = true;
-    }
-    if (!DYNAMO_OPTION(private_ib_in_tls)) {
-        USAGE_ERROR("-private_ib_in_tls is required for x64");
-        dynamo_options.private_ib_in_tls = true;
         changed_options = true;
     }
     if (DYNAMO_OPTION(x86_to_x64_ibl_opt) && !DYNAMO_OPTION(x86_to_x64)) {
@@ -1865,11 +1872,13 @@ check_option_compatibility_helper(int recurse_count)
 
 #if defined(UNIX) && defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(private_loader)) {
+# ifdef X86
         if (!INTERNAL_OPTION(mangle_app_seg)) {
             USAGE_ERROR("-private_loader requires -mangle_app_seg");
             dynamo_options.mangle_app_seg = true;
             changed_options = true;
         }
+# endif
         if (INTERNAL_OPTION(client_lib_tls_size) < 1) {
             USAGE_ERROR("client_lib_tls_size is too small, set back to default");
             dynamo_options.client_lib_tls_size = 1;
@@ -1925,6 +1934,15 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
+#ifdef ARM
+    if (DYNAMO_OPTION(steal_reg) < 8 /* DR_REG_STOLEN_MIN */||
+        DYNAMO_OPTION(steal_reg) > IF_X64_ELSE(29, 12) /* DR_REG_STOLEN_MAX */) {
+        USAGE_ERROR("-steal_reg only supports register between r8 and r12(A32)/r29(A64)");
+        dynamo_options.steal_reg = IF_X64_ELSE(28/*r28*/, 10/*r10*/);
+        changed_options = true;
+    }
+#endif
+
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */
     /* case 7626: don't short-circuit checks, as later ones may be needed */
@@ -1938,7 +1956,8 @@ check_option_compatibility_helper(int recurse_count)
     if (changed_options) {
         if (recurse_count > 5) {
             /* prevent infinite loop, should never recurse this many times */
-            FATAL_USAGE_ERROR(OPTION_VERIFICATION_RECURSION, 2, get_application_name(), get_application_pid());
+            FATAL_USAGE_ERROR(OPTION_VERIFICATION_RECURSION, 2,
+                              get_application_name(), get_application_pid());
         } else {
             check_option_compatibility_helper(recurse_count+1);
         }

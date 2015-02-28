@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -196,6 +196,11 @@ const char *options_list_str =
     "                          by \"--\" or if -c or -t is specified, the -ops may be\n"
     "                          omitted and DR options listed prior to \"--\", -c,\n"
     "                          and -t, without quotes.\n"
+    "\n"
+    "        -t <toolname>      Registers a pre-configured tool to run alongside DR.\n"
+    "                           A tool is a client with a configuration file\n"
+    "                           that sets the client options and path, providing a\n"
+    "                           convenient launching command via this -t parameter.\n"
     "\n"
     "        -c <path> <options>*\n"
     "                           Registers one client to run alongside DR.  Assigns\n"
@@ -822,6 +827,13 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
         } else if (strstr(line, "TOOL_OP_DR_BUNDLE=") == line) {
             add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
                              "%s `%s`", line + strlen("TOOL_OP_DR_BUNDLE="), ops);
+# else
+        } else if (strstr(line, "FRONTEND_ABS=") == line ||
+                   strstr(line, "FRONTEND_REL=") == line ||
+                   strstr(line, "TOOL_OP_DR_PATH") == line ||
+                   strstr(line, "TOOL_OP_DR_BUNDLE=") == line) {
+            usage(false, "this tool's config only works with drrun, not drconfig");
+            return false;
 # endif
         } else if (strstr(line, "USER_NOTICE=") == line) {
             warn("%s", line + strlen("USER_NOTICE="));

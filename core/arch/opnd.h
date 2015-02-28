@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -336,6 +336,8 @@ enum {
     DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
     DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
     DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
+    /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
+    DR_REG_APSR = DR_REG_CPSR,
 
     /* AArch64 Thread Registers */
     /** Thread Pointer/ID Register, EL0. */
@@ -348,17 +350,19 @@ enum {
 
     DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
 
-    DR_REG_LAST_VALID_ENUM = DR_REG_SPSR, /**< Last valid register enum */
-    DR_REG_LAST_ENUM = DR_REG_SPSR, /**< Last value of register enums */
+    DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_TPIDRURO, /**< Last value of register enums */
 
     DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
     DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
 # ifdef X64
     DR_REG_START_GPR = DR_REG_X0,  /**< Start of general register registers */
+    DR_REG_STOP_GPR  = DR_REG_X31, /**< End of general register registers */
     DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
 # else
     DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
+    DR_REG_STOP_GPR  = DR_REG_R15, /**< End of general register registers */
     DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
 # endif
@@ -685,10 +689,11 @@ extern const reg_id_t dr_reg_fixer[];
 
 /**
  * These flags describe how the index register in a memory reference is shifted
- * before being added to or subtracted from the base register.
+ * before being added to or subtracted from the base register.  They also describe
+ * how a general source register is shifted before being used in its containing
+ * instruction.
  */
 typedef enum _dr_shift_type_t {
-    DR_SHIFT_NONE, /**< No shift. */
     DR_SHIFT_LSL,  /**< Logical shift left. */
     DR_SHIFT_LSR,  /**< Logical shift right. */
     DR_SHIFT_ASR,  /**< Arithmetic shift right. */
@@ -699,8 +704,14 @@ typedef enum _dr_shift_type_t {
      * general source registers, if the instruction writes the condition codes,
      * bit 0 is then shifted into the carry flag: but for memory references bit
      * 0 is simply dropped.)
+     * Only valid for shifts whose amount is stored in an immediate, not a register.
      */
     DR_SHIFT_RRX,
+    /**
+     * No shift.
+     * Only valid for shifts whose amount is stored in an immediate, not a register.
+     */
+    DR_SHIFT_NONE,
 } dr_shift_type_t;
 
 /**
@@ -893,11 +904,19 @@ opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_opnd_flags_t flags);
 
 DR_API
 /**
- * Returns an immediate integer operand with value \p i and size
+ * Returns a signed immediate integer operand with value \p i and size
  * \p data_size; \p data_size must be a OPSZ_ constant.
  */
 opnd_t
 opnd_create_immed_int(ptr_int_t i, opnd_size_t data_size);
+
+DR_API
+/**
+ * Returns an unsigned immediate integer operand with value \p i and size
+ * \p data_size; \p data_size must be a OPSZ_ constant.
+ */
+opnd_t
+opnd_create_immed_uint(ptr_uint_t i, opnd_size_t data_size);
 
 DR_API
 /**
@@ -1618,11 +1637,6 @@ opnd_get_reg_used(opnd_t opnd, int index);
 
 /* utility functions */
 
-#ifdef DEBUG
-void
-reg_check_reg_fixer(void);
-#endif
-
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
@@ -2074,6 +2088,19 @@ DR_API
 app_pc
 opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc);
 
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff \p reg is stolen by DynamoRIO for internal use.
+ *
+ * \note The register stolen by DynamoRIO may not be used by the client
+ * for instrumentation. Use dr_insert_get_stolen_reg() to get the
+ * application value of the stolen register in the instrumentation.
+ * Reference \ref sec_reg_stolen for more information.
+ */
+bool
+reg_is_stolen(reg_id_t reg);
+
 /* internal version */
 app_pc
 opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc);
@@ -2104,8 +2131,9 @@ opnd_t opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {
-#ifdef X64
-# ifdef UNIX
+#ifdef X86
+# ifdef X64
+#  ifdef UNIX
     /* SysV ABI calling convention */
     NUM_REGPARM          = 6,
     REGPARM_0            = REG_RDI,
@@ -2116,7 +2144,7 @@ enum {
     REGPARM_5            = REG_R9,
     REGPARM_MINSTACK     = 0,
     REDZONE_SIZE         = 128,
-# else
+#  else
     /* Intel/Microsoft calling convention */
     NUM_REGPARM          = 4,
     REGPARM_0            = REG_RCX,
@@ -2125,22 +2153,40 @@ enum {
     REGPARM_3            = REG_R9,
     REGPARM_MINSTACK     = 4*sizeof(XSP_SZ),
     REDZONE_SIZE         = 0,
-# endif
+#  endif
     /* In fact, for Windows the stack pointer is supposed to be
      * 16-byte aligned at all times except in a prologue or epilogue.
      * The prologue will always adjust by 16*n+8 since push of retaddr
      * always makes stack pointer not 16-byte aligned.
      */
     REGPARM_END_ALIGN    = 16,
-#else
+# else
     NUM_REGPARM          = 0,
     REGPARM_MINSTACK     = 0,
     REDZONE_SIZE         = 0,
-# ifdef MACOS
+#  ifdef MACOS
     REGPARM_END_ALIGN    = 16,
-# else
+#  else
     REGPARM_END_ALIGN    = sizeof(XSP_SZ),
-# endif
+#  endif
+# endif /* 64/32 */
+#elif defined(ARM)
+    REGPARM_0            = DR_REG_R0,
+    REGPARM_1            = DR_REG_R1,
+    REGPARM_2            = DR_REG_R2,
+    REGPARM_3            = DR_REG_R3,
+# ifdef X64
+    REGPARM_4            = DR_REG_R4,
+    REGPARM_5            = DR_REG_R5,
+    REGPARM_6            = DR_REG_R6,
+    REGPARM_7            = DR_REG_R7,
+    NUM_REGPARM          = 8,
+# else
+    NUM_REGPARM          = 4,
+# endif /* 64/32 */
+    REDZONE_SIZE         = 0,
+    REGPARM_MINSTACK     = 0,
+    REGPARM_END_ALIGN    = 8,
 #endif
 };
 extern const reg_id_t regparms[];
@@ -2148,5 +2194,11 @@ extern const reg_id_t regparms[];
 /* arch-specific */
 uint opnd_immed_float_arch(uint opcode);
 
+#ifdef ARM
+# define DR_REG_STOLEN_MIN  DR_REG_R8 /* no syscall regs */
+# define DR_REG_STOLEN_MAX  IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
+/* DR's stolen register for TLS access */
+extern reg_id_t dr_reg_stolen;
+#endif
 
 #endif /* _OPND_H_ */

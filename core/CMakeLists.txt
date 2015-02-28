@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -40,23 +40,53 @@ set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_per_config_ouput_to_match_single_config()
 
+# These custom commands are per-subdir so can't just place at top level
+include(../make/CMake_events.cmake)
+
+# i#801: For generated headers, we need to use add_dependencies to ensure that
+# they are generated before compiling the other sources.  Listing the header as
+# a source in the target isn't enough because it's really the source files
+# themselves that need the header.  We can't put this in CMake_events.cmake b/c
+# we end up w/ duplicate targets then.  Note that libutil/ uses these same
+# targets but core is always enabled.
+add_custom_target(generate_syslog DEPENDS "${SYSLOG_SRCS}")
+if (WIN32)
+  add_custom_target(generate_events DEPENDS "${EVENTS_SRCS}")
+endif (WIN32)
+function (add_gen_events_deps target)
+  add_dependencies(${target} generate_syslog)
+  if (WIN32)
+    add_dependencies(${target} generate_events)
+  endif ()
+endfunction (add_gen_events_deps)
+
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
-add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
-  "_core" "" "${asm_deps}")
-set(arch_core_asm_src ${arch_core_asm_src} ${shared_core_asm_src})
-set(arch_core_asm_tgt ${arch_core_asm_tgt} ${shared_core_asm_tgt})
-add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_noncore_asm_src arch_noncore_asm_tgt
-  "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
-add_asm_target(arch/asm_shared.asm shared_noncore_asm_src shared_noncore_asm_tgt
-  "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
-set(arch_noncore_asm_src ${arch_noncore_asm_src} ${shared_noncore_asm_src})
-set(arch_noncore_asm_tgt ${arch_noncore_asm_tgt} ${shared_noncore_asm_tgt})
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+
+# i#1409: to share core code with non-core, we use the "drhelper" library.
+# XXX: we're using _shared here, and for inject_shared, etc., to mean
+# "shared between multiple libraries", while we've also started using
+# _shared on opnd_shared.c, etc. to mean 'shared between architectures":
+# perhaps we should separate the naming schemes.
+add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
+  "_core" "" "${asm_deps}")
+add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}_shared.asm shared_arch_asm_src
+  shared_arch_asm_tgt
+  "" "" "${asm_deps}")
+add_library(drhelper STATIC ${shared_core_asm_src} ${shared_arch_asm_src}
+  lib/dr_helper.c)
+# CMake on Windows fails to link unless we tell it to use the C linker:
+set_target_properties(drhelper PROPERTIES LINKER_LANGUAGE C)
+add_gen_events_deps(drhelper)
+if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(drhelper ${shared_core_asm_tgt} ${shared_arch_asm_tgt})
+endif ()
 
 set(CORE_SRCS
   options.c
@@ -96,8 +126,32 @@ if (UNIX)
   # i#46: Private string routines for libc independence.  On Windows our
   # bootstrapping loader finds these imports in ntdll.  If that becomes
   # problematic, we can find a way to compile this on Windows.
-  set (CORE_SRCS ${CORE_SRCS} string.c)
+  set(CORE_SRCS ${CORE_SRCS} string.c)
 endif (UNIX)
+
+if (ARM)
+  # i#1566: there is no div instruction on most ARM arches including ARMv7a.
+  # We use software divide emulation from libgcc, which we can link here
+  # and remain BSD due to the GPL GCC Runtime Library Exception.
+  #
+  # The libgcc assembly file seems to need to be compiled separately for
+  # each target routine set, as we get duplicate labels in the shared
+  # macros otherwise.
+  # XXX: change the labels to be "local" labels (like "1:") and add 'b' and 'f'
+  # hints on the branches?  Or, better, figure out how glibc compiles the file.
+  macro (add_libgcc_routines name)
+    set(TODEFINE "L_${name}")
+    set(genfile ${CMAKE_CURRENT_BINARY_DIR}/libgcc_${name}.S)
+    configure_file(../third_party/libgcc/arm/lib1funcs.S ${genfile} @ONLY)
+    set(CORE_SRCS ${CORE_SRCS} ${genfile})
+  endmacro ()
+  add_libgcc_routines(udivsi3)
+  add_libgcc_routines(umodsi3)
+  add_libgcc_routines(divsi3)
+  add_libgcc_routines(modsi3)
+  include_directories(../third_party/libgcc/arm)
+  set(CORE_SRCS ${CORE_SRCS} ../third_party/libgcc/udivmoddi4.c)
+endif (ARM)
 
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc
@@ -134,7 +188,11 @@ else ()
   set(DECODER_SRCS ${DECODER_SRCS}
     arch/${ARCH_NAME}/table_a32_pred.c
     arch/${ARCH_NAME}/table_a32_unpred.c
-    arch/${ARCH_NAME}/table_a32_encode.c)
+    arch/${ARCH_NAME}/table_encode.c
+    arch/${ARCH_NAME}/table_t32_base.c
+    arch/${ARCH_NAME}/table_t32_coproc.c
+    arch/${ARCH_NAME}/table_t32_16.c
+    arch/${ARCH_NAME}/table_t32_16_it.c)
 endif ()
 
 set(ARCH_SRCS
@@ -143,8 +201,11 @@ set(ARCH_SRCS
   arch/${ARCH_NAME}/emit_utils.c
   ${DECODER_SRCS}
   arch/interp.c
-  arch/proc.c
-  arch/mangle.c
+  arch/proc_shared.c
+  arch/${ARCH_NAME}/proc.c
+  arch/mangle_shared.c
+  arch/${ARCH_NAME}/mangle.c
+  arch/${ARCH_NAME}/clean_call_opt.c
   arch/steal_reg.c
   arch/x86_code.c
   ${arch_core_asm_src}
@@ -157,33 +218,33 @@ if (X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
 endif (X64)
 
-# These custom commands are per-subdir so can't just place at top level
-include(../make/CMake_events.cmake)
-include(../make/ntdll_imports.cmake)
-
-# i#801: For generated headers, we need to use add_dependencies to ensure that
-# they are generated before compiling the other sources.  Listing the header as
-# a source in the target isn't enough because it's really the source files
-# themselves that need the header.  We can't put this in CMake_events.cmake b/c
-# we end up w/ duplicate targets then.  Note that libutil/ uses these same
-# targets but core is always enabled.
-add_custom_target(generate_syslog DEPENDS "${SYSLOG_SRCS}")
 if (WIN32)
-  add_custom_target(generate_events DEPENDS "${EVENTS_SRCS}")
+  # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.
+  # Because the Ki are stdcall we can't just use a .def file: we need
+  # an .obj file built from stubs w/ the same signatures (in addition to
+  # listing those stub routine (un-mangled) names in our .def file).
+  # i#938: We expand our .lib to include everything so we don't need DDK/WDK.
+  # XXX: we should make sure we don't rely on ntdll routines not in older systems!
+  if (X64)
+    set(ntimp_def "${PROJECT_SOURCE_DIR}/core/win32/ntdll_imports_x64.def")
+  else (X64)
+    set(ntimp_def "${PROJECT_SOURCE_DIR}/core/win32/ntdll_imports.def")
+  endif (X64)
+  # i#1588: we used to have a custom command to build this imports lib (and a
+  # custom target for VS parallel builds) but we need this exported for our other
+  # exported libs and we can't export custom targets, so we now use a first-class
+  # lib target.  CMake supports a .def file as a source and runs lib.exe for us.
+  # Although we no longer use the WDK/DDK ntdll.lib (i#938), we still use a
+  # separate name "ntdll_imports" to avoid conflicts in containing projects.
+  add_library(ntdll_imports SHARED win32/ntdll_imports.c ${ntimp_def})
+  # i#1137: ignore 'specified multiple times' linker warnings
+  append_property_string(TARGET ntdll_imports LINK_FLAGS "/ignore:4197")
+  get_target_property(ntimp_flags ntdll_imports LOCATION${location_suffix})
+  string(REPLACE ".dll" ".lib" ntimp_flags ${ntimp_flags})
+  DR_export_target(ntdll_imports)
+  # We need separate 32-bit and 64-bit versions so we put into lib dir
+  install_exported_target(ntdll_imports ${INSTALL_LIB_BASE})
 endif (WIN32)
-function (add_gen_events_deps target)
-  add_dependencies(${target} generate_syslog)
-  if (WIN32)
-    add_dependencies(${target} generate_events)
-  endif ()
-endfunction (add_gen_events_deps)
-
-# Just like i#801, we can't put custom targets in ntdll_imports.cmake
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for correct parallel builds we need a target to avoid
-  # duplicate and racy VS per-project rules
-  add_custom_target(ntimp_tgt DEPENDS "${ntimp_lib}")
-endif ()
 
 if (UNIX)
   set(OSNAME unix)
@@ -202,12 +263,10 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)
     set(OS_SRCS ${OS_SRCS} unix/module_elf.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
-    set(OS_SRCS ${OS_SRCS} unix/tls_linux.c)
+    set(OS_SRCS ${OS_SRCS} unix/tls_linux_${ARCH_NAME}.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux_${ARCH_NAME}.c)
-    if (X86)
-      set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
-    endif ()
+    set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
     # XXX i#1286: should be split into nudge_linux.c and nudge_macos.c
     set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
   elseif (APPLE)
@@ -234,7 +293,6 @@ if (UNIX)
     unix/preload.c
     config.c
     unix/os.c
-    ${arch_noncore_asm_src}
     # i#1334: private string routines for libc independence
     string.c
     io.c
@@ -245,7 +303,6 @@ if (UNIX)
     unix/os.c  # for file_t interface
     string.c
     io.c
-    ${arch_noncore_asm_src}  # for dynamorio_syscall
     )
   if (APPLE)
     set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_macho.c)
@@ -281,14 +338,12 @@ else (UNIX)
     win32/drwinapi/rpcrt4_redir.c
     win32/drwinapi/advapi32_redir.c
     win32/resources.rc
-    ${ntimp_dep}
    )
   set(PRELOAD_SRCS
     win32/pre_inject.c
     win32/ntdll.c
     win32/inject_shared.c
     win32/drmarker.c
-    ${arch_noncore_asm_src}
     ${preinject_asm_src}
     win32/module_shared.c
     win32/resources.rc
@@ -303,12 +358,10 @@ else (UNIX)
     win32/ntdll.c
     win32/inject_shared.c
     win32/module_shared.c
-    ${arch_noncore_asm_src}
     win32/resources.rc
     config.c
     win32/os.c
     io.c
-    ${ntimp_dep}
     )
 
   add_library(drearlyhelp1 SHARED
@@ -337,9 +390,14 @@ set_target_properties(dynamorio PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(dynamorio)
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for parallel build correctness we need a target dependence
-  add_dependencies(dynamorio ${arch_core_asm_tgt} ntimp_tgt)
+  # Since we're forced to use link-line flags instead of target_link_libraries
+  # for dynamorio, we have to add a real target dependence here for correct
+  # parallel builds w/ VS generators.
+  # We also need one for our asm custom commands.
+  add_dependencies(dynamorio ${arch_core_asm_tgt} ntdll_imports)
 endif ()
+
+target_link_libraries(dynamorio drhelper)
 
 if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
@@ -412,26 +470,23 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
 add_gen_events_deps(${PRELOAD_NAME})
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  add_dependencies(${PRELOAD_NAME} ${arch_noncore_asm_tgt} ${preinject_asm_tgt})
+  add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
+target_link_libraries(${PRELOAD_NAME} drhelper)
 
 # static decoding library
 add_library(drdecode
   ${DECODER_SRCS}
-  arch/mangle.c
+  arch/${ARCH_NAME}/mangle.c
   arch/decodelib.c
-  ${arch_noncore_asm_src}
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
 if (UNIX)
   append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
 endif (UNIX)
-if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for parallel build correctness we need a target dependence
-  add_dependencies(drdecode ${arch_noncore_asm_tgt})
-endif ()
 add_gen_events_deps(drdecode)
+target_link_libraries(drdecode drhelper)
 
 ###########################################################################
 # linux build customization
@@ -785,7 +840,7 @@ else (UNIX)
     # here to make sure things get linked in the right order to avoid duplicate
     # definitions.  See the case 4125 msvcrt comment above about why we need a C
     # library.
-    target_link_libraries(dynamorio ${WIN32_C_LIB} ${ntimp_lib})
+    target_link_libraries(dynamorio ${WIN32_C_LIB} ntdll_imports)
   endif ()
 
 
@@ -797,7 +852,7 @@ else (UNIX)
     "${LD_FLAGS} /dll /incremental:no /base:0x14000000 /NODEFAULTLIB ${NOLIBC_DLL_ENTRY}")
   set_target_properties(${PRELOAD_NAME} PROPERTIES LINK_FLAGS "${pre_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
-  target_link_libraries(${PRELOAD_NAME} ${ntimp_lib} kernel32 msvcrt dynamorio)
+  target_link_libraries(${PRELOAD_NAME} ntdll_imports kernel32 msvcrt dynamorio)
 
 
   set_target_properties(drearlyhelp1 PROPERTIES
@@ -820,7 +875,7 @@ endif (UNIX)
 # drinjectlib
 add_library(drinjectlib SHARED ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
-target_link_libraries(drinjectlib drdecode)
+target_link_libraries(drinjectlib drdecode drhelper)
 set_target_properties(drinjectlib PROPERTIES
   # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
@@ -833,20 +888,16 @@ set_target_properties(drinjectlib PROPERTIES
   # drconfiglib and drinjectlib, the only libs we do this for).
   INSTALL_NAME_DIR "@rpath")
 if (WIN32)
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # for parallel build correctness we need a target dependence
-    add_dependencies(drinjectlib ${arch_noncore_asm_tgt} ntimp_tgt)
-  endif ()
   set(drinjectlib_link_flags
     # not bothering with map files
     "${LD_FLAGS} /incremental:no /subsystem:console /NODEFAULTLIB")
-  # If we use ${ntimp_flags} in the link flags and thus prior to the
+  # If we use ${ntimp_flags} in the link flags and thus prior to libc from the
   # target_link_libraries() list, on VS2005 and VS2008 we end up with duplicate
   # symbols atoi and iswctype from libcmtd and ntdll.  Unlike dynamorio.dll we're
   # ok w/ libc syms so we re-order and take the static syms first.
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
   # I'm adding libcmt to attempt to make sure we have multithreaded C lib:
-  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ${ntimp_lib}
+  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB}.lib ntdll_imports
     kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
@@ -880,7 +931,7 @@ if (BUILD_TESTS)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(unit_tests ${arch_core_asm_tgt} ntimp_tgt)
+    add_dependencies(unit_tests ${arch_core_asm_tgt} ntdll_imports)
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
@@ -893,11 +944,12 @@ if (BUILD_TESTS)
     target_link_libraries(unit_tests c dl m pthread)
     set_preferred_base_start_and_end(unit_tests)
   else (UNIX)
-    # Just like drinjectlib (see above) we need libc before ntimp_lib
-    target_link_libraries(unit_tests ${WIN32_C_LIB} ${ntimp_lib})
+    # Just like drinjectlib (see above) we need libc before ntdll
+    target_link_libraries(unit_tests ${WIN32_C_LIB} ntdll_imports)
     set_target_properties(unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
+  target_link_libraries(unit_tests drhelper)
   add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
 endif (BUILD_TESTS)
 
@@ -939,7 +991,9 @@ else (UNIX)
   DR_install(TARGETS drearlyhelp2 RUNTIME DESTINATION ${INSTALL_LIB_BASE})
 endif (UNIX)
 
+DR_export_target(drdecode)
 install_exported_target(drdecode ${INSTALL_LIB})
 
-# We need separate 32-bit and 64-bit versions so we put into lib dir
-DR_install(FILES ${ntimp_lib} DESTINATION ${INSTALL_LIB_BASE})
+# We have to export drhelper as static libs we're exporting depend on it.
+DR_export_target(drhelper)
+install_exported_target(drhelper ${INSTALL_LIB_BASE})

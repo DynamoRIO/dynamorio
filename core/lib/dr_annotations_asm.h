@@ -34,7 +34,7 @@
 #define _DYNAMORIO_ANNOTATIONS_ASM_H_ 1
 
 /* This header defines the annotation functions and code sequences. For a high-level
- * overview, see the wiki page http://code.google.com/p/dynamorio/wiki/Annotations.
+ * overview, see the wiki page https://github.com/DynamoRIO/dynamorio/wiki/Annotations.
  */
 
 /* To simplify project configuration, this pragma excludes the file from GCC warnings. */

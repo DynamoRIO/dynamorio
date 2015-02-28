@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -102,14 +102,18 @@ int
 reg_spill_tls_offs(reg_id_t reg)
 {
     switch (reg) {
-    case TLS_REG_R0: return TLS_SLOT_R0;
-    case TLS_REG_R1: return TLS_SLOT_R1;
-    case TLS_REG_R2: return TLS_SLOT_R2;
-    case TLS_REG_R3: return TLS_SLOT_R3;
+    case SCRATCH_REG0: return TLS_REG0_SLOT;
+    case SCRATCH_REG1: return TLS_REG1_SLOT;
+    case SCRATCH_REG2: return TLS_REG2_SLOT;
+    case SCRATCH_REG3: return TLS_REG3_SLOT;
     }
     /* don't assert if another reg passed: used on random regs looking for spills */
     return -1;
 }
+
+/* For Thumb, we store all the entry points with LSB=0 and rely on anyone
+ * targeting them to use PC_AS_JMP_TGT().
+ */
 
 #ifdef INTERNAL
 /* routine can be used for dumping both thread private and the thread shared routines */
@@ -119,7 +123,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                       generated_code_t *code, byte *emitted_pc)
 {
     byte *last_pc;
-
+    /* FIXME i#1551: merge w/ GENCODE_IS_X86 below */
 #ifdef X64
     if (GENCODE_IS_X86(code->gencode_mode)) {
         /* parts of x86 gencode are 64-bit but it's hard to know which here
@@ -134,8 +138,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
         last_pc = code->gen_start_pc;
         do {
             const char *ibl_brtype;
-            const char *ibl_name =
-                get_ibl_routine_name(dcontext, (cache_pc)last_pc, &ibl_brtype);
+            const char *ibl_name = get_ibl_routine_name(dcontext, last_pc, &ibl_brtype);
 
 # ifdef WINDOWS
             /* must test first, as get_ibl_routine_name will think "bb_ibl_indjmp" */
@@ -232,20 +235,20 @@ dump_emitted_routines_to_file(dcontext_t *dcontext, const char *filename,
 
 /*** functions exported to src directory ***/
 
-byte *
-code_align_forward(byte *pc, size_t alignment)
+static byte *
+code_align_forward(dr_isa_mode_t isa_mode, byte *pc, size_t alignment)
 {
     byte *new_pc = (byte *) ALIGN_FORWARD(pc, alignment);
     DOCHECK(1, {
-        SET_TO_NOPS(pc, new_pc - pc);
+        SET_TO_NOPS(isa_mode, pc, new_pc - pc);
     });
     return new_pc;
 }
 
 static byte *
-move_to_start_of_cache_line(byte *pc)
+move_to_start_of_cache_line(dr_isa_mode_t isa_mode, byte *pc)
 {
-    return code_align_forward(pc, proc_get_cache_line_size());
+    return code_align_forward(isa_mode, pc, proc_get_cache_line_size());
 }
 
 /* The real size of generated code we need varies by cache line size and
@@ -259,12 +262,12 @@ move_to_start_of_cache_line(byte *pc)
     ((size_t)(ALIGN_FORWARD(sizeof(generated_code_t), PAGE_SIZE) + PAGE_SIZE))
 
 static byte *
-check_size_and_cache_line(generated_code_t *code, byte *pc)
+check_size_and_cache_line(dr_isa_mode_t isa_mode, generated_code_t *code, byte *pc)
 {
     /* Assumption: no single emit uses more than a page.
      * We keep an extra page at all times and release it at the end.
      */
-    byte *next_pc = move_to_start_of_cache_line(pc);
+    byte *next_pc = move_to_start_of_cache_line(isa_mode, pc);
     if ((byte *)ALIGN_FORWARD(pc, PAGE_SIZE) + PAGE_SIZE > code->commit_end_pc) {
         ASSERT(code->commit_end_pc + PAGE_SIZE <= ((byte *)code) + GENCODE_RESERVE_SIZE);
         heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE);
@@ -305,6 +308,10 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     bool x86_mode = false;
     bool x86_to_x64_mode = false;
 #endif
+    /* As ARM mode switches are inexpensive, we do not need separate gencode
+     * versions and stick with Thumb for all our gencode.
+     */
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(GLOBAL_DCONTEXT);
 
     gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE);
     /* we would return gencode and let caller assign, but emit routines
@@ -354,17 +361,17 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     }
 
     pc = gencode->gen_start_pc;
-    pc = check_size_and_cache_line(gencode, pc);
+    pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->fcache_enter = pc;
     pc = emit_fcache_enter_shared(GLOBAL_DCONTEXT, gencode, pc);
-    pc = check_size_and_cache_line(gencode, pc);
+    pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->fcache_return = pc;
     pc = emit_fcache_return_shared(GLOBAL_DCONTEXT, gencode, pc);
     if (DYNAMO_OPTION(coarse_units)) {
-        pc = check_size_and_cache_line(gencode, pc);
+        pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->fcache_return_coarse = pc;
         pc = emit_fcache_return_coarse(GLOBAL_DCONTEXT, gencode, pc);
-        pc = check_size_and_cache_line(gencode, pc);
+        pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->trace_head_return_coarse = pc;
         pc = emit_trace_head_return_coarse(GLOBAL_DCONTEXT, gencode, pc);
     }
@@ -410,10 +417,10 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
 #if defined(WINDOWS) && !defined(X64)
     /* no dispatch needed on x64 since syscall routines are thread-shared */
     if (DYNAMO_OPTION(shared_fragment_shared_syscalls)) {
-        pc = check_size_and_cache_line(gencode, pc);
+        pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->shared_syscall = pc;
         pc = emit_shared_syscall_dispatch(GLOBAL_DCONTEXT, pc);
-        pc = check_size_and_cache_line(gencode, pc);
+        pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->unlinked_shared_syscall = pc;
         pc = emit_unlinked_shared_syscall_dispatch(GLOBAL_DCONTEXT, pc);
         LOG(GLOBAL, LOG_EMIT, 3,
@@ -424,7 +431,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
 
 #ifdef UNIX
     /* must create before emit_do_clone_syscall() in emit_syscall_routines() */
-    pc = check_size_and_cache_line(gencode, pc);
+    pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->new_thread_dynamo_start = pc;
     pc = emit_new_thread_dynamo_start(GLOBAL_DCONTEXT, pc);
 #endif
@@ -457,14 +464,20 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     /* PR 212570: we need a thread-shared do_syscall for our vsyscall hook */
     /* PR 361894: we don't support sysenter if no TLS */
     ASSERT(gencode->do_syscall == NULL);
-    pc = check_size_and_cache_line(gencode, pc);
+    pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->do_syscall = pc;
     pc = emit_do_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
                          true/*shared*/, 0, &gencode->do_syscall_offs);
+# ifdef ARM
+    /* ARM has no thread-private gencode, so our clone syscall is shared */
+    gencode->do_clone_syscall = pc;
+    pc = emit_do_clone_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
+                               true/*shared*/, &gencode->do_clone_syscall_offs);
+# endif
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
-    pc = check_size_and_cache_line(gencode, pc);
+    pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->trace_head_incr = pc;
     pc = emit_trace_head_incr_shared(GLOBAL_DCONTEXT, pc, gencode->fcache_return);
 #endif
@@ -477,11 +490,11 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
-            pc = check_size_and_cache_line(gencode, pc);
+            pc = check_size_and_cache_line(isa_mode, gencode, pc);
             gencode->special_ibl_xfer[NATIVE_PLT_IBL_IDX] = pc;
             pc = emit_native_plt_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
             /* native ret */
-            pc = check_size_and_cache_line(gencode, pc);
+            pc = check_size_and_cache_line(isa_mode, gencode, pc);
             gencode->special_ibl_xfer[NATIVE_RET_IBL_IDX] = pc;
             pc = emit_native_ret_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
         }
@@ -489,10 +502,10 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     }
 
     if (!client_clean_call_is_thread_private()) {
-        pc = check_size_and_cache_line(gencode, pc);
+        pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->clean_call_save = pc;
         pc = emit_clean_call_save(GLOBAL_DCONTEXT, pc, gencode);
-        pc = check_size_and_cache_line(gencode, pc);
+        pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->clean_call_restore = pc;
         pc = emit_clean_call_restore(GLOBAL_DCONTEXT, pc, gencode);
     }
@@ -566,7 +579,7 @@ arch_init(void)
     ASSERT((uint)LINK_FINAL_INSTR_SHARED_FLAG <
            (uint)INSTR_FIRST_NON_LINK_SHARED_FLAG);
     ASSERT_TRUNCATE(byte, byte, OPSZ_LAST_ENUM);
-    DODEBUG({ reg_check_reg_fixer(); });
+    ASSERT(DR_ISA_ARM_A32 + 1 == DR_ISA_ARM_THUMB); /* ibl relies on this */
 
     /* Verify that the structures used for a register spill area and to hold IBT
      * table addresses & masks for IBL code are laid out as expected. We expect
@@ -589,6 +602,11 @@ arch_init(void)
     /* syscall_init() should have already set the syscall_method so go ahead
      * and create the globlal_do_syscall now */
     ASSERT(syscall_method != SYSCALL_METHOD_UNINITIALIZED);
+#endif
+
+#ifdef ARM
+    dr_reg_stolen = DR_REG_R0 + DYNAMO_OPTION(steal_reg);
+    ASSERT(dr_reg_stolen > DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX)
 #endif
 
     /* Ensure we have no unexpected padding inside structs that include
@@ -793,7 +811,9 @@ emit_ibl_routine_and_template(dcontext_t *dcontext, generated_code_t *code,
                               ibl_source_fragment_type_t source_type,
                               ibl_code_t *ibl_code)
 {
-    pc = check_size_and_cache_line(code, pc);
+    /* FIXME i#1551: pass in or store mode in generated_code_t */
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     ibl_code->initialized = true;
     ibl_code->indirect_branch_lookup_routine = pc;
     ibl_code->ibl_head_is_inlined = inline_ibl_head;
@@ -806,7 +826,7 @@ emit_ibl_routine_and_template(dcontext_t *dcontext, generated_code_t *code,
                                      ibl_code);
     if (inline_ibl_head) {
         /* create the inlined ibl template */
-        pc = check_size_and_cache_line(code, pc);
+        pc = check_size_and_cache_line(isa_mode, code, pc);
         pc = emit_inline_ibl_stub(dcontext, pc, ibl_code, target_trace_table);
     }
 
@@ -886,6 +906,8 @@ static byte *
 emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                       bool thread_shared)
 {
+    /* FIXME i#1551: pass in or store mode in generated_code_t */
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
 #ifdef HASHTABLE_STATISTICS
     /* Stats for the syscall IBLs (note it is also using the trace hashtable, and it never hits!) */
 # ifdef WINDOWS
@@ -910,7 +932,7 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 #endif /* HASHTABLE_STATISTICS */
 
 #ifdef WINDOWS
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_callback_return = pc;
     pc = emit_do_callback_return(dcontext, pc, code->fcache_return, thread_shared);
     if (DYNAMO_OPTION(shared_syscalls)) {
@@ -929,7 +951,7 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             ibl_code = &code->trace_ibl[IBL_SHARED_SYSCALL];
         }
 
-        pc = check_size_and_cache_line(code, pc);
+        pc = check_size_and_cache_line(isa_mode, code, pc);
         code->unlinked_shared_syscall = pc;
         pc = emit_shared_syscall(dcontext, code, pc,
                                  &code->shared_syscall_code,
@@ -958,33 +980,33 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
          * is OK.
          */
     }
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                          0, &code->do_syscall_offs);
 #else /* UNIX */
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                          0, &code->do_syscall_offs);
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_int_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                          0x80/*force int*/, &code->do_int_syscall_offs);
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_int81_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                          0x81/*force int*/, &code->do_int81_syscall_offs);
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_int82_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                          0x82/*force int*/, &code->do_int82_syscall_offs);
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_clone_syscall = pc;
     pc = emit_do_clone_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                                &code->do_clone_syscall_offs);
 # ifdef VMX86_SERVER
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_vmkuw_syscall = pc;
     pc = emit_do_vmkuw_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                                &code->do_vmkuw_syscall_offs);
@@ -1000,7 +1022,9 @@ arch_thread_init(dcontext_t *dcontext)
     byte *pc;
     generated_code_t *code;
     ibl_branch_type_t branch_type;
+    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
 
+#ifdef X86
     /* Simplest to have a real dcontext for emitting the selfmod code
      * and finding the patch offsets so we do it on 1st thread init */
     static bool selfmod_init = false;
@@ -1009,12 +1033,40 @@ arch_thread_init(dcontext_t *dcontext)
         selfmod_init = true;
         set_selfmod_sandbox_offsets(dcontext);
     }
+#endif
 
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state())
                      IF_WINDOWS(|| DYNAMO_OPTION(tls_align != 0)));
 
 #ifdef X64
     /* PR 244737: thread-private uses only shared gencode on x64 */
+    ASSERT(dcontext->private_code == NULL);
+    return;
+#endif
+
+#ifdef ARM
+    /* Store addresses we access via TLS from exit stubs and gencode. */
+    /* FIXME i#1551: add Thumb vs ARM; refactor FRAGMENT_GENCODE_MODE */
+    get_local_state_extended()->spill_space.fcache_return =
+        PC_AS_JMP_TGT(isa_mode, fcache_return_shared_routine());
+    for (branch_type = IBL_BRANCH_TYPE_START;
+         branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+        get_local_state_extended()->spill_space.trace_ibl[branch_type].ibl =
+            PC_AS_JMP_TGT(isa_mode, get_ibl_routine(dcontext, IBL_LINKED,
+                                                    IBL_TRACE_SHARED, branch_type));
+        get_local_state_extended()->spill_space.trace_ibl[branch_type].unlinked =
+            PC_AS_JMP_TGT(isa_mode, get_ibl_routine(dcontext, IBL_UNLINKED,
+                                                    IBL_TRACE_SHARED, branch_type));
+        get_local_state_extended()->spill_space.bb_ibl[branch_type].ibl =
+            PC_AS_JMP_TGT(isa_mode, get_ibl_routine(dcontext, IBL_LINKED,
+                                                    IBL_BB_SHARED, branch_type));
+        get_local_state_extended()->spill_space.bb_ibl[branch_type].unlinked =
+            PC_AS_JMP_TGT(isa_mode, get_ibl_routine(dcontext, IBL_UNLINKED,
+                                                    IBL_BB_SHARED, branch_type));
+    }
+    /* Because absolute addresses are impractical on ARM, thread-private uses
+     * only shared gencode, just like for 64-bit.
+     */
     ASSERT(dcontext->private_code == NULL);
     return;
 #endif
@@ -1047,10 +1099,10 @@ arch_thread_init(dcontext_t *dcontext)
     dcontext->private_code = (void *) code;
 
     pc = code->gen_start_pc;
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->fcache_enter = pc;
     pc = emit_fcache_enter(dcontext, code, pc);
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->fcache_return = pc;
     pc = emit_fcache_return(dcontext, code, pc);;
 #ifdef WINDOWS_PC_SAMPLE
@@ -1108,19 +1160,19 @@ arch_thread_init(dcontext_t *dcontext)
      * make any shared routines (PR 361894)
      */
     /* must create before emit_do_clone_syscall() in emit_syscall_routines() */
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->new_thread_dynamo_start = pc;
     pc = emit_new_thread_dynamo_start(dcontext, pc);
 #endif
 
 #ifdef WINDOWS
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->fcache_enter_indirect = pc;
     pc = emit_fcache_enter_indirect(dcontext, code, pc, code->fcache_return);
 #endif
     pc = emit_syscall_routines(dcontext, code, pc, false/*thread-private*/);
 #ifdef TRACE_HEAD_CACHE_INCR
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->trace_head_incr = pc;
     pc = emit_trace_head_incr(dcontext, pc, code->fcache_return);
 #endif
@@ -1129,10 +1181,10 @@ arch_thread_init(dcontext_t *dcontext)
      * if want to support it.
      */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->pextrw = pc;
     pc = emit_pextrw(dcontext, pc);
-    pc = check_size_and_cache_line(code, pc);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
     code->pinsrw = pc;
     pc = emit_pinsrw(dcontext, pc);
 #endif
@@ -1152,11 +1204,11 @@ arch_thread_init(dcontext_t *dcontext)
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
-            pc = check_size_and_cache_line(code, pc);
+            pc = check_size_and_cache_line(isa_mode, code, pc);
             code->special_ibl_xfer[NATIVE_PLT_IBL_IDX] = pc;
             pc = emit_native_plt_ibl_xfer(dcontext, pc, code);
             /* native ret */
-            pc = check_size_and_cache_line(code, pc);
+            pc = check_size_and_cache_line(isa_mode, code, pc);
             code->special_ibl_xfer[NATIVE_RET_IBL_IDX] = pc;
             pc = emit_native_ret_ibl_xfer(dcontext, pc, code);
         }
@@ -1165,10 +1217,10 @@ arch_thread_init(dcontext_t *dcontext)
 
     /* XXX: i#1149: we should always use thread shared gencode */
     if (client_clean_call_is_thread_private()) {
-        pc = check_size_and_cache_line(code, pc);
+        pc = check_size_and_cache_line(isa_mode, code, pc);
         code->clean_call_save = pc;
         pc = emit_clean_call_save(dcontext, pc, code);
-        pc = check_size_and_cache_line(code, pc);
+        pc = check_size_and_cache_line(isa_mode, code, pc);
         code->clean_call_restore = pc;
         pc = emit_clean_call_restore(dcontext, pc, code);
     }
@@ -1217,7 +1269,7 @@ arch_thread_profile_exit(dcontext_t *dcontext)
 void
 arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks))
 {
-#ifdef X64
+#if defined(X64) || defined(ARM)
     /* PR 244737: thread-private uses only shared gencode on x64 */
     ASSERT(dcontext->private_code == NULL);
     return;
@@ -1700,6 +1752,8 @@ get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     else
         code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
     ASSERT(code != NULL);
+    /* FIXME i#1551: NYI on ARM (we need emit_clean_call_save()) */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
     return (cache_pc) code->clean_call_save;
 }
 
@@ -1712,6 +1766,8 @@ get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     else
         code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
     ASSERT(code != NULL);
+    /* FIXME i#1551: NYI on ARM (we need emit_clean_call_restore()) */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
     return (cache_pc) code->clean_call_restore;
 }
 
@@ -1781,8 +1837,7 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
                    target < shared_code_x86_to_x64->gen_start_pc ||
                    target >= shared_code_x86_to_x64->gen_end_pc))) {
         if (dcontext == GLOBAL_DCONTEXT ||
-            /* PR 244737: thread-private uses shared gencode on x64 */
-            IF_X64(true ||)
+            USE_SHARED_GENCODE_ALWAYS() ||
             target < ((generated_code_t *)dcontext->private_code)->gen_start_pc ||
             target >= ((generated_code_t *)dcontext->private_code)->gen_end_pc)
             return false;
@@ -2635,7 +2690,8 @@ hook_vsyscall(dcontext_t *dcontext)
 
     ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
     IF_X64(ASSERT_NOT_REACHED()); /* no sysenter support on x64 */
-    ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL);
+    ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL &&
+           vsyscall_page_start == (app_pc)PAGE_START(vsyscall_syscall_end_pc));
 
     instr_init(dcontext, &instr);
     pc = vsyscall_syscall_end_pc;
@@ -2688,8 +2744,7 @@ hook_vsyscall(dcontext_t *dcontext)
     instr_reset(dcontext, &instr);
     pc = decode(dcontext, pc, &instr);
     CHECK(instr_get_opcode(&instr) == OP_ret);
-    /* Sometimes the next byte is a nop, sometimes it's non-code */
-    ASSERT(*pc == RAW_OPCODE_nop || *pc == 0);
+    /* We don't know what the 5th byte is but we assume that it is junk */
 
     /* FIXME: at some point we should pull out all the hook code from
      * callback.c into an os-neutral location.  For now, this hook
@@ -2724,8 +2779,8 @@ hook_vsyscall(dcontext_t *dcontext)
     return res;
 # undef CHECK
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* No vsyscall support needed for our ARM targets */
+    ASSERT_NOT_REACHED();
     return false;
 #endif /* X86/ARM */
 }
@@ -2757,8 +2812,7 @@ unhook_vsyscall(void)
     }
     return true;
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
     return false;
 #endif /* X86/ARM */
 }
@@ -2934,7 +2988,8 @@ bool
 does_syscall_ret_to_callsite(void)
 {
     return (syscall_method == SYSCALL_METHOD_INT ||
-            syscall_method == SYSCALL_METHOD_SYSCALL
+            syscall_method == SYSCALL_METHOD_SYSCALL ||
+            syscall_method == SYSCALL_METHOD_SVC
             IF_WINDOWS(|| syscall_method == SYSCALL_METHOD_WOW64)
             /* The app is reported to be at whatever's in edx, so
              * for our purposes it does return to the call site
@@ -3195,8 +3250,16 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         });
     }
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    {
+        int i, j;
+        for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+            print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
+            for (j = 0; j < 4; j++) {
+                print_file(f, "%08x ", context->simd[i].u32[j]);
+            }
+            print_file(f, dump_xml ? "\"\n" : "\n");
+        }
+    }
 #endif
 
     print_file(f, dump_xml ?
@@ -3206,6 +3269,19 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                context->xflags, context->pc);
 }
 
+#ifdef ARM
+reg_t
+get_stolen_reg_val(priv_mcontext_t *mc)
+{
+    return *(reg_t*)(((byte *)mc)+opnd_get_reg_dcontext_offs(dr_reg_stolen));
+}
+
+void
+set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval)
+{
+    *(reg_t*)(((byte *)mc)+opnd_get_reg_dcontext_offs(dr_reg_stolen)) = newval;
+}
+#endif
 
 #ifdef PROFILE_RDTSC
 /* This only works on Pentium I or later */
@@ -3237,6 +3313,9 @@ is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t bra
 }
 #endif /* DEBUG */
 
+/***************************************************************************
+ * UNIT TEST
+ */
 #ifdef STANDALONE_UNIT_TEST
 
 # ifdef UNIX

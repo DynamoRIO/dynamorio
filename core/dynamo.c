@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -504,6 +504,7 @@ dynamorio_app_init(void)
 #endif
 
         dynamo_vm_areas_init();
+        decode_init();
         proc_init();
         modules_init(); /* before vm_areas_init() */
         os_init();
@@ -848,6 +849,7 @@ standalone_init(void)
     heap_init();
     dynamo_heap_initialized = true;
     dynamo_vm_areas_init();
+    decode_init();
     proc_init();
     os_init();
     config_heap_init();
@@ -1550,6 +1552,12 @@ initialize_dynamo_context(dcontext_t *dcontext)
     memset(dcontext->native_retstack, 0, sizeof(dcontext->native_retstack));
     dcontext->native_retstack_cur = 0;
     dcontext->isa_mode = DEFAULT_ISA_MODE;
+#ifdef ARM
+    dcontext->encode_state[0] = 0;
+    dcontext->encode_state[1] = 0;
+    dcontext->decode_state[0] = 0;
+    dcontext->decode_state[1] = 0;
+#endif
     dcontext->sys_num = 0;
 #ifdef WINDOWS
 #ifdef CLIENT_INTERFACE
@@ -1666,7 +1674,8 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->priv_nt_rpc = old_dcontext->priv_nt_rpc;
     new_dcontext->app_nls_cache = old_dcontext->app_nls_cache;
     new_dcontext->priv_nls_cache = old_dcontext->priv_nls_cache;
-    IF_X64(new_dcontext->app_stack_limit = old_dcontext->app_stack_limit);
+    new_dcontext->app_stack_limit = old_dcontext->app_stack_limit;
+    new_dcontext->app_stack_base = old_dcontext->app_stack_base;
     new_dcontext->teb_base = old_dcontext->teb_base;
 #endif
 #ifdef UNIX

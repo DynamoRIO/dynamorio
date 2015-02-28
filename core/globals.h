@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -350,6 +350,7 @@ typedef uint64 linkcount_type_t;
 #include "options.h"
 #include "os_exports.h"
 #include "arch_exports.h"
+#include "dr_helper.h"
 #include "vmareas.h"
 #include "instrlist.h"
 #include "dispatch.h"
@@ -764,9 +765,8 @@ struct _dcontext_t {
     void *         priv_nt_rpc;
     void *         app_nls_cache;
     void *         priv_nls_cache;
-#  ifdef X64
     void *         app_stack_limit;
-#  endif
+    void *         app_stack_base;
     /* we need this to restore ptrs for other threads on detach */
     byte *         teb_base;
 # endif
@@ -837,6 +837,14 @@ struct _dcontext_t {
      * other way around: PR 236203).  For ARM we must support swapping.
      */
     dr_isa_mode_t  isa_mode;
+#ifdef ARM
+    /* Extra state (e.g., IT block state) used for decode/encode
+     * The actual type is not uint, we use them for better abstraction
+     * and better performace (avoiding a void * with separate allocation).
+     */
+    uint encode_state[2]; /* encode_state_t in arm/decode_private.h */
+    uint decode_state[2]; /* decode_state_t in arm/decode_private.h */
+#endif
 
     /* to make things more modular these are void*: */
     void *         link_field;
@@ -1079,6 +1087,7 @@ int tolower(int c);
 #endif
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+#  undef printf
 #  define printf   printf_forbidden_function
 #  undef sprintf /* defined on macos */
 #  define sprintf  sprintf_forbidden_function

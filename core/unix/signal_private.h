@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,7 +81,11 @@ enum {
  */
 #define AVX_ALIGNMENT 64
 #define FPSTATE_ALIGNMENT 16
-#define XSTATE_ALIGNMENT (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT)
+#ifdef X86
+# define XSTATE_ALIGNMENT (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT)
+#else
+# define XSTATE_ALIGNMENT REGPARM_END_ALIGN /* actually 4 is prob enough */
+#endif
 
 /***************************************************************************
  * FRAMES

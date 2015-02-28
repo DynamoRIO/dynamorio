@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -213,6 +213,14 @@ typedef struct _clone_record_t {
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
     void *pcprofile_info;
+#ifdef ARM
+    /* To ensure we have the right value as of the point of the clone, we
+     * store it here (we'll have races if we try to get it during new thread
+     * init).
+     */
+    reg_t app_stolen_value;
+    dr_isa_mode_t isa_mode;
+#endif
     /* we leave some padding at base of stack for dynamorio_clone
      * to store values
      */
@@ -552,14 +560,17 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
     record->parent_info = (thread_sig_info_t *) dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
+#ifdef ARM
+    record->app_stolen_value = get_stolen_reg_val(get_mcontext(dcontext));
+    record->isa_mode = dr_get_isa_mode(dcontext);
+#endif
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: thread "TIDFMT", pc "PFX"\n",
         record->caller_id, record->continuation_pc);
 
-#ifdef X86
-# ifdef MACOS
+#ifdef MACOS
     if (app_thread_xsp != NULL) {
-# endif
+#endif
         /* Set the thread stack to point to the dstack, below the clone record.
          * Note: it's glibc who sets up the arg to the thread start function;
          * the kernel just does a fork + stack swap, so we can get away w/ our
@@ -568,13 +579,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         /* i#754: set stack to be XSTATE aligned for saving YMM registers */
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
         *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
-# ifdef MACOS
+#ifdef MACOS
     }
-# endif
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#endif
 
     return (void *) record;
 }
@@ -654,6 +661,22 @@ get_clone_record_dstack(void *record)
     ASSERT(record != NULL);
     return ((clone_record_t *) record)->dstack;
 }
+
+#ifdef ARM
+reg_t
+get_clone_record_stolen_value(void *record)
+{
+    ASSERT(record != NULL);
+    return ((clone_record_t *) record)->app_stolen_value;
+}
+
+uint /* dr_isa_mode_t but we have a header ordering problem */
+get_clone_record_isa_mode(void *record)
+{
+    ASSERT(record != NULL);
+    return ((clone_record_t *) record)->isa_mode;
+}
+#endif
 
 /* Initializes info's app_sigaction, restorer_valid, and we_intercept fields */
 static void
@@ -2897,8 +2920,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
             pc = decode(dcontext, pc, &instr);
             if (instr_get_opcode(&instr) == IF_X86_ELSE(OP_mov_imm, OP_mov) &&
                 opnd_is_reg(instr_get_dst(&instr, 0)) &&
-                opnd_get_reg(instr_get_dst(&instr, 0)) ==
-                IF_X86_ELSE(REG_EAX /* must be EAX not XAX! */, DR_REG_R7) &&
+                opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_SYSNUM &&
                 opnd_is_immed_int(instr_get_src(&instr, 0))) {
                 sysnum = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
                 /* don't break: find last one before syscall */
@@ -3643,7 +3665,7 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
  * WARNING: behavior varies with different versions of the kernel!
  * sigaction support was only added with 2.2
  */
-#ifdef X64
+#ifndef X86_32
 /* stub in x86.asm passes our xsp to us */
 # ifdef MACOS
 void
@@ -3663,7 +3685,7 @@ master_signal_handler_C(byte *xsp)
 #endif
 {
     sigframe_rt_t *frame = (sigframe_rt_t *) xsp;
-#ifndef X64
+#ifdef X86_32
     /* Read the normal arguments from the frame. */
     int sig = frame->sig;
     siginfo_t *siginfo = frame->pinfo;
@@ -3780,7 +3802,7 @@ master_signal_handler_C(byte *xsp)
         siginfo->si_code);
     DOLOG(level+1, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
 
-#if !defined(X64) && !defined(VMX86_SERVER) && defined(LINUX)
+#if defined(X86_32) && !defined(VMX86_SERVER) && defined(LINUX)
     /* FIXME case 6700: 2.6.9 (FC3) kernel sets up our frame with a pretcode
      * of 0x440.  This happens if our restorer is unspecified (though 2.6.9
      * src code shows setting the restorer to a default value in that case...)

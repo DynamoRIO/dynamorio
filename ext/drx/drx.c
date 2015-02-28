@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -158,9 +158,9 @@ drx_aflags_are_dead(instr_t *where)
         if (instr_is_syscall(instr) || instr_is_interrupt(instr))
             return false;
         flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-        if (TESTANY(EFLAGS_READ_6, flags))
+        if (TESTANY(EFLAGS_READ_ARITH, flags))
             return false;
-        if (TESTALL(EFLAGS_WRITE_6, flags))
+        if (TESTALL(EFLAGS_WRITE_ARITH, flags))
             return true;
         if (instr_is_cti(instr)) {
             if (instr_is_app(instr) &&
@@ -185,6 +185,12 @@ drx_aflags_are_dead(instr_t *where)
  * INSTRUMENTATION
  */
 
+#ifdef ARM
+/* XXX i#1603: add liveness analysis and pick dead regs */
+# define SCRATCH_REG0 DR_REG_R0
+# define SCRATCH_REG1 DR_REG_R1
+#endif
+
 /* insert a label instruction with note */
 static void
 ilist_insert_note_label(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -195,20 +201,26 @@ ilist_insert_note_label(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where, instr);
 }
 
-/* insert arithmetic flags saving code with more control
- * - skip %eax save if !save_eax
+#ifdef X86 /* not yet used on ARM but we may export */
+
+/* Insert arithmetic flags saving code with more control.
+ * For x86:
+ * - skip %eax save if !save_reg
  * - save %eax to reg if reg is not DR_REG_NULL,
  * - save %eax to slot otherwise
+ * For ARM:
+ * - saves flags to reg
+ * - saves reg first to slot, unless !save_reg.
  */
 static void
 drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
-                     bool save_eax, bool save_oflag,
+                     bool save_reg, bool save_oflag,
                      dr_spill_slot_t slot, reg_id_t reg)
 {
+#ifdef X86
     instr_t *instr;
-
     /* save %eax if necessary */
-    if (save_eax) {
+    if (save_reg) {
         if (reg != DR_REG_NULL) {
             ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR &&
                    reg != DR_REG_XAX, "wrong dead reg");
@@ -230,25 +242,40 @@ drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
         instr = INSTR_CREATE_setcc(drcontext, OP_seto, opnd_create_reg(DR_REG_AL));
         MINSERT(ilist, where, instr);
     }
+#elif defined(ARM)
+    ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
+    if (save_reg) {
+        ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
+               "wrong spill slot");
+        dr_save_reg(drcontext, ilist, where, reg, slot);
+    }
+    MINSERT(ilist, where, INSTR_CREATE_msr
+            (drcontext, opnd_create_reg(DR_REG_CPSR), OPND_CREATE_INT_MSR_NZCVQG(),
+             opnd_create_reg(reg)));
+#endif
 }
 
-/* insert arithmetic flags restore code with more control
- * - skip %eax restore if !restore_eax
+/* Insert arithmetic flags restore code with more control.
+ * For x86:
+ * - skip %eax restore if !restore_reg
  * - restore %eax from reg if reg is not DR_REG_NULL
  * - restore %eax from slot otherwise
- *
+ * For ARM:
+ * - restores flags from reg
+ * - restores reg to slot, unless !restore_reg.
  * Routine merge_prev_drx_aflags_switch looks for labels inserted by
  * drx_restore_arith_flags, so changes to this routine may affect
  * merge_prev_drx_aflags_switch.
  */
 static void
 drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        bool restore_eax, bool restore_oflag,
+                        bool restore_reg, bool restore_oflag,
                         dr_spill_slot_t slot, reg_id_t reg)
 {
     instr_t *instr;
     ilist_insert_note_label(drcontext, ilist, where,
                             NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
+#ifdef X86
     if (restore_oflag) {
         /* add 0x7f, %al */
         instr = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_AL),
@@ -260,7 +287,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     instr_set_note(instr, NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF));
     MINSERT(ilist, where, instr);
     /* restore eax if necessary */
-    if (restore_eax) {
+    if (restore_reg) {
         if (reg != DR_REG_NULL) {
             ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR &&
                    reg != DR_REG_XAX, "wrong dead reg");
@@ -274,20 +301,34 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
             dr_restore_reg(drcontext, ilist, where, DR_REG_XAX, slot);
         }
     }
+#elif defined(ARM)
+    ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
+    instr = INSTR_CREATE_mrs(drcontext, opnd_create_reg(reg),
+                             opnd_create_reg(DR_REG_CPSR));
+    instr_set_note(instr, NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF));
+    MINSERT(ilist, where, instr);
+    if (restore_reg) {
+        ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
+               "wrong spill slot");
+        dr_restore_reg(drcontext, ilist, where, reg, slot);
+    }
+#endif
     ilist_insert_note_label(drcontext, ilist, where,
                             NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
 }
+#endif /* X86 */
 
 /* Check if current instrumentation can be merged into previous aflags
- * save/restore inserted by drx_restore_arith_flags.
+ * (or on ARM, GPR) save/restore inserted by drx_restore_arith_flags.
  * Returns NULL if cannot merge. Otherwise, returns the right insertion point,
  * i.e., DRX_NOTE_AFLAGS_RESTORE_BEGIN label instr.
  *
  * This routine looks for labels inserted by drx_restore_arith_flags,
  * so changes to drx_restore_arith_flags may affect this routine.
+ * On ARM the labels are from drx_insert_counter_update.
  */
 static instr_t *
-merge_prev_drx_aflags_switch(instr_t *where)
+merge_prev_drx_spill(instr_t *where, bool aflags)
 {
     instr_t *instr;
 #ifdef DEBUG
@@ -319,7 +360,7 @@ merge_prev_drx_aflags_switch(instr_t *where)
         }
         if (instr_is_label(instr)) {
             if (instr_get_note(instr) == NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN)) {
-                ASSERT(has_sahf, "missing sahf");
+                ASSERT(!aflags || has_sahf, "missing sahf");
                 return instr;
             }
             /* we do not expect any other label instr */
@@ -348,11 +389,15 @@ counter_crosses_cache_line(byte *addr, size_t size)
 DR_EXPORT
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          dr_spill_slot_t slot, void *addr, int value,
-                          uint flags)
+                          dr_spill_slot_t slot, IF_ARM_(dr_spill_slot_t slot2)
+                          void *addr, int value, uint flags)
 {
     instr_t *instr;
+#ifdef X86
     bool save_aflags = !drx_aflags_are_dead(where);
+#elif defined(ARM)
+    bool save_regs = true;
+#endif
     bool is_64 = TEST(DRX_COUNTER_64BIT, flags);
 
     if (drcontext == NULL) {
@@ -366,14 +411,20 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* check whether we can add lock */
     if (TEST(DRX_COUNTER_LOCK, flags)) {
+#ifdef ARM
+        /* FIXME i#1551: implement for ARM */
+        ASSERT(false, "DRX_COUNTER_LOCK not implemented for ARM");
+        return false;
+#endif
         if (IF_NOT_X64(is_64 ||) /* 64-bit counter in 32-bit mode */
             counter_crosses_cache_line((byte *)addr, is_64 ? 8 : 4))
             return false;
     }
 
+#ifdef X86
     /* if save_aflags, check if we can merge with the prev aflags save */
     if (save_aflags) {
-        instr = merge_prev_drx_aflags_switch(where);
+        instr = merge_prev_drx_spill(where, true/*aflags*/);
         if (instr != NULL) {
             save_aflags = false;
             where = instr;
@@ -395,7 +446,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         instr = LOCK(instr);
     MINSERT(ilist, where, instr);
 
-#ifndef X64
+# ifndef X64
     if (is_64) {
         MINSERT(ilist, where,
                 INSTR_CREATE_adc(drcontext,
@@ -403,13 +454,54 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  ((void *)((ptr_int_t)addr + 4), OPSZ_4),
                                  OPND_CREATE_INT32(0)));
     }
-#endif /* !X64 */
+# endif /* !X64 */
     /* restore aflags if necessary */
     if (save_aflags) {
         drx_restore_arith_flags(drcontext, ilist, where,
                                 true /* restore eax */, true /* restore oflag */,
                                 slot, DR_REG_NULL);
     }
+#elif defined(ARM)
+    /* FIXME i#1551: implement 64-bit counter support */
+    ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented");
+
+    /* merge w/ prior restore */
+    if (save_regs) {
+        instr = merge_prev_drx_spill(where, false/*!aflags*/);
+        if (instr != NULL) {
+            save_regs = false;
+            where = instr;
+        }
+    }
+
+    if (save_regs) {
+        dr_save_reg(drcontext, ilist, where, SCRATCH_REG0, slot);
+        dr_save_reg(drcontext, ilist, where, SCRATCH_REG1, slot2);
+    }
+    /* XXX: another optimization is to look for the prior increment's
+     * address being near this one, and add to SCRATCH_REG0 instead of
+     * taking 2 instrs to load it fresh.
+     */
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr,
+                                     opnd_create_reg(SCRATCH_REG0),
+                                     ilist, where, NULL, NULL);
+    MINSERT(ilist, where, XINST_CREATE_load
+            (drcontext, opnd_create_reg(SCRATCH_REG1),
+             OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+    MINSERT(ilist, where, XINST_CREATE_add
+            (drcontext, opnd_create_reg(SCRATCH_REG1), OPND_CREATE_INT(value)));
+    MINSERT(ilist, where, XINST_CREATE_store
+            (drcontext, OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+             opnd_create_reg(SCRATCH_REG1)));
+    if (save_regs) {
+        ilist_insert_note_label(drcontext, ilist, where,
+                                NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
+        dr_restore_reg(drcontext, ilist, where, SCRATCH_REG1, slot2);
+        dr_restore_reg(drcontext, ilist, where, SCRATCH_REG0, slot);
+        ilist_insert_note_label(drcontext, ilist, where,
+                                NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
+    }
+#endif
     return true;
 }
 

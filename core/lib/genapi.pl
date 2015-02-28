@@ -192,7 +192,8 @@ $arch = defined($defines{"ARM"}) ? "arm" : "x86";
      "$core/arch/instr.h",
      "$core/arch/instr_inline.h",
      "$core/arch/instr_create_shared.h",
-     "$core/arch/$arch/instr_create.h",
+     "$core/arch/x86/instr_create.h",
+     "$core/arch/arm/instr_create.h",
      "$core/arch/decode.h",       # OPSZ_ consts, decode routines
      "$core/arch/decode_fast.h",  # decode routines
      "$core/arch/disassemble.h",  # disassemble routines

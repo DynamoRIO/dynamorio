@@ -45,7 +45,7 @@
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
 /* for printing to buffers */
-#define MAX_OPND_DIS_SZ   32
+#define MAX_OPND_DIS_SZ   64 /* gets long w/ ibl target names */
 /* Long examples:
  * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
  * "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> 0x000007fefd1a2728[8byte] %rax "

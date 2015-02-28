@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,6 +98,10 @@ void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd);
 
+int
+opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
+                          instr_t *instr, int idx);
+
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
@@ -191,11 +195,35 @@ opnd_size_suffix_dr(opnd_t opnd)
     case 14: return "14byte";
     case 15: return "15byte";
     case 16: return "16byte";
+    case 20: return "20byte";
+    case 24: return "24byte";
     case 28: return "28byte";
     case 32: return "32byte";
+    case 36: return "36byte";
     case 40: return "40byte";
+    case 44: return "44byte";
+    case 48: return "48byte";
+    case 52: return "52byte";
+    case 56: return "56byte";
+    case 60: return "60byte";
+    case 64: return "64byte";
+    case 68: return "68byte";
+    case 72: return "72byte";
+    case 76: return "76byte";
+    case 80: return "80byte";
+    case 84: return "84byte";
+    case 88: return "88byte";
+    case 92: return "92byte";
     case 94: return "94byte";
+    case 96: return "96byte";
+    case 100: return "100byte";
+    case 104: return "104byte";
     case 108: return "108byte";
+    case 112: return "112byte";
+    case 116: return "116byte";
+    case 120: return "120byte";
+    case 124: return "124byte";
+    case 128: return "128byte";
     case 512: return "512byte";
     }
     return "";
@@ -272,8 +300,12 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             if (IF_X64_ELSE(disp < 0, (disp & 0xff000000) == 0xff000000)) {
                 disp = -disp;
                 print_to_buffer(buf, bufsz, sofar, "-");
-            } else if (base != REG_NULL || index != REG_NULL)
-                print_to_buffer(buf, bufsz, sofar, "+");
+            } else if (base != REG_NULL || index != REG_NULL) {
+                if (TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)))
+                    print_to_buffer(buf, bufsz, sofar, "-");
+                else
+                    print_to_buffer(buf, bufsz, sofar, "+");
+            }
         }
         if (disp >= INT8_MIN && disp <= INT8_MAX &&
             !opnd_is_disp_force_full(opnd))
@@ -329,8 +361,10 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
                                             &ibl_brtype);
         }
 # elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
+        if (ibl_name == NULL && in_coarse_stub_prefixes(target)) {
+            /* FIXME i#1575: NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+        }
 # endif
 # ifdef WINDOWS
         /* must test first, as get_ibl_routine_name will think "bb_ibl_indjmp" */
@@ -1062,6 +1096,7 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         opnd_t src = instr_get_src(instr, i);
         sign_extend_immed(instr, i, &src);
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
+        i = opnd_disassemble_src_arch(buf, bufsz, sofar, instr, i);
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, "-> ");
@@ -1406,13 +1441,21 @@ instrlist_disassemble(dcontext_t *dcontext,
         /* Print out individual instructions.  Remember that multiple
          * instructions may be packed into a single instr.
          */
-        if (level > 3) {
+        if (level > 3 ||
+            /* Print as an instr for L3 to get IT predicates */
+            (level == 3 && !instr_is_cti_short_rewrite(instr, addr))) {
+
             /* for L4 we want to see instr targets and don't care
              * as much about raw bytes
              */
             int extra_sz;
-            print_file(outfile, " +%-4d %c%d @"PFX" ",
-                       offs, instr_is_app(instr) ? 'L' : 'm', level, instr);
+            if (level == 3) {
+                print_file(outfile, " +%-4d %c%d "IF_X64_ELSE("%20s","%12s"),
+                           offs, instr_is_app(instr) ? 'L' : 'm', level, " ");
+            } else {
+                print_file(outfile, " +%-4d %c%d @"PFX" ",
+                           offs, instr_is_app(instr) ? 'L' : 'm', level, instr);
+            }
             extra_sz = print_bytes_to_file(outfile, addr, addr+len, instr);
             instr_disassemble(dcontext, instr, outfile);
             print_file(outfile, "\n");

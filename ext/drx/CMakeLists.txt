@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -61,13 +61,9 @@ use_DynamoRIO_extension(drx drcontainers)
 # drmgr.h in drx.h, all so that drx users need not use drmgr.
 use_DynamoRIO_extension(drx drmgr)
 
-include(../../make/ntdll_imports.cmake)
-
 macro(configure_drx_target target)
-  target_link_libraries(drx "${ntimp_lib}")
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # for parallel build correctness we need a target dependence
-    add_dependencies(drx ntimp_tgt)
+  if (WIN32)
+    target_link_libraries(${target} ntdll_imports)
   endif ()
 endmacro()
 
@@ -81,4 +77,4 @@ if (NOT STATIC_LIBRARY)
   configure_drx_target(drx_static)
 endif ()
 
-DR_install(FILES drx.h DESTINATION ${INSTALL_EXT_INCLUDE})
+install_ext_header(drx.h)

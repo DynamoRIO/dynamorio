@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -45,6 +45,10 @@
 # define X64
 #endif
 
+#if (defined(X86_64) || defined(X86_32)) && !defined(X86)
+# define X86
+#endif
+
 #ifdef ARM
 # ifdef X64
 #  error 64-bit ARM is not supported
@@ -74,20 +78,40 @@
 # define GLOBAL_LABEL(label) label
 # define ADDRTAKEN_LABEL(label) label
 # define GLOBAL_REF(label) label
-# define BYTE byte ptr
-# define WORD word ptr
-# define DWORD dword ptr
-# define QWORD qword ptr
-# define MMWORD qword ptr
-# define XMMWORD oword ptr
-# define YMMWORD ymmword ptr
-# ifdef X64
+# define WEAK(name) .weak name
+# ifdef X86
+#  define BYTE byte ptr
+#  define WORD word ptr
+#  define DWORD dword ptr
+#  define QWORD qword ptr
+#  define MMWORD qword ptr
+#  define XMMWORD oword ptr
+#  define YMMWORD ymmword ptr
+#  ifdef X64
 /* w/o the rip, gas won't use rip-rel and adds relocs that ld trips over */
-#  define SYMREF(sym) [rip + sym]
-# else
-#  define SYMREF(sym) [sym]
+#   define SYMREF(sym) [rip + sym]
+#  else
+#   define SYMREF(sym) [sym]
+#  endif
+# elif defined(ARM)
+#  define BYTE /* nothing */
+#  define WORD /* nothing */
+#  define DWORD /* nothing */
+#  define QWORD /* nothing */
+#  define MMWORD /* nothing */
+#  define XMMWORD /* nothing */
+#  define YMMWORD /* nothing */
+/* XXX: this will NOT produce PIC code!  A multi-instr multi-local-data sequence
+ * must be used.  See cleanup_and_terminate() for examples.
+ */
+#  define SYMREF(sym) =sym
 # endif
-# define HEX(n) 0x##n
+# ifdef X86
+#  define HEX(n) 0x##n
+# else
+#  define POUND #
+#  define HEX(n) POUND 0x##n
+# endif
 # define SEGMEM(seg,mem) [seg:mem]
 # define DECL_EXTERN(symbol) /* nothing */
 /* include newline so we can put multiple on one line */
@@ -133,6 +157,7 @@ ASSUME fs:_DATA @N@\
 /* use double colon (param always has its own colon) to make label visible outside proc */
 # define ADDRTAKEN_LABEL(label) label:
 # define GLOBAL_REF(label) label
+# define WEAK(name) /* no support */
 # define BYTE byte ptr
 # define WORD word ptr
 # define DWORD dword ptr
@@ -174,6 +199,7 @@ ASSUME fs:_DATA @N@\
 # define GLOBAL_LABEL(label) _##label
 # define ADDRTAKEN_LABEL(label) _##label
 # define GLOBAL_REF(label) _##label
+# define WEAK(name) weak name
 # define BYTE byte
 # define WORD word
 # define DWORD dword
@@ -479,29 +505,30 @@ ASSUME fs:_DATA @N@\
  * Caller can rely on us storing each parameter in reverse order.
  * For x64, caller must arrange for 16-byte alignment at end of arg setup.
  */
-#define CALLC0(callee)     \
+#ifdef X86
+# define CALLC0(callee)    \
         STACK_PAD_ZERO  @N@\
         call     callee @N@\
         STACK_UNPAD_ZERO
-#define CALLC1(callee, p1)     \
+# define CALLC1(callee, p1)    \
         STACK_PAD_LE4(1, 1) @N@\
         SETARG(0, ARG1, p1) @N@\
         call     callee     @N@\
         STACK_UNPAD_LE4(1, 1)
-#define CALLC2(callee, p1, p2)    \
+# define CALLC2(callee, p1, p2)   \
         STACK_PAD_LE4(2, 2)    @N@\
         SETARG(1, ARG2, p2)    @N@\
         SETARG(0, ARG1, p1)    @N@\
         call     callee        @N@\
         STACK_UNPAD_LE4(2, 2)
-#define CALLC3(callee, p1, p2, p3)    \
+# define CALLC3(callee, p1, p2, p3)   \
         STACK_PAD_LE4(3, 3)        @N@\
         SETARG(2, ARG3, p3)        @N@\
         SETARG(1, ARG2, p2)        @N@\
         SETARG(0, ARG1, p1)        @N@\
         call     callee            @N@\
         STACK_UNPAD_LE4(3, 3)
-#define CALLC4(callee, p1, p2, p3, p4)    \
+# define CALLC4(callee, p1, p2, p3, p4)   \
         STACK_PAD_LE4(4, 4)            @N@\
         SETARG(3, ARG4, p4)            @N@\
         SETARG(2, ARG3, p3)            @N@\
@@ -509,7 +536,7 @@ ASSUME fs:_DATA @N@\
         SETARG(0, ARG1, p1)            @N@\
         call     callee                @N@\
         STACK_UNPAD_LE4(4, 4)
-#define CALLC5(callee, p1, p2, p3, p4, p5)    \
+# define CALLC5(callee, p1, p2, p3, p4, p5)   \
         STACK_PAD(5, 1, 1)                 @N@\
         SETARG(4, ARG5_NORETADDR, p5)      @N@\
         SETARG(3, ARG4, p4)                @N@\
@@ -518,7 +545,7 @@ ASSUME fs:_DATA @N@\
         SETARG(0, ARG1, p1)                @N@\
         call     callee                    @N@\
         STACK_UNPAD(5, 1, 1)
-#define CALLC6(callee, p1, p2, p3, p4, p5, p6)\
+# define CALLC6(callee, p1, p2, p3, p4, p5, p6)\
         STACK_PAD(6, 2, 2)                 @N@\
         SETARG(5, ARG6_NORETADDR, p6)      @N@\
         SETARG(4, ARG5_NORETADDR, p5)      @N@\
@@ -528,7 +555,7 @@ ASSUME fs:_DATA @N@\
         SETARG(0, ARG1, p1)                @N@\
         call     callee                    @N@\
         STACK_UNPAD(6, 2, 2)
-#define CALLC7(callee, p1, p2, p3, p4, p5, p6, p7)\
+# define CALLC7(callee, p1, p2, p3, p4, p5, p6, p7)\
         STACK_PAD(7, 3, 3)                 @N@\
         SETARG(6, ARG7_NORETADDR, p7)      @N@\
         SETARG(5, ARG6_NORETADDR, p6)      @N@\
@@ -545,17 +572,39 @@ ASSUME fs:_DATA @N@\
  * esp ends in 0xc.  We simply add 1 to the # args the pad code should assume,
  * resulting in correct alignment when combined with the retaddr.
  */
-#define CALLC1_FRESH(callee, p1) \
+# define CALLC1_FRESH(callee, p1) \
         STACK_PAD_LE4(1, 2) @N@\
         SETARG(0, ARG1, p1) @N@\
         call     callee     @N@\
         STACK_UNPAD_LE4(1, 2)
-#define CALLC2_FRESH(callee, p1, p2) \
+# define CALLC2_FRESH(callee, p1, p2) \
         STACK_PAD_LE4(2, 3)    @N@\
         SETARG(1, ARG2, p2)    @N@\
         SETARG(0, ARG1, p1)    @N@\
         call     callee        @N@\
         STACK_UNPAD_LE4(2, 3)
+#elif defined(ARM)
+# define CALLC0(callee)    \
+        blx      callee
+# define CALLC1(callee, p1)    \
+        mov      ARG1, p1   @N@\
+        blx      callee
+# define CALLC2(callee, p1, p2)    \
+        mov      ARG2, p2   @N@\
+        mov      ARG1, p1   @N@\
+        blx      callee
+# define CALLC3(callee, p1, p2, p3)    \
+        mov      ARG3, p3   @N@\
+        mov      ARG2, p2   @N@\
+        mov      ARG1, p1   @N@\
+        blx      callee
+# define CALLC4(callee, p1, p2, p3, p4)    \
+        mov      ARG4, p4   @N@\
+        mov      ARG3, p3   @N@\
+        mov      ARG2, p2   @N@\
+        mov      ARG1, p1   @N@\
+        blx      callee
+#endif
 
 /* For stdcall callees */
 #ifdef X64
@@ -577,10 +626,23 @@ ASSUME fs:_DATA @N@\
         call     callee
 #endif
 
+/* For limited cross-platform asm */
 #ifdef X86
+# define REG_SCRATCH0 REG_XAX
+# define REG_SCRATCH1 REG_XCX
+# define REG_SCRATCH2 REG_XDX
 # define JUMP     jmp
+# define RETURN   ret
+# define INC(reg) inc reg
+# define DEC(reg) dec reg
 #elif defined(ARM)
+# define REG_SCRATCH0 REG_R0
+# define REG_SCRATCH1 REG_R1
+# define REG_SCRATCH2 REG_R2
 # define JUMP     b
+# define RETURN   bx lr
+# define INC(reg) add reg, reg, POUND 1
+# define DEC(reg) sub reg, reg, POUND 1
 #endif /* X86/ARM */
 
 #endif /* _ASM_DEFINES_ASM_ */

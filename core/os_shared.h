@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -913,6 +913,12 @@ query_time_seconds(void);
 uint64
 query_time_millis(void);
 
+#ifdef UNIX
+/* microseconds since 1601 */
+uint64
+query_time_micros();
+#endif
+
 /* gives a good but not necessarily crypto-strength random seed */
 uint
 os_random_seed(void);
@@ -1071,7 +1077,7 @@ hook_text(byte *hook_code_buf, const app_pc image_addr,
 void
 unhook_text(byte *hook_code_buf, app_pc image_addr);
 void
-insert_jmp_at_tramp_entry(byte *trampoline, byte *target);
+insert_jmp_at_tramp_entry(dcontext_t *dcontext, byte *trampoline, byte *target);
 #endif /* HOT_PATCHING_INTERFACE */
 
 /* checks for compatibility OS specific options, returns true if

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -1678,7 +1678,7 @@ drmgr_insert_read_tls_field(void *drcontext, int idx,
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
         return false;
     dr_insert_read_tls_field(drcontext, ilist, where, reg);
-    instrlist_meta_preinsert(ilist, where, INSTR_CREATE_mov_ld
+    instrlist_meta_preinsert(ilist, where, XINST_CREATE_load
                              (drcontext, opnd_create_reg(reg),
                               OPND_CREATE_MEMPTR(reg, offsetof(tls_array_t, tls) +
                                                  idx*sizeof(void*))));
@@ -1698,7 +1698,7 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
         !reg_is_gpr(scratch) || !reg_is_pointer_sized(scratch))
         return false;
     dr_insert_read_tls_field(drcontext, ilist, where, scratch);
-    instrlist_meta_preinsert(ilist, where, INSTR_CREATE_mov_st
+    instrlist_meta_preinsert(ilist, where, XINST_CREATE_store
                              (drcontext,
                               OPND_CREATE_MEMPTR(scratch, offsetof(tls_array_t, tls) +
                                                  idx*sizeof(void*)),
@@ -2084,7 +2084,7 @@ drmgr_insert_read_cls_field(void *drcontext, int idx,
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
         return false;
     dr_insert_read_tls_field(drcontext, ilist, where, reg);
-    instrlist_meta_preinsert(ilist, where, INSTR_CREATE_mov_ld
+    instrlist_meta_preinsert(ilist, where, XINST_CREATE_load
                              (drcontext, opnd_create_reg(reg),
                               OPND_CREATE_MEMPTR(reg, offsetof(tls_array_t, cls) +
                                                  idx*sizeof(void*))));
@@ -2104,7 +2104,7 @@ drmgr_insert_write_cls_field(void *drcontext, int idx,
         !reg_is_gpr(scratch) || !reg_is_pointer_sized(scratch))
         return false;
     dr_insert_read_tls_field(drcontext, ilist, where, scratch);
-    instrlist_meta_preinsert(ilist, where, INSTR_CREATE_mov_st
+    instrlist_meta_preinsert(ilist, where, XINST_CREATE_store
                              (drcontext,
                               OPND_CREATE_MEMPTR(scratch, offsetof(tls_array_t, cls) +
                                                  idx*sizeof(void*)),

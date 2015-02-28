@@ -48,8 +48,6 @@
 # error Mac-only
 #endif
 
-tls_type_t tls_global_type;
-
 /* From the (short) machdep syscall table */
 #define SYS_thread_set_user_ldt 4
 #define SYS_i386_set_ldt 5
@@ -162,7 +160,7 @@ tls_get_fs_gs_segment_base(uint seg)
     if (seg != SEG_FS && seg != SEG_GS)
         return (byte *) POINTER_MAX;
 
-    selector = read_selector(seg);
+    selector = read_thread_register(seg);
     index = SELECTOR_INDEX(selector);
     LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
         __FUNCTION__, selector, index, TEST(SELECTOR_IS_LDT, selector));
@@ -275,7 +273,7 @@ tls_initialize_indices(os_local_state_t *os_tls)
 #ifdef X64
 # error NYI
 #else
-    uint selector = read_selector(SEG_GS);
+    uint selector = read_thread_register(SEG_GS);
     tls_app_index = SELECTOR_INDEX(selector);
     /* We assume app uses 1 and we get 3 (see TLS_DR_INDEX) */
     ASSERT(tls_app_index == 1);
@@ -286,4 +284,10 @@ int
 tls_min_index(void)
 {
     return tls_app_index;
+}
+
+void
+tls_early_init(void)
+{
+    /* nothing */
 }

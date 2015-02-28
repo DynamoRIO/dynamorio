@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,6 +39,7 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "arch.h"
 
 enum {
     FLOAT_ZERO    = 0x00000000,
@@ -67,3 +68,122 @@ opnd_immed_float_arch(uint opcode)
        return FLOAT_ZERO;
     }
 }
+
+DR_API
+bool
+reg_is_stolen(reg_id_t reg)
+{
+    return false;
+}
+
+int
+opnd_get_reg_dcontext_offs(reg_id_t reg)
+{
+    uint xmm_index;
+    switch (reg) {
+#ifdef X86
+    case REG_XAX: return XAX_OFFSET;
+    case REG_XBX: return XBX_OFFSET;
+    case REG_XCX: return XCX_OFFSET;
+    case REG_XDX: return XDX_OFFSET;
+    case REG_XSP: return XSP_OFFSET;
+    case REG_XBP: return XBP_OFFSET;
+    case REG_XSI: return XSI_OFFSET;
+    case REG_XDI: return XDI_OFFSET;
+# ifdef X64
+    case REG_EAX: return XAX_OFFSET;
+    case REG_EBX: return XBX_OFFSET;
+    case REG_ECX: return XCX_OFFSET;
+    case REG_EDX: return XDX_OFFSET;
+    case REG_ESP: return XSP_OFFSET;
+    case REG_EBP: return XBP_OFFSET;
+    case REG_ESI: return XSI_OFFSET;
+    case REG_EDI: return XDI_OFFSET;
+    case REG_R8D: return R8_OFFSET;
+    case REG_R9D: return R9_OFFSET;
+    case REG_R10D: return R10_OFFSET;
+    case REG_R11D: return R11_OFFSET;
+    case REG_R12D: return R12_OFFSET;
+    case REG_R13D: return R13_OFFSET;
+    case REG_R14D: return R14_OFFSET;
+    case REG_R15D: return R15_OFFSET;
+
+    case REG_AX: return XAX_OFFSET;
+    case REG_BX: return XBX_OFFSET;
+    case REG_CX: return XCX_OFFSET;
+    case REG_DX: return XDX_OFFSET;
+    case REG_SP: return XSP_OFFSET;
+    case REG_BP: return XBP_OFFSET;
+    case REG_SI: return XSI_OFFSET;
+    case REG_DI: return XDI_OFFSET;
+
+    case REG_AL: return XAX_OFFSET;
+    case REG_BL: return XBX_OFFSET;
+    case REG_CL: return XCX_OFFSET;
+    case REG_DL: return XDX_OFFSET;
+    case REG_SPL: return XSP_OFFSET;
+    case REG_BPL: return XBP_OFFSET;
+    case REG_SIL: return XSI_OFFSET;
+    case REG_DIL: return XDI_OFFSET;
+    case REG_R8L: return R8_OFFSET;
+    case REG_R9L: return R9_OFFSET;
+    case REG_R10L: return R10_OFFSET;
+    case REG_R11L: return R11_OFFSET;
+    case REG_R12L: return R12_OFFSET;
+    case REG_R13L: return R13_OFFSET;
+    case REG_R14L: return R14_OFFSET;
+    case REG_R15L: return R15_OFFSET;
+
+    case REG_AH: return XAX_OFFSET;
+    case REG_BH: return XBX_OFFSET;
+    case REG_CH: return XCX_OFFSET;
+    case REG_DH: return XDX_OFFSET;
+
+    case REG_R8: return  R8_OFFSET;
+    case REG_R9: return  R9_OFFSET;
+    case REG_R10: return R10_OFFSET;
+    case REG_R11: return R11_OFFSET;
+    case REG_R12: return R12_OFFSET;
+    case REG_R13: return R13_OFFSET;
+    case REG_R14: return R14_OFFSET;
+    case REG_R15: return R15_OFFSET;
+# endif
+    case DR_REG_XMM0:
+    case DR_REG_XMM1:
+    case DR_REG_XMM2:
+    case DR_REG_XMM3:
+    case DR_REG_XMM4:
+    case DR_REG_XMM5:
+    case DR_REG_XMM6:
+    case DR_REG_XMM7:
+    case DR_REG_XMM8:
+    case DR_REG_XMM9:
+    case DR_REG_XMM10:
+    case DR_REG_XMM11:
+    case DR_REG_XMM12:
+    case DR_REG_XMM13:
+    case DR_REG_XMM14:
+    case DR_REG_XMM15:
+        xmm_index = (reg - DR_REG_XMM0);
+        return XMM_OFFSET + (0x20 * xmm_index);
+#endif
+    default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
+        return -1;
+    }
+}
+
+#ifndef STANDALONE_DECODER
+/****************************************************************************/
+
+opnd_t
+opnd_create_sized_tls_slot(int offs, opnd_size_t size)
+{
+    /* We do not request disp_short_addr or force_full_disp, letting
+     * encode_base_disp() choose whether to use the 0x67 addr prefix
+     * (assuming offs is small).
+     */
+    return opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0, offs, size);
+}
+
+#endif /* !STANDALONE_DECODER */
+/****************************************************************************/

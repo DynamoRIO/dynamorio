@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -356,7 +356,7 @@ struct _instr_t {
 
     uint    opcode;
 
-#ifdef X64
+#ifdef X86_64
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
     byte    rip_rel_pos;
 #endif
@@ -878,6 +878,28 @@ instr_set_dst(instr_t *instr, uint pos, opnd_t opnd);
 
 DR_API
 /**
+ * Removes \p instr's source operands from position \p start up to
+ * but not including position \p end (so pass n,n+1 to remove just position n).
+ * Shifts all subsequent source operands (if any) down in the operand array.
+ * Also calls instr_set_raw_bits_valid(\p instr, false) and
+ * instr_set_operands_valid(\p instr, true).
+ */
+void
+instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end);
+
+DR_API
+/**
+ * Removes \p instr's destination operands from position \p start up to
+ * but not including position \p end (so pass n,n+1 to remove just position n).
+ * Shifts all subsequent destination operands (if any) down in the operand array.
+ * Also calls instr_set_raw_bits_valid(\p instr, false) and
+ * instr_set_operands_valid(\p instr, true).
+ */
+void
+instr_remove_dsts(dcontext_t *dcontext, instr_t *instr, uint start, uint end);
+
+DR_API
+/**
  * Assumes that \p cti_instr is a control transfer instruction
  * Returns the first source operand of \p cti_instr (its target).
  */
@@ -944,7 +966,8 @@ instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
 
 DR_API
 /**
- * Returns \p instr's eflags use as EFLAGS_ constants or'ed together.
+ * Returns \p instr's eflags use as EFLAGS_ constants (e.g., EFLAGS_READ_CF,
+ * EFLAGS_WRITE_OF, etc.) or'ed together.
  * Which eflags are considered to be accessed for conditionally executed
  * instructions are controlled by \p flags.
  */
@@ -954,7 +977,8 @@ instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags);
 DR_API
 /**
  * Returns the eflags usage of instructions with opcode \p opcode,
- * as EFLAGS_ constants or'ed together.
+ * as EFLAGS_ constants (e.g., EFLAGS_READ_CF, EFLAGS_WRITE_OF, etc.) or'ed
+ * together.
  * If \p opcode is predicated (see instr_is_predicated()), the eflags may not
  * always be accessed or written.
  */
@@ -963,8 +987,8 @@ instr_get_opcode_eflags(int opcode);
 
 DR_API
 /**
- * Returns \p instr's arithmetic flags (bottom 6 eflags) use
- * as EFLAGS_ constants or'ed together.
+ * Returns \p instr's arithmetic flags (bottom 6 eflags) use as EFLAGS_
+ * constants (e.g., EFLAGS_READ_CF, EFLAGS_WRITE_OF, etc.) or'ed together.
  * If \p instr's eflags behavior has not been calculated yet or is
  * invalid, the entire eflags use is calculated and returned (not
  * just the arithmetic flags).
@@ -1197,6 +1221,56 @@ DR_API
  */
 dr_pred_type_t
 instr_get_predicate(instr_t *instr);
+
+#ifdef ARM
+DR_API
+/**
+ * Returns the string name corresponding to the given DR_PRED_ constant.
+ * \note ARM-only.
+ */
+const char *
+instr_predicate_name(dr_pred_type_t pred);
+
+DR_API
+/**
+ * Returns the DR_PRED_ constant that represents the opposite condition
+ * from \p pred.  A valid conditional branch predicate must be passed (i.e.,
+ * not #DR_PRED_NONE, DR_PRED_AL, or DR_PRED_OP).
+ * \note ARM-only.
+ */
+dr_pred_type_t
+instr_invert_predicate(dr_pred_type_t pred);
+
+DR_API
+/**
+ * Assumes that \p it_instr's opcode is #OP_it.  Returns the number of instructions
+ * in the IT block that \p it_instr heads.
+ * \note ARM-only.
+ */
+uint
+instr_it_block_get_count(instr_t *it_instr);
+
+DR_API
+/**
+ * Assumes that \p it_instr's opcode is #OP_it.  Returns the predicate for the
+ * instruction with ordinal \p index in IT block that \p it_instr heads.
+ * \note ARM-only.
+ */
+dr_pred_type_t
+instr_it_block_get_pred(instr_t *it_instr, uint index);
+
+DR_API
+/**
+ * Creates a new instruction with opcode #OP_it and immediates set to encode
+ * an IT block with the given predicates.  Up to four instructions can exist
+ * in a single IT block.  Pass #DR_PRED_NONE for all predicates beyond the
+ * desired instruction count in the newly created IT block.
+ * \note ARM-only.
+ */
+instr_t *
+instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
+                      dr_pred_type_t pred2, dr_pred_type_t pred3);
+#endif
 
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred);
@@ -1572,7 +1646,7 @@ bool
 instr_zeroes_ymmh(instr_t *instr);
 
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+#if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
@@ -1614,7 +1688,11 @@ DR_API
  */
 int
 instr_get_rel_addr_src_idx(instr_t *instr);
+/* DR_API EXPORT BEGIN */
+#endif /* X64 || ARM */
+/* DR_API EXPORT END */
 
+#ifdef X86_64
 /* We're not exposing the low-level rip_rel_pos routines directly to clients,
  * who should only use this level 1-3 feature via decode_cti + encode.
  */
@@ -1646,9 +1724,7 @@ instr_get_rip_rel_pos(instr_t *instr);
  */
 void
 instr_set_rip_rel_pos(instr_t *instr, uint pos);
-/* DR_API EXPORT BEGIN */
 #endif /* X64 */
-/* DR_API EXPORT END */
 
 /* not exported: for PR 267260 */
 bool
@@ -1776,7 +1852,7 @@ instr_is_mov(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr's opcode is OP_call, OP_call_far, OP_call_ind,
- * or OP_call_far_ind.
+ * or OP_call_far_ind on x86; OP_bl, OP_blx, or OP_blx_ind on ARM.
  */
 bool
 instr_is_call(instr_t *instr);
@@ -1787,17 +1863,23 @@ bool
 instr_is_call_direct(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr's opcode is OP_call. */
+/** Returns true iff \p instr's opcode is OP_call on x86; OP_bl or OP_blx on ARM. */
 bool
 instr_is_near_call_direct(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr's opcode is OP_call_ind or OP_call_far_ind. */
+/**
+ * Returns true iff \p instr's opcode is OP_call_ind or OP_call_far_ind on x86;
+ * OP_blx_ind on ARM.
+ */
 bool
 instr_is_call_indirect(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr's opcode is OP_ret, OP_ret_far, or OP_iret. */
+/**
+ * Returns true iff \p instr's opcode is OP_ret, OP_ret_far, or OP_iret on x86.
+ * On ARM, returns true iff \p instr reads DR_REG_LR and writes DR_REG_PC.
+ */
 bool
 instr_is_return(instr_t *instr);
 
@@ -1812,7 +1894,8 @@ instr_is_cti(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr is a control transfer instruction that takes an
- * 8-bit offset: OP_loop*, OP_jecxz, OP_jmp_short, or OP_jcc_short
+ * 8-bit offset on x86 (OP_loop*, OP_jecxz, OP_jmp_short, or OP_jcc_short) or
+ * a small offset on ARM (OP_cbz, OP_cbnz, OP_b_short).
  */
 #ifdef UNSUPPORTED_API
 /**
@@ -1830,10 +1913,11 @@ instr_is_cti_loop(instr_t *instr);
 
 DR_API
 /**
- * Returns true iff \p instr's opcode is OP_loop* or OP_jecxz and instr has
- * been transformed to a sequence of instruction that will allow a 32-bit
+ * Returns true iff \p instr's opcode is OP_loop* or OP_jecxz on x86
+ * or OP_cbz or OP_cbnz on ARM and instr has
+ * been transformed to a sequence of instruction that will allow a larger
  * offset.
- * If \p pc != NULL, \p pc is expected to point the the beginning of the encoding of
+ * If \p pc != NULL, \p pc is expected to point to the beginning of the encoding of
  * \p instr, and the following instructions are assumed to be encoded in sequence
  * after \p instr.
  * Otherwise, the encoding is expected to be found in \p instr's allocated bits.
@@ -1853,7 +1937,8 @@ remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc ta
 DR_API
 /**
  * Returns true iff \p instr is a conditional branch: OP_jcc, OP_jcc_short,
- * OP_loop*, or OP_jecxz.
+ * OP_loop*, or OP_jecxz on x86; OP_cbnz, OP_cbz, or when a predicate is present
+ * any of OP_b, OP_b_short, OP_bx, OP_bxj, OP_bl, OP_blx, OP_blx_ind on ARM.
  */
 bool
 instr_is_cbr(instr_t *instr);
@@ -1862,7 +1947,8 @@ DR_API
 /**
  * Returns true iff \p instr is a multi-way (indirect) branch: OP_jmp_ind,
  * OP_call_ind, OP_ret, OP_jmp_far_ind, OP_call_far_ind, OP_ret_far, or
- * OP_iret.
+ * OP_iret on x86; OP_bx, OP_bxj, OP_blx_ind, or any instruction with a
+ * destination register operand of DR_REG_PC on ARM.
  */
 bool
 instr_is_mbr(instr_t *instr);
@@ -1870,7 +1956,7 @@ instr_is_mbr(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr is an unconditional direct branch: OP_jmp,
- * OP_jmp_short, or OP_jmp_far.
+ * OP_jmp_short, or OP_jmp_far on x86; OP_b or OP_b_short with no predicate on ARM.
  */
 bool
 instr_is_ubr(instr_t *instr);
@@ -1878,7 +1964,7 @@ instr_is_ubr(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr is a near unconditional direct branch: OP_jmp,
- * or OP_jmp_short.
+ * or OP_jmp_short on x86; OP_b with no predicate on ARM.
  */
 bool
 instr_is_near_ubr(instr_t *instr);
@@ -1938,7 +2024,9 @@ DR_API
  * Tries to identify common cases of moving a constant into either a
  * register or a memory address.
  * Returns true and sets \p *value to the constant being moved for the following
- * cases: mov_imm, mov_st, and xor where the source equals the destination.
+ * cases: OP_mov_imm, OP_mov_st, and OP_xor where the source equals the
+ * destination, for x86; OP_mov, OP_movs, OP_movw, OP_mvn, OP_mvns, or OP_eor
+ * where the sources equal the destination and there is no shift, for ARM.
  */
 bool
 instr_is_mov_constant(instr_t *instr, ptr_int_t *value);
@@ -1998,6 +2086,17 @@ DR_API
 bool
 instr_is_undefined(instr_t *instr);
 
+#ifdef ARM
+bool
+instr_is_pop(instr_t *instr);
+
+bool
+instr_reads_gpr_list(instr_t *instr);
+
+bool
+instr_writes_gpr_list(instr_t *instr);
+#endif
+
 DR_API
 /**
  * Assumes that \p instr's opcode is OP_int and that either \p instr's
@@ -2022,13 +2121,13 @@ instr_invert_cbr(instr_t *instr);
 DR_API
 /**
  * Assumes that instr is a meta instruction (instr_is_meta())
- * and an instr_is_cti_short() (8-bit reach). Converts instr's opcode
- * to a long form (32-bit reach).  If instr's opcode is OP_loop* or
- * OP_jecxz, converts it to a sequence of multiple instructions (which
- * is different from instr_is_cti_short_rewrite()).  Each added instruction
- * is marked instr_is_meta().
+ * and an instr_is_cti_short() (<=8-bit reach). Converts instr's opcode
+ * to a long form (32-bit reach for x86).  If instr's opcode is OP_loop* or
+ * OP_jecxz for x86 or OP_cbnz or OP_cbz for ARM, converts it to a sequence of
+ * multiple instructions (which is different from instr_is_cti_short_rewrite()).
+ * Each added instruction is marked instr_is_meta().
  * Returns the long form of the instruction, which is identical to \p instr
- * unless \p instr is OP_loop* or OP_jecxz, in which case the return value
+ * unless \p instr is OP_{loop*,jecxz,cbnz,cbz}, in which case the return value
  * is the final instruction in the sequence, the one that has long reach.
  * \note DR automatically converts app short ctis to long form.
  */
@@ -2137,6 +2236,16 @@ instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
+ * Convenience routine that returns an initialized instr_t allocated
+ * on the thread-local heap with opcode \p opcode and four sources
+ * (\p src1, \p src2, \p src3, \p src4).
+ */
+instr_t *
+instr_create_0dst_4src(dcontext_t *dcontext, int opcode,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+
+DR_API
+/**
  * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode and one destination (\p dst).
  */
@@ -2173,6 +2282,16 @@ DR_API
 instr_t *
 instr_create_1dst_3src(dcontext_t *dcontext, int opcode,
                        opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, one destination (\p dst),
+ * and four sources (\p src1, \p src2, \p src3, \p src4).
+ */
+instr_t *
+instr_create_1dst_4src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
 
 DR_API
 /**
@@ -2236,6 +2355,17 @@ instr_t *
 instr_create_2dst_4src(dcontext_t *dcontext, int opcode,
                        opnd_t dst1, opnd_t dst2,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
+ * and five sources (\p src1, \p src2, \p src3, \p src4, \p src5).
+ */
+instr_t *
+instr_create_2dst_5src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5);
 
 DR_API
 /**
@@ -2318,6 +2448,36 @@ instr_t *
 instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
                        opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, \p fixed_dsts destination operands,
+ * and \p fixed_srcs plus \p var_srcs source operands.  The variable arguments
+ * must start with the (fixed) destinations, followed by the fixed sources,
+ * followed by the variable sources.  The \p var_ord parameter specifies the
+ * (0-based) ordinal position within the resulting instruction's source array
+ * at which the variable sources should be placed, allowing them to be inserted
+ * in the middle of the fixed sources.
+ */
+instr_t *
+instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+                              uint fixed_srcs, uint var_srcs, uint var_ord, ...);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, \p fixed_dsts plus \p var_dsts
+ * destination operands, and \p fixed_srcs source operands.  The variable
+ * arguments must start with the fixed destinations, followed by the (fixed)
+ * sources, followed by the variable destinations.  The \p var_ord parameter
+ * specifies the (0-based) ordinal position within the resulting instruction's
+ * destination array at which the variable destinations should be placed,
+ * allowing them to be inserted in the middle of the fixed destinations.
+ */
+instr_t *
+instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+                              uint fixed_srcs, uint var_dsts, uint var_ord, ...);
 
 DR_API
 /** Convenience routine that returns an initialized instr_t for OP_popa. */
@@ -2412,10 +2572,11 @@ bool instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_s
                                 dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
                                 OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
 uint instr_branch_type(instr_t *cti_instr);
-bool opcode_is_call(int opc);
-bool opcode_is_cbr(int opc);
-bool opcode_is_mbr(int opc);
-bool opcode_is_ubr(int opc);
+/* these routines can assume that instr's opcode is valid */
+bool instr_is_call_arch(instr_t *instr);
+bool instr_is_cbr_arch(instr_t *instr);
+bool instr_is_mbr_arch(instr_t *instr);
+bool instr_is_ubr_arch(instr_t *instr);
 
 /* private routines for spill code */
 instr_t * instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
@@ -2464,6 +2625,9 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 
 /****************************************************************************
  * EFLAGS/CONDITION CODES
+ *
+ * The EFLAGS_READ_* and EFLAGS_WRITE_* constants are used by API routines
+ * instr_get_eflags(), instr_get_opcode_flags(), and instr_get_arith_flags().
  */
 #ifdef X86
 /* we only care about these 11 flags, and mostly only about the first 6
@@ -2497,8 +2661,12 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_READ_6    0x0000011f
+/** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
+# define EFLAGS_READ_ARITH EFLAGS_READ_6
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_WRITE_6   0x0008f800
+/** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
+# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Platform-independent macro for reads all arithmetic flags. */
 # define EFLAGS_READ_ARITH   EFLAGS_READ_6
@@ -2534,7 +2702,8 @@ enum {
 # define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
                              EFLAGS_READ_C | EFLAGS_READ_V)
-# define EFLAGS_READ_ALL    EFLAGS_READ_NZCV /**< Reads all flags. */
+# define EFLAGS_READ_ARITH  EFLAGS_READ_NZCV /**< Reads all arithmetic flags. */
+# define EFLAGS_READ_ALL    (EFLAGS_READ_NZCV | EFLAGS_READ_GE) /**< Reads all flags. */
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
 # define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */
@@ -2543,7 +2712,8 @@ enum {
 # define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
                              EFLAGS_WRITE_C | EFLAGS_WRITE_V)
-# define EFLAGS_WRITE_ALL   EFLAGS_WRITE_NZCV /**< Writes all flags. */
+# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_NZCV /**< Reads all arithmetic flags. */
+# define EFLAGS_WRITE_ALL   (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_GE) /**< Reads all flags. */
 
 /** Platform-independent macro for reads all arithmetic flags. */
 # define EFLAGS_READ_ARITH   EFLAGS_READ_NZCV
@@ -2575,7 +2745,13 @@ enum {
 #define PC_RELATIVE_TARGET(addr) ( *((int *)(addr)) + (addr) + 4 )
 
 /* length of our mangling of jecxz/loop*, beyond a possible addr prefix byte */
-#define CTI_SHORT_REWRITE_LENGTH 9
+#ifdef X86
+# define CTI_SHORT_REWRITE_LENGTH 9
+#else
+/* cbz/cbnz + b */
+# define CTI_SHORT_REWRITE_LENGTH 6
+# define CTI_SHORT_REWRITE_B_OFFS 2
+#endif
 
 #include "instr_inline.h"
 

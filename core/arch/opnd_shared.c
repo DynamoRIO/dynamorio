@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -263,6 +263,30 @@ opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
     return opnd;
 }
 
+opnd_t
+opnd_create_immed_uint(ptr_uint_t i, opnd_size_t size)
+{
+    opnd_t opnd;
+    opnd.kind = IMMED_INTEGER_kind;
+    CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_uint: invalid size");
+    opnd.size = size;
+    opnd.value.immed_int = (ptr_int_t) i;
+    DOCHECK(1, {
+        uint sz = opnd_size_in_bytes(size);
+        if (sz == 1) {
+            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_byte(i),
+                          "opnd_create_immed_uint: value too large for 8-bit size");
+        } else if (sz == 2) {
+            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_ushort(i),
+                          "opnd_create_immed_uint: value too large for 16-bit size");
+        } else if (sz == 4) {
+            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(i),
+                          "opnd_create_immed_uint: value too large for 32-bit size");
+        }
+    });
+    return opnd;
+}
+
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 opnd_t
 opnd_create_immed_float(float i)
@@ -438,7 +462,7 @@ opnd_set_disp_helper(opnd_t *opnd, int disp)
         opnd->value.base_disp.disp = disp;
     }, {
         if (disp < 0) {
-            opnd->aux.flags |= DR_OPND_SHIFTED;
+            opnd->aux.flags |= DR_OPND_NEGATED;
             opnd->value.base_disp.disp = -disp;
         } else
             opnd->value.base_disp.disp = disp;
@@ -474,7 +498,9 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     IF_X86_ELSE({
         opnd.aux.segment = seg;
     }, {
+        opnd.aux.flags = 0;
         opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
+        opnd.value.base_disp.shift_amount_minus_1 = 0;
         CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                       "opnd_create_*base_disp*: cannot have both disp and index");
     });
@@ -559,8 +585,12 @@ opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
         CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
         return DR_SHIFT_NONE;
     }
-    if (amount != NULL && opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
-        *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
+    if (amount != NULL) {
+        if (opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
+            *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
+        else
+            *amount = 0;
+    }
     return opnd.value.base_disp.shift_type;
 }
 
@@ -870,10 +900,17 @@ opnd_get_reg_used(opnd_t opnd, int index)
 /* utility routines */
 
 const reg_id_t regparms[] = {
-#ifdef X64
+#ifdef X86
+# ifdef X64
     REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3,
-# ifdef UNIX
+#  ifdef UNIX
     REGPARM_4, REGPARM_5,
+#  endif
+# endif
+#elif defined(ARM)
+    REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3,
+# ifdef X64
+    REGPARM_4, REGPARM_5, REGPARM_6, REGPARM_7,
 # endif
 #endif
     REG_INVALID
@@ -1221,6 +1258,7 @@ opnd_size_in_bytes(opnd_size_t size)
         return 0;
     case OPSZ_1:
     case OPSZ_1_reg4: /* mem size */
+    case OPSZ_1_of_4:
     case OPSZ_1_of_8:
     case OPSZ_1_of_16:
     case OPSZ_1b: /* round up */
@@ -1229,14 +1267,20 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4b:
     case OPSZ_5b:
     case OPSZ_6b:
+    case OPSZ_7b:
         return 1;
+    case OPSZ_2_of_4:
     case OPSZ_2_of_8:
     case OPSZ_2_of_16:
     case OPSZ_2_short1: /* default size */
     case OPSZ_2:
     case OPSZ_2_reg4: /* mem size */
-    case OPSZ_12b: /* round up */
+    case OPSZ_9b: /* round up */
+    case OPSZ_10b:
+    case OPSZ_11b:
+    case OPSZ_12b:
         return 2;
+    case OPSZ_20b: /* round up */
     case OPSZ_3:
         return 3;
     case OPSZ_4_of_8:
@@ -1317,13 +1361,45 @@ opnd_size_in_bytes(opnd_size_t size)
         return 60;
     case OPSZ_64:
         return 64;
+    case OPSZ_68:
+        return 68;
+    case OPSZ_72:
+        return 72;
+    case OPSZ_76:
+        return 76;
+    case OPSZ_80:
+        return 80;
+    case OPSZ_84:
+        return 84;
+    case OPSZ_88:
+        return 88;
+    case OPSZ_92:
+        return 92;
     case OPSZ_94:
         return 94;
+    case OPSZ_96:
+        return 96;
+    case OPSZ_100:
+        return 100;
+    case OPSZ_104:
+        return 104;
     case OPSZ_108_short94: /* default size */
     case OPSZ_108:
         return 108;
+    case OPSZ_112:
+        return 112;
+    case OPSZ_116:
+        return 116;
+    case OPSZ_120:
+        return 120;
+    case OPSZ_124:
+        return 124;
+    case OPSZ_128:
+        return 128;
     case OPSZ_512:
         return 512;
+    case OPSZ_VAR_REGLIST:
+        return 0; /* varies to match reglist operand */
     case OPSZ_xsave:
         return 0; /* > 512 bytes: use cpuid to determine */
     default:
@@ -1343,7 +1419,12 @@ opnd_size_in_bits(opnd_size_t size)
     case OPSZ_4b:  return 4;
     case OPSZ_5b:  return 5;
     case OPSZ_6b:  return 6;
+    case OPSZ_7b:  return 7;
+    case OPSZ_9b:  return 9;
+    case OPSZ_10b:  return 10;
+    case OPSZ_11b:  return 11;
     case OPSZ_12b: return 12;
+    case OPSZ_20b: return 20;
     case OPSZ_25b: return 25;
     default:       return opnd_size_in_bytes(size) * 8;
     }
@@ -1379,8 +1460,23 @@ opnd_size_from_bytes(uint bytes)
     case 56: return OPSZ_56;
     case 60: return OPSZ_60;
     case 64: return OPSZ_64;
+    case 68: return OPSZ_68;
+    case 72: return OPSZ_72;
+    case 76: return OPSZ_76;
+    case 80: return OPSZ_80;
+    case 84: return OPSZ_84;
+    case 88: return OPSZ_88;
+    case 92: return OPSZ_92;
     case 94: return OPSZ_94;
+    case 96: return OPSZ_96;
+    case 100: return OPSZ_100;
+    case 104: return OPSZ_104;
     case 108: return OPSZ_108;
+    case 112: return OPSZ_112;
+    case 116: return OPSZ_116;
+    case 120: return OPSZ_120;
+    case 124: return OPSZ_124;
+    case 128: return OPSZ_128;
     case 512: return OPSZ_512;
     default: return OPSZ_NA;
     }
@@ -1732,102 +1828,6 @@ reg_parameter_num(reg_id_t reg)
 }
 
 int
-opnd_get_reg_dcontext_offs(reg_id_t reg)
-{
-    uint xmm_index;
-    switch (reg) {
-#ifdef X86
-    case REG_XAX: return XAX_OFFSET;
-    case REG_XBX: return XBX_OFFSET;
-    case REG_XCX: return XCX_OFFSET;
-    case REG_XDX: return XDX_OFFSET;
-    case REG_XSP: return XSP_OFFSET;
-    case REG_XBP: return XBP_OFFSET;
-    case REG_XSI: return XSI_OFFSET;
-    case REG_XDI: return XDI_OFFSET;
-# ifdef X64
-    case REG_EAX: return XAX_OFFSET;
-    case REG_EBX: return XBX_OFFSET;
-    case REG_ECX: return XCX_OFFSET;
-    case REG_EDX: return XDX_OFFSET;
-    case REG_ESP: return XSP_OFFSET;
-    case REG_EBP: return XBP_OFFSET;
-    case REG_ESI: return XSI_OFFSET;
-    case REG_EDI: return XDI_OFFSET;
-    case REG_R8D: return R8_OFFSET;
-    case REG_R9D: return R9_OFFSET;
-    case REG_R10D: return R10_OFFSET;
-    case REG_R11D: return R11_OFFSET;
-    case REG_R12D: return R12_OFFSET;
-    case REG_R13D: return R13_OFFSET;
-    case REG_R14D: return R14_OFFSET;
-    case REG_R15D: return R15_OFFSET;
-
-    case REG_AX: return XAX_OFFSET;
-    case REG_BX: return XBX_OFFSET;
-    case REG_CX: return XCX_OFFSET;
-    case REG_DX: return XDX_OFFSET;
-    case REG_SP: return XSP_OFFSET;
-    case REG_BP: return XBP_OFFSET;
-    case REG_SI: return XSI_OFFSET;
-    case REG_DI: return XDI_OFFSET;
-
-    case REG_AL: return XAX_OFFSET;
-    case REG_BL: return XBX_OFFSET;
-    case REG_CL: return XCX_OFFSET;
-    case REG_DL: return XDX_OFFSET;
-    case REG_SPL: return XSP_OFFSET;
-    case REG_BPL: return XBP_OFFSET;
-    case REG_SIL: return XSI_OFFSET;
-    case REG_DIL: return XDI_OFFSET;
-    case REG_R8L: return R8_OFFSET;
-    case REG_R9L: return R9_OFFSET;
-    case REG_R10L: return R10_OFFSET;
-    case REG_R11L: return R11_OFFSET;
-    case REG_R12L: return R12_OFFSET;
-    case REG_R13L: return R13_OFFSET;
-    case REG_R14L: return R14_OFFSET;
-    case REG_R15L: return R15_OFFSET;
-
-    case REG_AH: return XAX_OFFSET;
-    case REG_BH: return XBX_OFFSET;
-    case REG_CH: return XCX_OFFSET;
-    case REG_DH: return XDX_OFFSET;
-
-    case REG_R8: return  R8_OFFSET;
-    case REG_R9: return  R9_OFFSET;
-    case REG_R10: return R10_OFFSET;
-    case REG_R11: return R11_OFFSET;
-    case REG_R12: return R12_OFFSET;
-    case REG_R13: return R13_OFFSET;
-    case REG_R14: return R14_OFFSET;
-    case REG_R15: return R15_OFFSET;
-# endif
-    case DR_REG_XMM0:
-    case DR_REG_XMM1:
-    case DR_REG_XMM2:
-    case DR_REG_XMM3:
-    case DR_REG_XMM4:
-    case DR_REG_XMM5:
-    case DR_REG_XMM6:
-    case DR_REG_XMM7:
-    case DR_REG_XMM8:
-    case DR_REG_XMM9:
-    case DR_REG_XMM10:
-    case DR_REG_XMM11:
-    case DR_REG_XMM12:
-    case DR_REG_XMM13:
-    case DR_REG_XMM14:
-    case DR_REG_XMM15:
-        xmm_index = (reg - DR_REG_XMM0);
-        return XMM_OFFSET + (0x20 * xmm_index);
-#endif
-    default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
-        return -1;
-    }
-}
-
-int
 opnd_get_reg_mcontext_offs(reg_id_t reg)
 {
     return opnd_get_reg_dcontext_offs(reg) - MC_OFFS;
@@ -1938,6 +1938,15 @@ reg_get_size(reg_id_t reg)
         return OPSZ_2;
     if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
         return OPSZ_1;
+    if (reg >= DR_REG_CR0 && reg <= DR_REG_CR15)
+        return OPSZ_PTR;
+    if (reg >= DR_REG_CPSR && reg <= DR_REG_FPSCR)
+        return OPSZ_4;
+    if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
+        return OPSZ_PTR;
+# ifdef X64
+#  error FIXME i#1569: NYI on AArch64
+# endif
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
@@ -1956,10 +1965,8 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg,
      */
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         offs < sizeof(unprotected_context_t)) {
-        /* FIXME i#1551: what's the default reg on ARM? */
-        IF_ARM(ASSERT(absolute || basereg != REG_NULL));
         return opnd_create_base_disp(absolute ? REG_NULL :
-                                     (IF_X86((basereg == REG_NULL) ? REG_XSI :) basereg),
+                                     (basereg == REG_NULL ? REG_DCXT_PROT : basereg),
                                      REG_NULL, 0,
                                      ((int)(ptr_int_t)(absolute ?
                                             dcontext->upcontext.separate_upcontext : 0))
@@ -1967,10 +1974,8 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg,
     } else {
         if (offs >= sizeof(unprotected_context_t))
             offs -= sizeof(unprotected_context_t);
-        /* FIXME i#1551: what's the default reg on ARM? */
-        IF_ARM(ASSERT(absolute || basereg != REG_NULL));
         return opnd_create_base_disp(absolute ? REG_NULL :
-                                     (IF_X86((basereg == REG_NULL) ? REG_XDI :) basereg),
+                                     (basereg == REG_NULL ? REG_DCXT : basereg),
                                      REG_NULL, 0,
                                      ((int)(ptr_int_t)
                                       (absolute ? dcontext : 0)) + offs, size);
@@ -2045,16 +2050,6 @@ opnd_t
 opnd_create_tls_slot(int offs)
 {
     return opnd_create_sized_tls_slot(offs, OPSZ_PTR);
-}
-
-opnd_t
-opnd_create_sized_tls_slot(int offs, opnd_size_t size)
-{
-    /* We do not request disp_short_addr or force_full_disp, letting
-     * encode_base_disp() choose whether to use the 0x67 addr prefix
-     * (assuming offs is small).
-     */
-    return opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0, offs, size);
 }
 
 #endif /* !STANDALONE_DECODER */

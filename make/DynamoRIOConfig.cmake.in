@@ -507,9 +507,17 @@ endfunction (configure_DynamoRIO_global)
 function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   _DR_get_size(${tgt_cxx} tgt_x64)
   if (tgt_x64)
-    set(extra_cflags "${extra_cflags} -DX86_64")
+    if (ARM)
+      set(extra_cflags "${extra_cflags} -DARM_64")
+    else ()
+      set(extra_cflags "${extra_cflags} -DX86_64")
+    endif ()
   else (tgt_x64)
-    set(extra_cflags "${extra_cflags} -DX86_32")
+    if (ARM)
+      set(extra_cflags "${extra_cflags} -DARM_32")
+    else ()
+      set(extra_cflags "${extra_cflags} -DX86_32")
+    endif ()
   endif (tgt_x64)
 
   if (UNIX)
@@ -657,9 +665,10 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
     # using extra stack space or changing performance.
     # On Mac we have to use the ABI's 16-byte alignment, but we have
     # no compatibility there as we're starting fresh.
-    if (NOT tgt_x64 AND NOT APPLE)
+    # On ARM, '-mpreferred-stack-boundary' is unrecognized.
+    if (NOT tgt_x64 AND NOT APPLE AND NOT ARM)
       set(tgt_cflags "${tgt_cflags} -mpreferred-stack-boundary=2")
-    endif (NOT tgt_x64 AND NOT APPLE)
+    endif (NOT tgt_x64 AND NOT APPLE AND NOT ARM)
 
     if (NOT APPLE)
       # Generate the .hash section in addition to .gnu.hash for every target, to

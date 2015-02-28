@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,18 +69,22 @@
 #endif
 
 #ifdef API_EXPORT_ONLY
-#if (!defined(X86_64) && !defined(X86_32)) || (defined(X86_64) && defined(X86_32))
-# error Target architecture unspecified: must define either X86_64 xor X86_32
-#endif
-#endif
-
-#ifdef API_EXPORT_ONLY
 #if defined(X86_32) || defined(X86_64)
 # define X86
+# if (defined(X86_64) && defined(X86_32)) || defined(ARM_32) || defined(ARM_64)
+#  error Target architecture over-specified: must define only one
+# endif
+#elif defined(ARM_32) || defined(ARM_64)
+# define ARM
+# if defined(X86_32) || defined(X86_64) || (defined(ARM_64) && defined(ARM_32))
+#  error Target architecture over-specified: must define only one
+# endif
+#else
+# error Target architecture unknown: must define X86_32, X86_64, ARM_32, or ARM_64
 #endif
 #endif
 
-#if defined(X86_64) && !defined(X64)
+#if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
 # define X64
 #endif
 
@@ -100,6 +104,15 @@
 #include <stdarg.h> /* for varargs */
 #endif
 /* DR_API EXPORT END */
+
+/* Internally, ensure these defines are set */
+#if defined(X86) && !defined(X64) && !defined(X86_32)
+# define X86_32
+#endif
+#if defined(X86) && defined(X64) && !defined(X86_64)
+# define X86_64
+#endif
+
 #include <limits.h>  /* for USHRT_MAX */
 #ifdef UNIX
 #  include <sys/types.h>        /* Fix for case 5341. */
@@ -123,6 +136,7 @@
 #   define inline __inline
 #  endif
 #  define INLINE_FORCED __forceinline
+#  define WEAK /* no equivalent, but .obj overrides .lib */
 #else
 /* We assume gcc is being used.  If the client is using -fvisibility
  * (in gcc >= 3.4) to not export symbols by default, setting
@@ -139,6 +153,7 @@
 #   define inline __inline__
 #  endif
 #  define INLINE_FORCED inline
+#  define WEAK __attribute__ ((weak))
 #endif
 
 /* DR_API EXPORT END */
@@ -618,6 +633,13 @@ typedef struct _instr_t instr_t;
 # define _IF_X86(x) , x
 # define IF_NOT_X86(x)
 # define _IF_NOT_X86(x)
+# ifdef X64
+#  define IF_X86_32(x)
+#  define IF_X86_64(x) x
+# else
+#  define IF_X86_32(x) x
+#  define IF_X86_64(x)
+# endif
 #else
 # define IF_X86(x)
 # define IF_X86_ELSE(x, y) y
@@ -625,6 +647,8 @@ typedef struct _instr_t instr_t;
 # define _IF_X86(x)
 # define IF_NOT_X86(x) x
 # define _IF_NOT_X86(x) , x
+# define IF_X86_32(x)
+# define IF_X86_64(x)
 #endif
 
 #ifdef ARM
@@ -673,6 +697,14 @@ typedef struct _instr_t instr_t;
 # define _IF_X86_X64(x)
 # define IF_NOT_X86_X64(x) x
 # define _IF_NOT_X86_X64(x) , x
+#endif
+
+#if defined(X64) || defined(ARM)
+# define IF_X64_OR_ARM(x) x
+# define IF_NOT_X64_OR_ARM(x)
+#else
+# define IF_X64_OR_ARM(x)
+# define IF_NOT_X64_OR_ARM(x) x
 #endif
 /* DR_API EXPORT END */
 
@@ -1704,6 +1736,34 @@ typedef union _dr_ymm_t {
     byte   u8[32]; /**< Representation as 32 8-bit integers. */
     reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
+
+#ifdef ARM
+/**
+ * 128-bit ARM SIMD Vn register.
+ * We're not using any uint64 fields here to avoid alignment padding in
+ * sensitive structs.  We could alternatively use pragam pack.
+ */
+typedef union _dr_simd_t {
+# ifdef X64
+    byte   b;      /**< Bottom  8 bits of Vn == Bn. */
+    ushort h;      /**< Bottom 16 bits of Vn == Hn. */
+    uint   s;      /**< Bottom 32 bits of Vn == Sn. */
+    uint   d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
+    uint   q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
+    uint   u32[4]; /**< The full 128-bit register. */
+# else
+    uint   s[4];   /**< Representation as 4 32-bit Sn elements. */
+    uint   d[4];   /**< Representation as 2 64-bit Dn elements: d[3]:d[2]; d[1]:d[0]. */
+    uint   u32[4]; /**< The full 128-bit register. */
+# endif
+} dr_simd_t;
+# ifdef X64
+#  define NUM_SIMD_SLOTS 32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
+# else
+#  define NUM_SIMD_SLOTS 16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
+# endif
+# define PRE_SIMD_PADDING 0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+#endif /* ARM */
 
 #ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of

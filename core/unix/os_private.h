@@ -152,9 +152,12 @@ typedef struct _os_thread_data_t {
      * and LIB_SEG_TLS.  If -mangle_app_seg is off, the base for LIB_SEG_TLS
      * will be NULL, but the base for SEG_TLS will still be present.
      */
-    void *dr_fs_base;
-    void *dr_gs_base;
+    void *priv_lib_tls_base;
+    void *priv_alt_tls_base;
+    void *dr_tls_base;
+#ifdef X86
     void *app_thread_areas; /* data structure for app's thread area info */
+#endif
 } os_thread_data_t;
 
 enum { ARGC_PTRACE_SENTINEL = -1 };
@@ -166,9 +169,13 @@ typedef struct ptrace_stack_args_t {
     char home_dir[MAXIMUM_PATH]; /* In case the user of the injectee is not us. */
 } ptrace_stack_args_t;
 
+#define TLS_REG_LIB  LIB_SEG_TLS  /* TLS reg commonly used by libraries in Linux */
+#define TLS_REG_ALT  SEG_TLS      /* spare TLS reg, used by DR in X86 Linux */
 
 /* in os.c */
 void os_thread_take_over(priv_mcontext_t *mc);
+
+void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
 void
 set_executable_path(const char *);

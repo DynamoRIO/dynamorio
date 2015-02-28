@@ -54,6 +54,11 @@ typedef enum {
 #ifdef X64
     TLS_TYPE_ARCH_PRCTL,
 #endif
+    /* We use an app TLS slot to store DR's tls base, and swap on context switch.
+     * Used with stealing a register in code cache, we only need the swapped
+     * slot in DR C code.
+     */
+    TLS_TYPE_SWAP,
 } tls_type_t;
 
 extern tls_type_t tls_global_type;
@@ -109,16 +114,17 @@ typedef struct _our_modify_ldt_t {
 #  define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
 #  define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 # endif /* 64/32-bit */
+# define APP_TLS_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
 #endif /* X86/ARM */
 
 static inline uint
-read_selector(reg_id_t seg)
+read_thread_register(reg_id_t reg)
 {
     uint sel;
 #ifdef X86
-    if (seg == SEG_FS) {
+    if (reg == SEG_FS) {
         asm volatile("movl %%fs, %0" : "=r"(sel));
-    } else if (seg == SEG_GS) {
+    } else if (reg == SEG_GS) {
         asm volatile("movl %%gs, %0" : "=r"(sel));
     } else {
         ASSERT_NOT_REACHED();
@@ -131,11 +137,28 @@ read_selector(reg_id_t seg)
      */
     sel &= 0xffff;
 #elif defined(ARM)
-    /* FIXME i#1551: there is no segment in ARM, so we should refactor the caller
-     * and make this routine x86-only.
-     */
-    ASSERT_NOT_REACHED();
-    sel = 0;
+    if (reg == DR_REG_TPIDRURO) {
+        IF_X64_ELSE({
+            asm volatile("mrs %0, tpidrro_el0" : "=r"(sel));
+        }, {
+            /* read thread register from CP15 (coprocessor 15)
+             * c13 (software thread ID registers) with opcode 3 (user RO)
+             */
+            asm volatile("mrc  p15, 0, %0, c13, c0, 3" : "=r"(sel));
+        });
+    } else if (reg == DR_REG_TPIDRURW) {
+        IF_X64_ELSE({
+            asm volatile("mrs %0, tpidr_el0" : "=r"(sel));
+        }, {
+            /* read thread register from CP15 (coprocessor 15)
+             * c13 (software thread ID registers) with opcode 2 (user RW)
+             */
+            asm volatile("mrc  p15, 0, %0, c13, c0, 2" : "=r"(sel));
+        });
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
 #endif
     return sel;
 }
@@ -165,9 +188,12 @@ read_selector(reg_id_t seg)
 /* i#107: handle segment reg usage conflicts */
 typedef struct _os_seg_info_t {
     int   tls_type;
-    void *dr_fs_base;
-    void *dr_gs_base;
+    void *priv_lib_tls_base;
+    void *priv_alt_tls_base;
+    void *dr_tls_base;
+#ifdef X86
     our_modify_ldt_t app_thread_areas[GDT_NUM_TLS_SLOTS];
+#endif
 } os_seg_info_t;
 
 /* layout of our TLS */
@@ -184,11 +210,19 @@ typedef struct _os_local_state_t {
     int ldt_index;
     /* tid needed to ensure children are set up properly */
     thread_id_t tid;
-    /* i#107 application's gs/fs value and pointed-at base */
-    ushort app_gs;      /* for mangling seg update/query */
-    ushort app_fs;      /* for mangling seg update/query */
-    void  *app_gs_base; /* for mangling segmented memory ref */
-    void  *app_fs_base; /* for mangling segmented memory ref */
+#ifdef ARM
+    /* Having only one thread register (TPIDRURO) shared between app and DR,
+     * we steal a register for DR's TLS base in the code cache,
+     * and steal an app's TLS slot for DR's TLS base when not in the code cache.
+     * We store the original value of app's TLS slot here.
+     */
+    byte *app_tls_swap;
+#endif
+    /* i#107 application's tls value and pointed-at base */
+    ushort app_lib_tls_reg;  /* for mangling seg update/query */
+    ushort app_alt_tls_reg;  /* for mangling seg update/query */
+    void  *app_lib_tls_base; /* for mangling segmented memory ref */
+    void  *app_alt_tls_base; /* for mangling segmented memory ref */
     union {
         /* i#107: We use space in os_tls to store thread area information
          * thread init. It will not conflict with the client_tls usage,
@@ -207,6 +241,14 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment);
 
 void
 tls_thread_free(tls_type_t tls_type, int index);
+
+void
+tls_early_init(void);
+
+#ifdef ARM
+byte **
+get_app_tls_swap_addr(void);
+#endif
 
 /* Assumes it's passed either SEG_FS or SEG_GS.
  * Returns POINTER_MAX on failure.

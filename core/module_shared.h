@@ -144,7 +144,7 @@ typedef struct _module_names_t {
 
 /* Used to augments the basic vm_area_vector_t interval, all fields that
  * we get from the loader or PE/ELF header should be maintained here. This is what
- * we store in the loaded_modules_areas vector. */
+ * we store in the loaded_module_areas vector. */
 typedef struct _module_area_t {
     /* vm_area_t has start and end fields, but we're duplicating them in module_data_t so
      * the information is available to the module iterator. */
@@ -283,6 +283,8 @@ void free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which));
 bool module_has_text_relocs(app_pc base, bool at_map);
 #endif
 
+void
+module_copy_os_data(os_module_data_t *dst, os_module_data_t *src);
 
 /**************************************************************************************/
 /* Moved from os_shared.h to use typedefs here, in <os>/module.c
@@ -553,6 +555,13 @@ privload_next_module(privmod_t *mod);
 
 privmod_t *
 privload_first_module(void);
+
+bool
+privload_fill_os_module_info(app_pc base,
+                             OUT app_pc *out_base /* relative pc */,
+                             OUT app_pc *out_max_end /* relative pc */,
+                             OUT char **out_soname,
+                             OUT os_module_data_t *out_data);
 
 /* os specific loader initialization prologue before finalize the load,
  * will also acquire privload_lock.

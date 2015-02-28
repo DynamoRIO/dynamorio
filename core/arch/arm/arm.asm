@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -37,43 +37,67 @@
 #include "../asm_defines.asm"
 START_FILE
 
-/* FIXME i#1551: just a shell to get things compiling.  We need to fill
- * in all the real functions later.
- */
-#define FUNCNAME dr_fpu_exception_init
-        DECLARE_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
-        bx       lr
-        END_FUNC(FUNCNAME)
-#undef FUNCNAME
+DECL_EXTERN(dynamorio_app_take_over_helper)
+#if defined(UNIX)
+DECL_EXTERN(master_signal_handler_C)
+#endif
 
-/* we share dynamorio_syscall w/ preload */
-#ifdef UNIX
-# ifdef X64
+DECL_EXTERN(exiting_thread_count)
+DECL_EXTERN(initstack)
+DECL_EXTERN(initstack_mutex)
+
+#define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
+#define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) str src, PTRSZ [reg, POUND (offs)]
+
+/* offsetof(dcontext_t, dstack) */
+#define dstack_OFFSET     0x16c
+/* offsetof(dcontext_t, is_exiting) */
+#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+
+#ifdef X64
+# define NUM_SIMD_SLOTS 32
+# define SIMD_REG_SIZE  16
+# define NUM_GPR_SLOTS  33 /* incl flags */
+# define GPR_REG_SIZE    8
+#else
+# define NUM_SIMD_SLOTS 16
+# define SIMD_REG_SIZE  16
+# define NUM_GPR_SLOTS  17 /* incl flags */
+# define GPR_REG_SIZE    4
+#endif
+#define PRE_SIMD_PADDING 0
+#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + NUM_SIMD_SLOTS*SIMD_REG_SIZE)
+#define PRIV_MCXT_SIZE (NUM_GPR_SLOTS*GPR_REG_SIZE + PRIV_MCXT_SIMD_SIZE)
+#define PRIV_MCXT_SP_FROM_SIMD (-(4*GPR_REG_SIZE)) /* flags, pc, lr, then sp */
+#define PRIV_MCXT_PC_FROM_SIMD (-(2*GPR_REG_SIZE)) /* flags, then pc */
+
+#ifndef UNIX
+# error Non-Unix is not supported
+#endif
+
+#ifdef X64
 #  error AArch64 is not supported
-# else /* !X64 */
-/* To avoid libc wrappers we roll our own syscall here.
- * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
- * signature: dynamorio_syscall(sys_num, num_args, arg1, arg2, ...)
- * For Linux, the argument max is 6.
- */
-/* Linux system call on AArch32:
- * - r7: syscall number
- * - r0..r6: syscall arguments
- * so we simply set up all r0..r6 as arguments and ignore the passed in num_args.
- */
-        DECLARE_FUNC(dynamorio_syscall)
-GLOBAL_LABEL(dynamorio_syscall:)
-        push     {REG_R4-REG_R7}
-        /* shift r7 pointing to the call args */
-        add      REG_R7, sp, #16         /* size for {r4-r7} */
-        mov      REG_R0, REG_R2          /* syscall arg1 */
-        mov      REG_R1, REG_R3          /* syscall arg2 */
-        ldmfd    REG_R7, {REG_R2-REG_R6} /* syscall arg3..arg7 */
-        mov      REG_R7, REG_R0          /* sysnum */
-        svc      #0
-        pop      {REG_R4-REG_R7}
+#endif
+
+#ifdef UNIX
+# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
+        DECLARE_FUNC(_start)
+GLOBAL_LABEL(_start:)
+        eor      r11, r11  /* clear frame ptr for stack trace bottom */
+        mov      r0, sp    /* arg to privload_early_inject */
+        bl       GLOBAL_REF(privload_early_inject)
+        /* shouldn't return */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(_start)
+# endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
+#endif /* UNIX */
+
+/* all of the CPUID registers are only accessible in privileged modes */
+        DECLARE_FUNC(cpuid_supported)
+GLOBAL_LABEL(cpuid_supported:)
+        mov      r0, #0
         bx       lr
+        END_FUNC(cpuid_supported)
 
 /* void call_switch_stack(dcontext_t *dcontext,       // REG_R0
  *                        byte *stack,                // REG_R1
@@ -84,31 +108,453 @@ GLOBAL_LABEL(dynamorio_syscall:)
         DECLARE_FUNC(call_switch_stack)
 GLOBAL_LABEL(call_switch_stack:)
         /* we need a callee-saved reg across our call so save it onto stack */
-        push    {REG_R4, lr}
+        push     {REG_R4, lr}
         /* check mutex_to_free */
-        cmp     ARG4, #0
-        beq     call_dispatch_alt_stack_no_free
+        cmp      ARG4, #0
+        beq      call_dispatch_alt_stack_no_free
         /* release the mutex */
-        mov     REG_R4, #0
-        str     REG_R4, [ARG4]
+        mov      REG_R4, #0
+        str      REG_R4, [ARG4]
 call_dispatch_alt_stack_no_free:
         /* switch stack */
-        mov     REG_R4, sp
-        mov     sp, ARG2
+        mov      REG_R4, sp
+        mov      sp, ARG2
         /* call func */
-        blx     ARG3
+        blx      ARG3
         /* switch stack back */
-        mov     sp, REG_R4
+        mov      sp, REG_R4
         /* load ARG5 (return_on_return) from stack after the push at beginning */
         /* after call, so we can use REG_R3 as the scratch register */
-        ldr     REG_R3, [sp, #8/* r4, lr */] /* ARG5 */
-        cmp     REG_R3, #0
-        beq     GLOBAL_REF(unexpected_return)
+        ldr      REG_R3, [sp, #8/* r4, lr */] /* ARG5 */
+        cmp      REG_R3, #0
+        beq      GLOBAL_REF(unexpected_return)
         /* restore and return */
-        pop     {REG_R4, pc}
+        pop      {REG_R4, pc}
         END_FUNC(call_switch_stack)
 
-# endif /* !X64 */
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+
+/* FIXME i#1551: NYI on ARM */
+/*
+ * dr_app_start - Causes application to run under Dynamo control
+ */
+#ifdef DR_APP_EXPORTS
+        DECLARE_EXPORTED_FUNC(dr_app_start)
+GLOBAL_LABEL(dr_app_start:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_app_start)
+
+/*
+ * dr_app_take_over - For the client interface, we'll export 'dr_app_take_over'
+ * for consistency with the dr_ naming convention of all exported functions.
+ * We'll keep 'dynamorio_app_take_over' for compatibility with the preinjector.
+ */
+        DECLARE_EXPORTED_FUNC(dr_app_take_over)
+GLOBAL_LABEL(dr_app_take_over:)
+        /* FIXME i#1551: NYI on ARM */
+        b        GLOBAL_REF(dynamorio_app_take_over)
+        END_FUNC(dr_app_take_over)
+
+/* dr_app_running_under_dynamorio - Indicates whether the current thread
+ * is running within the DynamoRIO code cache.
+ * Returns false (not under dynamorio) by default.
+ * The function is mangled by dynamorio to return true instead when
+ * it is brought into the code cache.
+ */
+        DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
+GLOBAL_LABEL(dr_app_running_under_dynamorio:)
+        /* FIXME i#1551: NYI on ARM */
+        mov      r0, #0
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_app_running_under_dynamorio)
+#endif /* DR_APP_EXPORTS */
+
+/*
+ * dynamorio_app_take_over - Causes application to run under DR
+ * control.  DR never releases control.
+ */
+        DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
+GLOBAL_LABEL(dynamorio_app_take_over:)
+        push     {lr}
+        vstmdb   sp!, {d16-d31}
+        vstmdb   sp!, {d0-d15}
+        mrs      REG_R0, cpsr /* r0 is scratch */
+        push     {REG_R0}
+        /* We can't push all regs w/ writeback */
+#ifdef X64
+# error NYI
+#endif
+        stmdb    sp, {REG_R0-r15}
+        str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        /* we need the sp at function entry */
+        mov      REG_R0, sp
+        add      REG_R0, REG_R0, #(PRIV_MCXT_SIMD_SIZE + 8) /* offset simd,cpsr,lr */
+        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        sub      sp, sp, #(PRIV_MCXT_SIZE-PRIV_MCXT_SIMD_SIZE-4) /* simd,cpsr */
+        mov      REG_R0, sp
+        CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), REG_R0)
+        /* if we get here, DR is not taking over */
+        add      sp, sp, #PRIV_MCXT_SIZE
+        pop      {pc}
+        END_FUNC(dynamorio_app_take_over)
+
+
+/*
+ * cleanup_and_terminate(dcontext_t *dcontext,     // 0*ARG_SZ+sp
+ *                       int sysnum,               // 1*ARG_SZ+sp = syscall #
+ *                       int sys_arg1/param_base,  // 2*ARG_SZ+sp = arg1 for syscall
+ *                       int sys_arg2,             // 3*ARG_SZ+sp = arg2 for syscall
+ *                       bool exitproc,            // 4*ARG_SZ+sp
+ *                       (2 more args that are ignored: Mac-only))
+ *
+ * See decl in arch_exports.h for description.
+ */
+        DECLARE_FUNC(cleanup_and_terminate)
+GLOBAL_LABEL(cleanup_and_terminate:)
+        push     {REG_R0-REG_R3}
+        /* inc exiting_thread_count to avoid being killed once off all_threads list */
+        /* We use the following multi-instr and multi-stored-data sequence to maintain
+         * PIC code.  Note that using "ldr r0, SYMREF(exiting_thread_count)" does
+         * NOT result in PIC code: it uses a stored absolute address.
+         */
+        ldr      REG_R2, .Lgot0
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R0, .Lexiting_thread_count
+.LPIC0: ldr      REG_R0, [REG_R0, REG_R2]
+        mov      REG_R2, #1
+        CALLC2(atomic_add, REG_R0, REG_R2)
+        /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
+        ldr      REG_R4, PTRSZ [sp, #(0*ARG_SZ)] /* dcontext */
+        mov      REG_R1, #1
+        SAVE_TO_DCONTEXT_VIA_REG(REG_R4, is_exiting_OFFSET, REG_R1)
+        CALLC1(GLOBAL_REF(is_currently_on_dstack), REG_R4) /* r4 is callee-saved */
+        cmp      REG_R0, #0
+        bne      cat_save_dstack
+        mov      REG_R4, #0 /* save 0 for dstack to avoid double-free */
+        b        cat_done_saving_dstack
+cat_save_dstack:
+        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R4, dstack_OFFSET, REG_R4)
+cat_done_saving_dstack:
+        CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
+        mov      REG_R5, REG_R0
+        ldrb     REG_R0, BYTE [sp, #(4*ARG_SZ)] /* exitproc */
+        cmp      REG_R0, #0
+        beq      cat_thread_only
+        CALLC0(GLOBAL_REF(dynamo_process_exit))
+        b        cat_no_thread
+cat_thread_only:
+        CALLC0(GLOBAL_REF(dynamo_thread_exit))
+cat_no_thread:
+        /* switch to initstack for cleanup of dstack */
+        mov      REG_R1, #1
+        ldr      REG_R3, .Lgot1
+        add      REG_R3, REG_R3, pc
+        ldr      REG_R2, .Linitstack_mutex
+.LPIC1: ldr      REG_R2, [REG_R2, REG_R3]
+cat_spin:
+        CALLC2(atomic_xchg, REG_R2, REG_R1)
+        cmp      REG_R0, #0
+        beq      cat_have_lock
+        yield
+        b        cat_spin
+cat_have_lock:
+        /* need to grab everything off dstack first */
+        ldr      REG_R6, [sp, #(1*ARG_SZ)]  /* sysnum */
+        ldr      REG_R7, [sp, #(2*ARG_SZ)]  /* sys_arg1 */
+        ldr      REG_R8, [sp, #(3*ARG_SZ)]  /* sys_arg2 */
+        /* swap stacks */
+        ldr      REG_R2, .Lgot2
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R3, .Linitstack
+.LPIC2: ldr      REG_R3, [REG_R3, REG_R2]
+        ldr      sp, [REG_R3]
+        /* free dstack and call the EXIT_DR_HOOK */
+        CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_R4) /* pass dstack */
+        /* give up initstack mutex */
+        ldr      REG_R2, .Lgot3
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R3, .Linitstack_mutex
+.LPIC3: ldr      REG_R3, [REG_R3, REG_R2]
+        mov      REG_R2, #0
+        str      REG_R2, [REG_R3]
+        /* dec exiting_thread_count (allows another thread to kill us) */
+        ldr      REG_R2, .Lgot4
+        add      REG_R2, REG_R2, pc
+        ldr      REG_R3, .Lexiting_thread_count
+.LPIC4: ldr      REG_R3, [REG_R3, REG_R2]
+        mov      REG_R2, #-1
+        CALLC2(atomic_add, REG_R3, REG_R2)
+        /* finally, execute the termination syscall */
+        mov      REG_R7, REG_R6  /* sysnum */
+        mov      REG_R0, REG_R7  /* sys_arg1 */
+        mov      REG_R1, REG_R8  /* sys_arg2 */
+        bx       REG_R5  /* go do the syscall! */
+        END_FUNC(cleanup_and_terminate)
+/* Data for PIC code above */
+.Lgot0:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC0
+.Lgot1:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC1
+.Lgot2:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC2
+.Lgot3:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC3
+.Lgot4:
+        .long   _GLOBAL_OFFSET_TABLE_-.LPIC4
+.Lexiting_thread_count:
+        .word   exiting_thread_count(GOT)
+.Linitstack:
+        .word   initstack(GOT)
+.Linitstack_mutex:
+        .word   initstack_mutex(GOT)
+#endif /* NOT_DYNAMORIO_CORE_PROPER */
+
+/* Pass in the pointer-sized address to modify in ARG1 and the val to add in ARG2. */
+        DECLARE_FUNC(atomic_add)
+GLOBAL_LABEL(atomic_add:)
+1:      ldrex    REG_R2, [ARG1]
+        add      REG_R2, REG_R2, ARG2
+        strex    REG_R3, REG_R2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        bx       lr
+        END_FUNC(atomic_add)
+
+/* Pass in the memory address in ARG1 and register w/ value in ARG2. */
+        DECLARE_FUNC(atomic_xchg)
+GLOBAL_LABEL(atomic_xchg:)
+1:      ldrex    REG_R2, [ARG1]
+        strex    REG_R3, ARG2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        mov      REG_R0, REG_R2
+        bx       lr
+        END_FUNC(atomic_xchg)
+
+        DECLARE_FUNC(global_do_syscall_int)
+GLOBAL_LABEL(global_do_syscall_int:)
+        /* FIXME i#1551: NYI on ARM */
+        svc      #0
+        END_FUNC(global_do_syscall_int)
+
+
+DECLARE_GLOBAL(safe_read_asm_pre)
+DECLARE_GLOBAL(safe_read_asm_mid)
+DECLARE_GLOBAL(safe_read_asm_post)
+DECLARE_GLOBAL(safe_read_asm_recover)
+
+/* i#350: We implement safe_read in assembly and save the PCs that can fault.
+ * If these PCs fault, we return from the signal handler to the epilog, which
+ * can recover.  We return the source pointer from ARG2, and the caller uses this
+ * to determine how many bytes were copied and whether it matches size.
+ *
+ * FIXME i#1551: NYI: we need to save the PC's that can fault and have
+ * is_safe_read_pc() identify them.
+ *
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
+ *
+ * void *
+ * safe_read_asm(void *dst, const void *src, size_t n);
+ */
+        DECLARE_FUNC(safe_read_asm)
+GLOBAL_LABEL(safe_read_asm:)
+        cmp      ARG3,   #0
+1:      beq      safe_read_asm_recover
+ADDRTAKEN_LABEL(safe_read_asm_pre:)
+        ldrb     REG_R3, [ARG2]
+ADDRTAKEN_LABEL(safe_read_asm_mid:)
+ADDRTAKEN_LABEL(safe_read_asm_post:)
+        strb     REG_R3, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG2, ARG2, #1
+        add      ARG1, ARG1, #1
+        b        1b
+ADDRTAKEN_LABEL(safe_read_asm_recover:)
+        mov      REG_R0, ARG2
+        bx       lr
+        END_FUNC(safe_read_asm)
+
+
+#ifdef UNIX
+/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
+ */
+
+/* Private memcpy.
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
+ */
+        DECLARE_FUNC(memcpy)
+GLOBAL_LABEL(memcpy:)
+        cmp      ARG3,   #0
+1:      beq      2f
+        ldrb     REG_R3, [ARG2]
+        strb     REG_R3, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG2, ARG2, #1
+        add      ARG1, ARG1, #1
+        b        1b
+2:      mov      REG_R0, ARG1
+        bx       lr
+        END_FUNC(memcpy)
+
+/* Private memset.
+ * FIXME i#1551: we should optimize this as it can be on the critical path.
+ */
+        DECLARE_FUNC(memset)
+GLOBAL_LABEL(memset:)
+        cmp      ARG3,   #0
+1:      beq      2f
+        strb     ARG2, [ARG1]
+        subs     ARG3, ARG3, #1
+        add      ARG1, ARG1, #1
+        b        1b
+2:      mov      REG_R0, ARG1
+        bx       lr
+        END_FUNC(memset)
+
+/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
+.global __memcpy_chk
+.hidden __memcpy_chk
+.set __memcpy_chk,memcpy
+
+.global __memset_chk
+.hidden __memset_chk
+.set __memset_chk,memset
 #endif /* UNIX */
+
+
+#ifdef CLIENT_INTERFACE
+/* int cdecl dr_setjmp(dr_jmp_buf *buf);
+ */
+        DECLARE_FUNC(dr_setjmp)
+GLOBAL_LABEL(dr_setjmp:)
+#ifdef X64
+# error NYI on AArch64
+#endif
+        /* we do not have to save r0 (return value) or r15 (pc) */
+        /* optimization: can we trust callee-saved regs r0-r3 and not save them? */
+        stm      ARG1, {REG_R1-REG_R12, sp, lr}
+        mov      REG_R0, #0
+        bx       lr
+        END_FUNC(dr_setjmp)
+
+/* int cdecl dr_longjmp(dr_jmp_buf *buf, int retval);
+ */
+        DECLARE_FUNC(dr_longjmp)
+GLOBAL_LABEL(dr_longjmp:)
+#ifdef X64
+# error NYI on AArch64
+#endif
+        mov      REG_R2, ARG1
+        mov      REG_R0, ARG2
+        ldm      REG_R2, {REG_R1-REG_R12, sp, lr}
+        bx       lr
+        END_FUNC(dr_longjmp)
+
+/* uint atomic_swap(uint *addr, uint value)
+ * return current contents of addr and replace contents with value.
+ */
+        DECLARE_FUNC(atomic_swap)
+GLOBAL_LABEL(atomic_swap:)
+1:      ldrex    REG_R2, [ARG1]
+        strex    REG_R3, ARG2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        mov      REG_R0, REG_R2
+        bx       lr
+        END_FUNC(atomic_swap)
+
+        DECLARE_FUNC(our_cpuid)
+GLOBAL_LABEL(our_cpuid:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(our_cpuid)
+
+#endif /* CLIENT_INTERFACE */
+
+#ifdef UNIX
+        DECLARE_FUNC(client_int_syscall)
+GLOBAL_LABEL(client_int_syscall:)
+        /* FIXME i#1551: NYI on ARM */
+        svc      #0
+        blx      lr
+        END_FUNC(client_int_syscall)
+
+        DECLARE_FUNC(native_plt_call)
+GLOBAL_LABEL(native_plt_call:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(native_plt_call)
+
+        DECLARE_FUNC(_dynamorio_runtime_resolve)
+GLOBAL_LABEL(_dynamorio_runtime_resolve:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(_dynamorio_runtime_resolve)
+
+#endif /* UNIX */
+
+#ifdef LINUX
+
+        DECLARE_FUNC(dynamorio_clone)
+GLOBAL_LABEL(dynamorio_clone:)
+        /* FIXME i#1551: NYI on ARM */
+        mov      r0, #0
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_clone)
+
+        DECLARE_FUNC(dynamorio_sigreturn)
+GLOBAL_LABEL(dynamorio_sigreturn:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_sigreturn)
+
+        DECLARE_FUNC(dynamorio_nonrt_sigreturn)
+GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_nonrt_sigreturn)
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+
+#ifndef HAVE_SIGALTSTACK
+# error NYI
+#endif
+        DECLARE_FUNC(master_signal_handler)
+GLOBAL_LABEL(master_signal_handler:)
+        mov      ARG4, sp /* pass as extra arg */
+        b        GLOBAL_REF(master_signal_handler_C)
+        /* master_signal_handler_C will do the ret */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(master_signal_handler)
+
+#endif /* LINUX */
+
+#endif /* NOT_DYNAMORIO_CORE_PROPER */
+
+/* void hashlookup_null_handler(void)
+ * PR 305731: if the app targets NULL, it ends up here, which indirects
+ * through hashlookup_null_target to end up in an ibl miss routine.
+ */
+        DECLARE_FUNC(hashlookup_null_handler)
+GLOBAL_LABEL(hashlookup_null_handler:)
+        ldr      pc, [pc, #-4]
+        nop      /* will be replaced w/ target */
+        END_FUNC(hashlookup_null_handler)
+
+
+        DECLARE_FUNC(back_from_native_retstubs)
+GLOBAL_LABEL(back_from_native_retstubs:)
+        /* FIXME i#1582: NYI on ARM */
+DECLARE_GLOBAL(back_from_native_retstubs_end)
+ADDRTAKEN_LABEL(back_from_native_retstubs_end:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(back_from_native_retstubs)
+
+        DECLARE_FUNC(back_from_native)
+GLOBAL_LABEL(back_from_native:)
+        /* FIXME i#1582: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(back_from_native)
 
 END_FILE

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -119,7 +119,13 @@
         uint apsr; /**< The application program status registers in AArch32. */
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
-    /* FIXME i#1551: add NEON registers */
+    /**
+     * The SIMD registers.  We would probably be ok if we did not preserve the
+     * callee-saved registers (q4-q7 == d8-d15) but to be safe we preserve them
+     * all.  We do not need anything more than word alignment for OP_vldm/OP_vstm,
+     * and dr_simd_t has no fields larger than 32 bits, so we have no padding.
+     */
+    dr_simd_t simd[NUM_SIMD_SLOTS];
 #else /* X86 */
 # ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to

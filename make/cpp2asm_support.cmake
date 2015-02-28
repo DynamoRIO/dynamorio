@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -206,7 +206,8 @@ elseif (UNIX)
       set(ASM_FLAGS "${ASM_FLAGS} --32")
     endif (X64)
   elseif (ARM)
-    # No 64-bit support yet so currently no flags.
+    # No 64-bit support yet.
+    set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon")
   endif ()
   set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
   if (DEBUG)
@@ -248,6 +249,8 @@ if (UNIX AND NOT APPLE)
   endif (asm_result OR asm_error)
   # turn the flags into a vector
   string(REGEX REPLACE " " ";" flags_needed "${ASM_FLAGS}")
+  # -mfpu= does not list the possibilities
+  string(REGEX REPLACE "-mfpu=[a-z]*" "-mfpu" flags_needed "${flags_needed}")
   # we want "-mmnemonic=intel" to match "-mmnemonic=[att|intel]"
   string(REGEX REPLACE "=" ".*" flags_needed "${flags_needed}")
   set(flag_present 1)

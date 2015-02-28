@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -92,6 +92,12 @@ dynamo_start(priv_mcontext_t *mc)
     dynamorio_take_over_threads(dcontext);
 
     /* Set return address */
+    /* FIXME i#1551: we also need to call canonicalize_pc_target() on all
+     * next_tag-writing instances in signal handling, ibl, etc..
+     * We can't put it in dispatch() b/c with our decision to store
+     * tags and addresses as LSB=0, we can easily double-mode-switch.
+     */
+    mc->pc = canonicalize_pc_target(dcontext, mc->pc);
     dcontext->next_tag = mc->pc;
     ASSERT(dcontext->next_tag != NULL);
 
@@ -267,11 +273,14 @@ new_thread_setup(priv_mcontext_t *mc)
      * to switch back to the real app thread stack before continuing.
      */
     mc->xsp = get_clone_record_app_xsp(crec);
-    /* clear xax/r0 (was used to hold clone record) */
-    ASSERT(mc->IF_X86_ELSE(xax, r0) == (reg_t) mc->pc);
+    /* clear xax/r0 (was used as scratch in gencode, and app expects 0) */
     mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
+#ifdef ARM
+    /* set the stolen register's app value */
+    set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
+#endif
 
     rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
                             _IF_CLIENT_INTERFACE(false));
@@ -283,6 +292,9 @@ new_thread_setup(priv_mcontext_t *mc)
      */
     next_tag = signal_thread_inherit(dcontext, (void *) crec);
     ASSERT(next_tag != NULL);
+#ifdef ARM
+    dr_set_isa_mode(dcontext, get_clone_record_isa_mode(crec), NULL);
+#endif
     thread_starting(dcontext);
     dcontext->next_tag = next_tag;
 
@@ -457,14 +469,18 @@ test_call_switch_stack(dcontext_t *dc)
 static void
 test_cpuid()
 {
+#ifdef X86
     int cpuid_res[4] = {0};
+#endif
     print_file(STDERR, "testing asm cpuid\n");
-    EXPECT(cpuid_supported(), true);
+    EXPECT(cpuid_supported(), IF_X86_ELSE(true, false));
+#ifdef X86
     IF_UNIX_ELSE(our_cpuid, __cpuid)(cpuid_res, 0); /* get vendor id */
     /* cpuid_res[1..3] stores vendor info like "GenuineIntel" or "AuthenticAMD" for X86 */
     EXPECT_NE(cpuid_res[1], 0);
     EXPECT_NE(cpuid_res[2], 0);
     EXPECT_NE(cpuid_res[3], 0);
+#endif
 }
 
 void

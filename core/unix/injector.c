@@ -973,7 +973,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     pc = (app_pc)ALIGN_BACKWARD(regs.REG_PC_FIELD, PAGE_SIZE);
 
     /* Append an int3 so we can catch the break. */
-    APP(ilist, INSTR_CREATE_debug_instr(dc));
+    APP(ilist, XINST_CREATE_debug_instr(dc));
     if (verbose) {
         fprintf(stderr, "injecting code:\n");
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)

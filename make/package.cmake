@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -56,6 +56,7 @@ set(arg_invoke "")     # sub-project package.cmake to invoke
 # also takes args parsed by runsuite_common_pre.cmake, in particular:
 set(arg_preload "")    # cmake file to include prior to each 32-bit build
 set(arg_preload64 "")  # cmake file to include prior to each 64-bit build
+set(arg_cpackappend "")# string to append to CPackConfig.cmake before packaging
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} MATCHES "^build=")
@@ -80,6 +81,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
   if (${arg} MATCHES "^invoke=")
     string(REGEX REPLACE "^invoke=" "" arg_invoke "${arg}")
+  endif ()
+  if (${arg} MATCHES "^cpackappend=")
+    string(REGEX REPLACE "^cpackappend=" "" arg_cpackappend "${arg}")
   endif ()
 endforeach (arg)
 
@@ -142,6 +146,13 @@ if (NOT arg_invoke STREQUAL "")
   set(arg_sub_script ${arg_invoke})
   include("${arg_invoke}")
   set(last_package_build_dir ${save_last_dir})
+endif ()
+
+if (arg_cpackappend)
+  # Like DrMem, we use ${last_package_build_dir} from testbuild_ex to locate
+  # CPackConfig.cmake.
+  file(APPEND "${last_package_build_dir}/CPackConfig.cmake"
+    "\n${arg_cpackappend}\n")
 endif ()
 
 set(build_package ON)

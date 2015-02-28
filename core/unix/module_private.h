@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,9 +50,11 @@ typedef void (*fp_t)(int argc, char **argv, char **env);
 struct _os_privmod_data_t {
     os_module_data_t os_data;
     ptr_int_t      load_delta;  /* delta from preferred base */
+    app_pc         max_end; /* relative pc */
     char          *soname;
 #ifdef LINUX
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
+    size_t         dynsz;
     ELF_ADDR       pltgot;
     size_t         pltrelsz;
     ELF_WORD       pltrel;
