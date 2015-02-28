@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -275,15 +275,27 @@ enum {
 
     /* Needed for ARM.  We share the same namespace for now */
     OPSZ_3,    /**< 3 bytes */
+    /* gpl_list_num_bits assumes OPSZ_ includes every value from 1b to 12b
+     * (except 8b/OPSZ_1) in order
+     */
     OPSZ_1b,   /**< 1 bit */
     OPSZ_2b,   /**< 2 bits */
     OPSZ_3b,   /**< 3 bits */
     OPSZ_4b,   /**< 4 bits */
     OPSZ_5b,   /**< 5 bits */
     OPSZ_6b,   /**< 6 bits */
+    OPSZ_7b,   /**< 7 bits */
+    OPSZ_9b,   /**< 9 bits */
+    OPSZ_10b,  /**< 10 bits */
+    OPSZ_11b,  /**< 11 bits */
     OPSZ_12b,  /**< 12 bits */
+    OPSZ_20b,  /**< 20 bits */
     OPSZ_25b,  /**< 25 bits */
-    OPSZ_VAR_REGLIST,  /**< 1 bit */
+    /**
+     * At encode or decode time, the size will match the size of the
+     * register list operand in the containing instruction's operands.
+     */
+    OPSZ_VAR_REGLIST,
     OPSZ_20,  /**< 20 bytes.  Needed for load/store of register lists. */
     OPSZ_24,  /**< 24 bytes.  Needed for load/store of register lists. */
     OPSZ_36,  /**< 36 bytes.  Needed for load/store of register lists. */
@@ -293,7 +305,27 @@ enum {
     OPSZ_56,  /**< 56 bytes.  Needed for load/store of register lists. */
     OPSZ_60,  /**< 60 bytes.  Needed for load/store of register lists. */
     OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists. */
-    /* Add new size here.  Also update size_names[] in encode.c. */
+    OPSZ_68,  /**< 68 bytes.  Needed for load/store of register lists. */
+    OPSZ_72,  /**< 72 bytes.  Needed for load/store of register lists. */
+    OPSZ_76,  /**< 76 bytes.  Needed for load/store of register lists. */
+    OPSZ_80,  /**< 80 bytes.  Needed for load/store of register lists. */
+    OPSZ_84,  /**< 84 bytes.  Needed for load/store of register lists. */
+    OPSZ_88,  /**< 88 bytes.  Needed for load/store of register lists. */
+    OPSZ_92,  /**< 92 bytes.  Needed for load/store of register lists. */
+    OPSZ_96,  /**< 96 bytes.  Needed for load/store of register lists. */
+    OPSZ_100, /**< 100 bytes. Needed for load/store of register lists. */
+    OPSZ_104, /**< 104 bytes. Needed for load/store of register lists. */
+    /* OPSZ_108 already exists */
+    OPSZ_112, /**< 112 bytes. Needed for load/store of register lists. */
+    OPSZ_116, /**< 116 bytes. Needed for load/store of register lists. */
+    OPSZ_120, /**< 120 bytes. Needed for load/store of register lists. */
+    OPSZ_124, /**< 124 bytes. Needed for load/store of register lists. */
+    OPSZ_128, /**< 128 bytes. Needed for load/store of register lists. */
+#ifdef AVOID_API_EXPORT
+    /* Add new size here.  Also update size_names[] in decode_shared.c along with
+     * the size routines in opnd_shared.c.
+     */
+#endif
     OPSZ_LAST,
 };
 
@@ -341,8 +373,9 @@ enum {
     /* OPSZ_ constants not exposed to the user so ok to be shifted
      * by additions above
      */
-    OPSZ_1_of_8 = OPSZ_LAST,  /* 8 bits, but can be part of an MMX register */
-    OPSZ_SUBREG_START = OPSZ_1_of_8,
+    OPSZ_1_of_4 = OPSZ_LAST,  /* 8 bits, but can be part of a GPR register */
+    OPSZ_2_of_4,  /* 16 bits, but can be part of a GPR register */
+    OPSZ_1_of_8,  /* 8 bits, but can be part of an MMX register */
     OPSZ_2_of_8,  /* 16 bits, but can be part of MMX register */
     OPSZ_4_of_8,  /* 32 bits, but can be half of MMX register */
     OPSZ_1_of_16, /* 8 bits, but can be part of XMM register */
@@ -358,6 +391,7 @@ enum {
                          * vex.L then is 256 bits (YMM or memory)
                          */
     OPSZ_16_of_32, /* 128 bits: half of YMM */
+    OPSZ_SUBREG_START = OPSZ_1_of_4,
     OPSZ_SUBREG_END = OPSZ_16_of_32,
     OPSZ_LAST_ENUM, /* note last is NOT inclusive */
 };
@@ -368,6 +402,8 @@ enum {
 # define OPSZ_STATS OPSZ_4
 #endif
 
+#define IT_BLOCK_MAX_INSTRS 4
+
 /* in encode.c, not exported to non-arch/ files */
 const instr_info_t * get_encoding_info(instr_t *instr);
 const instr_info_t * instr_info_extra_opnds(const instr_info_t *info);
@@ -377,7 +413,11 @@ byte instr_info_opnd_type(const instr_info_t *info, bool src, int num);
 extern const instr_info_t invalid_instr;
 
 /* in decode.c */
-const instr_info_t * opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode);
+const instr_info_t * opcode_to_encoding_info(uint opc,
+                                             dr_isa_mode_t isa_mode
+                                             _IF_ARM(bool it_block));
+bool decode_raw_is_jmp(dcontext_t *dcontext, byte *pc);
+byte *decode_raw_jmp_target(dcontext_t *dcontext, byte *pc);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 
@@ -559,6 +599,20 @@ get_x86_mode(dcontext_t *dcontext);
 /* DR_API EXPORT BEGIN */
 #endif
 /* DR_API EXPORT END */
+
+#ifdef DEBUG
+void
+decode_debug_checks(void);
+#endif
+
+#ifdef ARM
+/* The "current" pc has an offset in pc-relative computations that varies
+ * by mode, opcode, and even operands.  Callers can pass NULL for instr
+ * if their opcode is OP_b, OP_b_short, OP_bl, OP_cbnz, OP_cbz, or OP_blx.
+ */
+app_pc
+decode_cur_pc(app_pc instr_pc, dr_isa_mode_t mode, uint opcode, instr_t *instr);
+#endif
 
 /* for debugging: printing out types and sizes */
 extern const char * const type_names[];

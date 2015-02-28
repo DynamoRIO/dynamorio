@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -301,6 +301,9 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
+elseif (ARM AND NOT X64)
+  # 32-bit Linux ARM reserves some space upper for kernel
+  set(preferred_base "0xb0000000" CACHE STRING "Preferred library base address")
 elseif (UNIX AND NOT X64)
   # put dynamorio at top of address space, little chance of conflict
   set(preferred_base "0xf7000000" CACHE STRING "Preferred library base address")
@@ -373,11 +376,12 @@ endforeach ()
 ##################################################
 # resources when packaging
 
-# i#83: use svn revision of last commit as patchlevel ver# to distinguish
+# We use a monotonically increasing integer that's larger than any bugfix
+# release version as the patchlevel ver# to distinguish
 # mid-release builds.
-# XXX: if we later switch to a non-linear version control system we'll
-# want to switch to a date or something, but be aware of timezone issues
-# so we may want a cron job that updates an official date in the sources.
+# We used to use the svn revision (i#83) and we leave that code in place
+# (for now at least) for anyone building an old checkout.
+# For git, we follow i#1565 and use a date.
 set(VERSION_NUMBER_PATCHLEVEL 0)
 # for now using a hack of running svn or git to get the ver#,
 # rather than having it stored in the sources and auto-updated
@@ -412,18 +416,24 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   if (EXISTS "${PROJECT_SOURCE_DIR}/.git")
     find_program(GIT git DOC "git client")
     if (GIT)
-      execute_process(COMMAND ${GIT} log
+      # We want the committer date (not author date) (xref i#1565).  We request UNIX
+      # timestamp format and then divide down to days to get a small enough number
+      # for the Windows resource limits.
+      #
+      # XXX i#1565: to support building when not in a git repo (e.g., from a source
+      # tarball) we should add support for a local file holding the version.
+      execute_process(COMMAND ${GIT} log -n 1 --format=%ct
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE git_out)
       if (git_result OR git_err)
-        message(FATAL_ERROR "*** ${GIT} show failed: ***\n${git_err}")
+        message(FATAL_ERROR "*** ${GIT} log failed: ***\n${git_err}")
       endif (git_result OR git_err)
-      # look for first commit with git-svn-id
-      string(REGEX MATCH "git-svn-id: http[^@]*@[0-9]+" git_out "${git_out}")
-      string(REGEX REPLACE "git-svn-id: http[^@]*@" "" git_out "${git_out}")
-      set(VERSION_NUMBER_PATCHLEVEL "${git_out}")
+      math(EXPR daycount "${git_out} / (60*60*24)")
+      if (daycount)
+        set(VERSION_NUMBER_PATCHLEVEL "${daycount}")
+      endif ()
     endif (GIT)
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
@@ -1239,8 +1249,22 @@ option(BUILD_TOOLS "build tools" ON)
 if (WIN32)
   option(BUILD_DRSTATS "build DRstats viewer (requires MFC)" ON)
 endif (WIN32)
+
 option(BUILD_EXT "build Extension libraries" ON)
-option(BUILD_DOCS "build documentation" ON)
+
+# should we disallow selecting samples when core is not built?
+# right now the samples build will just fail
+option(BUILD_SAMPLES "build client samples" ON)
+
+if (ARM)
+  # FIXME i#1551: port client tools to ARM
+  option(BUILD_CLIENTS "build client tools" OFF)
+  # FIXME i#1551: fail to install necessary package on Linux ARM
+  option(BUILD_DOCS "build documentation" OFF)
+else (ARM)
+  option(BUILD_CLIENTS "build client tools" ON)
+  option(BUILD_DOCS "build documentation" ON)
+endif (ARM)
 
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to
@@ -1250,11 +1274,6 @@ if (VMSAFE)
   set(BUILD_DOCS OFF)
 endif (VMSAFE)
 
-option(BUILD_CLIENTS "build client tools" ON)
-
-# should we disallow selecting samples when core is not built?
-# right now the samples build will just fail
-option(BUILD_SAMPLES "build client samples" ON)
 if (NOT CLIENT_INTERFACE)
   set(BUILD_SAMPLES OFF)
   set(BUILD_EXT OFF)
@@ -1553,13 +1572,15 @@ endfunction ()
 
 # create CMake configuration files for clients and tests to use
 # we also create cmake/DynamoRIOTarget.cmake in core/CMakeLists.txt
+set(public_config_dir ${PROJECT_BINARY_DIR}/cmake)
+set(public_config_file ${public_config_dir}/DynamoRIOConfig.cmake)
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
+  ${public_config_file}
   @ONLY)
 
 # INCLUDEFILE feature
-file(READ ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake contents)
+file(READ ${public_config_file} contents)
 string(REGEX MATCHALL "\nINCLUDEFILE [^ \r\n]*" includes "${contents}")
 foreach (inc ${includes})
   string(REGEX REPLACE "\nINCLUDEFILE " "" incfile "${inc}")
@@ -1568,14 +1589,14 @@ foreach (inc ${includes})
   string(REGEX REPLACE "(^|\n)##[^\n]*" "" subst "${subst}")
   string(REGEX REPLACE "${inc}" "\n${subst}" contents "${contents}")
 endforeach (inc)
-file(WRITE ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake "${contents}")
+file(WRITE ${public_config_file} "${contents}")
 
 configure_file(
   ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfigVersion.cmake.in
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   @ONLY)
 DR_install(FILES
-  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfig.cmake
+  ${public_config_file}
   ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
   DESTINATION ${INSTALL_CMAKE}
 )

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -88,8 +88,8 @@ else ()
     find_program(GIT git DOC "git client")
     if (GIT)
       # Included committed, staged, and unstaged changes.
-      # We assume "master" contains the svn top-of-trunk.
-      execute_process(COMMAND ${GIT} diff master
+      # We assume "origin/master" contains the top-of-trunk.
+      execute_process(COMMAND ${GIT} diff origin/master
         WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
@@ -97,15 +97,24 @@ else ()
       if (git_result OR git_err)
         if (git_err MATCHES "unknown revision")
           # It may be a cloned branch
-          execute_process(COMMAND ${GIT} diff remotes/origin/master
+          execute_process(COMMAND ${GIT} remote -v
             WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
             RESULT_VARIABLE git_result
             ERROR_VARIABLE git_err
-            OUTPUT_VARIABLE diff_contents)
+            OUTPUT_VARIABLE git_out)
         endif ()
         if (git_result OR git_err)
-          message(FATAL_ERROR "*** ${GIT} diff failed: ***\n${git_err}")
+          message(FATAL_ERROR "*** ${GIT} remote -v failed: ***\n${git_err}")
         endif (git_result OR git_err)
+        if (NOT git_out)
+          # No remotes set up: we assume this is a custom git setup that
+          # is only likely to get used on our buildbots, so we skip
+          # the diff checks.
+          message("No remotes set up so cannot diff and must skip content checks.  Assuming this is a buildbot.")
+          set(diff_contents "")
+        else ()
+          message(FATAL_ERROR "*** Unable to retrieve diff for content checks: do you have a custom remote setup?")
+        endif ()
       endif (git_result OR git_err)
     endif (GIT)
   endif (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
@@ -162,17 +171,6 @@ testbuild_ex("debug-internal-64" ON "
   ${install_path_cache}
   TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
   " OFF ON "${install_build_args}")
-# ensure extensions built as static libraries work
-# no tests needed: we ensure instrcalls and drsyms_bench build
-testbuild("debug-i32-static-ext" OFF "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  DR_EXT_DRWRAP_STATIC:BOOL=ON
-  DR_EXT_DRUTIL_STATIC:BOOL=ON
-  DR_EXT_DRMGR_STATIC:BOOL=ON
-  DR_EXT_DRSYMS_STATIC:BOOL=ON
-  ${install_path_cache}
-  ")
 # we don't really support debug-external anymore
 if (DO_ALL_BUILDS_NOT_SUPPORTED)
   testbuild("debug-external-64" ON "

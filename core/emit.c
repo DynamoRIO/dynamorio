@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -727,7 +727,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
             ASSERT(prev_stub_pc != NULL);
             /* pointing at start of stub is the unlink entry */
             ASSERT(linkstub_unlink_entry_offset(dcontext, f, l) == 0);
-            patch_branch(EXIT_CTI_PC(f, l), EXIT_STUB_PC(dcontext, f, l), false);
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
+                         EXIT_STUB_PC(dcontext, f, l), false);
 #ifdef CUSTOM_EXIT_STUBS
             /* we don't currently support separate custom stubs */
             ASSERT(instr_exit_stub_code(inst) == NULL);
@@ -782,7 +783,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
         ASSERT_TRUNCATE(l->fixed_stub_offset, ushort, (pc - old_pc));
         l->fixed_stub_offset = (ushort) (pc - old_pc);
         /* relocate the exit branch target so it takes to the stub */
-        patch_branch(EXIT_CTI_PC(f, l), old_pc, false);
+        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), old_pc, false);
 #else
         if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
             direct_linkstub_t *dl = (direct_linkstub_t *) l;
@@ -791,7 +792,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
         /* relocate the exit branch target so it takes to the unlink
          * entry to the stub
          */
-        patch_branch(EXIT_CTI_PC(f, l),
+        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
                      pc + linkstub_unlink_entry_offset(dcontext, f, l), false);
         LOG(THREAD, LOG_EMIT, 3,
             "Exit cti "PFX" is targeting "PFX" + 0x%x => "PFX"\n",
@@ -867,7 +868,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     if (PAD_FRAGMENT_JMPS(flags) && !INTERNAL_OPTION(pad_jmps_return_excess_padding)) {
         /* these can never be reached, but will be decoded by shift
          * fcache pointers */
-        SET_TO_NOPS(pc, f->size - (pc - f->start_pc));
+        SET_TO_NOPS(dr_get_isa_mode(dcontext), pc, f->size - (pc - f->start_pc));
     } else {
         ASSERT(f->size - (pc - f->start_pc) == 0);
     }
@@ -893,10 +894,11 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     } else {
         /* bb-only finalization */
     }
+#ifdef X86
     if ((flags & FRAG_SELFMOD_SANDBOXED) != 0) {
         finalize_selfmod_sandbox(dcontext, f);
     }
-
+#endif
     /* add fragment to vm area lists */
     vm_area_add_fragment(dcontext, f, vmlist);
 

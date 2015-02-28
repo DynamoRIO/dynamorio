@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -219,7 +219,7 @@ set_target_properties(drsyms_bench PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/ext")
 
 # documentation is put into main DR docs/ dir
-DR_install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})
+install_ext_header(drsyms.h)
 
 if (WIN32)
   # We need separate 32-bit and 64-bit versions so we put into lib dir.

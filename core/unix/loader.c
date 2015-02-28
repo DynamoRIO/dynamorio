@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -39,7 +39,6 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
-#include "os_exports.h"   /* os_get_dr_seg_base */
 #include "../arch/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
@@ -49,6 +48,7 @@
 #else
 # include <sys/syscall.h>
 #endif
+#include "tls.h"
 
 #include <dlfcn.h>      /* dlsym */
 #ifdef LINUX
@@ -71,12 +71,17 @@ static const char *system_lib_paths[] = {
     "/lib",
     "/usr/local/lib",       /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
 #ifndef X64
-    "/lib32/tls/i686/cmov",
     "/usr/lib32",
     "/lib32",
+# ifdef X86
+    "/lib32/tls/i686/cmov",
     /* 32-bit Ubuntu */
     "/lib/i386-linux-gnu",
     "/usr/lib/i386-linux-gnu",
+# elif defined(ARM)
+    "/lib/arm-linux-gnueabihf",
+    "/usr/lib/arm-linux-gnueabihf",
+# endif
 #else
     "/lib64/tls/i686/cmov",
     "/usr/lib64",
@@ -344,6 +349,9 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
      */
 }
 
+/* This only maps, as relocation for ELF requires processing imports first,
+ * which we have to delay at init time at least.
+ */
 app_pc
 privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
 {
@@ -465,7 +473,9 @@ privload_process_imports(privmod_t *mod)
         }
         ++dyn;
     }
-    /* Relocate library's symbols after load dependent libraries. */
+    /* Relocate library's symbols after load dependent libraries (so that we
+     * can resolve symbols in the global ELF namespace).
+     */
     if (!mod->externally_loaded)
         privload_relocate_mod(mod);
     return true;
@@ -481,7 +491,7 @@ bool
 privload_call_entry(privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
-    if (os_get_dr_seg_base(NULL, LIB_SEG_TLS) == NULL) {
+    if (os_get_priv_tls_base(NULL, TLS_REG_LIB) == NULL) {
         /* HACK: i#338
          * The privload_call_entry is called in privload_load_finalize
          * from loader_init.
@@ -773,7 +783,9 @@ get_private_library_address(app_pc modbase, const char *name)
         char *soname;
         os_module_data_t os_data;
         memset(&os_data, 0, sizeof(os_data));
-        if (!module_read_os_data(mod->base, &delta, &os_data, &soname)) {
+        if (!module_read_os_data(mod->base,
+                                 false /* .dynamic not relocated (i#1589) */,
+                                 &delta, &os_data, &soname)) {
             release_recursive_lock(&privload_lock);
             return NULL;
         }
@@ -860,6 +872,8 @@ privload_relocate_mod(privmod_t *mod)
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
+    LOG(GLOBAL, LOG_LOADER, 3, "relocating %s\n", mod->name);
+
     /* If module has tls block need update its tls offset value */
     if (opd->tls_block_size != 0)
         privload_mod_tls_init(mod);
@@ -910,7 +924,6 @@ static void
 privload_create_os_privmod_data(privmod_t *privmod)
 {
     os_privmod_data_t *opd;
-    app_pc out_base, out_end;
 
     opd = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, os_privmod_data_t,
                           ACCT_OTHER, PROTECTED);
@@ -918,8 +931,11 @@ privload_create_os_privmod_data(privmod_t *privmod)
     memset(opd, 0, sizeof(*opd));
 
     /* walk the module's program header to get privmod information */
-    module_walk_program_headers(privmod->base, privmod->size, false,
-                                &out_base, NULL, &out_end, &opd->soname,
+    module_walk_program_headers(privmod->base, privmod->size,
+                                false, /* segments are remapped */
+                                false, /* i#1589: .dynamic not relocated */
+                                &opd->os_data.base_address, NULL,
+                                &opd->max_end, &opd->soname,
                                 &opd->os_data);
     module_get_os_privmod_data(privmod->base, privmod->size,
                                false/*!relocated*/, opd);
@@ -934,6 +950,36 @@ privload_delete_os_privmod_data(privmod_t *privmod)
     privmod->os_privmod_data = NULL;
 }
 
+/* i#1589: the client lib is already on the priv lib list, so we share its
+ * data with loaded_module_areas (which also avoids problems with .dynamic
+ * not being relocated for priv libs).
+ */
+bool
+privload_fill_os_module_info(app_pc base,
+                             OUT app_pc *out_base /* relative pc */,
+                             OUT app_pc *out_max_end /* relative pc */,
+                             OUT char **out_soname,
+                             OUT os_module_data_t *out_data)
+{
+    bool res = false;
+    privmod_t *privmod;
+    acquire_recursive_lock(&privload_lock);
+    privmod = privload_lookup_by_base(base);
+    if (privmod != NULL) {
+        os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
+        if (out_base != NULL)
+            *out_base = opd->os_data.base_address;
+        if (out_max_end != NULL)
+            *out_max_end = opd->max_end;
+        if (out_soname != NULL)
+            *out_soname = opd->soname;
+        if (out_data != NULL)
+            module_copy_os_data(out_data, &opd->os_data);
+        res = true;
+    }
+    release_recursive_lock(&privload_lock);
+    return res;
+}
 
 /****************************************************************************
  *                  Thread Local Storage Handling Code                      *
@@ -1174,7 +1220,7 @@ redirect___tls_get_addr(tls_index_t *ti)
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
         ti->ti_module, ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) -
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
@@ -1195,7 +1241,7 @@ redirect____tls_get_addr()
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
         ti->ti_module, ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) -
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
@@ -1438,6 +1484,9 @@ privload_early_inject(void **sp)
     elf_loader_destroy(&exe_ld);
 
     reserve_brk();
+
+    /* TLS in some cases needs different init than the normal later path */
+    tls_early_init();
 
     /* Initialize DR *after* we map the app image.  This is consistent with our
      * old behavior, and allows the client to do things like call

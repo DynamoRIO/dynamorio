@@ -2250,7 +2250,7 @@ add_written_area(vm_area_vector_t *v, app_pc tag, app_pc start,
     /* re-adding fails for written_areas since no merging, so lookup first */
     already = lookup_addr(v, tag, &a);
     if (!already) {
-        app_pc prev_start, next_start;
+        app_pc prev_start = NULL, next_start = NULL;
         LOG(GLOBAL, LOG_VMAREAS, 2,
             "new written executable vm area: "PFX"-"PFX"\n",
             start, end);
@@ -10111,7 +10111,7 @@ vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                 }
                 /* for !in_place we free premerge after persisting, so clients don't
                  * get deletion events that remove data from hashtables too early
-                 * (xref http://code.google.com/p/drmemory/issues/detail?id=869)
+                 * (xref https://github.com/DynamoRIO/drmemory/issues/869)
                  */
                 if (in_place) {
                     coarse_unit_reset_free(dcontext, frozen_info, false/*no locks*/,

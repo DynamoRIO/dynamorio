@@ -121,6 +121,14 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     }
 }
 
+int
+opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
+                          instr_t *instr, int idx)
+{
+    /* nothing */
+    return idx;
+}
+
 static bool
 instr_implicit_reg(instr_t *instr)
 {

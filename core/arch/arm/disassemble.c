@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -73,13 +73,23 @@ static const char * const pred_names[] = {
     "",    /* DR_PRED_OP */
 };
 
+const char *
+instr_predicate_name(dr_pred_type_t pred)
+{
+    if (pred > DR_PRED_OP)
+        return NULL;
+    return pred_names[pred];
+}
+
 int
 print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
                       byte *pc, byte *next_pc, instr_t *instr)
 {
     /* Follow conventions used elsewhere with split for T32, solid for the rest */
     if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB) {
-        if (next_pc - pc == 2)
+        if (next_pc - pc == 0)
+            print_to_buffer(buf, bufsz, sofar, "            ", *((ushort *)pc));
+        else if (next_pc - pc == 2)
             print_to_buffer(buf, bufsz, sofar, " %04x       ", *((ushort *)pc));
         else {
             CLIENT_ASSERT(next_pc - pc == 4, "invalid thumb size");
@@ -100,35 +110,75 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
     /* There are no "extra" bytes */
 }
 
+static void
+disassemble_shift(char *buf, size_t bufsz, size_t *sofar INOUT, const char *prefix,
+                  const char *suffix,
+                  dr_shift_type_t shift, bool immed_amount, uint amount)
+{
+    switch (shift) {
+    case DR_SHIFT_NONE:
+        break;
+    case DR_SHIFT_RRX:
+        print_to_buffer(buf, bufsz, sofar, "%srrx", prefix);
+        /* XXX i#1551: do not print amount for ARM style */
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_LSL:
+        /* XXX i#1551: use #%d for ARM style */
+        print_to_buffer(buf, bufsz, sofar, "%slsl", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_LSR:
+        print_to_buffer(buf, bufsz, sofar, "%slsr", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_ASR:
+        print_to_buffer(buf, bufsz, sofar, "%sasr", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_ROR:
+        print_to_buffer(buf, bufsz, sofar, "%sror", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    default:
+        print_to_buffer(buf, bufsz, sofar, ",UNKNOWN SHIFT");
+        break;
+    }
+    print_to_buffer(buf, bufsz, sofar, "%s", suffix);
+}
+
 void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd)
 {
     uint amount;
     dr_shift_type_t shift = opnd_get_index_shift(opnd, &amount);
-    switch (shift) {
-    case DR_SHIFT_NONE:
-        break;
-    case DR_SHIFT_RRX:
-        print_to_buffer(buf, bufsz, sofar, ",rrx");
-        break;
-    case DR_SHIFT_LSL:
-        /* XXX i#1551: use #%d for ARM style */
-        print_to_buffer(buf, bufsz, sofar, ",lsl %d", amount);
-        break;
-    case DR_SHIFT_LSR:
-        print_to_buffer(buf, bufsz, sofar, ",lsr %d", amount);
-        break;
-    case DR_SHIFT_ASR:
-        print_to_buffer(buf, bufsz, sofar, ",asr %d", amount);
-        break;
-    case DR_SHIFT_ROR:
-        print_to_buffer(buf, bufsz, sofar, ",ror %d", amount);
-        break;
-    default:
-        print_to_buffer(buf, bufsz, sofar, ",UNKNOWN SHIFT");
-        break;
+    disassemble_shift(buf, bufsz, sofar, ",", "", shift, true, amount);
+}
+
+int
+opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
+                          instr_t *instr, int idx)
+{
+    opnd_t src = instr_get_src(instr, idx);
+    if (opnd_is_reg(src) && TEST(DR_OPND_SHIFTED, opnd_get_flags(src)) &&
+        idx + 2 < instr_num_srcs(instr)) {
+        opnd_t nxt = instr_get_src(instr, idx + 1);
+        if (opnd_is_immed_int(nxt)) {
+            dr_shift_type_t shift = (dr_shift_type_t) opnd_get_immed_int(nxt);
+            opnd_t nxt2 = instr_get_src(instr, idx + 2);
+            bool immed_amount = opnd_is_immed_int(nxt2);
+            disassemble_shift(buf, bufsz, sofar, "", " ", shift, immed_amount,
+                              immed_amount ? opnd_get_immed_int(nxt2) : 0);
+            return (immed_amount ? idx + 2 : idx + 1);
+        }
     }
+    return idx;
 }
 
 bool
@@ -173,6 +223,19 @@ print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT
     dr_pred_type_t pred = instr_get_predicate(instr);
     size_t pre_sofar = *sofar;
     print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);
+    if (instr_get_opcode(instr) == OP_it &&
+        opnd_is_immed_int(instr_get_src(instr, 0)) &&
+        opnd_is_immed_int(instr_get_src(instr, 1))) {
+        it_block_info_t info;
+        int i;
+        it_block_info_init_immeds(&info, opnd_get_immed_int(instr_get_src(instr, 1)),
+                                  opnd_get_immed_int(instr_get_src(instr, 0)));
+        for (i = 1/*1st is implied*/; i < info.num_instrs; i++) {
+            print_to_buffer(buf, bufsz, sofar, "%c",
+                            TEST(BITMAP_MASK(i), info.preds) ? 't' : 'e');
+
+        }
+    }
     return *sofar - pre_sofar;
 }
 

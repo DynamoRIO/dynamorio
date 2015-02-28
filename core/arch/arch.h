@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,6 +48,7 @@
 #include "instr.h" /* for reg_id_t */
 #include "decode.h" /* for X64_CACHE_MODE_DC */
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
+#include "../fragment.h" /* IS_IBL_TARGET */
 
 #ifdef X64
 static inline bool
@@ -120,6 +121,15 @@ mixed_mode_enabled(void)
 # define R3_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r3)))
 # define R4_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r4)))
 # define R5_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r5)))
+# define R6_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r6)))
+# define R7_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r7)))
+# define R8_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r8)))
+# define R9_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r9)))
+# define R10_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r10)))
+# define R11_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r11)))
+# define R12_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
+# define R13_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
+# define R14_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
 # define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 # define PC_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 # define SCRATCH_REG0      DR_REG_R0
@@ -134,10 +144,17 @@ mixed_mode_enabled(void)
 # define SCRATCH_REG3_OFFS R3_OFFSET
 # define SCRATCH_REG4_OFFS R4_OFFSET
 # define SCRATCH_REG5_OFFS R5_OFFSET
+# define REG_OFFSET(reg)   (R0_OFFSET + ((reg) - DR_REG_R0) * sizeof(reg_t))
 #endif /* X86/ARM */
 #define XSP_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
 #define XFLAGS_OFFSET      ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #define PC_OFFSET          ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
+
+/* the register holds dcontext on fcache enter/return */
+#define REG_DCXT           SCRATCH_REG5
+#define REG_DCXT_OFFS      SCRATCH_REG5_OFFS
+#define REG_DCXT_PROT      SCRATCH_REG4
+#define REG_DCXT_PROT_OFFS SCRATCH_REG4_OFFS
 
 #define ERRNO_OFFSET      (offsetof(unprotected_context_t, errno))
 #define AT_SYSCALL_OFFSET (offsetof(unprotected_context_t, at_syscall))
@@ -163,6 +180,7 @@ mixed_mode_enabled(void)
 #  define APP_NLS_CACHE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_nls_cache))
 #  define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, priv_nls_cache))
 #  define APP_STACK_LIMIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, app_stack_limit))
+#  define APP_STACK_BASE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_stack_base))
 # endif
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
 #endif
@@ -379,24 +397,94 @@ cache_pc trace_head_incr_routine(dcontext_t *dcontext);
 cache_pc trace_head_incr_shared_routine(IF_X64(gencode_mode_t mode));
 #endif
 
-/* in mangle.c but not exported to non-x86 files */
-/* clean call optimization */
+/* in mangle_shared.c */
+/* What prepare_for_clean_call() adds to xsp beyond sizeof(priv_mcontext_t) */
+static inline int
+clean_call_beyond_mcontext(void)
+{
+    return 0; /* no longer adding anything */
+}
+void
+clean_call_info_init(clean_call_info_t *cci, void *callee,
+                     bool save_fpstate, uint num_args);
+void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
+            bool mangle_calls, bool record_translation);
+bool
+parameters_stack_padded(void);
+/* Inserts a complete call to callee with the passed-in arguments */
+bool
+insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                       bool clean_call, bool returns, byte *encode_pc, void *callee,
+                       uint num_args, opnd_t *args);
 void
 mangle_init(void);
 void
 mangle_exit(void);
-bool
-analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
 void
-insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                         instrlist_t *ilist, instr_t *where, opnd_t *args);
+insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first OUT, instr_t **second OUT);
+void
+insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
+                        instrlist_t *ilist, instr_t *instr,
+                        instr_t **first OUT, instr_t **second OUT);
+void
+insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
+                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second);
+void
+insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second);
 
-void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
-                              instr_t *instr, bool skip
-                              _IF_X64(gencode_mode_t mode));
+/* in mangle.c arch-specific implementation */
+reg_id_t
+shrink_reg_for_param(reg_id_t regular, opnd_t arg);
+uint
+insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                             bool clean_call, uint num_args, opnd_t *args);
 void
-set_selfmod_sandbox_offsets(dcontext_t *dcontext);
+insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                      ptr_int_t val, opnd_t dst,
+                      instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second);
+void
+insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       ptr_int_t val, instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second);
+instr_t *
+convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+void
+mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+                    instr_t *instr, instr_t *next_instr);
+void
+mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                 instr_t *next_instr);
+instr_t *
+mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                   instr_t *next_instr, bool mangle_calls, uint flags);
+instr_t *
+mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                     instr_t *next_instr, bool mangle_calls, uint flags);
+void
+mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+              instr_t *next_instr, uint flags);
+instr_t *
+mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                     instr_t *next_instr, uint flags);
+#if defined(X64) || defined(ARM)
+instr_t *
+mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                instr_t *next_instr);
+#endif
+#ifdef ARM
+/* mangle instructions that use pc or dr_reg_stolen */
+instr_t *
+mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                         instr_t *next_instr);
+#endif
+void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
+                              instr_t *instr _IF_X64(gencode_mode_t mode));
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void);
@@ -405,29 +493,26 @@ get_clean_call_switch_stack_size(void);
  */
 int
 get_clean_call_temp_stack_size(void);
-
 void
 insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr);
-
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, instr_t *push_pc);
+                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/);
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
                          uint alignment);
-bool
-parameters_stack_padded(void);
-/* Inserts a complete call to callee with the passed-in arguments */
-bool
-insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, byte *encode_pc, void *callee,
-                       uint num_args, opnd_t *args);
+void
+insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t scratch1, reg_id_t scratch2);
+void
+insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                         reg_id_t scratch1, reg_id_t scratch2);
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                     byte *encode_pc, byte *target, bool jmp, bool precise,
+                     byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr);
 void
 insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
@@ -446,31 +531,41 @@ bool
 instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter);
 #endif
 int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+
+/* in mangle.c  but not exported to non-arch files */
+int
+insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
+                                  instr_t *instr, bool save);
+#ifdef X86
+/* mangle the instruction that reference memory via segment register */
+void
+mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+               instr_t *next_instr);
+/* mangle the instruction OP_mov_seg, i.e. the instruction that
+ * read/update the segment register.
+ */
+void
+mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+               instr_t *next_instr);
+void
+mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
+                instr_t *instr, instr_t *next_instr, uint *flags INOUT);
+void
+mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr);
+void
+mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                       instr_t *next_instr, uint flags);
+void
+set_selfmod_sandbox_offsets(dcontext_t *dcontext);
 bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                             app_pc start_pc, app_pc end_pc, /* end is open */
                             bool record_translation, bool for_cache);
-
-void
-insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
-                       instrlist_t *ilist, instr_t *instr,
-                       instr_t **first OUT, instr_t **second OUT);
-void
-insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
-                        instrlist_t *ilist, instr_t *instr,
-                        instr_t **first OUT, instr_t **second OUT);
-void
-insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
-                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second);
-void
-insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                       instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second);
+#endif /* X86 */
 
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
     /* ok for this guy to overlap w/ others since he is pre-cache */
-    FCACHE_ENTER_TARGET_SLOT    = TLS_SLOT_R0,
+    FCACHE_ENTER_TARGET_SLOT    = TLS_REG0_SLOT,
     /* FIXME: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
@@ -478,30 +573,27 @@ enum {
      * used for sysenter shared syscall mangling, which uses an
      * indirect stub.
      */
-    MANGLE_NEXT_TAG_SLOT        = TLS_SLOT_R0,
-    DIRECT_STUB_SPILL_SLOT      = TLS_SLOT_R0,
-    MANGLE_RIPREL_SPILL_SLOT    = TLS_SLOT_R0,
+    MANGLE_NEXT_TAG_SLOT        = TLS_REG0_SLOT,
+    DIRECT_STUB_SPILL_SLOT      = TLS_REG0_SLOT,
+    MANGLE_RIPREL_SPILL_SLOT    = TLS_REG0_SLOT,
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
-    INDIRECT_STUB_SPILL_SLOT    = TLS_SLOT_R1,
-    MANGLE_FAR_SPILL_SLOT       = TLS_SLOT_R1,
+    INDIRECT_STUB_SPILL_SLOT    = TLS_REG1_SLOT,
+    MANGLE_FAR_SPILL_SLOT       = TLS_REG1_SLOT,
     /* i#698: float_pc handling stores the mem addr of the float state here.  We
      * assume this slot is not touched on the fcache_return path.
      */
-    FLOAT_PC_STATE_SLOT         = TLS_SLOT_R1,
-    MANGLE_XCX_SPILL_SLOT       = TLS_SLOT_R2,
+    FLOAT_PC_STATE_SLOT         = TLS_REG1_SLOT,
+    MANGLE_XCX_SPILL_SLOT       = TLS_REG2_SLOT,
     /* FIXME: edi is used as the base, yet I labeled this slot for edx
      * since it's next in the progression -- change one or the other?
      * (this is case 5239)
      */
-    DCONTEXT_BASE_SPILL_SLOT    = TLS_SLOT_R3,
-    PREFIX_XAX_SPILL_SLOT       = TLS_SLOT_R0,
+    DCONTEXT_BASE_SPILL_SLOT    = TLS_REG3_SLOT,
+    PREFIX_XAX_SPILL_SLOT       = TLS_REG0_SLOT,
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
 };
-
-void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
-            bool mangle_calls, bool record_translation);
 
 /* in interp.c but not exported to non-x86 files */
 bool must_not_be_inlined(app_pc pc);
@@ -544,6 +636,7 @@ typedef enum {
     PATCH_TYPE_ABSOLUTE     = 0x0, /* link with absolute address, updated dynamically */
     PATCH_TYPE_INDIRECT_XDI = 0x1, /* linked with indirection through EDI, no updates */
     PATCH_TYPE_INDIRECT_FS  = 0x2, /* linked with indirection through FS, no updates */
+    PATCH_TYPE_INDIRECT_TLS = 0x3, /* multi-step TLS indirection (ARM), no updates */
 } patch_list_type_t;
 
 typedef struct patch_list_t {
@@ -813,8 +906,10 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 #endif
 }
 
-/* PR 244737: thread-private uses shared gencode on x64 */
-#define USE_SHARED_GENCODE_ALWAYS() IF_X64_ELSE(true, false)
+/* PR 244737: thread-private uses shared gencode on x64, b/c absolute addresses
+ * are impractical.  The same goes for ARM.
+ */
+#define USE_SHARED_GENCODE_ALWAYS() IF_ARM_ELSE(true, IF_X64_ELSE(true, false))
 /* PR 212570: on linux we need a thread-shared do_syscall for our vsyscall hook,
  * if we have TLS and support sysenter (PR 361894)
  */
@@ -1056,8 +1151,6 @@ void global_do_syscall_syscall(void);
 #endif
 void get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
 void get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
-/* returns the value of mmx register #index in val */
-void get_mmx_val(OUT uint64 *val, uint index);
 
 /* in encode.c */
 byte *instr_encode_ignore_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc);
@@ -1065,10 +1158,77 @@ byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, by
                                       bool *has_instr_opnds/*OUT OPTIONAL*/);
 byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                        byte *dst_pc, byte *final_pc);
+#ifdef ARM
+byte *encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc,
+                     byte *final_pc);
+void encode_track_it_block(dcontext_t *dcontext, instr_t *instr);
+#endif
 
 /* in instr_shared.c */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
+
+/* clean call optimization */
+/* Describes usage of a scratch slot. */
+enum {
+    SLOT_NONE = 0,
+    SLOT_REG,
+    SLOT_LOCAL,
+    SLOT_FLAGS,
+};
+typedef byte slot_kind_t;
+
+/* If kind is:
+ * SLOT_REG: value is a reg_id_t
+ * SLOT_LOCAL: value is meaningless, may change to support multiple locals
+ * SLOT_FLAGS: value is meaningless
+ */
+typedef struct _slot_t {
+    slot_kind_t kind;
+    reg_id_t value;
+} slot_t;
+
+/* data structure of clean call callee information. */
+typedef struct _callee_info_t {
+    bool bailout;             /* if we bail out on function analysis */
+    uint num_args;            /* number of args that will passed in */
+    int num_instrs;           /* total number of instructions of a function */
+    app_pc start;             /* entry point of a function  */
+    app_pc bwd_tgt;           /* earliest backward branch target */
+    app_pc fwd_tgt;           /* last forward branch target */
+    int num_xmms_used;        /* number of xmms used by callee */
+    bool xmm_used[NUM_XMM_REGS];  /* xmm/ymm registers usage */
+    bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
+    int num_callee_save_regs; /* number of regs callee saved */
+    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
+    bool has_locals;          /* if reference local via stack */
+    bool xbp_is_fp;           /* if xbp is used as frame pointer */
+    bool opt_inline;          /* can be inlined or not */
+    bool write_aflags;        /* if the function changes aflags */
+    bool read_aflags;         /* if the function reads aflags from caller */
+    bool tls_used;            /* application accesses TLS (errno, etc.) */
+    reg_id_t spill_reg;       /* base register for spill slots */
+    uint slots_used;          /* scratch slots needed after analysis */
+    slot_t scratch_slots[CLEANCALL_NUM_INLINE_SLOTS];  /* scratch slot allocation */
+    instrlist_t *ilist;       /* instruction list of function for inline. */
+} callee_info_t;
+extern callee_info_t     default_callee_info;
+extern clean_call_info_t default_clean_call_info;
+
+/* in clean_call_opt.c */
+#ifdef CLIENT_INTERFACE
+void
+clean_call_opt_init(void);
+void
+clean_call_opt_exit(void);
+#endif /* CLIENT_INTERFACE */
+bool
+analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
+                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
+void
+insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
+                         instrlist_t *ilist, instr_t *where, opnd_t *args);
+
 
 /* in mangle.c */
 void
@@ -1084,8 +1244,128 @@ void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
 #endif
 
-/* in {x86/arm}/emit_utils.c */
+/****************************************************************************
+ * Platform-independent emit_utils_shared.c
+ */
+/* add an instruction to patch list and address of location for future updates */
+/* Use the type checked wrappers add_patch_entry or add_patch_marker */
+void
+add_patch_entry_internal(patch_list_t *patch, instr_t *instr, ushort patch_flags,
+                         short instruction_offset,
+                         ptr_uint_t value_location_offset);
+cache_pc
+get_direct_exit_target(dcontext_t *dcontext, uint flags);
 
+#ifdef ARM
+size_t
+get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags);
+
+size_t
+get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry);
+#endif
+
+void
+link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
+                        linkstub_t *l, bool hot_patch,
+                        app_pc target_tag);
+cache_pc
+exit_cti_disp_pc(cache_pc branch_pc);
+void
+append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
+                 ibl_code_t *ibl_code, patch_list_t *patch,
+                 uint start_pc_offset,
+                 bool collision,
+                 bool only_spill_state_in_tls, /* if true, no table info in TLS;
+                                                * indirection off of XDI is used */
+                 bool restore_eflags,
+                 instr_t **fragment_found);
+#ifdef HASHTABLE_STATISTICS
+# define HASHLOOKUP_STAT_OFFS(event) (offsetof(hashtable_statistics_t, event##_stat))
+void
+append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
+                         ibl_code_t *ibl_code, patch_list_t *patch,
+                         reg_id_t entry_register, /* register indirect (XCX) or NULL */
+                         /* adjusted to unprot_ht_statistics_t if no entry_register */
+                         uint counter_offset,
+                         reg_id_t scratch_register);
+#endif
+/* we are sharing bbs w/o ibs -- we assume that a bb
+ * w/ a direct branch cannot have an ib and thus is shared
+ */
+#ifdef TRACE_HEAD_CACHE_INCR
+/* incr routine can't tell whether coming from shared bb
+ * or non-shared fragment (such as a trace) so must always
+ * use shared stubs
+ */
+#  define FRAG_DB_SHARED(flags) true
+#else
+#  define FRAG_DB_SHARED(flags) (TEST(FRAG_SHARED, (flags)))
+#endif
+
+/* fragment_t fields */
+#define FRAGMENT_TAG_OFFS        (offsetof(fragment_t, tag))
+
+enum {PREFIX_SIZE_RESTORE_OF = 2, /* add $0x7f, %al  */
+      PREFIX_SIZE_FIVE_EFLAGS = 1,    /* SAHF */
+};
+
+/* PR 244737: x64 always uses tls even if all-private */
+#define IBL_EFLAGS_IN_TLS() (IF_X64_ELSE(true, SHARED_IB_TARGETS()))
+
+/* use indirect branch target prefix? */
+static inline bool
+use_ibt_prefix(uint flags)
+{
+    /* when no traces, all bbs use IBT prefix */
+    /* FIXME: currently to allow bb2bb we simply have a prefix on all BB's
+     * should experiment with a shorter prefix for targetting BBs
+     * by restoring the flags in the IBL routine,
+     * or even jump through memory to avoid having the register restore prefix
+     * Alternatively, we can reemit a fragment only once it is known to be an IBL target,
+     * assuming the majority will be reached with an IB when they are first built.
+     * (Simplest counterexample is of a return from a function with no arguments
+     * called within a conditional, but the cache compaction of not having
+     * prefixes on all bb's may offset this double emit).
+     * All of these are covered by case 147.
+     */
+    return (IS_IBL_TARGET(flags) &&
+            /* coarse bbs (and fine in presence of coarse) do not support prefixes */
+            !(DYNAMO_OPTION(coarse_units) &&
+              !TEST(FRAG_IS_TRACE, flags) &&
+              DYNAMO_OPTION(bb_ibl_targets)));
+}
+
+static inline bool
+ibl_use_target_prefix(ibl_code_t *ibl_code)
+{
+   return !(DYNAMO_OPTION(coarse_units) &&
+            /* If coarse units are enabled we need to have no prefix
+             * for both fine and coarse bbs
+             */
+            ((ibl_code->source_fragment_type == IBL_COARSE_SHARED &&
+              DYNAMO_OPTION(bb_ibl_targets)) ||
+             (IS_IBL_BB(ibl_code->source_fragment_type) &&
+              /* FIXME case 147/9636: if -coarse_units -bb_ibl_targets
+               * but traces are enabled, we won't put prefixes on regular
+               * bbs but will assume we have them here!  We don't support
+               * that combination yet.  When we do this routine should return
+               * another bit of info: whether to do two separate lookups.
+               */
+              DYNAMO_OPTION(disable_traces) && DYNAMO_OPTION(bb_ibl_targets))));
+}
+
+/* add an instruction to patch list and address of location for future updates */
+static inline void
+add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
+                ptr_uint_t value_location_offset)
+{
+    add_patch_entry_internal(patch, instr, patch_flags, -4 /* offset of imm32 argument */,
+                             value_location_offset);
+}
+
+/****************************************************************************
+ * Platform-specific {x86/arm}/emit_utils.c
+ */
 /* macros shared by fcache_enter and fcache_return
  * in order to generate both thread-private code that uses absolute
  * addressing and thread-shared or dcontext-shared code that uses
@@ -1135,32 +1415,99 @@ translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **i
                    instr_create_save_to_dcontext((dc), (reg), (offs))) : \
      instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
 
+#ifdef ARM
+/* Push/pop GPR helpers */
+# define DR_REG_LIST_HEAD                                     \
+    opnd_create_reg(DR_REG_R0),  opnd_create_reg(DR_REG_R1),  \
+    opnd_create_reg(DR_REG_R2),  opnd_create_reg(DR_REG_R3),  \
+    opnd_create_reg(DR_REG_R4),  opnd_create_reg(DR_REG_R5),  \
+    opnd_create_reg(DR_REG_R6),  opnd_create_reg(DR_REG_R7),  \
+    opnd_create_reg(DR_REG_R8),  opnd_create_reg(DR_REG_R9),  \
+    opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
+    opnd_create_reg(DR_REG_R12)
+
+# ifdef X64
+#  define DR_REG_LIST_LENGTH_ARM 32
+#  define DR_REG_LIST_ARM DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), \
+    opnd_create_reg(DR_REG_X14), opnd_create_reg(DR_REG_X15),  \
+    opnd_create_reg(DR_REG_X16), opnd_create_reg(DR_REG_X17),  \
+    opnd_create_reg(DR_REG_X18), opnd_create_reg(DR_REG_X19),  \
+    opnd_create_reg(DR_REG_X20), opnd_create_reg(DR_REG_X21),  \
+    opnd_create_reg(DR_REG_X22), opnd_create_reg(DR_REG_X23),  \
+    opnd_create_reg(DR_REG_X24), opnd_create_reg(DR_REG_X25),  \
+    opnd_create_reg(DR_REG_X26), opnd_create_reg(DR_REG_X27),  \
+    opnd_create_reg(DR_REG_X28), opnd_create_reg(DR_REG_X29),  \
+    opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X31)
+# else
+#  define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
+#  define DR_REG_LIST_ARM DR_REG_LIST_HEAD, \
+    opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
+# endif
+# define DR_REG_LIST_LENGTH_T32 13 /* no R13+ (sp, lr, pc) */
+# define DR_REG_LIST_T32 DR_REG_LIST_HEAD
+
+/* we can only push or pop 16 32-bit-sized SIMD registers at a time */
+# define SIMD_REG_LIST_LEN 16
+# define SIMD_REG_LIST_0_15                                    \
+    opnd_create_reg(DR_REG_D0),  opnd_create_reg(DR_REG_D1),  \
+    opnd_create_reg(DR_REG_D2),  opnd_create_reg(DR_REG_D3),  \
+    opnd_create_reg(DR_REG_D4),  opnd_create_reg(DR_REG_D5),  \
+    opnd_create_reg(DR_REG_D6),  opnd_create_reg(DR_REG_D7),  \
+    opnd_create_reg(DR_REG_D8),  opnd_create_reg(DR_REG_D9),  \
+    opnd_create_reg(DR_REG_D10), opnd_create_reg(DR_REG_D11), \
+    opnd_create_reg(DR_REG_D12), opnd_create_reg(DR_REG_D13), \
+    opnd_create_reg(DR_REG_D14), opnd_create_reg(DR_REG_D15)
+# define SIMD_REG_LIST_16_31                                   \
+    opnd_create_reg(DR_REG_D16), opnd_create_reg(DR_REG_D17), \
+    opnd_create_reg(DR_REG_D18), opnd_create_reg(DR_REG_D19), \
+    opnd_create_reg(DR_REG_D20), opnd_create_reg(DR_REG_D21), \
+    opnd_create_reg(DR_REG_D22), opnd_create_reg(DR_REG_D23), \
+    opnd_create_reg(DR_REG_D24), opnd_create_reg(DR_REG_D25), \
+    opnd_create_reg(DR_REG_D26), opnd_create_reg(DR_REG_D27), \
+    opnd_create_reg(DR_REG_D28), opnd_create_reg(DR_REG_D29), \
+    opnd_create_reg(DR_REG_D30), opnd_create_reg(DR_REG_D31)
+#endif
+
+int
+fragment_ibt_prefix_size(uint flags);
+
+void
+append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
 void
 append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
                          bool absolute, bool shared);
-
 void
 append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool absolute,
                 generated_code_t *code, linkstub_t *linkstub, bool coarse_info);
-
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 bool
 append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
                           bool ibl_end, bool absolute);
+bool
+append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
+                            instrlist_t *ilist, bool ibl_end,
+                            bool absolute, bool shared, linkstub_t *linkstub,
+                            bool coarse_info);
+void
+append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
+                ibl_code_t *ibl_code, patch_list_t *patch,
+                instr_t **fragment_found, instr_t **compare_tag_inst,
+                instr_t **post_eflags_save,
+                opnd_t miss_tgt, bool miss_8bit,
+                bool target_trace_table,
+                bool inline_ibl_head);
+#ifdef X64
+void
+instrlist_convert_to_x86(instrlist_t *ilist);
+#endif
 
 #endif /* X86_ARCH_H */
-

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -184,7 +184,9 @@ set(dr_frontend_srcs ${dr_frontend_srcs} dr_frontend_common.c)
 add_library(drfrontendlib STATIC ${dr_frontend_srcs})
 # XXX i#1409: we need dynamo_options and dynamorio_syscall for core/unix/*.
 # We'd like a small lib for that, but for now our best option is to use
-# drdecode.
-target_link_libraries(drfrontendlib drdecode)
+# drdecode.  Update: drhelper gives us dynamorio_syscall, so it's just
+# dynamo_options, which probably should be refactored out when we
+# split module_*.c.
+target_link_libraries(drfrontendlib drdecode drhelper)
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})

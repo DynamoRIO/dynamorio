@@ -45,9 +45,9 @@ main(void)
 {
 #ifdef WINDOWS
     HMODULE handle;
-    handle = LoadLibrary("advapi32.dll");
+    handle = LoadLibrary("comdlg32.dll");
     if (handle == NULL)
-        print("failed to load advapi32.dll\n");
+        print("failed to load comdlg32.dll\n");
     FreeLibrary(handle);
 #else
     void *hmod = dlopen("libz.so.1", RTLD_LAZY);

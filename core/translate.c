@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,7 +69,7 @@
  * - PR 208037/i#399: flushed fragments (need -safe_translate_flushed)
  * - PR 213251: hot patch fragments (b/c nudge can change whether patched =>
  *     should store translations for all hot patch fragments)
- * - PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead
+ * - i#400/PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead
  * - i#751: fault translation has not been tested for x86_to_x64
  */
 
@@ -135,9 +135,9 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
         return false;
     /* Look for the load of either segment base */
     if (instr_is_tls_restore(inst, REG_NULL/*don't care*/,
-                             os_tls_offset(os_get_app_seg_base_offset(SEG_FS))) ||
+                             os_tls_offset(os_get_app_tls_base_offset(SEG_FS))) ||
         instr_is_tls_restore(inst, REG_NULL/*don't care*/,
-                             os_tls_offset(os_get_app_seg_base_offset(SEG_GS))))
+                             os_tls_offset(os_get_app_tls_base_offset(SEG_GS))))
         return true;
     /* Look for the lea */
     if (instr_get_opcode(inst) == OP_lea) {

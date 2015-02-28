@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 Derek Bruening.    All rights reserved.
 # **********************************************************
 
@@ -34,7 +35,7 @@ cmake_minimum_required (VERSION 2.2)
 #
 # 1) Pick a directory $nightly.  Create $nightly/run.
 # 2) Check out the sources (read-only):
-#    cd $nightly; svn checkout http://dynamorio.googlecode.com/svn/trunk/ src
+#    cd $nightly; git clone https://github.com/DynamoRIO/dynamorio.git src
 # 3) To keep the sources pristine, copy this file from
 #    $nightly/src/suite/nightly.cmake to $nightly/nightly.cmake.  Pick a site
 #    name and change the site= string below in $nightly/nightly.cmake.  The

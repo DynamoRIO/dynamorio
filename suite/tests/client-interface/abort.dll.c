@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -127,7 +127,7 @@ bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool trans
              opnd_create_base_disp(DR_REG_RSP, DR_REG_NULL, 0, -32, OPSZ_lea)));
 #endif
     /* call */
-    MINSERT(bb, instr, INSTR_CREATE_call
+    MINSERT(bb, instr, XINST_CREATE_call
             (drcontext, opnd_create_pc((void*)my_abort)));
 
     dr_cleanup_after_call(drcontext, bb, instr, 0);

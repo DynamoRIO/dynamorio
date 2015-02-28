@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -119,7 +119,10 @@ DR_EXPORT
  * Inserts into \p ilist prior to \p where meta-instruction(s) to add the
  * constant \p value to the counter located at \p addr.
  * Different DRX_COUNTER_* options can be specified by \p flags.
- * The spill slot \p slot is used for storing arithmetic flags if necessary.
+ * The spill slot \p slot is used for storing arithmetic flags or a scratch
+ * register if necessary.
+ * The spill slot \p slot2 is used only on ARM for spilling a second scratch
+ * register.
  *
  * \return whether successful.
  *
@@ -138,8 +141,8 @@ DR_EXPORT
  */
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          dr_spill_slot_t slot, void *addr, int value,
-                          uint flags);
+                          dr_spill_slot_t slot, IF_ARM_(dr_spill_slot_t slot2)
+                          void *addr, int value, uint flags);
 
 /***************************************************************************
  * SOFT KILLS

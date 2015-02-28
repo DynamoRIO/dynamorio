@@ -625,7 +625,7 @@ monitor_delete_would_abort_trace(dcontext_t *dcontext, fragment_t *f)
         return false;
     md = (monitor_data_t *) dcontext->monitor_field;
     return ((md->last_fragment == f || dcontext->last_fragment == f) &&
-            md->trace_tag > 0);
+            md->trace_tag != NULL);
 }
 
 /* called when a fragment is deleted */
@@ -666,7 +666,7 @@ monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f)
      */
     if ((md->last_fragment == f || dcontext->last_fragment == f) &&
         !TEST(FRAG_TEMP_PRIVATE, f->flags)) {
-        if (md->trace_tag > 0) {
+        if (md->trace_tag != NULL) {
             LOG(THREAD, LOG_MONITOR, 2,
                 "Aborting current trace since F%d was deleted\n",
                 f->id);
@@ -1898,7 +1898,7 @@ monitor_cache_exit(dcontext_t *dcontext)
     /* where processing */
     ASSERT(dcontext->whereami == WHERE_DISPATCH);
     dcontext->whereami = WHERE_MONITOR;
-    if (md->trace_tag > 0 && md->last_fragment != NULL) {
+    if (md->trace_tag != NULL && md->last_fragment != NULL) {
         /* unprotect local heap */
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
         /* must restore fragment to pre-trace-building state */
@@ -1997,7 +1997,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
      */
     check_fine_to_coarse_trace_head(dcontext, f);
 
-    if (md->trace_tag > 0) {      /* in trace selection mode */
+    if (md->trace_tag != NULL) {      /* in trace selection mode */
         KSTART(trace_building);
 
         /* unprotect local heap */

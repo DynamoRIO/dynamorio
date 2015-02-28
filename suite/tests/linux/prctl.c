@@ -62,7 +62,7 @@ main(int argc, char **argv)
     /* Check that PR_GET_NAME matches. */
     prctl(PR_GET_NAME, (unsigned long)prctl_name, 0, 0, 0);
     prctl_name[PR_NAME_LENGTH] = '\0';
-    print("PR_GET_NAME: %s\n");
+    print("PR_GET_NAME: %s\n", prctl_name);
 
     /* Set it and get it. */
     strncpy(prctl_name, "set_prctl", PR_NAME_LENGTH);
@@ -71,7 +71,7 @@ main(int argc, char **argv)
     memset(prctl_name, 0, sizeof(prctl_name));
     prctl(PR_GET_NAME, (unsigned long)prctl_name, 0, 0, 0);
     prctl_name[PR_NAME_LENGTH] = '\0';
-    print("after PR_SET_NAME: %s\n");
+    print("after PR_SET_NAME: %s\n", prctl_name);
 
     print("all done\n");
 

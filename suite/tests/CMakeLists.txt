@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -382,11 +382,10 @@ set(CMAKE_C_FLAGS "${ARCH_CFLAGS}")
 # so we no longer need to clear this and we can just add arch:
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 
-if (WIN32)
-  # for resources.rc to include globals_shared.h
-  # must be AFTER build/include now that dr_api.h is configured
-  include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib)
-endif (WIN32)
+# Must be AFTER build/include now that dr_api.h is configured.
+# We need this for Windows resources.rc to include globals_shared.h, and
+# for tools.c to include dr_helper.h.
+include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib) # dr_helper.h
 
 # Since we're including configure.h we do not want any default defines.
 # Note that the new DynamoRIOConfig.cmake doesn't set these so we can
@@ -402,9 +401,9 @@ if (X64)
 endif (X64)
 if (UNIX)
   if (APPLE)
-    set(platform_defs "${platform_defs} -DMACOS")
+    set(platform_defs "${platform_defs} -DMACOS -DUNIX")
   else (APPLE)
-    set(platform_defs "${platform_defs} -DLINUX")
+    set(platform_defs "${platform_defs} -DLINUX -DUNIX")
   endif (APPLE)
 else (UNIX)
   set(platform_defs "${platform_defs} -DWINDOWS")
@@ -435,6 +434,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for correct parallel builds we need a target
   add_dependencies(tools ${generate_tools_asm})
 endif ()
+target_link_libraries(tools drhelper)
 
 if (WIN32)
   set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc
@@ -554,9 +554,9 @@ function(add_exe test source)
     SKIP_BUILD_RPATH ON)
   if (UNIX)
     target_link_libraries(${test} ${libmath} ${libdl})
-    if ("${test}" MATCHES "^pthread|startstop")
+    if ("${test}" MATCHES "^pthread|startstop_FLAKY")
       target_link_libraries(${test} ${libpthread})
-    endif ("${test}" MATCHES "^pthread|startstop")
+    endif ()
   else (UNIX)
     append_link_flags(${test} "${ARCH_LDFLAGS}")
   endif (UNIX)
@@ -1388,11 +1388,14 @@ endfunction(disable_optimizations_for_file)
 # tests
 
 tobuild(common.broadfun common/broadfun.c)
-tobuild(common.decode-bad common/decode-bad.c)
-# FIXME i#105: get this working for 32-bit linux
-if (X64 OR WIN32)
-  tobuild(common.decode common/decode.c)
-endif (X64 OR WIN32)
+tobuild(common.fib common/fib.c)
+if (NOT ARM) # FIXME i#1551: port asm to ARM
+  tobuild(common.decode-bad common/decode-bad.c)
+  # FIXME i#105: get this working for 32-bit linux
+  if (X64 OR WIN32)
+    tobuild(common.decode common/decode.c)
+  endif (X64 OR WIN32)
+endif (NOT ARM)
 # FIXME i#1025: get working on Linux
 if (WIN32)
   # We build all tests before running so decode will be built before
@@ -1401,53 +1404,72 @@ if (WIN32)
   torunonly(common.decode-stress common.decode common/decode.c
     "-stress_recreate_state" "")
 endif (WIN32)
-tobuild(common.eflags common/eflags.c)
-tobuild(common.fib common/fib.c)
-tobuild(common.getretaddr common/getretaddr.c)
-tobuild(common.floatpc common/floatpc.c)
-torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
+if (NOT ARM) # FIXME i#1551: port asm to ARM
+  tobuild(common.eflags common/eflags.c)
+  tobuild(common.floatpc common/floatpc.c)
+  torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
+  tobuild(common.getretaddr common/getretaddr.c)
 
-tobuild_appdll(common.nativeexec common/nativeexec.c)
-get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})
-get_filename_component(native_dll_name "${native_dll_name}" NAME)
-tobuild_ops(common.nativeexec common/nativeexec.c "-native_exec_list ${native_dll_name}" "")
-target_link_libraries(common.nativeexec common.nativeexec.appdll)
-# We want rpath on Linux so we can load the appdll.
-set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
-if (UNIX)
-  # FIXME i#978: Windows support NYI
-  torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
-    "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
-  torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
-    "-native_exec_list common.nativeexec -native_exec_retakeover" "")
-  torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
-    "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
-  torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-    "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
-  # No swap TLS and no kstats for optimized native_exec
-  torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
-    "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
-  torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
-    "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "-bind_now")
-endif ()
+  tobuild_appdll(common.nativeexec common/nativeexec.c)
+  get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})
+  get_filename_component(native_dll_name "${native_dll_name}" NAME)
+  tobuild_ops(common.nativeexec common/nativeexec.c
+    "-native_exec_list ${native_dll_name}" "")
+  target_link_libraries(common.nativeexec common.nativeexec.appdll)
+  # We want rpath on Linux so we can load the appdll.
+  set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
+  if (UNIX)
+    # FIXME i#978: Windows support NYI
+    torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
+      "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
+    torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
+      "-native_exec_list common.nativeexec -native_exec_retakeover" "")
+    torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
+      "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
+    torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
+      "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+    # No swap TLS and no kstats for optimized native_exec
+    torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
+      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+    torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
+      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "-bind_now")
+  endif ()
 
-# app seg mangling makes dstack test fail so we disable such mangling
-if (UNIX)
-  # private loader requires the mangling
-  tobuild_ops(common.protect-dstack common/protect-dstack.c
-    "-no_mangle_app_seg -no_private_loader" "")
-else (UNIX)
-  tobuild_ops(common.protect-dstack common/protect-dstack.c
-    "-no_mangle_app_seg" "")
-endif (UNIX)
+  # app seg mangling makes dstack test fail so we disable such mangling
+  if (UNIX)
+    # private loader requires the mangling
+    tobuild_ops(common.protect-dstack common/protect-dstack.c
+      "-no_mangle_app_seg -no_private_loader" "")
+  else (UNIX)
+    tobuild_ops(common.protect-dstack common/protect-dstack.c
+      "-no_mangle_app_seg" "")
+  endif (UNIX)
+endif (NOT ARM)
 
-tobuild(common.segfault common/segfault.c)
+if (NOT ARM) # FIXME i#1551: add signal handling to ARM
+  tobuild(common.segfault common/segfault.c)
+endif (NOT ARM)
 # PR 217255: these 4 removed to shorten the regression suite since not
 # adding much value in terms of testing corner cases
 #tobuild(common.hello common/hello.c)
 #tobuild(common.conflict common/conflict.c)
 #tobuild(common.ops common/ops.c)
 #tobuild(common.recurse common/recurse.c)
+
+if (ARM)
+  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
+    # XXX i#1551: once -private_loader is on by default we can remove it here
+    "-early_inject -private_loader" "")
+  set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(common.allasm_thumb
+    "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")
+
+  tobuild_ops(common.allasm_arm common/allasm_arm.asm
+    # XXX i#1551: once -private_loader is on by default we can remove it here
+    "-early_inject -private_loader" "")
+  set_target_properties(common.allasm_arm PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -Wl,-static")
+endif (ARM)
 
 tobuild(libutil.frontend_test libutil/frontend_test.c)
 configure_DynamoRIO_standalone(libutil.frontend_test)
@@ -1471,40 +1493,50 @@ if (CLIENT_INTERFACE)
   include_directories("${PROJECT_BINARY_DIR}/include/annotations")
   include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
-  tobuild_ci(client.abort client-interface/abort.c "" "" "")
-  tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
-  tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
-  tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
-  tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
-  # check dr_insert_cbr_instrumentation with out-of-line clean call
-  torunonly_ci(client.count-ctis-noopt client.count-ctis client.count-ctis.dll
-    client-interface/count-ctis.c "" "-opt_cleancall 0" "")
-  tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    tobuild_ci(client.abort client-interface/abort.c "" "" "")
+    tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
+    tobuild_ci(client.modules client-interface/modules.c "" "" "")
+    tobuild_appdll(client.modules client-interface/modules.c)
+    # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
+    append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
+  endif (NOT ARM)
+  if (NOT ARM) # FIXME i#1551: port to ARM
+    tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
+    tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
+    tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
+    # check dr_insert_cbr_instrumentation with out-of-line clean call
+    torunonly_ci(client.count-ctis-noopt client.count-ctis client.count-ctis.dll
+      client-interface/count-ctis.c "" "-opt_cleancall 0" "")
+    tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
+    tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
+  endif (NOT ARM)
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
-  tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
-  tobuild_ci(client.modules client-interface/modules.c "" "" "")
-  tobuild_appdll(client.modules client-interface/modules.c)
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.
     tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
-    # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
-    append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
   endif ()
-  tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
-  tobuild_appdll(client.events client-interface/events.c)
-  get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
+    tobuild_appdll(client.events client-interface/events.c)
+    get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
+  endif (NOT ARM)
   if (UNIX)
-    # Just happens to not make as many traces.
-    tobuild_ci(client.events client-interface/events.c
-      "" "-trace_threshold 5" "${events_appdll_path}")
-    tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
-      "" "-trace_threshold 5" "${events_appdll_path}")
-    tobuild_ci(client.signal client-interface/signal.c "" "" "")
-    tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
-    tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
-    tobuild_ci(client.timer client-interface/timer.c "" "" "")
-    tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
+    if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+      # Just happens to not make as many traces.
+      tobuild_ci(client.events client-interface/events.c
+        "" "-trace_threshold 5" "${events_appdll_path}")
+      tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
+        "" "-trace_threshold 5" "${events_appdll_path}")
+      tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
+      tobuild_ci(client.timer client-interface/timer.c "" "" "")
+    endif (NOT ARM)
+    if (NOT ARM) # FIXME i#1551: port asm to ARM
+      tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
+      tobuild_ci(client.signal client-interface/signal.c "" "" "")
+      tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
+    endif (NOT ARM)
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")
@@ -1529,24 +1561,30 @@ if (CLIENT_INTERFACE)
     torunonly_ci(client.fibers client.fibers client.events_cpp.dll
       client-interface/fibers.c "" "" "")
   endif (UNIX)
-  tobuild_ci(client.file_io client-interface/file_io.c
-    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
-  # we add custom option to flush test based on dr ops in torun_ci()
-  tobuild_ci(client.flush client-interface/flush.c "" "" "")
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
+    tobuild_ci(client.file_io client-interface/file_io.c
+      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
+    # we add custom option to flush test based on dr ops in torun_ci()
+    tobuild_ci(client.flush client-interface/flush.c "" "" "")
+    tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
+    tobuild_appdll(client.thread client-interface/thread.c)
+    tobuild_ci(client.strace client-interface/strace.c "" "" "")
+    use_DynamoRIO_extension(client.strace.dll drmgr)
+  endif (NOT ARM)
   # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
   #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
   if (PROGRAM_SHEPHERDING)
     tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
   endif (PROGRAM_SHEPHERDING)
-  tobuild_ci(client.strace client-interface/strace.c "" "" "")
-  use_DynamoRIO_extension(client.strace.dll drmgr)
-  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
-  tobuild_appdll(client.thread client-interface/thread.c)
-  tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
+    tobuild_ci(client.dr_options client-interface/dr_options.c
+      "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+  endif (NOT ARM)
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-  tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
-  tobuild_ci(client.dr_options client-interface/dr_options.c
-    "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
+    tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
+  endif (NOT ARM)
 
   tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
   tobuild_appdll(client.null_instrument client-interface/null_instrument.c)
@@ -1554,32 +1592,40 @@ if (CLIENT_INTERFACE)
   # We want rpath on Linux so we can load the appdll.
   set_target_properties(client.null_instrument PROPERTIES SKIP_BUILD_RPATH OFF)
 
-  # Test passing a really long (600 chars) client option string.
-  tobuild_ci(client.large_options client-interface/large_options.c
-    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    "" "")
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    # Test passing a really long (600 chars) client option string.
+    tobuild_ci(client.large_options client-interface/large_options.c
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      "" "")
+  endif (NOT ARM)
 
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
-  tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
-  use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
-  if (UNIX)
-    target_link_libraries(client.drmgr-test ${libpthread})
-  endif (UNIX)
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
+    tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
+    use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
+    if (UNIX)
+      target_link_libraries(client.drmgr-test ${libpthread})
+    endif (UNIX)
+  endif (NOT ARM)
 
-  tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
-  use_DynamoRIO_extension(client.drx-test.dll drx)
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+    use_DynamoRIO_extension(client.drx-test.dll drx)
+  endif (NOT ARM)
 
-  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-  get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
-  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
-  use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
-  tochcon(client.drwrap-test.appdll textrel_shlib_t)
-  if (WIN32)
-    # export from asm code
-    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
-  endif (WIN32)
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
+    tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+    get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
+    tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+    use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
+    tochcon(client.drwrap-test.appdll textrel_shlib_t)
+    if (WIN32)
+      # export from asm code
+      append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
+    endif (WIN32)
+  endif (NOT ARM)
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
@@ -1598,87 +1644,94 @@ if (CLIENT_INTERFACE)
     endif (dbghelp_path)
   endif ()
 
-  tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
-  get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
-  tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
-    "-stack_size 36K" "${drsyms_libpath}")
-  # Disable optimizations for the exe and appdll to allow stack tracing.
-  disable_optimizations_for_file(client-interface/drsyms-test.cpp)
-  disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
-  use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
-  use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+  if (NOT ARM) # FIXME i#1551: port to ARM
+    tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
+    get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
+    tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
+      "-stack_size 36K" "${drsyms_libpath}")
+    # Disable optimizations for the exe and appdll to allow stack tracing.
+    disable_optimizations_for_file(client-interface/drsyms-test.cpp)
+    disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
+    use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
+    use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
-  # We check these two statements here b/c not all gcc compilers support
-  # cross - architecture compilation (e.g. perl mingw x64 doesn't support
-  # x32 app compilation).
-  if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
-    # test drsyms dwarf-on-windows capabilities.
-    # cmake doesn't support a new compiler so we do a simple build here.
-    tobuild_gcc(client.drsyms-testgcc.exe
-      client-interface/drsyms-test.cpp client.drsyms-test "")
-    tobuild_gcc(client.drsyms-testgcc.appdll.dll
-      client-interface/drsyms-test.appdll.cpp client.drsyms-test "-shared")
-    torunonly_ci(client.drsyms-testgcc
-      ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.exe
-      client.drsyms-test.dll client-interface/drsyms-test.cpp "" "-stack_size 36K"
-      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.appdll.dll")
-    set(client.drsyms-testgcc_expectbase "drsyms-testgcc")
-    if (GCC_IS_CYGWIN)
-      set(client.drsyms-testgcc_is_cygwin ON)
-    endif()
-  endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
+    # We check these two statements here b/c not all gcc compilers support
+    # cross - architecture compilation (e.g. perl mingw x64 doesn't support
+    # x32 app compilation).
+    if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
+      # test drsyms dwarf-on-windows capabilities.
+      # cmake doesn't support a new compiler so we do a simple build here.
+      tobuild_gcc(client.drsyms-testgcc.exe
+        client-interface/drsyms-test.cpp client.drsyms-test "")
+      tobuild_gcc(client.drsyms-testgcc.appdll.dll
+        client-interface/drsyms-test.appdll.cpp client.drsyms-test "-shared")
+      torunonly_ci(client.drsyms-testgcc
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.exe
+        client.drsyms-test.dll client-interface/drsyms-test.cpp "" "-stack_size 36K"
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.appdll.dll")
+      set(client.drsyms-testgcc_expectbase "drsyms-testgcc")
+      if (GCC_IS_CYGWIN)
+        set(client.drsyms-testgcc_is_cygwin ON)
+      endif()
+    endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
 
-  tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
-  use_DynamoRIO_extension(client.drutil-test.dll drutil)
-  use_DynamoRIO_extension(client.drutil-test.dll drmgr)
-  if (UNIX)
-    target_link_libraries(client.drutil-test ${libpthread})
-  endif (UNIX)
+    tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
+    use_DynamoRIO_extension(client.drutil-test.dll drutil)
+    use_DynamoRIO_extension(client.drutil-test.dll drmgr)
+    if (UNIX)
+      target_link_libraries(client.drutil-test ${libpthread})
+    endif (UNIX)
 
-  # We need to load w/ the same base so the test passes
-  set(DynamoRIO_SET_PREFERRED_BASE ON)
-  set(PREFERRED_BASE 0x6f000000)
-  # Pass extra options to first run so this will pass when run repeatedly in local
-  # build dir w/o loading any pcache
-  tobuild_ci(client.pcache client-interface/pcache.c ""
-    "-persist -no_use_persisted -no_coarse_disk_merge -no_coarse_lone_merge" "")
-  use_DynamoRIO_extension(client.pcache.dll drcontainers)
-  if (WIN32)
-    append_link_flags(client.pcache "/dynamicbase:no")
-  endif ()
-  set(DynamoRIO_SET_PREFERRED_BASE OFF)
-  torunonly_ci(client.pcache-use client.pcache client.pcache.dll
-    client-interface/pcache.c "" "-persist" "")
-  # XXX: we should have the key be the default for the .expect but
-  # currently that's not the case (thread-reset, etc.).
-  set(client.pcache-use_expectbase "pcache-use")
-  # when running tests in parallel: have to generate pcaches first
-  set(client.pcache-use_depends client.pcache)
+    # We need to load w/ the same base so the test passes
+    set(DynamoRIO_SET_PREFERRED_BASE ON)
+    set(PREFERRED_BASE 0x6f000000)
+    # Pass extra options to first run so this will pass when run repeatedly in local
+    # build dir w/o loading any pcache
+    tobuild_ci(client.pcache client-interface/pcache.c ""
+      "-persist -no_use_persisted -no_coarse_disk_merge -no_coarse_lone_merge" "")
+    use_DynamoRIO_extension(client.pcache.dll drcontainers)
+    if (WIN32)
+      append_link_flags(client.pcache "/dynamicbase:no")
+    endif ()
+    set(DynamoRIO_SET_PREFERRED_BASE OFF)
+    torunonly_ci(client.pcache-use client.pcache client.pcache.dll
+      client-interface/pcache.c "" "-persist" "")
+    # XXX: we should have the key be the default for the .expect but
+    # currently that's not the case (thread-reset, etc.).
+    set(client.pcache-use_expectbase "pcache-use")
+    # when running tests in parallel: have to generate pcaches first
+    set(client.pcache-use_depends client.pcache)
 
-  tobuild_api(api.dis api/dis.c "-syntax_intel"
-    "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
-  tobuild_api(api.ir api/ir.c "" "" OFF)
-  if ("${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
-    # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
-    # and so doesn't find headers named via macros
-    # (http://www.cmake.org/Bug/view.php?id=13718)
-    set(api_ir_headers # must be full paths:
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_0args.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_1args.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args_mm.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args_avx.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_4args.h)
-    append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
-  endif ()
-  if (X64 OR "${CMAKE_SYSTEM_VERSION}" STRLESS "6.2")
-    # FIXME i#1035: this test crashes on win8 wow64
-    tobuild_api(api.startstop api/startstop.c "" "" OFF)
-  endif ()
-  # test static decoder library
-  tobuild_api(api.ir-static api/ir.c "" "" ON)
-  tobuild_api(api.static api/static.c "" "" ON)
+    tobuild_api(api.dis api/dis.c "-syntax_intel"
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
+    tobuild_api(api.ir api/ir.c "" "" OFF)
+    if ("${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+      # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
+      # and so doesn't find headers named via macros
+      # (http://www.cmake.org/Bug/view.php?id=13718)
+      set(api_ir_headers # must be full paths:
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_0args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_1args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args_mm.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args_avx.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_4args.h)
+      append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
+    endif ()
+  endif (NOT ARM)
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    if (X64 OR "${CMAKE_SYSTEM_VERSION}" STRLESS "6.2")
+      # FIXME i#1035: this test crashes on win8 wow64
+      # FIXME i#1512: mark api.startstop FLAKY
+      tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
+    endif ()
+  endif (NOT ARM)
+  if (NOT ARM) # FIXME i#1551: port to ARM
+    # test static decoder library
+    tobuild_api(api.ir-static api/ir.c "" "" ON)
+    tobuild_api(api.static api/static.c "" "" ON)
+  endif (NOT ARM)
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
   # not just check libstdc++-6.dll.
@@ -1693,7 +1746,7 @@ if (CLIENT_INTERFACE)
     endif ()
   endif ()
 
-  if (NOT X64)
+  if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM
     # i#696: Use -thread_private and small fcache units to trigger shifts.  x64
     # does not support fcache unit resizing and won't allow 4k unit sizes, so
     # skip it.
@@ -1701,10 +1754,14 @@ if (CLIENT_INTERFACE)
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
 
-  tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
-  use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
+    use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
+  endif (NOT ARM)
 
-  tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
+    tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
+  endif (NOT ARM)
 
   if (BUILD_SAMPLES)
     # Sanity tests: we run the samples without SHOW_RESULTS (turned off
@@ -1714,15 +1771,38 @@ if (CLIENT_INTERFACE)
     # We run common.eflags mainly for memtrace and other big clients which
     # are quite slow on common.fib or common.broadfun: just a sanity check
     # after all.
-    get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
-    foreach (sample ${sample_list})
-      torunonly_ci(sample.${sample} common.eflags ${sample} common/eflags.c "" "" "")
-      if (sample STREQUAL "inscount")
-        # test out-of-line clean call
-        torunonly_ci(sample.${sample}.cleancall common.eflags ${sample}
-          common/eflags.c "" "-opt_cleancall 0" "")
-      endif ()
-    endforeach ()
+    if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+      get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
+      foreach (sample ${sample_list})
+        torunonly_ci(sample.${sample} common.eflags ${sample} common/eflags.c "" "" "")
+        if (sample STREQUAL "inscount")
+          # test out-of-line clean call
+          torunonly_ci(sample.${sample}.cleancall common.eflags ${sample}
+            common/eflags.c "" "-opt_cleancall 0" "")
+        endif ()
+      endforeach ()
+    endif (NOT ARM)
+
+    # Test building the samples as an external project (i#1586).
+    # This is not a perfect test as the build dir is not an install dir,
+    # but this should catch errors in the public samples/CMakeLists.txt.
+    # To set up for this, we copied all the sample source files into the build
+    # dir, and we also copied the extension headers into the build dir.
+    # XXX: we could also execute the resulting clients.
+    # XXX i#1588: this does not catch exported-target issues, such as the absolute
+    # path problem.  Such things are not easy to test.  Also note that with
+    # cmake < 3.x our build-dir IMPORTED_LINK_INTERFACE_LIBRARIES does not
+    # list the transitive closure of the dependents, so we end up with link errors
+    # if we make a client link drx_static.
+    get_property(sample_proj_dir GLOBAL PROPERTY DynamoRIO_sample_proj_dir)
+    add_test(samples_proj ${CMAKE_CTEST_COMMAND}
+      --build-and-test "${sample_proj_dir}" "${sample_proj_dir}/build_and_test"
+      --build-generator ${CMAKE_GENERATOR}
+      --build-project DynamoRIO_samples # needed for VS generators
+      --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+      # If we don't set Debug, we only have RelWithDebInfo available (b/c we
+      # collapse configs) but --build-and-test still tries to build Debug:
+      --build-options -DDEBUG=ON -DDynamoRIO_DIR:PATH=${public_config_dir})
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
@@ -1739,7 +1819,9 @@ if (CLIENT_INTERFACE)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
-  tobuild(linux.clone linux/clone.c)
+  if (NOT ARM) # FIXME i#1551: add thread support to ARM
+    tobuild(linux.clone linux/clone.c)
+  endif (NOT ARM)
 
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
@@ -1757,134 +1839,157 @@ if (UNIX)
     endif (X64)
   endif (TEST_SUITE OR TEST_32BIT_PATH)
 
-  # helper app for execve-null
-  add_exe(linux.execve-sub linux/execve-sub.c)
-  tobuild_ops(linux.execve-null linux/execve-null.c ""
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
+  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
+  # this test running on ARM.
+  if (NOT ARM)
+    # helper app for execve-null
+    add_exe(linux.execve-sub linux/execve-sub.c)
+    tobuild_ops(linux.execve-null linux/execve-null.c ""
+      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
+  endif (NOT ARM)
 
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
-  tobuild(linux.fork linux/fork.c)
-  # i#1537: test MSR for fs/gs in fork
-  torunonly(linux.fork-MSR linux.fork linux/fork.c
-    "-vm_base 0x100000000 -no_vm_base_near_app" "")
-  tobuild(linux.infinite linux/infinite.c)
+  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
+  # the fork tests running on ARM.
+  if (NOT ARM)
+    tobuild(linux.fork linux/fork.c)
+    # i#1537: test MSR for fs/gs in fork
+    torunonly(linux.fork-MSR linux.fork linux/fork.c
+      "-vm_base 0x100000000 -no_vm_base_near_app" "")
+  endif (NOT ARM)
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
+    tobuild(linux.infinite linux/infinite.c)
+  endif (NOT ARM)
   tobuild(linux.longjmp linux/longjmp.c)
   tobuild(linux.prctl linux/prctl.c)
   # FIXME TOFILE: suddently seeing non-det curiosities/asserts in module list on mmap
   tobuild(linux.mmap linux/mmap.c)
-  tobuild(linux.signal0000 linux/signal0000.c)
-  tobuild(linux.signal0001 linux/signal0001.c)
-  tobuild(linux.signal0010 linux/signal0010.c)
-  tobuild(linux.signal0011 linux/signal0011.c)
-  tobuild(linux.signal0100 linux/signal0100.c)
-  tobuild(linux.signal0101 linux/signal0101.c)
-  tobuild(linux.signal0110 linux/signal0110.c)
-  tobuild(linux.signal0111 linux/signal0111.c)
-  tobuild(linux.signal1000 linux/signal1000.c)
-  tobuild(linux.signal1001 linux/signal1001.c)
-  tobuild(linux.signal1010 linux/signal1010.c)
-  tobuild(linux.signal1011 linux/signal1011.c)
-  tobuild(linux.signal1100 linux/signal1100.c)
-  tobuild(linux.signal1101 linux/signal1101.c)
-  tobuild(linux.signal1110 linux/signal1110.c)
-  tobuild(linux.signal1111 linux/signal1111.c)
-  tobuild(linux.sigplain000 linux/sigplain000.c)
-  tobuild(linux.sigplain001 linux/sigplain001.c)
-  tobuild(linux.sigplain010 linux/sigplain010.c)
-  tobuild(linux.sigplain011 linux/sigplain011.c)
-  tobuild(linux.sigplain100 linux/sigplain100.c)
-  tobuild(linux.sigplain101 linux/sigplain101.c)
-  tobuild(linux.sigplain110 linux/sigplain110.c)
-  tobuild(linux.sigplain111 linux/sigplain111.c)
-  tobuild(linux.sigcontext linux/sigcontext.c)
-  tobuild(linux.thread linux/thread.c)
-  tobuild(linux.threadexit linux/threadexit.c)
-  tobuild(linux.threadexit2 linux/threadexit2.c)
-  tobuild(linux.signalfd linux/signalfd.c)
-  # i#784: test app behavior on alarm
-  tobuild(linux.alarm linux/alarm.c)
+  if (NOT ARM) # FIXME i#1551: add signal and thread support to ARM
+    tobuild(linux.signal0000 linux/signal0000.c)
+    tobuild(linux.signal0001 linux/signal0001.c)
+    tobuild(linux.signal0010 linux/signal0010.c)
+    tobuild(linux.signal0011 linux/signal0011.c)
+    tobuild(linux.signal0100 linux/signal0100.c)
+    tobuild(linux.signal0101 linux/signal0101.c)
+    tobuild(linux.signal0110 linux/signal0110.c)
+    tobuild(linux.signal0111 linux/signal0111.c)
+    tobuild(linux.signal1000 linux/signal1000.c)
+    tobuild(linux.signal1001 linux/signal1001.c)
+    tobuild(linux.signal1010 linux/signal1010.c)
+    tobuild(linux.signal1011 linux/signal1011.c)
+    tobuild(linux.signal1100 linux/signal1100.c)
+    tobuild(linux.signal1101 linux/signal1101.c)
+    tobuild(linux.signal1110 linux/signal1110.c)
+    tobuild(linux.signal1111 linux/signal1111.c)
+    tobuild(linux.sigplain000 linux/sigplain000.c)
+    tobuild(linux.sigplain001 linux/sigplain001.c)
+    tobuild(linux.sigplain010 linux/sigplain010.c)
+    tobuild(linux.sigplain011 linux/sigplain011.c)
+    tobuild(linux.sigplain100 linux/sigplain100.c)
+    tobuild(linux.sigplain101 linux/sigplain101.c)
+    tobuild(linux.sigplain110 linux/sigplain110.c)
+    tobuild(linux.sigplain111 linux/sigplain111.c)
+    tobuild(linux.sigcontext linux/sigcontext.c)
+    tobuild(linux.thread linux/thread.c)
+    tobuild(linux.threadexit linux/threadexit.c)
+    tobuild(linux.threadexit2 linux/threadexit2.c)
+    tobuild(linux.signalfd linux/signalfd.c)
+    # i#784: test app behavior on alarm
+    tobuild(linux.alarm linux/alarm.c)
 
-  # i#1145: test re-starting syscalls, both inlined and from dispatch
-  tobuild(linux.eintr linux/eintr.c)
-  target_link_libraries(linux.eintr ${libpthread})
-  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
+    # i#1145: test re-starting syscalls, both inlined and from dispatch
+    tobuild(linux.eintr linux/eintr.c)
+    target_link_libraries(linux.eintr ${libpthread})
+    torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
-  tobuild(linux.sigsuspend linux/sigsuspend.c)
-  target_link_libraries(linux.sigsuspend ${libpthread})
+    tobuild(linux.sigsuspend linux/sigsuspend.c)
+    target_link_libraries(linux.sigsuspend ${libpthread})
+  endif (NOT ARM)
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
 
-  # Test fully static executables, which we only support with early injection
-  # or STATIC_LIBRARY.
-  set(fib_static_ops "-early_inject")
-  if (STATIC_LIBRARY)
-    set(fib_static_ops "")
+  if (NOT ARM) # FIXME i#1551: fix bugs, add -private_loader support for ARM
+    # Test fully static executables, which we only support with early injection
+    # or STATIC_LIBRARY.
+    set(fib_static_ops "-early_inject")
+    if (STATIC_LIBRARY)
+      set(fib_static_ops "")
+    endif ()
+    tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
+    append_property_string(TARGET linux.fib-static LINK_FLAGS
+      # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
+      # which doesn't play well with clang and -static.  Adding
+      # --no-export-dynamic avoids the problem.
+      "-static -Wl,--no-export-dynamic")
   endif ()
-  tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
-  append_property_string(TARGET linux.fib-static LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
-    # which doesn't play well with clang and -static.  Adding
-    # --no-export-dynamic avoids the problem.
-    "-static -Wl,--no-export-dynamic")
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.
   tobuild(linux.fib-pie common/fib.c)
   append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
   append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
 
-  # FIXME i#125: bugs in these, were disabled in the past
-  tobuild_ops(linux.vfork linux/vfork.c ""
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
+  if (NOT ARM) # FIXME i#1551: add thread support to ARM
+    # FIXME i#125: bugs in these, were disabled in the past
+    tobuild_ops(linux.vfork linux/vfork.c ""
+      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
+  endif (NOT ARM)
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
-  # runs of other builds with custom DR options
-  torunonly(linux.thread-reset linux.thread linux/thread.c
-    "-reset_at_fragment_count 100" "")
-  torunonly(linux.clone-reset linux.clone linux/clone.c
-    "-reset_at_fragment_count 100" "")
-
+  if (NOT ARM) # FIXME i#1551: add thread support to ARM
+    # runs of other builds with custom DR options
+    torunonly(linux.thread-reset linux.thread linux/thread.c
+      "-reset_at_fragment_count 100" "")
+    torunonly(linux.clone-reset linux.clone linux/clone.c
+      "-reset_at_fragment_count 100" "")
+  endif (NOT ARM)
   tobuild(pthreads.pthreads pthreads/pthreads.c)
-  tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
-  tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
-  # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
-  tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
+  if (NOT ARM) # FIXME i#1551: add synchall (signal) + fork support to ARM
+    tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
+    tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
+    # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
+    tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
+  endif (NOT ARM)
 
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
   if (NOT CMAKE_COMPILER_IS_CLANG)
-    if (NOT X64)
+    if (NOT X64 AND NOT ARM) # FIXME i#1551: port asm to ARM
       # FIXME i#16: these tests need to be fixed to compile for x64
       tobuild(security-linux.stacktest security-linux/stacktest.c)
       tochcon(security-linux.stacktest execmem_exec_t)
       mark_execstack(security-linux.stacktest)
-    endif (NOT X64)
-    tobuild(security-linux.trampoline security-linux/trampoline.c)
+    endif (NOT X64 AND NOT ARM)
+    if (NOT ARM) # FIXME i#1551: signal TLS on ARM
+      tobuild(security-linux.trampoline security-linux/trampoline.c)
+    endif (NOT ARM)
   endif (NOT CMAKE_COMPILER_IS_CLANG)
 
-  # this app is used in nudge tests
-  # XXX: should all these infloop tests be made cross-platform?
-  # or rely on runall tests that run calc covering this on Windows?
-  add_exe(linux.infloop linux/infloop.c)
-  torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
-  if (NOT X64)
+  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    # this app is used in nudge tests
+    # XXX: should all these infloop tests be made cross-platform?
+    # or rely on runall tests that run calc covering this on Windows?
+    add_exe(linux.infloop linux/infloop.c)
+    torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
+  endif (NOT ARM)
+  if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
       "-coarse_units -coarse_enable_freeze" "-v")
-  endif (NOT X64)
+  endif (NOT X64 AND NOT ARM)
 
   # persistent cache nudge tests with shared cache
   file(MAKE_DIRECTORY "${PCACHE_DIR}")
   file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
-  if (NOT X64)
+  if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.persist_FLAKY linux/infloop linux/persist.runall
       "-coarse_units -coarse_split_calls -coarse_enable_freeze -coarse_freeze_min_size 0 -no_persist_per_user -no_validate_owner_dir" "-v")
     torunonly(linux.persist-use_FLAKY linux/infloop linux/persist-use.runall
       "-use_persisted -coarse_units -coarse_split_calls -no_persist_per_user -no_validate_owner_dir" "-v")
-  endif (NOT X64)
+  endif (NOT X64 AND NOT ARM)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 else (UNIX)
@@ -2078,36 +2183,43 @@ else (UNIX)
 
 endif (UNIX)
 
-tobuild(security-common.codemod security-common/codemod.c)
-tochcon(security-common.codemod execmem_exec_t)
-mark_execstack(security-common.codemod)
-tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
-tochcon(security-common.decode-bad-stack execmem_exec_t)
-mark_execstack(security-common.decode-bad-stack)
+if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  tobuild(security-common.codemod security-common/codemod.c)
+  tochcon(security-common.codemod execmem_exec_t)
+  mark_execstack(security-common.codemod)
+endif (NOT ARM)
+if (NOT ARM) # FIXME i#1551: port asm to ARM
+  tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
+  tochcon(security-common.decode-bad-stack execmem_exec_t)
+  mark_execstack(security-common.decode-bad-stack)
+  tobuild(security-common.retexisting security-common/retexisting.c)
+endif (NOT ARM)
 if (VPS) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
   tochcon(security-common.jmp_from_trace textrel_shlib_t)
 endif (VPS)
-tobuild(security-common.retexisting security-common/retexisting.c)
-tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
+if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 
-# FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on
-# jumping to an invalid address!  For now we disable for VS2013 x64.
-# It also seems to fail on win8 x64 with VS2012.
-if (UNIX OR NOT X64 OR CMAKE_C_COMPILER_VERSION VERSION_LESS 17.0)
-  tobuild(security-common.retnonexisting security-common/retnonexisting.c)
-endif ()
-
-tobuild(security-common.selfmod2 security-common/selfmod2.c)
-tochcon(security-common.selfmod2 textrel_shlib_t)
-tobuild(security-common.selfmod-big security-common/selfmod-big.c)
-tochcon(security-common.selfmod-big textrel_shlib_t)
-if (NOT X64)
-  # FIXME i#125
-  tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
-endif (NOT X64)
-tobuild(security-common.selfmod security-common/selfmod.c)
-tochcon(security-common.selfmod textrel_shlib_t)
+  # FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on
+  # jumping to an invalid address!  For now we disable for VS2013 x64.
+  # It also seems to fail on win8 x64 with VS2012.
+  if (UNIX OR NOT X64 OR CMAKE_C_COMPILER_VERSION VERSION_LESS 17.0)
+    tobuild(security-common.retnonexisting security-common/retnonexisting.c)
+  endif ()
+endif (NOT ARM)
+if (NOT ARM) # FIXME i#1551: port asm to ARM
+  tobuild(security-common.selfmod2 security-common/selfmod2.c)
+  tochcon(security-common.selfmod2 textrel_shlib_t)
+  tobuild(security-common.selfmod-big security-common/selfmod-big.c)
+  tochcon(security-common.selfmod-big textrel_shlib_t)
+  tobuild(security-common.selfmod security-common/selfmod.c)
+  tochcon(security-common.selfmod textrel_shlib_t)
+  if (NOT X64)
+    # FIXME i#125
+    tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
+  endif (NOT X64)
+endif (NOT ARM)
 if (X64)
   # Reachability tests
 
@@ -2147,15 +2259,17 @@ if (X64)
 
 endif (X64)
 
-tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
 
-set (TestMemProtChg "security-common.TestMemProtChg")
-if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
-  set (TestMemProtChg "${TestMemProtChg}_FLAKY")
-endif (UNIX)
-tobuild("${TestMemProtChg}" security-common/TestMemProtChg.c)
-tochcon("${TestMemProtChg}" wine_exec_t)
-mark_execstack("${TestMemProtChg}")
+  set (TestMemProtChg "security-common.TestMemProtChg")
+  if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
+    set (TestMemProtChg "${TestMemProtChg}_FLAKY")
+  endif (UNIX)
+  tobuild("${TestMemProtChg}" security-common/TestMemProtChg.c)
+  tochcon("${TestMemProtChg}" wine_exec_t)
+  mark_execstack("${TestMemProtChg}")
+endif (NOT ARM)
 
 ###########################################################################
 

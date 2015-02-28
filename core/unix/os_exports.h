@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -97,6 +97,29 @@
 # endif /* 64/32-bit */
 #endif /* X86/ARM */
 
+#define DR_REG_SYSNUM IF_X86_ELSE(REG_EAX/* not XAX */, DR_REG_R7)
+
+#ifdef ARM
+/* The app's TLS slot for swap, which holds DR's TLS base when not in code cache.
+ * On ARM, we use the app's 'private' field of the tcbhead_t to store DR TLS base.
+ * typedef struct
+ * {
+ *   dtv_t *dtv;
+ *   void *private;
+ * } tcbhead_t;
+ * When using private loader, we control all the TLS allocation and
+ * should be able to avoid using that field.
+ * This is also used in asm code, so we use literal instead of sizeof.
+ */
+# define APP_TLS_SWAP_SLOT    IF_X64_ELSE(8, 4) /* skip dtv */
+/* the offset in os_local_state_t for storing the app's stolen TLS slot value */
+ushort os_get_app_tls_swap_offset(void);
+/* opcode for reading app's TLS base (user-read-only-thread-ID-register)
+ * mrc p15, 0, reg_app, c13, c0, 3
+ */
+# define APP_TLS_REG_OPCODE 3
+#endif
+
 void *get_tls(ushort tls_offs);
 void set_tls(ushort tls_offs, void *value);
 
@@ -111,10 +134,13 @@ bool is_thread_terminated(dcontext_t *dcontext);
 void os_wait_thread_terminated(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
 /* XXX: reg_id_t is not defined here, use ushort instead */
-ushort os_get_app_seg_base_offset(ushort/*reg_id_t*/ seg);
-ushort os_get_app_seg_offset(ushort/*reg_id_t*/ seg);
-void *os_get_dr_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
-void *os_get_app_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
+ushort os_get_app_tls_base_offset(ushort/*reg_id_t*/ seg);
+ushort os_get_app_tls_reg_offset(ushort/*reg_id_t*/ seg);
+void *os_get_app_tls_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
+
+#ifdef DEBUG
+void os_enter_dynamorio(void);
+#endif
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.
@@ -138,7 +164,11 @@ void set_libc_errno(int val);
 /* i#46: Our env manipulation routines. */
 extern char **our_environ;
 void dynamorio_set_envp(char **envp);
-char *getenv(const char *name);
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+/* drinjectlib wants the libc version while the core wants the private version */
+# define getenv our_getenv
+#endif
+char *our_getenv(const char *name);
 
 /* to avoid unsetenv problems we have our own unsetenv */
 #define unsetenv our_unsetenv
@@ -208,7 +238,9 @@ int our_unsetenv(const char *name);
 # define VAR_IN_SECTION(name) __attribute__ ((section (name)))
 #endif
 
-/* location of vsyscall "vdso" page */
+/* Location of vsyscall "vdso" page.  Even when vdso is 2 pages we assume the
+ * vsyscall is on the 1st page (i#1583).
+ */
 extern app_pc vsyscall_page_start;
 /* pc of the end of the syscall instr itself */
 extern app_pc vsyscall_syscall_end_pc;
@@ -331,13 +363,26 @@ typedef struct sigcontext sigcontext_t;
 # define SC_SYSNUM_REG SC_XAX
 #elif defined(ARM)
 # ifdef X64
+   /* FIXME i#1569: NYI */
 #  error 64-bit ARM is not supported
 # else
 #  define SC_XIP SC_FIELD(arm_pc)
-#  define SC_XSP SC_FIELD(arm_sp)
 #  define SC_FP  SC_FIELD(arm_fp)
 #  define SC_R0  SC_FIELD(arm_r0)
+#  define SC_R1  SC_FIELD(arm_r1)
+#  define SC_R2  SC_FIELD(arm_r2)
+#  define SC_R3  SC_FIELD(arm_r3)
+#  define SC_R4  SC_FIELD(arm_r4)
+#  define SC_R5  SC_FIELD(arm_r5)
+#  define SC_R6  SC_FIELD(arm_r6)
 #  define SC_R7  SC_FIELD(arm_r7)
+#  define SC_R8  SC_FIELD(arm_r8)
+#  define SC_R9  SC_FIELD(arm_r9)
+#  define SC_R10 SC_FIELD(arm_r10)
+#  define SC_R11 SC_FIELD(arm_fp)
+#  define SC_R12 SC_FIELD(arm_ip)
+#  define SC_XSP SC_FIELD(arm_sp)
+#  define SC_LR  SC_FIELD(arm_lr)
 #  define SC_XFLAGS SC_FIELD(arm_cpsr)
 #  define SC_SYSNUM_REG SC_R7
 # endif /* 64/32-bit */
@@ -361,6 +406,15 @@ reg_t
 get_clone_record_app_xsp(void *record);
 byte *
 get_clone_record_dstack(void *record);
+
+#ifdef ARM
+reg_t
+get_clone_record_stolen_value(void *record);
+
+uint /* dr_isa_mode_t but we have a header ordering problem */
+get_clone_record_isa_mode(void *record);
+#endif
+
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
 void

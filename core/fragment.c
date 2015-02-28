@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -610,7 +610,8 @@ dump_lookuptable_tls(dcontext_t *dcontext)
 /*******************************************************************************
  * IBL HASHTABLE INSTANTIATION
  */
-#define FRAGENTRY_FROM_FRAGMENT(f) { (f)->tag, (f)->start_pc }
+#define FRAGENTRY_FROM_FRAGMENT(f) \
+    { (f)->tag, PC_AS_JMP_TGT(FRAG_ISA_MODE(f->flags), (f)->start_pc) }
 
 /* macros w/ name and types are duplicated in fragment.h -- keep in sync */
 #define NAME_KEY ibl
@@ -786,7 +787,13 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
         byte *page_start = (byte *) PAGE_START(pc);
         byte *page_end = (byte *) ALIGN_FORWARD(pc + JMP_LONG_LENGTH, PAGE_SIZE);
         make_writable(page_start, page_end - page_start);
+# ifdef X86
         insert_relative_target(pc + 1, hashlookup_null_target, NOT_HOT_PATCHABLE);
+# elif defined(ARM)
+        /* We use a pc-rel load w/ the data right after the load */
+        /* FIXME i#1551: is our gencode going to switch to Thumb?!? */
+        *(byte **)(pc + ARM_INSTR_SIZE) = hashlookup_null_target;
+# endif
         make_unwritable(page_start, page_end - page_start);
 #endif
     }
@@ -2405,7 +2412,9 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
      */
     DOSTATS({
         if (stats != NULL &&
-            (uint) GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(reset_at_fragment_count)) {
+            (uint) GLOBAL_STAT(num_fragments) ==
+            INTERNAL_OPTION(reset_at_fragment_count)) {
+            ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
             schedule_reset(RESET_ALL);
         }
     });
@@ -3677,6 +3686,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
     return prepared;
 }
 
+#ifdef DEBUG
 /* FIXME: hashtable_fragment_reset() needs to walk the tables to get these
  * stats, but then we'd need to subtract 1 from all smaller counts -
  * e.g. if an entry is found in 3 tables we can add (1,-1,0) then
@@ -3705,6 +3715,7 @@ fragment_ibl_stat_account(uint flags, uint ibls_targeted)
         }
     }
 }
+#endif
 
 /* Removes f from any IBT tables it is in.
  * If f is in a shared table, only removes if from_shared is true, in
@@ -3953,10 +3964,12 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
         disassemble_fragment(dcontext, f, stats->loglevel < 3);
     });
 
+#ifdef X86
     if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
         /* just re-finalize to update */
         finalize_selfmod_sandbox(dcontext, f);
     }
+#endif
 
     /* inter-cache links must be redone, but all fragment entry pcs must be
      * fixed up first, so that's done separately

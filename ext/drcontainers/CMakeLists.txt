@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -63,9 +63,6 @@ endif (WIN32 AND GENERATE_PDBS)
 
 DR_export_target(drcontainers)
 install_exported_target(drcontainers ${INSTALL_EXT_LIB})
-DR_install(FILES
-  hashtable.h
-  drvector.h
-  drtable.h
-  # add more here
-  DESTINATION ${INSTALL_EXT_INCLUDE})
+install_ext_header(hashtable.h)
+install_ext_header(drvector.h)
+install_ext_header(drtable.h)

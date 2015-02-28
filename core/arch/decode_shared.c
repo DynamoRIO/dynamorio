@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,14 +44,19 @@
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)
 /* case 10450: give messages to clients */
-# undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
+/* we can't undef ASSERT b/c of DYNAMO_OPTION */
 # undef ASSERT_TRUNCATE
 # undef ASSERT_BITFIELD_TRUNCATE
 # undef ASSERT_NOT_REACHED
-# define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#endif
+
+/* Arch-specific routines */
+#ifdef DEBUG
+void encode_debug_checks(void);
+void decode_debug_checks_arch(void);
 #endif
 
 const char * const size_names[] = {
@@ -176,7 +181,12 @@ const char * const size_names[] = {
     "OPSZ_4b",
     "OPSZ_5b",
     "OPSZ_6b",
+    "OPSZ_7b",
+    "OPSZ_9b",
+    "OPSZ_10b",
+    "OPSZ_11b",
     "OPSZ_12b",
+    "OPSZ_20b",
     "OPSZ_25b",
     "OPSZ_VAR_REGLIST",
     "OPSZ_20",
@@ -188,6 +198,23 @@ const char * const size_names[] = {
     "OPSZ_56",
     "OPSZ_60",
     "OPSZ_64",
+    "OPSZ_68",
+    "OPSZ_72",
+    "OPSZ_76",
+    "OPSZ_80",
+    "OPSZ_84",
+    "OPSZ_88",
+    "OPSZ_92",
+    "OPSZ_96",
+    "OPSZ_100",
+    "OPSZ_104",
+    "OPSZ_112",
+    "OPSZ_116",
+    "OPSZ_120",
+    "OPSZ_124",
+    "OPSZ_128",
+    "OPSZ_1_of_4",
+    "OPSZ_2_of_4",
     "OPSZ_1_of_8",
     "OPSZ_2_of_8",
     "OPSZ_4_of_8",
@@ -213,9 +240,11 @@ const instr_info_t invalid_instr =
 #undef xx
 
 /* PR 302344: used for shared traces -tracedump_origins where we
- * need to change the mode but we have no dcontext
+ * need to change the mode but we have no dcontext.
+ * We update this in decode_init() once we have runtime options,
+ * but this is the only version for drdecodelib.
  */
-static bool initexit_isa_mode = DEFAULT_ISA_MODE;
+static dr_isa_mode_t initexit_isa_mode = DEFAULT_ISA_MODE_STATIC;
 
 /* The decode and encode routines use a per-thread persistent flag that
  * indicates which processor mode to use.  This routine sets that flag to the
@@ -269,4 +298,24 @@ dr_get_isa_mode(dcontext_t *dcontext)
         return initexit_isa_mode;
     } else
         return dcontext->isa_mode;
+}
+
+#ifdef DEBUG
+void
+decode_debug_checks(void)
+{
+    CLIENT_ASSERT(sizeof(size_names)/sizeof(size_names[0]) == OPSZ_LAST_ENUM,
+                  "size_names missing an entry");
+    encode_debug_checks();
+    decode_debug_checks_arch();
+}
+#endif
+
+void
+decode_init(void)
+{
+    /* DEFAULT_ISA_MODE is no longer constant so we set it here */
+    initexit_isa_mode = DEFAULT_ISA_MODE;
+
+    DODEBUG({ decode_debug_checks(); });
 }

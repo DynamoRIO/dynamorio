@@ -96,7 +96,7 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
     }
 #endif
     if (string_match(data->names.module_name,
-                     IF_WINDOWS_ELSE("ADVAPI32.dll", "libz.so.1")))
+                     IF_WINDOWS_ELSE("COMDLG32.dll", "libz.so.1")))
         dr_fprintf(STDERR, "LOADED MODULE: %s\n", data->names.module_name);
 
 #ifdef WINDOWS
@@ -165,7 +165,7 @@ static
 void module_unload_event(void *dcontext, const module_data_t *data)
 {
     if (string_match(data->names.module_name,
-                     IF_WINDOWS_ELSE("ADVAPI32.dll", "libz.so.1")))
+                     IF_WINDOWS_ELSE("COMDLG32.dll", "libz.so.1")))
         dr_fprintf(STDERR, "UNLOADED MODULE: %s\n", data->names.module_name);
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,22 +37,17 @@
 #include "asm_defines.asm"
 START_FILE
 
-#if defined(INTERNAL) && !defined(NOT_DYNAMORIO_CORE_PROPER) && defined(X86)
 DECL_EXTERN(internal_error)
-#endif
 
 /* For debugging: report an error if the function called by call_switch_stack()
  * unexpectedly returns.  Also used elsewhere.
  */
         DECLARE_FUNC(unexpected_return)
 GLOBAL_LABEL(unexpected_return:)
-#if defined(INTERNAL) && !defined(NOT_DYNAMORIO_CORE_PROPER) && defined(X86)
-        /* FIXME i#1551: add CALLC3 in ARM */
-        CALLC3(GLOBAL_REF(internal_error), 0, -99 /* line # */, 0)
-        /* internal_error never returns */
-#endif
-        /* infinite loop is intentional: FIXME: do better in release build!
-         * FIXME - why not a debug instr?
+        CALLC3(GLOBAL_REF(internal_error), HEX(0), HEX(0), HEX(0))
+        /* internal_error normally never returns */
+        /* Infinite loop is intentional.  Can we do better in release build?
+         * XXX: why not a debug instr?
          */
         JUMP  GLOBAL_REF(unexpected_return)
         END_FUNC(unexpected_return)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -125,7 +125,13 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
-/* FIXME i#1551: implement the spill state for ARM */
+#ifdef ARM
+typedef struct _ibl_entry_pc_t {
+    byte *ibl;
+    byte *unlinked;
+} ibl_entry_pc_t;
+#endif
+
 /* All spill slots are grouped in a separate struct because with
  * -no_ibl_table_in_tls, only these slots are mapped to TLS (and the
  * table address/mask pairs are not).
@@ -136,9 +142,20 @@ typedef struct _spill_state_t {
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
 #elif defined (ARM)
     reg_t r0, r1, r2, r3;
+    reg_t reg_stolen;            /* slot for the stolen register */
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
+#ifdef ARM
+    /* We store addresses here so we can load pointer-sized addresses into
+     * registers with a single instruction in our exit stubs and gencode.
+     */
+    /* FIXME i#1551: add Thumb vs ARM: may need two entry points here */
+    byte *fcache_return;
+    ibl_entry_pc_t trace_ibl[IBL_BRANCH_TYPE_END];
+    ibl_entry_pc_t bb_ibl[IBL_BRANCH_TYPE_END];
+    /* FIXME i#1575: coarse-grain NYI on ARM */
+#endif
 } spill_state_t;
 
 typedef struct _local_state_t {
@@ -159,25 +176,31 @@ typedef struct _local_state_extended_t {
 # define TLS_XBX_SLOT             ((ushort)offsetof(spill_state_t, xbx))
 # define TLS_XCX_SLOT             ((ushort)offsetof(spill_state_t, xcx))
 # define TLS_XDX_SLOT             ((ushort)offsetof(spill_state_t, xdx))
-# define TLS_SLOT_R0              TLS_XAX_SLOT
-# define TLS_SLOT_R1              TLS_XBX_SLOT
-# define TLS_SLOT_R2              TLS_XCX_SLOT
-# define TLS_SLOT_R3              TLS_XDX_SLOT
-# define TLS_REG_R0               DR_REG_XAX
-# define TLS_REG_R1               DR_REG_XBX
-# define TLS_REG_R2               DR_REG_XCX
-# define TLS_REG_R3               DR_REG_XDX
+# define TLS_REG0_SLOT            TLS_XAX_SLOT
+# define TLS_REG1_SLOT            TLS_XBX_SLOT
+# define TLS_REG2_SLOT            TLS_XCX_SLOT
+# define TLS_REG3_SLOT            TLS_XDX_SLOT
+# define SCRATCH_REG0             DR_REG_XAX
+# define SCRATCH_REG1             DR_REG_XBX
+# define SCRATCH_REG2             DR_REG_XCX
+# define SCRATCH_REG3             DR_REG_XDX
 #elif defined(ARM)
-# define TLS_SLOT_R0              ((ushort)offsetof(spill_state_t, r0))
-# define TLS_SLOT_R1              ((ushort)offsetof(spill_state_t, r1))
-# define TLS_SLOT_R2              ((ushort)offsetof(spill_state_t, r2))
-# define TLS_SLOT_R3              ((ushort)offsetof(spill_state_t, r3))
-# define TLS_REG_R0               DR_REG_R0
-# define TLS_REG_R1               DR_REG_R1
-# define TLS_REG_R2               DR_REG_R2
-# define TLS_REG_R3               DR_REG_R3
+# define TLS_REG0_SLOT            ((ushort)offsetof(spill_state_t, r0))
+# define TLS_REG1_SLOT            ((ushort)offsetof(spill_state_t, r1))
+# define TLS_REG2_SLOT            ((ushort)offsetof(spill_state_t, r2))
+# define TLS_REG3_SLOT            ((ushort)offsetof(spill_state_t, r3))
+# define TLS_REG_STOLEN_SLOT      ((ushort)offsetof(spill_state_t, reg_stolen))
+# define SCRATCH_REG0             DR_REG_R0
+# define SCRATCH_REG1             DR_REG_R1
+# define SCRATCH_REG2             DR_REG_R2
+# define SCRATCH_REG3             DR_REG_R3
 #endif /* X86/ARM */
+#define IBL_TARGET_REG           SCRATCH_REG2
+#define IBL_TARGET_SLOT          TLS_REG2_SLOT
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
+#ifdef ARM
+# define TLS_FCACHE_RETURN_SLOT  ((ushort)offsetof(spill_state_t, fcache_return))
+#endif
 
 #define TABLE_OFFSET             (offsetof(local_state_extended_t, table_space))
 #define TLS_MASK_SLOT(btype)     ((ushort)(TABLE_OFFSET                         \
@@ -478,14 +501,15 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
  * a non word-aligned memory address causes UNPREDICTABLE behavior.",
  * so we require alignment here.
  */
-/* FIXME i#1551: should we allow the infinit loops for those ATOMIC ops */
+/* FIXME i#1551: should we allow infinite loops for those ATOMIC ops */
 #  define ATOMIC_INC_suffix(suffix, var)                              \
      __asm__ __volatile__(                                            \
        "1: ldrex" suffix " r2, %0         \n\t"                       \
        "   add"   suffix " r2, r2, #1     \n\t"                       \
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
-       "   bne   1b"                                                  \
+       "   bne   1b                       \n\t"                       \
+       "   cmp   r2, #0" /* for possible SET_FLAG use */              \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("", var)
@@ -496,7 +520,8 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        "   sub"   suffix " r2, r2, #1     \n\t"                       \
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
-       "   bne   1b"                                                  \
+       "   bne   1b                       \n\t"                       \
+       "   cmp   r2, #0" /* for possible SET_FLAG use */              \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("", var)
@@ -507,7 +532,8 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        "   add"   suffix " r2, r2, %1     \n\t"                       \
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
-       "   bne   1b"                                                  \
+       "   bne   1b                       \n\t"                       \
+       "   cmp   r2, #0" /* for possible SET_FLAG use */              \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : "r"  (value)                                                 \
        : "cc", "memory", "r2", "r3");
@@ -521,8 +547,9 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
        "   bne   1b                       \n\t"                       \
+       "   sub"   suffix " r2, r2, %2     \n\t"                       \
        "   str" suffix " r2, %1"                                      \
-       : "=Q" (var), "=m" (result)                                    \
+       : "=Q" (*var), "=m" (result)                                   \
        : "r"  (value)                                                 \
        : "cc", "memory", "r2", "r3");
 #  define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
@@ -532,7 +559,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 #  define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange) \
      __asm__ __volatile__(                                            \
        "   ldrex" suffix " r2, %0       \n\t"                         \
-       "   cmp"   suffix " r2, %2       \n\t"                         \
+       "   cmp"   suffix " r2, %1       \n\t"                         \
        "   bne    1f                    \n\t"                         \
        "   strex" suffix " r3, %2, %0   \n\t"                         \
        "1: clrex                        \n\t"                         \
@@ -555,11 +582,8 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        : "cc", "memory", "r2", "r3");
 
 #  define SPINLOCK_PAUSE()  __asm__ __volatile__("wfi") /* wait for interrupt */
-/* FIXME i#1551: there is no RDTSC on ARM. */
-#  define RDTSC_LL(llval) do {            \
-        ASSERT_NOT_IMPLEMENTED(false);    \
-        (llval) = 0;                      \
-    } while (0)
+uint64 proc_get_timestamp(void);
+#  define RDTSC_LL(llval) (llval) = proc_get_timestamp()
 #  define SERIALIZE_INSTRUCTIONS() __asm__ __volatile__("clrex");
 /* FIXME i#1551: frame pointer is r7 in thumb mode */
 #  define GET_FRAME_PTR(var)  \
@@ -783,9 +807,6 @@ void arch_thread_profile_exit(dcontext_t *dcontext);
 void arch_profile_exit(void);
 #endif
 
-byte *
-code_align_forward(byte *pc, size_t alignment);
-
 bool is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_generated_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_context_switch_code(dcontext_t *dcontext, cache_pc pc);
@@ -799,6 +820,10 @@ priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
 priv_mcontext_t *get_priv_mcontext_from_dstack(dcontext_t *dcontext);
 void dr_mcontext_init(dr_mcontext_t *mc);
 void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
+#ifdef ARM
+reg_t get_stolen_reg_val(priv_mcontext_t *context);
+void set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
+#endif
 const char *get_branch_type_name(ibl_branch_type_t branch_type);
 ibl_branch_type_t get_ibl_branch_type(instr_t *instr);
 
@@ -918,10 +943,23 @@ dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...);
 void unexpected_return(void);
 void clone_and_swap_stack(byte *stack, byte *tos);
 void go_native(dcontext_t *dcontext);
+
+/* Calls dynamo_exit_process if exitproc is true, else calls dynamo_exit_thread.
+ * Uses the current dstack, but instructs the cleanup routines not to
+ * de-allocate it, does a custom de-allocate after swapping to initstack (don't
+ * want to use initstack the whole time, that's too long to hold the mutex).
+ * Then calls system call sysnum with parameter base param_base, which is presumed
+ * to be either NtTerminateThread or NtTerminateProcess or exit.
+ *
+ * Note that the caller is responsible for placing the actual syscall arguments
+ * at the correct offset from edx (or ebx).  See SYSCALL_PARAM_OFFSET in
+ * win32 os.c for more info.
+ */
 void cleanup_and_terminate(dcontext_t *dcontext, int sysnum,
                            ptr_uint_t sys_arg1, ptr_uint_t sys_arg2, bool exitproc,
                            /* these 2 args are only used for Mac thread exit */
                            ptr_uint_t sys_arg3, ptr_uint_t sys_arg4);
+
 bool cpuid_supported(void);
 void our_cpuid(int res[4], int eax);
 #ifdef WINDOWS
@@ -948,14 +986,6 @@ void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec
 void dynamorio_earliest_init_takeover(void);
 #else /* UNIX */
 void client_int_syscall(void);
-# ifdef MACOS
-/* Some 32-bit syscalls return 64-bit values (e.g., SYS_lseek) in eax:edx */
-int64 dynamorio_syscall(uint sysnum, uint num_args, ...);
-int64 dynamorio_mach_dep_syscall(uint sysnum, uint num_args, ...);
-ptr_int_t dynamorio_mach_syscall(uint sysnum, uint num_args, ...);
-# else
-ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
-# endif
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
 # ifdef MACOS
@@ -996,13 +1026,16 @@ void dr_frstor(byte *buf_aligned);
 void dr_fxsave32(byte *buf_aligned);
 void dr_fxrstor32(byte *buf_aligned);
 #endif
-void dr_fpu_exception_init(void);
 
 /* Keep in synch with x86.asm.  This is the difference between the SP saved in
  * the mcontext and the SP of the caller of dr_app_start() and
  * dynamorio_app_take_over().
  */
-#define DYNAMO_START_XSP_ADJUST 16
+#ifdef X86
+# define DYNAMO_START_XSP_ADJUST 16
+#else
+# define DYNAMO_START_XSP_ADJUST 0
+#endif
 
 /* x86_code.c */
 void dynamo_start(priv_mcontext_t *mc);
@@ -1094,47 +1127,117 @@ use_addr_prefix_on_short_disp(void)
 #endif /* STANDALONE_DECODER */
 }
 
-/* Merge w/ _LENGTH enum below? */
-/* not ifdef X64 to simplify code */
-#define SIZE64_MOV_XAX_TO_TLS         8
-#define SIZE64_MOV_XBX_TO_TLS         9
-#define SIZE64_MOV_PTR_IMM_TO_XAX    10
-#define SIZE64_MOV_PTR_IMM_TO_TLS   (12*2) /* high and low 32 bits separately */
-#define SIZE64_MOV_R8_TO_XAX          3
-#define SIZE64_MOV_R9_TO_XCX          3
-#define SIZE32_MOV_XAX_TO_TLS         5
-#define SIZE32_MOV_XBX_TO_TLS         6
-#define SIZE32_MOV_XAX_TO_TLS_DISP32  6
-#define SIZE32_MOV_XBX_TO_TLS_DISP32  7
-#define SIZE32_MOV_XAX_TO_ABS         5
-#define SIZE32_MOV_XBX_TO_ABS         6
-#define SIZE32_MOV_PTR_IMM_TO_XAX     5
-#define SIZE32_MOV_PTR_IMM_TO_TLS    10
+/* in decode.c, needed here for ref in arch.h */
+/* DR_API EXPORT TOFILE dr_ir_utils.h */
+/* DR_API EXPORT BEGIN */
+/** Specifies which processor mode to use when decoding or encoding. */
+typedef enum _dr_isa_mode_t {
+    DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
+    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
+    DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
+    DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
+    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
+    DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
+} dr_isa_mode_t;
+/* DR_API EXPORT END */
 
-#ifdef X64
-# define FRAG_IS_32(flags) (TEST(FRAG_32_BIT, (flags)))
-# define FRAG_IS_X86_TO_X64(flags) (TEST(FRAG_X86_TO_X64, (flags)))
+/* static version for drdecodelib */
+#define DEFAULT_ISA_MODE_STATIC \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+
+/* Use this one in DR proper.
+ * This one is now static as well after we removed the runtime option that
+ * used to be here: but I'm leaving the split to make it easier to add
+ * an option in the future.
+ */
+#define DEFAULT_ISA_MODE \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+
+/* For converting back from PC_AS_JMP_TGT on Thumb */
+#ifdef ARM
+# define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
 #else
-# define FRAG_IS_32(flags) true
-# define FRAG_IS_X86_TO_X64(flags) false
+# define ENTRY_PC_TO_DECODE_PC(pc) pc
 #endif
 
-#define SIZE_MOV_XAX_TO_TLS(flags, require_addr16) \
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine sets that flag to the
+ * indicated value and optionally returns the old value.  Be sure to restore the
+ * old value prior to any further application execution to avoid problems in
+ * mis-interpreting application code.
+ */
+bool
+dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
+                dr_isa_mode_t *old_mode OUT);
+
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine returns the value of
+ * that flag.
+ */
+dr_isa_mode_t
+dr_get_isa_mode(dcontext_t *dcontext);
+
+/* Switches the ISA mode, if necessary, and returns the (potentially modified) pc */
+app_pc
+canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
+
+void
+decode_init(void);
+
+/***************************************************************************
+ * Arch-specific defines
+ */
+#ifdef X86
+
+/* Merge w/ _LENGTH enum below? */
+/* not ifdef X64 to simplify code */
+# define SIZE64_MOV_XAX_TO_TLS         8
+# define SIZE64_MOV_XBX_TO_TLS         9
+# define SIZE64_MOV_PTR_IMM_TO_XAX    10
+# define SIZE64_MOV_PTR_IMM_TO_TLS   (12*2) /* high and low 32 bits separately */
+# define SIZE64_MOV_R8_TO_XAX          3
+# define SIZE64_MOV_R9_TO_XCX          3
+# define SIZE32_MOV_XAX_TO_TLS         5
+# define SIZE32_MOV_XBX_TO_TLS         6
+# define SIZE32_MOV_XAX_TO_TLS_DISP32  6
+# define SIZE32_MOV_XBX_TO_TLS_DISP32  7
+# define SIZE32_MOV_XAX_TO_ABS         5
+# define SIZE32_MOV_XBX_TO_ABS         6
+# define SIZE32_MOV_PTR_IMM_TO_XAX     5
+# define SIZE32_MOV_PTR_IMM_TO_TLS    10
+
+# ifdef X64
+#  define FRAG_IS_32(flags) (TEST(FRAG_32_BIT, (flags)))
+#  define FRAG_IS_X86_TO_X64(flags) (TEST(FRAG_X86_TO_X64, (flags)))
+# else
+#  define FRAG_IS_32(flags) true
+#  define FRAG_IS_X86_TO_X64(flags) false
+# endif
+
+# define PC_AS_JMP_TGT(isa_mode, pc) pc
+
+# define SIZE_MOV_XAX_TO_TLS(flags, require_addr16) \
     (FRAG_IS_32(flags) ? \
      ((require_addr16 || use_addr_prefix_on_short_disp()) ?   \
       SIZE32_MOV_XAX_TO_TLS : SIZE32_MOV_XAX_TO_TLS_DISP32) : \
       SIZE64_MOV_XAX_TO_TLS)
-#define SIZE_MOV_XBX_TO_TLS(flags, require_addr16) \
+# define SIZE_MOV_XBX_TO_TLS(flags, require_addr16) \
     (FRAG_IS_32(flags) ? \
      ((require_addr16 || use_addr_prefix_on_short_disp()) ?   \
       SIZE32_MOV_XBX_TO_TLS : SIZE32_MOV_XBX_TO_TLS_DISP32) : \
       SIZE64_MOV_XBX_TO_TLS)
-#define SIZE_MOV_PTR_IMM_TO_XAX(flags) \
+# define SIZE_MOV_PTR_IMM_TO_XAX(flags) \
     (FRAG_IS_32(flags) ? SIZE32_MOV_PTR_IMM_TO_XAX : SIZE64_MOV_PTR_IMM_TO_XAX)
 
 /* size of restore ecx prefix */
-#define XCX_IN_TLS(flags) (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
-#define FRAGMENT_BASE_PREFIX_SIZE(flags) \
+# define XCX_IN_TLS(flags) (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
+# define FRAGMENT_BASE_PREFIX_SIZE(flags) \
     ((FRAG_IS_X86_TO_X64(flags) && \
       IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false)) ? \
      SIZE64_MOV_R9_TO_XCX : \
@@ -1148,11 +1251,11 @@ use_addr_prefix_on_short_disp(void)
  * SIZE32_MOV_XAX_TO_TLS == SIZE32_MOV_XAX_TO_ABS, and that
  * x64 always uses tls
  */
-#define DIRECT_EXIT_STUB_SIZE32 \
+# define DIRECT_EXIT_STUB_SIZE32 \
     (SIZE32_MOV_XAX_TO_TLS + SIZE32_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
-#define DIRECT_EXIT_STUB_SIZE64 \
+# define DIRECT_EXIT_STUB_SIZE64 \
     (SIZE64_MOV_XAX_TO_TLS + SIZE64_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
-#define DIRECT_EXIT_STUB_SIZE(flags) \
+# define DIRECT_EXIT_STUB_SIZE(flags) \
     (FRAG_IS_32(flags) ? DIRECT_EXIT_STUB_SIZE32 : DIRECT_EXIT_STUB_SIZE64)
 
 /* coarse-grain stubs use a store directly to memory so they can
@@ -1165,38 +1268,100 @@ use_addr_prefix_on_short_disp(void)
  * both of these exact sequences are assumed in entrance_stub_target_tag()
  * and coarse_indirect_stub_jmp_target().
  */
-#define STUB_COARSE_DIRECT_SIZE32  (SIZE32_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
-#define STUB_COARSE_DIRECT_SIZE64  (SIZE64_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
-#define STUB_COARSE_DIRECT_SIZE(flags) \
+# define STUB_COARSE_DIRECT_SIZE32  (SIZE32_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
+# define STUB_COARSE_DIRECT_SIZE64  (SIZE64_MOV_PTR_IMM_TO_TLS + JMP_LONG_LENGTH)
+# define STUB_COARSE_DIRECT_SIZE(flags) \
     (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
 /* writes nops into the address range */
-#define SET_TO_NOPS(addr, size) memset(addr, 0x90, size)
+# define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
 /* writes debugbreaks into the address range */
-#define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
+# define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
 /* check if region is SET_TO_NOP */
-#define IS_SET_TO_NOP(addr, size) is_region_memset_to_char(addr, size, 0x90)
+# define IS_SET_TO_NOP(addr, size) is_region_memset_to_char(addr, size, 0x90)
 /* check if region is SET_TO_DEBUG */
-#define IS_SET_TO_DEBUG(addr, size) is_region_memset_to_char(addr, size, 0xcc)
+# define IS_SET_TO_DEBUG(addr, size) is_region_memset_to_char(addr, size, 0xcc)
 
 /* offset of the patchable region from the end of a cti */
-#define CTI_PATCH_OFFSET 4
+# define CTI_PATCH_OFFSET 4
 /* size of the patch to a cti */
-#define CTI_PATCH_SIZE 4
+# define CTI_PATCH_SIZE 4
 
 /* offset of the patchable region from the end of a stub */
-#define EXIT_STUB_PATCH_OFFSET 4
+# define EXIT_STUB_PATCH_OFFSET 4
 /* size of the patch to a stub */
-#define EXIT_STUB_PATCH_SIZE 4
+# define EXIT_STUB_PATCH_SIZE 4
 
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
-#define MAX_PAD_SIZE 3
+# define MAX_PAD_SIZE 3
+
+/****************************************************************************/
+#elif defined(ARM)
+
+# ifdef X64
+#  define FRAG_IS_THUMB(flags) false
+#  define FRAG_IS_32(flags) false
+# else
+#  define FRAG_IS_THUMB(flags) (TEST(FRAG_THUMB, (flags)))
+#  define FRAG_IS_32(flags) true
+# endif
+
+# define PC_AS_JMP_TGT(isa_mode, pc) \
+    ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) | 1) : pc)
+
+# define FRAGMENT_BASE_PREFIX_SIZE(flags) \
+    (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)
+
+/* exported for DYNAMO_OPTION(separate_private_stubs) */
+# define ARM_INSTR_SIZE 4
+# define THUMB_SHORT_INSTR_SIZE 2
+# define THUMB_LONG_INSTR_SIZE 4
+# define DIRECT_EXIT_STUB_INSTR_COUNT 4
+/* all instrs are wide in the Thumb version */
+# define DIRECT_EXIT_STUB_SIZE(flags) \
+    (FRAG_IS_THUMB(flags) ? \
+     (DIRECT_EXIT_STUB_INSTR_COUNT*THUMB_LONG_INSTR_SIZE) : \
+     (DIRECT_EXIT_STUB_INSTR_COUNT*ARM_INSTR_SIZE))
+
+/* FIXME i#1575: implement coarse-grain support */
+# define STUB_COARSE_DIRECT_SIZE(flags) \
+    (ASSERT_NOT_IMPLEMENTED(false), 0)
+
+/* FIXME i#1551: we need these to all take in the dr_isa_mode_t */
+# define ARM_NOP     0xe320f000
+# define THUMB_NOP   0xbf00
+# define ARM_BKPT    0xe1200070
+# define THUMB_BKPT  0xbe00
+/* writes nops into the address range */
+bool fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
+# define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
+/* writes debugbreaks into the address range */
+# define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
+/* check if region is SET_TO_DEBUG */
+# define IS_SET_TO_DEBUG(addr, size) (ASSERT_NOT_IMPLEMENTED(false), false)
+
+/* offset of the patchable region from the end of a cti */
+# define CTI_PATCH_OFFSET 4
+/* size of the patch to a cti */
+# define CTI_PATCH_SIZE 4
+
+/* offset of the patchable region from the end of a stub */
+# define EXIT_STUB_PATCH_OFFSET 4
+/* size of the patch to a stub */
+# define EXIT_STUB_PATCH_SIZE 4
+
+/* the most bytes we'll need to shift a patchable location for -pad_jmps */
+# define MAX_PAD_SIZE 0
+
+#endif /* ARM */
+/****************************************************************************/
+
 
 /* evaluates to true if region crosses at most 1 padding boundary */
-#define WITHIN_PAD_REGION(lower, upper) \
+# define WITHIN_PAD_REGION(lower, upper) \
     ((upper)-(lower) <= PAD_JMPS_ALIGNMENT)
 
-#define STATS_PAD_JMPS_ADD(flags, stat, val) DOSTATS({    \
+# define STATS_PAD_JMPS_ADD(flags, stat, val) DOSTATS({    \
     if (TEST(FRAG_SHARED, (flags))) {                     \
         if (TEST(FRAG_IS_TRACE, (flags)))                 \
             STATS_ADD(pad_jmps_shared_trace_##stat, val); \
@@ -1271,7 +1436,8 @@ enum {
     NOT_HOT_PATCHABLE=false,
     HOT_PATCHABLE=true
 };
-void patch_branch(cache_pc branch_pc, cache_pc target_pc, bool hot_patch);
+void patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
+                  bool hot_patch);
 bool link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                       fragment_t *targetf, bool hot_patch);
 void unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
@@ -1531,45 +1697,6 @@ reached_image_entry_yet(void);
 void
 set_reached_image_entry(void);
 
-/* in decode.c, needed here for ref in arch.h */
-/* DR_API EXPORT TOFILE dr_ir_utils.h */
-/* DR_API EXPORT BEGIN */
-/** Specifies which processor mode to use when decoding or encoding. */
-typedef enum _dr_isa_mode_t {
-    DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
-    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
-    DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
-    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T16 and T32). */
-    DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
-    DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
-} dr_isa_mode_t;
-/* DR_API EXPORT END */
-
-#define DEFAULT_ISA_MODE \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_A32))
-
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates which processor mode to use.  This routine sets that flag to the
- * indicated value and optionally returns the old value.  Be sure to restore the
- * old value prior to any further application execution to avoid problems in
- * mis-interpreting application code.
- */
-bool
-dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
-                dr_isa_mode_t *old_mode OUT);
-
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates which processor mode to use.  This routine returns the value of
- * that flag.
- */
-dr_isa_mode_t
-dr_get_isa_mode(dcontext_t *dcontext);
-
 /* in encode.c */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 DR_API
@@ -1587,6 +1714,10 @@ DR_API
  * (instrlist_encode does this automatically, if the target is in the list).
  * x86 instructions can occupy up to 17 bytes, so the caller should ensure
  * the target location has enough room to avoid overflow.
+ * \note: In Thumb mode, some instructions have different behavior depending
+ * on whether they are in an IT block. To correctly encode such instructions,
+ * they should be encoded within an instruction list with the corresponding
+ * IT instruction using instrlist_encode().
  */
 byte *
 instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc);
@@ -1605,6 +1736,10 @@ DR_API
  * (instrlist_encode does this automatically, if the target is in the list).
  * x86 instructions can occupy up to 17 bytes, so the caller should ensure
  * the target location has enough room to avoid overflow.
+ * \note: In Thumb mode, some instructions have different behavior depending
+ * on whether they are in an IT block. To correctly encode such instructions,
+ * they should be encoded within an instruction list with the corresponding
+ * IT instruction using instrlist_encode().
  */
 byte *
 instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc,
@@ -1664,7 +1799,6 @@ void insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext, instrlist_
         instr_t *instr, void *callee, int arg, app_pc jmp_tag, instr_t *jmp_instr);
 
 #ifdef UNIX
-void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
 bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
 void finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
@@ -1760,6 +1894,7 @@ convert_data_to_function(void *data_ptr)
  * As longjmp is implemented as return from setjmp, eax & edx need not be saved.
  */
 typedef struct dr_jmp_buf_t {
+#ifdef X86 /* for x86.asm */
     reg_t xbx;
     reg_t xcx;
     reg_t xdi;
@@ -1767,10 +1902,13 @@ typedef struct dr_jmp_buf_t {
     reg_t xbp;
     reg_t xsp;
     reg_t xip;
-#ifdef X64
+# ifdef X64
     /* optimization: can we trust callee-saved regs r8,r9,r10,r11 and not save them? */
     reg_t r8, r9, r10, r11, r12, r13, r14, r15;
-#endif
+# endif
+#elif defined(ARM) /* for arm.asm */
+    reg_t regs[IF_X64_ELSE(32, 16)/*DR_NUM_GPR_REGS*/];
+#endif /* X86/ARM */
 #if defined(UNIX) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug
@@ -1779,7 +1917,6 @@ typedef struct dr_jmp_buf_t {
     kernel_sigset_t sigmask;
 #endif
 } dr_jmp_buf_t;
-/* in x86.asm */
 int
 dr_longjmp(dr_jmp_buf_t *buf, int val);
 int

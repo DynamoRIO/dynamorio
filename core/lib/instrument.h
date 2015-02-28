@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5038,6 +5038,11 @@ bool
 dr_insert_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
                   byte *encode_pc, void *callee, uint num_args, ...);
 
+/* Not exported.  Currently used for ARM to avoid storing to %lr. */
+void
+dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        void *callee, uint num_args, ...);
+
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to save state for a call.
@@ -5100,6 +5105,10 @@ DR_API
  * Passes in 8 arguments.  Uses the C calling convention, so \p func will work
  * just fine even if if takes fewer than 8 args.
  * Swaps the stack back upon return and returns the value returned by \p func.
+ *
+ * On Windows, this routine does swap the TEB stack fields, avoiding
+ * issues with fault handling on Windows 8.1.  This means there is no need
+ * for the callee to use dr_switch_to_dr_state_ex() with DR_STATE_STACK_BOUNDS.
  */
 void *
 dr_call_on_clean_stack(void *drcontext, void *(*func)(void),
@@ -5410,6 +5419,90 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src);
 /* DR_API EXPORT BEGIN */
 #endif
 /* DR_API EXPORT END */
+
+DR_API
+/**
+ * Create meta instructions for storing pointer-size integer \p val to \p dst,
+ * and then insert them into \p ilist prior to \p where.
+ * The created meta instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
+                                 instrlist_t *ilist, instr_t *where,
+                                 instr_t **first OUT, instr_t **second OUT);
+
+DR_API
+/**
+ * Create meta instructions for pushing pointer-size integer \p val on the stack,
+ * and then insert them into \p ilist prior to \p where.
+ * The created meta instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
+                                  instrlist_t *ilist, instr_t *where,
+                                  instr_t **first OUT, instr_t **second OUT);
+
+DR_API
+/**
+ * Create meta instructions for storing the address of \p src_inst to \p dst,
+ * and then insert them into \p ilist prior to \p where.
+ * The \p encode_estimate parameter, used only for 64-bit mode,
+ * indicates whether the final address of \p src_inst, when it is
+ * encoded later, will fit in 32 bits or needs 64 bits.
+ * If the encoding will be in DynamoRIO's code cache, pass NULL.
+ * If the final encoding location is unknown, pass a high address to be on
+ * the safe side.
+ * The created meta instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst,
+                                byte *encode_estimate,
+                                opnd_t dst, instrlist_t *ilist, instr_t *where,
+                                instr_t **first OUT, instr_t **second OUT);
+
+DR_API
+/**
+ * Create meta instructions for pushing the address of \p src_inst on the stack,
+ * and then insert them into \p ilist prior to \p where.
+ * The \p encode_estimate parameter, used only for 64-bit mode,
+ * indicates whether the final address of \p src_inst, when it is
+ * encoded later, will fit in 32 bits or needs 64 bits.
+ * If the encoding will be in DynamoRIO's code cache, pass NULL.
+ * If the final encoding location is unknown, pass a high address to be on
+ * the safe side.
+ * The created meta instructions are returned in \p first and \p second.
+ * Note that \p second may return NULL if only one instruction is created.
+ */
+void
+instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst,
+                                 byte *encode_estimate,
+                                 instrlist_t *ilist, instr_t *where,
+                                 instr_t **first OUT, instr_t **second OUT);
+
+DR_API
+/**
+ * Returns the register that is stolen and used by DynamoRIO.
+ * Reference \ref sec_reg_stolen for more information.
+ */
+reg_id_t
+dr_get_stolen_reg(void);
+
+DR_API
+/**
+ * Insert code to get the application value of the register stolen by DynamoRIO
+ * into register \p reg.
+ * Reference \ref sec_reg_stolen for more information.
+ *
+ * \return whether successful.
+ *
+ * \note ARM-only
+ */
+bool
+dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
+                               instr_t *instr, reg_id_t reg);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */
@@ -6124,67 +6217,5 @@ bool
 dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                byte *bb_start, size_t bb_size,
                                                void *user_data));
-
-DR_API
-/**
- * Create meta instructions for storing pointer-size integer \p val to \p dst,
- * and then insert them into \p ilist prior to \p where.
- * The created meta instructions are returned in \p first and \p second.
- * Note that \p second may return NULL if only one instruction is created.
- */
-void
-instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
-                                 instrlist_t *ilist, instr_t *where,
-                                 instr_t **first OUT, instr_t **second OUT);
-
-DR_API
-/**
- * Create meta instructions for pushing pointer-size integer \p val on the stack,
- * and then insert them into \p ilist prior to \p where.
- * The created meta instructions are returned in \p first and \p second.
- * Note that \p second may return NULL if only one instruction is created.
- */
-void
-instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
-                                  instrlist_t *ilist, instr_t *where,
-                                  instr_t **first OUT, instr_t **second OUT);
-
-DR_API
-/**
- * Create meta instructions for storing the address of \p src_inst to \p dst,
- * and then insert them into \p ilist prior to \p where.
- * The \p encode_estimate parameter, used only for 64-bit mode,
- * indicates whether the final address of \p src_inst, when it is
- * encoded later, will fit in 32 bits or needs 64 bits.
- * If the encoding will be in DynamoRIO's code cache, pass NULL.
- * If the final encoding location is unknown, pass a high address to be on
- * the safe side.
- * The created meta instructions are returned in \p first and \p second.
- * Note that \p second may return NULL if only one instruction is created.
- */
-void
-instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst,
-                                byte *encode_estimate,
-                                opnd_t dst, instrlist_t *ilist, instr_t *where,
-                                instr_t **first OUT, instr_t **second OUT);
-
-DR_API
-/**
- * Create meta instructions for pushing the address of \p src_inst on the stack,
- * and then insert them into \p ilist prior to \p where.
- * The \p encode_estimate parameter, used only for 64-bit mode,
- * indicates whether the final address of \p src_inst, when it is
- * encoded later, will fit in 32 bits or needs 64 bits.
- * If the encoding will be in DynamoRIO's code cache, pass NULL.
- * If the final encoding location is unknown, pass a high address to be on
- * the safe side.
- * The created meta instructions are returned in \p first and \p second.
- * Note that \p second may return NULL if only one instruction is created.
- */
-void
-instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst,
-                                 byte *encode_estimate,
-                                 instrlist_t *ilist, instr_t *where,
-                                 instr_t **first OUT, instr_t **second OUT);
 
 #endif /* _INSTRUMENT_H_ */

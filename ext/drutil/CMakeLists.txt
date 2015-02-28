@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drutil: DynamoRIO Function Wrapping and Replacing Extension
@@ -58,4 +58,4 @@ if (NOT STATIC_LIBRARY)
   use_DynamoRIO_extension(drutil_static drmgr_static)
 endif ()
 
-DR_install(FILES drutil.h DESTINATION ${INSTALL_EXT_INCLUDE})
+install_ext_header(drutil.h)

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -264,65 +265,9 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
     goto exit;
 }
 
-#define NUDGE_DEFINITIONS()                                                     \
-    /* Control nudges */                                                        \
-    NUDGE_DEF(opt, "Synchronize dynamic options")                               \
-    NUDGE_DEF(reset, "Reset code caches") /* flush & delete */                  \
-    NUDGE_DEF(detach, "Detach")                                                 \
-    NUDGE_DEF(mode, "Liveshield mode update")                                   \
-    NUDGE_DEF(policy, "Liveshield policy update")                               \
-    NUDGE_DEF(lstats, "Liveshield statistics NYI")                              \
-    NUDGE_DEF(process_control, "Process control nudge") /* Case 8594. */        \
-    NUDGE_DEF(upgrade, "DR upgrade NYI case 4179")                              \
-    NUDGE_DEF(kstats, "Dump kstats in log or kstat file NYI")                   \
-    /* internal options */                                                      \
-    NUDGE_DEF(stats, "Dump internal stats in logfiles NYI")                     \
-    NUDGE_DEF(invalidate, "Invalidate code caches NYI") /* flush */             \
-    /* stress testing */                                                        \
-    NUDGE_DEF(recreate_pc, "Recreate PC NYI")                                   \
-    NUDGE_DEF(recreate_state, "Recreate state NYI")                             \
-    NUDGE_DEF(reattach, "Reattach - almost detach, NYI")                        \
-    /* diagnostics */                                                           \
-    NUDGE_DEF(diagnose, "Request diagnostic file NYI")                          \
-    NUDGE_DEF(ldmp, "Dump core")                                                \
-    NUDGE_DEF(freeze, "Freeze coarse units")                                    \
-    NUDGE_DEF(persist, "Persist coarse units")                                  \
-    /* client nudge */                                                          \
-    NUDGE_DEF(client, "Client nudge")                                           \
-    /* security testing */                                                      \
-    NUDGE_DEF(violation, "Simulate a security violation")                       \
-    /* ADD NEW NUDGE_DEFs only immediately above this line  */                  \
-    /* since these are used as a bitmask only 30 types can be supported */
-
-typedef enum {
-#define NUDGE_DEF(name, comment) NUDGE_DR_##name,
-    NUDGE_DEFINITIONS()
-#undef NUDGE_DEF
-    NUDGE_DR_PARAMETRIZED_END
-} nudge_generic_type_t;
-
-/* note that these are bitmask values */
-#define NUDGE_GENERIC(name) (1 << (NUDGE_DR_##name))
-
-#define NUDGE_ARG_VERSION_1 1
-#define NUDGE_ARG_CURRENT_VERSION NUDGE_ARG_VERSION_1
-
-/* nudge_arg_t flags */
-enum {
-    NUDGE_IS_INTERNAL       = 0x01, /* nudge is internally generated */
-    NUDGE_NUDGER_FREE_STACK = 0x02, /* nudger will free the nudge thread's stack so the
-                                     * nudge thread itself shouldn't */
-    NUDGE_FREE_ARG          = 0x04, /* nudge arg is in a separate allocation and should
-                                     * be freed by the nudge thread */
-};
-
-typedef struct {
-    uint version; /* version number for future proofing */
-    uint nudge_action_mask; /* drawn from NUDGE_DEFS above */
-    uint flags; /* flags drawn from above enum */
-    void *client_arg; /* argument for a client nudge */
-    /* Add future arguments for nudge actions here. */
-} nudge_arg_t;
+/* As a nice benefit of tools.h now including globals_shared.h, we have
+ * the NUDGE_ defines already here.
+ */
 
 /***************************************************************************/
 
@@ -402,7 +347,7 @@ int main()
         arg->version = NUDGE_ARG_CURRENT_VERSION;
         arg->nudge_action_mask = NUDGE_GENERIC(detach);
         arg->flags = 0;
-        arg->client_arg = NULL;
+        arg->client_arg = 0;
         print("About to detach using underhanded methods\n");
         detach_thread = (HANDLE)
             nt_create_thread(GetCurrentProcess(), (threadfunc_t) nudge_target,

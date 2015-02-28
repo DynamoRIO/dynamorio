@@ -1175,11 +1175,11 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      * we need the args to be accessible with normal offsets.
      * and we don't want to replace the retaddr w/ a code cache retaddr
      * b/c that causes issues w/ callstacks (see
-     * http://code.google.com/p/drmemory/issues/detail?id=935).
+     * https://github.com/DynamoRIO/drmemory/issues/935).
      * We end up going with a continuation-based approach, which avoids
      * a return point in the cache and thus simplifies issues w/
      * the replacement code using app resources (see
-     * http://code.google.com/p/drmemory/issues/detail?id=900).
+     * https://github.com/DynamoRIO/drmemory/issues/900).
      *
      * It's much easier to get the app xsp here so we store it in a
      * tls slot.  We also store the stack adjust for use later.

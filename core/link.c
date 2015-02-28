@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -266,12 +266,14 @@ static const linkstub_t linkstub_special_ibl_trace_call =
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 }; /* native_plt_ibl */
 # endif
 
+#if defined(X64) || defined(DEBUG)
 static inline bool
 is_empty_fragment(fragment_t *f)
 {
     return (f == (fragment_t *)&linkstub_empty_fragment
             IF_X64(|| f == (fragment_t *)&linkstub_empty_fragment_x86));
 }
+#endif
 
 #ifdef X64
 fragment_t *
@@ -2477,7 +2479,8 @@ coarse_stubs_create(coarse_info_t *info, cache_pc pc, size_t size)
            (int)(COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info))*
                  num_coarse_stubs_for_prefix(info)));
     DOCHECK(1, {
-        SET_TO_NOPS(end_pc, info->fcache_return_prefix +
+        /* FIXME i#1551: need diff versions for diff isa modes */
+        SET_TO_NOPS(DEFAULT_ISA_MODE, end_pc, info->fcache_return_prefix +
                     COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info))*
                     num_coarse_stubs_for_prefix(info) - end_pc);
     });
@@ -2511,12 +2514,9 @@ coarse_stubs_iterator_start(coarse_info_t *info, coarse_stubs_iterator_t *csi)
     }
 }
 
-static bool inline
-coarse_stubs_iterator_hasnext(coarse_stubs_iterator_t *csi)
-{
-    return (csi->pc < csi->end || special_heap_iterator_hasnext(&csi->shi));
-}
-
+/* If we wanted coarse_stubs_iterator_hasnext() it would look like this:
+ *   return (csi->pc < csi->end || special_heap_iterator_hasnext(&csi->shi))
+ */
 static cache_pc inline
 coarse_stubs_iterator_next(coarse_stubs_iterator_t *csi)
 {
@@ -2610,7 +2610,7 @@ entrance_stub_create(dcontext_t *dcontext, coarse_info_t *info,
         stub_pc, EXIT_TARGET_TAG(dcontext, f, l), f->id, f->tag, FCACHE_ENTRY_PC(f));
     ASSERT(emit_sz <= stub_size);
     DOCHECK(1, {
-        SET_TO_NOPS(stub_pc + emit_sz, stub_size - emit_sz);
+        SET_TO_NOPS(dr_get_isa_mode(dcontext), stub_pc + emit_sz, stub_size - emit_sz);
     });
     STATS_ADD(separate_shared_bb_entrance_stubs, stub_size);
     STATS_INC(num_entrance_stubs);
@@ -3061,7 +3061,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
             LOG(THREAD, LOG_LINKS, 4,
                 "  linking coarse "PFX"."PFX"->"PFX" to entrance stub\n",
                 f->tag, FCACHE_ENTRY_PC(f), local_stub);
-            patch_branch(EXIT_CTI_PC(f, l), local_stub,
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), local_stub,
                          /*new, unreachable*/NOT_HOT_PATCHABLE);
             /* case 9009: can't link stub to self until self fully linked;
              * no incoming needed so fine to rely on self link below.
@@ -3854,7 +3854,8 @@ coarse_unit_shift_links(dcontext_t *dcontext, coarse_info_t *info)
                     } else
                         ASSERT(EXIT_TARGET_TAG(dcontext, in_f, l) == tag);
                     ASSERT(new_tgt != NULL);
-                    patch_branch(EXIT_CTI_PC(in_f, l), new_tgt, hot_patch);
+                    patch_branch(FRAG_ISA_MODE(in_f->flags), EXIT_CTI_PC(in_f, l),
+                                 new_tgt, hot_patch);
                 }
             }
         }

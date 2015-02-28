@@ -227,7 +227,7 @@ use_edi(dcontext_t *dcontext,
         instrlist_preinsert(ilist, instr,
                            instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
         instrlist_preinsert(ilist, instr,
-                            INSTR_CREATE_mov(dcontext, opnd_create_reg(REG_EBX),
+                            XINST_CREATE_move(dcontext, opnd_create_reg(REG_EBX),
                                              opnd_create_reg(REG_EDI));
         instrlist_preinsert(ilist, instr,
                             load_instr(dcontext, REG_EDI, REG_EBX, XDI_OFFSET));
