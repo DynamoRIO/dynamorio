@@ -418,8 +418,9 @@ static inline bool
 encode_in_it_block(encode_state_t *state, instr_t *instr)
 {
     if (state->itb_info.num_instrs != 0) {
-        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "in IT: cur=%d, in="PFX" vs "PFX"\n",
-            state->itb_info.cur_instr, state->instr, instr);
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "in IT: cur=%d, in="PFX" %d vs "PFX" %d\n",
+            state->itb_info.cur_instr, state->instr, state->instr->opcode,
+            instr, instr->opcode);
         ASSERT(state->instr != NULL);
         if (instr == state->instr) {
             /* Look for a duplicate call to the final instr in the block, where
@@ -436,6 +437,7 @@ encode_in_it_block(encode_state_t *state, instr_t *instr)
                 return false; /* still on OP_it */
             else {
                 /* Undo the advance */
+                state->instr = instr;
                 state->itb_info.cur_instr--;
                 return true;
             }
@@ -1659,15 +1661,15 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
     LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s 0x%08x\n", __FUNCTION__, ii->opcode);
     decode_info_init_from_instr_info(di, ii);
 
-    if (encode_in_it_block(&di->encode_state, in)) {
+    if (encode_in_it_block(&di->encode_state, in) && di->check_reachable/*incl pred*/) {
         /* check if predicate match in IT block */
         if (pred != it_block_instr_predicate(di->encode_state.itb_info,
                                              di->encode_state.itb_info.cur_instr) &&
             in->opcode != OP_bkpt/* bkpt is always executed */) {
-            di->errmsg = "predicate conflict with IT block";
+            di->errmsg = "Predicate conflict with IT block";
             return false;
         }
-    } else {
+    } else if (di->check_reachable/*incl pred*/) {
         /* Check predicate.  We're fine with DR_PRED_NONE == DR_PRED_AL. */
         if (pred == DR_PRED_OP) {
             di->errmsg = "DR_PRED_OP is an illegal predicate request";
@@ -1681,7 +1683,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
             di->errmsg = "A predicate is required";
             return false;
         } else if (!TESTANY(DECODE_PREDICATE_28|DECODE_PREDICATE_22|DECODE_PREDICATE_8,
-                        ii->flags) &&
+                            ii->flags) &&
                    pred != DR_PRED_NONE) {
             di->errmsg = "No predicate is supported";
             return false;
