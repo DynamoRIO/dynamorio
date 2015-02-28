@@ -1734,6 +1734,7 @@ reg_parameter_num(reg_id_t reg)
 int
 opnd_get_reg_dcontext_offs(reg_id_t reg)
 {
+    uint xmm_index;
     switch (reg) {
 #ifdef X86
     case REG_XAX: return XAX_OFFSET;

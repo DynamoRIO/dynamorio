@@ -2166,7 +2166,9 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     fcache_thread_init(dcontext);
     link_thread_init(dcontext);
     fragment_thread_init(dcontext);
+#ifdef ANNOTATIONS
     jitopt_thread_init(dcontext);
+#endif
 
     /* This lock has served its purposes: A) a barrier to thread creation for those
      * iterating over threads, B) mutex for add_thread, and C) mutex for synch_field

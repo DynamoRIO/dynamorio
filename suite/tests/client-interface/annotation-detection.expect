@@ -134,7 +134,7 @@
       <Test many args: a=298, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
       <Test many args: a=297, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
       <Test many args: a=298, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <test_three_args(): 229 * 10 * 5 = 11450>
+      <test_three_args(): 229 * 10 * 5 = 11750>
       <test_three_args(): 249 * 2 * 3 = 1494>
       <test_two_args(): 222, 5>
       <test_two_args(): 149, 4>
@@ -160,4 +160,4 @@ three args #2: 10992
 get_area(): s with a: 27.300000
 get_area(): s with b: 603.330000
 get_area(): s with c: 360326.775900
-longjmp 11450 (360326.775900)
+longjmp 11750 (360326.775900)
