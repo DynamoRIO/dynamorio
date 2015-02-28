@@ -761,6 +761,8 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 {
     instrlist_t ilist;
     instr_t *unlinked = INSTR_CREATE_label(dc);
+    instr_t *compare_tag = INSTR_CREATE_label(dc);
+    instr_t *try_next = INSTR_CREATE_label(dc);
     instr_t *miss = INSTR_CREATE_label(dc);
     instr_t *target_delete_entry = INSTR_CREATE_label(dc);
     patch_list_t *patch = &ibl_code->ibl_patch;
@@ -816,12 +818,14 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
         (dc, OPREG(DR_REG_R1), OPREG(DR_REG_R1), OPREG(DR_REG_R2)));
     APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R0),
                                  OPND_TLS_FIELD(TLS_TABLE_SLOT(ibl_code->branch_type))));
+    ASSERT(sizeof(fragment_entry_t) == 8);
     APP(&ilist, INSTR_CREATE_add_shimm
         (dc, OPREG(DR_REG_R1), OPREG(DR_REG_R0), OPREG(DR_REG_R1),
          OPND_CREATE_INT(DR_SHIFT_LSL), OPND_CREATE_INT(3)));
     /* r1 now holds the fragment_entry_t* in the hashtable */
 
     /* Did we hit? */
+    APP(&ilist, compare_tag);
     APP(&ilist, INSTR_CREATE_ldr
         (dc, OPREG(DR_REG_R0),
          OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
@@ -829,9 +833,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * XXX: if we add stats, cbz might not reach.
      */
     ASSERT_NOT_IMPLEMENTED(dr_get_isa_mode(dc) == DR_ISA_ARM_THUMB);
+    APP(&ilist, INSTR_CREATE_cbz(dc, opnd_create_instr(miss), OPREG(DR_REG_R0)));
     APP(&ilist, INSTR_CREATE_sub(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R0),
                                  OPREG(DR_REG_R2)));
-    APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(miss), OPREG(DR_REG_R0)));
+    APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next), OPREG(DR_REG_R0)));
 
     /* Hit path */
     /* XXX: add stats via sharing code with x86 */
@@ -841,6 +846,15 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG1_SLOT));
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
     APP(&ilist, INSTR_CREATE_bx(dc, OPREG(DR_REG_R0)));
+
+    /* Try next entry, in case of collision.  No wraparound check is needed due to
+     * the sentinel at the end.
+     */
+    APP(&ilist, try_next);
+    APP(&ilist, INSTR_CREATE_add
+        (dc, OPREG(DR_REG_R1), OPREG(DR_REG_R1),
+         OPND_CREATE_INT(sizeof(fragment_entry_t))));
+    APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(compare_tag)));
 
     /* FIXME i#1551: add INTERNAL_OPTION(ibl_sentinel_check) support (via
      * initial hash miss going to sentinel check and loop prior to target delete
