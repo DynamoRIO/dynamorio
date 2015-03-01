@@ -535,7 +535,7 @@ flush_jit_fragments(app_pc start, size_t len)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
 
-    // this is slow--maybe keep a local sorted list of app-managed regions
+    /* this is slow--maybe keep a local sorted list of app-managed regions */
     if (!is_jit_managed_area(start)) {
 #ifdef RELEASE_LOGGING
         RSTATS_INC(non_app_managed_writes_observed);
