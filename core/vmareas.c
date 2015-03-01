@@ -665,7 +665,9 @@ vm_make_writable(byte *pc, size_t size)
     ASSERT(ok);
     ASSERT(INTERNAL_OPTION(cache_consistency));
 
+#ifdef JITOPT
     notify_readonly_for_cache_consistency(pc, size, false);
+#endif
 }
 
 static void
@@ -690,9 +692,11 @@ vm_make_unwritable(byte *pc, size_t size)
         }
     });
 
+#ifdef JITOPT
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "vm_make_unwritable "PFX" "PFX"\n",
                 pc, (ptr_uint_t) pc + size);
     notify_readonly_for_cache_consistency(pc, size, true);
+#endif
 }
 
 /* since dynamorio changes some readwrite memory regions to read only,
@@ -1383,7 +1387,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             new_area.start = end;
             /* rest of fields are correct */
             add_new_area = true;
-
+#ifdef JITOPT
             if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags) && (v == executable_areas)) {
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                             "\tremove_vm_area: split "PFX"-"PFX", adding tail section "
@@ -1391,11 +1395,13 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                             v->buf[overlap_start].start, v->buf[overlap_start].end,
                             new_area.start, new_area.end, name_vm_area_vector(v));
             }
+#endif
         }
         /* move ending bound backward */
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tchanging "PFX"-"PFX" to "PFX"-"PFX"\n",
             v->buf[overlap_start].start, v->buf[overlap_start].end,
             v->buf[overlap_start].start, start);
+#ifdef JITOPT
         if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                         "\tremove_vm_area: left-shrinking "PFX"-"PFX" to "PFX"-"PFX" %s\n",
@@ -1405,6 +1411,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             shrink_double_mapping(v->buf[overlap_start].start, v->buf[overlap_start].start,
                                   start - v->buf[overlap_start].start);
         }
+#endif
         if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_start].vm_flags)) {
             vm_make_writable(start, end - start); // even if DGC writer?
         }
@@ -1421,6 +1428,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tchanging "PFX"-"PFX" to "PFX"-"PFX"\n",
             v->buf[overlap_end-1].start, v->buf[overlap_end-1].end,
             end, v->buf[overlap_end-1].end);
+#ifdef JITOPT
         if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                         "\tremove_vm_area: right-shrinking "PFX"-"PFX" to "PFX"-"PFX" %s\n",
@@ -1430,6 +1438,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             shrink_double_mapping(v->buf[overlap_end-1].start, end,
                                   v->buf[overlap_end-1].end - end);
         }
+#endif
         if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_end-1].vm_flags)) {
             vm_make_writable(v->buf[overlap_end-1].start,
                              end - v->buf[overlap_end-1].start);
@@ -1447,6 +1456,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         for (i = overlap_start; i < overlap_end; i++) {
             LOG(GLOBAL, LOG_VMAREAS, 3, "\tcompletely removing "PFX"-"PFX" %s\n",
                 v->buf[i].start, v->buf[i].end, v->buf[i].comment);
+#ifdef JITOPT
             if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags) && (v == executable_areas)) {
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                             "\tremove_vm_area: completely removing "PFX"-"PFX" %s\n",
@@ -1455,6 +1465,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                 v->buf[i].vm_flags &= ~VM_DGC_WRITER;
                 v->buf[i].vm_flags &= ~VM_JIT_MANAGED_TYPE;
             }
+#endif
             if (restore_prot && TEST(VM_MADE_READONLY, v->buf[i].vm_flags)) {
                 vm_make_writable(v->buf[i].start, v->buf[i].end - v->buf[i].start);
             }
@@ -1517,7 +1528,9 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         v->length -= diff;
     }
     if (add_new_area) {
+#ifdef JITOPT
         bool was_jit_managed = TEST(VM_JIT_MANAGED_TYPE, new_area.vm_flags);
+#endif
         /* Case 8640: Do not propagate coarse-grain-ness to split-off region,
          * for now only for simplicity.  FIXME: come up with better policy.  We
          * do keep it on original part of split region.  FIXME: assert that
@@ -1542,12 +1555,14 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                     new_area.frag_flags, new_area.custom.client
                     _IF_DEBUG(new_area.comment));
 
+#ifdef JITOPT
         if (was_jit_managed) {
             uint prot;
             dcontext_t *dcontext = get_thread_private_dcontext();
             get_memory_info(new_area.start, NULL, NULL, &prot);
             setup_double_mapping(dcontext, new_area.start, new_area.end - new_area.start, prot);
         }
+#endif
     }
     DOLOG(5, LOG_VMAREAS, { print_vm_areas(v, GLOBAL); });
     return true;
@@ -7985,8 +8000,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         }
 #endif
 
+#ifdef JITOPT
         if (may_be_dgc_writer != NULL)
             *may_be_dgc_writer = TEST(VM_DGC_WRITER, area->vm_flags);
+#endif
     }
 
     /* Ensure we looked up the mem attributes, if a new area */
@@ -10848,11 +10865,11 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     ASSERT(opnd_size != 0);
     instr_size = next_pc - instr_size_pc;
 
+#ifdef JIT_MONITORED_AREAS
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "handle_modified_code(): prot 0x%x, JIT managed? %d, "
                 "offset: "PFX", instr_app_pc: "PFX"\n", prot, is_jit_managed_area(target),
                 offset, instr_app_pc);
 
-#ifdef JIT_MONITORED_AREAS
     if (!TEST(MEMPROT_WRITE, prot) && is_jit_managed_area(target) &&
         /*offset != 0 && offset != 1 && */ instr_app_pc != NULL) {
         bool is_jit_self_write = is_jit_managed_area(instr_app_pc);

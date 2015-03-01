@@ -299,8 +299,10 @@ option(DISABLE_WARNINGS "disable warnings")
 
 option(SET_PREFERRED_BASE "set a preferred library base address")
 if (ANNOTATIONS)
-  set(JITOPT ON)
-  set(JIT_MONITORED_AREAS ON)
+  if (NOT WINDOWS)
+    set(JITOPT ON)
+    set(JIT_MONITORED_AREAS ON)
+  endif (NOT WINDOWS)
 endif (ANNOTATIONS)
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING

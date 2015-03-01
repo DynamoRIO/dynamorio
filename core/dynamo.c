@@ -66,7 +66,9 @@
 
 #ifdef ANNOTATIONS
 # include "annotations.h"
-# include "jitopt.h"
+# ifdef JITOPT
+#  include "jitopt.h"
+# endif
 #endif
 
 #include <string.h>
@@ -551,7 +553,9 @@ dynamorio_app_init(void)
         fragment_init();
 #ifdef ANNOTATIONS
         annotation_init();
+# ifdef JITOPT
         jitopt_init();
+# endif
 #endif
         moduledb_init(); /* before vm_areas_init, after heap_init */
         perscache_init(); /* before vm_areas_init */
@@ -964,7 +968,9 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     fragment_exit();
 #ifdef ANNOTATIONS
     annotation_exit();
+# ifdef JITOPT
     jitopt_exit();
+# endif
 #endif
 #ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other
@@ -2175,7 +2181,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     fcache_thread_init(dcontext);
     link_thread_init(dcontext);
     fragment_thread_init(dcontext);
-#ifdef ANNOTATIONS
+#ifdef JITOPT
     jitopt_thread_init(dcontext);
 #endif
 

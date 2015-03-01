@@ -4073,7 +4073,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
             }
         }
     } else {
-        next_pc = handle_modified_code(dcontext, instr_cache_pc,
+        next_pc = handle_modified_code(dcontext, NULL /* no mc (fix) */, instr_cache_pc,
                                        translated_pc, target, f);
     }
     /* if !takeover, re-execute the write no matter what -- the assumption

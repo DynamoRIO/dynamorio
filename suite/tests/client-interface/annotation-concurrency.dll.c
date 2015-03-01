@@ -274,10 +274,10 @@ dr_init(client_id_t id)
 
     client_id = id;
 
-    if (strcmp(options, "+bb") == 0) {
+    if (strcmp(options, "full-decode") == 0) {
         PRINT("Init annotation test client with full decoding");
         dr_register_bb_event(empty_bb_event);
-    } else if (strcmp(options, "+b/b") == 0) {
+    } else if (strcmp(options, "truncate") == 0) {
         PRINT("Init annotation test client with bb truncation");
         dr_register_bb_event(bb_event_truncate);
     } else {

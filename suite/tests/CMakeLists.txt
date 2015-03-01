@@ -1548,17 +1548,17 @@ if (CLIENT_INTERFACE)
     "annotation-concurrency.full-decode")
   torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
     client.annotation-concurrency.dll client-interface/annotation-concurrency.c
-    "+bb" "" "A4")
+    "full-decode" "" "A4")
   set(client.annotation-concurrency.full-decode.tiny-bb_expectbase
     "annotation-concurrency.full-decode")
   torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
-    client.annotation-concurrency.dll client-interface/annotation-concurrency.c "+bb"
-    "-max_bb_instrs 3" "A4")
+    client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+    "full-decode" "-max_bb_instrs 3" "A4")
   set(client.annotation-concurrency.bb-truncate_expectbase
     "annotation-concurrency.bb-truncate")
   torunonly_ci(client.annotation-concurrency.bb-truncate client.annotation-concurrency
     client.annotation-concurrency.dll client-interface/annotation-concurrency.c
-    "+b/b" "" "A4")
+    "truncate" "" "A4")
 
   tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
     "" "" "A4")
@@ -1571,7 +1571,7 @@ if (CLIENT_INTERFACE)
     "annotation-concurrency.full-decode")
   torunonly_ci(client.annotation-concurrency-opt.full-decode
     client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
-    client-interface/annotation-concurrency.c "+bb" "" "A4")
+    client-interface/annotation-concurrency.c "full-decode" "" "A4")
 
   tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp "" "" "")
   tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp "" "" "")
@@ -1583,24 +1583,25 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
   endif ()
   get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
-  if (UNIX OR NOT X64)
-    tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
-    torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
-      client-interface/vg-annot.c "" "" "")
-    set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
-    torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
-      client-interface/vg-annot.c "+bb" "" "")
-    set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
-    torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
-      client-interface/vg-annot.c "+bb" "-max_bb_instrs 3" "")
-    set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
-    torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
-      client-interface/vg-annot.c "+b/b" "" "")
-  endif (UNIX OR NOT X64)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
     get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
+    if (UNIX OR NOT X64)
+      # TODO: add an optimized version of vg-annot (name ends with "-opt" to add "-O3")
+      tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
+      torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "" "" "")
+      set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "full-decode" "" "")
+      set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "full-decode" "-max_bb_instrs 3" "")
+      set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
+      torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "truncate" "" "")
+    endif (UNIX OR NOT X64)
   endif (NOT ARM)
   if (UNIX)
     if (NOT ARM) # FIXME i#1551: fix bugs on ARM

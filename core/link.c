@@ -1428,7 +1428,9 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     uint recount = 0;
     common_direct_linkstub_t *start = NULL;
 #endif
+#ifdef JITOPT
     uint max = RSTATS_GET(max_incoming_direct_linkstubs);
+#endif
     common_direct_linkstub_t *s, *prevs, *dl;
     dl = (common_direct_linkstub_t *) l;
     ASSERT(LINKSTUB_DIRECT(l->flags));
@@ -1476,11 +1478,15 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                     dr_printf("\tRemoval failed? pre-count=%d, post-count=%d\n", count, recount);
             }
 #endif
+#ifdef JITOPT
             RSTATS_SET_MAX(max_incoming_direct_linkstubs, max, count);
+#endif
             return true;
         }
     }
+#ifdef JITOPT
     RSTATS_SET_MAX(max_incoming_direct_linkstubs, max, count);
+#endif
     return false;
 }
 
@@ -1892,11 +1898,11 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                 g = f;
             else /* primarily interested in fragment of same sharing */
                 g = fragment_link_lookup_same_sharing(dcontext, target_tag, l, f->flags);
-
+#ifdef JITOPT
             //if (((ptr_uint_t)target_tag & 0xfffULL) == 0xe30ULL)
             if ((ptr_uint_t)target_tag == 0x414980ULL)
                 RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
-
+#endif
             if (g != NULL) {
                 if (is_linkable(dcontext, f, l, g,
                                 NEED_SHARED_LOCK(f->flags) ||

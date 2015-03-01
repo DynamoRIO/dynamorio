@@ -3028,7 +3028,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     DEBUG_DECLARE(bool regenerated = false;)
     bool stop_bb_on_fallthrough = false;
+#ifdef JITOPT
     instr_t *dgc_writer_instrumentation;
+#endif
 
     ASSERT(bb->initialized);
     /* note that it's ok for bb->start_pc to be NULL as our check_new_page_start

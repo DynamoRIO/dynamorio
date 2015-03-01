@@ -39,6 +39,8 @@
 #include "x86/instr_create.h"
 #include "jitopt.h"
 
+#ifdef JITOPT /* around whole file */
+
 #include <string.h>
 
 //#define TRACE_ANALYSIS 1
@@ -53,8 +55,6 @@
 #else
 # include <sys/syscall.h>
 #endif
-
-#ifdef ANNOTATIONS /* around whole file */
 
 #define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
     "dynamorio_annotate_manage_code_area"
