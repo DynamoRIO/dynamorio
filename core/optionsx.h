@@ -864,16 +864,20 @@
     OPTION_DEFAULT(bool, unsafe_free_shared_stubs, false,
         "free separated shared direct exit stubs when not pointed at")
 
-    OPTION_DEFAULT_INTERNAL(bool, cbr_single_stub, true,
+    /* XXX i#1611: for ARM, our far links go through the stub and hence can't
+     * be shared with an unlinked fall-through.  If we switch to allowing
+     * "ldr pc, [pc + X]" as an exit cti we can turn this back on.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, cbr_single_stub, IF_ARM_ELSE(false, true),
         "both sides of a cbr share a single stub")
 
     /* PR 210990: Improvement is in the noise for spec2k on P4, but is noticeable on
      * Core2, and on IIS on P4.  Note that this gets disabled if
      * coarse_units is on (PR 213262 covers supporting it there).
      */
-    /* For ARM, reachability concerns make it difficult to avoid a stub unless we
-     * use "ldr pc, [r10+offs]" as an exit cti, which complicates the code that handles
-     * exit ctis and doesn't work for A64.
+    /* XXX i#1611: For ARM, reachability concerns make it difficult to
+     * avoid a stub unless we use "ldr pc, [r10+offs]" as an exit cti, which
+     * complicates the code that handles exit ctis and doesn't work for A64.
      */
     OPTION_COMMAND(bool, indirect_stubs, IF_ARM_ELSE(true, false), "indirect_stubs", {
         /* we put inlining back in place if we have stubs, for private,

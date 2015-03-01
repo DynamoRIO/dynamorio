@@ -141,8 +141,9 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         offs++;
         /* next 4 bytes: b to target */
         ASSERT(offs == CTI_SHORT_REWRITE_B_OFFS);
-        encode_raw_jmp(dr_get_isa_mode(dcontext), target, (byte *)&raw_jmp,
-                       instr->bytes + offs);
+        encode_raw_jmp(dr_get_isa_mode(dcontext),
+                       instr->bytes + offs /*not target, b/c may not reach*/,
+                       (byte *)&raw_jmp, instr->bytes + offs);
         instr_set_raw_word(instr, offs, raw_jmp);
         offs += sizeof(int);
         ASSERT(offs == mangled_sz);
@@ -732,7 +733,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          *      it for blx.  We need to implement that anyway for reachability,
          *      but as it's not implemented yet, I'm going w/ B) for now.
          *   B) Pretend this is an indirect branch and use the ibl.
-         *      This is slower so FIXME i#1551: switch to A once we have far links.
+         *      This is slower so XXX i#1612: switch to A once we have far links.
          */
         if (instr_get_isa_mode(instr) == DR_ISA_ARM_A32)
             target = (ptr_int_t) PC_AS_JMP_TGT(DR_ISA_ARM_THUMB, (app_pc)target);

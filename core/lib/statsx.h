@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -462,6 +462,7 @@
     STATS_DEF("BBs that write no arithmetic flags", bbs_eflags_writes_none)
     STATS_DEF("BBs that write no arithmetic flags, end in ib", bbs_eflags_writes_none_ind)
     STATS_DEF("Cbrs sharing a single exit stub", num_cbr_single_stub)
+    STATS_DEF("Far direct links", num_far_direct_links)
     STATS_DEF("Fragments requiring post_linkstub offs", num_fragment_post_linkstub)
     STATS_DEF("Fragments smaller than minimum fcache slot size", num_fragment_too_small)
     STATS_DEF("Fragments final size < minimum fcache slot size", num_final_fragment_too_small)

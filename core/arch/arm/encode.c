@@ -2694,7 +2694,7 @@ encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc, byte *fina
          uint val = 0xea000000; /* unconditional OP_b */
          int disp = target_pc - decode_cur_pc(final_pc, isa_mode, OP_b, NULL);
          ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
-         ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+         ASSERT(disp < 0x4000000 && disp >= -32*1024*1024); /* 26-bit max */
          val |= ((disp >> 2) & 0xffffff);
          *(uint *)dst_pc = val;
          return dst_pc + ARM_INSTR_SIZE;
@@ -2707,7 +2707,7 @@ encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc, byte *fina
          uint bitA10 = (disp >> 24) & 0x1; /* +1 for the x2 */
          uint bitB13 = (disp >> 23) & 0x1;
          uint bitB11 = (disp >> 22) & 0x1;
-         ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+         ASSERT(disp < 0x2000000 && disp >= -16*1024*1024); /* 25-bit max */
          /* XXX: share with regular encode's TYPE_J_b26_b13_b11_b16_b0 */
          if (bitA10 == 0) {
              bitB13 = (bitB13 == 0 ? 1 : 0);

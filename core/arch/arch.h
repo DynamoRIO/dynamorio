@@ -957,6 +957,14 @@ ibl_code_t *get_ibl_routine_code_ex(dcontext_t *dcontext, ibl_branch_type_t bran
                                     uint fragment_flags _IF_X64(gencode_mode_t mode));
 
 /* in emit_utils.c but not exported to non-x86 files */
+int insert_exit_stub_other_flags(dcontext_t *dcontext,  fragment_t *f, linkstub_t *l,
+                                 cache_pc stub_pc, ushort l_flags);
+bool exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f,
+                             linkstub_t *l, cache_pc target_pc);
+void patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch);
+bool stub_is_patched(fragment_t *f, cache_pc stub_pc);
+void unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch);
+
 byte * emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
                             ibl_code_t *ibl_code, bool target_trace_table);
 byte * emit_fcache_enter(dcontext_t *dcontext, generated_code_t *code, byte *pc);

@@ -51,6 +51,42 @@
 /*                               EXIT STUB                                 */
 /***************************************************************************/
 
+/* We use two approaches to linking based on whether we can reach the
+ * target from the exit cti:
+ *
+ *     Unlinked:
+ *         b stub
+ *       stub:
+ *         str r0, [r10, #r0-slot]
+ *         movw r0, #bottom-half-&linkstub
+ *         movt r0, #top-half-&linkstub
+ *         ldr pc, [r10, #fcache-return-offs]
+ *         <ptr-sized slot>
+ *
+ *     Linked, target < 32MB away (or < 1MB for T32 cbr):
+ *         b target
+ *       stub:
+ *         str r0, [r10, #r0-slot]
+ *         movw r0, #bottom-half-&linkstub
+ *         movt r0, #top-half-&linkstub
+ *         ldr pc, [r10, #fcache-return-offs]
+ *         <ptr-sized slot>
+ *
+ *     Linked, target > 32MB away (or > 1MB for T32 cbr):
+ *         b stub
+ *       stub:
+ *         ldr pc, [pc + 12]
+ *         movw r0, #bottom-half-&linkstub
+ *         movt r0, #top-half-&linkstub
+ *         ldr pc, [r10, #fcache-return-offs]
+ *         <target>
+ *
+ * XXX i#1611: improve on this by allowing load-into-PC exit ctis,
+ * which would give us back -indirect_stubs and -cbr_single_stub.
+ *
+ * XXX: we could move T32 b.cc into IT block to reach 16MB instead of 1MB.
+ */
+
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
@@ -227,6 +263,8 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* ldr pc, [r10, #fcache-return-offs] */
         pc = insert_ldr_tls_to_pc(pc, f,
                                   get_fcache_return_tls_offs(dcontext, f->flags));
+        /* The final slot is a data slot only used if the target is far away. */
+        pc += sizeof(app_pc);
     } else {
         /* stub starts out unlinked */
         cache_pc exit_target = get_unlinked_entry(dcontext,
@@ -241,6 +279,98 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                                   get_ibl_entry_tls_offs(dcontext, exit_target));
     }
     return (int) (pc - stub_pc);
+}
+
+bool
+exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f,
+                        linkstub_t *l, cache_pc target_pc)
+{
+    cache_pc stub_pc = (cache_pc) EXIT_STUB_PC(dcontext, f, l);
+    uint bits;
+    ptr_int_t disp = (target_pc - stub_pc);
+    ptr_uint_t mask;
+    if (FRAG_IS_THUMB(f->flags)) {
+        byte *branch_pc = EXIT_CTI_PC(f, l);
+        if (((*(branch_pc + 3)) & 0xd0) == 0x90) {
+            /* Unconditional OP_b: 24 bits x2 */
+            bits = 25;
+        } else {
+            /* Conditional OP_b: 20 bits x2 */
+            bits = 21;
+        }
+    } else {
+        /* 24 bits x4 */
+        bits = 26;
+    }
+    mask = ~((1 << (bits - 1)) - 1);
+    if (disp >= 0) {
+        return (disp & mask) == 0;
+    } else {
+        return (disp & mask) == mask;
+    }
+}
+
+void
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+{
+    /* For far-away targetes, we branch to the stub and use an
+     * indirect branch from there:
+     *        b stub
+     *      stub:
+     *        ldr pc, [pc + 12]
+     *        movw r0, #bottom-half-&linkstub
+     *        movt r0, #top-half-&linkstub
+     *        ldr pc, [r10, #fcache-return-offs]
+     *        <target>
+     */
+    /* Write target to stub's data slot */
+    *(app_pc *)(stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) - DIRECT_EXIT_STUB_DATA_SZ) =
+        PC_AS_JMP_TGT(FRAG_ISA_MODE(f->flags), target_pc);
+    /* Clobber 1st instr of stub w/ "ldr pc, [pc + 12]" */
+    if (FRAG_IS_THUMB(f->flags)) {
+        uint word1 = 0xf8d0 | (DR_REG_PC - DR_REG_R0);
+        /* All instrs are 4 bytes, so cur pc == start of next instr, so we have to
+         * skip 3 instrs:
+         */
+        uint word2 = 0xf000 |
+            ((DIRECT_EXIT_STUB_INSTR_COUNT - 1) * THUMB_LONG_INSTR_SIZE);
+        /* We assume this is atomic */
+        *(uint*)stub_pc = (word2 << 16) | word1; /* little-endian */
+    } else {
+        /* We assume this is atomic */
+        *(uint*)stub_pc =
+            0xe590f000 | ((DR_REG_PC - DR_REG_R0) << 16) |
+            /* Like for Thumb except cur pc is +8 which skips 2nd instr */
+            ((DIRECT_EXIT_STUB_INSTR_COUNT - 2) * ARM_INSTR_SIZE);
+    }
+    if (hot_patch)
+        machine_cache_sync(stub_pc, stub_pc + ARM_INSTR_SIZE, true);
+}
+
+bool
+stub_is_patched(fragment_t *f, cache_pc stub_pc)
+{
+    if (FRAG_IS_THUMB(f->flags)) {
+        return ((*stub_pc) & 0xf) == (DR_REG_PC - DR_REG_R0);
+    } else {
+        return (*(stub_pc+2) & 0xf) == (DR_REG_PC - DR_REG_R0);
+    }
+}
+
+void
+unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+{
+    /* XXX: we're called even for a near link, so try to avoid any writes or flushes */
+    if (FRAG_IS_THUMB(f->flags)) {
+        if (*stub_pc == dr_reg_stolen - DR_REG_R0)
+            return; /* nothing to do */
+    } else {
+        if (*(stub_pc + 2) == dr_reg_stolen - DR_REG_R0)
+            return; /* nothing to do */
+    }
+    insert_spill_reg(stub_pc, f, DR_REG_R0);
+    if (hot_patch)
+        machine_cache_sync(stub_pc, stub_pc + ARM_INSTR_SIZE, true);
 }
 
 void
@@ -258,10 +388,11 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
             uint val = (*(uint *)branch_pc) & 0xff000000;
             int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b, NULL);
             ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
-            ASSERT(disp < 0x3000000 || disp > -64*1024*1024); /* 26-bit max */
+            ASSERT(disp < 0x2000000 && disp >= -16*1024*1024); /* 25-bit max */
             val |= ((disp >> 2) & 0xffffff);
             *(uint *)branch_pc = val;
-            machine_cache_sync(branch_pc, branch_pc + ARM_INSTR_SIZE, true);
+            if (hot_patch)
+                machine_cache_sync(branch_pc, branch_pc + ARM_INSTR_SIZE, true);
             return;
         }
     } else if (isa_mode == DR_ISA_ARM_THUMB) {
@@ -270,7 +401,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
             /* Match uncond and cond OP_b */
             ((*(branch_pc + 3)) & 0xc0) == 0x80) {
             if (((*(branch_pc + 3)) & 0xd0) == 0x90) {
-                /* Unconditional OP_b: 3-byte immed that's stored, split up, as >>2 */
+                /* Unconditional OP_b: 3-byte immed that's stored, split up, as >>1 */
                 encode_raw_jmp(isa_mode, target_pc, branch_pc, branch_pc);
             } else {
                 /* Conditional OP_b: 20-bit immed */
@@ -279,7 +410,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
                 ushort valB = (*(ushort *)(branch_pc+2)) & 0xd000;
                 int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b, NULL);
                 ASSERT(ALIGNED(disp, THUMB_SHORT_INSTR_SIZE));
-                ASSERT(disp < 0x300000 || disp > -4*1024*1024); /* 22-bit max */
+                ASSERT(disp < 0x100000 && disp >= -1*1024*1024); /* 21-bit max */
                 /* A10,B11,B13,A5:0,B10:0 x2 */
                 /* XXX: share with encoder's TYPE_J_b26_b11_b13_b16_b0 */
                 valB |= (disp >> 1) & 0x7ff; /* B10:0 */
@@ -290,20 +421,21 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
                 *(ushort *)branch_pc = valA;
                 *(ushort *)(branch_pc+2) = valB;
             }
-            machine_cache_sync(branch_pc, branch_pc + THUMB_LONG_INSTR_SIZE, true);
+            if (hot_patch)
+                machine_cache_sync(branch_pc, branch_pc + THUMB_LONG_INSTR_SIZE, true);
             return;
         } else if (instr_is_cti_short_rewrite(NULL, branch_pc)) {
             encode_raw_jmp(isa_mode, target_pc, branch_pc + CTI_SHORT_REWRITE_B_OFFS,
                            branch_pc + CTI_SHORT_REWRITE_B_OFFS);
-            machine_cache_sync(branch_pc + CTI_SHORT_REWRITE_B_OFFS,
-                               branch_pc + CTI_SHORT_REWRITE_B_OFFS +
-                               THUMB_LONG_INSTR_SIZE, true);
+            if (hot_patch) {
+                machine_cache_sync(branch_pc + CTI_SHORT_REWRITE_B_OFFS,
+                                   branch_pc + CTI_SHORT_REWRITE_B_OFFS +
+                                   THUMB_LONG_INSTR_SIZE, true);
+            }
             return;
         }
     }
-    /* FIXME i#1551: support patching OP_ldr into pc using TLS-stored offset.
-     * We'll need to add the unlinked ibl addresses to TLS?
-     */
+    /* FIXME i#1569: add AArch64 support */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -347,7 +479,8 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     /* ldr pc, [r10, #ibl-offs] */
     insert_ldr_tls_to_pc(pc, f, get_ibl_entry_tls_offs(dcontext, exit_target));
     /* XXX: since we need a syscall to sync, we should start out linked */
-    machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
+    if (hot_patch)
+        machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
 }
 
 cache_pc
