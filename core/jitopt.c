@@ -153,7 +153,7 @@ typedef struct _dgc_fragment_intersection_t {
     uint bb_tag_max;
     app_pc *trace_tags;
     uint trace_tag_max;
-    fragment_t **fragments; // maybe cache deletions in this array, but need dc per frag
+    fragment_t **fragments; /* maybe cache deletions in this array, but need dc per frag */
     fragment_t *shared_deletion_list;
 } dgc_fragment_intersection_t;
 
