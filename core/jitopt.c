@@ -719,7 +719,7 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
                         "for page "PFX": bucket is empty.\n", page_id);
             continue;
         }
-        if (dgc_writer_mapping_table->table[key]->page_id == page_id) { // remove head
+        if (dgc_writer_mapping_table->table[key]->page_id == page_id) { /* remove head */
             removal = dgc_writer_mapping_table->table[key];
             dgc_writer_mapping_table->table[key] = dgc_writer_mapping_table->table[key]->next;
             free_dgc_writer_mapping(removal);
