@@ -786,7 +786,8 @@ static bool
 encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
 {
     ptr_int_t val;
-    int i, startA, stopA, startB, stopB, rot, val8;
+    int i;
+    uint unval;
     if (di->isa_mode != DR_ISA_ARM_A32) {
         CLIENT_ASSERT(false, "encoding chains are mixed up: thumb pointing at arm");
         return false;
@@ -798,67 +799,21 @@ encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
     val = get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
     /* Check for each possible rotated pattern, and store the encoding
      * now to avoid re-doing this work at real encode time.
-     * The rotation can produce two separate non-zero sequences which we look for.
+     * The rotation can produce two separate non-zero sequences which are a
+     * pain to analyze directly, so instead we just try each possible rotation
+     * and "undo" the encoded rotation to see if we get a single-byte value.
+     * We're supposed to pick the one with the smallest rotation, so we walk backward.
      */
-    startA = -1, stopA = -1;
-    startB = -1;
-    for (i = 31; i >= 0; i--) {
-        if (TEST(1 << i, val)) {
-            if (startA == -1) {
-                startA = i;
-                stopA = startA;
-            } else if (startA - i < 8)
-                stopA = i;
-            else if (startB == -1) {
-                startB = i;
-                stopB = startB;
-            } else if (startB - i < 8)
-                stopB = i;
-            else
-                return false;
+    for (i = 16; i > 0; i--) {
+        /* ROR val, i*2 */
+        unval = (val >> (i*2)) | (val << (32 - (i*2)));
+        if (unval < 0x100) {
+            int rot = 16 - i;
+            di->mod_imm_enc = (rot << 8) | unval;
+            return true;
         }
     }
-    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s: val=%d, initial A=%d-%d, B=%d-%d\n",
-        __FUNCTION__, val, startA, stopA, startB, stopB);
-    /* Clamp to the edges */
-    if (startB != -1) {
-        startA = 31;
-        stopB = 0;
-    }
-    /* Clamp to even bits (rotation value is x2) */
-    if (startB != -1)
-        startB = ALIGN_FORWARD(startB + 1, 2) - 1;
-    if (startA != -1) {
-        startA = ALIGN_FORWARD(startA + 1, 2) - 1;
-        stopA = ALIGN_BACKWARD(stopA, 2);
-    }
-    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s: val=%d, clamped A=%d-%d, B=%d-%d\n",
-        __FUNCTION__, val, startA, stopA, startB, stopB);
-    if ((startA != -1 && startB != -1 && (stopA - startA) + (stopB - startB) > 8) ||
-        (startA != -1 && (stopA - startA)) > 8)
-        return false;
-    ASSERT(startB <= 7);
-    if (startB != -1) {
-        rot = 7 - startB;
-        val8 = ((val & 0xff000000) >> (32 - rot)) | ((val & 0xff) << rot);
-    } else if (startA != -1) {
-        /* XXX: for multiple possible encodings, we're supposed to pick the one
-         * with the smallest rotation.  Currently we do not do that.
-         * E.g., for "0x00100000" we pick "0x940" instead of "0x601".
-         */
-        if (startA < 8) {
-            rot = 0;
-            val8 = val & 0xff;
-        } else {
-            rot = 8 + (31 - startA);
-            val8 = (val & (0xff << (startA -7))) >> (startA - 7);
-        }
-    } else {
-        rot = 0;
-        val8 = 0;
-    }
-    di->mod_imm_enc = ((rot/2) << 8) | val8;
-    return true;
+    return false;
 }
 
 static bool
