@@ -717,10 +717,12 @@ handle_vg_annotation(app_pc request_args)
     request_id = lookup_valgrind_request(request.request);
     if (request_id < DR_VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
-        receiver = vg_handlers[request_id]->receiver_list;
-        while (receiver != NULL) {
-            result = receiver->instrumentation.vg_callback(&request);
-            receiver = receiver->next;
+        if (vg_handlers[request_id] != NULL) {
+            receiver = vg_handlers[request_id]->receiver_list;
+            while (receiver != NULL) {
+                result = receiver->instrumentation.vg_callback(&request);
+                receiver = receiver->next;
+            }
         }
         TABLE_RWLOCK(handlers, read, unlock);
     } else {

@@ -1521,6 +1521,11 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
     get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
+    if (ANNOTATIONS)
+      if (UNIX OR NOT X64) # the Valgrind annotation structure cannot support Windows x64
+        tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
+      endif (UNIX OR NOT X64)
+    endif (ANNOTATIONS)
   endif (NOT ARM)
   if (UNIX)
     if (NOT ARM) # FIXME i#1551: fix bugs on ARM
