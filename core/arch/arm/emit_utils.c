@@ -878,6 +878,33 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
     return pc;
 }
 
+static void
+insert_mode_change_handling(dcontext_t *dc, instrlist_t *ilist, instr_t *where,
+                            reg_id_t addr_reg, reg_id_t scratch1, reg_id_t scratch2)
+{
+    /* Check LSB for mode changes: store the new mode in the dcontext.
+     * XXX i#1551: to avoid this store every single time even when there's no
+     * mode change, we'd need to generate separate thumb and arm IBL versions.
+     * We'd still need to check LSB and branch.
+     * Unfortunately it's hard to not do this in the IBL and instead back in DR:
+     * what about signal handler, other places who decode?
+     */
+    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
+    PRE(ilist, where, instr_create_restore_from_tls(dc, scratch2, TLS_DCONTEXT_SLOT));
+    /* Get LSB from target address */
+    PRE(ilist, where, INSTR_CREATE_and(dc, OPREG(scratch1), OPREG(addr_reg),
+                                       OPND_CREATE_INT(1)));
+    /* Get right enum value. arch_init() ensures A32 + 1 == Thumb. */
+    PRE(ilist, where, INSTR_CREATE_add(dc, OPREG(scratch1), OPREG(scratch1),
+                                       OPND_CREATE_INT(DR_ISA_ARM_A32)));
+    PRE(ilist, where, XINST_CREATE_store
+        (dc, OPND_CREATE_MEM32(scratch2, (int)offsetof(dcontext_t, isa_mode)),
+         OPREG(scratch1)));
+    /* Now clear the bit for the table lookup */
+    PRE(ilist, where, INSTR_CREATE_bic
+        (dc, OPREG(addr_reg), OPREG(addr_reg), OPND_CREATE_INT(0x1)));
+}
+
 /* XXX: ideally we'd share the high-level and use XINST_CREATE or _arch routines
  * to fill in pieces like flag saving.  However, the ibl generation code for x86
  * is so complex that this needs a bunch of refactoring and likely removing support
@@ -922,27 +949,8 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
 
-    /* Check LSB for mode changes: store the new mode in the dcontext.
-     * XXX i#1551: to avoid this store every single time even when there's no
-     * mode change, we'd need to generate separate thumb and arm IBL versions.
-     * We'd still need to check LSB and branch.
-     * Unfortunately it's hard to not do this in the IBL and instead back in DR:
-     * what about signal handler, other places who decode?
-     */
-    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_DCONTEXT_SLOT));
-    /* Get LSB from target address */
-    APP(&ilist, INSTR_CREATE_and(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R2),
-                                 OPND_CREATE_INT(1)));
-    /* Get right enum value. arch_init() ensures A32 + 1 == Thumb. */
-    APP(&ilist, INSTR_CREATE_add(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R0),
-                                 OPND_CREATE_INT(DR_ISA_ARM_A32)));
-    APP(&ilist, XINST_CREATE_store
-        (dc, OPND_CREATE_MEM32(DR_REG_R1, (int)offsetof(dcontext_t, isa_mode)),
-         OPREG(DR_REG_R0)));
-    /* Now clear the bit for the table lookup */
-    APP(&ilist, INSTR_CREATE_bic
-        (dc, OPREG(DR_REG_R2), OPREG(DR_REG_R2), OPND_CREATE_INT(0x1)));
+    /* Update dcontext->isa_mode, and then clear LSB of address */
+    insert_mode_change_handling(dc, &ilist, NULL, DR_REG_R2, DR_REG_R0, DR_REG_R1);
 
     /* Now apply the hash, the *8, and add to the table base */
     APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),
@@ -1004,15 +1012,21 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * their TLS slots, and &linkstub is still in the r3 slot.
      */
 
-    /* Miss path */
-    APP(&ilist, miss);
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
-
-    /* Unlink path */
+    /* Unlink path: entry from stub */
     APP(&ilist, unlinked);
     add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
                      (ptr_uint_t*)&ibl_code->unlinked_ibl_entry);
+    /* From stub, we need to save r0 to put the stub into */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
+    /* We need a 2nd scratch for mode changes.  We mirror the linked path. */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
+    /* Update dcontext->isa_mode, and then clear LSB of address */
+    insert_mode_change_handling(dc, &ilist, NULL, DR_REG_R2, DR_REG_R0, DR_REG_R1);
+
+    /* Miss path */
+    APP(&ilist, miss);
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
     /* Put &linkstub into r0 for fcache_return */
     APP(&ilist, INSTR_CREATE_mov(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R1)));
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG1_SLOT));
