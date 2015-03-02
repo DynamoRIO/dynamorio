@@ -1288,7 +1288,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
-                                  decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
+                                  -decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_POS_I8x4:

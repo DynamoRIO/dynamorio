@@ -571,7 +571,7 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_vld4_lane_8    */ {&A32_ext_vldB[1][0x17],     &T32_ext_vldB[1][0x17],           &T32_ext_vldB[1][0x17]},
     /* OP_vldm           */ {&A32_ext_fp[9][0x01],       &T32_ext_fp[9][0x01],             &T32_ext_fp[9][0x01]},
     /* OP_vldmdb         */ {&A32_ext_fp[17][0x01],      &T32_ext_fp[17][0x01],            &T32_ext_fp[17][0x01]},
-    /* OP_vldr           */ {&A32_ext_fp[15][0x01],      &T32_ext_fp[15][0x01],            &T32_ext_fp[15][0x01]},
+    /* OP_vldr           */ {&A32_ext_fp[23][0x01],      &T32_ext_fp[23][0x01],            &T32_ext_fp[23][0x01]},
     /* OP_vmax_f32       */ {&A32_ext_simd6[0][0x3c],    &T32_ext_simd6[0][0x3c],          &T32_ext_simd6[0][0x3c]},
     /* OP_vmax_s16       */ {&A32_ext_simd6[1][0x18],    &T32_ext_simd6[1][0x18],          &T32_ext_simd6[1][0x18]},
     /* OP_vmax_s32       */ {&A32_ext_simd6[2][0x18],    &T32_ext_simd6[2][0x18],          &T32_ext_simd6[2][0x18]},
