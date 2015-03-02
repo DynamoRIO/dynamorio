@@ -390,6 +390,11 @@ encode_state_init(encode_state_t *state, decode_info_t *di, instr_t *instr)
     }
     it_block_info_init(&state->itb_info, di);
     state->instr = instr_get_next(instr);
+    if (state->instr == NULL) {
+        CLIENT_ASSERT(instr_get_prev(instr) == NULL, /* ok if not in ilist */
+                      "invalid IT block sequence");
+        it_block_info_reset(&state->itb_info);
+    }
 }
 
 static void

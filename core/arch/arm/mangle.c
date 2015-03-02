@@ -476,6 +476,8 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
                       block_count > 2 ? block_pred[2] : DR_PRED_NONE,
                       block_count > 3 ? block_pred[3] : DR_PRED_NONE));
                 block_start = NULL;
+                if (instr_predicated)
+                    continue;
             } else
                 continue;
         }
