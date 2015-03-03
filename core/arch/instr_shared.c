@@ -1879,6 +1879,9 @@ bool instr_same(instr_t *inst1,instr_t *inst2)
     if (instr_get_isa_mode(inst1) != instr_get_isa_mode(inst2))
         return false;
 
+    if (instr_get_predicate(inst1) != instr_get_predicate(inst2))
+        return false;
+
     return true;
 }
 
