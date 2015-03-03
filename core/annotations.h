@@ -288,6 +288,12 @@ do { \
     (label_data)->data[1] = (ptr_uint_t) (pc); \
 } while (0)
 
+#define GET_ANNOTATION_INSTRUMENTATION_PC(label_data) ((app_pc) (label_data)->data[2])
+#define SET_ANNOTATION_INSTRUMENTATION_PC(label_data, pc) \
+do { \
+    (label_data)->data[2] = (ptr_uint_t) (pc); \
+} while (0)
+
 typedef enum _dr_annotation_handler_type_t {
     DR_ANNOTATION_HANDLER_CALL,
     DR_ANNOTATION_HANDLER_RETURN_VALUE,
@@ -471,7 +477,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
  */
 void
 instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *xchg_instr,
-                               app_pc xchg_pc, uint bb_instr_count);
+                               app_pc xchg_pc, app_pc next_pc, uint bb_instr_count);
 #endif /* !(defined (WINDOWS) && defined (X64)) */
 
 #endif /* ANNOTATIONS */

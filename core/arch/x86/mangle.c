@@ -3248,10 +3248,10 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * DR and Valgrind annotations
  */
 void
-mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
+mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilist)
 {
-    dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
-    dr_annotation_handler_t *handler = (dr_annotation_handler_t *) label_data->data[0];
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
+    dr_annotation_handler_t *handler = GET_ANNOTATION_HANDLER(label_data);
     dr_annotation_receiver_t *receiver = handler->receiver_list;
     opnd_t *args = NULL;
 
@@ -3263,10 +3263,10 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
                                     ACCT_CLEANCALL, UNPROTECTED);
             memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
         }
-        dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
-            receiver->instrumentation.callback,
-                receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
-            handler->num_args, args);
+        dr_insert_clean_call_ex_varg(dcontext, ilist, label,
+                                     receiver->instrumentation.callback,
+                                     receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
+                                     handler->num_args, args);
         if (handler->num_args != 0) {
             HEAP_ARRAY_FREE(dcontext, args, opnd_t, handler->num_args,
                             ACCT_CLEANCALL, UNPROTECTED);
