@@ -791,7 +791,7 @@ encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multi
 static bool
 encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
 {
-    ptr_int_t val;
+    ptr_uint_t val; /* uint for bit manip w/o >> adding 1's */
     int i;
     uint unval;
     if (di->isa_mode != DR_ISA_ARM_A32) {
@@ -802,7 +802,8 @@ encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
         return false;
     if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
         return false;
-    val = get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    val = (ptr_uint_t)
+        get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
     /* Check for each possible rotated pattern, and store the encoding
      * now to avoid re-doing this work at real encode time.
      * The rotation can produce two separate non-zero sequences which are a
@@ -825,7 +826,7 @@ encode_A32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
 static bool
 encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
 {
-    ptr_int_t val;
+    ptr_uint_t val; /* uint for bit manip w/o >> adding 1's */
     int i, first_one;
     if (di->isa_mode != DR_ISA_ARM_THUMB) {
         CLIENT_ASSERT(false, "encoding chains are mixed up: arm pointing at thumb");
@@ -835,7 +836,8 @@ encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
         return false;
     if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
         return false;
-    val = get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    val = (ptr_uint_t)
+        get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
     /* Check for each pattern, and store the encoding now to avoid re-doing
      * this work at real encode time.
      */
