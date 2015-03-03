@@ -1384,6 +1384,15 @@ function(disable_optimizations_for_file source_file)
     COMPILE_FLAGS "${cflags}")
 endfunction(disable_optimizations_for_file)
 
+# optimize the target
+function(optimize target)
+  if (UNIX)
+    append_property_string(TARGET ${target} COMPILE_FLAGS "-O3")
+  else ()
+    append_property_string(TARGET ${target} COMPILE_FLAGS "/Ox /GL")
+  endif (UNIX)
+endfunction(optimize)
+
 ###########################################################################
 # tests
 
@@ -1532,6 +1541,18 @@ if (CLIENT_INTERFACE)
         client-interface/vg-annot.c "full-decode" "-max_bb_instrs 3" "")
       set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
       torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "truncate" "" "")
+      tobuild_ci(client.vg-annot-opt client-interface/vg-annot.c "" "" "")
+      optimize(client.vg-annot-opt)
+      set(client.vg-annot-opt.full-decode_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot-opt.full-decode client.vg-annot-opt client.vg-annot.dll
+        client-interface/vg-annot.c "full-decode" "" "")
+      set(client.vg-annot-opt.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot-opt.full-decode.tiny-bb client.vg-annot-opt
+        client.vg-annot.dll client-interface/vg-annot.c
+        "full-decode" "-max_bb_instrs 3" "")
+      set(client.vg-annot-opt.bb-truncate_expectbase "vg-annot.bb-truncate")
+      torunonly_ci(client.vg-annot-opt.bb-truncate client.vg-annot-opt client.vg-annot.dll
         client-interface/vg-annot.c "truncate" "" "")
     endif (UNIX OR NOT X64)
   endif (ANNOTATIONS AND NOT ARM)
