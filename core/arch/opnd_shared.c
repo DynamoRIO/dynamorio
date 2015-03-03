@@ -1071,7 +1071,7 @@ bool opnd_same(opnd_t op1, opnd_t op2)
         return false;
     else if (!opnd_same_sizes_ok(opnd_get_size(op1), opnd_get_size(op2),
                                  opnd_is_reg(op1)) &&
-             (opnd_is_immed_int(op1) ||
+             (IF_X86(opnd_is_immed_int(op1) ||) /* on ARM we ignore immed sizes */
               opnd_is_reg(op1) ||
               opnd_is_memory_reference(op1)))
         return false;

@@ -667,6 +667,7 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
     di->reglist_sz = (prior + di->reglist_stop - di->reglist_start) *
         /* Be sure to use the sub-reg size from the template */
         opnd_size_in_bytes(size_temp);
+    di->reglist_itemsz = size_temp; /* in case of rollback */
     /* For T32.16, the base reg should appear either in the reglist or as
      * a writeback reg once and only once.
      */
@@ -683,8 +684,8 @@ check_reglist_size(decode_info_t *di)
         di->errmsg = "No register list found to match memory operand size";
         return false;
     } else if (di->reglist_sz > 0 && di->memop_sz != OPSZ_NA &&
-        di->reglist_sz != opnd_size_in_bytes(di->memop_sz) &&
-        di->memop_sz != OPSZ_VAR_REGLIST) {
+               di->reglist_sz != opnd_size_in_bytes(di->memop_sz) &&
+               di->memop_sz != OPSZ_VAR_REGLIST) {
         LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  check reglist=%d memop=%s(%d)\n",
             di->reglist_sz, size_names[di->memop_sz], opnd_size_in_bytes(di->memop_sz));
         di->errmsg = "Register list size %d bytes does not match memory operand size";
@@ -856,9 +857,9 @@ encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
         return true;
     }
     /* 3) abcdefgh abcdefgh abcdefgh abcdefgh */
-    if ((val >> 24 == (val & 0xff)) &&
+    if ((((val >> 24) & 0xff) == (val & 0xff)) &&
         (((val >> 16) & 0xff) == (val & 0xff)) &&
-        (((val >> 8) & 0xff) == (val & 0xff))) {
+        (((val >>  8) & 0xff) == (val & 0xff))) {
         di->mod_imm_enc = (3 << 8)/*code 3*/ | (val & 0xff);
         return true;
     }
@@ -950,6 +951,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->reglist_stop--;
             (*counter)--;
             opnum--;
+            di->reglist_sz -= di->reglist_itemsz;
         }
     }
 
@@ -1318,7 +1320,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                                             false/*pos*/, true/*rel*/,
                                             di->check_reachable);
     case TYPE_J_b0_b24: /* OP_blx imm24:H:0 */
-        return encode_immed_int_or_instr_ok(di, size_temp, 2, opnd, false/*unsigned*/,
+        return encode_immed_int_or_instr_ok(di, size_temp, 2, opnd, true/*signed*/,
                                             false/*pos*/, true/*rel*/,
                                             di->check_reachable);
     case TYPE_J_b9_b3:
@@ -1354,7 +1356,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
                 opnd_get_disp(opnd) == 0 &&
                 /* We check for OPSZ_VAR_REGLIST but no reglist in check_reglist_size() */
-                (size_op == size_temp || size_op == OPSZ_VAR_REGLIST));
+                (size_op == size_temp || size_temp == OPSZ_VAR_REGLIST));
     case TYPE_M_POS_I12:
     case TYPE_M_NEG_I12:
         if (opnd_is_base_disp(opnd) &&
@@ -1585,7 +1587,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
                 /* We check for OPSZ_VAR_REGLIST but no reglist in check_reglist_size() */
-                (size_op == OPSZ_VAR_REGLIST ||
+                (size_temp == OPSZ_VAR_REGLIST ||
                  (size_op == size_temp &&
                   ((optype == TYPE_M_UP_OFFS &&
                     opnd_get_disp(opnd) == sizeof(void*)) ||

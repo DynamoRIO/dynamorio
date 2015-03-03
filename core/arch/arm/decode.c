@@ -507,7 +507,8 @@ decode_index_shift(decode_info_t *di, ptr_int_t known_shift, uint *amount OUT)
 static void
 decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
 {
-    if (di->shift_type_idx == *counter - 2 &&
+    if (*counter > 2 &&
+        di->shift_type_idx == *counter - 2 &&
         /* We only need to do this for shifts whose amount is an immed.
          * When the amount is in a reg, only the low 4 DR_SHIFT_* are valid,
          * and they match the encoded values.
@@ -994,6 +995,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         } else
             CLIENT_ASSERT(false, "unsupported 12-6 split immed size");
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
+        if (opsize == OPSZ_5b)
+            decode_register_shift(di, array, counter);
         return true;
     }
     case TYPE_I_b16_b0: {
@@ -2070,6 +2073,7 @@ read_instruction(byte *pc, byte *orig_pc,
     di->reglist_sz = -1;
     di->predicate = DR_PRED_NONE;
     di->T32_16 = false;
+    di->shift_type_idx = UINT_MAX;
 
     /* Read instr bytes and find instr_info */
     if (di->isa_mode == DR_ISA_ARM_THUMB) {

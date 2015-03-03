@@ -232,6 +232,7 @@ struct _decode_info_t {
     /* For encoding reglists */
     uint reglist_start;
     uint reglist_stop;
+    opnd_size_t reglist_itemsz;
     int memop_sz;
     /* For decoding and encoding shift types.  We need to coordinate across two
      * adjacent immediates.  This is set to point at the first one.
