@@ -1824,7 +1824,11 @@ bool instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags
 
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd=instr_get_dst(instr, i);
-        if (opnd_is_reg(opnd)&&(opnd_get_reg(opnd)==reg))
+        if (opnd_is_reg(opnd) && (opnd_get_reg(opnd)==reg)
+            /* for case like OP_movt on ARM and SIMD regs on X86,
+             * partial reg writen with full reg name in opnd
+             */
+            && opnd_get_size(opnd) == reg_get_size(reg))
             return true;
     }
     return false;
