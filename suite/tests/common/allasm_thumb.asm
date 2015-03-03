@@ -149,7 +149,20 @@ _jmp_target:
         it ne
         blxne _print
 
+// indirect jump combined with stolen reg write in IT block:
+        adr      r0, _exit
+        add      r0, r0, #1          // keep it Thumb
+        str      r0, [sp, #-4]
+        sub      sp, #36
+        mov      r0, #0
+        cmp      r0, #0
+        ittt     eq
+        moveq    r0, r9
+        addeq    r0, #36
+        ldmiaeq.w sp!, {r4, r5, r6, r7, r8, r9, r10, r11, pc}
+
 // exit
+_exit:
         mov r0, #1            // stdout
         ldr r1, =alldone
         mov r2, #9            // sizeof(alldone)

@@ -1326,10 +1326,20 @@ common_disassemble_fragment(dcontext_t *dcontext,
                 next_stop_pc = EXIT_STUB_PC(dcontext, f, nxt);
             else
                 next_stop_pc =  pc + linkstub_size(dcontext, f, l);
+            if (LINKSTUB_DIRECT(l->flags))
+                next_stop_pc -= DIRECT_EXIT_STUB_DATA_SZ;
             CLIENT_ASSERT(next_stop_pc != NULL, "disassemble_fragment: invalid stubs");
         }
         while (pc < next_stop_pc) {
             pc = (cache_pc) disassemble_with_bytes(dcontext, (byte *)pc, outfile);
+        }
+        if (LINKSTUB_DIRECT(l->flags) && DIRECT_EXIT_STUB_DATA_SZ > 0) {
+            ASSERT(DIRECT_EXIT_STUB_DATA_SZ == sizeof(cache_pc));
+            if (stub_is_patched(f, EXIT_STUB_PC(dcontext, f, l))) {
+                print_file(outfile, "  <stored target: "PFX">\n",
+                           *(cache_pc *)next_stop_pc);
+            }
+            pc += DIRECT_EXIT_STUB_DATA_SZ;
         }
         /* point pc back at tail of fragment code if it was off in separate stub land */
         if (TEST(LINK_SEPARATE_STUB, l->flags))

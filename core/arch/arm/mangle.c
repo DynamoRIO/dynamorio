@@ -141,8 +141,9 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         offs++;
         /* next 4 bytes: b to target */
         ASSERT(offs == CTI_SHORT_REWRITE_B_OFFS);
-        encode_raw_jmp(dr_get_isa_mode(dcontext), target, (byte *)&raw_jmp,
-                       instr->bytes + offs);
+        encode_raw_jmp(dr_get_isa_mode(dcontext),
+                       instr->bytes + offs /*not target, b/c may not reach*/,
+                       (byte *)&raw_jmp, instr->bytes + offs);
         instr_set_raw_word(instr, offs, raw_jmp);
         offs += sizeof(int);
         ASSERT(offs == mangled_sz);
@@ -732,7 +733,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          *      it for blx.  We need to implement that anyway for reachability,
          *      but as it's not implemented yet, I'm going w/ B) for now.
          *   B) Pretend this is an indirect branch and use the ibl.
-         *      This is slower so FIXME i#1551: switch to A once we have far links.
+         *      This is slower so XXX i#1612: switch to A once we have far links.
          */
         if (instr_get_isa_mode(instr) == DR_ISA_ARM_A32)
             target = (ptr_int_t) PC_AS_JMP_TGT(DR_ISA_ARM_THUMB, (app_pc)target);
@@ -1673,10 +1674,14 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     bool finished = false;
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
         instr_is_predicated(instr);
-    instr_t *bound_start = NULL;
+    instr_t *bound_start = NULL, *bound_end = next_instr;
     if (in_it) {
         /* split instr off from its IT block for easier mangling (we reinstate later) */
         next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+        /* We do NOT want the next_instr from mangle_gpr_list_write(), which can
+         * point at the split-off OP_ldr of pc: but we need to go past that.
+         */
+        bound_end = next_instr;
         bound_start = INSTR_CREATE_label(dcontext);
         PRE(ilist, instr, bound_start);
     }
@@ -1710,7 +1715,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         mangle_stolen_reg(dcontext, ilist, instr);
 
     if (in_it) {
-        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, bound_end);
     }
     return next_instr;
 }

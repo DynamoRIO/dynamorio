@@ -1590,8 +1590,6 @@ if (CLIENT_INTERFACE)
     if (UNIX OR NOT X64)
       # TODO: add an optimized version of vg-annot (name ends with "-opt" to add "-O3")
       tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
-      torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
-        client-interface/vg-annot.c "" "" "")
       set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
       torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
         client-interface/vg-annot.c "full-decode" "" "")

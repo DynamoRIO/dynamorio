@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
- * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,12 +32,15 @@
 
  /* Tests correctness of decoding and substituting Valgrind annotations. The process is
   * to traverse an array in a branchy loop, occasionally invoking a Valgrind annotation.
-  * Four versions of the test are executed:
+  *
+  * XXX i#1610: pending commit of the test client, four versions of the test are executed:
   *   - default (fast decoding)
   *   - full decoding
   *   - tiny bbs (-max_bb_instrs 3)
   *   - truncation (client chops every basic block to 2 instructions or less)
-  * TODO: add an optimized version that compiles this app with -O3 (or equivalent)
+  *
+  * XXX i#1610: also invoke all tests on an optimized version that compiles this app
+  *             with -O3 (or equivalent)
   */
 
 #include <stdio.h>
@@ -53,11 +55,12 @@
 #define MEMORY_BLOCK_B 567
 #define MEMORY_BLOCK_C 89
 
-int main()
+int
+main()
 {
-#ifdef _MSC_VER // WINDOWS
+#ifdef _MSC_VER /* WINDOWS */
     unsigned int i, j, k;
-#else // UNIX
+#else /* UNIX */
 /* Since the Valgrind annotations use the XDI register in a sequence of `rol` instructions
  * that comprise a nop, a decoding error in DR would corrupt the app's XDI value. This
  * register variable make it easy to verify that XDI remains intact across the annotation
@@ -133,4 +136,6 @@ int main()
     free(alloc_a);
     free(alloc_b);
     free(alloc_c);
+
+    return 0;
 }

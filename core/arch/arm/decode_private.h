@@ -201,7 +201,7 @@ struct _decode_info_t {
 
     uint opcode;
     uint predicate;
-    bool check_reachable;
+    bool check_reachable; /* includes checking predication legality */
 
     /* For pc-relative references */
     byte *start_pc;

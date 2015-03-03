@@ -1130,7 +1130,7 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
     });
     if (TEST(FRAG_TABLE_SHARED, table->table_flags) &&
         TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags)) {
-        DOLOG(4, LOG_FRAGMENT, {
+        DOLOG(5, LOG_FRAGMENT, {
             hashtable_fragment_dump_table(dcontext, table);
         });
     }
@@ -2103,7 +2103,7 @@ fragment_thread_reset_free(dcontext_t *dcontext)
              * an empty trace table */
             || !DYNAMO_OPTION(bb_ibl_targets)) {
             if (!DYNAMO_OPTION(shared_trace_ibt_tables)) {
-                DOLOG(2, LOG_FRAGMENT, {
+                DOLOG(4, LOG_FRAGMENT, {
                         hashtable_ibl_dump_table(dcontext, &pt->trace_ibt[branch_type]);
                     });
                 DOLOG(1, LOG_FRAGMENT|LOG_STATS, {
@@ -2128,7 +2128,7 @@ fragment_thread_reset_free(dcontext_t *dcontext)
         }
         if (DYNAMO_OPTION(bb_ibl_targets)) {
             if (!DYNAMO_OPTION(shared_bb_ibt_tables)) {
-                DOLOG(2, LOG_FRAGMENT, {
+                DOLOG(4, LOG_FRAGMENT, {
                         hashtable_ibl_dump_table(dcontext, &pt->bb_ibt[branch_type]);
                     });
                 DOLOG(1, LOG_FRAGMENT|LOG_STATS, {
@@ -4162,7 +4162,7 @@ fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
         LINKSTUB_FAKE(dcontext->last_exit) ? 0 :
         EXIT_CTI_PC(dcontext->last_fragment, dcontext->last_exit)
         );
-    DOLOG(4, LOG_FRAGMENT, {
+    DOLOG(5, LOG_FRAGMENT, {
         dump_lookuptable_tls(dcontext);
         hashtable_ibl_dump_table(dcontext, ibl_table);
         dump_lookup_table(dcontext, ibl_table);
@@ -4303,7 +4303,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag,
          */
         ASSERT(!IBL_ENTRY_IS_INVALID(current));
         if (IBL_ENTRY_IS_EMPTY(current)) {
-            DOLOG(4, LOG_FRAGMENT, {
+            DOLOG(5, LOG_FRAGMENT, {
                 dump_lookuptable_tls(dcontext);
                 hashtable_ibl_dump_table(dcontext, ibl_table);
                 dump_lookup_table(dcontext, ibl_table);

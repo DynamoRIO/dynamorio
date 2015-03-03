@@ -149,8 +149,9 @@
 # define STUB_INDIRECT_SIZE(flags) \
     (FRAG_IS_32(flags) ? STUB_INDIRECT_SIZE32 : STUB_INDIRECT_SIZE64)
 #else
-/* indirect stub is parallel to the direct one */
-# define STUB_INDIRECT_SIZE(flags) DIRECT_EXIT_STUB_SIZE(flags)
+/* indirect stub is parallel to the direct one minus the data slot */
+# define STUB_INDIRECT_SIZE(flags) \
+    (DIRECT_EXIT_STUB_SIZE(flags) - DIRECT_EXIT_STUB_DATA_SZ)
 #endif
 
 /* STUB_COARSE_DIRECT_SIZE is in arch_exports.h */
@@ -682,9 +683,23 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
                      hot_patch);
     } else
 #endif
-        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
-                     FCACHE_ENTRY_PC(targetf), hot_patch);
-    return true; /* do not need stub anymore */
+
+        if (exit_cti_reaches_target(dcontext, f, l,
+                                    (cache_pc) FCACHE_ENTRY_PC(targetf))) {
+            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
+                         FCACHE_ENTRY_PC(targetf), hot_patch);
+            return true; /* do not need stub anymore */
+        } else {
+            /* Branch to the stub and use a longer-reaching branch from there.
+             * XXX i#1611: add support for load-into-PC as an exit cti to eliminate
+             * this stub-requiring scheme.
+             */
+            patch_stub(f, (cache_pc) EXIT_STUB_PC(dcontext, f, l),
+                       (cache_pc) FCACHE_ENTRY_PC(targetf), hot_patch);
+            STATS_INC(num_far_direct_links);
+            /* Exit cti should already be pointing to the top of the exit stub */
+            return false; /* still need stub */
+        }
 }
 
 void
@@ -749,8 +764,13 @@ unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     }
 #endif
 
+    /* XXX: should we store a flag, or try to have the prior target's cache pc,
+     * to determine if exit_cti_reaches_target()?  For now we blindly unlink
+     * both near and far styles.
+     */
     /* change jmp target to point to top of exit stub */
     patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, HOT_PATCHABLE);
+    unpatch_stub(f, stub_pc, HOT_PATCHABLE);
 }
 
 /* NOTE : for inlined indirect branches linking is !NOT! atomic with respect
