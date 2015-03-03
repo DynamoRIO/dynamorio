@@ -37,6 +37,7 @@
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
 #include "instr_create.h"
 #include <string.h> /* for memcpy */
+#include "disassemble.h"
 
 /* ARM decoder.
  * General strategy:
@@ -2563,6 +2564,47 @@ optype_is_reg(int optype)
 
 #ifdef DEBUG
 # ifndef STANDALONE_DECODER
+
+/* Until we have more thorough tests, we perform some sanity consistency checks
+ * on app instrs that we process.
+ * Running this code inside the decode loop is too hard wrt IT
+ * tracking, so we require a full walk over an instrlist.  Cloning one
+ * instr in isolation and encoding also does not work wrt encoding so
+ * we tweak the raw bits and then restore.
+ */
+void
+check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
+{
+    instr_t *check;
+    /* Avoid incorrect IT state from a bb like "subs.n;it;bx.eq" where decoding
+     * from the subs will match the "prior instr" case (b/c 2 short instrs looks
+     * like 1 long instr).
+     */
+    decode_state_reset(get_decode_state(dcontext));
+    for (check = instrlist_first(ilist); check != NULL; check = instr_get_next(check)) {
+        byte buf[THUMB_LONG_INSTR_SIZE];
+        instr_t tmp;
+        byte *pc;
+        app_pc addr = instr_get_raw_bits(check);
+        instr_set_raw_bits_valid(check, false);
+        pc = instr_encode_to_copy(dcontext, check, buf, addr);
+        instr_init(dcontext, &tmp);
+        decode_from_copy(dcontext, buf, addr, &tmp);
+        if (!instr_same(check, &tmp)) {
+            LOG(THREAD, LOG_EMIT, 1, "ERROR: from app:  %04x %04x  ",
+                *(ushort*)addr, *(ushort*)(addr+2));
+            instr_disassemble(dcontext, check, THREAD);
+            LOG(THREAD, LOG_EMIT, 1, "\nvs from encoding: %04x %04x  ",
+                *(ushort*)buf, *(ushort*)(buf+2));
+            instr_disassemble(dcontext, &tmp, THREAD);
+            LOG(THREAD, LOG_EMIT, 1, "\n ");
+        }
+        ASSERT(instr_same(check, &tmp));
+        instr_set_raw_bits_valid(check, true);
+        instr_free(dcontext, &tmp);
+    }
+}
+
 static bool
 optype_is_reglist(int optype)
 {

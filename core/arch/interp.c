@@ -3837,6 +3837,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     }
 #endif
 
+    IF_ARM(DOLOG(2, LOG_INTERP, check_encode_decode_consistency(dcontext, bb->ilist);));
+
 #ifdef DR_APP_EXPORTS
     /* changes by DR that are visible to clients */
     mangle_pre_client(dcontext, bb);
