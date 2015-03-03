@@ -1257,6 +1257,7 @@ decode_init(void);
     (SIZE64_MOV_XAX_TO_TLS + SIZE64_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
 # define DIRECT_EXIT_STUB_SIZE(flags) \
     (FRAG_IS_32(flags) ? DIRECT_EXIT_STUB_SIZE32 : DIRECT_EXIT_STUB_SIZE64)
+# define DIRECT_EXIT_STUB_DATA_SZ 0
 
 /* coarse-grain stubs use a store directly to memory so they can
  * link through the stub and not mess up app state.
@@ -1317,11 +1318,14 @@ decode_init(void);
 # define THUMB_SHORT_INSTR_SIZE 2
 # define THUMB_LONG_INSTR_SIZE 4
 # define DIRECT_EXIT_STUB_INSTR_COUNT 4
+/* for far linking we need a target stored in the stub */
+# define DIRECT_EXIT_STUB_DATA_SZ sizeof(app_pc)
 /* all instrs are wide in the Thumb version */
 # define DIRECT_EXIT_STUB_SIZE(flags) \
-    (FRAG_IS_THUMB(flags) ? \
-     (DIRECT_EXIT_STUB_INSTR_COUNT*THUMB_LONG_INSTR_SIZE) : \
-     (DIRECT_EXIT_STUB_INSTR_COUNT*ARM_INSTR_SIZE))
+    ((FRAG_IS_THUMB(flags) ?                                \
+      (DIRECT_EXIT_STUB_INSTR_COUNT*THUMB_LONG_INSTR_SIZE) : \
+      (DIRECT_EXIT_STUB_INSTR_COUNT*ARM_INSTR_SIZE)) + \
+     DIRECT_EXIT_STUB_DATA_SZ)
 
 /* FIXME i#1575: implement coarse-grain support */
 # define STUB_COARSE_DIRECT_SIZE(flags) \
@@ -1411,8 +1415,6 @@ int exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags);
 
 int insert_exit_stub(dcontext_t *dcontext, fragment_t *f,
                      linkstub_t *l, cache_pc stub_pc);
-int insert_exit_stub_other_flags(dcontext_t *dcontext,  fragment_t *f, linkstub_t *l,
-                                 cache_pc stub_pc, ushort l_flags);
 
 int
 linkstub_unlink_entry_offset(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);

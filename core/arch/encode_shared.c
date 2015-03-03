@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,14 +98,14 @@ get_encoding_info(instr_t *instr)
 }
 
 
-/* completely ignores reachability failures */
+/* completely ignores reachability and predication failures */
 byte *
 instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
 {
     return instr_encode_arch(dcontext, instr, pc, pc, false, NULL _IF_DEBUG(false));
 }
 
-/* just like instr_encode but doesn't assert on reachability failures */
+/* just like instr_encode but doesn't assert on reachability or predication failures */
 byte *
 instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc,
                                 bool *has_instr_opnds/*OUT OPTIONAL*/)

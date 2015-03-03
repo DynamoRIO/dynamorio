@@ -3247,7 +3247,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 /***************************************************************************
  * DR and Valgrind annotations
  */
-static void
+void
 mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);

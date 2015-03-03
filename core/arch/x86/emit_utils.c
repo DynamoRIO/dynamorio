@@ -150,6 +150,34 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
     return pc;
 }
 
+bool
+exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f,
+                        linkstub_t *l, cache_pc target_pc)
+{
+    /* Our reachability model assumes cache is all self-reachable */
+    return true;
+}
+
+void
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+{
+    /* x86 doesn't use this approach to linking */
+    ASSERT_NOT_REACHED();
+}
+
+bool
+stub_is_patched(fragment_t *f, cache_pc stub_pc)
+{
+    /* x86 doesn't use this approach to linking */
+    return false;
+}
+
+void
+unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+{
+    /* x86 doesn't use this approach to linking: nothing to do */
+}
+
 /* Patch the (direct) branch at branch_pc so it branches to target_pc
  * The write that actually patches the branch is done atomically so this
  * function is safe with respect to a thread executing this branch presuming
