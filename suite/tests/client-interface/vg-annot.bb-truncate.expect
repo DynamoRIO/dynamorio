@@ -1,4 +1,4 @@
-Init vg-annot with fast decoding.
+Init vg-annot with bb truncation.
 Make 567 bytes defined if addressable.
 Make 567 bytes defined if addressable.
 Make 1234 bytes defined if addressable.

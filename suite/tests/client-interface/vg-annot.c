@@ -33,7 +33,7 @@
  /* Tests correctness of decoding and substituting Valgrind annotations. The process is
   * to traverse an array in a branchy loop, occasionally invoking a Valgrind annotation.
   *
-  * XXX i#1610: pending commit of the test client, four versions of the test are executed:
+  * Four versions of the test are executed:
   *   - default (fast decoding)
   *   - full decoding
   *   - tiny bbs (-max_bb_instrs 3)
@@ -45,6 +45,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "valgrind.h"
 #include "memcheck.h"
 
@@ -61,17 +62,17 @@ main()
 #ifdef _MSC_VER /* WINDOWS */
     unsigned int i, j, k;
 #else /* UNIX */
-/* Since the Valgrind annotations use the XDI register in a sequence of `rol` instructions
- * that comprise a nop, a decoding error in DR would corrupt the app's XDI value. This
- * register variable make it easy to verify that XDI remains intact across the annotation
- * under DR.
- */
+    unsigned int i, j;
+    /* Since the Valgrind annotations use the XDI register in a sequence of `rol` instructions
+     * that comprise a nop, a decoding error in DR would corrupt the app's XDI value. So this
+     * register variable plays "canary" to verify that XDI remains intact across the annotation
+     * under DR (not supported in Windows).
+     */
 # ifdef X64
-    register unsigned int i asm ("rdi");
+    register unsigned int k asm ("rdi");
 # else
-    register unsigned int i asm ("edi");
+    register unsigned int k asm ("edi");
 # endif
-    unsigned int j, k;
 #endif
     unsigned int data[MATRIX_SIZE][MATRIX_SIZE];
 
@@ -79,6 +80,8 @@ main()
     void *alloc_a = malloc(MEMORY_BLOCK_A);
     void *alloc_b = malloc(MEMORY_BLOCK_B);
     void *alloc_c = malloc(MEMORY_BLOCK_C);
+
+    memset(data, 0, sizeof(unsigned int) * MATRIX_SIZE * MATRIX_SIZE);
 
     printf("The Valgrind annotation test thinks it is%srunning on Valgrind.\n",
            RUNNING_ON_VALGRIND ? " " : " not ");
@@ -93,45 +96,59 @@ main()
             data[i][j] = i + (3 * j);
 
             if ((i == 3) && (j == 4)) {
+                j = data[(j / i) + 2][data[i][j] - (j * i)];
+                printf("Before annotation: j=%d\n", j);
                 k = i;
-                j = data[k/2][j + data[i][j]];
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc_a, MEMORY_BLOCK_A);
                 if (k != i) {
                     printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
-                           k, i);
-                    i = k;
+                           i, k);
                 }
+                printf("After annotation: j=%d\n", j);
                 j = 4;
             }
 
-            data[i*2][j] = (4 * i) / (j + 1);
+            data[i*2][j+1] = (4 * i) / (j + 1);
 
             if (i == (2 * j)) {
+                j = data[i/2][j + (j / (data[i][i] + 1))] + 1;
+                printf("Before annotation: j=%d\n", j);
                 k = i;
-                j = data[k/3][j + data[k][i]];
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc_b, MEMORY_BLOCK_B);
                 if (k != i) {
                     printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
-                           k, i);
-                    i = k;
+                           i, k);
                 }
+                printf("After annotation: j=%d\n", j);
                 j = i / 2;
             }
 
             data[i*2][j+i] = data[(MATRIX_SIZE/2) + (j-i)][3];
 
             if ((j > 0) && ((i / j) >= (MATRIX_SIZE - (j * (i % j))))) {
+                data[i/2][j + data[i][j]] = j;
+                printf("Before annotation: data[i/2][j + data[i][j]]=%d\n",
+                       data[i/2][j + data[i][j]]);
                 k = i;
-                data[k/2][j + data[i][j]] = j;
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc_c, MEMORY_BLOCK_C);
                 if (k != i) {
                     printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
-                           k, i);
-                    i = k;
+                           i, k);
                 }
+                printf("After annotation: data[i/2][j + data[i][j]]=%d\n",
+                       data[i/2][j + data[i][j]]);
             }
         }
     }
+
+    printf("\n--------\n\nFinal matrix values:\n");
+    for (i = 0; i < MATRIX_SIZE; i++) {
+        printf("Row %02d:", i);
+        for (j = 0; j < MATRIX_SIZE; j++)
+            printf(" %02d", data[i][j]);
+        printf("\n");
+    }
+    printf("\n--------\n\n");
 
     free(alloc_a);
     free(alloc_b);

@@ -1520,12 +1520,21 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
     get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
-    if (ANNOTATIONS)
-      if (UNIX OR NOT X64) # the Valgrind annotation structure cannot support Windows x64
-        tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
-      endif (UNIX OR NOT X64)
-    endif (ANNOTATIONS)
   endif (NOT ARM)
+  if (ANNOTATIONS AND NOT ARM)
+    if (UNIX OR NOT X64) # the Valgrind annotation structure cannot support Windows x64
+      tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
+      set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "full-decode" "" "")
+      set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "full-decode" "-max_bb_instrs 3" "")
+      set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
+      torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "truncate" "" "")
+    endif (UNIX OR NOT X64)
+  endif (ANNOTATIONS AND NOT ARM)
   if (UNIX)
     if (NOT ARM) # FIXME i#1551: fix bugs on ARM
       # Just happens to not make as many traces.

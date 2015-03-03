@@ -31,10 +31,117 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
+#include <string.h>
+
+/* Stats to check on test exit */
+typedef struct _test_stats_t {
+    uint num_bytes_made_defined;
+    uint num_define_memory_requests;
+    uint num_bbs_truncated;
+    uint num_instructions_truncated;
+} test_stats_t;
+
+static test_stats_t test_stats;
+static bool bb_truncation_mode;
+
+/* <= 2 covers the corner case of truncating an intercept bb (xref i#1614) */
+#define BB_TRUNCATION_LENGTH 2
+
+static ptr_uint_t
+handle_running_on_valgrind(dr_vg_client_request_t *request)
+{
+    return 1;
+}
+
+/* Trivial handler for DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE */
+static ptr_uint_t
+handle_make_mem_defined_if_addressable(dr_vg_client_request_t *request)
+{
+    dr_printf("Make %d bytes defined if addressable.\n", request->args[1]);
+
+    test_stats.num_bytes_made_defined += request->args[1];
+    test_stats.num_define_memory_requests++;
+
+    return 0;
+}
+
+/* This trivial bb event enables full decoding for all app instructions */
+dr_emit_flags_t
+empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
+               bool for_trace, bool translating)
+{
+    return DR_EMIT_DEFAULT;
+}
+
+/* Truncates every basic block at 2 app instructions (or less), to test for annotation
+ * issues caused by client instrumentation.
+ */
+dr_emit_flags_t
+bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    bool truncated = false;
+    uint app_instruction_count = 0;
+    instr_t *next, *instr = instrlist_first(bb);
+
+    while (instr != NULL) {
+        next = instr_get_next(instr);
+        if (!instr_is_meta(instr)) {
+            if (app_instruction_count == BB_TRUNCATION_LENGTH) {
+                instrlist_remove(bb, instr);
+                instr_destroy(drcontext, instr);
+                test_stats.num_instructions_truncated++;
+                truncated = true;
+            } else {
+                app_instruction_count++;
+            }
+        }
+        instr = next;
+    }
+
+    if (truncated)
+        test_stats.num_bbs_truncated++;
+
+    return DR_EMIT_DEFAULT;
+}
+
+void exit_event(void)
+{
+    if (bb_truncation_mode)
+        ASSERT(test_stats.num_instructions_truncated > 0);
+
+    dr_printf("Received %d 'define memory' requests for a total of %d bytes.\n",
+              test_stats.num_define_memory_requests, test_stats.num_bytes_made_defined);
+}
 
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    /* XXX i#1610: placeholder for the test client. */
-    dr_printf("vg-annot placeholder\n");
+    const char *options = dr_get_options(id);
+
+    memset(&test_stats, 0, sizeof(test_stats_t));
+
+    /* This client supports 3 modes via command-line options:
+     *   <default>: fast decoding (by not registering a bb event)
+     *   full-decode: registers a bb event to enable full decoding of app instructions
+     *   truncate: registers a bb event that truncates basic blocks to max length 2
+     */
+    if (strcmp(options, "full-decode") == 0) {
+        dr_printf("Init vg-annot with full decoding.\n");
+        dr_register_bb_event(empty_bb_event);
+    } else if (strcmp(options, "truncate") == 0) {
+        dr_printf("Init vg-annot with bb truncation.\n");
+        dr_register_bb_event(bb_event_truncate);
+        bb_truncation_mode = true;
+    } else {
+        dr_printf("Init vg-annot with fast decoding.\n");
+    }
+
+    dr_register_exit_event(exit_event);
+
+    dr_annotation_register_valgrind(DR_VG_ID__RUNNING_ON_VALGRIND,
+                                    handle_running_on_valgrind);
+    dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                    handle_make_mem_defined_if_addressable);
 }
