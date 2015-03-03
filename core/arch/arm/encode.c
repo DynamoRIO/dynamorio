@@ -1363,8 +1363,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
-                        optype == TYPE_M_NEG_I12) &&
+            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+                         optype == TYPE_M_NEG_I12) ||
+             opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
@@ -1473,8 +1474,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
-                        optype == TYPE_M_NEG_I8) &&
+            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+                        optype == TYPE_M_NEG_I8) ||
+             opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
@@ -1492,8 +1494,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
-                        optype == TYPE_M_NEG_I8x4) &&
+            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+                         optype == TYPE_M_NEG_I8x4) ||
+             opnd_get_disp(opnd) == 0) &&
             opnd_get_disp(opnd) % 4 == 0 &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
@@ -1512,8 +1515,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
-                        optype == TYPE_M_NEG_I4_4) &&
+            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+                         optype == TYPE_M_NEG_I4_4) ||
+             opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
@@ -1563,8 +1567,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) == DR_REG_PC &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
-                        optype == TYPE_M_PCREL_NEG_I12) &&
+            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+                         optype == TYPE_M_PCREL_NEG_I12) ||
+             opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
@@ -1984,7 +1989,7 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         /* A32 = 3:0,5 */
         reg_id_t reg = opnd_get_reg(opnd);
         uint val = reg - reg_simd_start(reg);
-        di->instr_word |= ((val & 0x1e) >> 1) | ((val & 0xf) << 5);
+        di->instr_word |= ((val & 0x1e) >> 1) | ((val & 0x1) << 5);
         break;
     }
     case TYPE_V_C_3b: {
@@ -2034,6 +2039,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         di->instr_word |= dwords;
         if (di->reglist_stop > di->reglist_start)
             (*counter) += (di->reglist_stop - 1 - di->reglist_start);
+        else if (di->reglist_stop == di->reglist_start)
+            (*counter)--;
         break;
     }
 
