@@ -499,8 +499,6 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
         opnd.aux.segment = seg;
     }, {
         opnd.aux.flags = 0;
-        opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
-        opnd.value.base_disp.shift_amount_minus_1 = 0;
         CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                       "opnd_create_*base_disp*: cannot have both disp and index");
     });
@@ -514,6 +512,9 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
             opnd.value.base_disp.shift_amount_minus_1 =
                 /* we store the amount minus one */
                 (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
+        } else {
+            opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
+            opnd.value.base_disp.shift_amount_minus_1 = 0;
         }
     });
     opnd_set_disp_helper(&opnd, disp);
@@ -608,6 +609,7 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
             CLIENT_ASSERT(false, "opnd index shift: invalid shift amount");
             return false;
         }
+        opnd->value.base_disp.shift_amount_minus_1 = 0; /* so opnd_same matches */
         break;
     case DR_SHIFT_LSL:
     case DR_SHIFT_ROR:

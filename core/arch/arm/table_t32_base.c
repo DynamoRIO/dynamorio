@@ -65,10 +65,10 @@ const instr_info_t T32_base_e[] = {
     {OP_strd,     0xe8e00000, "strd",   Mq, RAw, RBw, RCw, i8, xop_wb, x, xbase[0x06]},/*PUW=011*/
     {OP_ldrd,     0xe8f00000, "ldrd",   RBw, RCw, RAw, Mq, i8, xop_wb|dstX3, x, xbase[0x07]},/*PUW=011*/
     /* 90 */
-    {OP_stmdb,    0xe9000000, "stmdb",  Ml, xx, L14w, xx, xx, no, x, xbase[0x12]},/*PUW=100*/
-    {OP_ldmdb,    0xe9100000, "ldmdb",  L15w, xx, Ml, xx, xx, no, x, xbase[0x13]},/*PUW=100*/
-    {OP_stmdb,    0xe9200000, "stmdb",  Ml, RAw, L14w, RAw, xx, no, x, END_LIST},/*PUW=101*//*"push" if RA==sp*/
-    {OP_ldmdb,    0xe9300000, "ldmdb",  L15w, RAw, Ml, RAw, xx, no, x, END_LIST},/*PUW=101*/
+    {OP_stmdb,    0xe9000000, "stmdb",  MDBl, xx, L14w, xx, xx, no, x, xbase[0x12]},/*PUW=100*/
+    {OP_ldmdb,    0xe9100000, "ldmdb",  L15w, xx, MDBl, xx, xx, no, x, xbase[0x13]},/*PUW=100*/
+    {OP_stmdb,    0xe9200000, "stmdb",  MDBl, RAw, L14w, RAw, xx, no, x, END_LIST},/*PUW=101*//*"push" if RA==sp*/
+    {OP_ldmdb,    0xe9300000, "ldmdb",  L15w, RAw, MDBl, RAw, xx, no, x, END_LIST},/*PUW=101*/
     {OP_strd,     0xe9400000, "strd",   MN8Xq, xx, RBw, RCw, xx, no, x, xbase[0x1e]},/*PUW=100*/
     {OP_ldrd,     0xe9500000, "ldrd",   RBw, RCw, MN8Xq, xx, xx, no, x, xbase[0x1f]},/*PUW=100*/
     {OP_strd,     0xe9600000, "strd",   MN8Xq, RAw, RBw, RCw, n8, xop_wb, x, xbase[0x0e]},/*PUW=101*/

@@ -784,7 +784,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                 di->reglist_sz += opnd_size_in_bytes(downsz);
             }
         }
-        /* These 3 var-size reg lists need to update a corresponding mem opnd */
+        /* These var-size reg lists need to update a corresponding mem opnd */
         decode_update_mem_for_reglist(di);
         return true;
     }
@@ -1352,7 +1352,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, true/*disp*/);
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
-                                  -(int)(opnd_size_in_bytes(opsize)-1)*sizeof(void*),
+                                  opsize == OPSZ_0 ? -sizeof(void*) :
+                                  -((int)opnd_size_in_bytes(opsize)-1)*sizeof(void*),
                                   opsize);
         return true;
     case TYPE_M_DOWN_OFFS:
