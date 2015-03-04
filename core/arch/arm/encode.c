@@ -1466,11 +1466,12 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         /* no possibility of writeback, checked in decode_check_writeback() */
         return (opnd_is_base_disp(opnd) &&
                 opnd_get_base(opnd) == DR_REG_SP &&
-                opnd_get_index(opnd) != REG_NULL &&
+                opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
                 opnd_get_disp(opnd) % 4 == 0 &&
+                !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
                 encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
-                                TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
+                                false/*pos*/) &&
                 size_op == size_temp);
     case TYPE_M_POS_I8:
     case TYPE_M_NEG_I8:
@@ -1540,6 +1541,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            opnd_get_disp(opnd) % 4 == 0 &&
             encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd)/4, false/*unsigned*/,
                             false/*pos*/) &&
             size_op == size_temp) {
@@ -1555,8 +1557,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
             opnd_get_disp(opnd) % 4 == 0 &&
+            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
-                            TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
+                            false/*pos*/) &&
             size_op == size_temp) {
             /* no writeback */
             return true;
