@@ -92,11 +92,6 @@ dynamo_start(priv_mcontext_t *mc)
     dynamorio_take_over_threads(dcontext);
 
     /* Set return address */
-    /* FIXME i#1551: we also need to call canonicalize_pc_target() on all
-     * next_tag-writing instances in signal handling, ibl, etc..
-     * We can't put it in dispatch() b/c with our decision to store
-     * tags and addresses as LSB=0, we can easily double-mode-switch.
-     */
     mc->pc = canonicalize_pc_target(dcontext, mc->pc);
     dcontext->next_tag = mc->pc;
     ASSERT(dcontext->next_tag != NULL);

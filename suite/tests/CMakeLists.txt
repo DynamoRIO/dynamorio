@@ -1446,9 +1446,8 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
   endif (UNIX)
 endif (NOT ARM)
 
-if (NOT ARM) # FIXME i#1551: add signal handling to ARM
-  tobuild(common.segfault common/segfault.c)
-endif (NOT ARM)
+tobuild(common.segfault common/segfault.c)
+
 # PR 217255: these 4 removed to shorten the regression suite since not
 # adding much value in terms of testing corner cases
 #tobuild(common.hello common/hello.c)

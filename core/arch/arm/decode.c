@@ -163,6 +163,11 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 #endif
 }
 
+/* We need to call canonicalize_pc_target() on all next_tag-writing
+ * instances in initial takeover, signal handling, ibl, etc..
+ * We can't put it in dispatch() b/c with our decision to store
+ * tags and addresses as LSB=0, we can easily double-mode-switch.
+ */
 app_pc
 canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
 {

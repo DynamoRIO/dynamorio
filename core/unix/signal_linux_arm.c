@@ -87,13 +87,15 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
+    ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
+    memcpy(&mc->simd[0], &vfp->ufp.fpregs[0], sizeof(mc->simd));
 }
 
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
+    ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
+    memcpy(&vfp->ufp.fpregs[0], &mc->simd[0], sizeof(vfp->ufp.fpregs));
 }
