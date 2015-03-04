@@ -1793,6 +1793,8 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
   endif (NOT ARM)
 
+  tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
+
   if (BUILD_SAMPLES)
     # Sanity tests: we run the samples without SHOW_RESULTS (turned off
     # if BUILD_TESTS is on) so we're only ensuring the client doesn't crash.

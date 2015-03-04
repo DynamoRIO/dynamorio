@@ -1371,6 +1371,8 @@ dynamo_process_exit(void)
             /* Inform client of all thread exits */
             if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit))
                 instrument_thread_exit_event(threads[i]->dcontext);
+            /* i#1617: ensure we do all cleanup of priv libs */
+            loader_thread_exit(threads[i]->dcontext);
 # endif
         }
         global_heap_free(threads, num*sizeof(thread_record_t*)
@@ -1404,6 +1406,12 @@ dynamo_process_exit(void)
          * with the client trying to use api routines that depend on fragment state.
          */
         instrument_exit();
+
+        /* i#1617: We need to call client library fini routines for global
+         * destructors, etc.
+         */
+        loader_exit();
+
         /* for -private_loader we do this here to catch more exit-time crashes */
 # ifdef WINDOWS
         if (!INTERNAL_OPTION(noasynch)
