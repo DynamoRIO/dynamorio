@@ -455,9 +455,9 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
 }
 
 static dr_shift_type_t
-decode_index_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount OUT)
+decode_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount OUT)
 {
-    if (sh2 == 0 && val == 0) {
+    if (sh2 == SHIFT_ENCODING_LSL && val == 0) {
         *amount = 0;
         return DR_SHIFT_NONE;
     } else if (sh2 == SHIFT_ENCODING_LSL) {
@@ -483,26 +483,24 @@ decode_index_shift(decode_info_t *di, ptr_int_t known_shift, uint *amount OUT)
 {
     ptr_int_t sh2, val;
     if (di->isa_mode == DR_ISA_ARM_THUMB) {
-        if (known_shift == SHIFT_ENCODING_DECODE) {
-            sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS_T32,
-                               DECODE_INDEX_SHIFT_TYPE_SIZE, false);
-        } else
-            sh2 = known_shift;
-        val = ((decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS1_T32,
-                             DECODE_INDEX_SHIFT_AMOUNT_SIZE1_T32, false) <<
-                DECODE_INDEX_SHIFT_AMOUNT_SIZE1_SHIFT) |
-               decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS2_T32,
-                            DECODE_INDEX_SHIFT_AMOUNT_SIZE2_T32, false));
+        ASSERT(known_shift == SHIFT_ENCODING_LSL);
+        /* index shift in T32 is a 2-bit immed at [5:4], which is different from
+         * register shift (5-bit immed at [14:12] [7:6], and 2-bit type at [5:4])
+         */
+        val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS_T32,
+                           DECODE_INDEX_SHIFT_AMOUNT_SIZE_T32, false);
+        sh2 = known_shift;
     } else {
         if (known_shift == SHIFT_ENCODING_DECODE) {
             sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS_A32,
                                DECODE_INDEX_SHIFT_TYPE_SIZE, false);
         } else
             sh2 = known_shift;
+        /* index shift in A32 is a 5-bit immed at [11:7] */
         val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32,
                            DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32, false);
     }
-    return decode_index_shift_values(sh2, val, amount);
+    return decode_shift_values(sh2, val, amount);
 }
 
 static void
@@ -523,7 +521,7 @@ decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
         ptr_int_t sh2 = opnd_get_immed_int(array[*counter - 2]);
         ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
         uint amount;
-        dr_shift_type_t type = decode_index_shift_values(sh2, val, &amount);
+        dr_shift_type_t type = decode_shift_values(sh2, val, &amount);
         array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
         array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
         CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),

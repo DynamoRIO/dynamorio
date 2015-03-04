@@ -613,6 +613,7 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
         break;
     case DR_SHIFT_LSL:
     case DR_SHIFT_ROR:
+        /* XXX: T32 only allows shift value [1, 3] */
         if (amount < 1 || amount > 31) {
             CLIENT_ASSERT(false, "opnd  index shift: invalid shift amount");
             return false;
