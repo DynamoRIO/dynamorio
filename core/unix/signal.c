@@ -1770,9 +1770,21 @@ is_on_alt_stack(dcontext_t *dcontext, byte *sp)
 #endif
 }
 
-void
-sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
+static void
+sig_full_initialize(sig_full_cxt_t *sc_full, kernel_ucontext_t *ucxt)
 {
+    sc_full->sc = SIGCXT_FROM_UCXT(ucxt);
+#ifdef X86
+    sc_full->fp_simd_state = NULL; /* we have a ptr inside sigcontext_t */
+#elif defined(ARM)
+    sc_full->fp_simd_state = &ucxt->coproc.uc_vfp;
+#endif
+}
+
+void
+sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
+{
+    sigcontext_t *sc = sc_full->sc;
     ASSERT(mc != NULL && sc != NULL);
 #ifdef X86
     mc->xax = sc->SC_XAX;
@@ -1816,7 +1828,7 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
 #  error NYI on AArch64
 # endif /* X64 */
 #endif /* X86/ARM */
-    sigcontext_to_mcontext_simd(mc, sc);
+    sigcontext_to_mcontext_simd(mc, sc_full);
 }
 
 /* Note that unlike mcontext_to_context(), this routine does not fill in
@@ -1826,8 +1838,10 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
  * save_fpstate() before calling this routine.
  */
 void
-mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc)
+mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
+    sigcontext_t *sc = sc_full->sc;
+    ASSERT(mc != NULL && sc != NULL);
 #ifdef X86
     sc->SC_XAX = mc->xax;
     sc->SC_XBX = mc->xbx;
@@ -1870,20 +1884,37 @@ mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc)
 #  error NYI on AArch64
 # endif /* X64 */
 #endif /* X86/ARM */
-    mcontext_to_sigcontext_simd(sc, mc);
+    mcontext_to_sigcontext_simd(sc_full, mc);
+}
+
+static void
+ucontext_to_mcontext(priv_mcontext_t *mc, kernel_ucontext_t *uc)
+{
+    sig_full_cxt_t sc_full;
+    sig_full_initialize(&sc_full, uc);
+    sigcontext_to_mcontext(mc, &sc_full);
+}
+
+static void
+mcontext_to_ucontext(kernel_ucontext_t *uc, priv_mcontext_t *mc)
+{
+    sig_full_cxt_t sc_full;
+    sig_full_initialize(&sc_full, uc);
+    mcontext_to_sigcontext(&sc_full, mc);
 }
 
 /* Returns whether successful.  If avoid_failure, tries to translate
  * at least pc if not successful.  Pass f if known.
  */
 static bool
-translate_sigcontext(dcontext_t *dcontext,  sigcontext_t *sc, bool avoid_failure,
+translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_failure,
                      fragment_t *f)
 {
     bool success = false;
     priv_mcontext_t mcontext;
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
 
-    sigcontext_to_mcontext(&mcontext, sc);
+    ucontext_to_mcontext(&mcontext, uc);
     /* FIXME: if cannot find exact match, we're in trouble!
      * probably ok to delay, since that indicates not a synchronous
      * signal.
@@ -1902,7 +1933,7 @@ translate_sigcontext(dcontext_t *dcontext,  sigcontext_t *sc, bool avoid_failure
      */
     if (translate_mcontext(dcontext->thread_record, &mcontext,
                            true/*restore memory*/, f)) {
-        mcontext_to_sigcontext(sc, &mcontext);
+        mcontext_to_ucontext(uc, &mcontext);
         success = true;
     } else {
         if (avoid_failure) {
@@ -1983,9 +2014,12 @@ thread_set_self_context(void *cxt)
 void
 thread_set_self_mcontext(priv_mcontext_t *mc)
 {
-    sigcontext_t sc;
-    mcontext_to_sigcontext(&sc, mc);
-    thread_set_self_context((void *)&sc);
+    kernel_ucontext_t ucxt;
+    sig_full_cxt_t sc_full;
+    sig_full_initialize(&sc_full, &ucxt);
+    mcontext_to_sigcontext(&sc_full, mc);
+    /* thread_set_self_context will fill in the real fp/simd state */
+    thread_set_self_context((void *)&sc_full.sc);
     ASSERT_NOT_REACHED();
 }
 
@@ -2052,15 +2086,21 @@ get_app_frame_size(thread_sig_info_t *info, int sig)
 #endif
 }
 
-sigcontext_t *
-get_sigcontext_from_rt_frame(sigframe_rt_t *frame)
+static kernel_ucontext_t *
+get_ucontext_from_rt_frame(sigframe_rt_t *frame)
 {
 #if defined(MACOS) && !defined(X64)
     /* Padding makes it unsafe to access uc on frame from kernel */
-    return SIGCXT_FROM_UCXT(frame->puc);
+    return frame->puc;
 #else
-    return SIGCXT_FROM_UCXT(&frame->uc);
+    return &frame->uc;
 #endif
+}
+
+sigcontext_t *
+get_sigcontext_from_rt_frame(sigframe_rt_t *frame)
+{
+    return SIGCXT_FROM_UCXT(get_ucontext_from_rt_frame(frame));
 }
 
 static sigcontext_t *
@@ -2562,9 +2602,15 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                       sigcontext_t *raw_sc, byte *access_address,
                       bool blocked, fragment_t *fragment)
 {
-    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
     dr_siginfo_t si;
     dr_signal_action_t action;
+    /* XXX #1615: we need a full ucontext to store pre-xl8 simd values.
+     * Right now we share the same simd values with post-xl8.
+     */
+    sig_full_cxt_t raw_sc_full;
+    sig_full_initialize(&raw_sc_full, uc);
+    raw_sc_full.sc = raw_sc;
     if (!dr_signal_hook_exists())
         return DR_SIGNAL_DELIVER;
     LOG(THREAD, LOG_ASYNCH, 2, "sending signal to client\n");
@@ -2584,7 +2630,8 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     if (raw_sc != NULL) {
         fragment_t  wrapper;
         si.raw_mcontext_valid = true;
-        sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.raw_mcontext), raw_sc);
+        sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.raw_mcontext),
+                               &raw_sc_full);
         /* i#207: fragment tag and fcache start pc on fault. */
         /* FIXME: we should avoid the fragment_pclookup since it is expensive
          * and since we already did the work of a lookup when translating
@@ -2610,7 +2657,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
      */
     si.access_address = access_address;
     si.blocked = blocked;
-    sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.mcontext), sc);
+    ucontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.mcontext), uc);
     /* We disallow the client calling dr_redirect_execution(), so we
      * will not leak si
      */
@@ -2620,12 +2667,13 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         /* propagate client changes */
         CLIENT_ASSERT(si.mcontext->flags == DR_MC_ALL,
                       "signal mcontext flags cannot be changed");
-        mcontext_to_sigcontext(sc, dr_mcontext_as_priv_mcontext(si.mcontext));
+        mcontext_to_ucontext(uc, dr_mcontext_as_priv_mcontext(si.mcontext));
     } else if (action == DR_SIGNAL_SUPPRESS && raw_sc != NULL) {
         /* propagate client changes */
         CLIENT_ASSERT(si.raw_mcontext->flags == DR_MC_ALL,
                       "signal mcontext flags cannot be changed");
-        mcontext_to_sigcontext(raw_sc, dr_mcontext_as_priv_mcontext(si.raw_mcontext));
+        mcontext_to_sigcontext(&raw_sc_full,
+                               dr_mcontext_as_priv_mcontext(si.raw_mcontext));
     }
     heap_free(dcontext, si.mcontext, sizeof(*si.mcontext) HEAPACCT(ACCT_OTHER));
     heap_free(dcontext, si.raw_mcontext, sizeof(*si.raw_mcontext) HEAPACCT(ACCT_OTHER));
@@ -2639,7 +2687,8 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
                                 bool blocked)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    sigcontext_t *sc = get_sigcontext_from_rt_frame(our_frame);
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     /* in order to pass to the client, we come all the way here for signals
      * the app has no handler for
      */
@@ -2648,7 +2697,7 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
          * master_signal_handler frame, so we set up for fcache_return w/
          * the mcontext state and this as next_tag
          */
-        sigcontext_to_mcontext(get_mcontext(dcontext), sc);
+        ucontext_to_mcontext(get_mcontext(dcontext), uc);
         transfer_from_sig_handler_to_fcache_return(dcontext, sc, (app_pc) sc->SC_XIP,
                                   (linkstub_t *) get_sigreturn_linkstub());
         if (is_building_trace(dcontext)) {
@@ -2994,6 +3043,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+    /* XXX #1615: we need a full ucontext to store pre-xl8 simd values */
     sigcontext_t sc_orig;
     byte *pc = (byte *) sc->SC_XIP;
     byte *xsp = (byte*) sc->SC_XSP;
@@ -3212,7 +3262,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         ASSERT(!forged);
         /* cache the fragment since pclookup is expensive for coarse (i#658) */
         f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
-        xl8_success = translate_sigcontext(dcontext, sc, !can_always_delay[sig], f);
+        xl8_success = translate_sigcontext(dcontext, ucxt, !can_always_delay[sig], f);
 
         if (can_always_delay[sig] && !xl8_success) {
             /* delay: we expect this for coarse fragments if alarm arrives
@@ -3262,7 +3312,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             /* cache the fragment since pclookup is expensive for coarse (i#658) */
             f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
             sc_orig = *sc;
-            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/, f);
+            translate_sigcontext(dcontext, ucxt, true/*shouldn't fail*/, f);
             action = send_signal_to_client(dcontext, sig, frame, &sc_orig,
                                            access_address, true/*blocked*/, f);
             /* For blocked signal early event we disallow BYPASS (xref i#182/PR 449996) */
@@ -3286,7 +3336,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
             sc_orig = *sc;
-            translate_sigcontext(dcontext, sc, true/*shouldn't fail*/, NULL);
+            translate_sigcontext(dcontext, ucxt, true/*shouldn't fail*/, NULL);
             /* the process should be terminated */
             execute_default_from_cache(dcontext, sig, frame, &sc_orig);
             ASSERT_NOT_REACHED();
@@ -3407,8 +3457,9 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
 
 static byte *
 compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                      sigcontext_t *sc, siginfo_t *si, bool *write)
+                      kernel_ucontext_t *uc, siginfo_t *si, bool *write)
 {
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     byte *target = NULL;
     instr_t instr;
     priv_mcontext_t mc;
@@ -3422,6 +3473,8 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     LOG(THREAD, LOG_ALL, 2,
         "computing memory target for "PFX" causing SIGSEGV, kernel claims it is "PFX"\n",
         instr_cache_pc, (byte*)si->si_addr);
+    /* ARM's sigcontext_t has a "fault_address" field but it also seems unreliable */
+    IF_ARM(LOG(THREAD, LOG_ALL, 2, "fault_address: "PFX"\n", sc->fault_address));
 
     /* We used to do a memory query to check if instr_cache_pc is readable, but
      * now we use TRY/EXCEPT because we don't have the instr length and the OS
@@ -3443,7 +3496,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         return NULL;
     }
 
-    sigcontext_to_mcontext(&mc, sc);
+    ucontext_to_mcontext(&mc, uc);
     ASSERT(write != NULL);
 
     /* i#1009: If si_addr is plausibly one of the memory operands of the
@@ -3632,10 +3685,10 @@ sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
  * master_signal_handler_C.
  */
 static void
-sig_take_over(sigcontext_t *sc)
+sig_take_over(kernel_ucontext_t *uc)
 {
     priv_mcontext_t mc;
-    sigcontext_to_mcontext(&mc, sc);
+    ucontext_to_mcontext(&mc, uc);
     os_thread_take_over(&mc);
     ASSERT_NOT_REACHED();
 }
@@ -3747,7 +3800,7 @@ master_signal_handler_C(byte *xsp)
             /* We sent SUSPEND_SIGNAL to a thread we don't control (no
              * dcontext), which means we want to take over.
              */
-            sig_take_over(sc);  /* no return */
+            sig_take_over(ucxt);  /* no return */
             ASSERT_NOT_REACHED();
         } else {
             /* Using global dcontext because dcontext is NULL here. */
@@ -3886,7 +3939,7 @@ master_signal_handler_C(byte *xsp)
             ASSERT_NOT_REACHED();
         }
 
-        target = compute_memory_target(dcontext, pc, sc, siginfo, &is_write);
+        target = compute_memory_target(dcontext, pc, ucxt, siginfo, &is_write);
 
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) && is_in_client_lib(pc)) {
@@ -4203,6 +4256,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     sigframe_rt_t *frame = &(info->sigpending[sig]->rt_frame);
     priv_mcontext_t *mcontext = get_mcontext(dcontext);
     sigcontext_t *sc;
+    kernel_ucontext_t *uc;
     kernel_sigset_t blocked;
 
 #ifdef CLIENT_INTERFACE
@@ -4225,7 +4279,8 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* modify the rtframe before copying to stack so we can pass final
      * version to client, and propagate its mods
      */
-    sc = get_sigcontext_from_rt_frame(frame);
+    uc = get_ucontext_from_rt_frame(frame);
+    sc = SIGCXT_FROM_UCXT(uc);
 
     /* Because of difficulties determining when/if a signal handler
      * returns, we do what the kernel does: abandon all of our current
@@ -4247,7 +4302,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         /* copy currently-interrupted-context to frame's context, so we can
          * abandon the currently-interrupted context.
          */
-        mcontext_to_sigcontext(sc, mcontext);
+        mcontext_to_ucontext(uc, mcontext);
     }
     /* mcontext does not contain fp or mmx or xmm state, which may have
      * changed since the frame was created (while finishing up interrupted
@@ -4295,7 +4350,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      */
     if (action == DR_SIGNAL_REDIRECT) {
         /* send_signal_to_client copied mcontext into frame's sc */
-        sigcontext_to_mcontext(get_mcontext(dcontext), sc);
+        ucontext_to_mcontext(get_mcontext(dcontext), uc);
         dcontext->next_tag = (app_pc) sc->SC_XIP;
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
@@ -4322,7 +4377,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         if (info->sigpending[sig]->use_sigcontext) {
             /* after the default action we want to go to the sigcontext */
             dcontext->next_tag = (app_pc) sc->SC_XIP;
-            sigcontext_to_mcontext(get_mcontext(dcontext), sc);
+            ucontext_to_mcontext(get_mcontext(dcontext), uc);
         }
         execute_default_from_dispatch(dcontext, sig, frame);
         return true;
@@ -4875,7 +4930,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     /* PR 404712: kernel only restores gp regs so we do it ourselves and avoid
      * complexities of kernel's non-linux-like sigreturn semantics
      */
-    sigcontext_to_mcontext(get_mcontext(dcontext), sc);
+    sig_full_cxt_t sc_full = {sc, NULL}; /* non-ARM so NULL ok */
+    sigcontext_to_mcontext(get_mcontext(dcontext), &sc_full);
 #else
     /* HACK to get eax put into mcontext AFTER do_syscall */
     dcontext->next_tag = (app_pc) sc->IF_X86_ELSE(SC_XAX, SC_R0);
@@ -4976,7 +5032,8 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     sigframe_rt_t *frame = (sigframe_rt_t *) frame_plus_xstate;
     int sig;
     where_am_i_t cur_whereami = dcontext->whereami;
-    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     switch (type) {
     case ILLEGAL_INSTRUCTION_EXCEPTION: sig = SIGILL; break;
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
@@ -5000,7 +5057,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     sc->fpstate = (struct _fpstate *)
         ALIGN_FORWARD(frame_plus_xstate + sizeof(*frame), XSTATE_ALIGNMENT);
 #endif /* LINUX && X86 */
-    mcontext_to_sigcontext(sc, get_mcontext(dcontext));
+    mcontext_to_ucontext(uc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t) target_pc;
     /* we'll fill in fpstate at delivery time
      * FIXME: it seems to work w/o filling in the other state:
@@ -5415,7 +5472,7 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
         priv_mcontext_t *mc;
         dr_mcontext_init(&dmc);
         mc = dr_mcontext_as_priv_mcontext(&dmc);
-        sigcontext_to_mcontext(mc, sc);
+        ucontext_to_mcontext(mc, ucxt);
         if ((*info->itimer)[which].cb != NULL)
             (*(*info->itimer)[which].cb)(dcontext, mc);
         else
@@ -5620,8 +5677,8 @@ static bool
 handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
-    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     kernel_sigset_t prevmask;
+    sig_full_cxt_t sc_full;
     ASSERT(ostd != NULL);
 
     if (ostd->terminate) {
@@ -5689,7 +5746,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     if (ostd->suspend_count == 0 || ostd->suspended_sigcxt != NULL)
         return true; /* pass to app */
 
-    ostd->suspended_sigcxt = sc;
+    sig_full_initialize(&sc_full, ucxt);
+    ostd->suspended_sigcxt = &sc_full;
 
     /* We're sitting on our sigaltstack w/ all signals blocked.  We're
      * going to stay here but unblock all signals so we don't lose any
@@ -5740,7 +5798,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
 
     if (ostd->retakeover) {
         ostd->retakeover = false;
-        sig_take_over(sc);  /* no return */
+        sig_take_over(ucxt);  /* no return */
         ASSERT_NOT_REACHED();
     }
 

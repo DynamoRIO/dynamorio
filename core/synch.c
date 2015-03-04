@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -722,12 +722,14 @@ set_synched_thread_context(thread_record_t *trec,
             STATS_INC(wait_multiple_setcxt);
             synch_thread_free_setcontext(tsd);
         }
+#ifdef WINDOWS
         LOG(THREAD_GET, LOG_SYNCH, 2,
             "set_synched_thread_context %d to pc "PFX" via %s\n", trec->id,
-            (mc != NULL) ? mc->pc : (app_pc)
-            IF_WINDOWS_ELSE(((CONTEXT*)cxt)->CXT_XIP,
-                            ((sigcontext_t *)cxt)->SC_XIP),
+            (mc != NULL) ? mc->pc : (app_pc)((CONTEXT*)cxt)->CXT_XIP,
             (mc != NULL) ? "mc" : "CONTEXT");
+#else
+        ASSERT_NOT_IMPLEMENTED(mc != NULL); /* XXX: need sigcontext or sig_full_cxt_t */
+#endif
         if (mc != NULL)
             tsd->set_mcontext = mc;
         else {

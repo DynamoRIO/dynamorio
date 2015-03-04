@@ -329,6 +329,15 @@ typedef struct sigcontext sigcontext_t;
 #define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
 #define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(sigcontext_t))
 
+/* Points at both general-purpose regs and floating-point/SIMD state.
+ * The storage for the pointed-at structs must be valid across the whole use of
+ * this container struct, of course, so be careful where it's used.
+ */
+typedef struct _sig_full_cxt_t {
+    sigcontext_t *sc;
+    void *fp_simd_state;
+} sig_full_cxt_t;
+
 /* cross-platform sigcontext_t field access */
 #ifdef MACOS
 /* We're using _XOPEN_SOURCE >= 600 so we have __DARWIN_UNIX03 and thus leading __: */

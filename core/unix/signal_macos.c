@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -147,11 +147,12 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 }
 
 void
-sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc)
+sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
      * half of _STRUCT_X86_AVX_STATE*.
      */
+    sigcontext_t *sc = sc_full->sc;
     int i;
     for (i=0; i<NUM_XMM_SLOTS; i++) {
         memcpy(&mc->ymm[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
@@ -164,8 +165,9 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc)
 }
 
 void
-mcontext_to_sigcontext_simd(sigcontext_t *sc, priv_mcontext_t *mc)
+mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
+    sigcontext_t *sc = sc_full->sc;
     int i;
     for (i=0; i<NUM_XMM_SLOTS; i++) {
         memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->ymm[i], XMM_REG_SIZE);

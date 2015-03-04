@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -419,8 +419,9 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 #endif /* DEBUG */
 
 void
-sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc)
+sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
+    sigcontext_t *sc = sc_full->sc;
     if (sc->fpstate != NULL) {
         int i;
         for (i=0; i<NUM_XMM_SLOTS; i++) {
@@ -445,8 +446,9 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc)
 }
 
 void
-mcontext_to_sigcontext_simd(sigcontext_t *sc, priv_mcontext_t *mc)
+mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
+    sigcontext_t *sc = sc_full->sc;
     if (sc->fpstate != NULL) {
         int i;
         for (i=0; i<NUM_XMM_SLOTS; i++) {

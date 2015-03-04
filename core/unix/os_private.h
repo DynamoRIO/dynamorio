@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -137,7 +137,7 @@ typedef struct _os_thread_data_t {
     KSYNCH_TYPE suspended;
     KSYNCH_TYPE wakeup;
     KSYNCH_TYPE resumed;
-    sigcontext_t *suspended_sigcxt;
+    sig_full_cxt_t *suspended_sigcxt;
 
     /* PR 297902: for thread termination */
     bool terminate;
@@ -244,10 +244,10 @@ signal_handle_close(dcontext_t *dcontext, file_t fd);
 #endif
 
 void
-sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc);
+sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full);
 
 void
-mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc);
+mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc);
 
 bool
 set_default_signal_action(int sig);

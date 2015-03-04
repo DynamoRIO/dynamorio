@@ -85,14 +85,14 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 #endif /* DEBUG */
 
 void
-sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc)
+sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
-mcontext_to_sigcontext_simd(sigcontext_t *sc, priv_mcontext_t *mc)
+mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
