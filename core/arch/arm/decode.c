@@ -1065,34 +1065,37 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
-    case TYPE_I_b26_b12_b0: { /* T32-26,14:12,7:0 */
+    case TYPE_I_b26_b12_b0:
+    case TYPE_I_b26_b12_b0_z: { /* T32-26,14:12,7:0 */
         if (opsize == OPSZ_12b) {
             val = decode_immed(di, 0, OPSZ_1, false/*unsigned*/);
             val |= (decode_immed(di, 12, OPSZ_3b, false/*unsigned*/) << 8);
             val |= (decode_immed(di, 26, OPSZ_1b, false/*unsigned*/) << 11);
         } else
             CLIENT_ASSERT(false, "unsupported 26-12-0 split immed size");
-        /* This is a T32 "modified immediate constant" with complex rules
-         * (ThumbExpandImm in the manual).
-         * Bottom 8 bits are "abcdefgh" and the other bits indicate
-         * whether to tile or rotate the bottom bits.
-         */
-        if (!TESTANY(0xc00, val)) {
-            int code = (val >> 8) & 0x3;
-            int val8 = (val & 0xff);
-            if (code == 0)      /* 00000000 00000000 00000000 abcdefgh */
-                val = val8;
-            else if (code == 1) /* 00000000 abcdefgh 00000000 abcdefgh */
-                val = (val8 << 16) | val8;
-            else if (code == 2) /* abcdefgh 00000000 abcdefgh 00000000 */
-                val = (val8 << 24) | (val8 << 8);
-            else if (code == 3) /* abcdefgh abcdefgh abcdefgh abcdefgh */
-                val = (val8 << 24) | (val8 << 16) | (val8 << 8) | val8;
-        } else {
-            /* ROR of 1bcdefgh */
-            int toror = 0x80 | (val & 0x7f);
-            int amt = (val >> 7) & 0x1f;
-            val = (toror >> amt) | (toror << (32 - amt));
+        if (optype == TYPE_I_b26_b12_b0) {
+            /* This is a T32 "modified immediate constant" with complex rules
+             * (ThumbExpandImm in the manual).
+             * Bottom 8 bits are "abcdefgh" and the other bits indicate
+             * whether to tile or rotate the bottom bits.
+             */
+            if (!TESTANY(0xc00, val)) {
+                int code = (val >> 8) & 0x3;
+                int val8 = (val & 0xff);
+                if (code == 0)      /* 00000000 00000000 00000000 abcdefgh */
+                    val = val8;
+                else if (code == 1) /* 00000000 abcdefgh 00000000 abcdefgh */
+                    val = (val8 << 16) | val8;
+                else if (code == 2) /* abcdefgh 00000000 abcdefgh 00000000 */
+                    val = (val8 << 24) | (val8 << 8);
+                else if (code == 3) /* abcdefgh abcdefgh abcdefgh abcdefgh */
+                    val = (val8 << 24) | (val8 << 16) | (val8 << 8) | val8;
+            } else {
+                /* ROR of 1bcdefgh */
+                int toror = 0x80 | (val & 0x7f);
+                int amt = (val >> 7) & 0x1f;
+                val = (toror >> amt) | (toror << (32 - amt));
+            }
         }
         array[(*counter)++] = opnd_create_immed_uint(val, OPSZ_4/*to fit tiling*/);
         return true;

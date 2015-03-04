@@ -285,6 +285,7 @@ const char * const type_names[] = {
     "TYPE_I_b21_b6",
     "TYPE_I_b24_b16_b0",
     "TYPE_I_b26_b12_b0",
+    "TYPE_I_b26_b12_b0_z",
     "TYPE_I_b28_b16_b0",
     "TYPE_J_b0",
     "TYPE_J_x4_b0",
@@ -1234,6 +1235,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b21_b5:
     case TYPE_I_b21_b6:
     case TYPE_I_b24_b16_b0:
+    case TYPE_I_b26_b12_b0_z:
     case TYPE_I_b28_b16_b0:
         /* FIXME i#1551: TYPE_I_b28_b16_b0 and TYPE_I_b24_b16_b0 are special SIMD
          * immeds that shift their 8-bit value depending on the "cmode"
@@ -2276,9 +2278,14 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         break;
     }
     case TYPE_I_b26_b12_b0:
+    case TYPE_I_b26_b12_b0_z:
         if (size_temp == OPSZ_12b) {
             /* encode_T32_modified_immed_ok stored the encoded value for us */
-            ptr_int_t val = di->mod_imm_enc;
+            ptr_int_t val;
+            if (optype == TYPE_I_b26_b12_b0)
+                val = di->mod_imm_enc;
+            else
+                val = get_immed_val_abs(di, opnd);
             encode_immed(di, 0, OPSZ_1, val, false/*unsigned*/);
             encode_immed(di, 12, OPSZ_3b, val >> 8, false/*unsigned*/);
             encode_immed(di, 26, OPSZ_1b, val >> 11, false/*unsigned*/);
