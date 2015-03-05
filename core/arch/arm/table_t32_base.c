@@ -71,16 +71,16 @@ const instr_info_t T32_base_e[] = {
     {OP_ldmdb,    0xe9300000, "ldmdb",  L15w, RAw, MDBl, RAw, xx, no, x, END_LIST},/*PUW=101*/
     {OP_strd,     0xe9400000, "strd",   MN8Xq, xx, RBw, RCw, xx, no, x, xbase[0x1e]},/*PUW=100*/
     {OP_ldrd,     0xe9500000, "ldrd",   RBw, RCw, MN8Xq, xx, xx, no, x, xbase[0x1f]},/*PUW=100*/
-    {OP_strd,     0xe9600000, "strd",   MN8Xq, RAw, RBw, RCw, n8, xop_wb, x, xbase[0x0e]},/*PUW=101*/
-    {OP_ldrd,     0xe9700000, "ldrd",   RBw, RCw, RAw, MN8Xq, n8, xop_wb|dstX3, x, xbase[0x0f]},/*PUW=101*/
+    {OP_strd,     0xe9600000, "strd",   MN8Xq, RAw, RBw, RCw, n8x4, xop_wb, x, xbase[0x0e]},/*PUW=101*/
+    {OP_ldrd,     0xe9700000, "ldrd",   RBw, RCw, RAw, MN8Xq, n8x4, xop_wb|dstX3, x, xbase[0x0f]},/*PUW=101*/
     {OP_srs,      0xe98dc000, "srs",    Mq, xx, i5, LRw, SPSR, no, x, xbase[0x1a]},/*PUW=110*/
     {OP_rfe,      0xe990c000, "rfe",    CPSR, xx, Mq, xx, xx, no, x, xbase[0x1b]},/*PUW=110*/
     {OP_srs,      0xe9adc000, "srs",    Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=111*/
     {OP_rfe,      0xe9b0c000, "rfe",    RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=111*/
     {OP_strd,     0xe9c00000, "strd",   MP8Xq, xx, RBw, RCw, xx, no, x, xbase[0x14]},/*PUW=110*/
     {OP_ldrd,     0xe9d00000, "ldrd",   RBw, RCw, MP8Xq, xx, xx, no, x, xbase[0x15]},/*PUW=110*/
-    {OP_strd,     0xe9e00000, "strd",   MP8Xq, RAw, RBw, RCw, i8, xop_wb, x, xbase[0x16]},/*PUW=111*/
-    {OP_ldrd,     0xe9f00000, "ldrd",   RBw, RCw, RAw, MP8Xq, i8, xop_wb|dstX3, x, xbase[0x17]},/*PUW=111*/
+    {OP_strd,     0xe9e00000, "strd",   MP8Xq, RAw, RBw, RCw, i8x4, xop_wb, x, xbase[0x16]},/*PUW=111*/
+    {OP_ldrd,     0xe9f00000, "ldrd",   RBw, RCw, RAw, MP8Xq, i8x4, xop_wb|dstX3, x, xbase[0x17]},/*PUW=111*/
     /* a0 */
     {OP_and,      0xea000000, "and",    RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, x, END_LIST},
     {EXT_RCPC,    0xea100000, "(ext rcpc 0)", xx, xx, xx, xx, xx, no, x, 0},

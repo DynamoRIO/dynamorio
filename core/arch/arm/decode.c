@@ -865,7 +865,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_NI_b0:
         array[(*counter)++] =
             opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsign*/),
-                                  opsize);
+                                  OPSZ_4/*could do opsize + 1 bit, but this is easier*/);
         return true;
     case TYPE_NI_x4_b0:
         array[(*counter)++] =
@@ -2595,6 +2595,10 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
         instr_set_raw_bits_valid(check, false);
         pc = instr_encode_to_copy(dcontext, check, buf, addr);
         instr_init(dcontext, &tmp);
+        /* XXX: the fragile IT block tracking will get off if our encoding doesn't
+         * match the app's in length, b/c we're advancing according to app length
+         * while IT tracking will advance at our length.
+         */
         decode_from_copy(dcontext, buf, addr, &tmp);
         if (!instr_same(check, &tmp)) {
             LOG(THREAD, LOG_EMIT, 1, "ERROR: from app:  %04x %04x  ",

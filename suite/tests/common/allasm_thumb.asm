@@ -149,6 +149,17 @@ _jmp_target:
         it ne
         blxne _print
 
+// various SIMD instrs just to stress decoder
+        vmov.i32 q0, #0x12
+        vmov.i32 q1, #0xab
+        movw r0, #0x5678
+        movt r0, #0x1234
+        vmov.32 d4[0], r0
+        vmov.32 d4[1], r0
+
+// some tricky cases that recently hit bugs
+        strd  r12, lr, [sp, #-16]!
+
 // indirect jump combined with stolen reg write in IT block:
         adr      r0, _exit
         add      r0, r0, #1          // keep it Thumb
@@ -160,14 +171,6 @@ _jmp_target:
         moveq    r0, r9
         addeq    r0, #36
         ldmiaeq.w sp!, {r4, r5, r6, r7, r8, r9, r10, r11, pc}
-
-// various SIMD instrs just to stress decoder
-        vmov.i32 q0, #0x12
-        vmov.i32 q1, #0xab
-        movw r0, #0x5678
-        movt r0, #0x1234
-        vmov.32 d4[0], r0
-        vmov.32 d4[1], r0
 
 // exit
 _exit:

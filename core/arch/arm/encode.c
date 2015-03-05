@@ -756,13 +756,15 @@ encode_immed_ok(decode_info_t *di, opnd_size_t size_temp, ptr_int_t val,
                 bool is_signed, bool negated)
 {
     uint bits = opnd_size_in_bits(size_temp);
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL,
+        "  immed ok: val %d %s vs bits %d (=> %d), wb %s %d neg=%d\n",
+        val, size_names[size_temp], bits, 1 << bits, size_names[di->check_wb_disp_sz],
+        di->check_wb_disp_sz, negated);
     /* Ensure writeback disp matches memop disp */
     if (di->check_wb_disp_sz != OPSZ_NA &&
         di->check_wb_disp_sz == size_temp &&
         di->check_wb_disp != (negated ? -val : val))
         return false;
-    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  immed ok: val %d vs bits %d => %d\n",
-        val, bits, 1 << bits);
     if (is_signed) {
         if (val < 0)
             return -val <= (1 << (bits - 1));
@@ -1253,7 +1255,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                                             false/*pos*/, false/*abs*/, true/*range*/);
     case TYPE_NI_x4_b0:
         return (opnd_is_immed_int(opnd) &&
-                (opnd_get_immed_int(opnd) % 4) != 0 &&
+                (-opnd_get_immed_int(opnd) % 4) == 0 &&
                 encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
                                 false/*unsigned*/, true/*negated*/));
     case TYPE_I_b12_b6:
