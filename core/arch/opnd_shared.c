@@ -1693,8 +1693,35 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
     ptr_int_t scaled_index = 0;
     if (opnd_is_base_disp(opnd)) {
         reg_id_t index = opnd_get_index(opnd);
+#ifdef X86
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
+#elif defined(ARM)
+        uint amount;
+        dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
+        reg_t index_val = reg_get_value_priv(index, mc);
+        switch (type) {
+        case DR_SHIFT_LSL:
+            scaled_index = index_val << amount;
+            break;
+        case DR_SHIFT_LSR:
+            scaled_index = index_val >> amount;
+            break;
+        case DR_SHIFT_ASR:
+            scaled_index = (ptr_int_t)index_val << amount;
+            break;
+        case DR_SHIFT_ROR:
+            scaled_index = (index_val >> amount) |
+                (index_val << (sizeof(reg_t)*8 - amount));
+            break;
+        case DR_SHIFT_RRX:
+            scaled_index = (index_val >> 1) ||
+                (TEST(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t)*8-1)) : 0);
+            break;
+        default:
+            scaled_index = index_val;
+        }
+#endif
     }
     return opnd_compute_address_helper(opnd, mc, scaled_index);
 }
