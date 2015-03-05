@@ -2913,7 +2913,14 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             /* We do not take instr_length of what the client put in, but rather
              * the length of the translation target
              */
-            app_pc last_app_pc = instr_get_translation(last_app_instr);
+            app_pc last_app_pc;
+#if defined(WINDOWS) && !defined(STANDALONE_DECODER)
+            /* i#1614: truncation of an intercept resumes in the intercept. */
+            if (is_part_of_interception(instr_get_translation(last_app_instr)))
+                last_app_pc = instr_get_raw_bits(last_app_instr);
+            else
+#endif
+                last_app_pc = instr_get_translation(last_app_instr);
             bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
 #ifdef ANNOTATIONS
         }
