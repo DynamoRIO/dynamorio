@@ -286,9 +286,9 @@ cat_have_lock:
         mov      REG_R2, #-1
         CALLC2(atomic_add, REG_R3, REG_R2)
         /* finally, execute the termination syscall */
-        mov      REG_R7, REG_R6  /* sysnum */
         mov      REG_R0, REG_R7  /* sys_arg1 */
         mov      REG_R1, REG_R8  /* sys_arg2 */
+        mov      REG_R7, REG_R6  /* sysnum */
         bx       REG_R5  /* go do the syscall! */
         END_FUNC(cleanup_and_terminate)
 /* Data for PIC code above */
