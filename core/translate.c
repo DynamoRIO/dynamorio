@@ -154,7 +154,6 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)
 {
-#ifdef X86
     reg_id_t reg, r;
     bool spill, spill_tls;
 
@@ -212,7 +211,9 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * comment above for post-mangling traces), and so for local
          * spills like rip-rel and ind branches this is fine.
          */
-        if (instr_is_cti(inst) &&
+        if (instr_is_cti(inst)
+#ifdef X86
+            &&
             /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
              * jne (64-bit), since ecx needs to be restored (won't
              * fault, but for thread relocation)
@@ -229,7 +230,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                instr_get_opcode(inst) == OP_jne) &&
               (!opnd_is_pc(instr_get_target(inst)) ||
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
-                opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))) {
+                opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
+#endif
+            ) {
+            /* FIXME i#1551: add ARM version of the series of trace cti checks above */
+            IF_ARM(ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces)));
             /* reset for non-exit non-trace-jecxz cti (i.e., selfmod cti) */
             for (r = 0; r < REG_SPILL_NUM; r++)
                 walk->reg_spilled[r] = false;
@@ -309,12 +314,6 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             walk->unsupported_mangle = true;
         }
     }
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM.
-     * Also, we may want to split these out into arch/{x86,arm}/ files.
-     */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
 }
 
 static bool

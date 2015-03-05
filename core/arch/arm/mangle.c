@@ -563,6 +563,17 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
+/* Used for fault translation */
+bool
+instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
+{
+    ASSERT(xsp_adjust != NULL);
+    /* No current ARM mangling splits an atomic push/pop into emulated pieces:
+     * the OP_ldm/OP_stm splits shouldn't need special translation handling.
+     */
+    return false;
+}
+
 void
 mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     instr_t *instr, instr_t *next_instr)
