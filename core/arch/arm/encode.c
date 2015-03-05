@@ -2239,7 +2239,7 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b24_b16_b0: {
         ptr_int_t val = get_immed_val_abs(di, opnd);
         if (size_temp == OPSZ_1) {
-            encode_immed(di, 5, OPSZ_4b, val, false/*unsigned*/);
+            encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
             encode_immed(di, 24, OPSZ_1b, val >> 7, false/*unsigned*/);
         } else
@@ -2253,7 +2253,7 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
          */
         ptr_int_t val = get_immed_val_abs(di, opnd);
         if (size_temp == OPSZ_1) {
-            encode_immed(di, 5, OPSZ_4b, val, false/*unsigned*/);
+            encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
             encode_immed(di, 28, OPSZ_1b, val >> 7, false/*unsigned*/);
         } else

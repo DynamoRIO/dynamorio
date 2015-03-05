@@ -161,6 +161,14 @@ _jmp_target:
         addeq    r0, #36
         ldmiaeq.w sp!, {r4, r5, r6, r7, r8, r9, r10, r11, pc}
 
+// various SIMD instrs just to stress decoder
+        vmov.i32 q0, #0x12
+        vmov.i32 q1, #0xab
+        movw r0, #0x5678
+        movt r0, #0x1234
+        vmov.32 d4[0], r0
+        vmov.32 d4[1], r0
+
 // exit
 _exit:
         mov r0, #1            // stdout
