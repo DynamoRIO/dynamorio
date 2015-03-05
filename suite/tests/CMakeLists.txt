@@ -1465,16 +1465,12 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (ARM)
-  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
-    # XXX i#1551: once -private_loader is on by default we can remove it here
-    "-early_inject -private_loader" "")
+  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm "-early_inject" "")
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
     "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")
 
-  tobuild_ops(common.allasm_arm common/allasm_arm.asm
-    # XXX i#1551: once -private_loader is on by default we can remove it here
-    "-early_inject -private_loader" "")
+  tobuild_ops(common.allasm_arm common/allasm_arm.asm "-early_inject" "")
   set_target_properties(common.allasm_arm PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -Wl,-static")
 endif (ARM)
@@ -1853,7 +1849,7 @@ if (CLIENT_INTERFACE)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
-  if (NOT ARM) # FIXME i#1551: add thread support to ARM
+  if (NOT ARM) # FIXME i#1551: TLS support is broken for raw clone
     tobuild(linux.clone linux/clone.c)
   endif (NOT ARM)
 
@@ -1880,14 +1876,11 @@ if (UNIX)
 
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
-  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
-  # the fork tests running on ARM.
-  if (NOT ARM)
-    tobuild(linux.fork linux/fork.c)
-    # i#1537: test MSR for fs/gs in fork
-    torunonly(linux.fork-MSR linux.fork linux/fork.c
-      "-vm_base 0x100000000 -no_vm_base_near_app" "")
-  endif (NOT ARM)
+  tobuild(linux.fork linux/fork.c)
+  # i#1537: test MSR for fs/gs in fork
+  torunonly(linux.fork-MSR linux.fork linux/fork.c
+    "-vm_base 0x100000000 -no_vm_base_near_app" "")
+
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild(linux.infinite linux/infinite.c)
   endif (NOT ARM)
@@ -1941,20 +1934,18 @@ if (UNIX)
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
 
-  if (NOT ARM) # FIXME i#1551: fix bugs, add -private_loader support for ARM
-    # Test fully static executables, which we only support with early injection
-    # or STATIC_LIBRARY.
-    set(fib_static_ops "-early_inject")
-    if (STATIC_LIBRARY)
-      set(fib_static_ops "")
-    endif ()
-    tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
-    append_property_string(TARGET linux.fib-static LINK_FLAGS
-      # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
-      # which doesn't play well with clang and -static.  Adding
-      # --no-export-dynamic avoids the problem.
-      "-static -Wl,--no-export-dynamic")
+  # Test fully static executables, which we only support with early injection
+  # or STATIC_LIBRARY.
+  set(fib_static_ops "-early_inject")
+  if (STATIC_LIBRARY)
+    set(fib_static_ops "")
   endif ()
+  tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
+  append_property_string(TARGET linux.fib-static LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
+    # which doesn't play well with clang and -static.  Adding
+    # --no-export-dynamic avoids the problem.
+    "-static -Wl,--no-export-dynamic")
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.
   tobuild(linux.fib-pie common/fib.c)
