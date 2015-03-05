@@ -932,8 +932,7 @@ mutex_unlock(mutex_t *lock)
         return;
     }
 
-    /* FIXME i#1587: fix this on ARM; disabling for now to make progress */
-    IF_NOT_ARM(ASSERT(lock->lock_requests > LOCK_FREE_STATE && "lock not owned"));
+    ASSERT(lock->lock_requests > LOCK_FREE_STATE && "lock not owned");
     DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable);
 
     if (atomic_dec_and_test(&lock->lock_requests))

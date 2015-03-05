@@ -1843,14 +1843,10 @@ if (UNIX)
     endif (X64)
   endif (TEST_SUITE OR TEST_32BIT_PATH)
 
-  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
-  # this test running on ARM.
-  if (NOT ARM)
-    # helper app for execve-null
-    add_exe(linux.execve-sub linux/execve-sub.c)
-    tobuild_ops(linux.execve-null linux/execve-null.c ""
-      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
-  endif (NOT ARM)
+  # helper app for execve-null
+  add_exe(linux.execve-sub linux/execve-sub.c)
+  tobuild_ops(linux.execve-null linux/execve-null.c ""
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
 
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)

@@ -558,10 +558,13 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
     ATOMIC_ADD_EXCHANGE_suffix("d", var, val, res)
 #  define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange) \
      __asm__ __volatile__(                                            \
-       "   ldrex" suffix " r2, %0       \n\t"                         \
+       "2: ldrex" suffix " r2, %0       \n\t"                         \
        "   cmp"   suffix " r2, %1       \n\t"                         \
        "   bne    1f                    \n\t"                         \
        "   strex" suffix " r3, %2, %0   \n\t"                         \
+       "   cmp   r3, #0                 \n\t"                         \
+       "   bne   2b                     \n\t"                         \
+       "   cmp"   suffix " r2, %1       \n\t" /* for SET_FLAG */      \
        "1: clrex                        \n\t"                         \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : "r"  (compare), "r" (exchange)                               \
