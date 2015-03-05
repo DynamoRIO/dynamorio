@@ -387,12 +387,13 @@ set_target_properties(dynamorio PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(dynamorio)
+# Since we're forced to use link-line flags instead of target_link_libraries
+# for dynamorio, we have to add a real target dependence here for correct
+# parallel builds (i#1616: ninja also needs explicit dependency on ntdll_imports).
+add_dependencies(dynamorio ntdll_imports)
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # Since we're forced to use link-line flags instead of target_link_libraries
-  # for dynamorio, we have to add a real target dependence here for correct
-  # parallel builds w/ VS generators.
-  # We also need one for our asm custom commands.
-  add_dependencies(dynamorio ${arch_core_asm_tgt} ntdll_imports)
+  # For VS generators, we also need one for our asm custom commands.
+  add_dependencies(dynamorio ${arch_core_asm_tgt})
 endif ()
 
 target_link_libraries(dynamorio drhelper)
