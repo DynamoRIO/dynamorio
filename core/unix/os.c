@@ -1373,7 +1373,7 @@ get_os_tls_from_dc(dcontext_t *dcontext)
 }
 
 #ifdef ARM
-static bool
+bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
 {
     os_local_state_t *os_tls;

@@ -216,6 +216,10 @@ typedef struct _clone_record_t {
      */
     reg_t app_stolen_value;
     dr_isa_mode_t isa_mode;
+    /* To ensure we have the right app lib tls base in child thread,
+     * we store it here if necessary (clone w/o CLONE_SETTLS or vfork).
+     */
+    void *app_lib_tls_base;
 #endif
     /* we leave some padding at base of stack for dynamorio_clone
      * to store values
@@ -559,6 +563,13 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #ifdef ARM
     record->app_stolen_value = get_stolen_reg_val(get_mcontext(dcontext));
     record->isa_mode = dr_get_isa_mode(dcontext);
+    /* If the child thread shares the same TLS with parent by not setting
+     * CLONE_SETTLS or vfork, we put the TLS base here and clear the
+     * thread register in new_thread_setup, so that DR can distinguish
+     * this case from normal pthread thread creation.
+     */
+    record->app_lib_tls_base = (!TEST(CLONE_SETTLS, record->clone_flags)) ?
+        os_get_app_tls_base(dcontext, TLS_REG_LIB) : NULL;
 #endif
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: thread "TIDFMT", pc "PFX"\n",
@@ -671,6 +682,27 @@ get_clone_record_isa_mode(void *record)
 {
     ASSERT(record != NULL);
     return ((clone_record_t *) record)->isa_mode;
+}
+
+void
+set_thread_register_from_clone_record(void *record)
+{
+    /* If record->app_lib_tls_base is not NULL, it means the parent
+     * thread did not setup TLS for the child, and we need clear the
+     * thread register.
+     */
+    if (((clone_record_t *)record)->app_lib_tls_base != NULL)
+        dynamorio_syscall(SYS_set_tls, 1, NULL);
+}
+
+void
+set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record)
+{
+    if (((clone_record_t *)record)->app_lib_tls_base != NULL) {
+        /* child and parent share the same TLS */
+        os_set_app_tls_base(dcontext, TLS_REG_LIB,
+                            ((clone_record_t *)record)->app_lib_tls_base);
+    }
 }
 #endif
 

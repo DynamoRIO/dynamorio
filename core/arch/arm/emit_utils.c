@@ -624,7 +624,7 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
      */
     PRE(ilist, where,
         INSTR_CREATE_mrc(dcontext, opnd_create_reg(reg_base),
-                         OPND_CREATE_INT(15),
+                         OPND_CREATE_INT(USR_TLS_COPROC_15),
                          OPND_CREATE_INT(0),
                          opnd_create_reg(DR_REG_CR13),
                          opnd_create_reg(DR_REG_CR0),

@@ -427,6 +427,12 @@ get_clone_record_stolen_value(void *record);
 
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record);
+
+void
+set_thread_register_from_clone_record(void *record);
+
+void
+set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record);
 #endif
 
 app_pc

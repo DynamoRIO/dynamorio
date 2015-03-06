@@ -1854,9 +1854,7 @@ if (CLIENT_INTERFACE)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
-  if (NOT ARM) # FIXME i#1551: TLS support is broken for raw clone
-    tobuild(linux.clone linux/clone.c)
-  endif (NOT ARM)
+  tobuild(linux.clone linux/clone.c)
 
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
@@ -1960,11 +1958,9 @@ if (UNIX)
   append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
   append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
 
-  if (NOT ARM) # FIXME i#1551: add thread support to ARM
-    # FIXME i#125: bugs in these, were disabled in the past
-    tobuild_ops(linux.vfork linux/vfork.c ""
-      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
-  endif (NOT ARM)
+  # FIXME i#125: bugs in these, were disabled in the past
+  tobuild_ops(linux.vfork linux/vfork.c ""
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
   if (NOT ARM) # FIXME i#1551: add thread support to ARM

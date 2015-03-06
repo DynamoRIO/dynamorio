@@ -55,10 +55,8 @@ byte **
 get_dr_tls_base_addr(void)
 {
     byte *lib_tls_base = (byte *)read_thread_register(TLS_REG_LIB);
-    if (lib_tls_base == NULL) {
-        ASSERT_NOT_REACHED();
+    if (lib_tls_base == NULL)
         return NULL;
-    }
     return (byte **)(lib_tls_base + DR_TLS_BASE_OFFSET);
 }
 

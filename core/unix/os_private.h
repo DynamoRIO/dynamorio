@@ -177,6 +177,11 @@ void os_thread_take_over(priv_mcontext_t *mc);
 
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
+#ifdef ARM
+bool
+os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
+#endif
+
 void
 set_executable_path(const char *);
 
