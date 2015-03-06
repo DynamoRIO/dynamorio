@@ -178,10 +178,14 @@ static void VERBOSE_PRINT(const char *fmt, ...) {}
 #endif
 
 #ifdef UNIX
-# ifdef X64
-#  define SC_XIP rip
+# ifdef ARM
+#  define SC_XIP arm_pc
 # else
-#  define SC_XIP eip
+#  ifdef X64
+#   define SC_XIP rip
+#  else
+#   define SC_XIP eip
+#  endif
 # endif
 
 # define ASSERT_NOERR(rc) do {                                 \

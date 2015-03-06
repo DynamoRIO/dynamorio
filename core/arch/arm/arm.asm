@@ -36,6 +36,7 @@
 
 #include "../asm_defines.asm"
 START_FILE
+#include "include/syscall.h"
 
 DECL_EXTERN(dynamorio_app_take_over_helper)
 #if defined(UNIX)
@@ -505,13 +506,15 @@ GLOBAL_LABEL(dynamorio_clone:)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        /* FIXME i#1551: NYI on ARM */
+        mov      r7, #SYS_rt_sigreturn
+        svc      0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_nonrt_sigreturn)
 GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
-        /* FIXME i#1551: NYI on ARM */
+        mov      r7, #SYS_sigreturn
+        svc      0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_nonrt_sigreturn)
 

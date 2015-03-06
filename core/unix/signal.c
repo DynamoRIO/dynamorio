@@ -1824,6 +1824,7 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
     mc->r13 = sc->SC_FIELD(arm_sp);
     mc->r14 = sc->SC_FIELD(arm_lr);
     mc->r15 = sc->SC_FIELD(arm_pc);
+    mc->cpsr= sc->SC_FIELD(arm_cpsr);
 # ifdef X64
 #  error NYI on AArch64
 # endif /* X64 */
@@ -1836,6 +1837,15 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
  * the sigcontext already contains the native fpstate.  If the caller
  * is generating a synthetic sigcontext, the caller should call
  * save_fpstate() before calling this routine.
+ */
+/* XXX: on ARM, sigreturn needs the T bit set in the sigcontext_t cpsr field in
+ * order to return to Thumb mode.  But, our mcontext doesn't have the T bit (b/c
+ * usermode can't read it).  Thus callers must either modify an mcontext
+ * obtained from sigcontext_to_mcontext() or must call set_pc_mode_in_cpsr() in
+ * order to create a proper sigcontext for sigreturn.  All callers here do so.
+ * The only external non-Windows caller of thread_set_mcontext() is
+ * translate_from_synchall_to_dispatch() who first does a thread_get_mcontext()
+ * and tweaks that context, so cpsr should be there.
  */
 void
 mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
@@ -1880,6 +1890,7 @@ mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     sc->SC_FIELD(arm_sp)  = mc->r13;
     sc->SC_FIELD(arm_lr)  = mc->r14;
     sc->SC_FIELD(arm_pc)  = mc->r15;
+    sc->SC_FIELD(arm_cpsr)= mc->cpsr;
 # ifdef X64
 #  error NYI on AArch64
 # endif /* X64 */
@@ -1902,6 +1913,35 @@ mcontext_to_ucontext(kernel_ucontext_t *uc, priv_mcontext_t *mc)
     sig_full_initialize(&sc_full, uc);
     mcontext_to_sigcontext(&sc_full, mc);
 }
+
+#ifdef ARM
+static void
+set_sigcxt_stolen_reg(sigcontext_t *sc, reg_t val)
+{
+    *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0)) = val;
+}
+
+static reg_t
+get_sigcxt_stolen_reg(sigcontext_t *sc)
+{
+    return *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0));
+}
+
+static dr_isa_mode_t
+get_pc_mode_from_cpsr(sigcontext_t *sc)
+{
+    return TEST(EFLAGS_T, sc->SC_XFLAGS) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+}
+
+static void
+set_pc_mode_in_cpsr(sigcontext_t *sc, dr_isa_mode_t isa_mode)
+{
+    if (isa_mode == DR_ISA_ARM_THUMB)
+        sc->SC_XFLAGS |= EFLAGS_T;
+    else
+        sc->SC_XFLAGS &= ~EFLAGS_T;
+}
+#endif
 
 /* Returns whether successful.  If avoid_failure, tries to translate
  * at least pc if not successful.  Pass f if known.
@@ -2018,12 +2058,15 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, &ucxt);
     mcontext_to_sigcontext(&sc_full, mc);
-    /* thread_set_self_context will fill in the real fp/simd state */
-    thread_set_self_context((void *)&sc_full.sc);
+    /* sigreturn takes the mode from cpsr */
+    IF_ARM(set_pc_mode_in_cpsr(sc_full.sc,
+                               dr_get_isa_mode(get_thread_private_dcontext())));
+    /* thread_set_self_context will fill in the real fp/simd state for x86 */
+    thread_set_self_context((void *)sc_full.sc);
     ASSERT_NOT_REACHED();
 }
 
-#if defined(LINUX) && defined(X86)
+#ifdef LINUX
 static bool
 sig_has_restorer(thread_sig_info_t *info, int sig)
 {
@@ -2043,6 +2086,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
          * NULL kernel will use it.  But with newer kernels that's not
          * true, and sometimes libc does pass non-NULL.
          */
+# ifdef X86
         /* Signal restorer code for Ubuntu 7.04:
          *   0xffffe420 <__kernel_sigreturn+0>:      pop    %eax
          *   0xffffe421 <__kernel_sigreturn+1>:      mov    $0x77,%eax
@@ -2055,6 +2099,12 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
           {0x58, 0xb8, 0x77, 0x00, 0x00, 0x00, 0xcd, 0x80};
         static const byte SIGRET_RT[8] =
           {0xb8, 0xad, 0x00, 0x00, 0x00, 0xcd, 0x80};
+# elif defined(ARM)
+        static const byte SIGRET_NONRT[8] =
+          {0x77, 0x70, 0xa0, 0xe3, 0x00, 0x00, 0x00, 0xef};
+        static const byte SIGRET_RT[8] =
+          {0xad, 0x70, 0xa0, 0xe3, 0x00, 0x00, 0x00, 0xef};
+# endif
         byte buf[MAX(sizeof(SIGRET_NONRT), sizeof(SIGRET_RT))]= {0};
         if (safe_read(info->app_sigaction[sig]->restorer, sizeof(buf), buf) &&
             ((IS_RT_FOR_APP(info, sig) &&
@@ -2564,7 +2614,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
     fixup_rtframe_pointers(dcontext, sig, frame, dst, false/*!for app*/);
 #endif
 
-    LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_pending\n");
+    LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_pending from "PFX"\n", frame);
     DOLOG(3, LOG_ASYNCH, {
         LOG(THREAD, LOG_ASYNCH, 3, "sigcontext:\n");
         dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(dst));
@@ -3474,6 +3524,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     bool in_maps;
     bool use_allmem = false;
     uint prot;
+    IF_ARM(dr_isa_mode_t old_mode;)
 
     LOG(THREAD, LOG_ALL, 2,
         "computing memory target for "PFX" causing SIGSEGV, kernel claims it is "PFX"\n",
@@ -3487,11 +3538,16 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
      * out before it calls us recursively.
      */
     instr_init(dcontext, &instr);
+    IF_ARM({
+        /* Be sure to use the interrupted mode and not the last-dispatch mode */
+            dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), &old_mode);
+    });
     TRY_EXCEPT(dcontext, {
         decode(dcontext, instr_cache_pc, &instr);
     }, {
         return NULL;  /* instr_cache_pc was unreadable */
     });
+    IF_ARM(dr_set_isa_mode(dcontext, old_mode, NULL));
 
     if (!instr_valid(&instr)) {
         LOG(THREAD, LOG_ALL, 2,
@@ -4233,6 +4289,12 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     sc->SC_R0 = sig;
     sc->SC_R1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
     sc->SC_R2 = (reg_t) &((sigframe_rt_t *)xsp)->uc;
+    if (sig_has_restorer(info, sig))
+        sc->SC_LR = (reg_t) info->app_sigaction[sig]->restorer;
+    else
+        sc->SC_LR = (reg_t) dynamorio_sigreturn;
+    /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
+    set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
 #endif
     /* Set our sigreturn context (NOT for the app: we already copied the
      * translated context to the app stack) to point to fcache_return!
@@ -4312,6 +4374,10 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
          * abandon the currently-interrupted context.
          */
         mcontext_to_ucontext(uc, mcontext);
+        /* Sigreturn needs the target ISA mode to be set in the T bit in cpsr.
+         * Since we came from dispatch, the post-signal target's mode is in dcontext.
+         */
+        IF_ARM(set_pc_mode_in_cpsr(sc, dr_get_isa_mode(dcontext)));
     }
     /* mcontext does not contain fp or mmx or xmm state, which may have
      * changed since the frame was created (while finishing up interrupted
@@ -4421,11 +4487,19 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      * expect anything except the frame on the stack.  We do need to set xsp.
      */
     mcontext->xsp = (ptr_uint_t) xsp;
-#ifdef X64
     /* Set up args to handler: int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt */
+#ifdef X86_64
     mcontext->xdi = sig;
     mcontext->xsi = (reg_t) &((sigframe_rt_t *)xsp)->info;
     mcontext->xdx = (reg_t) &((sigframe_rt_t *)xsp)->uc;
+#elif defined(ARM)
+    mcontext->r0 = sig;
+    mcontext->r1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
+    mcontext->r2 = (reg_t) &((sigframe_rt_t *)xsp)->uc;
+    if (sig_has_restorer(info, sig))
+        mcontext->lr = (reg_t) info->app_sigaction[sig]->restorer;
+    else
+        mcontext->lr = (reg_t) dynamorio_sigreturn;
 #endif
 #ifdef X86
     /* Clear eflags DF (signal handler should match function entry ABI) */
@@ -4825,7 +4899,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     if (rt) {
         kernel_ucontext_t *ucxt;
 #ifdef LINUX
-        sigframe_rt_t *frame = (sigframe_rt_t *) (xsp - sizeof(char*));
+        sigframe_rt_t *frame = (sigframe_rt_t *) (xsp IF_X86(- sizeof(char*)));
         /* use si_signo instead of sig, less likely to be clobbered by app */
         sig = frame->info.si_signo;
 # ifdef X86_32
@@ -4937,7 +5011,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     /* we have to use a different slot since next_tag ends up holding the do_syscall
      * entry when entered from dispatch (we're called from pre_syscall, prior to entering cache)
      */
-    dcontext->asynch_target = (app_pc) sc->SC_XIP;
+    dcontext->asynch_target = canonicalize_pc_target
+        (dcontext, (app_pc)(sc->SC_XIP IF_ARM(|(TEST(EFLAGS_T, sc->SC_XFLAGS) ? 1 : 0))));
     next_pc = dcontext->asynch_target;
 
 #ifdef VMX86_SERVER
@@ -4948,12 +5023,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     sigcontext_to_mcontext(get_mcontext(dcontext), &sc_full);
 #else
     /* HACK to get eax put into mcontext AFTER do_syscall */
-    dcontext->next_tag = canonicalize_pc_target
-        (dcontext, (app_pc) sc->IF_X86_ELSE(SC_XAX, SC_R0));
+    dcontext->next_tag = (app_pc) sc->IF_X86_ELSE(SC_XAX, SC_R0);
     /* use special linkstub so we know why we came out of the cache */
     sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) get_sigreturn_linkstub();
 
     /* set our sigreturn context to point to fcache_return */
+    /* We don't need PC_AS_JMP_TGT b/c the kernel uses EFLAGS_T for the mode */
     sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
 
     /* if we overlaid inner frame on nested signal, will end up with this
@@ -4964,6 +5039,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
+# ifdef ARM
+    set_stolen_reg_val(get_mcontext(dcontext), get_sigcxt_stolen_reg(sc));
+    set_sigcxt_stolen_reg(sc, (reg_t) *get_dr_tls_base_addr());
+    /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
+    set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
+# endif
 #endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "set next tag to "PFX", sc->SC_XIP to "PFX"\n",

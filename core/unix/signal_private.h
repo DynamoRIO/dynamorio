@@ -130,7 +130,7 @@ typedef struct {
     sigcontext_t      uc_mcontext;
     kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
 #ifdef ARM
-    int               sigset_ex[32 - (sizeof (sigset_t) / sizeof (int))];
+    int               sigset_ex[32 - (sizeof(kernel_sigset_t)/sizeof(int))];
     /* coprocessor state is here */
     union {
         unsigned long uc_regspace[128] __attribute__((__aligned__(8)));

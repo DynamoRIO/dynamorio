@@ -89,6 +89,8 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
     struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
     ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
+    ASSERT(vfp->magic == VFP_MAGIC);
+    ASSERT(vfp->size == sizeof(struct vfp_sigframe));
     memcpy(&mc->simd[0], &vfp->ufp.fpregs[0], sizeof(mc->simd));
 }
 
@@ -97,5 +99,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
     ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
+    vfp->magic = VFP_MAGIC;
+    vfp->size = sizeof(struct vfp_sigframe);
     memcpy(&vfp->ufp.fpregs[0], &mc->simd[0], sizeof(vfp->ufp.fpregs));
 }

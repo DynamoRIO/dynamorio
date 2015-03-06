@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,8 +31,8 @@
  * DAMAGE.
  */
 
-/* not really a header file, but we don't want to run this standalone
- * to use, defines these, then include this file:
+/* Not really a header file, but we don't want to run this standalone.
+ * To use, define these, then include this file:
 #define USE_LONGJMP 0
 #define BLOCK_IN_HANDLER 0
 #define USE_SIGSTACK 0
@@ -54,12 +54,6 @@
 
 /* handler with SA_SIGINFO flag set gets three arguments: */
 typedef void (*handler_t)(int, siginfo_t *, void *);
-
-#ifdef X64
-# define SC_XIP rip
-#else
-# define SC_XIP eip
-#endif
 
 #if USE_LONGJMP
 #include <setjmp.h>

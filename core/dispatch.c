@@ -323,7 +323,9 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
             targetf->id,
             targetf->tag,
             FCACHE_ENTRY_PC(targetf),
-            IF_X64_ELSE(FRAG_IS_32(targetf->flags) ? "(32-bit)" : "", ""),
+            IF_X86_ELSE(IF_X64_ELSE(FRAG_IS_32(targetf->flags) ? "(32-bit)" : "", ""),
+                        IF_ARM_ELSE(FRAG_IS_THUMB(targetf->flags) ?
+                                    "(T32)" : "(A32)", "")),
             TEST(FRAG_COARSE_GRAIN, targetf->flags) ? "(coarse)" : "",
             ((targetf->flags & FRAG_IS_TRACE_HEAD)!=0)?
             "(trace head)" : "",
@@ -1970,17 +1972,11 @@ handle_post_system_call(dcontext_t *dcontext)
 #ifdef UNIX
     /* restore mcontext values prior to invoking instrument_post_syscall() */
     if (was_sigreturn_syscall(dcontext)) {
-# ifdef X86
-        /* restore app xax */
+        /* restore app xax/r0 */
         LOG(THREAD, LOG_SYSCALLS, 3,
-            "post-sigreturn: setting xax to "PFX", asynch_target="PFX"\n",
+            "post-sigreturn: setting xax/r0 to "PFX", asynch_target="PFX"\n",
             dcontext->sys_param1, dcontext->asynch_target);
-        mc->xax = dcontext->sys_param1;
-# elif defined(ARM)
-        /* i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-        mc->r7 = dcontext->sys_param1;
-# endif /* X86/ARM */
+        mc->IF_X86_ELSE(xax,r0) = dcontext->sys_param1;
 # ifdef MACOS
         /* We need to skip the use app_xdx, as we've changed the context.
          * We can't just set app_xdx from handle_sigreturn() as the
