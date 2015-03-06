@@ -2295,7 +2295,8 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
     /* now fill in our extra field */
     f_new->sig_noclobber = f_old->info.si_signo;
 # endif /* X86 */
-    LOG(THREAD, LOG_ASYNCH, 3, "\tconverted rt frame to non-rt frame\n");
+    LOG(THREAD, LOG_ASYNCH, 3, "\tconverted sig=%d rt frame to non-rt frame\n",
+        f_new->sig_noclobber);
 }
 
 /* separated out to avoid the stack size cost on the common path */
@@ -3894,8 +3895,8 @@ master_signal_handler_C(byte *xsp)
     LOG(THREAD, LOG_ASYNCH, level, "\nmaster_signal_handler: sig=%d, retaddr="PFX"\n",
         sig, *((byte **)xsp));
     LOG(THREAD, LOG_ASYNCH, level+1,
-        "siginfo: pid = %d, status = %d, errno = %d, si_code = %d\n",
-        siginfo->si_pid, siginfo->si_status, siginfo->si_errno,
+        "siginfo: sig = %d, pid = %d, status = %d, errno = %d, si_code = %d\n",
+        siginfo->si_signo, siginfo->si_pid, siginfo->si_status, siginfo->si_errno,
         siginfo->si_code);
     DOLOG(level+1, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
 
@@ -4287,8 +4288,10 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     sc->SC_XDX = (reg_t) &((sigframe_rt_t *)xsp)->uc;
 #elif defined(ARM)
     sc->SC_R0 = sig;
-    sc->SC_R1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
-    sc->SC_R2 = (reg_t) &((sigframe_rt_t *)xsp)->uc;
+    if (IS_RT_FOR_APP(info, sig)) {
+        sc->SC_R1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
+        sc->SC_R2 = (reg_t) &((sigframe_rt_t *)xsp)->uc;
+    }
     if (sig_has_restorer(info, sig))
         sc->SC_LR = (reg_t) info->app_sigaction[sig]->restorer;
     else
@@ -4494,8 +4497,10 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     mcontext->xdx = (reg_t) &((sigframe_rt_t *)xsp)->uc;
 #elif defined(ARM)
     mcontext->r0 = sig;
-    mcontext->r1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
-    mcontext->r2 = (reg_t) &((sigframe_rt_t *)xsp)->uc;
+    if (IS_RT_FOR_APP(info, sig)) {
+        mcontext->r1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
+        mcontext->r2 = (reg_t) &((sigframe_rt_t *)xsp)->uc;
+    }
     if (sig_has_restorer(info, sig))
         mcontext->lr = (reg_t) info->app_sigaction[sig]->restorer;
     else
@@ -4936,7 +4941,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
          * no idea why, but kernel asks for xsp-8 not xsp-4...weird!
          */
         kernel_sigset_t prevset;
-        sigframe_plain_t *frame = (sigframe_plain_t *) (xsp-8);
+        sigframe_plain_t *frame = (sigframe_plain_t *) (xsp IF_X86(-8));
         /* We don't trust frame->sig (app sometimes clobbers it), and for
          * plain frame there's no other place that sig is stored,
          * so as a hack we added a new frame!
