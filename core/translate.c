@@ -1069,6 +1069,10 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             mc->xdi = get_mcontext(tdcontext)->xdi;
         }
 #endif
+#ifdef ARM
+        if (!just_pc)
+            set_stolen_reg_val(mcontext, get_stolen_reg_val(mcontext));
+#endif
 #ifdef CLIENT_INTERFACE
         if (res != RECREATE_FAILURE) {
             /* PR 214962: if the client has a restore callback, invoke it to
