@@ -465,7 +465,6 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     byte *pc;
     cache_pc exit_target;
     ibl_type_t ibl_type = {0};
-    /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
     DEBUG_DECLARE(bool is_ibl = )
         get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type _IF_X64(NULL));
     ASSERT(is_ibl);
@@ -473,7 +472,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
         exit_target = target_tag;
     else
         exit_target = get_linked_entry(dcontext, target_tag);
-    /* We want to patch the final instr */
+    /* We want to patch the final instr.  For Thumb it's wide. */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
     pc = stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - ARM_INSTR_SIZE;
     /* ldr pc, [r10, #ibl-offs] */
@@ -487,10 +486,15 @@ cache_pc
 indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     cache_pc cti = EXIT_CTI_PC(f, l);
+    cache_pc tgt;
+    dr_isa_mode_t old_mode;
     if (!EXIT_HAS_STUB(l->flags, f->flags))
         return NULL;
+    dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
     ASSERT(decode_raw_is_jmp(dcontext, cti));
-    return decode_raw_jmp_target(dcontext, cti);
+    tgt = decode_raw_jmp_target(dcontext, cti);
+    dr_set_isa_mode(dcontext, old_mode, NULL);
+    return tgt;
 }
 
 cache_pc
@@ -512,8 +516,25 @@ cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 void
 unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    byte *stub_pc = (byte *) EXIT_STUB_PC(dcontext, f, l);
+    byte *pc;
+    cache_pc exit_target;
+    ibl_code_t *ibl_code = NULL;
+    ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
+    ASSERT(LINKSTUB_INDIRECT(l->flags));
+    /* target is always the same, so if it's already unlinked, this is a nop */
+    if (!TEST(LINK_LINKED, l->flags))
+        return;
+    ibl_code = get_ibl_routine_code(dcontext,
+                                    extract_branchtype(l->flags), f->flags);
+    exit_target = ibl_code->unlinked_ibl_entry;
+    /* We want to patch the final instr.  For Thumb it's wide. */
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
+    pc = stub_pc + exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
+                                  f->flags) - ARM_INSTR_SIZE;
+    /* ldr pc, [r10, #ibl-offs] */
+    insert_ldr_tls_to_pc(pc, f, get_ibl_entry_tls_offs(dcontext, exit_target));
+    machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
 }
 
 
