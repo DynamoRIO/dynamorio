@@ -905,6 +905,15 @@ function (use_DynamoRIO_test_annotations target target_srcs)
   set(${target_srcs} ${${target_srcs}} ${dr_annotation_test_srcs} PARENT_SCOPE)
 endfunction (use_DynamoRIO_test_annotations target target_srcs)
 
+# optimize the target
+function(optimize target)
+  if (UNIX)
+    append_property_string(TARGET ${target} COMPILE_FLAGS "-O3")
+  else ()
+    append_property_string(TARGET ${target} COMPILE_FLAGS "/Ox /GL")
+  endif (UNIX)
+endfunction(optimize)
+
 ###########################################################################
 # RUNNING
 

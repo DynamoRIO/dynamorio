@@ -123,10 +123,6 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
 
 void exit_event(void)
 {
-    if (test_stats.num_instructions_truncated > 0) {
-        dr_printf("Truncated a total of %d instructions from %d basic blocks.\n",
-                  test_stats.num_instructions_truncated, test_stats.num_bbs_truncated);
-    }
     dr_printf("Received %d 'define memory' requests for a total of %d bytes.\n",
               test_stats.num_define_memory_requests, test_stats.num_bytes_made_defined);
 

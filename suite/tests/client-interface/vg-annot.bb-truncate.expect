@@ -5,5 +5,4 @@ Make 1234 bytes defined if addressable.
 Make 89 bytes defined if addressable.
 Make 567 bytes defined if addressable.
 The Valgrind annotation test thinks it is running on Valgrind.
-Truncated a total of 7380 instructions from 1252 basic blocks.
 Received 5 'define memory' requests for a total of 3024 bytes.
