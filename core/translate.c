@@ -120,9 +120,10 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
     return (instr_get_opcode(inst) == OP_jmp_short &&
             opnd_is_instr(instr_get_target(inst)));
 # elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return ((instr_get_opcode(inst) == OP_b_short ||
+             /* A32 uses a regular jump */
+             instr_get_opcode(inst) == OP_b) &&
+            opnd_is_instr(instr_get_target(inst)));
 # endif /* X86/ARM */
 }
 
@@ -241,6 +242,14 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         }
         if (instr_is_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg)) {
             r = reg - REG_START_SPILL;
+            IF_ARM({
+                /* Ignore the spill of r0 into TLS for syscall restart
+                 * XXX: we're assuming it's immediately prior to the syscall.
+                 */
+                if (instr_get_next(inst) != NULL &&
+                    instr_is_syscall(instr_get_next(inst)))
+                    spill = false;
+            });
             /* if a restore whose spill was before a cti, ignore */
             if (spill || walk->reg_spilled[r]) {
                 /* ensure restores and spills are properly paired up */

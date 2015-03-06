@@ -81,6 +81,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\tr14 ="PFX"\n", sc->SC_LR);
     LOG(THREAD, LOG_ASYNCH, 1, "\tpc  ="PFX"\n", sc->SC_XIP);
     LOG(THREAD, LOG_ASYNCH, 1, "\tcpsr="PFX"\n", sc->SC_XFLAGS);
+    /* XXX: should we take in sig_full_cxt_t to dump SIMD regs? */
 }
 #endif /* DEBUG */
 

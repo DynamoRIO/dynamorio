@@ -2947,22 +2947,38 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
             /* pre-syscall but post-jmp so can't skip syscall */
             pre_or_post_syscall = true;
         } else {
+            size_t syslen;
             instr_reset(dcontext, &instr);
-            ASSERT(INT_LENGTH == SYSCALL_LENGTH);
-            ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
-            nxt_pc = decode(dcontext, pc - SYSCALL_LENGTH, &instr);
+            IF_X86_ELSE({
+                ASSERT(INT_LENGTH == SYSCALL_LENGTH);
+                ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
+                syslen = SYSCALL_LENGTH;
+            }, {
+                if (FRAG_IS_THUMB(f->flags))
+                    syslen = SVC_THUMB_LENGTH;
+                else
+                    syslen = SVC_ARM_LENGTH;
+            });
+            nxt_pc = decode(dcontext, pc - syslen, &instr);
             if (nxt_pc != NULL && instr_valid(&instr) &&
                 instr_is_syscall(&instr)) {
+#if !defined(ARM) && !defined(MACOS)
                 /* decoding backward so check for exit cti jmp prior
                  * to syscall to ensure no mismatch
                  */
                 instr_reset(dcontext, &instr);
-                nxt_pc = decode(dcontext, pc - SYSCALL_LENGTH - JMP_LONG_LENGTH, &instr);
+                nxt_pc = decode(dcontext, pc - syslen - JMP_LONG_LENGTH, &instr);
                 if (nxt_pc != NULL && instr_valid(&instr) &&
                     instr_get_opcode(&instr) == OP_jmp) {
                     /* post-inlined-syscall */
                     pre_or_post_syscall = true;
                 }
+#else
+                /* On Mac and ARM we have some TLS spills in between so we just
+                 * trust that this is a syscall (esp on ARM w/ aligned instrs).
+                 */
+                pre_or_post_syscall = true;
+#endif
             }
         }
         instr_free(dcontext, &instr);
@@ -2977,6 +2993,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
 {
     byte *pc = (byte *) sc->SC_XIP;
     instr_t instr;
+    int sys_inst_len;
 
     if (sc->IF_X86_ELSE(SC_XAX, SC_R0) != -EINTR) {
         /* The syscall succeeded, so no reason to interrupt.
@@ -2997,10 +3014,11 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     if (!DYNAMO_OPTION(restart_syscalls))
         return false;
 
-    /* The kernel has already put -EINTR into eax, so we must
+    /* For x86, the kernel has already put -EINTR into eax, so we must
      * restore the syscall number.  We assume no other register or
      * memory values have been clobbered from their pre-syscall
      * values.
+     * For ARM, we want the sysnum to determine whether restartable.
      */
     int sysnum = -1;
     if (f != NULL) {
@@ -3040,7 +3058,15 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
         LOG(THREAD, LOG_ASYNCH, 2, "%s: syscall is non-restartable\n", __FUNCTION__);
         return false;
     }
+#ifdef X86
     sc->SC_SYSNUM_REG = sysnum;
+#elif defined(ARM)
+    /* We just need to restore the app's arg to the syscall into r0, which
+     * the kernel clobbered with -EINTR.  We stored r0 into TLS.
+     */
+    sc->SC_R0 = (reg_t) get_tls(os_tls_offset(TLS_REG0_SLOT));
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: restored r0 to "PFX"\n", __FUNCTION__, sc->SC_R0);
+#endif
 
     /* Now adjust the pc to point at the syscall instruction instead of after it,
      * so when we resume we'll go back to the syscall.
@@ -3048,18 +3074,35 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
      * XXX: this is a transparency issue: the app might expect a pc after the
      * syscall.  We live with it for now.
      */
-#ifdef X86
+#ifdef ARM
+    dr_isa_mode_t isa_mode, old_mode;
+    if (is_after_syscall_address(dcontext, pc)) {
+        /* We're going to walk back in the fragment, not gencode */
+        isa_mode = dr_get_isa_mode(dcontext);
+    } else {
+        ASSERT(f != NULL);
+        isa_mode = FRAG_ISA_MODE(f->flags);
+    }
+    dr_set_isa_mode(dcontext, isa_mode, &old_mode);
+    sys_inst_len = (isa_mode == DR_ISA_ARM_THUMB) ? SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
+#elif defined(X86)
     ASSERT(INT_LENGTH == SYSCALL_LENGTH &&
            INT_LENGTH == SYSENTER_LENGTH);
+    sys_inst_len = INT_LENGTH;
+#endif
     if (pc == vsyscall_sysenter_return_pc) {
-        sc->SC_XIP = (ptr_uint_t) (vsyscall_syscall_end_pc - SYSENTER_LENGTH);
+#ifdef X86
+        sc->SC_XIP = (ptr_uint_t) (vsyscall_syscall_end_pc - sys_inst_len);
         /* To restart sysenter we must re-copy xsp into xbp, as xbp is
          * clobbered by the kernel.
          */
         sc->SC_XBP = sc->SC_XSP;
+#else
+        ASSERT_NOT_REACHED();
+#endif
     } else if (is_after_syscall_address(dcontext, pc)) {
         /* We're at do_syscall: point at app syscall instr */
-        sc->SC_XIP = (ptr_uint_t) (dcontext->asynch_target - INT_LENGTH);
+        sc->SC_XIP = (ptr_uint_t) (dcontext->asynch_target - sys_inst_len);
         DODEBUG({
             instr_init(dcontext, &instr);
             ASSERT(decode(dcontext, (app_pc) sc->SC_XIP, &instr) != NULL &&
@@ -3068,24 +3111,16 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
         });
     } else {
         instr_init(dcontext, &instr);
-        pc = decode(dcontext, pc - INT_LENGTH, &instr);
+        pc = decode(dcontext, pc - sys_inst_len, &instr);
         if (instr_is_syscall(&instr))
-            sc->SC_XIP -= INT_LENGTH;
+            sc->SC_XIP -= sys_inst_len;
         else
             ASSERT_NOT_REACHED();
         instr_free(dcontext, &instr);
     }
-#elif defined(ARM)
-    int svc_length = dr_get_isa_mode(dcontext) == DR_ISA_ARM_THUMB ?
-        SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
-    instr_init(dcontext, &instr);
-    pc = decode(dcontext, pc - svc_length, &instr);
-    if (instr_is_syscall(&instr))
-        sc->SC_XIP -= svc_length;
-    else
-        ASSERT_NOT_REACHED();
-    instr_free(dcontext, &instr);
-#endif /* X86/ARM */
+#ifdef ARM
+    dr_set_isa_mode(dcontext, old_mode, NULL);
+#endif
     LOG(THREAD, LOG_ASYNCH, 2, "%s: sigreturn pc is now "PFX"\n", __FUNCTION__,
         sc->SC_XIP);
     return true;
@@ -4377,11 +4412,11 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
          * abandon the currently-interrupted context.
          */
         mcontext_to_ucontext(uc, mcontext);
-        /* Sigreturn needs the target ISA mode to be set in the T bit in cpsr.
-         * Since we came from dispatch, the post-signal target's mode is in dcontext.
-         */
-        IF_ARM(set_pc_mode_in_cpsr(sc, dr_get_isa_mode(dcontext)));
     }
+    /* Sigreturn needs the target ISA mode to be set in the T bit in cpsr.
+     * Since we came from dispatch, the post-signal target's mode is in dcontext.
+     */
+    IF_ARM(set_pc_mode_in_cpsr(sc, dr_get_isa_mode(dcontext)));
     /* mcontext does not contain fp or mmx or xmm state, which may have
      * changed since the frame was created (while finishing up interrupted
      * fragment prior to returning to dispatch).  Since DR does not touch

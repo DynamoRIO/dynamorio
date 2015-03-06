@@ -1923,15 +1923,15 @@ if (UNIX)
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
 
-  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
-    # i#1145: test re-starting syscalls, both inlined and from dispatch
-    tobuild(linux.eintr linux/eintr.c)
-    target_link_libraries(linux.eintr ${libpthread})
-    torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
+  # i#1145: test re-starting syscalls, both inlined and from dispatch
+  tobuild(linux.eintr linux/eintr.c)
+  target_link_libraries(linux.eintr ${libpthread})
+  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
+  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
     tobuild(linux.sigsuspend linux/sigsuspend.c)
     target_link_libraries(linux.sigsuspend ${libpthread})
-  endif (NOT_ARM)
+  endif (NOT ARM)
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.

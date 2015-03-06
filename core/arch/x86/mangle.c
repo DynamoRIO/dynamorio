@@ -2128,6 +2128,10 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
  * not an original app instruction but one inserted by the earlier mangling phase.
  */
 #endif
+/* XXX: any extra code here can interfere with mangle_syscall_code()
+ * and interrupted_inlined_syscall() which have assumptions about the
+ * exact code around inlined system calls.
+ */
 void
 mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     instr_t *instr, instr_t *next_instr)

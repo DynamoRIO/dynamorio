@@ -589,13 +589,22 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      */
     ASSERT(DR_REG_STOLEN_MIN > DR_REG_SYSNUM);
 
+    /* We have to save r0 in case the syscall is interrupted.  To restart
+     * it, we need to replace the kernel's -EINTR in r0 with the original
+     * app arg.
+     * XXX optimization: we could try to get the syscall number and avoid
+     * this for non-auto-restart syscalls.
+     */
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
+
     /* We do need to save the stolen reg if it is caller-saved.
      * For now we assume that the kernel honors the calling convention
      * and won't clobber callee-saved regs.
      */
     if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
         PRE(ilist, instr,
-            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG0_SLOT));
+            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
         PRE(ilist, instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R10),
                               opnd_create_reg(dr_reg_stolen)));
@@ -604,7 +613,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen),
                               opnd_create_reg(DR_REG_R10)));
         PRE(ilist, next_instr,
-            instr_create_restore_from_tls(dcontext, DR_REG_R10, TLS_REG0_SLOT));
+            instr_create_restore_from_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
     }
 }
 

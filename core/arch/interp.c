@@ -5465,7 +5465,7 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         ;
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
 #endif
 
