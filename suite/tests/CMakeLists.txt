@@ -1295,7 +1295,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     # turn regex chars into literals
     # \\] somehow messes up the match though $expect looks identical
     # some tests do have ']' so we replace it in a separate step below
-    string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[])"
+    string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[\\;])"
       "\\\\\\1" expect "${expect}")
     string(REGEX REPLACE "\\]"
       "\\\\]" expect "${expect}")
