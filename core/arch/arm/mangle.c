@@ -609,14 +609,6 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 }
 
 #ifdef UNIX
-bool
-mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
-{
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
-}
-
 /* Inserts code to handle clone into ilist.
  * instr is the syscall instr itself.
  * Assumes that instructions exist beyond instr in ilist.

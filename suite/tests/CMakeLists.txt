@@ -1911,15 +1911,19 @@ if (UNIX)
   tobuild(linux.sigplain101 linux/sigplain101.c)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
-  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild(linux.sigcontext linux/sigcontext.c)
+  endif (NOT ARM)
+  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
     tobuild(linux.thread linux/thread.c)
     tobuild(linux.threadexit linux/threadexit.c)
     tobuild(linux.threadexit2 linux/threadexit2.c)
-    tobuild(linux.signalfd linux/signalfd.c)
-    # i#784: test app behavior on alarm
-    tobuild(linux.alarm linux/alarm.c)
+  endif (NOT ARM)
+  tobuild(linux.signalfd linux/signalfd.c)
+  # i#784: test app behavior on alarm
+  tobuild(linux.alarm linux/alarm.c)
 
+  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
     # i#1145: test re-starting syscalls, both inlined and from dispatch
     tobuild(linux.eintr linux/eintr.c)
     target_link_libraries(linux.eintr ${libpthread})
@@ -1927,7 +1931,7 @@ if (UNIX)
 
     tobuild(linux.sigsuspend linux/sigsuspend.c)
     target_link_libraries(linux.sigsuspend ${libpthread})
-  endif (NOT ARM)
+  endif (NOT_ARM)
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
