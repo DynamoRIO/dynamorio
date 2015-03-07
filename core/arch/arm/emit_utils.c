@@ -317,7 +317,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
      * indirect branch from there:
      *        b stub
      *      stub:
-     *        ldr pc, [pc + 12]
+     *        ldr pc, [pc + 10 or 12]
      *        movw r0, #bottom-half-&linkstub
      *        movt r0, #top-half-&linkstub
      *        ldr pc, [r10, #fcache-return-offs]
@@ -332,8 +332,9 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
         /* All instrs are 4 bytes, so cur pc == start of next instr, so we have to
          * skip 3 instrs:
          */
-        uint word2 = 0xf000 |
-            ((DIRECT_EXIT_STUB_INSTR_COUNT - 1) * THUMB_LONG_INSTR_SIZE);
+        cache_pc tgt = stub_pc + DIRECT_EXIT_STUB_INSTR_COUNT * THUMB_LONG_INSTR_SIZE;
+        uint offs = tgt - decode_cur_pc(stub_pc, FRAG_ISA_MODE(f->flags), OP_ldr, NULL);
+        uint word2 = 0xf000 | offs;
         /* We assume this is atomic */
         *(uint*)stub_pc = (word2 << 16) | word1; /* little-endian */
     } else {
