@@ -689,6 +689,19 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
     KSTART(mangling);
     instrlist_set_our_mangling(ilist, true); /* PR 267260 */
+
+#ifdef ARM
+    if (INTERNAL_OPTION(store_last_pc)) {
+        /* This is a simple debugging feature.  There's a chance that some
+         * mangling clobbers the r3 slot but it's slim, and it's much
+         * simpler to put this at the top than try to put it right before
+         * the exit cti(s).
+         */
+        PRE(ilist, instrlist_first(ilist),
+            instr_create_save_to_tls(dcontext, DR_REG_PC, TLS_REG3_SLOT));
+    }
+#endif
+
     for (instr = instrlist_first(ilist);
          instr != NULL;
          instr = next_instr) {

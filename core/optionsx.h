@@ -2672,6 +2672,14 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT_INTERNAL(uint, slowdown_ibl_found, 0,
         "add a loop to slow down the IBL hit path")
 
+#ifdef ARM
+    /* Provides a nice debugging option for identifying the most recently
+     * executed fragment.
+     */
+    OPTION_INTERNAL(bool, store_last_pc,
+                    "Inserts a store of the PC to TLS at the top of each fragment.")
+#endif
+
      /* Stress Testing Options */
     OPTION_DEFAULT_INTERNAL(bool, stress_recreate_pc, false,
         "stress test recreate pc after each trace or bb")
