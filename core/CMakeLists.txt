@@ -558,10 +558,12 @@ if (UNIX)
 
   # This appends to LINK_FLAGS, so do it after we set them above.
   set_preferred_base_start_and_end(dynamorio)
-  # i#46: We're pretty libc independent these days, but we still support
-  # -no_private_loader when loaded by the system loader.  We also have a sqrt
-  # import that we should cut.
-  target_link_libraries(dynamorio dl m)
+
+  if (APPLE OR STATIC_LIBRARY)
+    # Static library build uses libdl.  MacOS has no private loader yet.
+    target_link_libraries(dynamorio dl)
+  endif ()
+  # XXX: FRAGMENT_SIZES_STUDY needs libm for sqrt but it's not supported by default
 
   # We need to do extra work to hide symbols in the static library build.
   # First we do a partial link with ld -r, which makes a single libdynamorio.o

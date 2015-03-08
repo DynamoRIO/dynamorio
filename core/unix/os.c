@@ -3168,7 +3168,7 @@ load_shared_library(const char *name, bool reachable)
 # ifdef STATIC_LIBRARY
     if (os_files_same(name, get_application_name())) {
         /* The private loader falls back to dlsym() and friends for modules it
-         * does't recognize, so this works without disabling the private loader.
+         * doesn't recognize, so this works without disabling the private loader.
          */
         return dlopen(NULL, RTLD_LAZY);  /* Gets a handle to the exe. */
     }
@@ -3178,8 +3178,17 @@ load_shared_library(const char *name, bool reachable)
      */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         return (shlib_handle_t) locate_and_load_private_library(name, reachable);
+# ifdef STATIC_LIBRARY
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
+# else
+    /* -no_private_loader is no longer supported in our default builds.
+     * If we want it for hybrid mode we should add a new build param and include
+     * the libdl calls here under that param.
+     */
+    ASSERT_NOT_REACHED();
+    return NULL;
+# endif
 }
 #endif
 
@@ -3191,8 +3200,13 @@ lookup_library_routine(shlib_handle_t lib, const char *name)
         return (shlib_routine_ptr_t)
             get_private_library_address((app_pc)lib, name);
     }
+# ifdef STATIC_LIBRARY
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlsym(lib, name);
+# else
+    ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported: see above */
+    return NULL;
+# endif
 }
 
 void
@@ -3201,10 +3215,14 @@ unload_shared_library(shlib_handle_t lib)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         unload_private_library(lib);
     } else {
+# ifdef STATIC_LIBRARY
         ASSERT(!DYNAMO_OPTION(early_inject));
         if (!DYNAMO_OPTION(avoid_dlclose)) {
             dlclose(lib);
         }
+# else
+        ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported: see above  */
+# endif
     }
 }
 
@@ -3215,11 +3233,16 @@ shared_library_error(char *buf, int maxlen)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         err = "error in private loader";
     } else {
+# ifdef STATIC_LIBRARY
         ASSERT(!DYNAMO_OPTION(early_inject));
         err = dlerror();
         if (err == NULL) {
             err = "dlerror returned NULL";
         }
+# else
+        ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported */
+        err = "unknown error";
+# endif
     }
     strncpy(buf, err, maxlen-1);
     buf[maxlen-1] = '\0'; /* strncpy won't put on trailing null if maxes out */

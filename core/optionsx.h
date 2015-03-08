@@ -341,7 +341,6 @@
      * regular loader list
      */
     /* XXX i#1285: MacOS private loader is NYI */
-    /* FIXME i#1551: ARM Linux private loader is NYI */
     OPTION_DEFAULT_INTERNAL(bool, private_loader,
                             IF_MACOS_ELSE(false, true),
                             "use private loader for clients and dependents")

@@ -757,9 +757,18 @@ get_private_library_address(app_pc modbase, const char *name)
     mod = privload_lookup_by_base(modbase);
     if (mod == NULL || mod->externally_loaded) {
         release_recursive_lock(&privload_lock);
+#ifdef STATIC_LIBRARY
         /* externally loaded, use dlsym instead */
         ASSERT(!DYNAMO_OPTION(early_inject));
         return dlsym(modbase, name);
+#else
+        /* Only libdynamorio.so is externally_loaded and we should not be querying
+         * for it.  Unknown libs shouldn't be queried here: get_proc_address should
+         * be used instead.
+         */
+        ASSERT_NOT_REACHED();
+        return NULL;
+#endif
     }
     /* Before the heap is initialized, we store the text address in opd, so we
      * can't check if opd != NULL to know whether it's valid.

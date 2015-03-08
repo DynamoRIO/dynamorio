@@ -1435,24 +1435,27 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
       "-native_exec_list common.nativeexec -native_exec_retakeover" "")
     torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
       "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
+    # XXX: the next 3 tests, and perhaps all of these native_exec tests,
+    # really want a mode with -no_private_loader -no_mangle_app_seg.  With
+    # our reluctance to add lib deps back to DR, that's going to require a
+    # sepaparate build.  Until someone really focuses on hybrid mode again
+    # (in which case a new build param should be added to re-enable libdl),
+    # we leave the tests here as regression tests but w/ private loader in place.
     torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+      "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
     # No swap TLS and no kstats for optimized native_exec
     torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
     torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "-bind_now")
+      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
   endif ()
 
-  # app seg mangling makes dstack test fail so we disable such mangling
-  if (UNIX)
-    # private loader requires the mangling
-    tobuild_ops(common.protect-dstack common/protect-dstack.c
-      "-no_mangle_app_seg -no_private_loader" "")
-  else (UNIX)
+  # App seg mangling makes dstack test fail, and our default build does not
+  # support disabling such mangling, so this test is Windows-only.
+  if (WIN32)
     tobuild_ops(common.protect-dstack common/protect-dstack.c
       "-no_mangle_app_seg" "")
-  endif (UNIX)
+  endif ()
 endif (NOT ARM)
 
 tobuild(common.segfault common/segfault.c)
