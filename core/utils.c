@@ -2943,6 +2943,7 @@ get_short_name(const char *exename)
 /****************************************************************************/
 
 #ifdef DEBUG
+# ifdef FRAGMENT_SIZES_STUDY /* to isolate sqrt dependence */
 /* given an array of size size of integers, computes and prints the
  * min, max, mean, and stddev
  */
@@ -2993,6 +2994,7 @@ print_statistics(int *data, int size)
 
     PRESERVE_FLOATING_POINT_STATE_END();
 }
+# endif
 
 /* FIXME: these should be under ifdef STATS, not necessarily ifdef DEBUG */
 void

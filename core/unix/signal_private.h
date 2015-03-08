@@ -442,7 +442,7 @@ bool kernel_sigismember(kernel_sigset_t *set, int _sig)
         return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
 }
 
-/* FIXME: how does libc do this? */
+/* XXX: how does libc do this? */
 static inline
 void copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
 {
@@ -457,21 +457,27 @@ void copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
      */
     for (sig=1; sig<=MAX_SIGNUM; sig++) {
         if (kernel_sigismember(kset, sig))
-            sigaddset(uset, sig);
+            sigaddset(uset, sig); /* inlined, so no libc dep */
     }
 }
 
-/* FIXME: how does libc do this? */
+/* i#1541: unfortunately sigismember now leads to libc imports so we write our own */
+static inline
+bool libc_sigismember(const sigset_t *set, int _sig)
+{
+    int sig = _sig - 1; /* go to 0-based */
+    uint bits_per = 8*sizeof(ulong);
+    return TEST(1UL << (sig % bits_per), set->__val[sig / bits_per]);
+}
+
+/* XXX: how does libc do this? */
 static inline void
 copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
 {
     int sig;
     kernel_sigemptyset(kset);
-    /* do this the slow way...I don't want to make assumptions about
-     * structure of user sigset_t
-     */
     for (sig=1; sig<=MAX_SIGNUM; sig++) {
-        if (sigismember(uset, sig))
+        if (libc_sigismember(uset, sig))
             kernel_sigaddset(kset, sig);
     }
 }
