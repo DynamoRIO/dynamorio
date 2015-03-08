@@ -666,11 +666,20 @@ if (UNIX)
       message("${readelf_name} not found: not checking SElinux or execstack")
     else ()
       get_target_property(lib_to_check dynamorio LOCATION)
+      set(check_deps OFF)
+      if (NOT STATIC_LIBRARY AND NOT APPLE)
+        # i#46, i#1541, i#1459: we have zero dependencies now by default, except
+        # for MacOS where privlib is NYI (i#1596) and static lib.
+        if (NOT VMSAFE AND NOT VPS) # XXX: these unsupported builds have deps
+          set(check_deps ON)
+        endif ()
+      endif ()
       add_custom_command(TARGET dynamorio
         POST_BUILD
         COMMAND ${CMAKE_COMMAND}
         # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib=${lib_to_check}
+             -D check_deps=${check_deps}
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260
@@ -681,6 +690,7 @@ if (UNIX)
         COMMAND ${CMAKE_COMMAND}
         # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib=${lib_to_check}
+             -D check_deps=OFF
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260
