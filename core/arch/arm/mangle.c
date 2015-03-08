@@ -1583,6 +1583,11 @@ normalize_ldm_instr(dcontext_t *dcontext,
          * guaranteed to get one.  And since cti uses r2 it works out there.
          */
         adjust_pre += sizeof(reg_t);
+        /* adjust base back if base won't be over-written, e.g.,:
+         * ldm (%r10)[16byte] -> %r0 %r1 %r2 %r3
+         */
+        if (!instr_writes_to_reg(instr, base, DR_QUERY_INCLUDE_ALL))
+            adjust_post -= sizeof(reg_t);
         /* pre_ldm_adjust makes sure that the base reg points to the start address of
          * the ldmia memory, so we know the slot to be load is at [base, -4].
          */
