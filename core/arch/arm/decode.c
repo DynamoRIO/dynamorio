@@ -2604,17 +2604,14 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
     for (check = instrlist_first(ilist); check != NULL; check = instr_get_next(check)) {
         byte buf[THUMB_LONG_INSTR_SIZE];
         instr_t tmp;
-        byte *pc;
+        byte *pc, *npc;
         app_pc addr = instr_get_raw_bits(check);
+        int check_len = instr_length(dcontext, check);
         instr_set_raw_bits_valid(check, false);
         pc = instr_encode_to_copy(dcontext, check, buf, addr);
         instr_init(dcontext, &tmp);
-        /* XXX: the fragile IT block tracking will get off if our encoding doesn't
-         * match the app's in length, b/c we're advancing according to app length
-         * while IT tracking will advance at our length.
-         */
-        decode_from_copy(dcontext, buf, addr, &tmp);
-        if (!instr_same(check, &tmp)) {
+        npc = decode_from_copy(dcontext, buf, addr, &tmp);
+        if (npc != pc || !instr_same(check, &tmp)) {
             LOG(THREAD, LOG_EMIT, 1, "ERROR: from app:  %04x %04x  ",
                 *(ushort*)addr, *(ushort*)(addr+2));
             instr_disassemble(dcontext, check, THREAD);
@@ -2624,6 +2621,20 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
             LOG(THREAD, LOG_EMIT, 1, "\n ");
         }
         ASSERT(instr_same(check, &tmp));
+        if (pc - buf != check_len) {
+            /* The fragile IT block tracking will get off if our encoding doesn't
+             * match the app's in length, b/c we're advancing according to app length
+             * while IT tracking will advance at our length.  We try to adjust for
+             * that here, unfortunately by violating abstraction.
+             * XXX: can we do better?  Can we make an interface for this that
+             * a client could use?  Should IT advancing compute orig_pc length
+             * instead of using di->t32_16 which is based on copy pc?
+             */
+            decode_state_t *ds = get_decode_state(dcontext);
+            if (ds->itb_info.num_instrs != 0) {
+                ds->pc += check_len - (pc - buf);
+            }
+        }
         instr_set_raw_bits_valid(check, true);
         instr_free(dcontext, &tmp);
     }

@@ -163,6 +163,11 @@ _jmp_target:
         itt      eq
         ldrbeq.w r1, [r4, #84]
         cmpeq    r1, #0
+        mov      r0, #0
+        cmp      r0, #0
+        itt      ne
+        addne.w  r0, sp, #92
+        blne     _exit
 
 // mangle ldm
         ldr      r0, =wrong
