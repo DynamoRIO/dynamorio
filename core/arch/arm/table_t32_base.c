@@ -65,22 +65,22 @@ const instr_info_t T32_base_e[] = {
     {OP_strd,     0xe8e00000, "strd",   Mq, RAw, RBw, RCw, i8, xop_wb, x, xbase[0x06]},/*PUW=011*/
     {OP_ldrd,     0xe8f00000, "ldrd",   RBw, RCw, RAw, Mq, i8, xop_wb|dstX3, x, xbase[0x07]},/*PUW=011*/
     /* 90 */
-    {OP_stmdb,    0xe9000000, "stmdb",  Ml, xx, L14w, xx, xx, no, x, xbase[0x12]},/*PUW=100*/
-    {OP_ldmdb,    0xe9100000, "ldmdb",  L15w, xx, Ml, xx, xx, no, x, xbase[0x13]},/*PUW=100*/
-    {OP_stmdb,    0xe9200000, "stmdb",  Ml, RAw, L14w, RAw, xx, no, x, END_LIST},/*PUW=101*//*"push" if RA==sp*/
-    {OP_ldmdb,    0xe9300000, "ldmdb",  L15w, RAw, Ml, RAw, xx, no, x, END_LIST},/*PUW=101*/
+    {OP_stmdb,    0xe9000000, "stmdb",  MDBl, xx, L14w, xx, xx, no, x, xbase[0x12]},/*PUW=100*/
+    {OP_ldmdb,    0xe9100000, "ldmdb",  L15w, xx, MDBl, xx, xx, no, x, xbase[0x13]},/*PUW=100*/
+    {OP_stmdb,    0xe9200000, "stmdb",  MDBl, RAw, L14w, RAw, xx, no, x, END_LIST},/*PUW=101*//*"push" if RA==sp*/
+    {OP_ldmdb,    0xe9300000, "ldmdb",  L15w, RAw, MDBl, RAw, xx, no, x, END_LIST},/*PUW=101*/
     {OP_strd,     0xe9400000, "strd",   MN8Xq, xx, RBw, RCw, xx, no, x, xbase[0x1e]},/*PUW=100*/
     {OP_ldrd,     0xe9500000, "ldrd",   RBw, RCw, MN8Xq, xx, xx, no, x, xbase[0x1f]},/*PUW=100*/
-    {OP_strd,     0xe9600000, "strd",   MN8Xq, RAw, RBw, RCw, n8, xop_wb, x, xbase[0x0e]},/*PUW=101*/
-    {OP_ldrd,     0xe9700000, "ldrd",   RBw, RCw, RAw, MN8Xq, n8, xop_wb|dstX3, x, xbase[0x0f]},/*PUW=101*/
+    {OP_strd,     0xe9600000, "strd",   MN8Xq, RAw, RBw, RCw, n8x4, xop_wb, x, xbase[0x0e]},/*PUW=101*/
+    {OP_ldrd,     0xe9700000, "ldrd",   RBw, RCw, RAw, MN8Xq, n8x4, xop_wb|dstX3, x, xbase[0x0f]},/*PUW=101*/
     {OP_srs,      0xe98dc000, "srs",    Mq, xx, i5, LRw, SPSR, no, x, xbase[0x1a]},/*PUW=110*/
     {OP_rfe,      0xe990c000, "rfe",    CPSR, xx, Mq, xx, xx, no, x, xbase[0x1b]},/*PUW=110*/
     {OP_srs,      0xe9adc000, "srs",    Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=111*/
     {OP_rfe,      0xe9b0c000, "rfe",    RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=111*/
     {OP_strd,     0xe9c00000, "strd",   MP8Xq, xx, RBw, RCw, xx, no, x, xbase[0x14]},/*PUW=110*/
     {OP_ldrd,     0xe9d00000, "ldrd",   RBw, RCw, MP8Xq, xx, xx, no, x, xbase[0x15]},/*PUW=110*/
-    {OP_strd,     0xe9e00000, "strd",   MP8Xq, RAw, RBw, RCw, i8, xop_wb, x, xbase[0x16]},/*PUW=111*/
-    {OP_ldrd,     0xe9f00000, "ldrd",   RBw, RCw, RAw, MP8Xq, i8, xop_wb|dstX3, x, xbase[0x17]},/*PUW=111*/
+    {OP_strd,     0xe9e00000, "strd",   MP8Xq, RAw, RBw, RCw, i8x4, xop_wb, x, xbase[0x16]},/*PUW=111*/
+    {OP_ldrd,     0xe9f00000, "ldrd",   RBw, RCw, RAw, MP8Xq, i8x4, xop_wb|dstX3, x, xbase[0x17]},/*PUW=111*/
     /* a0 */
     {OP_and,      0xea000000, "and",    RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, x, END_LIST},
     {EXT_RCPC,    0xea100000, "(ext rcpc 0)", xx, xx, xx, xx, xx, no, x, 0},
@@ -181,7 +181,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
     {INVALID,     0xf1e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf1f00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     /* 20 */
-    {OP_addw,     0xf2000000, "addw",   RCw, xx, RAw, i12x26_12_0, xx, no, x, END_LIST},
+    {OP_addw,     0xf2000000, "addw",   RCw, xx, RAw, i12x26_12_0_z, xx, no, x, END_LIST},
     {INVALID,     0xf2100000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf2200000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf2300000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -191,7 +191,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
     {INVALID,     0xf2700000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf2800000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf2900000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_subw,     0xf2a00000, "subw",   RCw, xx, RAw, i12x26_12_0, xx, no, x, END_LIST},
+    {OP_subw,     0xf2a00000, "subw",   RCw, xx, RAw, i12x26_12_0_z, xx, no, x, END_LIST},
     {INVALID,     0xf2b00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_movt,     0xf2c00000, "movt",   RCt, xx, i16x16_26_12_0, xx, xx, no, x, END_LIST},
     {INVALID,     0xf2d00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -249,7 +249,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
     {INVALID,     0xf5e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf5f00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     /* 60 */
-    {OP_addw,     0xf6000000, "addw",   RCw, xx, RAw, i12x26_12_0, xx, no, x, DUP_ENTRY},
+    {OP_addw,     0xf6000000, "addw",   RCw, xx, RAw, i12x26_12_0_z, xx, no, x, DUP_ENTRY},
     {INVALID,     0xf6100000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf6200000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf6300000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -259,7 +259,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
     {INVALID,     0xf6700000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf6800000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf6900000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_subw,     0xf6a00000, "subw",   RCw, xx, RAw, i12x26_12_0, xx, no, x, DUP_ENTRY},
+    {OP_subw,     0xf6a00000, "subw",   RCw, xx, RAw, i12x26_12_0_z, xx, no, x, DUP_ENTRY},
     {INVALID,     0xf6b00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_movt,     0xf6c00000, "movt",   RCt, xx, i16x16_26_12_0, xx, xx, no, x, DUP_ENTRY},
     {INVALID,     0xf6d00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},

@@ -270,7 +270,7 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_stc,     0xed800000, "stc",    MP8Xw, xx, i4_8, CRBw, i8x4, no, x, xfp[14][0x02]},/*PUW=110*/
   }, { /* 23 */
     {OP_vldr,    0xed900a00, "vldr",   WBd, xx, MP8Xd, xx, xx, vfp, x, xfp[15][0x00]},
-    {OP_vldr,    0xed900b00, "vldr",   VBq, xx, MN8Xq, xx, xx, vfp, x, DUP_ENTRY},
+    {OP_vldr,    0xed900b00, "vldr",   VBq, xx, MP8Xq, xx, xx, vfp, x, xfp[15][0x01]},
     {OP_ldc,     0xed900000, "ldc",    CRBw, xx, MP8Xw, i4_8, xx, no, x, xfp[15][0x02]},/*PUW=110*/
   }, { /* 24 */
     {INVALID,    0xeda00a00, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},/*PUW=111*/
@@ -286,7 +286,7 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_stcl,    0xedc00000, "stcl",   MP8Xw, xx, i4_8, CRBw, i8x4, no, x, xfp[18][0x02]},/*PUW=110*/
   }, { /* 27 */
     {OP_vldr,    0xedd00a00, "vldr",   WBd, xx, MP8Xd, xx, xx, vfp, x, DUP_ENTRY},
-    {OP_vldr,    0xedd00b00, "vldr",   VBq, xx, MN8Xq, xx, xx, vfp, x, DUP_ENTRY},
+    {OP_vldr,    0xedd00b00, "vldr",   VBq, xx, MP8Xq, xx, xx, vfp, x, DUP_ENTRY},
     {OP_ldcl,    0xedd00000, "ldcl",   CRBw, xx, MP8Xw, i4_8, xx, no, x, xfp[19][0x02]},/*PUW=110*/
   }, { /* 28 */
     {INVALID,    0xede00a00, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},/*PUW=111*/

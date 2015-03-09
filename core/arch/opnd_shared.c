@@ -499,8 +499,6 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
         opnd.aux.segment = seg;
     }, {
         opnd.aux.flags = 0;
-        opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
-        opnd.value.base_disp.shift_amount_minus_1 = 0;
         CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                       "opnd_create_*base_disp*: cannot have both disp and index");
     });
@@ -514,6 +512,9 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
             opnd.value.base_disp.shift_amount_minus_1 =
                 /* we store the amount minus one */
                 (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
+        } else {
+            opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
+            opnd.value.base_disp.shift_amount_minus_1 = 0;
         }
     });
     opnd_set_disp_helper(&opnd, disp);
@@ -608,9 +609,11 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
             CLIENT_ASSERT(false, "opnd index shift: invalid shift amount");
             return false;
         }
+        opnd->value.base_disp.shift_amount_minus_1 = 0; /* so opnd_same matches */
         break;
     case DR_SHIFT_LSL:
     case DR_SHIFT_ROR:
+        /* XXX: T32 only allows shift value [1, 3] */
         if (amount < 1 || amount > 31) {
             CLIENT_ASSERT(false, "opnd  index shift: invalid shift amount");
             return false;
@@ -1071,7 +1074,7 @@ bool opnd_same(opnd_t op1, opnd_t op2)
         return false;
     else if (!opnd_same_sizes_ok(opnd_get_size(op1), opnd_get_size(op2),
                                  opnd_is_reg(op1)) &&
-             (opnd_is_immed_int(op1) ||
+             (IF_X86(opnd_is_immed_int(op1) ||) /* on ARM we ignore immed sizes */
               opnd_is_reg(op1) ||
               opnd_is_memory_reference(op1)))
         return false;
@@ -1690,8 +1693,35 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
     ptr_int_t scaled_index = 0;
     if (opnd_is_base_disp(opnd)) {
         reg_id_t index = opnd_get_index(opnd);
+#ifdef X86
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
+#elif defined(ARM)
+        uint amount;
+        dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
+        reg_t index_val = reg_get_value_priv(index, mc);
+        switch (type) {
+        case DR_SHIFT_LSL:
+            scaled_index = index_val << amount;
+            break;
+        case DR_SHIFT_LSR:
+            scaled_index = index_val >> amount;
+            break;
+        case DR_SHIFT_ASR:
+            scaled_index = (ptr_int_t)index_val << amount;
+            break;
+        case DR_SHIFT_ROR:
+            scaled_index = (index_val >> amount) |
+                (index_val << (sizeof(reg_t)*8 - amount));
+            break;
+        case DR_SHIFT_RRX:
+            scaled_index = (index_val >> 1) ||
+                (TEST(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t)*8-1)) : 0);
+            break;
+        default:
+            scaled_index = index_val;
+        }
+#endif
     }
     return opnd_compute_address_helper(opnd, mc, scaled_index);
 }

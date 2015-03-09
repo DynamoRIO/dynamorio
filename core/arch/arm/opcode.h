@@ -1007,6 +1007,7 @@ enum {
 #define OP_neg       OP_rsbs   /**< Alternative opcode name for rsbs. */
 #define OP_cpy       OP_mov    /**< Alternative opcode name for reg-reg mov. */
 #define OP_jmp       OP_b      /**< Platform-independent opcode name for jump. */
+#define OP_jmp_short OP_b_short/**< Platform-independent opcode name for short jump. */
 #define OP_load      OP_ldr    /**< Platform-independent opcode name for load. */
 #define OP_store     OP_str    /**< Platform-independent opcode name for store. */
 

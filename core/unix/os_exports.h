@@ -97,11 +97,17 @@
 # endif /* 64/32-bit */
 #endif /* X86/ARM */
 
+#define TLS_REG_LIB  LIB_SEG_TLS  /* TLS reg commonly used by libraries in Linux */
+#define TLS_REG_ALT  SEG_TLS      /* spare TLS reg, used by DR in X86 Linux */
+
 #define DR_REG_SYSNUM IF_X86_ELSE(REG_EAX/* not XAX */, DR_REG_R7)
 
 #ifdef ARM
-/* The app's TLS slot for swap, which holds DR's TLS base when not in code cache.
- * On ARM, we use the app's 'private' field of the tcbhead_t to store DR TLS base.
+# ifdef X64
+#  error NYI on AArch64
+# endif
+/* The TLS slot for DR's TLS base.
+ * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base.
  * typedef struct
  * {
  *   dtv_t *dtv;
@@ -111,13 +117,12 @@
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
  */
-# define APP_TLS_SWAP_SLOT    IF_X64_ELSE(8, 4) /* skip dtv */
-/* the offset in os_local_state_t for storing the app's stolen TLS slot value */
-ushort os_get_app_tls_swap_offset(void);
-/* opcode for reading app's TLS base (user-read-only-thread-ID-register)
+# define DR_TLS_BASE_OFFSET   IF_X64_ELSE(8, 4) /* skip dtv */
+/* opcode for reading usr mode TLS base (user-read-only-thread-ID-register)
  * mrc p15, 0, reg_app, c13, c0, 3
  */
-# define APP_TLS_REG_OPCODE 3
+# define USR_TLS_REG_OPCODE 3
+# define USR_TLS_COPROC_15 15
 #endif
 
 void *get_tls(ushort tls_offs);
@@ -323,6 +328,15 @@ typedef struct sigcontext sigcontext_t;
 #endif
 #define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
 #define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(sigcontext_t))
+
+/* Points at both general-purpose regs and floating-point/SIMD state.
+ * The storage for the pointed-at structs must be valid across the whole use of
+ * this container struct, of course, so be careful where it's used.
+ */
+typedef struct _sig_full_cxt_t {
+    sigcontext_t *sc;
+    void *fp_simd_state;
+} sig_full_cxt_t;
 
 /* cross-platform sigcontext_t field access */
 #ifdef MACOS

@@ -232,6 +232,7 @@ struct _decode_info_t {
     /* For encoding reglists */
     uint reglist_start;
     uint reglist_stop;
+    opnd_size_t reglist_itemsz;
     int memop_sz;
     /* For decoding and encoding shift types.  We need to coordinate across two
      * adjacent immediates.  This is set to point at the first one.
@@ -380,6 +381,7 @@ enum {
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
     TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 + complex T32 "modified immed" encoding */
+    TYPE_I_b26_b12_b0_z, /* T32-26,14:12,7:0 + zero extend immed encoding */
     TYPE_I_b28_b16_b0, /* OP_vbic, etc. T32: 28,18:16,3:0 */
 
     /* PC-relative jump targets.  All are x2 unless specified. */
@@ -483,15 +485,11 @@ enum {
 
     /* Non-incremental-enum valus */
     DECODE_INDEX_SHIFT_TYPE_BITPOS_A32    = 5,
-    DECODE_INDEX_SHIFT_TYPE_BITPOS_T32    = 4,
     DECODE_INDEX_SHIFT_TYPE_SIZE          = OPSZ_2b,
     DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32  = 7,
     DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32    = OPSZ_5b,
-    DECODE_INDEX_SHIFT_AMOUNT_BITPOS1_T32 = 12,
-    DECODE_INDEX_SHIFT_AMOUNT_BITPOS2_T32 = 6,
-    DECODE_INDEX_SHIFT_AMOUNT_SIZE1_T32   = OPSZ_3b,
-    DECODE_INDEX_SHIFT_AMOUNT_SIZE2_T32   = OPSZ_2b,
-    DECODE_INDEX_SHIFT_AMOUNT_SIZE1_SHIFT = 2,
+    DECODE_INDEX_SHIFT_AMOUNT_BITPOS_T32  = 4,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE_T32    = OPSZ_2b,
 
     SHIFT_ENCODING_DECODE = -1,
     SHIFT_ENCODING_LSL = 0,

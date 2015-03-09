@@ -54,11 +54,10 @@ typedef enum {
 #ifdef X64
     TLS_TYPE_ARCH_PRCTL,
 #endif
-    /* We use an app TLS slot to store DR's tls base, and swap on context switch.
-     * Used with stealing a register in code cache, we only need the swapped
-     * slot in DR C code.
+    /* Used with stealing a register in code cache, we use a (app/priv) lib TLS
+     * slot to store DR's tls base in DR C code.
      */
-    TLS_TYPE_SWAP,
+    TLS_TYPE_SLOT,
 } tls_type_t;
 
 extern tls_type_t tls_global_type;
@@ -114,7 +113,7 @@ typedef struct _our_modify_ldt_t {
 #  define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
 #  define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 # endif /* 64/32-bit */
-# define APP_TLS_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
+# define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
 #endif /* X86/ARM */
 
 static inline uint
@@ -210,17 +209,12 @@ typedef struct _os_local_state_t {
     int ldt_index;
     /* tid needed to ensure children are set up properly */
     thread_id_t tid;
-#ifdef ARM
-    /* Having only one thread register (TPIDRURO) shared between app and DR,
-     * we steal a register for DR's TLS base in the code cache,
-     * and steal an app's TLS slot for DR's TLS base when not in the code cache.
-     * We store the original value of app's TLS slot here.
-     */
-    byte *app_tls_swap;
-#endif
+
+#ifdef X86
     /* i#107 application's tls value and pointed-at base */
     ushort app_lib_tls_reg;  /* for mangling seg update/query */
     ushort app_alt_tls_reg;  /* for mangling seg update/query */
+#endif
     void  *app_lib_tls_base; /* for mangling segmented memory ref */
     void  *app_alt_tls_base; /* for mangling segmented memory ref */
     union {
@@ -242,14 +236,12 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment);
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
-void
-tls_early_init(void);
-
 #ifdef ARM
 byte **
-get_app_tls_swap_addr(void);
+get_dr_tls_base_addr(void);
 #endif
 
+#ifdef X86
 /* Assumes it's passed either SEG_FS or SEG_GS.
  * Returns POINTER_MAX on failure.
  */
@@ -290,14 +282,15 @@ tls_initialize_indices(os_local_state_t *os_tls);
 int
 tls_min_index(void);
 
-#if defined(LINUX) && defined(X64)
+# if defined(LINUX) && defined(X64)
 void
 tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base);
-#endif
+# endif
 
-#if defined(MACOS) && !defined(X64)
+# if defined(MACOS) && !defined(X64)
 void
 tls_reinstate_selector(uint selector);
-#endif
+# endif
+#endif /* X86 */
 
 #endif /* _OS_TLS_H_ */

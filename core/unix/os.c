@@ -144,8 +144,8 @@ struct compat_rlimit {
 # else
 #  define ASM_R3 "r3"
 #  define READ_TP_TO_R3 \
-      "mrc p15, 0, "ASM_R3", c13, c0, "STRINGIFY(APP_TLS_REG_OPCODE)" \n\t" \
-      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(APP_TLS_SWAP_SLOT)"] \n\t"
+      "mrc p15, 0, "ASM_R3", c13, c0, "STRINGIFY(USR_TLS_REG_OPCODE)" \n\t" \
+      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
 # endif /* 64/32-bit */
 #endif /* ARM */
 
@@ -1300,14 +1300,14 @@ is_thread_tls_initialized(void)
 # endif
     return false;
 #elif defined(ARM)
-    byte **tls_swap_slot;
+    byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
-    tls_swap_slot = (byte **)get_app_tls_swap_addr();
-    if (tls_swap_slot == NULL ||
-        *tls_swap_slot == NULL ||
-        /* We use the app slot's value to identify a now-exited thread (i#1578) */
-        *tls_swap_slot == APP_TLS_VAL_EXITED)
+    dr_tls_base_addr = (byte **)get_dr_tls_base_addr();
+    if (dr_tls_base_addr == NULL ||
+        *dr_tls_base_addr == NULL ||
+        /* We use the TLS slot's value to identify a now-exited thread (i#1578) */
+        *dr_tls_base_addr == TLS_SLOT_VAL_EXITED)
         return false;
     /* We would like to ASSERT is_dynamo_address(*tls_swap_slot) but that leads
      * to infinite recursion for an address not in the vm_reserve area, as
@@ -1376,6 +1376,30 @@ get_os_tls_from_dc(dcontext_t *dcontext)
     return (os_local_state_t *)(local_state - offsetof(os_local_state_t, state));
 }
 
+#ifdef ARM
+static bool
+os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
+{
+    os_local_state_t *os_tls;
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
+    ASSERT(reg == TLS_REG_LIB || reg == TLS_REG_ALT);
+    if (dcontext == NULL)
+        dcontext = get_thread_private_dcontext();
+    /* we will be called only if TLS is initialized */
+    ASSERT(dcontext != NULL);
+    os_tls = get_os_tls_from_dc(dcontext);
+    if (reg == TLS_REG_LIB) {
+        os_tls->app_lib_tls_base = base;
+        return true;
+    } else if (reg == TLS_REG_ALT) {
+        os_tls->app_alt_tls_base = base;
+        return true;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+#endif
+
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t reg)
 {
@@ -1413,6 +1437,7 @@ os_get_app_tls_base_offset(reg_id_t reg)
     return 0;
 }
 
+#ifdef X86
 ushort
 os_get_app_tls_reg_offset(reg_id_t reg)
 {
@@ -1425,6 +1450,7 @@ os_get_app_tls_reg_offset(reg_id_t reg)
     ASSERT_NOT_REACHED();
     return 0;
 }
+#endif
 
 void *
 get_tls(ushort tls_offs)
@@ -1504,8 +1530,7 @@ os_enter_dynamorio(void)
 {
 # ifdef ARM
     /* i#1578: check that app's tls value doesn't match our sentinel */
-    os_local_state_t *os_tls = get_os_tls();
-    ASSERT(os_tls->app_tls_swap != APP_TLS_VAL_EXITED);
+    ASSERT(*(byte **)get_dr_tls_base_addr() != TLS_SLOT_VAL_EXITED);
 # endif
 }
 #endif
@@ -1575,19 +1600,20 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
 #endif /* X86/ARM */
 }
 
-#ifdef X86
-/* initialization for mangle_app_seg, must be called before
- * DR setup its own segment.
+/* Initialization for TLS mangling (-mangle_app_seg on x86).
+ * Must be called before DR setup its own segment.
  */
 static void
 os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 {
+    app_pc app_lib_tls_base, app_alt_tls_base;
+#ifdef X86
     int i, index;
     our_modify_ldt_t *desc;
-    app_pc app_lib_tls_base, app_alt_tls_base;
 
     os_tls->app_lib_tls_reg = read_thread_register(TLS_REG_LIB);
     os_tls->app_alt_tls_reg = read_thread_register(TLS_REG_ALT);
+#endif
     app_lib_tls_base = get_segment_base(TLS_REG_LIB);
     app_alt_tls_base = get_segment_base(TLS_REG_ALT);
 
@@ -1597,6 +1623,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     os_tls->app_alt_tls_base =
         is_dynamo_address(app_alt_tls_base) ? NULL : app_alt_tls_base;
 
+#ifdef X86
     /* get all TLS thread area value */
     /* XXX: is get_thread_area supported in 64-bit kernel?
      * It has syscall number 211.
@@ -1609,13 +1636,16 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     for (i = 0; i < GDT_NUM_TLS_SLOTS; i++) {
         tls_get_descriptor(i + index, &desc[i]);
     }
+#endif /* X86 */
 
     os_tls->os_seg_info.dr_tls_base = segment;
-    os_tls->os_seg_info.priv_alt_tls_base = segment;
+    os_tls->os_seg_info.priv_alt_tls_base = IF_X86_ELSE(segment, NULL);
+
     /* now allocate the tls segment for client libraries */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         os_tls->os_seg_info.priv_lib_tls_base =
-            privload_tls_init(os_tls->app_lib_tls_base);
+            IF_UNIT_TEST_ELSE(os_tls->app_lib_tls_base,
+                              privload_tls_init(os_tls->app_lib_tls_base));
     }
 
     LOG(THREAD_GET, LOG_THREADS, 1,
@@ -1629,7 +1659,6 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         os_tls->os_seg_info.priv_alt_tls_base,
         os_tls->os_seg_info.dr_tls_base);
 }
-#endif
 
 void
 os_tls_init(void)
@@ -1661,11 +1690,9 @@ os_tls_init(void)
     /* Verify that local_state_extended_t should indeed be used. */
     ASSERT(DYNAMO_OPTION(ibl_table_in_tls));
 
-# ifdef X86
-    /* get application's GS/FS segment base before being replaced by DR. */
-    if (INTERNAL_OPTION(mangle_app_seg))
+    /* initialize DR TLS seg base before replacing app's TLS in tls_thread_init */
+    if (MACHINE_TLS_IS_DR_TLS)
         os_tls_app_seg_init(os_tls, segment);
-# endif
 
     tls_thread_init(os_tls, segment);
     ASSERT(os_tls->tls_type != TLS_TYPE_NONE);
@@ -1907,17 +1934,17 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
 
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
+        if (MACHINE_TLS_IS_DR_TLS) {
 #ifdef X86
-        if (INTERNAL_OPTION(mangle_app_seg)) {
             heap_free(dcontext, ostd->app_thread_areas,
                       sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS
                       HEAPACCT(ACCT_OTHER));
-# ifdef CLIENT_INTERFACE
+#endif
+#ifdef CLIENT_INTERFACE
             if (INTERNAL_OPTION(private_loader))
-                privload_tls_exit(ostd->priv_lib_tls_base);
-# endif
+                privload_tls_exit(IF_UNIT_TEST_ELSE(NULL, ostd->priv_lib_tls_base));
+#endif
         }
-#endif /* X86 */
         heap_free(dcontext, ostd, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));
     });
 }
@@ -3145,7 +3172,7 @@ load_shared_library(const char *name, bool reachable)
 # ifdef STATIC_LIBRARY
     if (os_files_same(name, get_application_name())) {
         /* The private loader falls back to dlsym() and friends for modules it
-         * does't recognize, so this works without disabling the private loader.
+         * doesn't recognize, so this works without disabling the private loader.
          */
         return dlopen(NULL, RTLD_LAZY);  /* Gets a handle to the exe. */
     }
@@ -3155,8 +3182,17 @@ load_shared_library(const char *name, bool reachable)
      */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         return (shlib_handle_t) locate_and_load_private_library(name, reachable);
+# ifdef STATIC_LIBRARY
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
+# else
+    /* -no_private_loader is no longer supported in our default builds.
+     * If we want it for hybrid mode we should add a new build param and include
+     * the libdl calls here under that param.
+     */
+    ASSERT_NOT_REACHED();
+    return NULL;
+# endif
 }
 #endif
 
@@ -3168,8 +3204,13 @@ lookup_library_routine(shlib_handle_t lib, const char *name)
         return (shlib_routine_ptr_t)
             get_private_library_address((app_pc)lib, name);
     }
+# ifdef STATIC_LIBRARY
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlsym(lib, name);
+# else
+    ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported: see above */
+    return NULL;
+# endif
 }
 
 void
@@ -3178,10 +3219,14 @@ unload_shared_library(shlib_handle_t lib)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         unload_private_library(lib);
     } else {
+# ifdef STATIC_LIBRARY
         ASSERT(!DYNAMO_OPTION(early_inject));
         if (!DYNAMO_OPTION(avoid_dlclose)) {
             dlclose(lib);
         }
+# else
+        ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported: see above  */
+# endif
     }
 }
 
@@ -3192,11 +3237,16 @@ shared_library_error(char *buf, int maxlen)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         err = "error in private loader";
     } else {
+# ifdef STATIC_LIBRARY
         ASSERT(!DYNAMO_OPTION(early_inject));
         err = dlerror();
         if (err == NULL) {
             err = "dlerror returned NULL";
         }
+# else
+        ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported */
+        err = "unknown error";
+# endif
     }
     strncpy(buf, err, maxlen-1);
     buf[maxlen-1] = '\0'; /* strncpy won't put on trailing null if maxes out */
@@ -4346,6 +4396,10 @@ ignorable_system_call_normalized(int num)
     case SYS_get_thread_area:
     /* FIXME: we might add SYS_modify_ldt later. */
 #endif
+#if defined(LINUX) && defined(ARM)
+    /* syscall changes app's thread register */
+    case SYS_set_tls:
+#endif
         return false;
     default:
 #ifdef VMX86_SERVER
@@ -5438,9 +5492,9 @@ static bool
 os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
 {
     bool res = false;
+    os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
 #ifdef X86
     app_pc base;
-    os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
 
     /* we can only update the executing thread's segment (i#920) */
     ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
@@ -5537,8 +5591,40 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     }
     ASSERT(BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT(INTERNAL_OPTION(private_loader));
+    if (to_app) {
+        /* On switching to app's TLS, we need put DR's TLS base into app's TLS
+         * at the same offset so it can be loaded on entering code cache.
+         * Otherwise, the context switch code on entering fcache will fault on
+         * accessing DR's TLS.
+         * The app's TLS slot value is stored into privlib's TLS slot for
+         * later restore on switching back to privlib's TLS.
+         */
+        byte **app_lib_tls_swap_slot = (byte **)
+            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte **priv_lib_tls_swap_slot = (byte **)
+            (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte *dr_tls_base = *priv_lib_tls_swap_slot;
+        *priv_lib_tls_swap_slot = *app_lib_tls_swap_slot;
+        *app_lib_tls_swap_slot = dr_tls_base;
+        res = dynamorio_syscall(SYS_set_tls, 1, os_tls->app_lib_tls_base) == 0;
+    } else {
+        /* Restore the app's TLS slot that we used for storing DR's TLS base,
+         * and put DR's TLS base back to privlib's TLS slot.
+         */
+        byte **app_lib_tls_swap_slot = (byte **)
+            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte **priv_lib_tls_swap_slot = (byte **)
+            (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte *dr_tls_base = *priv_lib_tls_swap_slot;
+        *app_lib_tls_swap_slot = *priv_lib_tls_swap_slot;
+        *priv_lib_tls_swap_slot = dr_tls_base;
+        res = dynamorio_syscall(SYS_set_tls, 1,
+                                os_tls->os_seg_info.priv_lib_tls_base) == 0;
+    }
+    LOG(THREAD, LOG_LOADER, 2,
+        "%s %s: set_tls swap successful for thread "TIDFMT"\n",
+        __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id());
 #endif /* X86/ARM */
     return res;
 }
@@ -6380,6 +6466,17 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 # endif /* X86 */
+# ifdef ARM
+    case SYS_set_tls: {
+        if (os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)sys_param(dcontext, 0))) {
+            execute_syscall = false;
+            set_success_return_val(dcontext, 0);
+        } else {
+            ASSERT_NOT_REACHED();
+        }
+        break;
+    }
+# endif /* ARM */
 #elif defined(MACOS)
     /* FIXME i#58: handle i386_{get,set}_ldt and thread_fast_set_cthread_self64 */
 #endif

@@ -566,10 +566,13 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
     ATOMIC_ADD_EXCHANGE_suffix("d", var, val, res)
 #  define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange) \
      __asm__ __volatile__(                                            \
-       "   ldrex" suffix " r2, %0       \n\t"                         \
+       "2: ldrex" suffix " r2, %0       \n\t"                         \
        "   cmp"   suffix " r2, %1       \n\t"                         \
        "   bne    1f                    \n\t"                         \
        "   strex" suffix " r3, %2, %0   \n\t"                         \
+       "   cmp   r3, #0                 \n\t"                         \
+       "   bne   2b                     \n\t"                         \
+       "   cmp"   suffix " r2, %1       \n\t" /* for SET_FLAG */      \
        "1: clrex                        \n\t"                         \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : "r"  (compare), "r" (exchange)                               \
@@ -1536,6 +1539,7 @@ get_native_ret_ibl_xfer_entry(dcontext_t *dcontext);
 
 
 enum {
+#ifdef X86
     MAX_INSTR_LENGTH = 17,
     /* size of 32-bit-offset jcc instr, assuming it has no
      * jcc branch hint!
@@ -1555,12 +1559,20 @@ enum {
     CTI_IAT_LENGTH     = 6, /* FF 15 38 10 80 7C call dword ptr ds:[7C801038h] */
     CTI_FAR_ABS_LENGTH = 7, /* 9A 1B 07 00 34 39 call 0739:3400071B            */
                             /* 07                                              */
+#elif defined(ARM)
+    MAX_INSTR_LENGTH = ARM_INSTR_SIZE,
+    CBR_LONG_LENGTH  = ARM_INSTR_SIZE,
+    JMP_LONG_LENGTH  = ARM_INSTR_SIZE,
+    JMP_SHORT_LENGTH = THUMB_SHORT_INSTR_SIZE,
+    CBR_SHORT_REWRITE_LENGTH = 6,
+    SVC_THUMB_LENGTH = THUMB_SHORT_INSTR_SIZE, /* Thumb syscall instr */
+    SVC_ARM_LENGTH   = ARM_INSTR_SIZE,   /* ARM syscall instr */
+#endif
 
+    /* Not under defines so we can have code that is less cluttered */
     INT_LENGTH = 2,
     SYSCALL_LENGTH = 2,
     SYSENTER_LENGTH = 2,
-    SVC_THUMB_LENGTH = 2, /* Thumb syscall instr */
-    SVC_ARM_LENGTH = 4,   /* ARM syscall instr */
 };
 
 #define REL32_REACHABLE_OFFS(offs) ((offs) <= INT_MAX && (offs) >= INT_MIN)

@@ -317,7 +317,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
      * indirect branch from there:
      *        b stub
      *      stub:
-     *        ldr pc, [pc + 12]
+     *        ldr pc, [pc + 10 or 12]
      *        movw r0, #bottom-half-&linkstub
      *        movt r0, #top-half-&linkstub
      *        ldr pc, [r10, #fcache-return-offs]
@@ -332,8 +332,9 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
         /* All instrs are 4 bytes, so cur pc == start of next instr, so we have to
          * skip 3 instrs:
          */
-        uint word2 = 0xf000 |
-            ((DIRECT_EXIT_STUB_INSTR_COUNT - 1) * THUMB_LONG_INSTR_SIZE);
+        cache_pc tgt = stub_pc + DIRECT_EXIT_STUB_INSTR_COUNT * THUMB_LONG_INSTR_SIZE;
+        uint offs = tgt - decode_cur_pc(stub_pc, FRAG_ISA_MODE(f->flags), OP_ldr, NULL);
+        uint word2 = 0xf000 | offs;
         /* We assume this is atomic */
         *(uint*)stub_pc = (word2 << 16) | word1; /* little-endian */
     } else {
@@ -465,7 +466,6 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     byte *pc;
     cache_pc exit_target;
     ibl_type_t ibl_type = {0};
-    /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
     DEBUG_DECLARE(bool is_ibl = )
         get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type _IF_X64(NULL));
     ASSERT(is_ibl);
@@ -473,7 +473,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
         exit_target = target_tag;
     else
         exit_target = get_linked_entry(dcontext, target_tag);
-    /* We want to patch the final instr */
+    /* We want to patch the final instr.  For Thumb it's wide. */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
     pc = stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - ARM_INSTR_SIZE;
     /* ldr pc, [r10, #ibl-offs] */
@@ -487,10 +487,15 @@ cache_pc
 indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     cache_pc cti = EXIT_CTI_PC(f, l);
+    cache_pc tgt;
+    dr_isa_mode_t old_mode;
     if (!EXIT_HAS_STUB(l->flags, f->flags))
         return NULL;
+    dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
     ASSERT(decode_raw_is_jmp(dcontext, cti));
-    return decode_raw_jmp_target(dcontext, cti);
+    tgt = decode_raw_jmp_target(dcontext, cti);
+    dr_set_isa_mode(dcontext, old_mode, NULL);
+    return tgt;
 }
 
 cache_pc
@@ -512,8 +517,25 @@ cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 void
 unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    byte *stub_pc = (byte *) EXIT_STUB_PC(dcontext, f, l);
+    byte *pc;
+    cache_pc exit_target;
+    ibl_code_t *ibl_code = NULL;
+    ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
+    ASSERT(LINKSTUB_INDIRECT(l->flags));
+    /* target is always the same, so if it's already unlinked, this is a nop */
+    if (!TEST(LINK_LINKED, l->flags))
+        return;
+    ibl_code = get_ibl_routine_code(dcontext,
+                                    extract_branchtype(l->flags), f->flags);
+    exit_target = ibl_code->unlinked_ibl_entry;
+    /* We want to patch the final instr.  For Thumb it's wide. */
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
+    pc = stub_pc + exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
+                                  f->flags) - ARM_INSTR_SIZE;
+    /* ldr pc, [r10, #ibl-offs] */
+    insert_ldr_tls_to_pc(pc, f, get_ibl_entry_tls_offs(dcontext, exit_target));
+    machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
 }
 
 
@@ -592,14 +614,12 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 
 #define OPND_ARG1    opnd_create_reg(DR_REG_R0)
 
-/* Load app's TLS base to reg_base and then APP_TLS_SWAP_SLOT value to reg_slot.
- * This should be only used on emitting fcache enter/return code.
- */
+/* Load DR's TLS base to dr_reg_stolen via reg_base */
 static void
-insert_load_app_tls_slot(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t reg_base, reg_id_t reg_slot)
+insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t reg_base)
 {
-    /* load app's TLS base from user-read-only-thread-ID register
+    /* load TLS base from user-read-only-thread-ID register
      * mrc p15, 0, reg_base, c13, c0, 3
      */
     PRE(ilist, where,
@@ -608,54 +628,19 @@ insert_load_app_tls_slot(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
                          OPND_CREATE_INT(0),
                          opnd_create_reg(DR_REG_CR13),
                          opnd_create_reg(DR_REG_CR0),
-                         OPND_CREATE_INT(APP_TLS_REG_OPCODE)));
-    /* ldr reg_slot, [reg, APP_TLS_SLOT_SWAP] */
+                         OPND_CREATE_INT(USR_TLS_REG_OPCODE)));
+    /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
     PRE(ilist, where,
-        XINST_CREATE_load(dcontext, opnd_create_reg(reg_slot),
-                          OPND_CREATE_MEMPTR(reg_base, APP_TLS_SWAP_SLOT)));
-}
-
-void
-insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                       reg_id_t scratch1, reg_id_t scratch2)
-{
-    /* load app's TLS base into r0 and DR's TLS base into dr_reg_stolen */
-    insert_load_app_tls_slot(dcontext, ilist, where, scratch1, dr_reg_stolen);
-    /* load app original value from os_tls->app_tls_swap */
-    PRE(ilist, where,
-        RESTORE_FROM_TLS(dcontext, scratch2, os_get_app_tls_swap_offset()));
-    /* store app value back to app's TLS swap slot ([r0, APP_TLS_SWAP_SLOT]) */
-    PRE(ilist, where,
-        XINST_CREATE_store(dcontext,
-                           OPND_CREATE_MEMPTR(scratch1, APP_TLS_SWAP_SLOT),
-                           opnd_create_reg(scratch2)));
-}
-
-void
-insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t scratch1, reg_id_t scratch2)
-{
-    /* steal app's TLS slot for DR's TLS base */
-    /* load app's TLS base into r1 and app's tls slot value into r2 */
-    insert_load_app_tls_slot(dcontext, ilist, where, scratch1, scratch2);
-    /* save r2 into os_tls->app_tls_swap */
-    PRE(ilist, where, SAVE_TO_TLS(dcontext, scratch2, os_get_app_tls_swap_offset()));
-    /* save dr_reg_stolen into app's tls slot */
-    PRE(ilist, where,
-        XINST_CREATE_store(dcontext,
-                           OPND_CREATE_MEMPTR(scratch1, APP_TLS_SWAP_SLOT),
-                           opnd_create_reg(dr_reg_stolen)));
+        XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
+                          OPND_CREATE_MEMPTR(reg_base, DR_TLS_BASE_OFFSET)));
 }
 
 /* Having only one thread register (TPIDRURO) shared between app and DR,
  * we steal a register for DR's TLS base in the code cache,
- * and steal an app's TLS slot for DR's TLS base in the C code.
+ * and store DR's TLS base into an private lib's TLS slot for accessing in C code.
  * On entering the code cache (fcache_enter):
  * - grab gen routine's parameter dcontext and put it into REG_DCXT
- * - load app's TLS base from TPIDRURO to r0
- * - load DR's TLS base from app's TLS slot we steal ([r0, APP_TLS_SWAP_SLOT])
- * - restore the app original value (stored in os_tls->app_tls_swap)
- *   back to app's TLS slot ([r0, APP_TLS_SWAP_SLOT])
+ * - load DR's TLS base into dr_reg_stolen from privlib's TLS
  */
 void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
@@ -666,8 +651,8 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
     APP(ilist, XINST_CREATE_move(dcontext,
                                  opnd_create_reg(REG_DCXT),
                                  OPND_ARG1/*r0*/));
-    /* set up stolen reg and restore app's TLS slot */
-    insert_swap_to_app_tls(dcontext, ilist, NULL/*append*/, SCRATCH_REG0, SCRATCH_REG1);
+    /* set up stolen reg */
+    insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
 }
 
 void
@@ -809,9 +794,6 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
      */
     APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_REG_STOLEN_SLOT));
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_OFFSET(dr_reg_stolen)));
-    /* move stolen reg val into TLS slot for DR's C code */
-    insert_swap_from_app_tls(dcontext, ilist, NULL/*append*/, SCRATCH_REG1, SCRATCH_REG2);
-    /* FIXME i#1551: how should we handle register pc? */
 }
 
 /* dcontext base is held in REG_DCXT, and exit stub in r0.
@@ -878,6 +860,33 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
     return pc;
 }
 
+static void
+insert_mode_change_handling(dcontext_t *dc, instrlist_t *ilist, instr_t *where,
+                            reg_id_t addr_reg, reg_id_t scratch1, reg_id_t scratch2)
+{
+    /* Check LSB for mode changes: store the new mode in the dcontext.
+     * XXX i#1551: to avoid this store every single time even when there's no
+     * mode change, we'd need to generate separate thumb and arm IBL versions.
+     * We'd still need to check LSB and branch.
+     * Unfortunately it's hard to not do this in the IBL and instead back in DR:
+     * what about signal handler, other places who decode?
+     */
+    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
+    PRE(ilist, where, instr_create_restore_from_tls(dc, scratch2, TLS_DCONTEXT_SLOT));
+    /* Get LSB from target address */
+    PRE(ilist, where, INSTR_CREATE_and(dc, OPREG(scratch1), OPREG(addr_reg),
+                                       OPND_CREATE_INT(1)));
+    /* Get right enum value. arch_init() ensures A32 + 1 == Thumb. */
+    PRE(ilist, where, INSTR_CREATE_add(dc, OPREG(scratch1), OPREG(scratch1),
+                                       OPND_CREATE_INT(DR_ISA_ARM_A32)));
+    PRE(ilist, where, XINST_CREATE_store
+        (dc, OPND_CREATE_MEM32(scratch2, (int)offsetof(dcontext_t, isa_mode)),
+         OPREG(scratch1)));
+    /* Now clear the bit for the table lookup */
+    PRE(ilist, where, INSTR_CREATE_bic
+        (dc, OPREG(addr_reg), OPREG(addr_reg), OPND_CREATE_INT(0x1)));
+}
+
 /* XXX: ideally we'd share the high-level and use XINST_CREATE or _arch routines
  * to fill in pieces like flag saving.  However, the ibl generation code for x86
  * is so complex that this needs a bunch of refactoring and likely removing support
@@ -922,27 +931,8 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
 
-    /* Check LSB for mode changes: store the new mode in the dcontext.
-     * XXX i#1551: to avoid this store every single time even when there's no
-     * mode change, we'd need to generate separate thumb and arm IBL versions.
-     * We'd still need to check LSB and branch.
-     * Unfortunately it's hard to not do this in the IBL and instead back in DR:
-     * what about signal handler, other places who decode?
-     */
-    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_DCONTEXT_SLOT));
-    /* Get LSB from target address */
-    APP(&ilist, INSTR_CREATE_and(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R2),
-                                 OPND_CREATE_INT(1)));
-    /* Get right enum value. arch_init() ensures A32 + 1 == Thumb. */
-    APP(&ilist, INSTR_CREATE_add(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R0),
-                                 OPND_CREATE_INT(DR_ISA_ARM_A32)));
-    APP(&ilist, XINST_CREATE_store
-        (dc, OPND_CREATE_MEM32(DR_REG_R1, (int)offsetof(dcontext_t, isa_mode)),
-         OPREG(DR_REG_R0)));
-    /* Now clear the bit for the table lookup */
-    APP(&ilist, INSTR_CREATE_bic
-        (dc, OPREG(DR_REG_R2), OPREG(DR_REG_R2), OPND_CREATE_INT(0x1)));
+    /* Update dcontext->isa_mode, and then clear LSB of address */
+    insert_mode_change_handling(dc, &ilist, NULL, DR_REG_R2, DR_REG_R0, DR_REG_R1);
 
     /* Now apply the hash, the *8, and add to the table base */
     APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),
@@ -1004,15 +994,21 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * their TLS slots, and &linkstub is still in the r3 slot.
      */
 
-    /* Miss path */
-    APP(&ilist, miss);
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
-
-    /* Unlink path */
+    /* Unlink path: entry from stub */
     APP(&ilist, unlinked);
     add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
                      (ptr_uint_t*)&ibl_code->unlinked_ibl_entry);
+    /* From stub, we need to save r0 to put the stub into */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
+    /* We need a 2nd scratch for mode changes.  We mirror the linked path. */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
+    /* Update dcontext->isa_mode, and then clear LSB of address */
+    insert_mode_change_handling(dc, &ilist, NULL, DR_REG_R2, DR_REG_R0, DR_REG_R1);
+
+    /* Miss path */
+    APP(&ilist, miss);
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
     /* Put &linkstub into r0 for fcache_return */
     APP(&ilist, INSTR_CREATE_mov(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R1)));
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R1, TLS_REG1_SLOT));

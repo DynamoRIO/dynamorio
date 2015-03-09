@@ -460,9 +460,7 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_START_SPILL   DR_REG_XAX
 # define REG_STOP_SPILL    DR_REG_XDI
 #elif defined(ARM)
-/* FIXME i#1551: how many registers do we allow to spill in ARM,
- * should they be all in TLS?
- */
+/* We only normally use r0-r3 but we support more in translation code */
 # define REG_START_SPILL   DR_REG_R0
 # define REG_STOP_SPILL    DR_REG_R9
 #endif /* X86/ARM */

@@ -2614,7 +2614,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     bool found_syscall = false;
     bool found_int = false;
 #ifdef ANNOTATIONS
-    app_pc trailing_annotation_pc = NULL;
+    app_pc trailing_annotation_pc = NULL, instrumentation_pc = NULL;
+    bool found_instrumentation_pc = false;
+    instr_t *annotation_label = NULL;
 #endif
     instr_t *last_app_instr = NULL;
 
@@ -2716,14 +2718,22 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 
         if (instr_is_meta(inst)) {
 #ifdef ANNOTATIONS
-            /* Save the trailing_annotation_pc in case a client truncates the bb there. */
+            /* Save the trailing_annotation_pc in case a client truncated the bb there. */
             if (is_annotation_label(inst) && last_app_instr == NULL) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
                 trailing_annotation_pc = GET_ANNOTATION_APP_PC(label_data);
+                instrumentation_pc = GET_ANNOTATION_INSTRUMENTATION_PC(label_data);
+                annotation_label = inst;
             }
 #endif
             continue;
         }
+
+#ifdef ANNOTATIONS
+        if (instrumentation_pc != NULL && !found_instrumentation_pc &&
+            instr_get_translation(inst) == instrumentation_pc)
+            found_instrumentation_pc = true;
+#endif
 
         /* in case bb was truncated, find last non-meta fall-through */
         if (last_app_instr == NULL)
@@ -2889,18 +2899,44 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      * app source regions (PR 215217).
      */
 
-    /* Client might have truncated: re-set fall-through. */
+    /* Client might have truncated: re-set fall-through, accounting for annotations. */
     if (last_app_instr != NULL) {
 #ifdef ANNOTATIONS
-        if (trailing_annotation_pc != NULL) {
-            /* If the client truncated at an annotation, include the annotation. */
-            bb->cur_pc = trailing_annotation_pc;
-        } else {
+        bool adjusted_cur_pc = false;
+        if (annotation_label != NULL) {
+            if (found_instrumentation_pc) {
+                /* i#1613: if the last app instruction precedes an annotation, extend the
+                 * translation footprint of `bb` to include the annotation (such that
+                 * the next bb starts after the annotation, avoiding duplication).
+                 */
+                bb->cur_pc = trailing_annotation_pc;
+                adjusted_cur_pc = true;
+            } else {
+                /* i#1613: the client removed the app instruction prior to an annotation.
+                 * We infer that the client wants to skip the annotation. Remove it now.
+                 */
+                instr_t *annotation_placeholder = instr_get_next(annotation_label);
+                instrlist_remove(bb->ilist, annotation_label);
+                instr_destroy(dcontext, annotation_label);
+                ASSERT(annotation_placeholder != NULL &&
+                       is_annotation_return_placeholder(annotation_placeholder));
+                instrlist_remove(bb->ilist, annotation_placeholder);
+                instr_destroy(dcontext, annotation_placeholder);
+            }
+        }
+        if (!adjusted_cur_pc) {
 #endif
             /* We do not take instr_length of what the client put in, but rather
              * the length of the translation target
              */
-            app_pc last_app_pc = instr_get_translation(last_app_instr);
+            app_pc last_app_pc;
+#if defined(WINDOWS) && !defined(STANDALONE_DECODER)
+            /* i#1614: truncation of an intercept resumes in the intercept. */
+            if (is_part_of_interception(instr_get_translation(last_app_instr)))
+                last_app_pc = instr_get_raw_bits(last_app_instr);
+            else
+#endif
+                last_app_pc = instr_get_translation(last_app_instr);
             bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
 #ifdef ANNOTATIONS
         }
@@ -3426,7 +3462,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (is_encoded_valgrind_annotation(bb->instr_start, bb->start_pc,
                                                (app_pc) PAGE_START(bb->cur_pc))) {
                 instrument_valgrind_annotation(dcontext, bb->ilist, bb->instr,
-                                               bb->instr_start, total_instrs);
+                                               bb->instr_start, bb->cur_pc, total_instrs);
                 continue;
             }
         } else /* Top-level annotation recognition is unambiguous (xchg vs. jmp). */
@@ -3853,6 +3889,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
     }
 #endif
+
+    IF_ARM(DOLOG(2, LOG_INTERP, check_encode_decode_consistency(dcontext, bb->ilist);));
 
 #ifdef DR_APP_EXPORTS
     /* changes by DR that are visible to clients */
@@ -5499,7 +5537,7 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         ;
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
 #endif
 

@@ -120,9 +120,10 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
     return (instr_get_opcode(inst) == OP_jmp_short &&
             opnd_is_instr(instr_get_target(inst)));
 # elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return ((instr_get_opcode(inst) == OP_b_short ||
+             /* A32 uses a regular jump */
+             instr_get_opcode(inst) == OP_b) &&
+            opnd_is_instr(instr_get_target(inst)));
 # endif /* X86/ARM */
 }
 
@@ -154,7 +155,6 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)
 {
-#ifdef X86
     reg_id_t reg, r;
     bool spill, spill_tls;
 
@@ -212,7 +212,9 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * comment above for post-mangling traces), and so for local
          * spills like rip-rel and ind branches this is fine.
          */
-        if (instr_is_cti(inst) &&
+        if (instr_is_cti(inst)
+#ifdef X86
+            &&
             /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
              * jne (64-bit), since ecx needs to be restored (won't
              * fault, but for thread relocation)
@@ -229,13 +231,25 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                instr_get_opcode(inst) == OP_jne) &&
               (!opnd_is_pc(instr_get_target(inst)) ||
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
-                opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))) {
+                opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
+#endif
+            ) {
+            /* FIXME i#1551: add ARM version of the series of trace cti checks above */
+            IF_ARM(ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces)));
             /* reset for non-exit non-trace-jecxz cti (i.e., selfmod cti) */
             for (r = 0; r < REG_SPILL_NUM; r++)
                 walk->reg_spilled[r] = false;
         }
         if (instr_is_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg)) {
             r = reg - REG_START_SPILL;
+            IF_ARM({
+                /* Ignore the spill of r0 into TLS for syscall restart
+                 * XXX: we're assuming it's immediately prior to the syscall.
+                 */
+                if (instr_get_next(inst) != NULL &&
+                    instr_is_syscall(instr_get_next(inst)))
+                    spill = false;
+            });
             /* if a restore whose spill was before a cti, ignore */
             if (spill || walk->reg_spilled[r]) {
                 /* ensure restores and spills are properly paired up */
@@ -309,12 +323,6 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             walk->unsupported_mangle = true;
         }
     }
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM.
-     * Also, we may want to split these out into arch/{x86,arm}/ files.
-     */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
 }
 
 static bool
@@ -1073,6 +1081,10 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             /* get app's value of edi */
             mc->xdi = get_mcontext(tdcontext)->xdi;
         }
+#endif
+#ifdef ARM
+        if (!just_pc)
+            set_stolen_reg_val(mcontext, get_stolen_reg_val(mcontext));
 #endif
 #ifdef CLIENT_INTERFACE
         if (res != RECREATE_FAILURE) {

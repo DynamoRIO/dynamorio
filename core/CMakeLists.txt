@@ -389,12 +389,13 @@ set_target_properties(dynamorio PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(dynamorio)
+# Since we're forced to use link-line flags instead of target_link_libraries
+# for dynamorio, we have to add a real target dependence here for correct
+# parallel builds (i#1616: ninja also needs explicit dependency on ntdll_imports).
+add_dependencies(dynamorio ntdll_imports)
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # Since we're forced to use link-line flags instead of target_link_libraries
-  # for dynamorio, we have to add a real target dependence here for correct
-  # parallel builds w/ VS generators.
-  # We also need one for our asm custom commands.
-  add_dependencies(dynamorio ${arch_core_asm_tgt} ntdll_imports)
+  # For VS generators, we also need one for our asm custom commands.
+  add_dependencies(dynamorio ${arch_core_asm_tgt})
 endif ()
 
 target_link_libraries(dynamorio drhelper)
@@ -559,10 +560,12 @@ if (UNIX)
 
   # This appends to LINK_FLAGS, so do it after we set them above.
   set_preferred_base_start_and_end(dynamorio)
-  # i#46: We're pretty libc independent these days, but we still support
-  # -no_private_loader when loaded by the system loader.  We also have a sqrt
-  # import that we should cut.
-  target_link_libraries(dynamorio dl m)
+
+  if (APPLE OR STATIC_LIBRARY)
+    # Static library build uses libdl.  MacOS has no private loader yet.
+    target_link_libraries(dynamorio dl)
+  endif ()
+  # XXX: FRAGMENT_SIZES_STUDY needs libm for sqrt but it's not supported by default
 
   # We need to do extra work to hide symbols in the static library build.
   # First we do a partial link with ld -r, which makes a single libdynamorio.o
@@ -665,11 +668,20 @@ if (UNIX)
       message("${readelf_name} not found: not checking SElinux or execstack")
     else ()
       get_target_property(lib_to_check dynamorio LOCATION)
+      set(check_deps OFF)
+      if (NOT STATIC_LIBRARY AND NOT APPLE)
+        # i#46, i#1541, i#1459: we have zero dependencies now by default, except
+        # for MacOS where privlib is NYI (i#1596) and static lib.
+        if (NOT VMSAFE AND NOT VPS) # XXX: these unsupported builds have deps
+          set(check_deps ON)
+        endif ()
+      endif ()
       add_custom_command(TARGET dynamorio
         POST_BUILD
         COMMAND ${CMAKE_COMMAND}
         # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib=${lib_to_check}
+             -D check_deps=${check_deps}
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260
@@ -680,6 +692,7 @@ if (UNIX)
         COMMAND ${CMAKE_COMMAND}
         # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib=${lib_to_check}
+             -D check_deps=OFF
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260

@@ -129,6 +129,14 @@ typedef struct {
     stack_t           uc_stack;
     sigcontext_t      uc_mcontext;
     kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
+#ifdef ARM
+    int               sigset_ex[32 - (sizeof(kernel_sigset_t)/sizeof(int))];
+    /* coprocessor state is here */
+    union {
+        unsigned long uc_regspace[128] __attribute__((__aligned__(8)));
+        struct vfp_sigframe uc_vfp;
+    } coproc;
+#endif
 } kernel_ucontext_t;
 
 #  define SIGCXT_FROM_UCXT(ucxt) (&((ucxt)->uc_mcontext))
@@ -153,17 +161,20 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
 #define RETCODE_SIZE 8
 
 typedef struct sigframe {
+# ifdef X86
     char *pretcode;
     int sig;
     sigcontext_t sc;
-# ifdef X86
     /* Since 2.6.28, this fpstate has been unused and the real fpstate
      * is at the end of the struct so it can include xstate
      */
     struct _fpstate fpstate;
-# endif /* X86 */
     unsigned long extramask[_NSIG_WORDS-1];
     char retcode[RETCODE_SIZE];
+# elif defined(ARM)
+    kernel_ucontext_t uc;
+    char retcode[RETCODE_SIZE];
+# endif
     /* FIXME: this is a field I added, so our frame looks different from
      * the kernel's...but where else can I store sig where the app won't
      * clobber it?
@@ -184,16 +195,17 @@ typedef struct sigframe {
 /* the rt frame is used for SA_SIGINFO signals */
 typedef struct rt_sigframe {
 #ifdef LINUX
+# ifdef X86
     char *pretcode;
-# ifdef X64
-#  ifdef VMX86_SERVER
+#  ifdef X64
+#   ifdef VMX86_SERVER
     siginfo_t info;
     kernel_ucontext_t uc;
-#   else
+#    else
     kernel_ucontext_t uc;
     siginfo_t info;
-#   endif
-# else
+#    endif
+#  else
     int sig;
     siginfo_t *pinfo;
     void *puc;
@@ -207,8 +219,13 @@ typedef struct rt_sigframe {
      * pointer in the sigcontext anyway.
      */
     char retcode[RETCODE_SIZE];
-# endif
+#  endif
     /* In 2.6.28+, fpstate/xstate goes here */
+# elif defined(ARM)
+    siginfo_t info;
+    kernel_ucontext_t uc;
+    char retcode[RETCODE_SIZE];
+# endif
 
 #elif defined(MACOS)
 # ifdef X64
@@ -425,7 +442,7 @@ bool kernel_sigismember(kernel_sigset_t *set, int _sig)
         return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
 }
 
-/* FIXME: how does libc do this? */
+/* XXX: how does libc do this? */
 static inline
 void copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
 {
@@ -440,21 +457,27 @@ void copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
      */
     for (sig=1; sig<=MAX_SIGNUM; sig++) {
         if (kernel_sigismember(kset, sig))
-            sigaddset(uset, sig);
+            sigaddset(uset, sig); /* inlined, so no libc dep */
     }
 }
 
-/* FIXME: how does libc do this? */
+/* i#1541: unfortunately sigismember now leads to libc imports so we write our own */
+static inline
+bool libc_sigismember(const sigset_t *set, int _sig)
+{
+    int sig = _sig - 1; /* go to 0-based */
+    uint bits_per = 8*sizeof(ulong);
+    return TEST(1UL << (sig % bits_per), set->__val[sig / bits_per]);
+}
+
+/* XXX: how does libc do this? */
 static inline void
 copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
 {
     int sig;
     kernel_sigemptyset(kset);
-    /* do this the slow way...I don't want to make assumptions about
-     * structure of user sigset_t
-     */
     for (sig=1; sig<=MAX_SIGNUM; sig++) {
-        if (sigismember(uset, sig))
+        if (libc_sigismember(uset, sig))
             kernel_sigaddset(kset, sig);
     }
 }
@@ -464,10 +487,10 @@ copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
  */
 
 void
-sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc);
+sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full);
 
 void
-mcontext_to_sigcontext_simd(sigcontext_t *sc, priv_mcontext_t *mc);
+mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc);
 
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame);

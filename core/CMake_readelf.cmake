@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -28,8 +29,10 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# caller must set READELF_EXECUTABLE so it can be a cache variable
-# caller must also set "lib" to point to target library
+# Caller must set:
+# + READELF_EXECUTABLE so it can be a cache variable
+# + "lib" to point to target library
+# + "check_deps" to ON or OFF
 
 # PR 212290: ensure no text relocations (they violate selinux execmod policies)
 # looking for dynamic section tag:
@@ -69,3 +72,36 @@ if (has_execstack)
   message(FATAL_ERROR "*** Error: ${lib} has executable stack")
 endif (has_execstack)
 
+if (check_deps)
+  # First, look for global undefined symbols:
+  execute_process(COMMAND
+    ${READELF_EXECUTABLE} -s ${lib}
+    RESULT_VARIABLE readelf_result
+    ERROR_VARIABLE readelf_error
+    OUTPUT_VARIABLE string
+    )
+  if (readelf_result OR readelf_error)
+    message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+  endif (readelf_result OR readelf_error)
+  string(REGEX MATCH " GLOBAL [ A-Z]* UND " has_undefined "${string}")
+  if (has_undefined)
+    string(REGEX MATCH " GLOBAL [ A-Z]* UND *[^\n]*\n" symname "${string}")
+    message(FATAL_ERROR "*** Error: ${lib} has undefined symbol: ${symname}")
+  endif ()
+
+  # Second, look for DT_NEEDED entries:
+  execute_process(COMMAND
+    ${READELF_EXECUTABLE} -d ${lib}
+    RESULT_VARIABLE readelf_result
+    ERROR_VARIABLE readelf_error
+    OUTPUT_VARIABLE string
+    )
+  if (readelf_result OR readelf_error)
+    message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+  endif (readelf_result OR readelf_error)
+  string(REGEX MATCH "NEEDED" has_needed "${string}")
+  if (has_needed)
+    string(REGEX MATCH "NEEDED[^\n]*\n" libname "${string}")
+    message(FATAL_ERROR "*** Error: ${lib} depends on: ${libname}")
+  endif ()
+endif ()

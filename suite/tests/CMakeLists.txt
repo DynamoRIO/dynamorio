@@ -1329,7 +1329,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     # turn regex chars into literals
     # \\] somehow messes up the match though $expect looks identical
     # some tests do have ']' so we replace it in a separate step below
-    string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[])"
+    string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[\\;])"
       "\\\\\\1" expect "${expect}")
     string(REGEX REPLACE "\\]"
       "\\\\]" expect "${expect}")
@@ -1418,6 +1418,15 @@ function(disable_optimizations_for_file source_file)
     COMPILE_FLAGS "${cflags}")
 endfunction(disable_optimizations_for_file)
 
+# optimize the target
+function(optimize target)
+  if (UNIX)
+    append_property_string(TARGET ${target} COMPILE_FLAGS "-O3")
+  else ()
+    append_property_string(TARGET ${target} COMPILE_FLAGS "/Ox /GL")
+  endif (UNIX)
+endfunction(optimize)
+
 ###########################################################################
 # tests
 
@@ -1460,29 +1469,31 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
       "-native_exec_list common.nativeexec -native_exec_retakeover" "")
     torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
       "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
+    # XXX: the next 3 tests, and perhaps all of these native_exec tests,
+    # really want a mode with -no_private_loader -no_mangle_app_seg.  With
+    # our reluctance to add lib deps back to DR, that's going to require a
+    # sepaparate build.  Until someone really focuses on hybrid mode again
+    # (in which case a new build param should be added to re-enable libdl),
+    # we leave the tests here as regression tests but w/ private loader in place.
     torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+      "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
     # No swap TLS and no kstats for optimized native_exec
     torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
     torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "-bind_now")
+      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
   endif ()
 
-  # app seg mangling makes dstack test fail so we disable such mangling
-  if (UNIX)
-    # private loader requires the mangling
-    tobuild_ops(common.protect-dstack common/protect-dstack.c
-      "-no_mangle_app_seg -no_private_loader" "")
-  else (UNIX)
+  # App seg mangling makes dstack test fail, and our default build does not
+  # support disabling such mangling, so this test is Windows-only.
+  if (WIN32)
     tobuild_ops(common.protect-dstack common/protect-dstack.c
       "-no_mangle_app_seg" "")
-  endif (UNIX)
+  endif ()
 endif (NOT ARM)
 
-if (NOT ARM) # FIXME i#1551: add signal handling to ARM
-  tobuild(common.segfault common/segfault.c)
-endif (NOT ARM)
+tobuild(common.segfault common/segfault.c)
+
 # PR 217255: these 4 removed to shorten the regression suite since not
 # adding much value in terms of testing corner cases
 #tobuild(common.hello common/hello.c)
@@ -1491,16 +1502,12 @@ endif (NOT ARM)
 #tobuild(common.recurse common/recurse.c)
 
 if (ARM)
-  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
-    # XXX i#1551: once -private_loader is on by default we can remove it here
-    "-early_inject -private_loader" "")
+  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm "-early_inject" "")
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
     "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")
 
-  tobuild_ops(common.allasm_arm common/allasm_arm.asm
-    # XXX i#1551: once -private_loader is on by default we can remove it here
-    "-early_inject -private_loader" "")
+  tobuild_ops(common.allasm_arm common/allasm_arm.asm "-early_inject" "")
   set_target_properties(common.allasm_arm PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -Wl,-static")
 endif (ARM)
@@ -1596,8 +1603,9 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
     get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
-    if (UNIX OR NOT X64)
-      # TODO: add an optimized version of vg-annot (name ends with "-opt" to add "-O3")
+  endif (NOT ARM)
+  if (ANNOTATIONS AND NOT ARM)
+    if (UNIX OR NOT X64) # the Valgrind annotation structure cannot support Windows x64
       tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
       set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
       torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
@@ -1608,8 +1616,20 @@ if (CLIENT_INTERFACE)
       set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
       torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
         client-interface/vg-annot.c "truncate" "" "")
+      tobuild_ci(client.vg-annot-opt client-interface/vg-annot.c "" "" "")
+      optimize(client.vg-annot-opt)
+      set(client.vg-annot-opt.full-decode_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot-opt.full-decode client.vg-annot-opt client.vg-annot.dll
+        client-interface/vg-annot.c "full-decode" "" "")
+      set(client.vg-annot-opt.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
+      torunonly_ci(client.vg-annot-opt.full-decode.tiny-bb client.vg-annot-opt
+        client.vg-annot.dll client-interface/vg-annot.c
+        "full-decode" "-max_bb_instrs 3" "")
+      set(client.vg-annot-opt.bb-truncate_expectbase "vg-annot.bb-truncate")
+      torunonly_ci(client.vg-annot-opt.bb-truncate client.vg-annot-opt client.vg-annot.dll
+        client-interface/vg-annot.c "truncate" "" "")
     endif (UNIX OR NOT X64)
-  endif (NOT ARM)
+  endif (ANNOTATIONS AND NOT ARM)
   if (UNIX)
     if (NOT ARM) # FIXME i#1551: fix bugs on ARM
       # Just happens to not make as many traces.
@@ -1851,6 +1871,8 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
   endif (NOT ARM)
 
+  tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
+
   if (BUILD_SAMPLES)
     # Sanity tests: we run the samples without SHOW_RESULTS (turned off
     # if BUILD_TESTS is on) so we're only ensuring the client doesn't crash.
@@ -1907,7 +1929,7 @@ if (CLIENT_INTERFACE)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
-  if (NOT ARM) # FIXME i#1551: add thread support to ARM
+  if (NOT ARM) # FIXME i#1551: TLS support is broken for raw clone
     tobuild(linux.clone linux/clone.c)
   endif (NOT ARM)
 
@@ -1927,70 +1949,66 @@ if (UNIX)
     endif (X64)
   endif (TEST_SUITE OR TEST_32BIT_PATH)
 
-  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
-  # this test running on ARM.
-  if (NOT ARM)
-    # helper app for execve-null
-    add_exe(linux.execve-sub linux/execve-sub.c)
-    tobuild_ops(linux.execve-null linux/execve-null.c ""
-      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
-  endif (NOT ARM)
+  # helper app for execve-null
+  add_exe(linux.execve-sub linux/execve-sub.c)
+  tobuild_ops(linux.execve-null linux/execve-null.c ""
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
 
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
-  # FIXME i#1551: we need perm-stolen TLS, or restore on SIGCHLD signal, to get
-  # the fork tests running on ARM.
-  if (NOT ARM)
-    tobuild(linux.fork linux/fork.c)
-    # i#1537: test MSR for fs/gs in fork
-    torunonly(linux.fork-MSR linux.fork linux/fork.c
-      "-vm_base 0x100000000 -no_vm_base_near_app" "")
-  endif (NOT ARM)
+  tobuild(linux.fork linux/fork.c)
+  # i#1537: test MSR for fs/gs in fork
+  torunonly(linux.fork-MSR linux.fork linux/fork.c
+    "-vm_base 0x100000000 -no_vm_base_near_app" "")
+
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild(linux.infinite linux/infinite.c)
   endif (NOT ARM)
   tobuild(linux.longjmp linux/longjmp.c)
   tobuild(linux.prctl linux/prctl.c)
-  # FIXME TOFILE: suddently seeing non-det curiosities/asserts in module list on mmap
   tobuild(linux.mmap linux/mmap.c)
-  if (NOT ARM) # FIXME i#1551: add signal and thread support to ARM
-    tobuild(linux.signal0000 linux/signal0000.c)
-    tobuild(linux.signal0001 linux/signal0001.c)
-    tobuild(linux.signal0010 linux/signal0010.c)
-    tobuild(linux.signal0011 linux/signal0011.c)
-    tobuild(linux.signal0100 linux/signal0100.c)
-    tobuild(linux.signal0101 linux/signal0101.c)
-    tobuild(linux.signal0110 linux/signal0110.c)
-    tobuild(linux.signal0111 linux/signal0111.c)
-    tobuild(linux.signal1000 linux/signal1000.c)
-    tobuild(linux.signal1001 linux/signal1001.c)
-    tobuild(linux.signal1010 linux/signal1010.c)
-    tobuild(linux.signal1011 linux/signal1011.c)
-    tobuild(linux.signal1100 linux/signal1100.c)
-    tobuild(linux.signal1101 linux/signal1101.c)
-    tobuild(linux.signal1110 linux/signal1110.c)
-    tobuild(linux.signal1111 linux/signal1111.c)
-    tobuild(linux.sigplain000 linux/sigplain000.c)
-    tobuild(linux.sigplain001 linux/sigplain001.c)
-    tobuild(linux.sigplain010 linux/sigplain010.c)
-    tobuild(linux.sigplain011 linux/sigplain011.c)
-    tobuild(linux.sigplain100 linux/sigplain100.c)
-    tobuild(linux.sigplain101 linux/sigplain101.c)
-    tobuild(linux.sigplain110 linux/sigplain110.c)
-    tobuild(linux.sigplain111 linux/sigplain111.c)
+  tobuild(linux.signal0000 linux/signal0000.c)
+  tobuild(linux.signal0001 linux/signal0001.c)
+  tobuild(linux.signal0010 linux/signal0010.c)
+  tobuild(linux.signal0011 linux/signal0011.c)
+  tobuild(linux.signal0100 linux/signal0100.c)
+  tobuild(linux.signal0101 linux/signal0101.c)
+  tobuild(linux.signal0110 linux/signal0110.c)
+  tobuild(linux.signal0111 linux/signal0111.c)
+  tobuild(linux.signal1000 linux/signal1000.c)
+  tobuild(linux.signal1001 linux/signal1001.c)
+  tobuild(linux.signal1010 linux/signal1010.c)
+  tobuild(linux.signal1011 linux/signal1011.c)
+  tobuild(linux.signal1100 linux/signal1100.c)
+  tobuild(linux.signal1101 linux/signal1101.c)
+  tobuild(linux.signal1110 linux/signal1110.c)
+  tobuild(linux.signal1111 linux/signal1111.c)
+  tobuild(linux.sigplain000 linux/sigplain000.c)
+  tobuild(linux.sigplain001 linux/sigplain001.c)
+  tobuild(linux.sigplain010 linux/sigplain010.c)
+  tobuild(linux.sigplain011 linux/sigplain011.c)
+  tobuild(linux.sigplain100 linux/sigplain100.c)
+  tobuild(linux.sigplain101 linux/sigplain101.c)
+  tobuild(linux.sigplain110 linux/sigplain110.c)
+  tobuild(linux.sigplain111 linux/sigplain111.c)
+  if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild(linux.sigcontext linux/sigcontext.c)
+  endif (NOT ARM)
+  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
     tobuild(linux.thread linux/thread.c)
     tobuild(linux.threadexit linux/threadexit.c)
     tobuild(linux.threadexit2 linux/threadexit2.c)
-    tobuild(linux.signalfd linux/signalfd.c)
-    # i#784: test app behavior on alarm
-    tobuild(linux.alarm linux/alarm.c)
+  endif (NOT ARM)
+  tobuild(linux.signalfd linux/signalfd.c)
+  # i#784: test app behavior on alarm
+  tobuild(linux.alarm linux/alarm.c)
 
-    # i#1145: test re-starting syscalls, both inlined and from dispatch
-    tobuild(linux.eintr linux/eintr.c)
-    target_link_libraries(linux.eintr ${libpthread})
-    torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
+  # i#1145: test re-starting syscalls, both inlined and from dispatch
+  tobuild(linux.eintr linux/eintr.c)
+  target_link_libraries(linux.eintr ${libpthread})
+  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
+  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
     tobuild(linux.sigsuspend linux/sigsuspend.c)
     target_link_libraries(linux.sigsuspend ${libpthread})
   endif (NOT ARM)
@@ -1999,20 +2017,18 @@ if (UNIX)
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
 
-  if (NOT ARM) # FIXME i#1551: fix bugs, add -private_loader support for ARM
-    # Test fully static executables, which we only support with early injection
-    # or STATIC_LIBRARY.
-    set(fib_static_ops "-early_inject")
-    if (STATIC_LIBRARY)
-      set(fib_static_ops "")
-    endif ()
-    tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
-    append_property_string(TARGET linux.fib-static LINK_FLAGS
-      # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
-      # which doesn't play well with clang and -static.  Adding
-      # --no-export-dynamic avoids the problem.
-      "-static -Wl,--no-export-dynamic")
+  # Test fully static executables, which we only support with early injection
+  # or STATIC_LIBRARY.
+  set(fib_static_ops "-early_inject")
+  if (STATIC_LIBRARY)
+    set(fib_static_ops "")
   endif ()
+  tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
+  append_property_string(TARGET linux.fib-static LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
+    # which doesn't play well with clang and -static.  Adding
+    # --no-export-dynamic avoids the problem.
+    "-static -Wl,--no-export-dynamic")
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.
   tobuild(linux.fib-pie common/fib.c)

@@ -36,6 +36,7 @@
 
 #include "../asm_defines.asm"
 START_FILE
+#include "include/syscall.h"
 
 DECL_EXTERN(dynamorio_app_take_over_helper)
 #if defined(UNIX)
@@ -286,9 +287,9 @@ cat_have_lock:
         mov      REG_R2, #-1
         CALLC2(atomic_add, REG_R3, REG_R2)
         /* finally, execute the termination syscall */
-        mov      REG_R7, REG_R6  /* sysnum */
         mov      REG_R0, REG_R7  /* sys_arg1 */
         mov      REG_R1, REG_R8  /* sys_arg2 */
+        mov      REG_R7, REG_R6  /* sysnum */
         bx       REG_R5  /* go do the syscall! */
         END_FUNC(cleanup_and_terminate)
 /* Data for PIC code above */
@@ -505,13 +506,15 @@ GLOBAL_LABEL(dynamorio_clone:)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        /* FIXME i#1551: NYI on ARM */
+        mov      r7, #SYS_rt_sigreturn
+        svc      0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_nonrt_sigreturn)
 GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
-        /* FIXME i#1551: NYI on ARM */
+        mov      r7, #SYS_sigreturn
+        svc      0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_nonrt_sigreturn)
 

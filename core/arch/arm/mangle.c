@@ -476,6 +476,8 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
                       block_count > 2 ? block_pred[2] : DR_PRED_NONE,
                       block_count > 3 ? block_pred[3] : DR_PRED_NONE));
                 block_start = NULL;
+                if (instr_predicated)
+                    continue;
             } else
                 continue;
         }
@@ -561,6 +563,17 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
+/* Used for fault translation */
+bool
+instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
+{
+    ASSERT(xsp_adjust != NULL);
+    /* No current ARM mangling splits an atomic push/pop into emulated pieces:
+     * the OP_ldm/OP_stm splits shouldn't need special translation handling.
+     */
+    return false;
+}
+
 void
 mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     instr_t *instr, instr_t *next_instr)
@@ -576,13 +589,22 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      */
     ASSERT(DR_REG_STOLEN_MIN > DR_REG_SYSNUM);
 
+    /* We have to save r0 in case the syscall is interrupted.  To restart
+     * it, we need to replace the kernel's -EINTR in r0 with the original
+     * app arg.
+     * XXX optimization: we could try to get the syscall number and avoid
+     * this for non-auto-restart syscalls.
+     */
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
+
     /* We do need to save the stolen reg if it is caller-saved.
      * For now we assume that the kernel honors the calling convention
      * and won't clobber callee-saved regs.
      */
     if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
         PRE(ilist, instr,
-            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG0_SLOT));
+            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
         PRE(ilist, instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R10),
                               opnd_create_reg(dr_reg_stolen)));
@@ -591,19 +613,11 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen),
                               opnd_create_reg(DR_REG_R10)));
         PRE(ilist, next_instr,
-            instr_create_restore_from_tls(dcontext, DR_REG_R10, TLS_REG0_SLOT));
+            instr_create_restore_from_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
     }
 }
 
 #ifdef UNIX
-bool
-mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
-{
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
-}
-
 /* Inserts code to handle clone into ilist.
  * instr is the syscall instr itself.
  * Assumes that instructions exist beyond instr in ilist.
@@ -1201,6 +1215,46 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, tmp, slot));
 }
 
+/* replace thread register read instruction with a TLS load instr */
+void
+mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    opnd_t opnd;
+    reg_id_t reg;
+    ASSERT(!instr_is_meta(instr) && instr_reads_thread_register(instr));
+    reg = opnd_get_reg(instr_get_dst(instr, 0));
+    ASSERT(reg_is_gpr(reg) && opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR);
+    /* convert mrc to load */
+    opnd = opnd_create_sized_tls_slot
+        (os_tls_offset(os_get_app_tls_base_offset(TLS_REG_LIB)), OPSZ_PTR);
+    instr_remove_srcs(dcontext, instr, 1, instr_num_srcs(instr));
+    instr_set_src(instr, 0, opnd);
+    instr_set_opcode(instr, OP_ldr);
+    ASSERT(reg != DR_REG_PC);
+    /* special case: dst reg is dr_reg_stolen */
+    if (reg == dr_reg_stolen) {
+        instr_t *next_instr;
+        /* we do not mangle r10 in [r10, disp], but need save r10 after execution,
+         * so we cannot use mangle_stolen_reg.
+         */
+        PRE(ilist, instr, instr_create_save_to_tls(dcontext,
+                                                   SCRATCH_REG0,
+                                                   TLS_REG0_SLOT));
+        PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
+                                           opnd_create_reg(SCRATCH_REG0),
+                                           opnd_create_reg(dr_reg_stolen)));
+
+        /* -- "ldr r10, [r10, disp]" executes here -- */
+
+        next_instr = instr_get_next(instr);
+        restore_tls_base_to_stolen_reg(dcontext, ilist, instr, next_instr,
+                                       SCRATCH_REG0, TLS_REG0_SLOT);
+        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext,
+                                                             SCRATCH_REG0,
+                                                             TLS_REG0_SLOT));
+    }
+}
+
 static void
 store_reg_to_memlist(dcontext_t *dcontext,
                      instrlist_t *ilist,
@@ -1529,6 +1583,11 @@ normalize_ldm_instr(dcontext_t *dcontext,
          * guaranteed to get one.  And since cti uses r2 it works out there.
          */
         adjust_pre += sizeof(reg_t);
+        /* adjust base back if base won't be over-written, e.g.,:
+         * ldm (%r10)[16byte] -> %r0 %r1 %r2 %r3
+         */
+        if (!instr_writes_to_reg(instr, base, DR_QUERY_INCLUDE_ALL))
+            adjust_post -= sizeof(reg_t);
         /* pre_ldm_adjust makes sure that the base reg points to the start address of
          * the ldmia memory, so we know the slot to be load is at [base, -4].
          */

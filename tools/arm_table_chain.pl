@@ -129,6 +129,16 @@ foreach $infile (@infiles) {
             $instance{$opc} = 0 if (!defined($instance{$opc}));
 
             # Ignore duplicate encodings
+            #
+            # XXX: this requires that duplicates in tables where a distinguishing
+            # immed bit must be set for the decoder to get there must not set that
+            # bit in their opcode field, or that duplicates are ordered in the tables
+            # with the fewest bits first.  To handle other orderings we'd need logic
+            # here to select the duplicate with the fewest bits set, rather than just
+            # taking the first one.  An example is OP_lsls 0x01b00080 which must list
+            # 0x01b00000.  We also have a lot of SIMD duplicates, things like b vs f
+            # for the D bit, where we do have the bit in the table but we rely on
+            # the order (which seems fragile...).
             my $encoding = $_;
             my $is_new = 1;
             $encoding = extract_encoding($_);

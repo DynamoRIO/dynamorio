@@ -435,9 +435,10 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
 #if !(defined (WINDOWS) && defined (X64))
 void
 instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *xchg_instr,
-                               app_pc xchg_pc, uint bb_instr_count)
+                               app_pc xchg_pc, app_pc next_pc, uint bb_instr_count)
 {
     int i;
+    app_pc instrumentation_pc = NULL;
     instr_t *return_placeholder;
     instr_t *instr, *next_instr;
     dr_instr_label_data_t *label_data;
@@ -449,6 +450,7 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
      * registers (xref i#1423). Now delete the `xchg` instruction, and the `rol`
      * instructions--unless a previous BB contains some of the `rol`, in which case they
      * must be executed to avoid messing up %xdi (the 4 `rol` compose to form a nop).
+     * Note: in the case of a split `rol` sequence, we only instrument the second half.
      */
     instr_destroy(dcontext, xchg_instr);
     if (bb_instr_count > VG_ROL_COUNT) {
@@ -462,12 +464,19 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
         }
     }
 
+    /* i#1613: if the client removes the app instruction prior to the annotation, we will
+     * skip the annotation instrumentation, so identify the pc of that instruction here.
+     */
+    if (instrlist_last(bb) != NULL)
+        instrumentation_pc = instrlist_last(bb)->translation;
+
     /* Substitute the annotation tail with a label pointing to the Valgrind handler. */
     instr = INSTR_CREATE_label(dcontext);
     instr_set_note(instr, (void *) DR_NOTE_ANNOTATION);
     label_data = instr_get_label_data_area(instr);
     SET_ANNOTATION_HANDLER(label_data, &vg_router);
-    SET_ANNOTATION_APP_PC(label_data, xchg_pc);
+    SET_ANNOTATION_APP_PC(label_data, next_pc);
+    SET_ANNOTATION_INSTRUMENTATION_PC(label_data, instrumentation_pc);
     instr_set_meta(instr);
     instrlist_append(bb, instr);
 
@@ -479,6 +488,8 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
                                                        OPND_CREATE_INT32(0)),
                                    xchg_pc);
     instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
+    instr_set_meta(return_placeholder);
+    instr_set_our_mangling(return_placeholder, true);
     instrlist_append(bb, return_placeholder);
 }
 #endif

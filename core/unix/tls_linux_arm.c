@@ -47,80 +47,52 @@
 # error ARM-only
 #endif
 
-/* Get the offset of app_tls_swap in os_local_state_t.
- * They should be used with os_tls_offset or RESTORE_FROM_TLS,
- * so do not need add TLS_OS_LOCAL_STATE here.
- */
-ushort
-os_get_app_tls_swap_offset(void)
-{
-    return offsetof(os_local_state_t, app_tls_swap);
-}
+#ifndef CLIENT_INTERFACE
+# error CLIENT_INTERFACE build only for TLS mangling on ARM
+#endif
 
 byte **
-get_app_tls_swap_addr(void)
+get_dr_tls_base_addr(void)
 {
-    byte *app_tls_base = (byte *)read_thread_register(LIB_SEG_TLS);
-    if (app_tls_base == NULL) {
+    byte *lib_tls_base = (byte *)read_thread_register(TLS_REG_LIB);
+    if (lib_tls_base == NULL) {
         ASSERT_NOT_REACHED();
         return NULL;
     }
-    return (byte **)(app_tls_base + APP_TLS_SWAP_SLOT);
+    return (byte **)(lib_tls_base + DR_TLS_BASE_OFFSET);
 }
 
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
-    byte **tls_swap_slot;
-
     ASSERT((byte *)(os_tls->self) == segment);
-    tls_swap_slot = get_app_tls_swap_addr();
-    /* we assume the swap slot is initialized as 0 */
-    ASSERT_NOT_IMPLEMENTED(*tls_swap_slot == NULL);
-    os_tls->app_tls_swap = *tls_swap_slot;
-    *tls_swap_slot = segment;
-    os_tls->tls_type = TLS_TYPE_SWAP;
+    LOG(GLOBAL, LOG_THREADS, 2,
+        "tls_thread_init: cur priv lib tls base is"PFX"\n",
+        os_tls->os_seg_info.priv_lib_tls_base);
+     dynamorio_syscall(SYS_set_tls, 1, os_tls->os_seg_info.priv_lib_tls_base);
+     ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
+     ASSERT(*get_dr_tls_base_addr() == NULL);
+     *get_dr_tls_base_addr() = segment;
+    os_tls->tls_type = TLS_TYPE_SLOT;
 }
 
 void
 tls_thread_free(tls_type_t tls_type, int index)
 {
-    byte **tls_swap_slot;
+    byte **dr_tls_base_addr;
     os_local_state_t *os_tls;
 
-    ASSERT(tls_type == TLS_TYPE_SWAP);
-    tls_swap_slot = get_app_tls_swap_addr();
-    os_tls = (os_local_state_t *)*tls_swap_slot;
+    ASSERT(tls_type == TLS_TYPE_SLOT);
+    dr_tls_base_addr = get_dr_tls_base_addr();
+    ASSERT(dr_tls_base_addr != NULL);
+    os_tls = (os_local_state_t *)*dr_tls_base_addr;
     ASSERT(os_tls->self == os_tls);
-    /* FIXME i#1578: support detach on ARM.  We should swap back to
-     * os_tls->app_tls_swap for the case of detach but we need some way to
+    /* FIXME i#1578: support detach on ARM.  We need some way to
      * determine whether a thread has exited (for deadlock_avoidance_unlock,
      * e.g.) after dcontext and os_tls are freed.  For now we store -1 in this
      * slot and assume the app will never use that value (we check in
      * os_enter_dynamorio()).
      */
-    *tls_swap_slot = APP_TLS_VAL_EXITED;
+    *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
     return;
-}
-
-void
-tls_early_init(void)
-{
-    /* App TLS is not yet initialized (we're probably using early injection).
-     * We set up our own and "steal" its slot.  When app pthread inits it will
-     * clobber it (but from code cache: and DR won't rely on swapped slot there)
-     * and it will keep working seamlessly.  Strangely, tpidrro is not zero
-     * though, so we do this here via explicit early invocation and not inside
-     * get_app_tls_swap_slot_addr().
-     */
-    static byte early_app_fake_tls[16];
-    int res;
-    /* We assume we're single-threaded, b/c every dynamic app will have
-     * this set up prior to creating any threads.
-     */
-    ASSERT(!dynamo_initialized);
-    ASSERT(sizeof(early_app_fake_tls) >= APP_TLS_SWAP_SLOT + sizeof(void*));
-    res = dynamorio_syscall(SYS_set_tls, 1, early_app_fake_tls);
-    ASSERT(res == 0);
-    ASSERT((byte *)read_thread_register(LIB_SEG_TLS) == early_app_fake_tls);
 }

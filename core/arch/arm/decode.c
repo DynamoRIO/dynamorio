@@ -37,6 +37,7 @@
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
 #include "instr_create.h"
 #include <string.h> /* for memcpy */
+#include "disassemble.h"
 
 /* ARM decoder.
  * General strategy:
@@ -162,6 +163,11 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 #endif
 }
 
+/* We need to call canonicalize_pc_target() on all next_tag-writing
+ * instances in initial takeover, signal handling, ibl, etc..
+ * We can't put it in dispatch() b/c with our decision to store
+ * tags and addresses as LSB=0, we can easily double-mode-switch.
+ */
 app_pc
 canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
 {
@@ -454,9 +460,9 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
 }
 
 static dr_shift_type_t
-decode_index_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount OUT)
+decode_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount OUT)
 {
-    if (sh2 == 0 && val == 0) {
+    if (sh2 == SHIFT_ENCODING_LSL && val == 0) {
         *amount = 0;
         return DR_SHIFT_NONE;
     } else if (sh2 == SHIFT_ENCODING_LSL) {
@@ -482,32 +488,31 @@ decode_index_shift(decode_info_t *di, ptr_int_t known_shift, uint *amount OUT)
 {
     ptr_int_t sh2, val;
     if (di->isa_mode == DR_ISA_ARM_THUMB) {
-        if (known_shift == SHIFT_ENCODING_DECODE) {
-            sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS_T32,
-                               DECODE_INDEX_SHIFT_TYPE_SIZE, false);
-        } else
-            sh2 = known_shift;
-        val = ((decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS1_T32,
-                             DECODE_INDEX_SHIFT_AMOUNT_SIZE1_T32, false) <<
-                DECODE_INDEX_SHIFT_AMOUNT_SIZE1_SHIFT) |
-               decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS2_T32,
-                            DECODE_INDEX_SHIFT_AMOUNT_SIZE2_T32, false));
+        ASSERT(known_shift == SHIFT_ENCODING_LSL);
+        /* index shift in T32 is a 2-bit immed at [5:4], which is different from
+         * register shift (5-bit immed at [14:12] [7:6], and 2-bit type at [5:4])
+         */
+        val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS_T32,
+                           DECODE_INDEX_SHIFT_AMOUNT_SIZE_T32, false);
+        sh2 = known_shift;
     } else {
         if (known_shift == SHIFT_ENCODING_DECODE) {
             sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS_A32,
                                DECODE_INDEX_SHIFT_TYPE_SIZE, false);
         } else
             sh2 = known_shift;
+        /* index shift in A32 is a 5-bit immed at [11:7] */
         val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32,
                            DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32, false);
     }
-    return decode_index_shift_values(sh2, val, amount);
+    return decode_shift_values(sh2, val, amount);
 }
 
 static void
 decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
 {
-    if (di->shift_type_idx == *counter - 2 &&
+    if (*counter > 2 &&
+        di->shift_type_idx == *counter - 2 &&
         /* We only need to do this for shifts whose amount is an immed.
          * When the amount is in a reg, only the low 4 DR_SHIFT_* are valid,
          * and they match the encoded values.
@@ -521,7 +526,7 @@ decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
         ptr_int_t sh2 = opnd_get_immed_int(array[*counter - 2]);
         ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
         uint amount;
-        dr_shift_type_t type = decode_index_shift_values(sh2, val, &amount);
+        dr_shift_type_t type = decode_shift_values(sh2, val, &amount);
         array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
         array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
         CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),
@@ -783,7 +788,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                 di->reglist_sz += opnd_size_in_bytes(downsz);
             }
         }
-        /* These 3 var-size reg lists need to update a corresponding mem opnd */
+        /* These var-size reg lists need to update a corresponding mem opnd */
         decode_update_mem_for_reglist(di);
         return true;
     }
@@ -860,7 +865,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_NI_b0:
         array[(*counter)++] =
             opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsign*/),
-                                  opsize);
+                                  OPSZ_4/*could do opsize + 1 bit, but this is easier*/);
         return true;
     case TYPE_NI_x4_b0:
         array[(*counter)++] =
@@ -994,6 +999,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         } else
             CLIENT_ASSERT(false, "unsupported 12-6 split immed size");
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
+        if (opsize == OPSZ_5b)
+            decode_register_shift(di, array, counter);
         return true;
     }
     case TYPE_I_b16_b0: {
@@ -1061,34 +1068,37 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
-    case TYPE_I_b26_b12_b0: { /* T32-26,14:12,7:0 */
+    case TYPE_I_b26_b12_b0:
+    case TYPE_I_b26_b12_b0_z: { /* T32-26,14:12,7:0 */
         if (opsize == OPSZ_12b) {
             val = decode_immed(di, 0, OPSZ_1, false/*unsigned*/);
             val |= (decode_immed(di, 12, OPSZ_3b, false/*unsigned*/) << 8);
             val |= (decode_immed(di, 26, OPSZ_1b, false/*unsigned*/) << 11);
         } else
             CLIENT_ASSERT(false, "unsupported 26-12-0 split immed size");
-        /* This is a T32 "modified immediate constant" with complex rules
-         * (ThumbExpandImm in the manual).
-         * Bottom 8 bits are "abcdefgh" and the other bits indicate
-         * whether to tile or rotate the bottom bits.
-         */
-        if (!TESTANY(0xc00, val)) {
-            int code = (val >> 8) & 0x3;
-            int val8 = (val & 0xff);
-            if (code == 0)      /* 00000000 00000000 00000000 abcdefgh */
-                val = val8;
-            else if (code == 1) /* 00000000 abcdefgh 00000000 abcdefgh */
-                val = (val8 << 16) | val8;
-            else if (code == 2) /* abcdefgh 00000000 abcdefgh 00000000 */
-                val = (val8 << 24) | (val8 << 8);
-            else if (code == 3) /* abcdefgh abcdefgh abcdefgh abcdefgh */
-                val = (val8 << 24) | (val8 << 16) | (val8 << 8) | val8;
-        } else {
-            /* ROR of 1bcdefgh */
-            int toror = 0x80 | (val & 0x7f);
-            int amt = (val >> 7) & 0x1f;
-            val = (toror >> amt) | (toror << (32 - amt));
+        if (optype == TYPE_I_b26_b12_b0) {
+            /* This is a T32 "modified immediate constant" with complex rules
+             * (ThumbExpandImm in the manual).
+             * Bottom 8 bits are "abcdefgh" and the other bits indicate
+             * whether to tile or rotate the bottom bits.
+             */
+            if (!TESTANY(0xc00, val)) {
+                int code = (val >> 8) & 0x3;
+                int val8 = (val & 0xff);
+                if (code == 0)      /* 00000000 00000000 00000000 abcdefgh */
+                    val = val8;
+                else if (code == 1) /* 00000000 abcdefgh 00000000 abcdefgh */
+                    val = (val8 << 16) | val8;
+                else if (code == 2) /* abcdefgh 00000000 abcdefgh 00000000 */
+                    val = (val8 << 24) | (val8 << 8);
+                else if (code == 3) /* abcdefgh abcdefgh abcdefgh abcdefgh */
+                    val = (val8 << 24) | (val8 << 16) | (val8 << 8) | val8;
+            } else {
+                /* ROR of 1bcdefgh */
+                int toror = 0x80 | (val & 0x7f);
+                int amt = (val >> 7) & 0x1f;
+                val = (toror >> amt) | (toror << (32 - amt));
+            }
         }
         array[(*counter)++] = opnd_create_immed_uint(val, OPSZ_4/*to fit tiling*/);
         return true;
@@ -1288,7 +1298,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
-                                  decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
+                                  -decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_M_POS_I8x4:
@@ -1349,7 +1359,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, true/*disp*/);
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
-                                  -(int)(opnd_size_in_bytes(opsize)-1)*sizeof(void*),
+                                  opsize == OPSZ_0 ? -sizeof(void*) :
+                                  -((int)opnd_size_in_bytes(opsize)-1)*sizeof(void*),
                                   opsize);
         return true;
     case TYPE_M_DOWN_OFFS:
@@ -2070,6 +2081,7 @@ read_instruction(byte *pc, byte *orig_pc,
     di->reglist_sz = -1;
     di->predicate = DR_PRED_NONE;
     di->T32_16 = false;
+    di->shift_type_idx = UINT_MAX;
 
     /* Read instr bytes and find instr_info */
     if (di->isa_mode == DR_ISA_ARM_THUMB) {
@@ -2558,6 +2570,51 @@ optype_is_reg(int optype)
 
 #ifdef DEBUG
 # ifndef STANDALONE_DECODER
+
+/* Until we have more thorough tests, we perform some sanity consistency checks
+ * on app instrs that we process.
+ * Running this code inside the decode loop is too hard wrt IT
+ * tracking, so we require a full walk over an instrlist.  Cloning one
+ * instr in isolation and encoding also does not work wrt encoding so
+ * we tweak the raw bits and then restore.
+ */
+void
+check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
+{
+    instr_t *check;
+    /* Avoid incorrect IT state from a bb like "subs.n;it;bx.eq" where decoding
+     * from the subs will match the "prior instr" case (b/c 2 short instrs looks
+     * like 1 long instr).
+     */
+    decode_state_reset(get_decode_state(dcontext));
+    for (check = instrlist_first(ilist); check != NULL; check = instr_get_next(check)) {
+        byte buf[THUMB_LONG_INSTR_SIZE];
+        instr_t tmp;
+        byte *pc;
+        app_pc addr = instr_get_raw_bits(check);
+        instr_set_raw_bits_valid(check, false);
+        pc = instr_encode_to_copy(dcontext, check, buf, addr);
+        instr_init(dcontext, &tmp);
+        /* XXX: the fragile IT block tracking will get off if our encoding doesn't
+         * match the app's in length, b/c we're advancing according to app length
+         * while IT tracking will advance at our length.
+         */
+        decode_from_copy(dcontext, buf, addr, &tmp);
+        if (!instr_same(check, &tmp)) {
+            LOG(THREAD, LOG_EMIT, 1, "ERROR: from app:  %04x %04x  ",
+                *(ushort*)addr, *(ushort*)(addr+2));
+            instr_disassemble(dcontext, check, THREAD);
+            LOG(THREAD, LOG_EMIT, 1, "\nvs from encoding: %04x %04x  ",
+                *(ushort*)buf, *(ushort*)(buf+2));
+            instr_disassemble(dcontext, &tmp, THREAD);
+            LOG(THREAD, LOG_EMIT, 1, "\n ");
+        }
+        ASSERT(instr_same(check, &tmp));
+        instr_set_raw_bits_valid(check, true);
+        instr_free(dcontext, &tmp);
+    }
+}
+
 static bool
 optype_is_reglist(int optype)
 {

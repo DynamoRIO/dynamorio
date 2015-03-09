@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,6 +62,9 @@
 #elif defined(ARM)
 # define ASM_XSP "sp"
 #endif /* X86/ARM */
+
+#define MACHINE_TLS_IS_DR_TLS IF_X86_ELSE(INTERNAL_OPTION(mangle_app_seg), true)
+
 
 /* PR 212090: the signal we use to suspend threads */
 #define SUSPEND_SIGNAL SIGUSR2
@@ -134,7 +137,7 @@ typedef struct _os_thread_data_t {
     KSYNCH_TYPE suspended;
     KSYNCH_TYPE wakeup;
     KSYNCH_TYPE resumed;
-    sigcontext_t *suspended_sigcxt;
+    sig_full_cxt_t *suspended_sigcxt;
 
     /* PR 297902: for thread termination */
     bool terminate;
@@ -168,9 +171,6 @@ typedef struct ptrace_stack_args_t {
     priv_mcontext_t mc;          /* Registers at attach time */
     char home_dir[MAXIMUM_PATH]; /* In case the user of the injectee is not us. */
 } ptrace_stack_args_t;
-
-#define TLS_REG_LIB  LIB_SEG_TLS  /* TLS reg commonly used by libraries in Linux */
-#define TLS_REG_ALT  SEG_TLS      /* spare TLS reg, used by DR in X86 Linux */
 
 /* in os.c */
 void os_thread_take_over(priv_mcontext_t *mc);
@@ -244,10 +244,10 @@ signal_handle_close(dcontext_t *dcontext, file_t fd);
 #endif
 
 void
-sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc);
+sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full);
 
 void
-mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc);
+mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc);
 
 bool
 set_default_signal_action(int sig);

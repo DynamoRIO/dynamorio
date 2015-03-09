@@ -5,4 +5,33 @@ Make 1234 bytes defined if addressable.
 Make 89 bytes defined if addressable.
 Make 567 bytes defined if addressable.
 The Valgrind annotation test thinks it is running on Valgrind.
+Before annotation: j=1
+After annotation: j=1
+Before annotation: j=8
+After annotation: j=8
+Before annotation: j=12
+After annotation: j=12
+Before annotation: data[i/2][j + data[i][j]]=4
+After annotation: data[i/2][j + data[i][j]]=4
+Before annotation: j=9
+After annotation: j=9
+
+--------
+
+Final matrix values:
+Row 00: 00 00 00 00 00 00 00 00 00 00 00 00
+Row 01: 01 04 07 10 13 16 00 00 00 00 00 00
+Row 02: 02 05 08 11 14 17 00 04 00 00 00 00
+Row 03: 03 06 09 12 15 18 00 00 00 00 00 00
+Row 04: 04 07 10 13 16 19 01 00 00 00 00 00
+Row 05: 05 08 11 14 17 20 00 00 00 00 00 00
+Row 06: 00 12 06 04 03 02 02 00 00 00 00 00
+Row 07: 00 00 00 00 00 00 00 00 00 00 00 00
+Row 08: 00 16 08 05 04 03 02 00 04 00 00 00
+Row 09: 00 00 00 00 00 00 00 00 00 00 00 00
+Row 10: 00 20 10 06 05 04 03 12 13 14 04 00
+Row 11: 00 00 00 00 00 00 00 00 00 00 00 00
+
+--------
+
 Received 5 'define memory' requests for a total of 3024 bytes.

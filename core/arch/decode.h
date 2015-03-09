@@ -612,6 +612,11 @@ decode_debug_checks(void);
  */
 app_pc
 decode_cur_pc(app_pc instr_pc, dr_isa_mode_t mode, uint opcode, instr_t *instr);
+
+# ifdef DEBUG
+void
+check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist);
+# endif
 #endif
 
 /* for debugging: printing out types and sizes */

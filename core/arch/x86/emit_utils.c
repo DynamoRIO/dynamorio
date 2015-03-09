@@ -1267,21 +1267,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 # define OPND_ARG1   OPND_CREATE_MEM32(REG_ESP, 4)
 #endif /* 64/32-bit */
 
-
-void
-insert_swap_to_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                       reg_id_t scratch1, reg_id_t scratch2)
-{
-    /* nothing to do */
-}
-
-void
-insert_swap_from_app_tls(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t scratch1, reg_id_t scratch2)
-{
-    /* nothing to do */
-}
-
 void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {

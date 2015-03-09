@@ -229,7 +229,6 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
                                       OPND_CREATE_INT32(0), REG_NULL);
         insert_clear_eflags(dcontext, cci, ilist, instr);
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
-        insert_swap_from_app_tls(dcontext, ilist, instr, SCRATCH_REG0, SCRATCH_REG1);
     }
 
     /* We no longer need to preserve the app's errno on Windows except
@@ -294,8 +293,6 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         insert_out_of_line_context_switch(dcontext, ilist, instr, false);
     } else {
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
-        insert_swap_to_app_tls(dcontext, ilist, instr, SCRATCH_REG0, SCRATCH_REG1);
-
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
                                  PAGE_SIZE);
@@ -567,6 +564,99 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     mangle_syscall_arch(dcontext, ilist, flags, instr, next_instr);
 }
 
+#ifdef UNIX
+/* If skip is false:
+ *   changes the jmp right before the next syscall (after pc) to target the
+ *   exit cti immediately following it;
+ * If skip is true:
+ *   changes back to the default, where skip hops over the exit cti,
+ *   which is assumed to be located at pc.
+ */
+bool
+mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
+{
+    byte *stop_pc = fragment_body_end_pc(dcontext, f);
+    byte *target, *prev_pc, *cti_pc = NULL, *skip_pc = NULL;
+    instr_t instr;
+    DEBUG_DECLARE(instr_t cti;)
+    instr_init(dcontext, &instr);
+    DODEBUG({ instr_init(dcontext, &cti); });
+    LOG(THREAD, LOG_SYSCALLS, 3,
+        "mangle_syscall_code: pc="PFX", skip=%d\n", pc, skip);
+    do {
+        instr_reset(dcontext, &instr);
+        prev_pc = pc;
+        pc = decode(dcontext, pc, &instr);
+        ASSERT(pc != NULL); /* our own code! */
+        if (instr_get_opcode(&instr) == OP_jmp_short
+            /* For A32 it's not OP_b_short */
+            IF_ARM(|| (instr_get_opcode(&instr) == OP_jmp &&
+                       opnd_get_pc(instr_get_target(&instr)) == pc + ARM_INSTR_SIZE)))
+            skip_pc = prev_pc;
+        else if (instr_get_opcode(&instr) == OP_jmp)
+            cti_pc = prev_pc;
+        if (pc >= stop_pc) {
+            LOG(THREAD, LOG_SYSCALLS, 3, "\tno syscalls found\n");
+            instr_free(dcontext, &instr);
+            return false;
+        }
+    } while (!instr_is_syscall(&instr));
+    if (skip_pc != NULL) {
+        /* signal happened after skip jmp: nothing we can do here
+         *
+         * FIXME PR 213040: we should tell caller difference between
+         * "no syscalls" and "too-close syscall" and have it take
+         * other actions to bound signal delay
+         */
+        instr_free(dcontext, &instr);
+        return false;
+    }
+    ASSERT(skip_pc != NULL && cti_pc != NULL);
+    /* jmps are right before syscall, but there can be nops to pad exit cti on x86 */
+    ASSERT(cti_pc == prev_pc - JMP_LONG_LENGTH);
+    ASSERT(skip_pc < cti_pc);
+    ASSERT(skip_pc == cti_pc - JMP_SHORT_LENGTH
+           IF_X86(|| *(cti_pc - JMP_SHORT_LENGTH) == RAW_OPCODE_nop));
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, skip_pc, &instr);
+    ASSERT(pc != NULL); /* our own code! */
+    ASSERT(instr_get_opcode(&instr) == OP_jmp_short
+           /* For A32 it's not OP_b_short */
+           IF_ARM(|| (instr_get_opcode(&instr) == OP_jmp &&
+                      opnd_get_pc(instr_get_target(&instr)) == pc + ARM_INSTR_SIZE)));
+    ASSERT(pc <= cti_pc); /* could be nops */
+    DOCHECK(1, {
+        pc = decode(dcontext, cti_pc, &cti);
+        ASSERT(pc != NULL); /* our own code! */
+        ASSERT(instr_get_opcode(&cti) == OP_jmp);
+        ASSERT(pc == prev_pc);
+        instr_reset(dcontext, &cti);
+    });
+    if (skip) {
+        /* target is syscall itself */
+        target = prev_pc;
+    } else {
+        /* target is exit cti */
+        target = cti_pc;
+    }
+    /* FIXME : this should work out to just a 1 byte write, but let's make
+     * it more clear that this is atomic! */
+    if (opnd_get_pc(instr_get_target(&instr)) != target) {
+        DEBUG_DECLARE(byte *nxt_pc;)
+        LOG(THREAD, LOG_SYSCALLS, 3,
+            "\tmodifying target of syscall jmp to "PFX"\n", target);
+        instr_set_target(&instr, opnd_create_pc(target));
+        DEBUG_DECLARE(nxt_pc = ) instr_encode(dcontext, &instr, skip_pc);
+        ASSERT(nxt_pc != NULL && nxt_pc == cti_pc);
+    } else {
+        LOG(THREAD, LOG_SYSCALLS, 3,
+            "\ttarget of syscall jmp is already "PFX"\n", target);
+    }
+    instr_free(dcontext, &instr);
+    return true;
+}
+#endif /* UNIX */
+
 /* TOP-LEVEL MANGLE
  * This routine is responsible for mangling a fragment into the form
  * we'd like prior to placing it in the code cache
@@ -599,6 +689,19 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
     KSTART(mangling);
     instrlist_set_our_mangling(ilist, true); /* PR 267260 */
+
+#ifdef ARM
+    if (INTERNAL_OPTION(store_last_pc)) {
+        /* This is a simple debugging feature.  There's a chance that some
+         * mangling clobbers the r3 slot but it's slim, and it's much
+         * simpler to put this at the top than try to put it right before
+         * the exit cti(s).
+         */
+        PRE(ilist, instrlist_first(ilist),
+            instr_create_save_to_tls(dcontext, DR_REG_PC, TLS_REG3_SLOT));
+    }
+#endif
+
     for (instr = instrlist_first(ilist);
          instr != NULL;
          instr = next_instr) {
@@ -668,6 +771,13 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 #endif /* X64 || ARM */
 
 #ifdef ARM
+# ifdef X64
+#  error NYI on AArch64 for writing thread register
+# endif
+        if (!instr_is_meta(instr) && instr_reads_thread_register(instr)) {
+            mangle_reads_thread_register(dcontext, ilist, instr);
+            continue;
+        }
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
          */

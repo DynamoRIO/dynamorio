@@ -81,19 +81,26 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\tr14 ="PFX"\n", sc->SC_LR);
     LOG(THREAD, LOG_ASYNCH, 1, "\tpc  ="PFX"\n", sc->SC_XIP);
     LOG(THREAD, LOG_ASYNCH, 1, "\tcpsr="PFX"\n", sc->SC_XFLAGS);
+    /* XXX: should we take in sig_full_cxt_t to dump SIMD regs? */
 }
 #endif /* DEBUG */
 
 void
-sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc)
+sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
+    ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
+    ASSERT(vfp->magic == VFP_MAGIC);
+    ASSERT(vfp->size == sizeof(struct vfp_sigframe));
+    memcpy(&mc->simd[0], &vfp->ufp.fpregs[0], sizeof(mc->simd));
 }
 
 void
-mcontext_to_sigcontext_simd(sigcontext_t *sc, priv_mcontext_t *mc)
+mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
+    ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
+    vfp->magic = VFP_MAGIC;
+    vfp->size = sizeof(struct vfp_sigframe);
+    memcpy(&vfp->ufp.fpregs[0], &mc->simd[0], sizeof(vfp->ufp.fpregs));
 }
