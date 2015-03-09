@@ -1362,7 +1362,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
                 opnd_get_disp(opnd) == 0 &&
                 /* We check for OPSZ_VAR_REGLIST but no reglist in check_reglist_size() */
-                (size_op == size_temp || size_temp == OPSZ_VAR_REGLIST));
+                (size_op == size_temp || size_temp == OPSZ_VAR_REGLIST ||
+                 size_op == OPSZ_VAR_REGLIST));
     case TYPE_M_POS_I12:
     case TYPE_M_NEG_I12:
         if (opnd_is_base_disp(opnd) &&
@@ -1602,6 +1603,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
                 /* We check for OPSZ_VAR_REGLIST but no reglist in check_reglist_size() */
                 (size_temp == OPSZ_VAR_REGLIST ||
+                 size_op == OPSZ_VAR_REGLIST ||
                  (size_op == size_temp &&
                   ((optype == TYPE_M_UP_OFFS &&
                     opnd_get_disp(opnd) == sizeof(void*)) ||
