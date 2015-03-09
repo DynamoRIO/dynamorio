@@ -38,73 +38,73 @@
 .global _start
 
 _start:
-        mov r3, #4
+        mov      r3, #4
 1:
-        mov r0, #1            // stdout
-        ldr r1, =hello
-        mov r2, #13           // sizeof(hello)
-        mov r7, #4            // SYS_write
-        svc 0
-        sub r3, r3, #1
-        cmp r3, #0
-        bne 1b
+        mov      r0, #1            // stdout
+        ldr      r1, =hello
+        mov      r2, #13           // sizeof(hello)
+        mov      r7, #4            // SYS_write
+        svc      0
+        sub      r3, r3, #1
+        cmp      r3, #0
+        bne      1b
 
 // loop with linkable (no syscall -> shared) branches
-        mov r3, #100
+        mov      r3, #100
 2:
-        sub r3, r3, #1
-        b separate_bb
+        sub      r3, r3, #1
+        b        separate_bb
 separate_bb:
-        cmp r3, #0
-        bne 2b
+        cmp      r3, #0
+        bne      2b
 
 // direct call and "bx lr" return:
-        ldr r0, =hello
-        mov r1, #13           // sizeof(hello)
-        bl _print
+        ldr      r0, =hello
+        mov      r1, #13           // sizeof(hello)
+        bl       _print
 
 // indirect direct call and "pop pc" return:
-        ldr r0, =hello
-        mov r1, #13           // sizeof(hello)
-        adr r2, _print_pop_pc
-        blx r2
+        ldr      r0, =hello
+        mov      r1, #13           // sizeof(hello)
+        adr      r2, _print_pop_pc
+        blx      r2
 
 // indirect jumps
-        sub pc, #4
-        add r2, pc, #4
-        push {r1-r2}
-        pop  {r1,pc}
+        sub      pc, #4
+        add      r2, pc, #4
+        push     {r1-r2}
+        pop      {r1,pc}
 
 // exit
-        mov r0, #1            // stdout
-        ldr r1, =alldone
-        mov r2, #9            // sizeof(alldone)
-        mov r7, #4            // SYS_write
-        svc 0
-        mov r0, #0            // exit code
-        mov r7, #1            // SYS_exit
-        svc 0
+        mov      r0, #1            // stdout
+        ldr      r1, =alldone
+        mov      r2, #9            // sizeof(alldone)
+        mov      r7, #4            // SYS_write
+        svc      0
+        mov      r0, #0            // exit code
+        mov      r7, #1            // SYS_exit
+        svc      0
 
 // functions
 _print:
-        mov r2, r1            // size of string
-        mov r1, r0            // string to print
-        mov r0, #1            // stdout
-        mov r7, #4            // SYS_write
-        svc 0
-        bx lr
+        mov      r2, r1            // size of string
+        mov      r1, r0            // string to print
+        mov      r0, #1            // stdout
+        mov      r7, #4            // SYS_write
+        svc      0
+        bx       lr
 
 _print_pop_pc:
-        push {r4-r8,lr}
-        mov r2, r1            // size of string
-        mov r1, r0            // string to print
-        mov r0, #1            // stdout
-        mov r7, #4            // SYS_write
-        svc 0
-        pop {r4-r8,pc}
+        push     {r4-r8,lr}
+        mov      r2, r1            // size of string
+        mov      r1, r0            // string to print
+        mov      r0, #1            // stdout
+        mov      r7, #4            // SYS_write
+        svc      0
+        pop      {r4-r8,pc}
 
         .data
 hello:
-        .ascii "Hello world!\n"
+        .ascii   "Hello world!\n"
 alldone:
-        .ascii "All done\n"
+        .ascii   "All done\n"
