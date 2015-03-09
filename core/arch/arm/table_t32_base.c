@@ -348,7 +348,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
     {OP_udiv,     0xfbb0f0f0, "udiv",   RCw, xx, RAw, RDw, xx, no, x, END_LIST},
     {EXT_B7_4,    0xfbc00000, "(ext b7_4 7)", xx, xx, xx, xx, xx, no, x, 7},
     {EXT_B4,      0xfbd00000, "(ext b4 10)", xx, xx, xx, xx, xx, no, x, 10},
-    {EXT_B4,      0xfbe00000, "(ext b4 4)", xx, xx, xx, xx, xx, no, x, 4},
+    {EXT_B5,      0xfbe00000, "(ext b5 4)", xx, xx, xx, xx, xx, no, x, 4},
     {INVALID,     0xfbf00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
 };

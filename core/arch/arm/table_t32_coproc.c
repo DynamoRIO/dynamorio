@@ -426,11 +426,11 @@ const instr_info_t T32_ext_opc4[][16] = {
     {INVALID,    0xeeb00b80, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xeeb00b90, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xeeb00ba0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,    0xeeb00bb0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_u16,0xeeb00bb0, "vmov.u16", RBd, xx, VAh_q, i2x21_6, xx, vfp, x, DUP_ENTRY},
     {EXT_BITS16, 0xeeb00bc0, "(ext bits16 3)", xx, xx, xx, xx, xx, no, x, 3},
     {INVALID,    0xeeb00bd0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {EXT_BITS16, 0xeeb00be0, "(ext bits16 3)", xx, xx, xx, xx, xx, no, x, 3},
-    {INVALID,    0xeeb00bf0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_u16,0xeeb00bf0, "vmov.u16", RBd, xx, VAh_q, i2x21_6, xx, vfp, x, DUP_ENTRY},
   }, { /* 2 */
     {OP_vmov_f32,0xeef00a00, "vmov.f32", WBd, xx, i8x16_0, xx, xx, vfp, x, DUP_ENTRY},
     {EXT_RBPC,   0xeef00a10, "(ext rbpc 17)", xx, xx, xx, xx, xx, no, x, 17},
@@ -458,24 +458,24 @@ const instr_info_t T32_ext_opc4[][16] = {
     {EXT_BITS16, 0xeef00b60, "(ext bits16 6)", xx, xx, xx, xx, xx, no, x, 6},
     {OP_vmov_u8, 0xeef00b70, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, vfp, x, DUP_ENTRY},
     {INVALID,    0xeef00b80, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,    0xeef00b90, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_u8, 0xeef00b90, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, vfp, x, DUP_ENTRY},
     {INVALID,    0xeef00ba0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,    0xeef00bb0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_u8, 0xeef00bb0, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, vfp, x, DUP_ENTRY},
     {EXT_BITS16, 0xeef00bc0, "(ext bits16 7)", xx, xx, xx, xx, xx, no, x, 7},
-    {INVALID,    0xeef00bd0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_u8, 0xeef00bd0, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, vfp, x, DUP_ENTRY},
     {EXT_BITS16, 0xeef00be0, "(ext bits16 7)", xx, xx, xx, xx, xx, no, x, 7},
-    {INVALID,    0xeef00bf0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_u8, 0xeef00bf0, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, vfp, x, DUP_ENTRY},
   },
 };
 
 /* Indexed by whether imm4 in 19:16 is 0, 1, or other */
 const instr_info_t T32_ext_imm1916[][3] = {
   { /* 0 */
-    {OP_vmovl_s16, 0xef800a10, "vmovl.s16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
+    {OP_vmovl_s16, 0xef900a10, "vmovl.s16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
     {OP_vshll_s16, 0xef800a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
     {OP_vshll_s16, 0xef800a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, DUP_ENTRY},/*19:16 cannot be 0*/
   }, { /* 1 */
-    {OP_vmovl_u16, 0xef800a10, "vmovl.u16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
+    {OP_vmovl_u16, 0xff900a10, "vmovl.u16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
     {OP_vshll_u16, 0xef800a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
     {OP_vshll_u16, 0xef800a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, DUP_ENTRY},/*19:16 cannot be 0*/
   }, { /* 2 */
@@ -882,7 +882,7 @@ const instr_info_t T32_ext_bits20[][16] = {
 /* Indexed by whether imm4 in 20:16 is zero or not */
 const instr_info_t T32_ext_imm2016[][2] = {
   { /* 0 */
-    {OP_vmovl_s32,      0xffa00a10, "vmovl.s32",      VBdq, xx, VCq, xx, xx, no, x, END_LIST},
+    {OP_vmovl_s32,      0xefa00a10, "vmovl.s32",      VBdq, xx, VCq, xx, xx, no, x, END_LIST},
     {OP_vshll_s32,      0xffa00a10, "vshll.s32",      VBdq, xx, VCq, i5_16, xx, no, x, END_LIST},/*20:16 cannot be 0*/
   }, { /* 1 */
     {OP_vmovl_u32,      0xffa00a10, "vmovl.u32",      VBdq, xx, VCq, xx, xx, no, x, END_LIST},
