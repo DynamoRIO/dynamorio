@@ -1058,7 +1058,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
     opnd_t new_op;
     dr_shift_type_t shift_type;
-    uint shift_amt;
+    uint shift_amt, disp;
     bool store = instr_writes_memory(instr);
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
@@ -1072,8 +1072,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     ASSERT(instr_has_rel_addr_reference(instr));
     /* Manual says "unpredicatable" if PC is base of ldm/stm */
-    ASSERT(!instr_reads_gpr_list(instr) &&
-           !instr_writes_gpr_list(instr));
+    ASSERT(!instr_reads_gpr_list(instr) && !instr_writes_gpr_list(instr));
     ASSERT(reg != REG_NULL);
     if (store) {
         mem_op = instr_get_dst(instr, 0);
@@ -1081,18 +1080,34 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         mem_op = instr_get_src(instr, 0);
     }
     ASSERT(opnd_is_base_disp(mem_op));
-    shift_type = opnd_get_index_shift(mem_op, &shift_amt);
-    new_op = opnd_create_base_disp_arm
-        (reg, opnd_get_index(mem_op), shift_type, shift_amt, opnd_get_disp(mem_op),
-         opnd_get_flags(mem_op), opnd_get_size(mem_op));
+    ASSERT(opnd_get_base(mem_op) == DR_REG_PC);
+
+    disp = opnd_get_disp(mem_op);
+    /* For Thumb, there is a special-cased subtract from PC with a 12-bit immed that
+     * has no analogue with a non-PC base.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+        TEST(DR_OPND_NEGATED, opnd_get_flags(mem_op)) &&
+        disp > 256) {
+        /* Apply the disp now */
+        r15 -= disp;
+        disp = 0;
+    }
+
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
     insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
                            ilist, instr, NULL, NULL);
+
+    shift_type = opnd_get_index_shift(mem_op, &shift_amt);
+    new_op = opnd_create_base_disp_arm
+        (reg, opnd_get_index(mem_op), shift_type, shift_amt, disp,
+         opnd_get_flags(mem_op), opnd_get_size(mem_op));
     if (store) {
         instr_set_dst(instr, 0, new_op);
     } else {
         instr_set_src(instr, 0, new_op);
     }
+
     if (should_restore)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
 
