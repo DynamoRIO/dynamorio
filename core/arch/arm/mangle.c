@@ -1372,7 +1372,7 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (stolen_reg_is_base) {
         ASSERT(fix_regs[1] == spill_regs[0]);
         ASSERT(opnd_uses_reg(memop, dr_reg_stolen));
-        /* restore dr_reg_stolen from spill_regs[0]  */
+        /* restore dr_reg_stolen from spill_regs[0] */
         restore_tls_base_to_stolen_reg(dcontext, ilist,
                                        instr,
                                        /* XXX: we must restore tls base right after instr
@@ -1614,8 +1614,6 @@ normalize_ldm_instr(dcontext_t *dcontext,
          */
         instr_set_predicate(*pre_ldm_ldr, pred);
         instr_set_translation(*pre_ldm_ldr, pc);
-        /* FIXME i#1551: NYI for ldm r0, {r0-rx}, ldr r0, [r0] clobbers base r0 */
-        ASSERT_NOT_IMPLEMENTED(opnd_get_reg(instr_get_dst(instr, 0)) != base);
     }
 
     if (adjust_pre != 0) {
@@ -1654,6 +1652,11 @@ normalize_ldm_instr(dcontext_t *dcontext,
         instr_set_src(instr, 0, OPND_CREATE_MEMLIST(base));
     }
 
+    /* post ldm base register adjustment */
+    if (!writeback && instr_writes_to_reg(instr, base, DR_QUERY_INCLUDE_ALL)) {
+        /* if the base reg is in the reglist, we do not need to post adjust */
+        adjust_post = 0;
+    }
     if (adjust_post != 0) {
         *post_ldm_adjust = adjust_post > 0 ?
             XINST_CREATE_add(dcontext,
@@ -1665,6 +1668,8 @@ normalize_ldm_instr(dcontext_t *dcontext,
         instr_set_predicate(*post_ldm_adjust, pred);
         instr_set_translation(*post_ldm_adjust, pc);
     }
+
+    /* post ldm load-pc */
     if (write_pc) {
         *ldr_pc = XINST_CREATE_load(dcontext,
                                     opnd_create_reg(DR_REG_PC),
@@ -1714,7 +1719,31 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             mangle_stolen_reg(dcontext, ilist, pre_ldm_adjust);
     }
     if (pre_ldm_ldr != NULL) {
+        /* special case: ldm r0, {r0-rx}, separate ldr r0, [r0] clobbers base r0 */
+        if (opnd_get_reg(instr_get_dst(pre_ldm_ldr, 0)) == SCRATCH_REG0 &&
+            opnd_get_base(instr_get_src(pre_ldm_ldr, 0)) == SCRATCH_REG0) {
+            instr_t *mov;
+            /* save the r1 for possible context restore on signal */
+            PRE(ilist, instr, instr_create_save_to_tls(dcontext, SCRATCH_REG1,
+                                                       TLS_REG1_SLOT));
+            /* mov r0 => r1, */
+            mov = INSTR_CREATE_mov(dcontext,
+                                   opnd_create_reg(SCRATCH_REG1),
+                                   opnd_create_reg(SCRATCH_REG0));
+            instr_set_predicate(mov, instr_get_predicate(instr));
+            PRE(ilist, instr, mov);
+            /* We will only come to here iff instr is "ldm r0, {r0-rx}",
+             * otherwise we will be able to pick a scratch reg without split.
+             * Thus the first dst reg must be r1 after split and the base is r0.
+             * Now we change "ldm r0, {r1-rx}" to "ldm r1, {r1-rx}".
+             */
+            ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == SCRATCH_REG1 &&
+                   opnd_get_base(instr_get_src(instr, 0)) == SCRATCH_REG0);
+            instr_set_src(instr, 0, OPND_CREATE_MEMLIST(SCRATCH_REG1));
+        }
+
         instrlist_preinsert(ilist, instr, pre_ldm_ldr); /* non-meta */
+
         if (instr_uses_reg(pre_ldm_ldr, dr_reg_stolen))
             mangle_stolen_reg(dcontext, ilist, pre_ldm_ldr);
     }

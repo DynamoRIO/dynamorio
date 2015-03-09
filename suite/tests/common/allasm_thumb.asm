@@ -164,6 +164,45 @@ _jmp_target:
         ldrbeq.w r1, [r4, #84]
         cmpeq    r1, #0
 
+// mangle ldm
+        ldr      r0, =wrong
+        mov      r1, #7    // sizeof(wrong)
+        mov      r10, #0
+        push     {r0-r5,r10}
+        mov      r10, #1
+        pop      {r0-r5,r10}
+        cmp      r10, #0
+        it       ne
+        blne     _print
+        push     {r1-r5,r10}
+        pop      {r1-r5,r10}
+        cmp      r10, #0
+        it       ne
+        blne     _print
+        sub      sp, sp, #100
+        mov      r10, sp
+        mov      r9, sp
+        stmdb    r10, {r0-r10}
+        mov      r9, #0
+        ldmdb    r10, {r0-r10}
+        cmp      r10, r9
+        it       ne
+        blne     _print
+        stmdb    r10!, {r0-r9}
+        mov      r9, #0
+        ldm      r10!, {r0-r9}
+        cmp      r10, r9
+        it       ne
+        blne     _print
+        mov      r0, sp
+        stm      r0, {r0-r10}
+        mov      r1, #6
+        ldm      r0, {r0-r10}
+        cmp      r1, #7
+        itt      ne
+        ldrne    r0, =wrong
+        blne     _print
+
 // indirect jump combined with stolen reg write in IT block:
         adr      r0, _exit
         add      r0, r0, #1          // keep it Thumb
@@ -214,3 +253,5 @@ hello:
         .ascii   "Hello world!\n"
 alldone:
         .ascii   "All done\n"
+wrong:
+        .ascii   "Wrong!\n"
