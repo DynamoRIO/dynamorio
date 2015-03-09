@@ -3557,7 +3557,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     byte *target = NULL;
     instr_t instr;
-    //priv_mcontext_t mc;
+    priv_mcontext_t mc;
     uint memopidx, memoppos, memopsize;
     opnd_t memop;
     bool found_target = false;
@@ -3609,7 +3609,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
      */
     if (si->si_code == SEGV_ACCERR && si->si_addr != NULL) {
         for (memopidx = 0;
-             instr_compute_address_ex_priv(&instr, mc, memopidx,
+             instr_compute_address_ex_priv(&instr, &mc, memopidx,
                                            &target, write, &memoppos);
              memopidx++) {
             /* i#1045: check whether operand and si_addr overlap */
@@ -3633,7 +3633,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
      */
     if (DYNAMO_OPTION(use_all_memory_areas)) {
         use_allmem = safe_is_in_fcache(dcontext, instr_cache_pc,
-                                       (byte *)mc->xsp);
+                                       (byte *)sc->SC_XSP);
     }
     if (!found_target) {
         if (si->si_addr != NULL) {
@@ -3642,7 +3642,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         }
         /* i#115/PR 394984: consider all memops */
         for (memopidx = 0;
-             instr_compute_address_ex_priv(&instr, mc, memopidx,
+             instr_compute_address_ex_priv(&instr, &mc, memopidx,
                                            &target, write, NULL);
              memopidx++) {
             if (use_allmem) {
@@ -3999,11 +3999,13 @@ master_signal_handler_C(byte *xsp)
          *     void *pc = (void*) siginfo->si_addr;
          * Thus we must use the third argument, which is a ucontext_t (see above)
          */
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
         bool syscall_signal = false; /* signal came from syscall? */
         bool is_write = false;
         byte *target;
         bool is_DR_exception = false;
+        sig_full_cxt_t sc_full = {sc, NULL}; /* non-ARM so NULL ok */
         priv_mcontext_t mc;
         extern bool verbose;
 
@@ -4014,7 +4016,7 @@ master_signal_handler_C(byte *xsp)
         }
 #endif
 
-        sigcontext_to_mcontext(&mc, sc);
+        sigcontext_to_mcontext(&mc, &sc_full);
 
         if (is_safe_read_ucxt(ucxt) ||
             (!dynamo_initialized && global_try_except.try_except_state != NULL) ||

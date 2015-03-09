@@ -786,7 +786,8 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     if (fd < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to create the backing file %s for the double-mapping\n", file);
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Error: '%s'\n", strerror(fd));
+        //RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Error: '%s'\n", strerror(fd));
+        // TODO: find dependency and add to cmake for common.fib target
         return 0;
     }
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
