@@ -210,6 +210,13 @@ _jmp_target:
         ldrne    r0, =wrong
         blne     _print
 
+// tbb mangling
+        mov      r10, sp
+        mov      r4, #0
+        str      r4, [r10]
+        // tbb does not align the current PC and is always 4 bytes long
+        tbb      [r10, r4]
+
 // indirect jump combined with stolen reg write in IT block:
         adr      r0, _exit
         add      r0, r0, #1          // keep it Thumb

@@ -893,6 +893,10 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         ptr_int_t cur_pc = (ptr_int_t)
             decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                           opc, instr);
+        /* for case like tbh [pc, r10, lsl, #1] */
+        if (instr_uses_reg(instr, dr_reg_stolen))
+            mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr));
+
         if (opc == OP_tbb) {
             PRE(ilist, instr,
                 INSTR_CREATE_ldrb(dcontext, opnd_create_reg(IBL_TARGET_REG),
@@ -933,8 +937,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
                              /* These do not switch modes so we set LSB */
                              OPND_CREATE_INT((cur_pc & 0x000000ff) | 0x1)));
-        /* FIXME i#1551: handle instr using dr_reg_stolen */
-        ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, dr_reg_stolen));
         /* remove the instr */
         remove_instr = true;
     } else if (opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
@@ -1208,7 +1210,11 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
 
 /* XXX: merge with or refactor out old STEAL_REGISTER x86 code? */
 /* Mangle simple dr_reg_stolen access.
- * dr_reg_stolen in gpr_list is handled in mangle_gpr_list_{read/write}
+ * dr_reg_stolen in gpr_list is handled in mangle_gpr_list_{read/write}.
+ *
+ * Because this routine switches the register that hold DR's TLS base,
+ * it should be called after all other mangling routines that perform
+ * reg save/restore.
  */
 static void
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
