@@ -77,20 +77,20 @@ const instr_info_t T32_16_it_ext_bit_11[][2] = {
       {OP_asr,   0x1000, "asr",        RZw, xx,    RYw, i5_6, xx, no, x, xb7[4][0x00]},
       {EXT_10_9, 0x1800, "ext 10:9 0", xx,  xx,     xx,   xx, xx, no,     x, 0},
     }, { /* 2 */
-      {OP_mov,   0x2000, "mov",        RWw, xx,     i8,   xx, xx, no, x, xi126[0][0x00]},
+      {OP_mov,   0x2000, "mov",        RWw, xx,     i8,   xx, xx, no, x, xrapc[4][0x01]},
       {OP_cmp,   0x2800, "cmp",        xx,  xx,    RWw,   i8, xx, no, fWNZCV, xrcpc[7][0x01]},
     }, { /* 3 */
       {OP_add,  0x3000, "add",         RWw, xx,   RWDw,   i8, xx, no, x, xfop8[0][0x10]},
       {OP_sub,  0x3800, "sub",         RWw, xx,   RWDw,   i8, xx, no, x, xfop8[0][0x1a]},
     }, { /* 4 */
       {OP_str,   0x6000, "str",       MP5w, xx,    RZw,   xx, xx, no,      x, xopbx[4][0x05]},
-      {OP_ldr,   0x6800, "ldr",        RZw, xx,   MP5w,   xx, xx, no,      x, xopbx[5][0x05]},
+      {OP_ldr,   0x6800, "ldr",        RZw, xx,   MP5w,   xx, xx, no,      x, xrapc[18][0x01]},
     }, { /* 5 */
       {OP_strb,  0x7000, "strb",      MP5b, xx,    RZw,   xx, xx, no,      x, xopbx[0][0x05]},
-      {OP_ldrb,  0x7800, "ldrb",       RZw, xx,   MP5b,   xx, xx, no,      x, xopbx[1][0x05]},
+      {OP_ldrb,  0x7800, "ldrb",       RZw, xx,   MP5b,   xx, xx, no,      x, xrbpc[4][0x00]},
     }, { /* 6 */
       {OP_strh,  0x8000, "strh",      MP5h, xx,    RZw,   xx, xx, no,      x, xopbx[2][0x05]},
-      {OP_ldrh,  0x8800, "ldrh",       RZw, xx,   MP5h,   xx, xx, no,      x, xopbx[3][0x05]},
+      {OP_ldrh,  0x8800, "ldrh",       RZw, xx,   MP5h,   xx, xx, no,      x, xrbpc[5][0x00]},
     }, { /* 7 */
       {OP_str,   0x9000, "str",     MSPP8w, xx,    RWw,   xx, xx, no,      x, z119[0][0x00]},
       {OP_ldr,   0x9800, "ldr",        RWw, xx, MSPP8w,   xx, xx, no,      x, z119[0][0x04]},
@@ -121,11 +121,11 @@ const instr_info_t T32_16_it_ext_bits_11_9[][8] = {
       {OP_str,    0x5000, "str",    MPRw, xx,  RZw,  xx,  xx, no, x, z11[4][0x00]},
       {OP_strh,   0x5200, "strh",   MPRh, xx,  RZh,  xx,  xx, no, x, z11[6][0x00]},
       {OP_strb,   0x5400, "strb",   MPRb, xx,  RZb,  xx,  xx, no, x, z11[5][0x00]},
-      {OP_ldrsb,  0x5600, "ldrsb",   RZw, xx, MPRb,  xx,  xx, no, x, xopbx[6][0x05]},
+      {OP_ldrsb,  0x5600, "ldrsb",   RZw, xx, MPRb,  xx,  xx, no, x, xrbpc[9][0x00]},
       {OP_ldr,    0x5800, "ldr",     RZw, xx, MPRw,  xx,  xx, no, x, z11[4][0x01]},
       {OP_ldrh,   0x5a00, "ldrh",    RZw, xx, MPRh,  xx,  xx, no, x, z11[6][0x01]},
       {OP_ldrb,   0x5c00, "ldrb",    RZw, xx, MPRb,  xx,  xx, no, x, z11[5][0x01]},
-      {OP_ldrsh,  0x5e00, "ldrsh",   RZw, xx, MPRh,  xx,  xx, no, x, xopbx[7][0x05]},
+      {OP_ldrsh,  0x5e00, "ldrsh",   RZw, xx, MPRh,  xx,  xx, no, x, xrapc[28][0x01]},
     },
 };
 

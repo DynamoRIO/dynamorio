@@ -484,7 +484,7 @@ const instr_info_t T32_ext_imm1916[][3] = {
     {OP_vmsr,     0xeee00a10, "vmsr",   xx, xx, RBd, i4_16, xx, vfp, x, DUP_ENTRY},
   }, { /* 3 */
     {OP_vmrs,     0xeef00a10, "vmrs",   RBw, xx, i4_16, xx, xx, vfp, x, xi19[3][0x01]},
-    {OP_vmrs,     0xeef10a10, "vmrs",   RBw, xx, FPSCR, xx, xx, vfp, x, xrbpc[17][0x01]},
+    {OP_vmrs,     0xeef10a10, "vmrs",   RBw, xx, FPSCR, xx, xx, vfp, x, END_LIST},
     {OP_vmrs,     0xeef00a10, "vmrs",   RBw, xx, i4_16, xx, xx, vfp, x, DUP_ENTRY},
   },
 };

@@ -189,6 +189,11 @@ foreach $infile (@infiles) {
             $priority+=10   if (/\bSPw\b|\bPCw\b/);
             $priority+=10   if (/\bMSPP8w\b|\bMPCP8w\b/);
             $priority+=10   if (/\bMSPDBl\b|\bMSPl\b/);
+            # + We have to take PC special-case first, b/c in some cases
+            #   it has a larger immed which conflicts w/ other bits in non-PC
+            #   (e.g., T32 OP_ldr with MPCN12w opnd).  I don't think this
+            #   generalization of that one known case as any negatives.
+            $priority+=200 if ($table =~ /PC$/);
 
             $entry{$opc}[$instance{$opc}]{'priority'} = $priority;
             if ($verbose > 0) {
