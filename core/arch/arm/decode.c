@@ -1341,6 +1341,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, -val, opsize);
         return true;
     }
+    case TYPE_M_POS_I5:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regY(di), REG_NULL, 0,
+                                  decode_immed(di, 6, OPSZ_5b, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_POS_I5x2:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regY(di), REG_NULL, 0,
+                                  2*decode_immed(di, 6, OPSZ_5b, false/*unsigned*/),
+                                  opsize);
+        return true;
     case TYPE_M_POS_I5x4:
         CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
         array[(*counter)++] =

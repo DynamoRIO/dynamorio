@@ -334,6 +334,8 @@ const char * const type_names[] = {
     "TYPE_M_POS_I4_4",
     "TYPE_M_NEG_I4_4",
     "TYPE_M_SI7",
+    "TYPE_M_POS_I5",
+    "TYPE_M_POS_I5x2",
     "TYPE_M_POS_I5x4",
     "TYPE_M_PCREL_POS_I8x4",
     "TYPE_M_PCREL_POS_I12",
@@ -1537,6 +1539,39 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             return encode_mem_instr_ok(di, OPSZ_1, opnd, false/*unsigned*/,
                                        optype == TYPE_M_NEG_I4_4, 0/*no scale*/);
         }
+    case TYPE_M_POS_I5:
+        if (opnd_is_base_disp(opnd) &&
+            opnd_get_base(opnd) <= DR_REG_R7/* T32.16 only */ &&
+            opnd_get_base(opnd) != REG_NULL &&
+            opnd_get_index(opnd) == REG_NULL &&
+            opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
+            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), false/*unsigned*/,
+                            false/*pos*/) &&
+            size_op == size_temp) {
+            /* no writeback */
+            return true;
+        } else {
+            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                       false/*negated*/, 0/*no scale*/);
+        }
+    case TYPE_M_POS_I5x2:
+        if (opnd_is_base_disp(opnd) &&
+            opnd_get_base(opnd) <= DR_REG_R7/* T32.16 only */ &&
+            opnd_get_base(opnd) != REG_NULL &&
+            opnd_get_index(opnd) == REG_NULL &&
+            opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
+            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            opnd_get_disp(opnd) % 2 == 0 &&
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd)/2, false/*unsigned*/,
+                            false/*pos*/) &&
+            size_op == size_temp) {
+            /* no writeback */
+            return true;
+        } else {
+            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                       false/*negated*/, 2/*scale*/);
+        }
     case TYPE_M_POS_I5x4:
         if (opnd_is_base_disp(opnd) &&
             opnd_get_base(opnd) <= DR_REG_R7/* T32.16 only */ &&
@@ -1550,7 +1585,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             size_op == size_temp) {
             /* no writeback */
             return true;
-        } else if (opnd_is_mem_instr(opnd)) {
+        } else {
             return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
                                        false/*negated*/, 4/*scale*/);
         }
@@ -1566,7 +1601,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             size_op == size_temp) {
             /* no writeback */
             return true;
-        } else if (opnd_is_mem_instr(opnd)) {
+        } else {
             return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
                                        false/*negated*/, 4/*scale*/);
         }
@@ -2455,6 +2490,28 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             encode_immed(di, 0, OPSZ_4b, delta < 0 ? -delta : delta, false/*unsigned*/);
             encode_immed(di, 8, OPSZ_4b, (delta < 0 ? -delta : delta) >> 4,
                          false/*unsigned*/);
+        }
+        break;
+    case TYPE_M_POS_I5:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        if (opnd_is_base_disp(opnd)) {
+            encode_regY(di, opnd_get_base(opnd));
+            encode_immed(di, 6, OPSZ_5b, opnd_get_disp(opnd), false/*unsigned*/);
+        } else if (opnd_is_mem_instr(opnd)) {
+            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+            encode_regY(di, DR_REG_PC);
+            encode_immed(di, 6, OPSZ_5b, delta, false/*unsigned*/);
+        }
+        break;
+    case TYPE_M_POS_I5x2:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        if (opnd_is_base_disp(opnd)) {
+            encode_regY(di, opnd_get_base(opnd));
+            encode_immed(di, 6, OPSZ_5b, opnd_get_disp(opnd)/2, false/*unsigned*/);
+        } else if (opnd_is_mem_instr(opnd)) {
+            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+            encode_regY(di, DR_REG_PC);
+            encode_immed(di, 6, OPSZ_5b, delta/2, false/*unsigned*/);
         }
         break;
     case TYPE_M_POS_I5x4:

@@ -464,6 +464,8 @@ enum {
     TYPE_M_POS_I4_4,    /* mem offs + 8-bit immed split @ 11:8|3:0 */
     TYPE_M_NEG_I4_4,    /* mem offs - 8-bit immed split @ 11:8|3:0 */
     TYPE_M_SI7,         /* mem offs + signed 7-bit immed @ 6:0 */
+    TYPE_M_POS_I5,      /* mem offs + 5-bit immed @ 10:6 */
+    TYPE_M_POS_I5x2,    /* mem offs + 2 * 5-bit immed @ 10:6 */
     TYPE_M_POS_I5x4,    /* mem offs + 4 * 5-bit immed @ 10:6 */
 
     TYPE_M_PCREL_POS_I8x4,/* mem offs pc-relative + 4 * 8-bit immed @  7:0 */

@@ -160,6 +160,9 @@ _jmp_target:
 // some tricky cases that recently hit bugs
         strd     r12, lr, [sp, #-16]!
         ldr.w    r0, [pc, #-296]
+        itt      eq
+        ldrbeq.w r1, [r4, #84]
+        cmpeq    r1, #0
 
 // indirect jump combined with stolen reg write in IT block:
         adr      r0, _exit
