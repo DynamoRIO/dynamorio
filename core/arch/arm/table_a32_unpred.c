@@ -1113,7 +1113,7 @@ const instr_info_t A32_ext_simd6[][64] = {
   },
 };
 
-/* Indexed by bits 11:8,5 */
+/* Indexed by bits 11:8,6 */
 const instr_info_t A32_ext_simd5[][32] = {
   { /* 0 */
     {OP_vshr_s8,        0xf2880010, "vshr.s8",        VBq, xx, VCq, i3_16, xx, no, x, tsi5[0][0x01]},/*XXX: imm = 8-imm*/

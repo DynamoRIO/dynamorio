@@ -1430,7 +1430,7 @@ decode_ext_simd6_idx(uint instr_word)
 static inline uint
 decode_ext_simd5_idx(uint instr_word)
 {
-    return ((instr_word >> 7) & 0x1e) | ((instr_word >> 5) & 0x1); /*5 bits 11:8,5 */
+    return ((instr_word >> 7) & 0x1e) | ((instr_word >> 6) & 0x1); /*5 bits 11:8,6 */
 }
 
 static inline uint

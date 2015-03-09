@@ -764,28 +764,28 @@ const instr_info_t T32_ext_bit_B4[][2] = {
      * sseparate those out: we do that via bit4 and then bit7 in the next 8 entries.
      */
     {EXT_BIT19,  0xef800000, "(ext bit19  0)", xx, xx, xx, xx, xx, no, x, 0},
-    {EXT_B7,     0xef800000, "(ext bit7   6)", xx, xx, xx, xx, xx, no, x, 6},
+    {EXT_B7,     0xef800010, "(ext bit7   6)", xx, xx, xx, xx, xx, no, x, 6},
   }, { /* 16 */
     {EXT_SIMD6,  0xef900000, "(ext simd6  4)", xx, xx, xx, xx, xx, no, x, 4},
-    {EXT_B7,     0xef900000, "(ext bit7   7)", xx, xx, xx, xx, xx, no, x, 7},
+    {EXT_B7,     0xef900010, "(ext bit7   7)", xx, xx, xx, xx, xx, no, x, 7},
   }, { /* 17 */
     {EXT_SIMD6,  0xefa00000, "(ext simd6  5)", xx, xx, xx, xx, xx, no, x, 5},
-    {EXT_B7,     0xefa00000, "(ext bit7   8)", xx, xx, xx, xx, xx, no, x, 8},
+    {EXT_B7,     0xefa00010, "(ext bit7   8)", xx, xx, xx, xx, xx, no, x, 8},
   }, { /* 18 */
     {EXT_BIT6,   0xefb00000, "(ext bit6   0)", xx, xx, xx, xx, xx, no, x, 0},
-    {EXT_B7,     0xefb00000, "(ext bit7   8)", xx, xx, xx, xx, xx, no, x, 8},
+    {EXT_B7,     0xefb00010, "(ext bit7   8)", xx, xx, xx, xx, xx, no, x, 8},
   }, { /* 19 */
     {EXT_BIT19,  0xff800000, "(ext bit19  1)", xx, xx, xx, xx, xx, no, x, 1},
-    {EXT_B7,     0xff800000, "(ext bit7   9)", xx, xx, xx, xx, xx, no, x, 9},
+    {EXT_B7,     0xff800010, "(ext bit7   9)", xx, xx, xx, xx, xx, no, x, 9},
   }, { /* 20 */
     {EXT_SIMD6,  0xff900000, "(ext simd6 10)", xx, xx, xx, xx, xx, no, x, 10},
-    {EXT_B7,     0xff900000, "(ext bit7  10)", xx, xx, xx, xx, xx, no, x, 10},
+    {EXT_B7,     0xff900010, "(ext bit7  10)", xx, xx, xx, xx, xx, no, x, 10},
   }, { /* 21 */
     {EXT_SIMD6,  0xffa00000, "(ext simd6 11)", xx, xx, xx, xx, xx, no, x, 11},
-    {EXT_B7,     0xffa00000, "(ext bit7  11)", xx, xx, xx, xx, xx, no, x, 11},
+    {EXT_B7,     0xffa00010, "(ext bit7  11)", xx, xx, xx, xx, xx, no, x, 11},
   }, { /* 22 */
     {EXT_VTB,    0xffb00000, "(ext vtb 0)", xx, xx, xx, xx, xx, no, x, 0},
-    {EXT_B7,     0xffb00000, "(ext bit7  11)", xx, xx, xx, xx, xx, no, x, 11},
+    {EXT_B7,     0xffb00010, "(ext bit7  11)", xx, xx, xx, xx, xx, no, x, 11},
   },
 };
 
