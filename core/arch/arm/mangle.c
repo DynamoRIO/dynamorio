@@ -1407,6 +1407,7 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (reg_found[0] || reg_found[1]) {
         ushort app_val_slot; /* slot holding app value */
         reg_id_t base_reg;
+        reg_id_t scratch = spill_regs[1];
         if (stolen_reg_is_base) {
             /* dr_reg_stolen is used as the base in the app, but it is holding
              * TLS base, so we now put dr_reg_stolen app value into spill_regs[0]
@@ -1422,24 +1423,31 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             ASSERT(fix_regs[1] == dr_reg_stolen);
             app_val_slot = TLS_REG_STOLEN_SLOT;
             base_reg = opnd_get_base(memop);
+            if (opnd_uses_reg(memop, scratch)) {
+                /* We know !stolen_reg_is_base so we can use r0 as scratch instead
+                 * and not have any conflicts.  We keep same TLS slot.
+                 */
+                scratch = spill_regs[0];
+            }
         }
+        ASSERT(!opnd_uses_reg(memop, scratch));
 
         /* save spill reg */
         PRE(ilist, next_instr,
-            instr_create_save_to_tls(dcontext, spill_regs[1], spill_slots[1]));
+            instr_create_save_to_tls(dcontext, scratch, spill_slots[1]));
 
         /* fixup the slot in memlist */
         for (i = 0; i < 2; i++) {
             if (reg_found[i]) {
                 store_reg_to_memlist(dcontext, ilist, instr, next_instr,
                                      base_reg, app_val_slot,
-                                     spill_regs[1], fix_regs[i], reg_pos[i]);
+                                     scratch, fix_regs[i], reg_pos[i]);
             }
         }
 
         /* restore spill reg */
         PRE(ilist, next_instr,
-            instr_create_restore_from_tls(dcontext, spill_regs[1], spill_slots[1]));
+            instr_create_restore_from_tls(dcontext, scratch, spill_slots[1]));
     }
 
     if (stolen_reg_is_base) {

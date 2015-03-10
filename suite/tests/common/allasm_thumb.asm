@@ -168,6 +168,8 @@ _jmp_target:
         itt      ne
         addne.w  r0, sp, #92
         blne     _exit
+        mov      r1, sp
+        stm      r1, {r4, r10}
 
 // mangle ldm
         ldr      r0, =wrong
