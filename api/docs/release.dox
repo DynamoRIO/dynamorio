@@ -1275,8 +1275,8 @@ not supported.
     or sgid permission bits set
     disallow absolute paths in LD_PRELOAD and ignore LD_LIBRARY_PATH, so
     alternate methods of specifying the path are needed there.  One method
-    is to place libdrpreload.so's full path in /etc/ld.so.preload and copy
-    libdynamorio.so to /usr/lib or some other system search directory.
+    is to place both libdrpreload.so and libdynamorio's full paths in
+    /etc/ld.so.preload.
     You'll need to use a \ref lin_deploy "separate configure step approach".
     Don't forget to run drconfig to create a configuration for the
     application first; otherwise, libdrpreload.so will refuse to take
