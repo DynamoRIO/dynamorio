@@ -79,8 +79,8 @@ separate_bb:
 // indirect jumps
         // Thumb won't let us do arith ops on the pc
 .align 4 // try to make sequence less fragile wrt code changes around it
-        add      r1, pc, #2        // point at add below, and align (stays Thumb though)
-        mov      pc, r1
+        add      r10, pc, #2        // point at add below, and align (stays Thumb though)
+        mov      pc,  r10
         add      r2, pc, #7        // point at the exit code below
         push     {r1-r2}
         pop      {r1,pc}
