@@ -1095,7 +1095,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
         TEST(DR_OPND_NEGATED, opnd_get_flags(mem_op)) &&
-        disp > 256) {
+        disp >= 256) {
         /* Apply the disp now */
         r15 -= disp;
         disp = 0;
