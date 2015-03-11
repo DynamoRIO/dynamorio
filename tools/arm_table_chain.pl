@@ -129,23 +129,27 @@ foreach $infile (@infiles) {
             $instance{$opc} = 0 if (!defined($instance{$opc}));
 
             # Ignore duplicate encodings
-            #
-            # XXX: this requires that duplicates in tables where a distinguishing
-            # immed bit must be set for the decoder to get there must not set that
-            # bit in their opcode field, or that duplicates are ordered in the tables
-            # with the fewest bits first.  To handle other orderings we'd need logic
-            # here to select the duplicate with the fewest bits set, rather than just
-            # taking the first one.  An example is OP_lsls 0x01b00080 which must list
-            # 0x01b00000.  We also have a lot of SIMD duplicates, things like b vs f
-            # for the D bit, where we do have the bit in the table but we rely on
-            # the order (which seems fragile...).
-            my $encoding = $_;
             my $is_new = 1;
-            $encoding = extract_encoding($_);
+            my $instance_next = $instance{$opc} + 1;
+            my $encoding = extract_encoding($_);
+            my $hex = extract_hex($_);
             for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
                 if ($encoding eq $entry{$opc}[$i]{'encoding'}) {
                     $is_new = 0;
                     $dup{$opc}{$encoding} = 1;
+                    # We must place the entry with the fewest required bits into the
+                    # encoding chain, to allow for entries to set distinguishing
+                    # immed and other varying bits on duplicate entries (e.g., b vs f
+                    # for the SIMD D bit) for easier decode table reading.
+                    if (hex($hex) < hex($hex{$opc}{$encoding})) {
+                        $hex{$opc}{$encoding} = $hex;
+                        # Replace the stored instance with this one
+                        $is_new = 1;
+                        $instance_next = $instance{$opc} + 1;
+                        $instance{$opc} = $i;
+                    }
+                    print "Duplicate $hex $encoding => $hex{$opc}{$encoding}\n"
+                        if ($verbose > 1);
                     last;
                 }
             }
@@ -153,6 +157,8 @@ foreach $infile (@infiles) {
 
             $entry{$opc}[$instance{$opc}]{'line'} = $_;
             $entry{$opc}[$instance{$opc}]{'encoding'} = $encoding;
+            $entry{$opc}[$instance{$opc}]{'hex'} = $hex;
+            $hex{$opc}{$encoding} = $hex;
             die "Error: no shorthand for $table\n" if ($shorthand{$table} eq '');
             if ($shape =~ /\d/) {
                 $entry{$opc}[$instance{$opc}]{'addr_short'} =
@@ -200,7 +206,7 @@ foreach $infile (@infiles) {
                 my $tmp = $entry{$opc}[$instance{$opc}]{'addr_long'};
                 print "$priority $tmp $_";
             }
-            $instance{$opc}++;
+            $instance{$opc} = $instance_next;
         }
       dup_line:
         $minor++ if (/^\s*{[A-Z]/);
@@ -226,6 +232,7 @@ foreach $infile (@infiles) {
     @ARGV = ($infile);
     while (<>) {
         my $encoding = extract_encoding($_);
+        my $hex = extract_hex($_);
         my $handled = 0;
         if (/^\s+\/\* (OP_\w+)[ ,]/ && ($single_op eq '' || $single_op eq $1)) {
             my $opc = $1;
@@ -254,17 +261,19 @@ foreach $infile (@infiles) {
             $1 ne 'OP_CONTD') {
             my $opc = $1;
             if (defined($dup{$opc}{$encoding})) {
-                my $first = 0;
-                if (!defined($dup_first{$opc}{$encoding})) {
-                    # Keep one of them, if any other encodings
-                    $dup_first{$opc}{$encoding} = 1;
-                    $first = 1;
-                }
-                if (!$first) {
+                # Keep the one with the fewest bits, to allow for optional bits
+                # (e.g., immeds or reg bits) to be set to make the tables easier to
+                # read.
+                # For duplicate hex values, take 1st one.
+                if ($hex eq $hex{$opc}{$encoding} &&
+                    !defined($printed_dup{$opc}{$encoding})) {
+                    $printed_dup{$opc}{$encoding} = 1;
+                    if (@{$entry{$opc}} == 1) {
+                        s/, *[\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
+                        $handled = 1;
+                    }
+                } else {
                     s/, *[\w\[\]_]+},/, DUP_ENTRY},/ unless /exop\[\w+\]},/;
-                    $handled = 1;
-                } elsif (@{$entry{$opc}} == 1) {
-                    s/, *[\w\[\]_]+},/, END_LIST},/ unless /exop\[\w+\]},/;
                     $handled = 1;
                 }
             }
@@ -301,4 +310,14 @@ sub extract_encoding($)
     $line =~ s/,[^,]+}.*$//;
     $line =~ s/\s*$//;
     return $line;
+}
+
+sub extract_hex($)
+{
+    my ($line) = @_;
+    if ($line =~ /{OP_\w+,\s*0x([0-9a-fA-F]+),/) {
+        return $1;
+    } else {
+        return "not found";
+    }
 }
