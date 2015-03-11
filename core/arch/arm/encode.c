@@ -755,18 +755,26 @@ get_immed_val_abs(decode_info_t *di, opnd_t opnd)
 
 static bool
 encode_immed_ok(decode_info_t *di, opnd_size_t size_temp, ptr_int_t val,
+                int scale /* 0 means no scale */,
                 bool is_signed, bool negated)
 {
     uint bits = opnd_size_in_bits(size_temp);
     LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL,
-        "  immed ok: val %d %s vs bits %d (=> %d), wb %s %d neg=%d\n",
-        val, size_names[size_temp], bits, 1 << bits, size_names[di->check_wb_disp_sz],
+        "  immed ok: val/scale %d/%d %s vs bits %d (=> %d), wb %s %d neg=%d\n",
+        val, scale, size_names[size_temp], bits, 1 << bits,
+        size_names[di->check_wb_disp_sz],
         di->check_wb_disp_sz, negated);
     /* Ensure writeback disp matches memop disp */
+    ASSERT(scale >= 0);
+    if (scale > 1 && (val % scale) != 0)
+        return false;
     if (di->check_wb_disp_sz != OPSZ_NA &&
         di->check_wb_disp_sz == size_temp &&
         di->check_wb_disp != (negated ? -val : val))
         return false;
+    /* convert val to the actual val to be encoded */
+    if (scale != 0)
+        val = val/scale;
     if (is_signed) {
         if (val < 0)
             return -val <= (1 << (bits - 1));
@@ -779,7 +787,7 @@ encode_immed_ok(decode_info_t *di, opnd_size_t size_temp, ptr_int_t val,
 }
 
 static bool
-encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multiply,
+encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int scale,
                              opnd_t opnd, bool is_signed, bool negated, bool relative,
                              bool check_range)
 {
@@ -787,8 +795,7 @@ encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multi
     if (opnd_is_immed_int(opnd) || opnd_is_near_instr(opnd) || opnd_is_near_pc(opnd)) {
         ptr_int_t val = get_immed_val_shared(di, opnd, relative, false/*just checking*/);
         return (!check_range ||
-                (encode_immed_ok(di, size_temp, val / multiply, is_signed, negated) &&
-                 val % multiply == 0));
+                encode_immed_ok(di, size_temp, val, scale, is_signed, negated));
     }
     return false;
 }
@@ -1017,22 +1024,19 @@ get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 
 static bool
 encode_mem_instr_ok(decode_info_t *di, opnd_size_t size_immed,
-                    opnd_t opnd, bool is_signed, bool negated, uint scale)
+                    opnd_t opnd, bool is_signed, bool negated, int scale)
 {
     if (opnd_is_mem_instr(opnd)) {
         ptr_int_t delta = get_mem_instr_delta(di, opnd);
         bool res = false;
-        if (scale != 0) {
-            if (delta % scale != 0)
-                return false;
-            delta = delta / scale;
-        }
         if (negated) {
             res = (delta < 0 &&
-                   encode_immed_ok(di, size_immed, -delta, false/*unsigned*/, negated));
+                   encode_immed_ok(di, size_immed, -delta, scale,
+                                   false/*unsigned*/, negated));
         } else {
             res = (delta >= 0 &&
-                   encode_immed_ok(di, size_immed, delta, false/*unsigned*/, negated));
+                   encode_immed_ok(di, size_immed, delta, scale,
+                                   false/*unsigned*/, negated));
         }
         if (res) {
             di->check_wb_base = DR_REG_PC;
@@ -1362,15 +1366,14 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_NI_b0:
     case TYPE_NI_b8_b0:
         return (opnd_is_immed_int(opnd) &&
-                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
+                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd), 1,
                                 false/*unsigned*/, true/*negated*/));
     case TYPE_I_x4_b0:
         return encode_immed_int_or_instr_ok(di, size_temp, 4, opnd, false/*unsigned*/,
                                             false/*pos*/, false/*abs*/, true/*range*/);
     case TYPE_NI_x4_b0:
         return (opnd_is_immed_int(opnd) &&
-                (-opnd_get_immed_int(opnd) % 4) == 0 &&
-                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
+                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd), 4,
                                 false/*unsigned*/, true/*negated*/));
     case TYPE_I_b12_b6:
     case TYPE_I_b7:
@@ -1425,7 +1428,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             /* For OPSZ_1b, allow full DR_SHIFT_* values.  Allow the extras we've
              * added: simpler to just require OPSZ_3b here and check further below.
              */
-            encode_immed_ok(di, OPSZ_3b, opnd_get_immed_int(opnd),
+            encode_immed_ok(di, OPSZ_3b, opnd_get_immed_int(opnd), 1,
                             false/*unsigned*/, false/*pos*/)) {
             ptr_int_t val = opnd_get_immed_int(opnd);
             if (val > DR_SHIFT_NONE)
@@ -1498,7 +1501,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I12) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1579,7 +1582,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_base(opnd) != REG_NULL &&
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-                encode_immed_ok(di, OPSZ_9b, opnd_get_signed_disp(opnd),
+                encode_immed_ok(di, OPSZ_9b, opnd_get_signed_disp(opnd), 1,
                                 true/*signed*/, false/*pos*/) &&
                 size_op == size_temp);
     case TYPE_M_SI7:
@@ -1587,7 +1590,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_base(opnd) != REG_NULL &&
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-                encode_immed_ok(di, OPSZ_7b, opnd_get_signed_disp(opnd),
+                encode_immed_ok(di, OPSZ_7b, opnd_get_signed_disp(opnd), 1,
                                 true/*signed*/, false/*pos*/) &&
                 size_op == size_temp);
     case TYPE_M_SP_POS_I8x4:
@@ -1596,9 +1599,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_base(opnd) == DR_REG_SP &&
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-                opnd_get_disp(opnd) % 4 == 0 &&
                 !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-                encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
+                encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false/*unsigned*/,
                                 false/*pos*/) &&
                 size_op == size_temp);
     case TYPE_M_POS_I8:
@@ -1610,7 +1612,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                         optype == TYPE_M_NEG_I8) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1630,8 +1632,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I8x4) ||
              opnd_get_disp(opnd) == 0) &&
-            opnd_get_disp(opnd) % 4 == 0 &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1651,7 +1652,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I4_4) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1669,7 +1670,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             false/*pos*/) &&
             size_op == size_temp) {
             /* no writeback */
@@ -1685,8 +1686,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-            opnd_get_disp(opnd) % 2 == 0 &&
-            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd)/2, false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 2, false/*unsigned*/,
                             false/*pos*/) &&
             size_op == size_temp) {
             /* no writeback */
@@ -1702,8 +1702,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-            opnd_get_disp(opnd) % 4 == 0 &&
-            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd)/4, false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 4, false/*unsigned*/,
                             false/*pos*/) &&
             size_op == size_temp) {
             /* no writeback */
@@ -1717,9 +1716,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) == DR_REG_PC &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            opnd_get_disp(opnd) % 4 == 0 &&
             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false/*unsigned*/,
                             false/*pos*/) &&
             size_op == size_temp) {
             /* no writeback */
@@ -1738,7 +1736,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_PCREL_NEG_I12) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
