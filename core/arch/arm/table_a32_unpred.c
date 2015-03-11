@@ -1237,9 +1237,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x10 */
     {OP_vaddw_s8,       0xf2800100, "vaddw.s8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf2800110, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, tsi8[0][0x08]},
-    {OP_vbic_i16,       0xf2800130, "vbic.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, tsi8[1][0x09]},/*XXX: encode immed expansion to 16 vs 32?*/
+    {OP_vbic_i32,       0xf2800130, "vbic.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, tsi8[0][0x09]},
     {OP_vorr_i32,       0xf2800150, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
-    {INVALID,           0xf2800170, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf2800170, "vbic.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
     /* 0x20 */
     {OP_vsubl_s8,       0xf2800200, "vsubl.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf2800210, "vmov.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1249,9 +1249,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x30 */
     {OP_vsubw_s8,       0xf2800300, "vsubw.s8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf2800310, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xf2800330, "vbic.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, tsi8[1][0x13]},
+    {OP_vbic_i32,       0xf2800330, "vbic.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf2800350, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf2800370, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf2800370, "vbic.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x40 */
     {OP_vaddhn_i16,     0xf2800400, "vaddhn.i16",     VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf2800410, "vmov.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1261,9 +1261,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x50 */
     {OP_vabal_s8,       0xf2800500, "vabal.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf2800510, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf2800530, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf2800530, "vbic.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf2800550, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf2800570, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf2800570, "vbic.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x60 */
     {OP_vsubhn_i16,     0xf2800600, "vsubhn.i16",     VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf2800610, "vmov.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1273,9 +1273,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x70 */
     {OP_vabdl_s8,       0xf2800700, "vabdl.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf2800710, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf2800730, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf2800730, "vbic.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf2800750, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf2800770, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf2800770, "vbic.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x80 */
     {OP_vmlal_s8,       0xf2800800, "vmlal.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i16,       0xf2800810, "vmov.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, tsi8[0][0x2b]},/*XXX: different <cmode> immed expansions are complex*/
@@ -1285,9 +1285,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x90 */
     {INVALID,           0xf2800900, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_vorr_i16,       0xf2800910, "vorr.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, tsi8[0][0x30]},/*XXX: different <cmode> immed expansions are complex*/
-    {INVALID,           0xf2800930, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf2800930, "vbic.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, tsi8[0][0x31]},
     {OP_vorr_i16,       0xf2800950, "vorr.i16",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},/*XXX: different <cmode> immed expansions are complex*/
-    {INVALID,           0xf2800970, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf2800970, "vbic.i16",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
     /* 0xa0 */
     {OP_vmlsl_s8,       0xf2800a00, "vmlsl.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i16,       0xf2800a10, "vmov.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1297,9 +1297,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0xb0 */
     {INVALID,           0xf2800b00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_vorr_i16,       0xf2800b10, "vorr.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf2800b30, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf2800b30, "vbic.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i16,       0xf2800b50, "vorr.i16",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf2800b70, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf2800b70, "vbic.i16",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xc0 */
     {OP_vmull_s8,       0xf2800c00, "vmull.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf2800c10, "vmov.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
@@ -1335,7 +1335,7 @@ const instr_info_t A32_ext_simd8[][80] = {
     {OP_vorr_i32,       0xf3800110, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vbic_i16,       0xf3800130, "vbic.i16",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf3800150, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i16,       0xf3800170, "vbic.i16",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
+    {OP_vbic_i16,       0xf3800170, "vbic.i16",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x20 */
     {OP_vsubl_u8,       0xf3800200, "vsubl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf3800210, "vmov.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1347,7 +1347,7 @@ const instr_info_t A32_ext_simd8[][80] = {
     {OP_vorr_i32,       0xf3800310, "vorr.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vbic_i32,       0xf3800330, "vbic.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf3800350, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xf3800370, "vbic.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
+    {OP_vbic_i32,       0xf3800370, "vbic.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x40 */
     {OP_vraddhn_i16,    0xf3800400, "vraddhn.i16",    VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf3800410, "vmov.i32",       VBq, xx, i8x24_16_0, xx, xx, no, x, DUP_ENTRY},
