@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -65,12 +65,12 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
     ASSERT((byte *)(os_tls->self) == segment);
     LOG(GLOBAL, LOG_THREADS, 2,
-        "tls_thread_init: cur priv lib tls base is"PFX"\n",
+        "tls_thread_init: cur priv lib tls base is "PFX"\n",
         os_tls->os_seg_info.priv_lib_tls_base);
-     dynamorio_syscall(SYS_set_tls, 1, os_tls->os_seg_info.priv_lib_tls_base);
-     ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
-     ASSERT(*get_dr_tls_base_addr() == NULL);
-     *get_dr_tls_base_addr() = segment;
+    dynamorio_syscall(SYS_set_tls, 1, os_tls->os_seg_info.priv_lib_tls_base);
+    ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
+    ASSERT(*get_dr_tls_base_addr() == NULL);
+    *get_dr_tls_base_addr() = segment;
     os_tls->tls_type = TLS_TYPE_SLOT;
 }
 

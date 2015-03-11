@@ -1386,9 +1386,11 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
     os_tls = get_os_tls_from_dc(dcontext);
     if (reg == TLS_REG_LIB) {
         os_tls->app_lib_tls_base = base;
+        LOG(THREAD, LOG_THREADS, 1, "TLS app lib base  ="PFX"\n", base);
         return true;
     } else if (reg == TLS_REG_ALT) {
         os_tls->app_alt_tls_base = base;
+        LOG(THREAD, LOG_THREADS, 1, "TLS app alt base  ="PFX"\n", base);
         return true;
     }
     ASSERT_NOT_REACHED();
@@ -1670,6 +1672,7 @@ os_tls_init(void)
     os_local_state_t *os_tls = (os_local_state_t *) segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread "TIDFMT"\n", get_thread_id());
+    ASSERT(!is_thread_tls_initialized());
 
     /* MUST zero out dcontext slot so uninit access gets NULL */
     memset(segment, 0, PAGE_SIZE);
@@ -1883,6 +1886,13 @@ os_thread_init(dcontext_t *dcontext)
     ostd->priv_lib_tls_base = os_tls->os_seg_info.priv_lib_tls_base;
     ostd->priv_alt_tls_base = os_tls->os_seg_info.priv_alt_tls_base;
     ostd->dr_tls_base = os_tls->os_seg_info.dr_tls_base;
+
+    LOG(THREAD, LOG_THREADS, 1, "TLS app lib base  ="PFX"\n", os_tls->app_lib_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS app alt base  ="PFX"\n", os_tls->app_alt_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS priv lib base ="PFX"\n", ostd->priv_lib_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS priv alt base ="PFX"\n", ostd->priv_alt_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS DynamoRIO base="PFX"\n", ostd->dr_tls_base);
+
 #ifdef X86
     if (INTERNAL_OPTION(mangle_app_seg)) {
         ostd->app_thread_areas =
@@ -1894,10 +1904,10 @@ os_thread_init(dcontext_t *dcontext)
     }
 #endif
 
-    LOG(THREAD, LOG_THREADS, 1, "cur %s base is "PFX"\n",
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is "PFX"\n",
         IF_X86_ELSE("gs", "tpidruro"),
         get_segment_base(IF_X86_ELSE(SEG_GS, DR_REG_TPIDRURO)));
-    LOG(THREAD, LOG_THREADS, 1, "cur %s base is "PFX"\n",
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is "PFX"\n",
         IF_X86_ELSE("fs", "tpidrurw"),
         get_segment_base(IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW)));
 
@@ -5592,31 +5602,44 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
          * The app's TLS slot value is stored into privlib's TLS slot for
          * later restore on switching back to privlib's TLS.
          */
-        byte **app_lib_tls_swap_slot = (byte **)
-            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
         byte **priv_lib_tls_swap_slot = (byte **)
+            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte **app_lib_tls_swap_slot = (byte **)
             (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
+        LOG(THREAD, LOG_LOADER, 3,
+            "%s: switching to app: app slot=&"PFX" *"PFX", priv slot=&"PFX" *"PFX"\n",
+            __FUNCTION__, app_lib_tls_swap_slot, *app_lib_tls_swap_slot,
+            priv_lib_tls_swap_slot, *priv_lib_tls_swap_slot);
         byte *dr_tls_base = *priv_lib_tls_swap_slot;
         *priv_lib_tls_swap_slot = *app_lib_tls_swap_slot;
         *app_lib_tls_swap_slot = dr_tls_base;
+        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting coproc reg to 0x%x\n",
+            __FUNCTION__, (to_app ? "app" : "dr"), os_tls->app_lib_tls_base);
         res = dynamorio_syscall(SYS_set_tls, 1, os_tls->app_lib_tls_base) == 0;
     } else {
         /* Restore the app's TLS slot that we used for storing DR's TLS base,
          * and put DR's TLS base back to privlib's TLS slot.
          */
-        byte **app_lib_tls_swap_slot = (byte **)
-            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
         byte **priv_lib_tls_swap_slot = (byte **)
+            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte **app_lib_tls_swap_slot = (byte **)
             (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
-        byte *dr_tls_base = *priv_lib_tls_swap_slot;
+        byte *dr_tls_base = *app_lib_tls_swap_slot;
+        LOG(THREAD, LOG_LOADER, 3,
+            "%s: switching to DR: app slot=&"PFX" *"PFX", priv slot=&"PFX" *"PFX"\n",
+            __FUNCTION__, app_lib_tls_swap_slot, *app_lib_tls_swap_slot,
+            priv_lib_tls_swap_slot, *priv_lib_tls_swap_slot);
         *app_lib_tls_swap_slot = *priv_lib_tls_swap_slot;
         *priv_lib_tls_swap_slot = dr_tls_base;
+        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting coproc reg to 0x%x\n",
+            __FUNCTION__, (to_app ? "app" : "dr"),
+            os_tls->os_seg_info.priv_lib_tls_base);
         res = dynamorio_syscall(SYS_set_tls, 1,
                                 os_tls->os_seg_info.priv_lib_tls_base) == 0;
     }
     LOG(THREAD, LOG_LOADER, 2,
-        "%s %s: set_tls swap successful for thread "TIDFMT"\n",
-        __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id());
+        "%s %s: set_tls swap success=%d for thread "TIDFMT"\n",
+        __FUNCTION__, to_app ? "to app" : "to DR", res, get_thread_id());
 #endif /* X86/ARM */
     return res;
 }

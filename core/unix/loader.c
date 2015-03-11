@@ -1205,7 +1205,7 @@ privload_tls_init(void *app_tp)
     ASSERT(TLS_PRE_TCB_SIZE == LIBC_PTHREAD_SIZE);
     ASSERT(LIBC_PTHREAD_TID_OFFSET == offsetof(dr_pthread_t, tid));
 #endif
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: allocates %d at "PFX"\n",
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at "PFX"\n",
         __FUNCTION__, max_client_tls_size, dr_tp);
     dr_tp = dr_tp + max_client_tls_size - tcb_size;
     dr_tcb = (tcb_head_t *) dr_tp;
