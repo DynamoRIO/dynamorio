@@ -188,6 +188,15 @@ opnd_get_flags(opnd_t opnd)
 }
 #define opnd_get_flags OPND_GET_FLAGS
 
+void
+opnd_set_flags(opnd_t *opnd, dr_opnd_flags_t flags)
+{
+    CLIENT_ASSERT(opnd_is_reg(*opnd) || opnd_is_base_disp(*opnd) ||
+                  opnd_is_immed_int(*opnd),
+                  "opnd_set_flags called on non-reg non-base-disp non-immed-int opnd");
+    opnd->aux.flags = flags;
+}
+
 opnd_size_t
 opnd_get_size(opnd_t opnd)
 {
@@ -239,6 +248,24 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
 
 /* immediate operands */
 
+#if defined(DEBUG) && !defined(STANDALONE_DECODER)
+static void
+opnd_check_immed_size(int64 i, opnd_size_t size)
+{
+    uint sz = opnd_size_in_bytes(size);
+    if (sz == 1) {
+        CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_sbyte(i) || CHECK_TRUNCATE_TYPE_byte(i),
+                      "opnd_create_immed_int: value too large for 8-bit size");
+    } else if (sz == 2) {
+        CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_short(i) || CHECK_TRUNCATE_TYPE_ushort(i),
+                      "opnd_create_immed_int: value too large for 16-bit size");
+    } else if (sz == 4) {
+        CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(i) || CHECK_TRUNCATE_TYPE_uint(i),
+                          "opnd_create_immed_int: value too large for 32-bit size");
+    }
+}
+#endif
+
 opnd_t
 opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
 {
@@ -247,19 +274,8 @@ opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
     CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_int: invalid size");
     opnd.size = size;
     opnd.value.immed_int = i;
-    DOCHECK(1, {
-        uint sz = opnd_size_in_bytes(size);
-        if (sz == 1) {
-            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_sbyte(i),
-                          "opnd_create_immed_int: value too large for 8-bit size");
-        } else if (sz == 2) {
-            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_short(i),
-                          "opnd_create_immed_int: value too large for 16-bit size");
-        } else if (sz == 4) {
-            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(i),
-                          "opnd_create_immed_int: value too large for 32-bit size");
-        }
-    });
+    opnd.aux.flags = 0;
+    DOCHECK(1, { opnd_check_immed_size(i, size); });
     return opnd;
 }
 
@@ -271,20 +287,31 @@ opnd_create_immed_uint(ptr_uint_t i, opnd_size_t size)
     CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_uint: invalid size");
     opnd.size = size;
     opnd.value.immed_int = (ptr_int_t) i;
-    DOCHECK(1, {
-        uint sz = opnd_size_in_bytes(size);
-        if (sz == 1) {
-            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_byte(i),
-                          "opnd_create_immed_uint: value too large for 8-bit size");
-        } else if (sz == 2) {
-            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_ushort(i),
-                          "opnd_create_immed_uint: value too large for 16-bit size");
-        } else if (sz == 4) {
-            CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(i),
-                          "opnd_create_immed_uint: value too large for 32-bit size");
-        }
-    });
+    opnd.aux.flags = 0;
+    DOCHECK(1, { opnd_check_immed_size(i, size); });
     return opnd;
+}
+
+opnd_t
+opnd_create_immed_int64(int64 i, opnd_size_t size)
+{
+    opnd_t opnd;
+    opnd.kind = IMMED_INTEGER_kind;
+    IF_X64(CLIENT_ASSERT(false, "32-bit only"));
+    CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_uint: invalid size");
+    opnd.size = size;
+    opnd.value.immed_int_multi_part.low = (uint) i;
+    opnd.value.immed_int_multi_part.high = (uint) ((uint64)i >> 32);
+    opnd.aux.flags = DR_OPND_MULTI_PART;
+    DOCHECK(1, { opnd_check_immed_size(i, size); });
+    return opnd;
+}
+
+bool
+opnd_is_immed_int64(opnd_t opnd)
+{
+    return (opnd_is_immed_int(opnd) &&
+            TEST(DR_OPND_MULTI_PART, opnd_get_flags(opnd)));
 }
 
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
@@ -322,6 +349,16 @@ opnd_get_immed_int(opnd_t opnd)
 {
     CLIENT_ASSERT(opnd_is_immed_int(opnd), "opnd_get_immed_int called on non-immed-int");
     return opnd.value.immed_int;
+}
+
+int64
+opnd_get_immed_int64(opnd_t opnd)
+{
+    IF_X64(CLIENT_ASSERT(false, "32-bit only"));
+    CLIENT_ASSERT(opnd_is_immed_int64(opnd),
+                  "opnd_get_immed_int64 called on non-multi-part-immed-int");
+    return (((uint64)(uint)opnd.value.immed_int_multi_part.high) << 32) |
+        (uint64)(uint)opnd.value.immed_int_multi_part.low;
 }
 
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */

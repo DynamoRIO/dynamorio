@@ -278,15 +278,15 @@ const char * const type_names[] = {
     "TYPE_I_b8_b0",
     "TYPE_NI_b8_b0",
     "TYPE_I_b8_b16",
+    "TYPE_I_b8_b24_b16_b0",
+    "TYPE_I_b8_b28_b16_b0",
     "TYPE_I_b12_b6",
     "TYPE_I_b16_b0",
     "TYPE_I_b16_b26_b12_b0",
     "TYPE_I_b21_b5",
     "TYPE_I_b21_b6",
-    "TYPE_I_b24_b16_b0",
     "TYPE_I_b26_b12_b0",
     "TYPE_I_b26_b12_b0_z",
-    "TYPE_I_b28_b16_b0",
     "TYPE_J_b0",
     "TYPE_J_x4_b0",
     "TYPE_J_b0_b24",
@@ -887,6 +887,88 @@ encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
     return true;
 }
 
+static bool
+encode_SIMD_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
+{
+    ptr_uint_t val; /* uint for bit manip w/o >> adding 1's */
+    uint cmode = 0;
+    if (size_temp != OPSZ_12b)
+        return false;
+    if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
+        return false;
+    val = (ptr_uint_t)
+        get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    /* Xref AdvSIMDExpandImm in the manual.
+     * Check for each pattern, and store the encoding now to avoid re-doing
+     * this work at real encode time.
+     * There is some overlap between cmode and size specifier bits used
+     * to distinguish our opcodes, but we bitwise-or everything together,
+     * and the templates already include required cmode bits.
+     */
+    if ((val & 0x000000ff) == val) {
+        /* cmode = 000x => 00000000 00000000 00000000 abcdefgh */
+        /* cmode = 100x => 00000000 abcdefgh */
+        /* cmode = 1110 => abcdefgh */
+        /* template should already contain the required cmode bits */
+    } else if ((val & 0x0000ff00) == val) {
+        /* cmode = 001x => 00000000 00000000 abcdefgh 00000000 */
+        /* cmode = 101x => abcdefgh 00000000 */
+        cmode = 2; /* for _i16, template should already have top cmode bit set */
+        val = val >> 8;
+    } else if ((val & 0x00ff0000) == val) {
+        /* cmode = 010x => 00000000 abcdefgh 00000000 00000000 */
+        cmode = 4;
+        val = val >> 16;
+    } else if ((val & 0xff000000) == val) {
+        /* cmode = 011x => abcdefgh 00000000 00000000 00000000 */
+        cmode= 6;
+        val = val >> 24;
+    } else if ((val & 0x0000ffff) == val && (val & 0x000000ff) == 0xff) {
+        /* cmode = 1100 => 00000000 00000000 abcdefgh 11111111 */
+        cmode= 0xc;
+        val = val >> 8;
+    } else if ((val & 0x00ffffff) == val && (val & 0x0000ffff) == 0xffff) {
+        /* cmode = 1101 => 00000000 abcdefgh 11111111 11111111 */
+        cmode = 0xd;
+        val = val >> 16;
+    } else if ((val & 0xfff80000) == val &&
+               ((val & 0x7e000000) == 0x3e000000 ||
+                (val & 0x7e000000) == 0x40000000)) {
+        /* cmode = 1111 => aBbbbbbc defgh000 00000000 00000000 */
+        cmode = 0xf;
+        val = ((val >> 23) & 0x80) | ((val >> 19) & 0x7f);
+    } else if (opnd_is_immed_int64(opnd)) {
+        int64 val64 = opnd_get_immed_int64(opnd);
+        int low = (int) val64;
+        int high = (int) (val64 >> 32);
+        if (((low & 0xff000000) == 0xff000000 || (low & 0xff000000) == 0) &&
+            ((low & 0x00ff0000) == 0x00ff0000 || (low & 0x00ff0000) == 0) &&
+            ((low & 0x0000ff00) == 0x0000ff00 || (low & 0x0000ff00) == 0) &&
+            ((low & 0x000000ff) == 0x000000ff || (low & 0x000000ff) == 0) &&
+            ((high & 0xff000000) == 0xff000000 || (high & 0xff000000) == 0) &&
+            ((high & 0x00ff0000) == 0x00ff0000 || (high & 0x00ff0000) == 0) &&
+            ((high & 0x0000ff00) == 0x0000ff00 || (high & 0x0000ff00) == 0) &&
+            ((high & 0x000000ff) == 0x000000ff || (high & 0x000000ff) == 0)) {
+            /* cmode = 1110 =>
+             *   aaaaaaaa bbbbbbbb cccccccc dddddddd eeeeeeee ffffffff gggggggg hhhhhhhh
+             */
+            val = 0;
+            val |= TESTALL(0xff000000, high) ? 0x80 : 0;
+            val |= TESTALL(0x00ff0000, high) ? 0x40 : 0;
+            val |= TESTALL(0x0000ff00, high) ? 0x20 : 0;
+            val |= TESTALL(0x000000ff, high) ? 0x10 : 0;
+            val |= TESTALL(0xff000000, low)  ? 0x08 : 0;
+            val |= TESTALL(0x00ff0000, low)  ? 0x04 : 0;
+            val |= TESTALL(0x0000ff00, low)  ? 0x02 : 0;
+            val |= TESTALL(0x000000ff, low)  ? 0x01 : 0;
+        } else
+            return false;
+    } else
+        return false;
+    di->mod_imm_enc = (cmode << 8) | val;
+    return true;
+}
+
 static ptr_int_t
 get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 {
@@ -1238,13 +1320,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b16_b26_b12_b0:
     case TYPE_I_b21_b5:
     case TYPE_I_b21_b6:
-    case TYPE_I_b24_b16_b0:
     case TYPE_I_b26_b12_b0_z:
-    case TYPE_I_b28_b16_b0:
-        /* FIXME i#1551: TYPE_I_b28_b16_b0 and TYPE_I_b24_b16_b0 are special SIMD
-         * immeds that shift their 8-bit value depending on the "cmode"
-         * separate immed (which we've encoded into opcode sizes).
-         */
         return encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
                                             false/*pos*/, false/*abs*/, true/*range*/);
     case TYPE_NI_b0:
@@ -1294,6 +1370,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return encode_A32_modified_immed_ok(di, size_temp, opnd);
     case TYPE_I_b26_b12_b0:
         return encode_T32_modified_immed_ok(di, size_temp, opnd);
+    case TYPE_I_b8_b24_b16_b0:
+    case TYPE_I_b8_b28_b16_b0:
+        return encode_SIMD_modified_immed_ok(di, size_temp, opnd);
     case TYPE_SHIFT_b4:
     case TYPE_SHIFT_b5:
     case TYPE_SHIFT_b6:
@@ -2278,26 +2357,19 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             CLIENT_ASSERT(false, "unsupported 21-6 split immed size");
         break;
     }
-    case TYPE_I_b24_b16_b0: {
-        ptr_int_t val = get_immed_val_abs(di, opnd);
-        if (size_temp == OPSZ_1) {
+    case TYPE_I_b8_b24_b16_b0:
+    case TYPE_I_b8_b28_b16_b0: {
+        if (size_temp == OPSZ_12b) {
+            /* encode_SIMD_modified_immed_ok stored the encoded value for us */
+            ptr_int_t val = di->mod_imm_enc;
             encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
-            encode_immed(di, 24, OPSZ_1b, val >> 7, false/*unsigned*/);
-        } else
-            CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
-        break;
-    }
-    case TYPE_I_b28_b16_b0: {
-        /* FIXME i#1551: this and TYPE_I_b24_b16_b0 are special SIMD
-         * immeds that shift their 8-bit value depending on the "cmode"
-         * separate immed (which we've encoded into opcode sizes).
-         */
-        ptr_int_t val = get_immed_val_abs(di, opnd);
-        if (size_temp == OPSZ_1) {
-            encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
-            encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
-            encode_immed(di, 28, OPSZ_1b, val >> 7, false/*unsigned*/);
+            encode_immed(di, (optype == TYPE_I_b8_b28_b16_b0) ? 28 : 24,
+                         OPSZ_1b, val >> 7, false/*unsigned*/);
+            /* This is "cmode".  It overlaps with some opcode-defining bits (for _size
+             * suffixes) but since we OR only and never clear it works out.
+             */
+            encode_immed(di, 8, OPSZ_4b, val >> 8, false/*unsigned*/);
         } else
             CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
         break;

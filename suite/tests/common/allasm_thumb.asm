@@ -217,6 +217,19 @@ _jmp_target:
         // tbb does not align the current PC and is always 4 bytes long
         tbb      [r10, r4]
 
+// SIMD expanded immediates
+        vmov.i8  d0, #0x42
+        vmov.i16 d0, #0x00ab
+        vmov.i16 d0, #0xab00
+        vmov.i32 d0, #0x000000cd
+        vmov.i32 d0, #0x0000cd00
+        vmov.i32 d0, #0x00cd0000
+        vmov.i32 d0, #0xcd000000
+        vmov.i32 d0, #0x0000cdff
+        vmov.i32 d0, #0x00cdffff
+        vmov.f32 s0, #1.0
+        vmov.i64 d0, #0xff00ff00ff00ff00
+
 // indirect jump combined with stolen reg write in IT block:
         adr      r0, _exit
         add      r0, r0, #1          // keep it Thumb

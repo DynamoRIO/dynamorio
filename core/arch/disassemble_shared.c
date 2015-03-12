@@ -533,8 +533,8 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             ptr_int_t val = opnd_get_immed_int(opnd);
             const char *sign = "";
 #ifdef ARM
-            /* On ARM we have no pointer-sized immeds so let's always negate */
-            if (val < 0) {
+            /* On ARM we have few pointer-sized immeds so let's always negate */
+            if (val < 0 && opnd_size_in_bytes(opnd_get_size(opnd)) < sizeof(void*)) {
                 sign = "-";
                 val = -val;
             }
@@ -553,8 +553,13 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                 print_to_buffer(buf, bufsz, sofar, "%s%s0x%08x", immed_prefix(),
                                 sign, (uint)val);
             } else {
+                int64 val64 = val;
+                IF_NOT_X64({
+                    if (opnd_is_immed_int64(opnd))
+                        val64 = opnd_get_immed_int64(opnd);
+                });
                 print_to_buffer(buf, bufsz, sofar, "%s%s0x"ZHEX64_FORMAT_STRING,
-                                immed_prefix(), sign, val);
+                                immed_prefix(), sign, val64);
             }
         }
         break;

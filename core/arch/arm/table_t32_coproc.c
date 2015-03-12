@@ -40,7 +40,7 @@
  * format for easier human readability.  Thus we store 0xf8df 0x1004 as 0xf8df1004.
  */
 
-/* Encodings that contain i8x28_16_0 can vary in their top nibble between 0xe and 0xf.
+/* Encodings that contain i12x8_28_16_0 can vary in their top nibble between 0xe and 0xf.
  * However, all such encodings start 0xef8, so we only have to ensure that 0xff8
  * also maps to the same thing, which we do via the 2 simd8 entries containing duplicates.
  */
@@ -1835,94 +1835,94 @@ const instr_info_t T32_ext_simd5b[][32] = {
 const instr_info_t T32_ext_simd8[][80] = {
   { /* 0 */
     {OP_vaddl_s8,       0xef800000, "vaddl.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800010, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x03]},
-    {OP_vmvn_i32,       0xef800030, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x04]},
-    {OP_vmov_i32,       0xef800050, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},
-    {OP_vmvn_i32,       0xef800070, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vmov_i32,       0xef800010, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x03]},
+    {OP_vmvn_i32,       0xef800030, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x04]},
+    {OP_vmov_i32,       0xef800050, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vmvn_i32,       0xef800070, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
     /* 0x10 */
     {OP_vaddw_s8,       0xef800100, "vaddw.s8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800110, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x08]},
-    {OP_vbic_i32,       0xef800130, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x09]},
-    {OP_vorr_i32,       0xef800150, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},
-    {OP_vbic_i32,       0xef800170, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vorr_i32,       0xef800110, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x08]},
+    {OP_vbic_i32,       0xef800130, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x09]},
+    {OP_vorr_i32,       0xef800150, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vbic_i32,       0xef800170, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
     /* 0x20 */
     {OP_vsubl_s8,       0xef800200, "vsubl.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800210, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800230, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i32,       0xef800250, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800270, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800210, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800230, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800250, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800270, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x30 */
     {OP_vsubw_s8,       0xef800300, "vsubw.s8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800310, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800330, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i32,       0xef800350, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800370, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800310, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800330, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800350, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800370, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x40 */
     {OP_vaddhn_i16,     0xef800400, "vaddhn.i16",     VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800410, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800430, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i32,       0xef800450, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800470, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800410, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800430, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800450, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800470, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x50 */
     {OP_vabal_s8,       0xef800500, "vabal.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800510, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800530, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i32,       0xef800550, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800570, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800510, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800530, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800550, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800570, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x60 */
     {OP_vsubhn_i16,     0xef800600, "vsubhn.i16",     VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800610, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800630, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i32,       0xef800650, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800670, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800610, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800630, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800650, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800670, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x70 */
     {OP_vabdl_s8,       0xef800700, "vabdl.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800710, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800730, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i32,       0xef800750, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800770, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800710, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800730, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800750, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800770, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x80 */
     {OP_vmlal_s8,       0xef800800, "vmlal.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i16,       0xef800810, "vmov.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x2b]},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vmvn_i16,       0xef800830, "vmvn.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x2c]},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vmov_i16,       0xef800850, "vmov.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vmvn_i16,       0xef800870, "vmvn.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},/*XXX: different <cmode> immed expansions are complex*/
+    {OP_vmov_i16,       0xef800810, "vmov.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x2b]},
+    {OP_vmvn_i16,       0xef800830, "vmvn.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x2c]},
+    {OP_vmov_i16,       0xef800850, "vmov.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vmvn_i16,       0xef800870, "vmvn.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
     /* 0x90 */
     {INVALID,           0xef800900, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vorr_i16,       0xef800910, "vorr.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x30]},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vbic_i16,       0xef800930, "vbic.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x31]},
-    {OP_vorr_i16,       0xef800950, "vorr.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vbic_i16,       0xef800970, "vbic.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vorr_i16,       0xef800910, "vorr.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x30]},
+    {OP_vbic_i16,       0xef800930, "vbic.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x31]},
+    {OP_vorr_i16,       0xef800950, "vorr.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vbic_i16,       0xef800970, "vbic.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
     /* 0xa0 */
     {OP_vmlsl_s8,       0xef800a00, "vmlsl.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i16,       0xef800a10, "vmov.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i16,       0xef800a30, "vmvn.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i16,       0xef800a50, "vmov.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i16,       0xef800a70, "vmvn.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i16,       0xef800a10, "vmov.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i16,       0xef800a30, "vmvn.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i16,       0xef800a50, "vmov.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i16,       0xef800a70, "vmvn.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xb0 */
     {INVALID,           0xef800b00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vorr_i16,       0xef800b10, "vorr.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i16,       0xef800b30, "vbic.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i16,       0xef800b50, "vorr.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i16,       0xef800b70, "vbic.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i16,       0xef800b10, "vorr.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i16,       0xef800b30, "vbic.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i16,       0xef800b50, "vorr.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i16,       0xef800b70, "vbic.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xc0 */
     {OP_vmull_s8,       0xef800c00, "vmull.s8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800c10, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
-    {OP_vmvn_i32,       0xef800c30, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
-    {OP_vmov_i32,       0xef800c50, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
-    {OP_vmvn_i32,       0xef800c70, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
+    {OP_vmov_i32,       0xef800c10, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800c30, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800c50, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800c70, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xd0 */
     {INVALID,           0xef800d00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmov_i32,       0xef800d10, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
-    {OP_vmvn_i32,       0xef800d30, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
-    {OP_vmov_i32,       0xef800d50, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
-    {OP_vmvn_i32,       0xef800d70, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
+    {OP_vmov_i32,       0xef800d10, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800d30, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800d50, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800d70, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xe0 */
     {OP_vmull_p8,       0xef800e00, "vmull.p8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i8,        0xef800e10, "vmov.i8",        VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x49]},
-    {OP_vmov_i64,       0xef800e30, "vmov.i64",       VBq, xx, i8x28_16_0, xx, xx, no, x, xsi8[0][0x4a]},
-    {OP_vmov_i8,        0xef800e50, "vmov.i8",        VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},
-    {OP_vmov_i64,       0xef800e70, "vmov.i64",       VBdq, xx, i8x28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vmov_i8,        0xef800e10, "vmov.i8",        VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x49]},
+    {OP_vmov_i64,       0xef800e30, "vmov.i64",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, xsi8[0][0x4a]},
+    {OP_vmov_i8,        0xef800e50, "vmov.i8",        VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
+    {OP_vmov_i64,       0xef800e70, "vmov.i64",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, END_LIST},
     /* 0xf0 */
     {INVALID,           0xef800f00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,           0xef800f10, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
@@ -1931,94 +1931,94 @@ const instr_info_t T32_ext_simd8[][80] = {
     {INVALID,           0xef800f70, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 1 */
     {OP_vaddl_u8,       0xff800000, "vaddl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800010, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800030, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i32,       0xef800050, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800070, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800010, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800030, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800050, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800070, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x10 */
     {OP_vaddw_u8,       0xff800100, "vaddw.u8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800110, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800130, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i32,       0xef800150, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800170, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800110, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800130, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800150, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800170, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x20 */
     {OP_vsubl_u8,       0xff800200, "vsubl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800210, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800230, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i32,       0xef800250, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800270, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800210, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800230, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800250, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800270, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x30 */
     {OP_vsubw_u8,       0xff800300, "vsubw.u8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800310, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800330, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i32,       0xef800350, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800370, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800310, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800330, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800350, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800370, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x40 */
     {OP_vraddhn_i16,    0xff800400, "vraddhn.i16",    VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800410, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800430, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i32,       0xef800450, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800470, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800410, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800430, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800450, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800470, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x50 */
     {OP_vabal_u8,       0xff800500, "vabal.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800510, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800530, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i32,       0xef800550, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800570, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800510, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800530, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800550, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800570, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x60 */
     {OP_vrsubhn_i16,    0xff800600, "vrsubhn.i16",    VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800610, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800630, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i32,       0xef800650, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i32,       0xef800670, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800610, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800630, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800650, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800670, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x70 */
     {OP_vabdl_u8,       0xff800700, "vabdl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vorr_i32,       0xef800710, "vorr.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800770, "vbic.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i32,       0xef800750, "vorr.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i32,       0xef800770, "vbic.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800710, "vorr.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800770, "vbic.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i32,       0xef800750, "vorr.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xef800770, "vbic.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x80 */
     {OP_vmlal_u8,       0xff800800, "vmlal.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i16,       0xef800810, "vmov.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vmvn_i16,       0xef800830, "vmvn.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vmov_i16,       0xef800850, "vmov.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vmvn_i16,       0xef800870, "vmvn.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: different <cmode> immed expansions are complex*/
+    {OP_vmov_i16,       0xef800810, "vmov.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i16,       0xef800830, "vmvn.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i16,       0xef800850, "vmov.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i16,       0xef800870, "vmvn.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x90 */
     {INVALID,           0xff800900, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vorr_i16,       0xef800910, "vorr.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vbic_i16,       0xef800930, "vbic.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i16,       0xef800950, "vorr.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: different <cmode> immed expansions are complex*/
-    {OP_vbic_i16,       0xef800970, "vbic.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i16,       0xef800910, "vorr.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i16,       0xef800930, "vbic.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i16,       0xef800950, "vorr.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i16,       0xef800970, "vbic.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xa0 */
     {OP_vmlsl_u8,       0xff800a00, "vmlsl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i16,       0xef800a10, "vmov.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i16,       0xef800a30, "vmvn.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i16,       0xef800a50, "vmov.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmvn_i16,       0xef800a70, "vmvn.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i16,       0xef800a10, "vmov.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i16,       0xef800a30, "vmvn.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i16,       0xef800a50, "vmov.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i16,       0xef800a70, "vmvn.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xb0 */
     {INVALID,           0xff800b00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vorr_i16,       0xef800b10, "vorr.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i16,       0xef800b30, "vbic.i16",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vorr_i16,       0xef800b50, "vorr.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i16,       0xef800b70, "vbic.i16",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i16,       0xef800b10, "vorr.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i16,       0xef800b30, "vbic.i16",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vorr_i16,       0xef800b50, "vorr.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i16,       0xef800b70, "vbic.i16",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xc0 */
     {OP_vmull_u8,       0xff800c00, "vmull.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
-    {OP_vmov_i32,       0xef800c10, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
-    {OP_vmvn_i32,       0xef800c30, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
-    {OP_vmov_i32,       0xef800c50, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
-    {OP_vmvn_i32,       0xef800c70, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xff added*/
+    {OP_vmov_i32,       0xef800c10, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800c30, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800c50, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800c70, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xd0 */
     {INVALID,           0xff800d00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmov_i32,       0xef800d10, "vmov.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
-    {OP_vmvn_i32,       0xef800d30, "vmvn.i32",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
-    {OP_vmov_i32,       0xef800d50, "vmov.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
-    {OP_vmvn_i32,       0xef800d70, "vmvn.i32",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},/*XXX: has 0xffff added*/
+    {OP_vmov_i32,       0xef800d10, "vmov.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800d30, "vmvn.i32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i32,       0xef800d50, "vmov.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmvn_i32,       0xef800d70, "vmvn.i32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xe0 */
     {INVALID,           0xff800e00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmov_i8,        0xef800e10, "vmov.i8",        VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i64,       0xef800e30, "vmov.i64",       VBq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i8,        0xef800e50, "vmov.i8",        VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vmov_i64,       0xef800e70, "vmov.i64",       VBdq, xx, i8x28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i8,        0xef800e10, "vmov.i8",        VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i64,       0xef800e30, "vmov.i64",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i8,        0xef800e50, "vmov.i8",        VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vmov_i64,       0xef800e70, "vmov.i64",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xf0 */
     {INVALID,           0xff800f00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,           0xff800f10, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
