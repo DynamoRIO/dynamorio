@@ -969,6 +969,43 @@ encode_SIMD_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t o
     return true;
 }
 
+static bool
+encode_VFP_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
+{
+    ptr_uint_t val; /* uint for bit manip w/o >> adding 1's */
+    if (size_temp != OPSZ_1)
+        return false;
+    if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
+        return false;
+    val = (ptr_uint_t)
+        get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    /* Xref VFPIMDExpandImm in the manual.
+     * Check for each pattern, and store the encoding now to avoid re-doing
+     * this work at real encode time.
+     */
+    if ((val & 0xfff80000) == val &&
+        ((val & 0x7e000000) == 0x3e000000 ||
+         (val & 0x7e000000) == 0x40000000)) {
+        /* aBbbbbbc defgh000 00000000 00000000 */
+        val = ((val >> 24) & 0x80) | ((val >> 19) & 0x7f);
+    } else if (opnd_is_immed_int64(opnd)) {
+        /* aBbbbbbb bbcdefgh 00000000 00000000 00000000 00000000 00000000 00000000 */
+        int64 val64 = opnd_get_immed_int64(opnd);
+        int low = (int) val64;
+        int high = (int) (val64 >> 32);
+        if (low == 0 &&
+            (high & 0xffff0000) == high &&
+            ((high & 0x7fc00000) == 0x3fc00000 ||
+             (high & 0x7fc00000) == 0x40000000)) {
+            val = ((high >> 24) & 0x80) | ((val >> 16) & 0x7f);
+        } else
+            return false;
+    } else
+        return false;
+    di->mod_imm_enc = val;
+    return true;
+}
+
 static ptr_int_t
 get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 {
@@ -1316,7 +1353,6 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b5_b3:
     case TYPE_I_b8_b0:
     case TYPE_I_b8_b16:
-    case TYPE_I_b16_b0:
     case TYPE_I_b16_b26_b12_b0:
     case TYPE_I_b21_b5:
     case TYPE_I_b21_b6:
@@ -1368,6 +1404,14 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return false;
     case TYPE_I_SHIFTED_b0:
         return encode_A32_modified_immed_ok(di, size_temp, opnd);
+    case TYPE_I_b16_b0:
+        if (size_temp == OPSZ_1)
+            return encode_VFP_modified_immed_ok(di, size_temp, opnd);
+        else {
+            return encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
+                                                false/*pos*/, false/*abs*/,
+                                                true/*range*/);
+        }
     case TYPE_I_b26_b12_b0:
         return encode_T32_modified_immed_ok(di, size_temp, opnd);
     case TYPE_I_b8_b24_b16_b0:
@@ -2322,6 +2366,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             encode_immed(di, 0, OPSZ_12b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_4b, val >> 12, false/*unsigned*/);
         } else if (size_temp == OPSZ_1) {
+            /* encode_VFP_modified_immed_ok stored the encoded value for us */
+            val = di->mod_imm_enc;
             encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_4b, val >> 4, false/*unsigned*/);
         } else

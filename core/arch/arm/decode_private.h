@@ -374,10 +374,10 @@ enum {
     TYPE_I_b8_b0,
     TYPE_NI_b8_b0, /* negated immed */
     TYPE_I_b8_b16,
-    TYPE_I_b8_b24_b16_b0, /* OP_vbic, OP_vmov: 11:8,24,18:16,3:0 */
-    TYPE_I_b8_b28_b16_b0, /* OP_vbic, etc. T32: 11:8,28,18:16,3:0 */
+    TYPE_I_b8_b24_b16_b0, /* A32 OP_vbic, etc.: 11:8,24,18:16,3:0 AdvSIMDExpandImm */
+    TYPE_I_b8_b28_b16_b0, /* T32 OP_vbic, etc.: 11:8,28,18:16,3:0 AdvSIMDExpandImm */
     TYPE_I_b12_b6, /* T32-14:12,7:6 */
-    TYPE_I_b16_b0,
+    TYPE_I_b16_b0, /* If 1 byte, then OP_vmov_f{32,64}: VFPExpandImm */
     TYPE_I_b16_b26_b12_b0, /* OP_movw T32-19:16,26,14:12,7:0 */
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */

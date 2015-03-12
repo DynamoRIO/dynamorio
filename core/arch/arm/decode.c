@@ -482,6 +482,10 @@ decode_SIMD_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
         sz = OPSZ_1;
     } else if (cmode == 0xf && op == 0) {
         /* cmode = 1111 => aBbbbbbc defgh000 00000000 00000000 */
+        /* XXX: ARM assembly seems to not show this floating-point immed in its
+         * expanded form, unlike the integer SIMD immediates: but it's a little
+         * confusing what the assembler expects.
+         */
         uint a = (val >> 7) & 0x1;
         uint b = (val >> 6) & 0x1;
         uint notb = ((~val) >> 6) & 0x1;
@@ -510,6 +514,43 @@ decode_SIMD_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
         return false;
     }
     array[(*counter)++] = opnd_create_immed_uint(val, sz);
+    return true;
+}
+
+/* This routine creates the decoded operand(s) itself */
+static bool
+decode_VFP_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
+                          uint *counter INOUT)
+{
+    ptr_uint_t val; /* unsigned for logical shifts */
+    /* This is a VFP modified immedate which is expanded.
+     * Xref VFPIMDExpandImm in the manual.
+     * XXX: ARM assembly seems to not show in its expanded form, unlike the
+     * integer SIMD immediates: but it's a little confusing what the assembler
+     * expects.
+     */
+    val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+    val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 4);
+    if (di->opcode == OP_vmov_f32) {
+        /* aBbbbbbc defgh000 00000000 00000000 */
+        uint a = (val >> 7) & 0x1;
+        uint b = (val >> 6) & 0x1;
+        uint notb = ((~val) >> 6) & 0x1;
+        val = (a << 31) | (notb << 30) | (b << 29) | (b << 28) | (b << 27) |
+            (b << 26) | ((val << 19) & 0x03ff0000);
+        array[(*counter)++] = opnd_create_immed_uint(val, OPSZ_4);
+    } else if (di->opcode == OP_vmov_f64) {
+        /* aBbbbbbb bbcdefgh 00000000 00000000 00000000 00000000 00000000 00000000 */
+        uint64 a = (val >> 7) & 0x1;
+        uint64 b = (val >> 6) & 0x1;
+        uint64 notb = ((~val) >> 6) & 0x1;
+        uint64 val64 = (a << 63) | (notb << 62) | (b == 1 ? 0x3fc0000000000000 : 0) |
+            (((uint64)val << 48) & 0x003f000000000000);
+        array[(*counter)++] = opnd_create_immed_int64(val64, OPSZ_8);
+    } else {
+        CLIENT_ASSERT(false, "invalid opcode for VFPExpandImm");
+        return false;
+    }
     return true;
 }
 
@@ -1102,8 +1143,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 0, OPSZ_12b, false/*unsigned*/);
             val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 12);
         } else if (opsize == OPSZ_1) {
-            val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
-            val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 4);
+            return decode_VFP_modified_immed(di, optype, array, counter);
         } else
             CLIENT_ASSERT(false, "unsupported 16-0 split immed size");
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);

@@ -229,6 +229,8 @@ _jmp_target:
         vmov.i32 d0, #0x00cdffff
         vmov.f32 s0, #1.0
         vmov.i64 d0, #0xff00ff00ff00ff00
+        vmov.f32 s0, #2.0
+        vmov.f64 d0, #1.0
 
 // indirect jump combined with stolen reg write in IT block:
         adr      r0, _exit
