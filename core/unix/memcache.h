@@ -48,9 +48,11 @@ memcache_lock(void);
 void
 memcache_unlock(void);
 
+/* start and end_in must be PAGE_SIZE aligned */
 void
 memcache_update(app_pc start, app_pc end_in, uint prot, int type);
 
+/* start and end must be PAGE_SIZE aligned */
 void
 memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
 

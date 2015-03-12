@@ -7066,8 +7066,12 @@ post_system_call(dcontext_t *dcontext)
             app_memory_allocation(dcontext, addr, len, info.prot,
                                   info.type == DR_MEMTYPE_IMAGE
                                   _IF_DEBUG("failed munmap"));
-            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, info.prot,
-                                                  info.type, true/*exists*/));
+            IF_NO_MEMQUERY(memcache_update_locked((app_pc)ALIGN_BACKWARD(addr,
+                                                                         PAGE_SIZE),
+                                                  (app_pc)ALIGN_FORWARD(addr + len,
+                                                                        PAGE_SIZE),
+                                                  info.prot,
+                                                  info.type, false/*add back*/));
         }
         break;
     }
