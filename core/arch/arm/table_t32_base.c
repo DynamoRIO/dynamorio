@@ -763,7 +763,7 @@ const instr_info_t T32_ext_bit_B4[][2] = {
     /* To handle the 21:16 immed instrs that vary in high bits we must first
      * sseparate those out: we do that via bit4 and then bit7 in the next 8 entries.
      */
-    {EXT_BIT19,  0xef800000, "(ext bit19  0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_SIMD8,  0xef800000, "(ext simd8  0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_B7,     0xef800010, "(ext bit7   6)", xx, xx, xx, xx, xx, no, x, 6},
   }, { /* 16 */
     {EXT_SIMD6,  0xef900000, "(ext simd6  4)", xx, xx, xx, xx, xx, no, x, 4},
@@ -775,7 +775,7 @@ const instr_info_t T32_ext_bit_B4[][2] = {
     {EXT_BIT6,   0xefb00000, "(ext bit6   0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_B7,     0xefb00010, "(ext bit7   8)", xx, xx, xx, xx, xx, no, x, 8},
   }, { /* 19 */
-    {EXT_BIT19,  0xff800000, "(ext bit19  1)", xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_SIMD8,  0xff800000, "(ext simd8  1)", xx, xx, xx, xx, xx, no, x, 1},
     {EXT_B7,     0xff800010, "(ext bit7   9)", xx, xx, xx, xx, xx, no, x, 9},
   }, { /* 20 */
     {EXT_SIMD6,  0xff900000, "(ext simd6 10)", xx, xx, xx, xx, xx, no, x, 10},
