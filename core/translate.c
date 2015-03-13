@@ -152,6 +152,17 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 }
 #endif /* UNIX */
 
+#ifdef ARM
+static bool
+instr_is_mov_PC_immed(dcontext_t *dcontext, instr_t *inst)
+{
+    if (!instr_is_our_mangling(inst))
+        return false;
+    return (instr_get_opcode(inst) == OP_movw ||
+            instr_get_opcode(inst) == OP_movt);
+}
+#endif
+
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)
 {
@@ -160,10 +171,12 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
 
     /* Two mangle regions can be adjacent: distinguish by translation field */
     if (walk->in_mangle_region &&
-        (!instr_is_our_mangling(inst) ||
+        /* On ARM, we spill registers across an app instr, so go solely on xl8 */
+        (IF_X86(!instr_is_our_mangling(inst) ||)
          instr_get_translation(inst) != walk->translation)) {
         /* We assume our manglings are local and contiguous: once out of a
-         * mangling region, we're good to go again */
+         * mangling region, we're good to go again.
+         */
         walk->in_mangle_region = false;
         walk->unsupported_mangle = false;
         walk->xsp_adjust = 0;
@@ -300,6 +313,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* nothing to do */
         }
         else if (instr_is_seg_ref_load(tdcontext, inst)) {
+            /* nothing to do */
+        }
+#endif
+#ifdef ARM
+        else if (instr_is_mov_PC_immed(tdcontext, inst)) {
             /* nothing to do */
         }
 #endif
