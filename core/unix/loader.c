@@ -1568,6 +1568,15 @@ privload_early_inject(void **sp)
      */
     dynamorio_app_init();
 
+    LOG(GLOBAL, LOG_TOP, 1, "early injected into app with this cmdline:\n");
+    DOLOG(1, LOG_TOP, {
+        int i;
+        for (i = 0; i < *argc; i++) {
+            LOG(GLOBAL, LOG_TOP, 1, "%s ", argv[i]);
+        }
+        LOG(GLOBAL, LOG_TOP, 1, "\n");
+    });
+
     if (RUNNING_WITHOUT_CODE_CACHE()) {
         /* Reset the stack pointer back to the beginning and jump to the entry
          * point to execute the app natively.  This is also useful for testing

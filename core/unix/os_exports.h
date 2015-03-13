@@ -177,7 +177,11 @@ char *our_getenv(const char *name);
 
 /* to avoid unsetenv problems we have our own unsetenv */
 #define unsetenv our_unsetenv
+/* XXX: unsetenv is unsafe to call during init, as it messes up access to auxv!
+ * Use disable_env instead.  Xref i#909.
+ */
 int our_unsetenv(const char *name);
+bool disable_env(const char *name);
 
 /* new segment support
  * name is a string

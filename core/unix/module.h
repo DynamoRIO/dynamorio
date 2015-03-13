@@ -131,7 +131,7 @@ bool
 module_file_has_module_header(const char *filename);
 
 bool
-module_file_is_module64(file_t f);
+module_file_is_module64(file_t f, bool *is64 OUT);
 
 bool
 module_get_platform(file_t f, dr_platform_t *platform);

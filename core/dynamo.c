@@ -387,7 +387,8 @@ dynamorio_app_init(void)
             os_tls_pre_init(atoi(getenv(DYNAMORIO_VAR_EXECVE)));
 # endif
             /* important to remove it, don't want to propagate to forked children, etc. */
-            unsetenv(DYNAMORIO_VAR_EXECVE);
+            /* i#909: unsetenv is unsafe as it messes up auxv access, so we disable */
+            disable_env(DYNAMORIO_VAR_EXECVE);
             /* check that it's gone: we've had problems with unsetenv */
             ASSERT(getenv(DYNAMORIO_VAR_EXECVE) == NULL);
         } else

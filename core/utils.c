@@ -2656,7 +2656,8 @@ create_log_dir(int dir_type)
             logdir_initialized = true;
         }
         /* important to remove it, don't want to propagate to forked children */
-        unsetenv(DYNAMORIO_VAR_EXECVE_LOGDIR);
+        /* i#909: unsetenv is unsafe as it messes up auxv access, so we disable */
+        disable_env(DYNAMORIO_VAR_EXECVE_LOGDIR);
         /* check that it's gone: we've had problems with unsetenv */
         ASSERT(getenv(DYNAMORIO_VAR_EXECVE_LOGDIR) == NULL);
     }
