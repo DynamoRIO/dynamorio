@@ -3844,7 +3844,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     }
 #endif
 
-    IF_ARM(DOLOG(2, LOG_INTERP, check_encode_decode_consistency(dcontext, bb->ilist);));
+    /* Until we're more confident in our decoder/encoder consistency this is
+     * at the default debug build -checklevel 2.
+     */
+    IF_ARM(DOCHECK(2, check_encode_decode_consistency(dcontext, bb->ilist);));
 
 #ifdef DR_APP_EXPORTS
     /* changes by DR that are visible to clients */
