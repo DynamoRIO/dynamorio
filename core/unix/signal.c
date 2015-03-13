@@ -3608,7 +3608,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     instr_init(dcontext, &instr);
     IF_ARM({
         /* Be sure to use the interrupted mode and not the last-dispatch mode */
-            dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), &old_mode);
+        dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), &old_mode);
     });
     TRY_EXCEPT(dcontext, {
         decode(dcontext, instr_cache_pc, &instr);
@@ -4501,6 +4501,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
         }
+        IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
         return true; /* don't try another signal */
     }
     else if (action == DR_SIGNAL_SUPPRESS ||
@@ -4523,6 +4524,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
             /* after the default action we want to go to the sigcontext */
             dcontext->next_tag = canonicalize_pc_target(dcontext, (app_pc) sc->SC_XIP);
             ucontext_to_mcontext(get_mcontext(dcontext), uc);
+            IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
         }
         execute_default_from_dispatch(dcontext, sig, frame);
         return true;
