@@ -1940,6 +1940,8 @@ if (UNIX)
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
 
+  tobuild_ops(linux.readlink linux/readlink.c "-early_inject" "exec")
+
   # Test fully static executables, which we only support with early injection
   # or STATIC_LIBRARY.
   set(fib_static_ops "-early_inject")

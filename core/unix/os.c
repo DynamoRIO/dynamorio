@@ -3849,6 +3849,36 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
     return true;
 }
 
+#ifdef LINUX
+static bool
+symlink_is_self_exe(const char *path)
+{
+    /* Look for "/proc/%d/exe" where %d exists in /proc/self/task/%d,
+     * or "/proc/self/exe".  Rule out the exe link for another process
+     * (though it could also be under DR we have no simple way to obtain
+     * its actual app path).
+     */
+#   define SELF_LEN_LEADER 6 /* "/proc/" */
+#   define SELF_LEN_TRAILER 4 /* "/exe" */
+#   define SELF_LEN_MAX 18
+    size_t len = strlen(path);
+    if (strcmp(path, "/proc/self/exe") == 0)
+        return true;
+    if (len < SELF_LEN_MAX && /* /proc/nnnnnn/exe */
+        strncmp(path, "/proc/", SELF_LEN_LEADER) == 0 &&
+        strncmp(path + len - SELF_LEN_TRAILER, "/exe", SELF_LEN_TRAILER) == 0) {
+        int pid;
+        if (sscanf(path + SELF_LEN_LEADER, "%d", &pid) == 1) {
+            char task[32];
+            snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d", pid);
+            NULL_TERMINATE_BUFFER(task);
+            return os_file_exists(task, true/*dir*/);
+        }
+    }
+    return false;
+}
+#endif
+
 void
 exit_process_syscall(long status)
 {
@@ -4403,6 +4433,10 @@ ignorable_system_call_normalized(int num)
     case SYS_set_tls:
 #endif
         return false;
+#ifdef LINUX
+    case SYS_readlink:
+        return !DYNAMO_OPTION(early_inject);
+#endif
     default:
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(num))
@@ -5083,11 +5117,22 @@ handle_execve(dcontext_t *dcontext)
     /* FIXME i#191: supposed to preserve things like pending signal
      * set across execve: going to ignore for now
      */
-    char *fname = (char *)  sys_param(dcontext, 0);
+    char *fname = (char *) sys_param(dcontext, 0);
     bool x64 = IF_X64_ELSE(true, false);
     file_t file;
     char *inject_library_path;
     DEBUG_DECLARE(char **argv = (char **) sys_param(dcontext, 1);)
+#ifdef LINUX
+    if (DYNAMO_OPTION(early_inject) && symlink_is_self_exe(fname)) {
+        /* i#907: /proc/self/exe points at libdynamorio.so.  Make sure we run
+         * the right thing here.
+         */
+        dcontext->sys_param4 = (reg_t) fname; /* store for restore in post */
+        fname = get_application_name();
+        *sys_param_addr(dcontext, 0) = (reg_t) get_application_name();
+    } else
+        dcontext->sys_param4 = 0; /* no restore in post */
+#endif
 
     LOG(GLOBAL, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
     LOG(THREAD, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
@@ -5167,6 +5212,12 @@ handle_execve_post(dcontext_t *dcontext)
 #ifdef STATIC_LIBRARY
     /* nothing to clean up */
     return;
+#endif
+#ifdef LINUX
+    if (dcontext->sys_param4 != 0) {
+        /* restore original /proc/.../exe */
+        *sys_param_addr(dcontext, 0) = dcontext->sys_param4;
+    }
 #endif
     if (new_envp != NULL) {
         int i;
@@ -6436,8 +6487,17 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
-    /* i#107 syscalls that might change/query app's segment */
 #ifdef LINUX
+    case SYS_readlink:
+        if (DYNAMO_OPTION(early_inject)) {
+            dcontext->sys_param0 = sys_param(dcontext, 0);
+            dcontext->sys_param1 = sys_param(dcontext, 1);
+            dcontext->sys_param2 = sys_param(dcontext, 2);
+        }
+        break;
+
+    /* i#107 syscalls that might change/query app's segment */
+
 # ifdef X64
     case SYS_arch_prctl: {
         /* we handle arch_prctl in post_syscall */
@@ -7316,6 +7376,30 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#endif
+
+#ifdef LINUX
+    case SYS_readlink:
+        if (success && DYNAMO_OPTION(early_inject)) {
+            /* i#907: /proc/self/exe is a symlink to libdynamorio.so.  We need
+             * to fix it up if the app queries.  Any thread id can be passed to
+             * /proc/%d/exe, so we have to check.  We could instead look for
+             * libdynamorio.so in the result but we've tweaked our injector
+             * in the past to exec different binaries so this seems more robust.
+             */
+            if (symlink_is_self_exe((const char *)dcontext->sys_param0)) {
+                char *tgt = (char *) dcontext->sys_param1;
+                size_t tgt_sz = (size_t) dcontext->sys_param2;
+                int len = snprintf(tgt, tgt_sz, "%s", get_application_name());
+                if (len > 0)
+                    set_success_return_val(dcontext, len);
+                else {
+                    set_failure_return_val(dcontext, EINVAL);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                }
+           }
+        }
+        break;
 #endif
 
 #ifdef VMX86_SERVER
