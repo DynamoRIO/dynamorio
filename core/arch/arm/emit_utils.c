@@ -389,7 +389,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
             uint val = (*(uint *)branch_pc) & 0xff000000;
             int disp = target_pc - decode_cur_pc(branch_pc, isa_mode, OP_b, NULL);
             ASSERT(ALIGNED(disp, ARM_INSTR_SIZE));
-            ASSERT(disp < 0x2000000 && disp >= -16*1024*1024); /* 25-bit max */
+            ASSERT(disp < 0x4000000 && disp >= -32*1024*1024); /* 26-bit max */
             val |= ((disp >> 2) & 0xffffff);
             *(uint *)branch_pc = val;
             if (hot_patch)
