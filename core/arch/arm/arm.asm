@@ -248,13 +248,14 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to initstack for cleanup of dstack */
-        mov      REG_R1, #1
-        ldr      REG_R3, .Lgot1
-        add      REG_R3, REG_R3, pc
-        ldr      REG_R2, .Linitstack_mutex
-.LPIC1: ldr      REG_R2, [REG_R2, REG_R3]
+        /* we use r6, r7, and r8 here so that atomic_xchg doesn't clobber them */
+        mov      REG_R6, #1
+        ldr      REG_R8, .Lgot1
+        add      REG_R8, REG_R8, pc
+        ldr      REG_R7, .Linitstack_mutex
+.LPIC1: ldr      REG_R7, [REG_R7, REG_R8]
 cat_spin:
-        CALLC2(atomic_xchg, REG_R2, REG_R1)
+        CALLC2(atomic_xchg, REG_R7, REG_R6)
         cmp      REG_R0, #0
         beq      cat_have_lock
         yield
