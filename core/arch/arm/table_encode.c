@@ -612,7 +612,7 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_vmlsl_u16      */ {&A32_ext_simd6[10][0x28],   &T32_ext_simd6[10][0x28],         &T32_ext_simd6[10][0x28]},
     /* OP_vmlsl_u32      */ {&A32_ext_simd6[11][0x28],   &T32_ext_simd6[11][0x28],         &T32_ext_simd6[11][0x28]},
     /* OP_vmlsl_u8       */ {&A32_ext_simd8[1][0x32],    &T32_ext_simd8[1][0x32],          &T32_ext_simd8[1][0x32]},
-    /* OP_vmov           */ {&A32_ext_fp[2][0x01],       &T32_ext_fp[2][0x01],             &T32_ext_fp[2][0x01]},
+    /* OP_vmov           */ {&A32_ext_fp[2][0x01],       &T32_ext_fp[3][0x01],             &T32_ext_fp[3][0x01]},
     /* OP_vmov_16        */ {&A32_ext_opc4fpB[0][0x03],  &T32_ext_opc4fpB[0][0x03],        &T32_ext_opc4fpB[0][0x03]},
     /* OP_vmov_32        */ {&A32_ext_opc4fpB[1][0x01],  &T32_ext_opc4fpB[1][0x01],        &T32_ext_opc4fpB[1][0x01]},
     /* OP_vmov_8         */ {&A32_ext_opc4fpB[4][0x01],  &T32_ext_opc4fpB[4][0x01],        &T32_ext_opc4fpB[4][0x01]},

@@ -190,7 +190,7 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_mcrr,    0xec400000, "mcrr",   CRDw, RAw, RBw, i4_8, i4_7, srcX4, x, END_LIST},
   }, { /* 3 */
     {OP_vmov,    0xec500a10, "vmov",     RBd, RAd, WCd, WC2d, xx, vfp, x, xfp[2][0x00]},
-    {OP_vmov,    0xec500b10, "vmov",     VCq, xx, RBd, RAd, xx, vfp, x, DUP_ENTRY},
+    {OP_vmov,    0xec500b10, "vmov",     RBd, RAd, VCq,   xx, xx, vfp, x, xfp[2][0x01]},
     {OP_mrrc,    0xec500000, "mrrc",   RBw, RAw, i4_8, i4_7, CRDw, no, x, END_LIST},
   }, { /* 4 */
     {INVALID,    0xec600a00, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},/*PUW=001*/

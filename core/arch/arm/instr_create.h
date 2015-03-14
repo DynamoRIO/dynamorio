@@ -3128,7 +3128,7 @@
   instr_create_1dst_1src((dc), OP_vmov, (Vd), (Rt))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Vt, Vm) */
+/** @name Signature: (Ra, Rd, Vm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -3137,17 +3137,12 @@
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Vt The source SIMD register opnd_t operand.
+ * \param Ra The third source register opnd_t operand.
+ * \param Rd The destination register opnd_t operand.
  * \param Vm The source SIMD register opnd_t operand.
  */
-#define INSTR_CREATE_vcmp_f32(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmp_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
-#define INSTR_CREATE_vcmp_f64(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmp_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
-#define INSTR_CREATE_vcmpe_f32(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmpe_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
-#define INSTR_CREATE_vcmpe_f64(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmpe_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
+#define INSTR_CREATE_vmov_s2gg(dc, Ra, Rd, Vm) \
+  instr_create_2dst_1src((dc), OP_vmov, (Ra), (Rd), (Vm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vn, Vm) */
@@ -3782,6 +3777,28 @@
   instr_create_1dst_1src((dc), OP_vmov_f32, (Vd), (Vm_or_imm))
 #define INSTR_CREATE_vmov_f64(dc, Vd, Vm_or_imm) \
   instr_create_1dst_1src((dc), OP_vmov_f64, (Vd), (Vm_or_imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Vt, Vm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt The source SIMD register opnd_t operand.
+ * \param Vm_or_imm The source SIMD register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_vcmp_f32(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmp_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
+#define INSTR_CREATE_vcmp_f64(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmp_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
+#define INSTR_CREATE_vcmpe_f32(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmpe_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
+#define INSTR_CREATE_vcmpe_f64(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmpe_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Vn, imm) */

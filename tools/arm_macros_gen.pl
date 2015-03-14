@@ -465,6 +465,8 @@ foreach my $opc (keys %entry) {
                 $name .= "_s2g";
             } elsif ($sig =~ /^V\w+;\s*R\w+\s*R/) {
                 $name .= "_gg2s";
+            } elsif ($sig =~ /^R\w+\s*R\w+;\s*V\w+$/) {
+                $name .= "_s2gg";
             } elsif ($sig =~ /^V\w+\s*V\w+;\s*R\w+\s*R/) {
                 $name .= "_gg2ss";
             } else {
