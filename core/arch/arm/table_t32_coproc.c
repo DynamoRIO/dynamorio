@@ -472,12 +472,12 @@ const instr_info_t T32_ext_opc4[][16] = {
 const instr_info_t T32_ext_imm1916[][3] = {
   { /* 0 */
     {OP_vmovl_s16, 0xef900a10, "vmovl.s16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
-    {OP_vshll_s16, 0xef800a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
-    {OP_vshll_s16, 0xef800a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, DUP_ENTRY},/*19:16 cannot be 0*/
+    {OP_vshll_s16, 0xef900a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
+    {OP_vshll_s16, 0xef900a10, "vshll.s16", VBdq, xx, VCq, i4_16, xx, no, x, DUP_ENTRY},/*19:16 cannot be 0*/
   }, { /* 1 */
     {OP_vmovl_u16, 0xff900a10, "vmovl.u16", VBdq, xx, VCq, xx, xx, no, x, END_LIST},
-    {OP_vshll_u16, 0xef800a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
-    {OP_vshll_u16, 0xef800a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, DUP_ENTRY},/*19:16 cannot be 0*/
+    {OP_vshll_u16, 0xff900a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, END_LIST},/*19:16 cannot be 0*/
+    {OP_vshll_u16, 0xff900a10, "vshll.u16", VBdq, xx, VCq, i4_16, xx, no, x, DUP_ENTRY},/*19:16 cannot be 0*/
   }, { /* 2 */
     {OP_vmsr,     0xeee00a10, "vmsr",   xx, xx, RBd, i4_16, xx, vfp, x, xi19[2][0x01]},
     {OP_vmsr,     0xeee10a10, "vmsr",   FPSCR, xx, RBd, xx, xx, vfp, x, END_LIST},
@@ -883,7 +883,7 @@ const instr_info_t T32_ext_bits20[][16] = {
 const instr_info_t T32_ext_imm2016[][2] = {
   { /* 0 */
     {OP_vmovl_s32,      0xefa00a10, "vmovl.s32",      VBdq, xx, VCq, xx, xx, no, x, END_LIST},
-    {OP_vshll_s32,      0xffa00a10, "vshll.s32",      VBdq, xx, VCq, i5_16, xx, no, x, END_LIST},/*20:16 cannot be 0*/
+    {OP_vshll_s32,      0xefa00a10, "vshll.s32",      VBdq, xx, VCq, i5_16, xx, no, x, END_LIST},/*20:16 cannot be 0*/
   }, { /* 1 */
     {OP_vmovl_u32,      0xffa00a10, "vmovl.u32",      VBdq, xx, VCq, xx, xx, no, x, END_LIST},
     {OP_vshll_u32,      0xffa00a10, "vshll.u32",      VBdq, xx, VCq, i5_16, xx, no, x, END_LIST},/*20:16 cannot be 0*/
