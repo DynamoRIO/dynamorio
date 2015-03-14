@@ -616,6 +616,7 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
                   reg_id_t excludeA, reg_id_t excludeB, reg_id_t base_reg)
 {
     opnd_size_t size_temp_up = resolve_size_upward(size_temp);
+    opnd_size_t size_temp_down = resolve_size_downward(size_temp);
     uint i, base_reg_cnt = 0;
     opnd_t opnd;
     opnd_size_t size_op;
@@ -643,6 +644,8 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
         if (!opnd_is_reg(opnd))
             break;
         reg = opnd_get_reg(opnd);
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist %d: considering %s\n",
+            i, reg_names[reg]);
         if (reg == base_reg)
             base_reg_cnt++;
         if (i > 0 && stride > 0 && reg != last_reg + stride)
@@ -651,7 +654,10 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
             break;
         if (reg == excludeA || reg == excludeB)
             break;
-        if (!(size_op == size_temp || size_op == size_temp_up))
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist %d: size %s vs %s %s\n",
+            i, size_names[size_op], size_names[size_temp], size_names[size_temp_up]);
+        if (!(size_op == size_temp || size_op == size_temp_up ||
+              size_op == size_temp_down))
             break;
         if (di->T32_16 && reg > DR_REG_R7 &&
             /* only R0-R7 and PC/LR could be used in the T32.16 reglist */
@@ -662,7 +668,8 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
         last_reg = reg;
         (*counter)++;
     }
-    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist_stop: %d\n", *counter);
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist_start: %d, reglist_stop: %d\n",
+        di->reglist_start, *counter);
     di->reglist_stop = *counter;
     /* Due to possible rollback of greedy reglists we can't compare to the
      * memory size here so we check later.
@@ -1322,7 +1329,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (!opnd_is_reg(prior) || !reg_is_simd(opnd_get_reg(prior)))
             return false;
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, true/*simd*/,
-                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 1/*prior entry*/, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         /* We have to allow an empty list b/c the template has the 1st entry */
         return true;
@@ -1330,8 +1337,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_L_VAx2:
     case TYPE_L_VBx2:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
-                               1/*consec*/, 1/*prior entry*/,
-                               DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VAx3:
