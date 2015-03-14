@@ -898,13 +898,43 @@ static bool
 encode_SIMD_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
 {
     ptr_uint_t val; /* uint for bit manip w/o >> adding 1's */
-    uint cmode = 0;
+    uint cmode = 0, size = 0;
     if (size_temp != OPSZ_12b)
         return false;
     if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
         return false;
     val = (ptr_uint_t)
         get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    /* We've encoded the data type into the opcode, and to avoid confusing some
+     * of these constants with others for the wrong type we have to dispatch on
+     * all possible opcodes that come here.
+     */
+    switch (di->opcode) {
+    case OP_vmov_i8:
+        size = 8;
+        break;
+    case OP_vbic_i16:
+    case OP_vmov_i16:
+    case OP_vmvn_i16:
+    case OP_vorr_i16:
+        size = 16;
+        break;
+    case OP_vbic_i32:
+    case OP_vmov_i32:
+    case OP_vmvn_i32:
+    case OP_vorr_i32:
+        size = 32;
+        break;
+    case OP_vmov_i64:
+        size = 64;
+        break;
+    case OP_vmov_f32:
+        size = 33; /* code for "f32" */
+        break;
+    default:
+        CLIENT_ASSERT(false, "encoding table error: SIMD immed on unexpected opcode");
+        return false;
+    }
     /* Xref AdvSIMDExpandImm in the manual.
      * Check for each pattern, and store the encoding now to avoid re-doing
      * this work at real encode time.
@@ -912,39 +942,39 @@ encode_SIMD_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t o
      * to distinguish our opcodes, but we bitwise-or everything together,
      * and the templates already include required cmode bits.
      */
-    if ((val & 0x000000ff) == val) {
+    if ((size == 8 || size == 16 || size == 32) && (val & 0x000000ff) == val) {
         /* cmode = 000x => 00000000 00000000 00000000 abcdefgh */
         /* cmode = 100x => 00000000 abcdefgh */
         /* cmode = 1110 => abcdefgh */
         /* template should already contain the required cmode bits */
-    } else if ((val & 0x0000ff00) == val) {
+    } else if ((size == 16 || size == 32) && (val & 0x0000ff00) == val) {
         /* cmode = 001x => 00000000 00000000 abcdefgh 00000000 */
         /* cmode = 101x => abcdefgh 00000000 */
         cmode = 2; /* for _i16, template should already have top cmode bit set */
         val = val >> 8;
-    } else if ((val & 0x00ff0000) == val) {
+    } else if (size == 32 && (val & 0x00ff0000) == val) {
         /* cmode = 010x => 00000000 abcdefgh 00000000 00000000 */
         cmode = 4;
         val = val >> 16;
-    } else if ((val & 0xff000000) == val) {
+    } else if (size == 32 && (val & 0xff000000) == val) {
         /* cmode = 011x => abcdefgh 00000000 00000000 00000000 */
         cmode= 6;
         val = val >> 24;
-    } else if ((val & 0x0000ffff) == val && (val & 0x000000ff) == 0xff) {
+    } else if (size == 32 && (val & 0x0000ffff) == val && (val & 0x000000ff) == 0xff) {
         /* cmode = 1100 => 00000000 00000000 abcdefgh 11111111 */
         cmode= 0xc;
         val = val >> 8;
-    } else if ((val & 0x00ffffff) == val && (val & 0x0000ffff) == 0xffff) {
+    } else if (size == 32 && (val & 0x00ffffff) == val && (val & 0x0000ffff) == 0xffff) {
         /* cmode = 1101 => 00000000 abcdefgh 11111111 11111111 */
         cmode = 0xd;
         val = val >> 16;
-    } else if ((val & 0xfff80000) == val &&
+    } else if (size == 33/*f32*/ && (val & 0xfff80000) == val &&
                ((val & 0x7e000000) == 0x3e000000 ||
                 (val & 0x7e000000) == 0x40000000)) {
         /* cmode = 1111 => aBbbbbbc defgh000 00000000 00000000 */
         cmode = 0xf;
-        val = ((val >> 23) & 0x80) | ((val >> 19) & 0x7f);
-    } else if (opnd_is_immed_int64(opnd)) {
+        val = ((val >> 24) & 0x80) | ((val >> 19) & 0x7f);
+    } else if (size == 64 && opnd_is_immed_int64(opnd)) {
         int64 val64 = opnd_get_immed_int64(opnd);
         int low = (int) val64;
         int high = (int) (val64 >> 32);
@@ -1780,6 +1810,7 @@ static void
 decode_info_init_from_instr_info(decode_info_t *di, const instr_info_t *ii)
 {
     di->T32_16 = (di->isa_mode == DR_ISA_ARM_THUMB && (ii->opcode & 0xffff0000) == 0);
+    di->opcode = ii->type;
 }
 
 bool

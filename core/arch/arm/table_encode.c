@@ -616,7 +616,7 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_vmov_16        */ {&A32_ext_opc4fpB[0][0x03],  &T32_ext_opc4fpB[0][0x03],        &T32_ext_opc4fpB[0][0x03]},
     /* OP_vmov_32        */ {&A32_ext_opc4fpB[1][0x01],  &T32_ext_opc4fpB[1][0x01],        &T32_ext_opc4fpB[1][0x01]},
     /* OP_vmov_8         */ {&A32_ext_opc4fpB[4][0x01],  &T32_ext_opc4fpB[4][0x01],        &T32_ext_opc4fpB[4][0x01]},
-    /* OP_vmov_f32       */ {&A32_ext_opc4[7][0x00],     &T32_ext_opc4[0][0x00],           &T32_ext_opc4[0][0x00]},
+    /* OP_vmov_f32       */ {&A32_ext_simd8[0][0x4c],    &T32_ext_simd8[0][0x4c],          &T32_ext_simd8[0][0x4c]},
     /* OP_vmov_f64       */ {&A32_ext_opc4[8][0x00],     &T32_ext_opc4[1][0x00],           &T32_ext_opc4[1][0x00]},
     /* OP_vmov_i16       */ {&A32_ext_simd8[0][0x29],    &T32_ext_simd8[0][0x29],          &T32_ext_simd8[0][0x29]},
     /* OP_vmov_i32       */ {&A32_ext_simd8[0][0x01],    &T32_ext_simd8[0][0x01],          &T32_ext_simd8[0][0x01]},
