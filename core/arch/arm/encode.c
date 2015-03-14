@@ -1465,7 +1465,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 return false;
             if (optype == TYPE_SHIFT_b6 || optype == TYPE_SHIFT_b21) {
                 di->shift_1bit = true;
-                if (opnd_get_immed_int(opnd) % 2 != 0)
+                if (val % 2 != 0 && val != DR_SHIFT_NONE)
                     return false;
             }
             di->shift_has_type = true;
