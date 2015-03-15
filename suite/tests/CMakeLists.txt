@@ -2187,6 +2187,14 @@ else (UNIX)
   # XXX i#829: mixed-mode stubs and abs far jmps require -heap_in_lower_4GB
   if (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
     if (X64)
+      # XXX i#1636: the earliest injection tests below seem to have the child
+      # native.  Until we figure out what's up I'm at least adding this test
+      # which does inject into the child:
+      torunonly(win32.mixedmode_late
+        ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+        win32/mixedmode.c
+        "-early_inject -heap_in_lower_4GB"
+        "${TEST_32BIT_PATH}/win32.mixedmode.exe;mixedmode")
       torunonly(win32.mixedmode
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c

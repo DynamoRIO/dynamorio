@@ -2419,10 +2419,11 @@ insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
  *    SAVE_TO_UPCONTEXT %xbx,xdi_OFFSET
  *  endif
  */
-static void
+static bool
 append_prepare_fcache_return(dcontext_t *dcontext, generated_code_t *code,
                              instrlist_t *ilist, bool absolute, bool shared)
 {
+    bool instr_targets = false;
 #ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode)) {
         instr_t *label = INSTR_CREATE_label(dcontext);
@@ -2431,11 +2432,12 @@ append_prepare_fcache_return(dcontext_t *dcontext, generated_code_t *code,
         instr_set_x86_mode(ljmp, true/*x86*/);
         APP(ilist, ljmp);
         APP(ilist, label);
+        instr_targets = true;
     }
 #endif /* X86_64 */
 
     if (absolute)
-        return;
+        return instr_targets;
 
     /* only support non-absolute w/ shared cache */
     ASSERT_NOT_IMPLEMENTED(shared);
@@ -2462,6 +2464,7 @@ append_prepare_fcache_return(dcontext_t *dcontext, generated_code_t *code,
         ASSERT_NOT_REACHED();
 #endif /* X86/ARM */
     }
+    return instr_targets;
 }
 
 static void
@@ -2652,7 +2655,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     /* currently linkstub is only used for coarse-grain exits */
     ASSERT(linkstub == NULL || !absolute);
 
-    append_prepare_fcache_return(dcontext, code, ilist, absolute, shared);
+    instr_targets = append_prepare_fcache_return(dcontext, code, ilist, absolute, shared);
     append_save_gpr(dcontext, ilist, ibl_end, absolute, code, linkstub, coarse_info);
     append_save_simd_reg(dcontext, ilist, absolute);
 
@@ -2666,7 +2669,8 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSP, DSTACK_OFFSET));
 
     append_save_clear_xflags(dcontext, ilist, absolute);
-    instr_targets = append_call_enter_dr_hook(dcontext, ilist, ibl_end, absolute);
+    instr_targets = append_call_enter_dr_hook(dcontext, ilist, ibl_end, absolute) ||
+        instr_targets;
 
     /* save last_exit, currently in scratch_reg0 into dcontext->last_exit */
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG0, LAST_EXIT_OFFSET));
