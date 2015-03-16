@@ -1948,7 +1948,12 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
     LOG(GLOBAL, LOG_THREADS, 2,
         "x64 context for thread "TIDFMT": xip is "HEX64_FORMAT_STRING
         ", xsp="HEX64_FORMAT_STRING, tid, cxt64->Rip, cxt64->Rsp);
-    if (cxt64->SegCs == CS32_SELECTOR) {
+    if (cxt64->SegCs == CS32_SELECTOR ||
+        /* XXX i#1637: on xp64 I have seen the x64 NtGetContextThread return
+         * success but fill cxt64 with zeroes.  We hope this only happens when
+         * truly in the kernel.
+         */
+        cxt64->Rip == 0) {
         /* In x86 mode, so not inside the wow64 layer.  Context setting should
          * work fine.
          */
