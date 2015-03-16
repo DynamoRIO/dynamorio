@@ -1139,7 +1139,8 @@ not supported.
 \subsection sec_limit_platforms Platform Limitations
   - This version of DynamoRIO supports Windows 8 and 8.1.
     However, systemwide injection (-syswide_on) is not yet supported on
-    Windows 8 or 8.1.
+    Windows 8 or 8.1 except for WOW64 (i.e., 32-bit applications on
+    a 64-bit kernel).
   - DynamoRIO currently supports the following NT-based 32-bit
     Windows systems: XP (32-bit, service packs 0-3), 2003 (32-bit, service
     packs 0-2), Vista (32-bit, service packs 0-1),

@@ -364,7 +364,15 @@ parameters_present(IF_NOT_X64(bool x64_in_wow64))
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved);
 
-void
+static bool
+running_on_win8_or_later(void)
+{
+    PEB *peb = get_own_peb();
+    return (peb->OSMajorVersion > 6 ||
+            (peb->OSMajorVersion == 6 && peb->OSMinorVersion >= 2));
+}
+
+bool
 process_attach()
 {
     int rununder_mask;
@@ -429,6 +437,11 @@ process_attach()
         }
     }
     ntdll_exit();
+    /* i#1522: self-unloading messes up the win8+ loader so we return false instead */
+    if (running_on_win8_or_later())
+        return false;
+    else
+        return true;
 }
 
 /* DLL entry point is in arch/pre_inject.asm */
