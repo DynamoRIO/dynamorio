@@ -171,6 +171,7 @@ _jmp_target:
         blne     _exit
         mov      r1, sp
         stm      r1, {r4, r10}
+        vld1.32  {d2[0]}, [r1]!
 
 // mangle ldm
         ldr      r0, =wrong
