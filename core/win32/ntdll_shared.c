@@ -104,9 +104,12 @@ nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
 # endif
     }
     if (ntcall == NULL) {
-# if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-        ASSERT(get_os_version() < WINDOWS_VERSION_2003);
-# endif
+        /* We do not need to fall back to NtReadVirtualMemory, b/c
+         * NtWow64ReadVirtualMemory64 was added in xp64==2003 and so should
+         * always exist if we are in a WOW64 process: and we should only be
+         * called from a WOW64 process.
+         */
+        ASSERT_NOT_REACHED();
         res = STATUS_NOT_IMPLEMENTED;
     } else {
         uint64 len;

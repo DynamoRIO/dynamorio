@@ -1406,7 +1406,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_sigaction_t *save;
     kernel_sigaction_t *non_const_act = (kernel_sigaction_t *) act;
-    /* i#1035: app may pass invalid signum to find MAX_SIGNUM */
+    /* i#1135: app may pass invalid signum to find MAX_SIGNUM */
     if (sig <= MAX_SIGNUM && act != NULL) {
         /* app is installing a new action */
 

@@ -1138,7 +1138,7 @@ free_library_64(HANDLE lib)
     uint64 ntdll64_LdrUnloadDll;
     int res;
     uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
-    /* XXX i#1035: we don't yet support ntdll64 > 4GB (need to update code below) */
+    /* XXX i#1633: we don't yet support ntdll64 > 4GB (need to update code below) */
     if (ntdll64 > UINT_MAX || ntdll64 == 0)
         return false;
     ntdll64_LdrUnloadDll = get_proc_address_64(ntdll64, "LdrUnloadDll");

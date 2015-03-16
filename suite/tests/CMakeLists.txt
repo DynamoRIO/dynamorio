@@ -1754,11 +1754,8 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (NOT ARM)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    if (X64 OR "${CMAKE_SYSTEM_VERSION}" STRLESS "6.2")
-      # FIXME i#1035: this test crashes on win8 wow64
-      # FIXME i#1512: mark api.startstop FLAKY
-      tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
-    endif ()
+    # XXX i#1512: api.startstop is FLAKY
+    tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
   endif (NOT ARM)
   if (NOT ARM) # FIXME i#1551: port to ARM
     # test static decoder library

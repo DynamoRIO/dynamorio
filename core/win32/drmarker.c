@@ -110,55 +110,75 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
 {
     byte buf[8]; /* only needs to be 5, but dword pad just in case */
     size_t res;
-    void *target, *landing_pad;
+    void *target = NULL;
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
     GET_NTDLL(DR_MARKER_HOOKED_FUNCTION, DR_MARKER_HOOKED_FUNCTION_ARGS);
     void *hook_func = (void *)DR_MARKER_HOOKED_FUNCTION;
 #else
-    void *hook_func;
-# ifndef X64
+    if (IF_X64_ELSE(!x64, x64 && !is_wow64_process(NT_CURRENT_PROCESS)))
+        return DR_MARKER_ERROR;
     if (x64) {
+# ifndef X64
         /* FIXME i#1035: update this routine to handle 64-bit addresses from
          * 32-bit code using NtWow64ReadVirtualMemory64 to read them.
          */
-        hook_func = (void *)(ptr_uint_t) get_proc_address_64
+        uint64 hook_func = get_proc_address_64
             (get_module_handle_64(L_DR_MARKER_HOOKED_DLL),
              DR_MARKER_HOOKED_FUNCTION_STRING);
-    } else
-# endif
-        hook_func = (void *)GetProcAddress(GetModuleHandle(DR_MARKER_HOOKED_DLL),
-                                           DR_MARKER_HOOKED_FUNCTION_STRING);
-#endif
-    if (IF_X64_ELSE(!x64, x64 && !is_wow64_process(NT_CURRENT_PROCESS)))
-        return DR_MARKER_ERROR;
+        uint64 landing_pad = 0;
+        if (hook_func == 0)
+            return DR_MARKER_ERROR;
+        if (!NT_SUCCESS(nt_wow64_read_virtual_memory64(process, hook_func, buf, 5, &res))
+            || res != 5) {
+            return DR_MARKER_ERROR;
+        }
+        if (buf[0] != OP_jmp_byte)
+            return DR_MARKER_NOT_FOUND;
 
-    if (hook_func == NULL)
-        return DR_MARKER_ERROR;
-
-    if (!READ_FUNC(process, hook_func, buf, 5, &res) || res != 5)
-        return DR_MARKER_ERROR;
-
-    if (buf[0] != OP_jmp_byte)
-        return DR_MARKER_NOT_FOUND;
-
-    /* jmp offset + EIP (after jmp = hook_func + size of jmp (5 bytes)) */
-    landing_pad = (void *)(*(int *)&buf[1] + (ptr_int_t)hook_func + 5);
-    /* for 64-bit, the target is stored in front of the trampoline */
-    if (x64)
-        landing_pad = (byte *)landing_pad - 8;
-    /* see emit_landing_pad_code() for layout of landing pad */
-    if (!READ_FUNC(process, landing_pad, buf, (x64 ? 8 : 5), &res) ||
-        res != (x64 ? 8U : 5U))
-        return DR_MARKER_ERROR;
-
-    if (x64) {
+        /* jmp offset + EIP (after jmp = hook_func + size of jmp (5 bytes)) */
+        /* for 64-bit, the target is stored in front of the trampoline */
+        landing_pad = *(int *)&buf[1] + hook_func + 5 - 8;
+         if (!NT_SUCCESS(nt_wow64_read_virtual_memory64(process, landing_pad, buf, 8,
+                                                        &res)) ||
+            res != 8U)
+            return DR_MARKER_ERROR;
         /* trampoline address is stored at the top of the landing pad for 64-bit */
         target = (void *)PAGE_START(*(ptr_int_t *)buf);
+# endif
     } else {
-        /* jmp offset + EIP (after jmp = landing_pad + size of jmp (5 bytes)) */
-        target = (void *)PAGE_START(*(int *)&buf[1] + (ptr_int_t)landing_pad + 5);
-    }
+        void *hook_func = (void *)GetProcAddress(GetModuleHandle(DR_MARKER_HOOKED_DLL),
+                                                 DR_MARKER_HOOKED_FUNCTION_STRING);
+#endif
+        void *landing_pad;
+        if (hook_func == NULL)
+            return DR_MARKER_ERROR;
+        if (!READ_FUNC(process, hook_func, buf, 5, &res) || res != 5)
+            return DR_MARKER_ERROR;
+        if (buf[0] != OP_jmp_byte)
+            return DR_MARKER_NOT_FOUND;
 
+        /* jmp offset + EIP (after jmp = hook_func + size of jmp (5 bytes)) */
+        landing_pad = (void *)(*(int *)&buf[1] + (ptr_int_t)hook_func + 5);
+        /* for 64-bit, the target is stored in front of the trampoline */
+        if (x64)
+            landing_pad = (byte *)landing_pad - 8;
+        /* see emit_landing_pad_code() for layout of landing pad */
+        if (!READ_FUNC(process, landing_pad, buf, (x64 ? 8 : 5), &res) ||
+            res != (x64 ? 8U : 5U))
+            return DR_MARKER_ERROR;
+        if (x64) {
+            /* trampoline address is stored at the top of the landing pad for 64-bit */
+            target = (void *)PAGE_START(*(ptr_int_t *)buf);
+        } else {
+            /* jmp offset + EIP (after jmp = landing_pad + size of jmp (5 bytes)) */
+            target = (void *)PAGE_START(*(int *)&buf[1] + (ptr_int_t)landing_pad + 5);
+        }
+#if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    }
+#endif
+
+    if (target == NULL)
+        return DR_MARKER_ERROR;
     if (!READ_FUNC(process, target, marker, sizeof(dr_marker_t), &res) ||
         res != sizeof(dr_marker_t)) {
         return DR_MARKER_NOT_FOUND;
