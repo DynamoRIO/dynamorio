@@ -685,7 +685,10 @@ typedef struct {
     const char **syms_expected;
     const char *dll_path;
     uint flags_expected;
+    /* used to handle type id mismatches (i#1376, i#1638) */
     char prev_name[MAXIMUM_PATH];
+    uint prev_type;
+    bool prev_mismatch;
 } dll_syms_found_t;
 
 /* If this was a symbol we expected that we haven't found yet, mark it found,
@@ -765,7 +768,16 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
              * here (part of i#1196).  We only use it on pre-Vista so we relax this
              * check there.
              */
-            ASSERT(IF_WINDOWS(os_version.version < DR_WINDOWS_VERSION_VISTA ||)
+            /* i#1638: we delay reporting a mismatch to extend i#1376 to
+             * duplicate names in the other order: i.e., the 1st has a mismatched
+             * type, but the 2nd's type matches:
+             *   comparing id=497 vs 89 _wctype
+             *   comparing id=497 vs 497 _wctype
+             * We check for mismatch on the last entry at the caller site.
+             */
+            ASSERT(!syms_found->prev_mismatch ||
+                   strcmp(out->name, syms_found->prev_name) == 0);
+            if (!(IF_WINDOWS(os_version.version < DR_WINDOWS_VERSION_VISTA ||)
                    type->id == out->type_id ||
                    /* Unknown type has id cleared to 0 */
                    (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||
@@ -774,7 +786,11 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
                    /* i#1376: if we use a recent dbghelp.dll,
                     * we see weird duplicate names w/ different ids
                     */
-                   strcmp(out->name, syms_found->prev_name) == 0);
+                  strcmp(out->name, syms_found->prev_name) == 0)) {
+                syms_found->prev_mismatch = true;
+            } else
+                syms_found->prev_mismatch = false;
+            syms_found->prev_type = type->id;
         }
     }
     dr_snprintf(syms_found->prev_name, BUFFER_SIZE_ELEMENTS(syms_found->prev_name),
@@ -809,7 +825,7 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
     syms_found.flags_expected = flags;
     r = drsym_enumerate_symbols_ex(dll_path, enum_sym_ex_cb,
                                    sizeof(drsym_info_t), &syms_found, flags);
-    ASSERT(r == DRSYM_SUCCESS);
+    ASSERT(r == DRSYM_SUCCESS && !syms_found.prev_mismatch);
     for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++) {
         if (!syms_found.syms_found[i])
             dr_fprintf(STDERR, "_ex failed to find symbol for %s!\n", dll_syms[i]);
@@ -838,10 +854,10 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
         syms_found.dll_path = dll_path;
         r = drsym_search_symbols_ex(dll_path, "*!*dll_*", DRSYM_DEMANGLE, enum_sym_ex_cb,
                                     sizeof(drsym_info_t), &syms_found);
-        ASSERT(r == DRSYM_SUCCESS);
+        ASSERT(r == DRSYM_SUCCESS && !syms_found.prev_mismatch);
         r = drsym_search_symbols_ex(dll_path, "*!*stack_trace*", DRSYM_DEMANGLE,
                                     enum_sym_ex_cb, sizeof(drsym_info_t), &syms_found);
-        ASSERT(r == DRSYM_SUCCESS);
+        ASSERT(r == DRSYM_SUCCESS && !syms_found.prev_mismatch);
         for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++) {
             if (!syms_found.syms_found[i])
                 dr_fprintf(STDERR, "search _ex failed to find %s!\n", dll_syms[i]);
