@@ -1154,5 +1154,7 @@ event_exit(void)
     drsym_exit();
     /* Check that all symbols we looked up got called. */
     ASSERT(call_count == 4);
-    dr_fprintf(STDERR, "all done\n");
+    /* We don't print "all done" to avoid differences in printing working
+     * or not in a cygwin program (i#1478).
+     */
 }

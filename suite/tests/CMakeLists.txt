@@ -933,7 +933,9 @@ function(template2expect outexpect template runops, key)
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
   endif ()
   if (${key}_is_cygwin)
-    # i#1478 option used to avoid cygwin messes up output issue
+    # i#1478 option used to avoid cygwin messes up output issue: though
+    # whether the output is messed up seems to depend on the cygwin version,
+    # so currently this is unused.
     set(rundefs "${rundefs} -DCYGWIN")
   endif ()
 

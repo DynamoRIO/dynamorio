@@ -31,7 +31,3 @@ overloaded: 4
 app num_calls: 7
 got back 4
 got back 4
-// we don't get an "all done" b/c cygwin somehow messes up output
-#ifndef CYGWIN
-all done
-#endif
