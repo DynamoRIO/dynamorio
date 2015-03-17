@@ -75,6 +75,10 @@ separate_bb:
         push     {r1-r2}
         pop      {r1,pc}
 
+        mov      r0, #0
+        cmp      r0, #0
+        addne    pc, r10, pc
+
 // exit
         mov      r0, #1            // stdout
         ldr      r1, =alldone

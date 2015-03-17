@@ -947,6 +947,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Explicitly writes just the pc */
         uint i;
         bool found_pc;
+        instr_t *immed_next = instr_get_next(instr);
         /* XXX: can anything (non-OP_ldm) have r2 as an additional dst? */
         ASSERT_NOT_IMPLEMENTED(!instr_writes_to_reg(instr, IBL_TARGET_REG,
                                                     DR_QUERY_INCLUDE_ALL));
@@ -970,13 +971,16 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 src = instr_get_src(instr, 0);
                 remove_instr = true;
             }
-            PRE(ilist, next_instr,
+            /* We want this before any mangle_rel_addr mangling */
+            POST(ilist, instr,
                 INSTR_CREATE_orr(dcontext, opnd_create_reg(IBL_TARGET_REG), src,
                                  OPND_CREATE_INT(1)));
         }
         if (instr_uses_reg(instr, dr_reg_stolen)) {
-            /* dr_reg_stolen must happen after orr instr inserted above */
-            mangle_stolen_reg(dcontext, ilist, instr, next_instr);
+            /* Stolen register mangling must happen after orr instr
+             * inserted above but before any mangle_rel_addr mangling.
+             */
+            mangle_stolen_reg(dcontext, ilist, instr, immed_next);
         }
     }
     if (instr_is_predicated(instr)) {
@@ -1050,7 +1054,7 @@ pick_scratch_reg(instr_t *instr, bool dead_reg_ok,
     return reg;
 }
 
-/* Should return NULL if it destroy "instr".  We don't support both destroying
+/* Should return NULL if it destroys "instr".  We don't support both destroying
  * (done only for x86) and changing next_instr (done only for ARM).
  */
 instr_t *
