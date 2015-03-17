@@ -1370,10 +1370,12 @@ dynamo_process_exit(void)
 # endif
 # ifdef CLIENT_INTERFACE
             /* Inform client of all thread exits */
-            if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit))
+            if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit)) {
                 instrument_thread_exit_event(threads[i]->dcontext);
-            /* i#1617: ensure we do all cleanup of priv libs */
-            loader_thread_exit(threads[i]->dcontext);
+                /* i#1617: ensure we do all cleanup of priv libs */
+                if (threads[i]->id != get_thread_id()) /* i#1617: must delay this */
+                    loader_thread_exit(threads[i]->dcontext);
+            }
 # endif
         }
         global_heap_free(threads, num*sizeof(thread_record_t*)
@@ -1408,10 +1410,14 @@ dynamo_process_exit(void)
          */
         instrument_exit();
 
+# ifdef CLIENT_INTERFACE
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
          */
+        if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit))
+            loader_thread_exit(get_thread_private_dcontext());
         loader_exit();
+# endif
 
         /* for -private_loader we do this here to catch more exit-time crashes */
 # ifdef WINDOWS
