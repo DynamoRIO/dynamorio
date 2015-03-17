@@ -5164,7 +5164,9 @@ handle_execve(dcontext_t *dcontext)
     bool expect_to_fail = false;
     file_t file;
     char *inject_library_path;
+#if defined(LINUX) || defined(DEBUG)
     const char **argv = (const char **) sys_param(dcontext, 1);
+#endif
 #ifdef LINUX
     if (DYNAMO_OPTION(early_inject) && symlink_is_self_exe(fname)) {
         /* i#907: /proc/self/exe points at libdynamorio.so.  Make sure we run
