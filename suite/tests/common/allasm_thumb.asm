@@ -172,6 +172,7 @@ _jmp_target:
         mov      r1, sp
         stm      r1, {r4, r10}
         vld1.32  {d2[0]}, [r1]!
+        smlal    r12, r10, r6, r0
 
 // mangle ldm
         ldr      r0, =wrong

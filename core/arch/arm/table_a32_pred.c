@@ -445,7 +445,7 @@ const instr_info_t A32_ext_opc4x[][6] = {
   }, { /* 14 */
     {OP_rsc,     0x00e00000, "rsc",    RBw, RAw, RDw, sh2, i5_7, pred|srcX4, x, top4x[14][0x01]},
     {OP_rsc,     0x00e00010, "rsc",    RBw, RAw, RDw, sh2, RCb, pred|srcX4, x, END_LIST},
-    {OP_smlal,   0x00e00090, "smlal",  RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},
+    {OP_smlal,   0x00e00090, "smlal",  RAw, RBw, RAw, RBw, RDw, pred|xop, x, exop[0x7]},
     {OP_strht,   0x00e000b0, "strht",  MP44h, RAw, RBh, RAw, i8x8_0, pred, x, top4x[10][0x03]},/*PUW=011*/
     {OP_ldrd,    0x00e000d0, "ldrd",   RBEw, RB2w, RAw, MP44q, i8x8_0, xop_wb|dstX3|pred|unp, x, top4x[12][0x04]},/*PUW=011*/
     {OP_strd,    0x00e000f0, "strd",   MP44q, RAw, RBEw, RB2w, i8x8_0, xop_wb|pred|unp, x, top4x[12][0x05]},/*PUW=011*/
@@ -1029,7 +1029,7 @@ const instr_info_t A32_ext_bit4[][2] = {
     {EXT_RDPC,   0x07c00000, "(ext RDPC 0)", xx, xx, xx, xx, xx, no, x, 0},
   }, { /* 8 */
     {OP_ldrb,    0x07d00000, "ldrb",   RBw, xx, MPSb, xx, xx, pred, x, top4y[14][0x00]},/*PUW=110*/
-    {OP_bfc,     0x07d0001f, "bfc",    RBw, xx, i5_16, i5_7, xx, pred, x, DUP_ENTRY},
+    {OP_bfc,     0x07d0001f, "bfc",    RBw, xx, i5_16, i5_7, RBw, pred, x, DUP_ENTRY},
   }, { /* 9 */
     {OP_cdp,     0x0e000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, pred|xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*//*no chain nec.*/
     {OP_mcr,     0x0e000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, pred|xop, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
@@ -1729,8 +1729,8 @@ const instr_info_t A32_ext_RBPC[][2] = {
 /* Indexed by whether RD != PC */
 const instr_info_t A32_ext_RDPC[][2] = {
   { /* 0 */
-    {OP_bfi,     0x07c00010, "bfi",    RBw, xx, RDw, i5_16, i5_7, pred, x, END_LIST},
-    {OP_bfc,     0x07c0001f, "bfc",    RBw, xx, i5_16, i5_7, xx, pred, x, END_LIST},
+    {OP_bfi,     0x07c00010, "bfi",    RBw, RDw, i5_16, i5_7, RBw, pred|srcX4, x, END_LIST},
+    {OP_bfc,     0x07c0001f, "bfc",    RBw, xx, i5_16, i5_7, RBw, pred, x, END_LIST},
   },
 };
 
@@ -1776,4 +1776,5 @@ const instr_info_t A32_extra_operands[] =
     {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RCh, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RCt, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<srs* cont'd>",  xx, xx, SPSR, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x00000000, "<smlal cont'd>",  xx, xx, RCw, xx, xx, no, x, END_LIST},
 };

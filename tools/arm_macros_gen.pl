@@ -472,8 +472,12 @@ foreach my $opc (keys %entry) {
             } else {
                 $name .= "_ss2gg";
             }
-        } elsif (($opc =~ /^OP_stc/ || $opc =~ /^OP_ldc/) && $sig eq 'cpreg; mem imm imm2') {
+        } elsif (($opc =~ /^OP_stc/ || $opc =~ /^OP_ldc/) &&
+                 $sig eq 'cpreg; mem imm imm2') {
             $name .= "_option";
+        } elsif ($esig =~ 'RBw; .* RBw$') {
+            # Implicit arg for OP_bfc and OP_bfi
+            $esig =~ s/RBw$//;
         }
 
         # Hardcoded implicit args:

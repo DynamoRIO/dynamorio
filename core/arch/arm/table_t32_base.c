@@ -607,7 +607,7 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {INVALID,     0xfad000e0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfad000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 7 */
-    {OP_smlal,    0xfbc00000, "smlal",  RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
+    {OP_smlal,    0xfbc00000, "smlal",  RCw, RBw, RCw, RBw, RAw, xop, x, exop[0x7]},
     {INVALID,     0xfbc00010, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc00020, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc00030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -906,8 +906,8 @@ const instr_info_t T32_ext_RAPC[][2] = {
     {OP_orns,     0xf0700000, "orns",   RCw, xx, RAw, i12x26_12_0, xx, no, fWNZCV, xrapc[3][0x00]},
     {OP_mvns,     0xf07f0000, "mvns",   RCw, xx, i12x26_12_0, xx, xx, no, fWNZCV, xrapc[3][0x01]},
   }, { /* 8 */
-    {OP_bfi,      0xf3600000, "bfi",    RCw, xx, RAw, i5x12_6, i5, no, x, END_LIST},
-    {OP_bfc,      0xf36f0000, "bfc",    RCw, xx, i5x12_6, i5, xx, no, x, END_LIST},
+    {OP_bfi,      0xf3600000, "bfi",    RCw, RAw, i5x12_6, i5, RCw, srcX4, x, END_LIST},
+    {OP_bfc,      0xf36f0000, "bfc",    RCw, xx, i5x12_6, i5, RCw, no, x, END_LIST},
   }, { /* 9 */
     {OP_orr,      0xf4400000, "orr",    RCw, xx, RAw, i12x26_12_0, xx, no, x, DUP_ENTRY},
     {OP_mov,      0xf44f0000, "mov",    RCw, xx, i12x26_12_0, xx, xx, no, x, DUP_ENTRY},
@@ -1103,4 +1103,5 @@ const instr_info_t T32_extra_operands[] =
     {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RDh, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RDt, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<srs* cont'd>",  xx, xx, SPSR, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x00000000, "<smlal cont'd>",  xx, xx, RDw, xx, xx, no, x, END_LIST},
 };

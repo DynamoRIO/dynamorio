@@ -782,7 +782,7 @@
  * \param Rm The second source register opnd_t operand.
  */
 #define INSTR_CREATE_smlal(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlal, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_smlal, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlalbb(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_4src((dc), OP_smlalbb, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlalbt(dc, Rd, Rd2, Rn, Rm) \
@@ -1057,7 +1057,7 @@
  * \param imm2 The second integer constant opnd_t operand.
  */
 #define INSTR_CREATE_bfc(dc, Rd, imm, imm2) \
-  instr_create_1dst_2src((dc), OP_bfc, (Rd), (imm), (imm2))
+  instr_create_1dst_3src((dc), OP_bfc, (Rd), (imm), (imm2), (Rd))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm, Rn_or_imm) */
@@ -1327,7 +1327,7 @@
  * \param imm2 The second integer constant opnd_t operand.
  */
 #define INSTR_CREATE_bfi(dc, Rd, Rm, imm, imm2) \
-  instr_create_1dst_3src((dc), OP_bfi, (Rd), (Rm), (imm), (imm2))
+  instr_create_1dst_4src((dc), OP_bfi, (Rd), (Rm), (imm), (imm2), (Rd))
 #define INSTR_CREATE_sbfx(dc, Rd, Rm, imm, imm2) \
   instr_create_1dst_3src((dc), OP_sbfx, (Rd), (Rm), (imm), (imm2))
 #define INSTR_CREATE_ubfx(dc, Rd, Rm, imm, imm2) \
