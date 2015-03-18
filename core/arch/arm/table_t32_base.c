@@ -404,7 +404,7 @@ const instr_info_t T32_ext_opcBX[][9] = {
     {OP_ldrb,     0xf8100900, "ldrb",   RBw, RAw, Mb, RAw, n8, no, x, END_LIST},/*PUW=001*/
     {INVALID,     0xf8100a00, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},/*PUW=010*/
     {OP_ldrb,     0xf8100b00, "ldrb",   RBw, RAw, Mb, RAw, i8, no, x, xopbx[1][0x02]},/*PUW=011*/
-    {OP_ldrb,     0xf8100c00, "ldrb",   RBw, xx, MN8b, xx, xx, no, x, xopbx[1][0x08]},/*PUW=100*/
+    {EXT_RBPC,    0xf8100c00, "(ext rbpc 18)", xx, xx, xx, xx, xx, no, x, 18},
     {OP_ldrb,     0xf8100d00, "ldrb",   RBw, RAw, MN8b, RAw, n8, no, x, xopbx[1][0x04]},/*PUW=101*/
     {OP_ldrbt,    0xf8100e00, "ldrbt",  RBw, xx, MP8b, xx, xx, no, x, END_LIST},/*PUW=110*/
     {OP_ldrb,     0xf8100f00, "ldrb",   RBw, RAw, MP8b, RAw, i8, no, x, xopbx[1][0x06]},/*PUW=111*/
@@ -975,19 +975,19 @@ const instr_info_t T32_ext_RAPC[][2] = {
 const instr_info_t T32_ext_RBPC[][2] = {
   { /* 0 */
     {OP_ldrb,     0xf81f0000, "ldrb",   RBw, xx, MPCN12b, xx, xx, no, x, xrbpc[1][0x00]},/*PUW=000*/
-    {OP_pld,      0xf81ff000, "pld",    xx, xx, MN12z, xx, xx, no, x, xrbpc[4][0x01]},/*PUW=010*/
+    {OP_pld,      0xf81ff000, "pld",    xx, xx, MPCN12z, xx, xx, no, x, xb11[0][0x01]},/*PUW=000*/
   }, { /* 1 */
-    {OP_ldrb,     0xf8100000, "ldrb",   RBw, xx, MLSb, xx, xx, no, x, xopbx[1][0x05]},
+    {OP_ldrb,     0xf8100000, "ldrb",   RBw, xx, MLSb, xx, xx, no, x, xopbx[1][0x08]},
     {EXT_B11,     0xf810f000, "(ext b11 0)", xx, xx, xx, xx, xx, no, x, 0},
   }, { /* 2 */
     {OP_ldrh,     0xf8300000, "ldrh",   RBw, xx, MLSh, xx, xx, no, x, xopbx[3][0x05]},
     {EXT_B11,     0xf830f000, "(ext b11 1)", xx, xx, xx, xx, xx, no, x, 1},
   }, { /* 3 */
     {OP_ldrb,     0xf8900000, "ldrb",   RBw, xx, MP12b, xx, xx, no, x, xrbpc[0][0x00]},
-    {OP_pld,      0xf890f000, "pld",    xx, xx, MP12z, xx, xx, no, x, xrbpc[0][0x01]},/*PUW=010*/
+    {OP_pld,      0xf890f000, "pld",    xx, xx, MP12z, xx, xx, no, x, xrbpc[4][0x01]},/*PUW=010*/
   }, { /* 4 */
     {OP_ldrb,     0xf89f0000, "ldrb",   RBw, xx, MPCP12b, xx, xx, no, x, xrbpc[3][0x00]},/*PUW=010*/
-    {OP_pld,      0xf89ff000,/*can delete: literal==general for MP*/"pld",    xx, xx, MPCP12z, xx, xx, no, x, xb11[0][0x01]},/*PUW=010*/
+    {OP_pld,      0xf89ff000,/*can delete: literal==general for MP*/"pld",    xx, xx, MPCP12z, xx, xx, no, x, xrbpc[0][0x01]},/*PUW=010*/
   }, { /* 5 */
     {OP_ldrh,     0xf8b00000, "ldrh",   RBw, xx, MP12h, xx, xx, no, x, xrapc[17][0x01]},
     {OP_pldw,     0xf8b0f000, "pldw",   xx, xx, MP12z, xx, xx, no, x, xb11[1][0x01]},/*PUW=011*/
@@ -1027,6 +1027,9 @@ const instr_info_t T32_ext_RBPC[][2] = {
   }, { /* 17 */
     {EXT_IMM1916, 0xeef00a10, "(ext imm1916 3)", xx, xx, xx, xx, xx, no, x, 3},
     {OP_vmrs,     0xeef0fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, vfp, x, xi19[3][0x00]},
+  }, { /* 18 */
+    {OP_ldrb,     0xf8100c00, "ldrb",   RBw, xx, MN8b, xx, xx, no, x, xrbpc[4][0x00]},/*PUW=100*/
+    {OP_pld,      0xf810fc00, "pld",    xx, xx, MN8z, xx, xx, no, x, DUP_ENTRY},/*PUW=000*/
   },
 };
 

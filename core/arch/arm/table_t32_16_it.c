@@ -87,7 +87,7 @@ const instr_info_t T32_16_it_ext_bit_11[][2] = {
       {OP_ldr,   0x6800, "ldr",        RZw, xx,   MP5w,   xx, xx, no,      x, xrapc[18][0x01]},
     }, { /* 5 */
       {OP_strb,  0x7000, "strb",      MP5b, xx,    RZw,   xx, xx, no,      x, xopbx[0][0x05]},
-      {OP_ldrb,  0x7800, "ldrb",       RZw, xx,   MP5b,   xx, xx, no,      x, xrbpc[4][0x00]},
+      {OP_ldrb,  0x7800, "ldrb",       RZw, xx,   MP5b,   xx, xx, no,      x, xrbpc[18][0x00]},
     }, { /* 6 */
       {OP_strh,  0x8000, "strh",      MP5h, xx,    RZw,   xx, xx, no,      x, xopbx[2][0x05]},
       {OP_ldrh,  0x8800, "ldrh",       RZw, xx,   MP5h,   xx, xx, no,      x, xrbpc[5][0x00]},
