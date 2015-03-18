@@ -397,7 +397,7 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
 /* forward declaration */
 static void
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
-                  instr_t *instr, instr_t *next_instr);
+                  instr_t *instr, instr_t *next_instr, bool instr_to_be_removed);
 
 /* If instr is inside an IT block, removes it from the block and
  * leaves it as an isolated (un-encodable) predicated instr, with any
@@ -895,7 +895,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                           opc, instr);
         /* for case like tbh [pc, r10, lsl, #1] */
         if (instr_uses_reg(instr, dr_reg_stolen))
-            mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr));
+            mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
 
         if (opc == OP_tbb) {
             PRE(ilist, instr,
@@ -980,7 +980,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* Stolen register mangling must happen after orr instr
              * inserted above but before any mangle_rel_addr mangling.
              */
-            mangle_stolen_reg(dcontext, ilist, instr, immed_next);
+            mangle_stolen_reg(dcontext, ilist, instr, immed_next, remove_instr);
         }
     }
     if (instr_is_predicated(instr)) {
@@ -1222,7 +1222,7 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
  */
 static void
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
-                  instr_t *instr, instr_t *next_instr)
+                  instr_t *instr, instr_t *next_instr, bool instr_to_be_removed)
 {
     ushort slot;
     bool should_restore;
@@ -1232,6 +1232,38 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
      * meta instrs using it are using it as TLS.
      */
     ASSERT(!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen));
+
+    /* optimization, convert simple mov to ldr/str:
+     * - "mov r0  -> r10"  ==> "str r0 -> [r10_slot]"
+     * - "mov r10 -> r0"   ==> "ldr [r10_slot] -> r0"
+     */
+    if (instr_get_opcode(instr) == OP_mov && opnd_is_reg(instr_get_src(instr, 0))) {
+        opnd_t opnd;
+        ASSERT(instr_num_srcs(instr) == 1 && instr_num_dsts(instr) == 1);
+        ASSERT(opnd_is_reg(instr_get_dst(instr, 0)));
+        /* mov rx -> rx, do nothing */
+        if (opnd_same(instr_get_src(instr, 0), instr_get_dst(instr, 0)))
+            return;
+        /* this optimization changes the original instr, so it is only applied
+         * if instr_to_be_removed is false
+         */
+        if (!instr_to_be_removed) {
+            opnd = opnd_create_tls_slot(os_tls_offset(TLS_REG_STOLEN_SLOT));
+            if (opnd_get_reg(instr_get_src(instr, 0)) == dr_reg_stolen) {
+                /* mov r10 -> rx, convert to a ldr */
+                instr_set_opcode(instr, OP_ldr);
+                instr_set_src(instr, 0, opnd);
+                return;
+            } else {
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == dr_reg_stolen);
+                /* mov rx -> r10, convert to a str */
+                instr_set_opcode(instr, OP_str);
+                instr_set_dst(instr, 0, opnd);
+                return;
+            }
+            ASSERT_NOT_REACHED();
+        }
+    }
 
     /* move stolen reg value into tmp reg for app instr execution */
     tmp = pick_scratch_reg(instr, false, &slot, &should_restore);
@@ -1743,7 +1775,7 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (instr_uses_reg(pre_ldm_adjust, dr_reg_stolen)) {
             mangle_stolen_reg(dcontext, ilist, pre_ldm_adjust,
                               /* dr_reg_stolen must be restored right after */
-                              instr_get_next(pre_ldm_adjust));
+                              instr_get_next(pre_ldm_adjust), false);
         }
     }
     if (pre_ldm_ldr != NULL) {
@@ -1775,13 +1807,13 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (instr_uses_reg(pre_ldm_ldr, dr_reg_stolen)) {
             mangle_stolen_reg(dcontext, ilist, pre_ldm_ldr,
                               /* dr_reg_stolen must be restored right after */
-                              instr_get_next(pre_ldm_ldr));
+                              instr_get_next(pre_ldm_ldr), false);
         }
     }
 
     if (instr_uses_reg(instr, dr_reg_stolen)) {
         /* dr_reg_stolen must be restored right after instr */
-        mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr));
+        mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
     }
 
     if (post_ldm_adjust != NULL) {
@@ -1789,7 +1821,7 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (instr_uses_reg(post_ldm_adjust, dr_reg_stolen)) {
             mangle_stolen_reg(dcontext, ilist, post_ldm_adjust,
                               /* dr_reg_stolen must be restored right after */
-                              instr_get_next(post_ldm_adjust));
+                              instr_get_next(post_ldm_adjust), false);
         }
     }
 
@@ -1851,7 +1883,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 
     /* mangle_stolen_reg must happen after mangle_pc_read to avoid reg conflict */
     if (!finished && instr_uses_reg(instr, dr_reg_stolen) && !instr_is_mbr(instr))
-        mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr));
+        mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
 
     if (in_it) {
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, bound_end);

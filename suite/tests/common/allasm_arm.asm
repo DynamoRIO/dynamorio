@@ -79,6 +79,11 @@ separate_bb:
         cmp      r0, #0
         addne    pc, r10, pc
 
+// test dr_reg_stolen mangling optimization
+        mov      r10, pc
+        mov      pc, r10
+        mov      r10, sp
+        mov      r3, r10
 // exit
         mov      r0, #1            // stdout
         ldr      r1, =alldone
