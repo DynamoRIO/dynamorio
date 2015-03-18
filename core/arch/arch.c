@@ -606,7 +606,7 @@ arch_init(void)
 
 #ifdef ARM
     dr_reg_stolen = DR_REG_R0 + DYNAMO_OPTION(steal_reg);
-    ASSERT(dr_reg_stolen > DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX)
+    ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX)
 #endif
 
     /* Ensure we have no unexpected padding inside structs that include
