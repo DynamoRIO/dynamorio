@@ -5464,6 +5464,10 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 {
     generated_code_t *code;
     byte *pc, *ibl_tgt;
+# ifdef ARM
+    /* FIXME i#1551: NYI on ARM */
+    return;
+# endif
     if (dcontext == GLOBAL_DCONTEXT) {
         ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
         code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());

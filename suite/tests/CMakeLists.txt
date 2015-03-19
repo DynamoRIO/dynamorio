@@ -2210,11 +2210,9 @@ else (UNIX)
 
 endif (UNIX)
 
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  tobuild(security-common.codemod security-common/codemod.c)
-  tochcon(security-common.codemod execmem_exec_t)
-  mark_execstack(security-common.codemod)
-endif (NOT ARM)
+tobuild(security-common.codemod security-common/codemod.c)
+tochcon(security-common.codemod execmem_exec_t)
+mark_execstack(security-common.codemod)
 if (NOT ARM) # FIXME i#1551: port asm to ARM
   tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
   tochcon(security-common.decode-bad-stack execmem_exec_t)

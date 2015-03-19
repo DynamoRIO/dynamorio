@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,8 +50,16 @@ main()
     INIT();
     print("starting up\n");
 
+#ifdef X86
     buf[0] = 0xc3; /* ret */
-
+#else
+    /* XXX i#1639: this results in SIGILL natively even though we have
+     * execstack and this is a transition to ARM.  This runs fine under
+     * DR but apparently that's a transparency violation as it should crash
+     * for reasons unknown.
+     */
+    *(int*)buf = 0xe12fff1e; /* bx lr */
+#endif
     ((void (*)(void)) foo)();
 
     print("about to exit\n");
