@@ -60,6 +60,8 @@
 #  define ASM_XSP "esp"
 # endif /* 64/32-bit */
 #elif defined(ARM)
+# define ASM_R0 "r0"
+# define ASM_R1 "r1"
 # define ASM_XSP "sp"
 #endif /* X86/ARM */
 

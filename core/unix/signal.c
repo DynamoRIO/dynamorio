@@ -5852,16 +5852,15 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     ASSERT(ostd != NULL);
 
     if (ostd->terminate) {
-#ifdef X86
          /* PR 297902: exit this thread, without using any stack */
-# ifdef MACOS
+#ifdef MACOS
         /* We need a stack as 32-bit syscalls take args on the stack.
          * We go ahead and use it for x64 too for simpler sysenter return.
          * We don't have a lot of options: we're terminating, so we go ahead
          * and use the app stack.
          */
         byte *app_xsp = (byte *) get_mcontext(dcontext)->xsp;
-# endif
+#endif
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
         if (ksynch_kernel_support()) {
             /* can't use stack once set terminated to 1 so in asm we do:
@@ -5869,12 +5868,13 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
              *   futex_wake_all(&ostd->terminated in xax);
              *   semaphore_signal_all(&ostd->terminated in xax);
              */
-# ifdef MACOS
+#ifdef MACOS
             KSYNCH_TYPE *term = &ostd->terminated;
             ASSERT(sizeof(ostd->terminated.sem) == 4);
-# else
+#else
             volatile int *term = &ostd->terminated;
-# endif
+#endif
+#ifdef X86
             asm("mov %0, %%"ASM_XAX : : "m"(term));
 # ifdef MACOS
             asm("movl $1,4(%"ASM_XAX")");
@@ -5884,20 +5884,26 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
             asm("movl $1,(%"ASM_XAX")");
             asm("jmp dynamorio_futex_wake_and_exit");
 # endif
+#elif defined(ARM)
+            asm("ldr %%"ASM_R0", %0" : : "m"(term));
+            asm("mov %"ASM_R1", #1");
+            asm("str %"ASM_R1",[%"ASM_R0"]");
+            asm("b dynamorio_futex_wake_and_exit");
+#endif
         } else {
             ksynch_set_value(&ostd->terminated, 1);
+#ifdef X86
 # ifdef MACOS
             asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
             asm("jmp _dynamorio_sys_exit");
 # else
             asm("jmp dynamorio_sys_exit");
 # endif
+#elif defined(ARM)
+            asm("b dynamorio_sys_exit");
+#endif /* X86/ARM */
         }
         ASSERT_NOT_REACHED();
-#elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
         return false;
     }
 

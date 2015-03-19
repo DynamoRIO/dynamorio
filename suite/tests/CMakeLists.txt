@@ -1918,9 +1918,9 @@ if (UNIX)
   endif (NOT ARM)
   if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
     tobuild(linux.thread linux/thread.c)
-    tobuild(linux.threadexit linux/threadexit.c)
-    tobuild(linux.threadexit2 linux/threadexit2.c)
   endif (NOT ARM)
+  tobuild(linux.threadexit linux/threadexit.c)
+  tobuild(linux.threadexit2 linux/threadexit2.c)
   tobuild(linux.signalfd linux/signalfd.c)
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
@@ -1930,10 +1930,8 @@ if (UNIX)
   target_link_libraries(linux.eintr ${libpthread})
   torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
-  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
-    tobuild(linux.sigsuspend linux/sigsuspend.c)
-    target_link_libraries(linux.sigsuspend ${libpthread})
-  endif (NOT ARM)
+  tobuild(linux.sigsuspend linux/sigsuspend.c)
+  target_link_libraries(linux.sigsuspend ${libpthread})
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
