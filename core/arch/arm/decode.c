@@ -2271,7 +2271,8 @@ read_instruction(byte *pc, byte *orig_pc,
             /* PR 605161: don't report on DR addresses */
             if (report_invalid && !is_dynamo_address(di->start_pc)) {
                 SYSLOG_INTERNAL_WARNING_ONCE("Invalid opcode encountered");
-                LOG(THREAD_GET, LOG_ALL, 1, "Invalid opcode @"PFX": 0x%016x\n",
+                LOG(THREAD_GET, LOG_ALL, 1, "Invalid %s opcode @"PFX": 0x%08x\n",
+                    di->isa_mode == DR_ISA_ARM_A32 ? "ARM" : "Thumb",
                     di->start_pc, di->instr_word);
             }
         });
