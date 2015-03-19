@@ -1916,9 +1916,7 @@ if (UNIX)
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild(linux.sigcontext linux/sigcontext.c)
   endif (NOT ARM)
-  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
-    tobuild(linux.thread linux/thread.c)
-  endif (NOT ARM)
+  tobuild(linux.thread linux/thread.c)
   tobuild(linux.threadexit linux/threadexit.c)
   tobuild(linux.threadexit2 linux/threadexit2.c)
   tobuild(linux.signalfd linux/signalfd.c)
@@ -1962,20 +1960,16 @@ if (UNIX)
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
-  if (NOT ARM) # FIXME i#1551: add thread support to ARM
-    # runs of other builds with custom DR options
-    torunonly(linux.thread-reset linux.thread linux/thread.c
-      "-reset_at_fragment_count 100" "")
-    torunonly(linux.clone-reset linux.clone linux/clone.c
-      "-reset_at_fragment_count 100" "")
-  endif (NOT ARM)
+  # runs of other builds with custom DR options
+  torunonly(linux.thread-reset linux.thread linux/thread.c
+    "-reset_at_fragment_count 100" "")
+  torunonly(linux.clone-reset linux.clone linux/clone.c
+    "-reset_at_fragment_count 100" "")
   tobuild(pthreads.pthreads pthreads/pthreads.c)
-  if (NOT ARM) # FIXME i#1551: add synchall (signal) + fork support to ARM
-    tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
-    tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
-    # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
-    tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
-  endif (NOT ARM)
+  tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
+  tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
+  # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
+  tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
 
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
