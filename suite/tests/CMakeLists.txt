@@ -2284,9 +2284,9 @@ if (X64)
 
 endif (X64)
 
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
 
+if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   set (TestMemProtChg "security-common.TestMemProtChg")
   if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
     set (TestMemProtChg "${TestMemProtChg}_FLAKY")

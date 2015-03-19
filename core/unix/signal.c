@@ -2662,6 +2662,9 @@ static void
 transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *sc,
                                            app_pc next_pc, linkstub_t *last_exit)
 {
+    dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
+    IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
+
     /* Set our sigreturn context to point to fcache_return!
      * Then we'll go back through kernel, appear in fcache_return,
      * and go through dispatch & interp, without messing up dynamo stack.
@@ -2669,6 +2672,8 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
      * still go to the private fcache_return for simplicity.
      */
     sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
+    /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
+    IF_ARM(set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE));
 
 #if defined(X64) || defined(ARM)
     /* x64 always uses shared gencode */
@@ -2679,8 +2684,6 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
 #endif
     LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax "PFX"\n", sc->IF_X86_ELSE(SC_XAX, SC_R0));
 
-    dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
-    IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
     sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) last_exit;
     LOG(THREAD, LOG_ASYNCH, 2,
         "\tset next_tag to "PFX", resuming in fcache_return\n", next_pc);
