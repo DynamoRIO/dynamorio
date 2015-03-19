@@ -6017,6 +6017,8 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
      * number for client nudges, but I don't think we want to kill the app
      * if an external nudger types the client id wrong.
      */
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: sig=%d code=%d errno=%d\n", __FUNCTION__,
+        siginfo->si_signo, siginfo->si_code, siginfo->si_errno);
     if (siginfo->si_signo != NUDGESIG_SIGNUM
         /* PR 477454: remove the IF_NOT_VMX86 once we have nudge-arg support */
         IF_NOT_VMX86(|| siginfo->si_code != SI_QUEUE
@@ -6054,6 +6056,11 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
         (decode(dcontext, (byte *)buf, &instr) == NULL ||
          /* check for ud2 (xref PR 523161) */
          instr_is_undefined(&instr))) {
+        LOG(THREAD, LOG_ASYNCH, 2, "%s: real illegal instr @"PFX"\n", __FUNCTION__,
+            sc->SC_XIP);
+        DOLOG(2, LOG_ASYNCH, {
+            disassemble_with_bytes(dcontext, (byte *)sc->SC_XIP, THREAD);
+        });
         instr_free(dcontext, &instr);
         return true; /* pass to app */
     }
