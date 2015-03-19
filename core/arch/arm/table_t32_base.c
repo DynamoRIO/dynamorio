@@ -50,7 +50,7 @@ const instr_info_t T32_base_e[] = {
     /* 80 */
     {OP_srsdb,    0xe80dc000, "srsdb",  Mq, xx, i5, LRw, SPSR, no, x, xbase[0x02]},/*PUW=000*/
     {OP_rfedb,    0xe810c000, "rfedb",  CPSR, xx, Mq, xx, xx, no, x, END_LIST},/*PUW=000*/
-    {OP_srsdb,    0xe82dc000, "srsdb",  Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=001*/
+    {OP_srsdb,    0xe82dc000, "srsdb",  Mq, SPw, i5, SPw, LRw, xop, x, xexop[0x6]},/*PUW=001*/
     {OP_rfedb,    0xe830c000, "rfedb",  RAw, CPSR, Mq, RAw, xx, no, x, xbase[0x01]},/*PUW=001*/
     {OP_strex,    0xe8400000, "strex",  MP8Xw, RCw, RBw, xx, xx, no, x, END_LIST},
     {OP_ldrex,    0xe8500f00, "ldrex",  RBw, xx, MP8Xw, xx, xx, no, x, END_LIST},
@@ -75,7 +75,7 @@ const instr_info_t T32_base_e[] = {
     {OP_ldrd,     0xe9700000, "ldrd",   RBw, RCw, RAw, MN8Xq, n8x4, xop_wb|dstX3, x, xbase[0x0f]},/*PUW=101*/
     {OP_srs,      0xe98dc000, "srs",    Mq, xx, i5, LRw, SPSR, no, x, xbase[0x1a]},/*PUW=110*/
     {OP_rfe,      0xe990c000, "rfe",    CPSR, xx, Mq, xx, xx, no, x, xbase[0x1b]},/*PUW=110*/
-    {OP_srs,      0xe9adc000, "srs",    Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=111*/
+    {OP_srs,      0xe9adc000, "srs",    Mq, SPw, i5, SPw, LRw, xop, x, xexop[0x6]},/*PUW=111*/
     {OP_rfe,      0xe9b0c000, "rfe",    RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=111*/
     {OP_strd,     0xe9c00000, "strd",   MP8Xq, xx, RBw, RCw, xx, no, x, xbase[0x14]},/*PUW=110*/
     {OP_ldrd,     0xe9d00000, "ldrd",   RBw, RCw, MP8Xq, xx, xx, no, x, xbase[0x15]},/*PUW=110*/
@@ -607,7 +607,7 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {INVALID,     0xfad000e0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfad000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 7 */
-    {OP_smlal,    0xfbc00000, "smlal",  RCw, RBw, RCw, RBw, RAw, xop, x, exop[0x7]},
+    {OP_smlal,    0xfbc00000, "smlal",  RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
     {INVALID,     0xfbc00010, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc00020, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc00030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -615,10 +615,10 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {INVALID,     0xfbc00050, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc00060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc00070, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_smlalbb,  0xfbc00080, "smlalbb",RCw, RBw, RCw, RBw, RAh, xop, x, exop[0x4]},
-    {OP_smlalbt,  0xfbc00090, "smlalbt",RCw, RBw, RCw, RBw, RAh, xop, x, exop[0x5]},
-    {OP_smlaltb,  0xfbc000a0, "smlaltb",RCw, RBw, RCw, RBw, RAt, xop, x, exop[0x4]},
-    {OP_smlaltt,  0xfbc000b0, "smlaltt",RCw, RBw, RCw, RBw, RAt, xop, x, exop[0x5]},
+    {OP_smlalbb,  0xfbc00080, "smlalbb",RCw, RBw, RCw, RBw, RAh, xop, x, xexop[0x4]},
+    {OP_smlalbt,  0xfbc00090, "smlalbt",RCw, RBw, RCw, RBw, RAh, xop, x, xexop[0x5]},
+    {OP_smlaltb,  0xfbc000a0, "smlaltb",RCw, RBw, RCw, RBw, RAt, xop, x, xexop[0x4]},
+    {OP_smlaltt,  0xfbc000b0, "smlaltt",RCw, RBw, RCw, RBw, RAt, xop, x, xexop[0x5]},
     {OP_smlald,   0xfbc000c0, "smlald", RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
     {OP_smlaldx,  0xfbc000d0, "smlaldx",RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
     {INVALID,     0xfbc000e0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -748,17 +748,17 @@ const instr_info_t T32_ext_bit_B4[][2] = {
     {OP_smlsld,   0xfbd000c0, "smlsld", RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
     {OP_smlsldx,  0xfbd000d0, "smlsldx",RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
   }, { /* 11 */
-    {OP_cdp,     0xee000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*//*no chain nec.*/
-    {OP_mcr,     0xee000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, xop, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+    {OP_cdp,     0xee000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, xexop[0x3]},/*XXX: disasm not in dst-src order*//*no chain nec.*/
+    {OP_mcr,     0xee000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, xop, x, xexop[0x3]},/*XXX: disasm not in dst-src order*/
   }, { /* 12 */
-    {OP_cdp,     0xee100000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
-    {OP_mrc,     0xee100010, "mrc",    RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+    {OP_cdp,     0xee100000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, xexop[0x3]},/*XXX: disasm not in dst-src order*/
+    {OP_mrc,     0xee100010, "mrc",    RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, xexop[0x3]},/*XXX: disasm not in dst-src order*/
   }, { /* 13 */
     {OP_cdp2,     0xfe000000, "cdp2",           CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, END_LIST},/*XXX: disasm not in dst-src order*//*no chain nec.*/
     {OP_mcr2,     0xfe000010, "mcr2",           CRAw, CRDw, i4_8, i3_21, RBw, xop, x, END_LIST},/*XXX: disasm not in dst-src order*/
   }, { /* 14 */
     {OP_cdp2,     0xfe100000, "cdp2",           CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, DUP_ENTRY},/*XXX: disasm not in dst-src order*//*no chain nec.*/
-    {OP_mrc2,     0xfe100010, "mrc2",          RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+    {OP_mrc2,     0xfe100010, "mrc2",          RBw, i4_8, i3_21, CRAw, CRDw, xop|srcX4, x, xexop[0x3]},/*XXX: disasm not in dst-src order*/
   }, { /* 15 */
     /* To handle the 21:16 immed instrs that vary in high bits we must first
      * sseparate those out: we do that via bit4 and then bit7 in the next 8 entries.
