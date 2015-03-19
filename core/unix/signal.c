@@ -1597,6 +1597,7 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
              * syscall handlers, so we know we'll go back to dispatch and see
              * this flag right away.
              */
+            LOG(THREAD, LOG_ASYNCH, 3, "\tsetting signals_pending flag\n");
             dcontext->signals_pending = true;
             break;
         }
@@ -4738,6 +4739,17 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
             report_app_problem(dcontext, APPFAULT_CRASH, pc, (byte *)sc->SC_FP,
                                "\nSignal %d delivered to application as default action.\n",
                                sig);
+            /* App may call sigaction to set handler SIG_DFL (unnecessary but legal),
+             * in which case DR will put a handler in info->app_sigaction[sig].
+             * We must clear it, otherwise, signal_thread_exit may cleanup the
+             * handler and set it to SIG_IGN instead.
+             */
+            if (info->app_sigaction[sig] != NULL) {
+                ASSERT(info->we_intercept[sig]);
+                handler_free(dcontext, info->app_sigaction[sig],
+                             sizeof(kernel_sigaction_t));
+                info->app_sigaction[sig] = NULL;
+            }
             /* N.B.: we don't have to restore our handler because the
              * default action is for the process (entire thread group for NPTL) to die!
              */
@@ -4909,7 +4921,7 @@ receive_pending_signal(dcontext_t *dcontext)
              * receive time, to properly handle sigsuspend (i#1340).
              */
             if (!info->sigpending[sig]->unblocked &&
-                !kernel_sigismember(&info->app_sigblocked, sig)) {
+                kernel_sigismember(&info->app_sigblocked, sig)) {
                 LOG(THREAD, LOG_ASYNCH, 3, "\tsignal %d is blocked!\n", sig);
                 continue;
             }

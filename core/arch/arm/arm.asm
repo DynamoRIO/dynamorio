@@ -262,8 +262,8 @@ cat_spin:
         b        cat_spin
 cat_have_lock:
         /* need to grab everything off dstack first */
-        ldr      REG_R6, [sp, #(1*ARG_SZ)]  /* sysnum */
-        ldr      REG_R7, [sp, #(2*ARG_SZ)]  /* sys_arg1 */
+        ldr      REG_R7, [sp, #(1*ARG_SZ)]  /* sysnum */
+        ldr      REG_R6, [sp, #(2*ARG_SZ)]  /* sys_arg1 */
         ldr      REG_R8, [sp, #(3*ARG_SZ)]  /* sys_arg2 */
         /* swap stacks */
         ldr      REG_R2, .Lgot2
@@ -288,9 +288,9 @@ cat_have_lock:
         mov      REG_R2, #-1
         CALLC2(atomic_add, REG_R3, REG_R2)
         /* finally, execute the termination syscall */
-        mov      REG_R0, REG_R7  /* sys_arg1 */
+        mov      REG_R0, REG_R6  /* sys_arg1 */
         mov      REG_R1, REG_R8  /* sys_arg2 */
-        mov      REG_R7, REG_R6  /* sysnum */
+        /* sysnum is in r7 already */
         bx       REG_R5  /* go do the syscall! */
         END_FUNC(cleanup_and_terminate)
 /* Data for PIC code above */

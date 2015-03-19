@@ -1913,6 +1913,7 @@ if (UNIX)
   tobuild(linux.sigplain101 linux/sigplain101.c)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
+  tobuild(linux.sigaction   linux/sigaction.c)
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild(linux.sigcontext linux/sigcontext.c)
   endif (NOT ARM)
