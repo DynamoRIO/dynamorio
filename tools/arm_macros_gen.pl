@@ -465,13 +465,19 @@ foreach my $opc (keys %entry) {
                 $name .= "_s2g";
             } elsif ($sig =~ /^V\w+;\s*R\w+\s*R/) {
                 $name .= "_gg2s";
+            } elsif ($sig =~ /^R\w+\s*R\w+;\s*V\w+$/) {
+                $name .= "_s2gg";
             } elsif ($sig =~ /^V\w+\s*V\w+;\s*R\w+\s*R/) {
                 $name .= "_gg2ss";
             } else {
                 $name .= "_ss2gg";
             }
-        } elsif (($opc =~ /^OP_stc/ || $opc =~ /^OP_ldc/) && $sig eq 'cpreg; mem imm imm2') {
+        } elsif (($opc =~ /^OP_stc/ || $opc =~ /^OP_ldc/) &&
+                 $sig eq 'cpreg; mem imm imm2') {
             $name .= "_option";
+        } elsif ($esig =~ 'RBw; .* RBw$') {
+            # Implicit arg for OP_bfc and OP_bfi
+            $esig =~ s/RBw$//;
         }
 
         # Hardcoded implicit args:

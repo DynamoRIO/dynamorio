@@ -275,6 +275,8 @@ new_thread_setup(priv_mcontext_t *mc)
 #ifdef ARM
     /* set the stolen register's app value */
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
+    /* set the thread register if necessary */
+    set_thread_register_from_clone_record(crec);
 #endif
 
     rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
@@ -282,6 +284,9 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
+#ifdef ARM
+    set_app_lib_tls_base_from_clone_record(dcontext, crec);
+#endif
     /* set up sig handlers before starting itimer in thread_starting() (PR 537743)
      * but thread_starting() calls initialize_dynamo_context() so cache next_tag
      */

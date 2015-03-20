@@ -125,7 +125,7 @@ int run(void *arg)
         nanosleep(&sleeptime, NULL);
     nolibc_print("Sideline thread finished\n");
     child_done = true;
-#ifdef X64
+#if defined(X64) || defined(ARM)
     /* FIXME: returning here invokes SYS_exit_group and takes down the
      * parent...what's up with that?  Xref i#94.
      */

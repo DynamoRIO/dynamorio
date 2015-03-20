@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,6 +54,7 @@
 
 #include "ntdll_types.h"
 #include "globals_shared.h" /* for reg_t */
+#include "ntdll_shared.h"
 
 #pragma warning(disable : 4214) /* allow short-sized bitfields for TEB */
 
@@ -101,8 +102,13 @@ typedef struct ALIGN_VAR(8) _UNICODE_STRING_64 {
     USHORT Length;
     USHORT MaximumLength;
     int padding;
-    PWSTR  Buffer;
-    uint   Buffer_hi;
+    union {
+        struct {
+            PWSTR  Buffer32;
+            uint   Buffer32_hi;
+        } b32;
+        uint64 Buffer64;
+    } u;
 } UNICODE_STRING_64;
 #endif
 
@@ -2147,7 +2153,7 @@ bool
 ldr_module_statically_linked(LDR_MODULE *mod);
 
 #ifndef X64
-void *
+uint64
 get_own_x64_peb(void);
 
 /* caller must synchronize if not called during init */
@@ -2157,11 +2163,11 @@ load_library_64(const char *path);
 bool
 free_library_64(HANDLE lib);
 
-HANDLE
+uint64
 get_module_handle_64(wchar_t *name);
 
-void *
-get_proc_address_64(HANDLE lib, const char *name);
+uint64
+get_proc_address_64(uint64 lib, const char *name);
 #endif /* !X64 */
 
 IMAGE_EXPORT_DIRECTORY*

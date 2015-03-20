@@ -61,6 +61,7 @@ set(CORE_SRCS
   ${PROJECT_SOURCE_DIR}/core/options.c
   ${PROJECT_SOURCE_DIR}/core/win32/inject_shared.c
   ${PROJECT_SOURCE_DIR}/core/win32/module_shared.c
+  ${PROJECT_SOURCE_DIR}/core/win32/ntdll_shared.c
   ${PROJECT_SOURCE_DIR}/core/win32/drmarker.c
   )
 set(RESOURCES ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)

@@ -64,6 +64,9 @@ DECL_EXTERN(process_attach)
      * initializing us -- in practice the loader seems to handle it gracefully
      * and never blindly uses a handle to us (at least we see no exceptions),
      * but future loader code could be more fragile.
+     * In fact, see i#1522: the win8 loader cannot handle this, and hangs/crashes
+     * at process exit when it tries to reference some unloaded data.
+     * On win8 we do the best we can for now which is return false.
      */
 #define DLL_PROCESS_ATTACH 1 /* from winnt.h */
 #ifdef X64
@@ -80,6 +83,8 @@ GLOBAL_LABEL(DLL_MAIN_STDCALL_NAME:)
         push     rcx /* preserve arg1, which is caller-saved */
 #endif
         CALLC0(process_attach)
+        cmp      eax, 0
+        je       do_not_unload
 #ifdef X64
         /* The 32 bytes of shadow space (4 args' worth) are there regardless
          * of the number of args: we have 3, FreeLibrary has 1, so no
@@ -101,6 +106,19 @@ GLOBAL_LABEL(DLL_MAIN_STDCALL_NAME:)
         add      esp, 8
 #endif
         jmp      FREE_LIBRARY_NAME
+
+do_not_unload:
+        /* i#1522: the win8 loader can't handle our self-unload, so we return false
+         * instead, which will get us unloaded in all cases except when shimeng
+         * is in the way.  We just live w/ remaining in the address space there.
+         */
+        mov      eax, 0
+#ifdef X64
+        ret
+#else
+        ret      HEX(0c)
+#endif
+
 DllMain_not_pattach:
         mov      eax, 1
 #ifdef X64

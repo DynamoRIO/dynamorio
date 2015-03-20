@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,52 +30,37 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_ 1
+/*
+ * test of sigaction
+ */
+#include "tools.h"
 
-void
-memcache_init(void);
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-void
-memcache_exit(void);
+static void
+set_sigaction_handler(int sig, void *action)
+{
+    int rc;
+    struct sigaction act;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) action;
+    /* arm the signal */
+    rc = sigaction(sig, &act, NULL);
+    assert(rc == 0);
+}
 
-bool
-memcache_initialized(void);
-
-void
-memcache_lock(void);
-
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
-#endif
-
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size,
-                     uint prot, bool image);
-
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size,
-                       byte *old_base, size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *old_brk, byte *new_brk);
-
-#endif /* _MEMCACHE_H_ */
+int
+main(int argc, char **argv)
+{
+    set_sigaction_handler(SIGTERM, (void *)SIG_IGN);
+    print("Sending SIGTERM first time\n");
+    kill(getpid(), SIGTERM);
+    set_sigaction_handler(SIGTERM, (void *)SIG_DFL);
+    print("Sending SIGTERM second time\n");
+    kill(getpid(), SIGTERM);
+    print("Should not be reached\n");
+}

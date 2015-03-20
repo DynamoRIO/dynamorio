@@ -318,6 +318,7 @@ else (UNIX)
     win32/callback.c
     win32/drmarker.c
     win32/ntdll.c
+    win32/ntdll_shared.c
     win32/inject.c
     win32/inject_shared.c
     win32/module.c
@@ -342,6 +343,7 @@ else (UNIX)
   set(PRELOAD_SRCS
     win32/pre_inject.c
     win32/ntdll.c
+    win32/ntdll_shared.c
     win32/inject_shared.c
     win32/drmarker.c
     ${preinject_asm_src}
@@ -358,6 +360,7 @@ else (UNIX)
     win32/ntdll.c
     win32/inject_shared.c
     win32/module_shared.c
+    win32/ntdll_shared.c
     win32/resources.rc
     config.c
     win32/os.c

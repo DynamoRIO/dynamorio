@@ -466,8 +466,13 @@ static inline
 bool libc_sigismember(const sigset_t *set, int _sig)
 {
     int sig = _sig - 1; /* go to 0-based */
+#ifdef MACOS
+    /* sigset_t is just a uint32 */
+    return TEST(1UL << sig, *set);
+#else
     uint bits_per = 8*sizeof(ulong);
     return TEST(1UL << (sig % bits_per), set->__val[sig / bits_per]);
+#endif
 }
 
 /* XXX: how does libc do this? */

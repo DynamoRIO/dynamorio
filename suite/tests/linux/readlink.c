@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,52 +30,53 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_ 1
+#include "tools.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
-void
-memcache_init(void);
+/* Tests i#907: /proc/self/exe transparency with early injection. */
 
-void
-memcache_exit(void);
+int
+main(int argc, char *argv[])
+{
+    /* Test reading the symlink via readlink */
+    char proc[64];
+    char buf[512];
+    ssize_t res;
+    snprintf(proc, BUFFER_SIZE_ELEMENTS(proc), "/proc/%d/exe", getpid());
+    NULL_TERMINATE_BUFFER(proc);
+    res = readlink(proc, buf, BUFFER_SIZE_ELEMENTS(buf));
+    NULL_TERMINATE_BUFFER(buf);
+    if (res > 0 && strrchr(buf, '/') != NULL)
+        print("/proc/pid/exe points to %s\n", strrchr(buf, '/')+1);
+    else {
+        perror("readlink failed");
+        return 1;
+    }
+    /* XXX: another good test would be to make a thread and use /proc/tid/exe */
 
-bool
-memcache_initialized(void);
-
-void
-memcache_lock(void);
-
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
-#endif
-
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size,
-                     uint prot, bool image);
-
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size,
-                       byte *old_base, size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *old_brk, byte *new_brk);
-
-#endif /* _MEMCACHE_H_ */
+    /* Test executing the symlink via execve.
+     * We invoked ourselves initially with an arg, to avoid repeated execs.
+     */
+    if (argc > 1) {
+        pid_t child = fork();
+        if (child < 0) {
+            perror("fork failed");
+        } else if (child > 0) {
+            pid_t result = waitpid(child, NULL, 0);
+            assert(result == child);
+            print("child has exited\n");
+        } else {
+            const char *arg[2] = {proc, NULL};
+            /* Update for child's pid */
+            snprintf(proc, BUFFER_SIZE_ELEMENTS(proc), "/proc/%d/exe", getpid());
+            NULL_TERMINATE_BUFFER(proc);
+            res = execve(proc, (char **)arg, NULL/*env*/);
+            if (res < 0)
+                perror("execve failed");
+        }
+    }
+    return 0;
+}

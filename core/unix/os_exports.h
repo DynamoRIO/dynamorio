@@ -177,7 +177,11 @@ char *our_getenv(const char *name);
 
 /* to avoid unsetenv problems we have our own unsetenv */
 #define unsetenv our_unsetenv
+/* XXX: unsetenv is unsafe to call during init, as it messes up access to auxv!
+ * Use disable_env instead.  Xref i#909.
+ */
 int our_unsetenv(const char *name);
+bool disable_env(const char *name);
 
 /* new segment support
  * name is a string
@@ -427,6 +431,12 @@ get_clone_record_stolen_value(void *record);
 
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record);
+
+void
+set_thread_register_from_clone_record(void *record);
+
+void
+set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record);
 #endif
 
 app_pc

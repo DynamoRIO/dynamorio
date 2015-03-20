@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -814,8 +814,8 @@ os_init(void)
      */
     DOLOG(1, LOG_TOP, {
         if (is_wow64_process(NT_CURRENT_PROCESS)) {
-            ptr_uint_t peb64 = (ptr_uint_t) get_own_x64_peb();
-            LOG(GLOBAL, LOG_TOP, 1, "x64 PEB: "PFX"\n", peb64);
+            uint64 peb64 = (ptr_uint_t) get_own_x64_peb();
+            LOG(GLOBAL, LOG_TOP, 1, "x64 PEB: "UINT64_FORMAT_STRING"\n", peb64);
         }
     });
 #endif
@@ -1948,7 +1948,12 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
     LOG(GLOBAL, LOG_THREADS, 2,
         "x64 context for thread "TIDFMT": xip is "HEX64_FORMAT_STRING
         ", xsp="HEX64_FORMAT_STRING, tid, cxt64->Rip, cxt64->Rsp);
-    if (cxt64->SegCs == CS32_SELECTOR) {
+    if (cxt64->SegCs == CS32_SELECTOR ||
+        /* XXX i#1637: on xp64 I have seen the x64 NtGetContextThread return
+         * success but fill cxt64 with zeroes.  We hope this only happens when
+         * truly in the kernel.
+         */
+        cxt64->Rip == 0) {
         /* In x86 mode, so not inside the wow64 layer.  Context setting should
          * work fine.
          */

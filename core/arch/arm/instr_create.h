@@ -782,7 +782,7 @@
  * \param Rm The second source register opnd_t operand.
  */
 #define INSTR_CREATE_smlal(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlal, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_smlal, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlalbb(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_4src((dc), OP_smlalbb, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlalbt(dc, Rd, Rd2, Rn, Rm) \
@@ -1057,7 +1057,7 @@
  * \param imm2 The second integer constant opnd_t operand.
  */
 #define INSTR_CREATE_bfc(dc, Rd, imm, imm2) \
-  instr_create_1dst_2src((dc), OP_bfc, (Rd), (imm), (imm2))
+  instr_create_1dst_3src((dc), OP_bfc, (Rd), (imm), (imm2), (Rd))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm, Rn_or_imm) */
@@ -1327,7 +1327,7 @@
  * \param imm2 The second integer constant opnd_t operand.
  */
 #define INSTR_CREATE_bfi(dc, Rd, Rm, imm, imm2) \
-  instr_create_1dst_3src((dc), OP_bfi, (Rd), (Rm), (imm), (imm2))
+  instr_create_1dst_4src((dc), OP_bfi, (Rd), (Rm), (imm), (imm2), (Rd))
 #define INSTR_CREATE_sbfx(dc, Rd, Rm, imm, imm2) \
   instr_create_1dst_3src((dc), OP_sbfx, (Rd), (Rm), (imm), (imm2))
 #define INSTR_CREATE_ubfx(dc, Rd, Rm, imm, imm2) \
@@ -3128,7 +3128,7 @@
   instr_create_1dst_1src((dc), OP_vmov, (Vd), (Rt))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Vt, Vm) */
+/** @name Signature: (Ra, Rd, Vm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -3137,17 +3137,12 @@
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Vt The source SIMD register opnd_t operand.
+ * \param Ra The third source register opnd_t operand.
+ * \param Rd The destination register opnd_t operand.
  * \param Vm The source SIMD register opnd_t operand.
  */
-#define INSTR_CREATE_vcmp_f32(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmp_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
-#define INSTR_CREATE_vcmp_f64(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmp_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
-#define INSTR_CREATE_vcmpe_f32(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmpe_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
-#define INSTR_CREATE_vcmpe_f64(dc, Vt, Vm) \
-  instr_create_1dst_2src((dc), OP_vcmpe_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm))
+#define INSTR_CREATE_vmov_s2gg(dc, Ra, Rd, Vm) \
+  instr_create_2dst_1src((dc), OP_vmov, (Ra), (Rd), (Vm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vn, Vm) */
@@ -3782,6 +3777,28 @@
   instr_create_1dst_1src((dc), OP_vmov_f32, (Vd), (Vm_or_imm))
 #define INSTR_CREATE_vmov_f64(dc, Vd, Vm_or_imm) \
   instr_create_1dst_1src((dc), OP_vmov_f64, (Vd), (Vm_or_imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Vt, Vm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt The source SIMD register opnd_t operand.
+ * \param Vm_or_imm The source SIMD register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_vcmp_f32(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmp_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
+#define INSTR_CREATE_vcmp_f64(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmp_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
+#define INSTR_CREATE_vcmpe_f32(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmpe_f32, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
+#define INSTR_CREATE_vcmpe_f64(dc, Vt, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcmpe_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), (Vm_or_imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Vn, imm) */

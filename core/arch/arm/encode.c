@@ -278,15 +278,15 @@ const char * const type_names[] = {
     "TYPE_I_b8_b0",
     "TYPE_NI_b8_b0",
     "TYPE_I_b8_b16",
+    "TYPE_I_b8_b24_b16_b0",
+    "TYPE_I_b8_b28_b16_b0",
     "TYPE_I_b12_b6",
     "TYPE_I_b16_b0",
     "TYPE_I_b16_b26_b12_b0",
     "TYPE_I_b21_b5",
     "TYPE_I_b21_b6",
-    "TYPE_I_b24_b16_b0",
     "TYPE_I_b26_b12_b0",
     "TYPE_I_b26_b12_b0_z",
-    "TYPE_I_b28_b16_b0",
     "TYPE_J_b0",
     "TYPE_J_x4_b0",
     "TYPE_J_b0_b24",
@@ -334,6 +334,8 @@ const char * const type_names[] = {
     "TYPE_M_POS_I4_4",
     "TYPE_M_NEG_I4_4",
     "TYPE_M_SI7",
+    "TYPE_M_POS_I5",
+    "TYPE_M_POS_I5x2",
     "TYPE_M_POS_I5x4",
     "TYPE_M_PCREL_POS_I8x4",
     "TYPE_M_PCREL_POS_I12",
@@ -614,6 +616,7 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
                   reg_id_t excludeA, reg_id_t excludeB, reg_id_t base_reg)
 {
     opnd_size_t size_temp_up = resolve_size_upward(size_temp);
+    opnd_size_t size_temp_down = resolve_size_downward(size_temp);
     uint i, base_reg_cnt = 0;
     opnd_t opnd;
     opnd_size_t size_op;
@@ -641,6 +644,8 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
         if (!opnd_is_reg(opnd))
             break;
         reg = opnd_get_reg(opnd);
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist %d: considering %s\n",
+            i, reg_names[reg]);
         if (reg == base_reg)
             base_reg_cnt++;
         if (i > 0 && stride > 0 && reg != last_reg + stride)
@@ -649,7 +654,10 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
             break;
         if (reg == excludeA || reg == excludeB)
             break;
-        if (!(size_op == size_temp || size_op == size_temp_up))
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist %d: size %s vs %s %s\n",
+            i, size_names[size_op], size_names[size_temp], size_names[size_temp_up]);
+        if (!(size_op == size_temp || size_op == size_temp_up ||
+              size_op == size_temp_down))
             break;
         if (di->T32_16 && reg > DR_REG_R7 &&
             /* only R0-R7 and PC/LR could be used in the T32.16 reglist */
@@ -660,7 +668,8 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
         last_reg = reg;
         (*counter)++;
     }
-    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist_stop: %d\n", *counter);
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist_start: %d, reglist_stop: %d\n",
+        di->reglist_start, *counter);
     di->reglist_stop = *counter;
     /* Due to possible rollback of greedy reglists we can't compare to the
      * memory size here so we check later.
@@ -753,18 +762,26 @@ get_immed_val_abs(decode_info_t *di, opnd_t opnd)
 
 static bool
 encode_immed_ok(decode_info_t *di, opnd_size_t size_temp, ptr_int_t val,
+                int scale /* 0 means no scale */,
                 bool is_signed, bool negated)
 {
     uint bits = opnd_size_in_bits(size_temp);
     LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL,
-        "  immed ok: val %d %s vs bits %d (=> %d), wb %s %d neg=%d\n",
-        val, size_names[size_temp], bits, 1 << bits, size_names[di->check_wb_disp_sz],
+        "  immed ok: val/scale %d/%d %s vs bits %d (=> %d), wb %s %d neg=%d\n",
+        val, scale, size_names[size_temp], bits, 1 << bits,
+        size_names[di->check_wb_disp_sz],
         di->check_wb_disp_sz, negated);
     /* Ensure writeback disp matches memop disp */
+    ASSERT(scale >= 0);
+    if (scale > 1 && (val % scale) != 0)
+        return false;
     if (di->check_wb_disp_sz != OPSZ_NA &&
         di->check_wb_disp_sz == size_temp &&
         di->check_wb_disp != (negated ? -val : val))
         return false;
+    /* convert val to the actual val to be encoded */
+    if (scale != 0)
+        val = val/scale;
     if (is_signed) {
         if (val < 0)
             return -val <= (1 << (bits - 1));
@@ -777,7 +794,7 @@ encode_immed_ok(decode_info_t *di, opnd_size_t size_temp, ptr_int_t val,
 }
 
 static bool
-encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multiply,
+encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int scale,
                              opnd_t opnd, bool is_signed, bool negated, bool relative,
                              bool check_range)
 {
@@ -785,8 +802,7 @@ encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multi
     if (opnd_is_immed_int(opnd) || opnd_is_near_instr(opnd) || opnd_is_near_pc(opnd)) {
         ptr_int_t val = get_immed_val_shared(di, opnd, relative, false/*just checking*/);
         return (!check_range ||
-                (encode_immed_ok(di, size_temp, val / multiply, is_signed, negated) &&
-                 val % multiply == 0));
+                encode_immed_ok(di, size_temp, val, scale, is_signed, negated));
     }
     return false;
 }
@@ -885,6 +901,155 @@ encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
     return true;
 }
 
+static bool
+encode_SIMD_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
+{
+    ptr_uint_t val; /* uint for bit manip w/o >> adding 1's */
+    uint cmode = 0, size = 0;
+    if (size_temp != OPSZ_12b)
+        return false;
+    if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
+        return false;
+    val = (ptr_uint_t)
+        get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    /* We've encoded the data type into the opcode, and to avoid confusing some
+     * of these constants with others for the wrong type we have to dispatch on
+     * all possible opcodes that come here.
+     */
+    switch (di->opcode) {
+    case OP_vmov_i8:
+        size = 8;
+        break;
+    case OP_vbic_i16:
+    case OP_vmov_i16:
+    case OP_vmvn_i16:
+    case OP_vorr_i16:
+        size = 16;
+        break;
+    case OP_vbic_i32:
+    case OP_vmov_i32:
+    case OP_vmvn_i32:
+    case OP_vorr_i32:
+        size = 32;
+        break;
+    case OP_vmov_i64:
+        size = 64;
+        break;
+    case OP_vmov_f32:
+        size = 33; /* code for "f32" */
+        break;
+    default:
+        CLIENT_ASSERT(false, "encoding table error: SIMD immed on unexpected opcode");
+        return false;
+    }
+    /* Xref AdvSIMDExpandImm in the manual.
+     * Check for each pattern, and store the encoding now to avoid re-doing
+     * this work at real encode time.
+     * There is some overlap between cmode and size specifier bits used
+     * to distinguish our opcodes, but we bitwise-or everything together,
+     * and the templates already include required cmode bits.
+     */
+    if ((size == 8 || size == 16 || size == 32) && (val & 0x000000ff) == val) {
+        /* cmode = 000x => 00000000 00000000 00000000 abcdefgh */
+        /* cmode = 100x => 00000000 abcdefgh */
+        /* cmode = 1110 => abcdefgh */
+        /* template should already contain the required cmode bits */
+    } else if ((size == 16 || size == 32) && (val & 0x0000ff00) == val) {
+        /* cmode = 001x => 00000000 00000000 abcdefgh 00000000 */
+        /* cmode = 101x => abcdefgh 00000000 */
+        cmode = 2; /* for _i16, template should already have top cmode bit set */
+        val = val >> 8;
+    } else if (size == 32 && (val & 0x00ff0000) == val) {
+        /* cmode = 010x => 00000000 abcdefgh 00000000 00000000 */
+        cmode = 4;
+        val = val >> 16;
+    } else if (size == 32 && (val & 0xff000000) == val) {
+        /* cmode = 011x => abcdefgh 00000000 00000000 00000000 */
+        cmode= 6;
+        val = val >> 24;
+    } else if (size == 32 && (val & 0x0000ffff) == val && (val & 0x000000ff) == 0xff) {
+        /* cmode = 1100 => 00000000 00000000 abcdefgh 11111111 */
+        cmode= 0xc;
+        val = val >> 8;
+    } else if (size == 32 && (val & 0x00ffffff) == val && (val & 0x0000ffff) == 0xffff) {
+        /* cmode = 1101 => 00000000 abcdefgh 11111111 11111111 */
+        cmode = 0xd;
+        val = val >> 16;
+    } else if (size == 33/*f32*/ && (val & 0xfff80000) == val &&
+               ((val & 0x7e000000) == 0x3e000000 ||
+                (val & 0x7e000000) == 0x40000000)) {
+        /* cmode = 1111 => aBbbbbbc defgh000 00000000 00000000 */
+        cmode = 0xf;
+        val = ((val >> 24) & 0x80) | ((val >> 19) & 0x7f);
+    } else if (size == 64 && opnd_is_immed_int64(opnd)) {
+        int64 val64 = opnd_get_immed_int64(opnd);
+        int low = (int) val64;
+        int high = (int) (val64 >> 32);
+        if (((low & 0xff000000) == 0xff000000 || (low & 0xff000000) == 0) &&
+            ((low & 0x00ff0000) == 0x00ff0000 || (low & 0x00ff0000) == 0) &&
+            ((low & 0x0000ff00) == 0x0000ff00 || (low & 0x0000ff00) == 0) &&
+            ((low & 0x000000ff) == 0x000000ff || (low & 0x000000ff) == 0) &&
+            ((high & 0xff000000) == 0xff000000 || (high & 0xff000000) == 0) &&
+            ((high & 0x00ff0000) == 0x00ff0000 || (high & 0x00ff0000) == 0) &&
+            ((high & 0x0000ff00) == 0x0000ff00 || (high & 0x0000ff00) == 0) &&
+            ((high & 0x000000ff) == 0x000000ff || (high & 0x000000ff) == 0)) {
+            /* cmode = 1110 =>
+             *   aaaaaaaa bbbbbbbb cccccccc dddddddd eeeeeeee ffffffff gggggggg hhhhhhhh
+             */
+            val = 0;
+            val |= TESTALL(0xff000000, high) ? 0x80 : 0;
+            val |= TESTALL(0x00ff0000, high) ? 0x40 : 0;
+            val |= TESTALL(0x0000ff00, high) ? 0x20 : 0;
+            val |= TESTALL(0x000000ff, high) ? 0x10 : 0;
+            val |= TESTALL(0xff000000, low)  ? 0x08 : 0;
+            val |= TESTALL(0x00ff0000, low)  ? 0x04 : 0;
+            val |= TESTALL(0x0000ff00, low)  ? 0x02 : 0;
+            val |= TESTALL(0x000000ff, low)  ? 0x01 : 0;
+        } else
+            return false;
+    } else
+        return false;
+    di->mod_imm_enc = (cmode << 8) | val;
+    return true;
+}
+
+static bool
+encode_VFP_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t opnd)
+{
+    ptr_uint_t val; /* uint for bit manip w/o >> adding 1's */
+    if (size_temp != OPSZ_1)
+        return false;
+    if (!opnd_is_immed_int(opnd) && !opnd_is_near_instr(opnd) && !opnd_is_near_pc(opnd))
+        return false;
+    val = (ptr_uint_t)
+        get_immed_val_shared(di, opnd, false/*abs*/, false/*just checking*/);
+    /* Xref VFPIMDExpandImm in the manual.
+     * Check for each pattern, and store the encoding now to avoid re-doing
+     * this work at real encode time.
+     */
+    if ((val & 0xfff80000) == val &&
+        ((val & 0x7e000000) == 0x3e000000 ||
+         (val & 0x7e000000) == 0x40000000)) {
+        /* aBbbbbbc defgh000 00000000 00000000 */
+        val = ((val >> 24) & 0x80) | ((val >> 19) & 0x7f);
+    } else if (opnd_is_immed_int64(opnd)) {
+        /* aBbbbbbb bbcdefgh 00000000 00000000 00000000 00000000 00000000 00000000 */
+        int64 val64 = opnd_get_immed_int64(opnd);
+        int low = (int) val64;
+        int high = (int) (val64 >> 32);
+        if (low == 0 &&
+            (high & 0xffff0000) == high &&
+            ((high & 0x7fc00000) == 0x3fc00000 ||
+             (high & 0x7fc00000) == 0x40000000)) {
+            val = ((high >> 24) & 0x80) | ((val >> 16) & 0x7f);
+        } else
+            return false;
+    } else
+        return false;
+    di->mod_imm_enc = val;
+    return true;
+}
+
 static ptr_int_t
 get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 {
@@ -896,22 +1061,19 @@ get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
 
 static bool
 encode_mem_instr_ok(decode_info_t *di, opnd_size_t size_immed,
-                    opnd_t opnd, bool is_signed, bool negated, uint scale)
+                    opnd_t opnd, bool is_signed, bool negated, int scale)
 {
     if (opnd_is_mem_instr(opnd)) {
         ptr_int_t delta = get_mem_instr_delta(di, opnd);
         bool res = false;
-        if (scale != 0) {
-            if (delta % scale != 0)
-                return false;
-            delta = delta / scale;
-        }
         if (negated) {
             res = (delta < 0 &&
-                   encode_immed_ok(di, size_immed, -delta, false/*unsigned*/, negated));
+                   encode_immed_ok(di, size_immed, -delta, scale,
+                                   false/*unsigned*/, negated));
         } else {
             res = (delta >= 0 &&
-                   encode_immed_ok(di, size_immed, delta, false/*unsigned*/, negated));
+                   encode_immed_ok(di, size_immed, delta, scale,
+                                   false/*unsigned*/, negated));
         }
         if (res) {
             di->check_wb_base = DR_REG_PC;
@@ -1167,7 +1329,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (!opnd_is_reg(prior) || !reg_is_simd(opnd_get_reg(prior)))
             return false;
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, true/*simd*/,
-                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 1/*prior entry*/, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         /* We have to allow an empty list b/c the template has the 1st entry */
         return true;
@@ -1175,8 +1337,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_L_VAx2:
     case TYPE_L_VBx2:
         if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
-                               1/*consec*/, 1/*prior entry*/,
-                               DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
+                               1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VAx3:
@@ -1232,31 +1393,23 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b5_b3:
     case TYPE_I_b8_b0:
     case TYPE_I_b8_b16:
-    case TYPE_I_b16_b0:
     case TYPE_I_b16_b26_b12_b0:
     case TYPE_I_b21_b5:
     case TYPE_I_b21_b6:
-    case TYPE_I_b24_b16_b0:
     case TYPE_I_b26_b12_b0_z:
-    case TYPE_I_b28_b16_b0:
-        /* FIXME i#1551: TYPE_I_b28_b16_b0 and TYPE_I_b24_b16_b0 are special SIMD
-         * immeds that shift their 8-bit value depending on the "cmode"
-         * separate immed (which we've encoded into opcode sizes).
-         */
         return encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
                                             false/*pos*/, false/*abs*/, true/*range*/);
     case TYPE_NI_b0:
     case TYPE_NI_b8_b0:
         return (opnd_is_immed_int(opnd) &&
-                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
+                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd), 1,
                                 false/*unsigned*/, true/*negated*/));
     case TYPE_I_x4_b0:
         return encode_immed_int_or_instr_ok(di, size_temp, 4, opnd, false/*unsigned*/,
                                             false/*pos*/, false/*abs*/, true/*range*/);
     case TYPE_NI_x4_b0:
         return (opnd_is_immed_int(opnd) &&
-                (-opnd_get_immed_int(opnd) % 4) == 0 &&
-                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
+                encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd), 4,
                                 false/*unsigned*/, true/*negated*/));
     case TYPE_I_b12_b6:
     case TYPE_I_b7:
@@ -1290,8 +1443,19 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return false;
     case TYPE_I_SHIFTED_b0:
         return encode_A32_modified_immed_ok(di, size_temp, opnd);
+    case TYPE_I_b16_b0:
+        if (size_temp == OPSZ_1)
+            return encode_VFP_modified_immed_ok(di, size_temp, opnd);
+        else {
+            return encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
+                                                false/*pos*/, false/*abs*/,
+                                                true/*range*/);
+        }
     case TYPE_I_b26_b12_b0:
         return encode_T32_modified_immed_ok(di, size_temp, opnd);
+    case TYPE_I_b8_b24_b16_b0:
+    case TYPE_I_b8_b28_b16_b0:
+        return encode_SIMD_modified_immed_ok(di, size_temp, opnd);
     case TYPE_SHIFT_b4:
     case TYPE_SHIFT_b5:
     case TYPE_SHIFT_b6:
@@ -1300,14 +1464,14 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             /* For OPSZ_1b, allow full DR_SHIFT_* values.  Allow the extras we've
              * added: simpler to just require OPSZ_3b here and check further below.
              */
-            encode_immed_ok(di, OPSZ_3b, opnd_get_immed_int(opnd),
+            encode_immed_ok(di, OPSZ_3b, opnd_get_immed_int(opnd), 1,
                             false/*unsigned*/, false/*pos*/)) {
             ptr_int_t val = opnd_get_immed_int(opnd);
             if (val > DR_SHIFT_NONE)
                 return false;
             if (optype == TYPE_SHIFT_b6 || optype == TYPE_SHIFT_b21) {
                 di->shift_1bit = true;
-                if (opnd_get_immed_int(opnd) % 2 != 0)
+                if (val % 2 != 0 && val != DR_SHIFT_NONE)
                     return false;
             }
             di->shift_has_type = true;
@@ -1362,7 +1526,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
                 opnd_get_disp(opnd) == 0 &&
                 /* We check for OPSZ_VAR_REGLIST but no reglist in check_reglist_size() */
-                (size_op == size_temp || size_temp == OPSZ_VAR_REGLIST));
+                (size_op == size_temp || size_temp == OPSZ_VAR_REGLIST ||
+                 size_op == OPSZ_VAR_REGLIST));
     case TYPE_M_POS_I12:
     case TYPE_M_NEG_I12:
         if (opnd_is_base_disp(opnd) &&
@@ -1372,7 +1537,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I12) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1453,7 +1618,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_base(opnd) != REG_NULL &&
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-                encode_immed_ok(di, OPSZ_9b, opnd_get_signed_disp(opnd),
+                encode_immed_ok(di, OPSZ_9b, opnd_get_signed_disp(opnd), 1,
                                 true/*signed*/, false/*pos*/) &&
                 size_op == size_temp);
     case TYPE_M_SI7:
@@ -1461,7 +1626,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_base(opnd) != REG_NULL &&
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-                encode_immed_ok(di, OPSZ_7b, opnd_get_signed_disp(opnd),
+                encode_immed_ok(di, OPSZ_7b, opnd_get_signed_disp(opnd), 1,
                                 true/*signed*/, false/*pos*/) &&
                 size_op == size_temp);
     case TYPE_M_SP_POS_I8x4:
@@ -1470,9 +1635,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_base(opnd) == DR_REG_SP &&
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-                opnd_get_disp(opnd) % 4 == 0 &&
                 !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-                encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
+                encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false/*unsigned*/,
                                 false/*pos*/) &&
                 size_op == size_temp);
     case TYPE_M_POS_I8:
@@ -1484,7 +1648,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                         optype == TYPE_M_NEG_I8) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1504,8 +1668,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I8x4) ||
              opnd_get_disp(opnd) == 0) &&
-            opnd_get_disp(opnd) % 4 == 0 &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1525,7 +1688,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I4_4) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1536,6 +1699,38 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             return encode_mem_instr_ok(di, OPSZ_1, opnd, false/*unsigned*/,
                                        optype == TYPE_M_NEG_I4_4, 0/*no scale*/);
         }
+    case TYPE_M_POS_I5:
+        if (opnd_is_base_disp(opnd) &&
+            opnd_get_base(opnd) <= DR_REG_R7/* T32.16 only */ &&
+            opnd_get_base(opnd) != REG_NULL &&
+            opnd_get_index(opnd) == REG_NULL &&
+            opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
+            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 1, false/*unsigned*/,
+                            false/*pos*/) &&
+            size_op == size_temp) {
+            /* no writeback */
+            return true;
+        } else {
+            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                       false/*negated*/, 0/*no scale*/);
+        }
+    case TYPE_M_POS_I5x2:
+        if (opnd_is_base_disp(opnd) &&
+            opnd_get_base(opnd) <= DR_REG_R7/* T32.16 only */ &&
+            opnd_get_base(opnd) != REG_NULL &&
+            opnd_get_index(opnd) == REG_NULL &&
+            opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
+            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 2, false/*unsigned*/,
+                            false/*pos*/) &&
+            size_op == size_temp) {
+            /* no writeback */
+            return true;
+        } else {
+            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                       false/*negated*/, 2/*scale*/);
+        }
     case TYPE_M_POS_I5x4:
         if (opnd_is_base_disp(opnd) &&
             opnd_get_base(opnd) <= DR_REG_R7/* T32.16 only */ &&
@@ -1543,13 +1738,12 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-            opnd_get_disp(opnd) % 4 == 0 &&
-            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd)/4, false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 4, false/*unsigned*/,
                             false/*pos*/) &&
             size_op == size_temp) {
             /* no writeback */
             return true;
-        } else if (opnd_is_mem_instr(opnd)) {
+        } else {
             return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
                                        false/*negated*/, 4/*scale*/);
         }
@@ -1558,14 +1752,13 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) == DR_REG_PC &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            opnd_get_disp(opnd) % 4 == 0 &&
             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
-            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false/*unsigned*/,
                             false/*pos*/) &&
             size_op == size_temp) {
             /* no writeback */
             return true;
-        } else if (opnd_is_mem_instr(opnd)) {
+        } else {
             return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
                                        false/*negated*/, 4/*scale*/);
         }
@@ -1579,7 +1772,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_PCREL_NEG_I12) ||
              opnd_get_disp(opnd) == 0) &&
-            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/,
+            encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), 1, false/*unsigned*/,
                             TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -1602,6 +1795,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
                 /* We check for OPSZ_VAR_REGLIST but no reglist in check_reglist_size() */
                 (size_temp == OPSZ_VAR_REGLIST ||
+                 size_op == OPSZ_VAR_REGLIST ||
                  (size_op == size_temp &&
                   ((optype == TYPE_M_UP_OFFS &&
                     opnd_get_disp(opnd) == sizeof(void*)) ||
@@ -1622,6 +1816,7 @@ static void
 decode_info_init_from_instr_info(decode_info_t *di, const instr_info_t *ii)
 {
     di->T32_16 = (di->isa_mode == DR_ISA_ARM_THUMB && (ii->opcode & 0xffff0000) == 0);
+    di->opcode = ii->type;
 }
 
 bool
@@ -2206,6 +2401,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             encode_immed(di, 0, OPSZ_12b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_4b, val >> 12, false/*unsigned*/);
         } else if (size_temp == OPSZ_1) {
+            /* encode_VFP_modified_immed_ok stored the encoded value for us */
+            val = di->mod_imm_enc;
             encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_4b, val >> 4, false/*unsigned*/);
         } else
@@ -2241,26 +2438,19 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             CLIENT_ASSERT(false, "unsupported 21-6 split immed size");
         break;
     }
-    case TYPE_I_b24_b16_b0: {
-        ptr_int_t val = get_immed_val_abs(di, opnd);
-        if (size_temp == OPSZ_1) {
+    case TYPE_I_b8_b24_b16_b0:
+    case TYPE_I_b8_b28_b16_b0: {
+        if (size_temp == OPSZ_12b) {
+            /* encode_SIMD_modified_immed_ok stored the encoded value for us */
+            ptr_int_t val = di->mod_imm_enc;
             encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
-            encode_immed(di, 24, OPSZ_1b, val >> 7, false/*unsigned*/);
-        } else
-            CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
-        break;
-    }
-    case TYPE_I_b28_b16_b0: {
-        /* FIXME i#1551: this and TYPE_I_b24_b16_b0 are special SIMD
-         * immeds that shift their 8-bit value depending on the "cmode"
-         * separate immed (which we've encoded into opcode sizes).
-         */
-        ptr_int_t val = get_immed_val_abs(di, opnd);
-        if (size_temp == OPSZ_1) {
-            encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
-            encode_immed(di, 16, OPSZ_3b, val >> 4, false/*unsigned*/);
-            encode_immed(di, 28, OPSZ_1b, val >> 7, false/*unsigned*/);
+            encode_immed(di, (optype == TYPE_I_b8_b28_b16_b0) ? 28 : 24,
+                         OPSZ_1b, val >> 7, false/*unsigned*/);
+            /* This is "cmode".  It overlaps with some opcode-defining bits (for _size
+             * suffixes) but since we OR only and never clear it works out.
+             */
+            encode_immed(di, 8, OPSZ_4b, val >> 8, false/*unsigned*/);
         } else
             CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
         break;
@@ -2453,6 +2643,28 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             encode_immed(di, 0, OPSZ_4b, delta < 0 ? -delta : delta, false/*unsigned*/);
             encode_immed(di, 8, OPSZ_4b, (delta < 0 ? -delta : delta) >> 4,
                          false/*unsigned*/);
+        }
+        break;
+    case TYPE_M_POS_I5:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        if (opnd_is_base_disp(opnd)) {
+            encode_regY(di, opnd_get_base(opnd));
+            encode_immed(di, 6, OPSZ_5b, opnd_get_disp(opnd), false/*unsigned*/);
+        } else if (opnd_is_mem_instr(opnd)) {
+            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+            encode_regY(di, DR_REG_PC);
+            encode_immed(di, 6, OPSZ_5b, delta, false/*unsigned*/);
+        }
+        break;
+    case TYPE_M_POS_I5x2:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        if (opnd_is_base_disp(opnd)) {
+            encode_regY(di, opnd_get_base(opnd));
+            encode_immed(di, 6, OPSZ_5b, opnd_get_disp(opnd)/2, false/*unsigned*/);
+        } else if (opnd_is_mem_instr(opnd)) {
+            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+            encode_regY(di, DR_REG_PC);
+            encode_immed(di, 6, OPSZ_5b, delta/2, false/*unsigned*/);
         }
         break;
     case TYPE_M_POS_I5x4:

@@ -257,9 +257,11 @@ static void handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk);
 #endif
 
 /* full path to our own library, used for execve */
-static char dynamorio_library_path[MAXIMUM_PATH];
+static char dynamorio_library_path[MAXIMUM_PATH]; /* just dir */
+static char dynamorio_library_filepath[MAXIMUM_PATH];
 /* Issue 20: path to other architecture */
 static char dynamorio_alt_arch_path[MAXIMUM_PATH];
+static char dynamorio_alt_arch_filepath[MAXIMUM_PATH]; /* just dir */
 /* Makefile passes us LIBDIR_X{86,64} defines */
 #define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
 #define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
@@ -555,6 +557,33 @@ our_unsetenv(const char *name)
         }
     }
     return 0;
+}
+
+/* Clobbers the name rather than shifting, to preserve auxv (xref i#909). */
+bool
+disable_env(const char *name)
+{
+    size_t name_len;
+    char **env = our_environ;
+    if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {
+        return false;
+    }
+    ASSERT(our_environ != NULL);
+    if (our_environ == NULL)
+        return false;
+    name_len = strlen(name);
+    while (*env != NULL) {
+        if (strncmp(*env, name, name_len) == 0 && (*env)[name_len] == '=') {
+            /* We have a match.  If we shift subsequent entries we'll mess
+             * up access to auxv, which is after the env block, so we instead
+             * disable the env var by changing its name.
+             * We keep going to handle later matches.
+             */
+            snprintf(*env, name_len, "__disabled__");
+        }
+        env++;
+    }
+    return true;
 }
 
 /* i#46: Private getenv.
@@ -1377,7 +1406,7 @@ get_os_tls_from_dc(dcontext_t *dcontext)
 }
 
 #ifdef ARM
-static bool
+bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
 {
     os_local_state_t *os_tls;
@@ -1390,9 +1419,11 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
     os_tls = get_os_tls_from_dc(dcontext);
     if (reg == TLS_REG_LIB) {
         os_tls->app_lib_tls_base = base;
+        LOG(THREAD, LOG_THREADS, 1, "TLS app lib base  ="PFX"\n", base);
         return true;
     } else if (reg == TLS_REG_ALT) {
         os_tls->app_alt_tls_base = base;
+        LOG(THREAD, LOG_THREADS, 1, "TLS app alt base  ="PFX"\n", base);
         return true;
     }
     ASSERT_NOT_REACHED();
@@ -1674,6 +1705,7 @@ os_tls_init(void)
     os_local_state_t *os_tls = (os_local_state_t *) segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread "TIDFMT"\n", get_thread_id());
+    ASSERT(!is_thread_tls_initialized());
 
     /* MUST zero out dcontext slot so uninit access gets NULL */
     memset(segment, 0, PAGE_SIZE);
@@ -1887,6 +1919,13 @@ os_thread_init(dcontext_t *dcontext)
     ostd->priv_lib_tls_base = os_tls->os_seg_info.priv_lib_tls_base;
     ostd->priv_alt_tls_base = os_tls->os_seg_info.priv_alt_tls_base;
     ostd->dr_tls_base = os_tls->os_seg_info.dr_tls_base;
+
+    LOG(THREAD, LOG_THREADS, 1, "TLS app lib base  ="PFX"\n", os_tls->app_lib_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS app alt base  ="PFX"\n", os_tls->app_alt_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS priv lib base ="PFX"\n", ostd->priv_lib_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS priv alt base ="PFX"\n", ostd->priv_alt_tls_base);
+    LOG(THREAD, LOG_THREADS, 1, "TLS DynamoRIO base="PFX"\n", ostd->dr_tls_base);
+
 #ifdef X86
     if (INTERNAL_OPTION(mangle_app_seg)) {
         ostd->app_thread_areas =
@@ -1898,10 +1937,10 @@ os_thread_init(dcontext_t *dcontext)
     }
 #endif
 
-    LOG(THREAD, LOG_THREADS, 1, "cur %s base is "PFX"\n",
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is "PFX"\n",
         IF_X86_ELSE("gs", "tpidruro"),
         get_segment_base(IF_X86_ELSE(SEG_GS, DR_REG_TPIDRURO)));
-    LOG(THREAD, LOG_THREADS, 1, "cur %s base is "PFX"\n",
+    LOG(THREAD, LOG_THREADS, 1, "post-TLS-setup, cur %s base is "PFX"\n",
         IF_X86_ELSE("fs", "tpidrurw"),
         get_segment_base(IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW)));
 
@@ -3843,6 +3882,36 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
     return true;
 }
 
+#ifdef LINUX
+static bool
+symlink_is_self_exe(const char *path)
+{
+    /* Look for "/proc/%d/exe" where %d exists in /proc/self/task/%d,
+     * or "/proc/self/exe".  Rule out the exe link for another process
+     * (though it could also be under DR we have no simple way to obtain
+     * its actual app path).
+     */
+#   define SELF_LEN_LEADER 6 /* "/proc/" */
+#   define SELF_LEN_TRAILER 4 /* "/exe" */
+#   define SELF_LEN_MAX 18
+    size_t len = strlen(path);
+    if (strcmp(path, "/proc/self/exe") == 0)
+        return true;
+    if (len < SELF_LEN_MAX && /* /proc/nnnnnn/exe */
+        strncmp(path, "/proc/", SELF_LEN_LEADER) == 0 &&
+        strncmp(path + len - SELF_LEN_TRAILER, "/exe", SELF_LEN_TRAILER) == 0) {
+        int pid;
+        if (sscanf(path + SELF_LEN_LEADER, "%d", &pid) == 1) {
+            char task[32];
+            snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d", pid);
+            NULL_TERMINATE_BUFFER(task);
+            return os_file_exists(task, true/*dir*/);
+        }
+    }
+    return false;
+}
+#endif
+
 void
 exit_process_syscall(long status)
 {
@@ -4401,6 +4470,10 @@ ignorable_system_call_normalized(int num)
     case SYS_set_tls:
 #endif
         return false;
+#ifdef LINUX
+    case SYS_readlink:
+        return !DYNAMO_OPTION(early_inject);
+#endif
     default:
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(num))
@@ -4823,6 +4896,7 @@ enum {
     ENV_PROP_RUNUNDER,
     ENV_PROP_OPTIONS,
     ENV_PROP_EXECVE_LOGDIR,
+    ENV_PROP_EXE_PATH,
 };
 
 static const char * const env_to_propagate[] = {
@@ -4835,6 +4909,8 @@ static const char * const env_to_propagate[] = {
      * Xref comment in create_log_dir about their precedence.
      */
     DYNAMORIO_VAR_EXECVE_LOGDIR,
+    /* i#909: needed for early injection */
+    DYNAMORIO_VAR_EXE_PATH,
     /* these will only be propagated if they exist */
     DYNAMORIO_VAR_CONFIGDIR,
 };
@@ -4842,7 +4918,7 @@ static const char * const env_to_propagate[] = {
 
 /* called at pre-SYS_execve to append DR vars in the target process env vars list */
 static void
-add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
+add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app_path)
 {
     char **envp = (char **) sys_param(dcontext, 2);
     int idx, j, preload = -1, ldpath = -1;
@@ -4868,6 +4944,9 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
     else
         need_var[ENV_PROP_EXECVE_LOGDIR] = false;
 
+    if (DYNAMO_OPTION(early_inject))
+        need_var[ENV_PROP_EXE_PATH] = true;
+
     /* iterate the env in target process  */
     if (envp == NULL) {
         LOG(THREAD, LOG_SYSCALLS, 3, "\tenv is NULL\n");
@@ -4885,12 +4964,14 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
                     break;
                 }
             }
-            if (strstr(envp[idx], "LD_LIBRARY_PATH=") == envp[idx]) {
+            if (!DYNAMO_OPTION(early_inject) &&
+                strstr(envp[idx], "LD_LIBRARY_PATH=") == envp[idx]) {
                 ldpath = idx;
                 if (strstr(envp[idx], inject_library_path) != NULL)
                     ldpath_us = true;
             }
-            if (strstr(envp[idx], "LD_PRELOAD=") == envp[idx]) {
+            if (!DYNAMO_OPTION(early_inject) &&
+                strstr(envp[idx], "LD_PRELOAD=") == envp[idx]) {
                 preload = idx;
                 if (strstr(envp[idx], DYNAMORIO_PRELOAD_NAME) != NULL &&
                     strstr(envp[idx], DYNAMORIO_LIBRARY_NAME) != NULL) {
@@ -4910,8 +4991,9 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
     /* how many new env vars we need add */
     num_new =
         2 + /* execve indicator var plus final NULL */
-        ((preload<0) ? 1 : 0) +
-        ((ldpath<0) ? 1 : 0);
+        (DYNAMO_OPTION(early_inject) ? 0 :
+         (((preload<0) ? 1 : 0) +
+          ((ldpath<0) ? 1 : 0)));
 
     if (DYNAMO_OPTION(follow_children)) {
         for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
@@ -4925,7 +5007,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
     /* copy old envp */
     memcpy(new_envp, envp, sizeof(char*)*num_old);
     /* change/add preload and ldpath if necessary */
-    if (!preload_us) {
+    if (!DYNAMO_OPTION(early_inject) && !preload_us) {
         int idx_preload;
         LOG(THREAD, LOG_SYSCALLS, 1,
             "WARNING: execve env does NOT preload DynamoRIO, forcing it!\n");
@@ -4952,7 +5034,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
         LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
             idx_preload, new_envp[idx_preload]);
     }
-    if (!ldpath_us) {
+    if (!DYNAMO_OPTION(early_inject) && !ldpath_us) {
         int idx_ldpath;
         if (ldpath >= 0) {
             sz = strlen(envp[ldpath]) + strlen(inject_library_path) + 2;
@@ -4994,6 +5076,10 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
                 /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
                 ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXECVE_LOGDIR) == 0);
                 ASSERT(get_log_dir(PROCESS_DIR, NULL, NULL));
+                break;
+            case ENV_PROP_EXE_PATH:
+                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXE_PATH) == 0);
+                val = app_path;
                 break;
             default:
                 val = getenv(env_to_propagate[j]);
@@ -5081,11 +5167,22 @@ handle_execve(dcontext_t *dcontext)
     /* FIXME i#191: supposed to preserve things like pending signal
      * set across execve: going to ignore for now
      */
-    char *fname = (char *)  sys_param(dcontext, 0);
+    char *fname = (char *) sys_param(dcontext, 0);
     bool x64 = IF_X64_ELSE(true, false);
+    bool expect_to_fail = false;
     file_t file;
     char *inject_library_path;
-    DEBUG_DECLARE(char **argv = (char **) sys_param(dcontext, 1);)
+#if defined(LINUX) || defined(DEBUG)
+    const char **argv = (const char **) sys_param(dcontext, 1);
+#endif
+#ifdef LINUX
+    if (DYNAMO_OPTION(early_inject) && symlink_is_self_exe(fname)) {
+        /* i#907: /proc/self/exe points at libdynamorio.so.  Make sure we run
+         * the right thing here.
+         */
+        fname = get_application_name();
+    }
+#endif
 
     LOG(GLOBAL, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
     LOG(THREAD, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
@@ -5138,13 +5235,45 @@ handle_execve(dcontext_t *dcontext)
      */
     file = os_open(fname, OS_OPEN_READ);
     if (file != INVALID_FILE) {
-        x64 = module_file_is_module64(file);
+        if (!module_file_is_module64(file, &x64))
+            expect_to_fail = true;
         os_close(file);
-    }
+    } else
+        expect_to_fail = true;
     inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
         dynamorio_alt_arch_path;
 
-    add_dr_env_vars(dcontext, inject_library_path);
+    add_dr_env_vars(dcontext, inject_library_path, fname);
+
+#ifdef LINUX
+    /* We have to be accurate with expect_to_fail as we cannot come back
+     * and fail the syscall once the kernel execs DR!
+     */
+    if (DYNAMO_OPTION(early_inject) && !expect_to_fail) {
+        /* i#909: change the target image to libdynamorio.so */
+        const char *drpath = IF_X64_ELSE(x64, !x64) ? dynamorio_library_filepath :
+            dynamorio_alt_arch_filepath;
+        TRY_EXCEPT(dcontext, /* try */ {
+            if (symlink_is_self_exe(argv[0])) {
+                /* we're out of sys_param entries so we assume argv[0] == fname */
+                dcontext->sys_param3 = (reg_t) argv;
+                argv[0] = fname; /* XXX: handle readable but not writable! */
+            } else
+                dcontext->sys_param3 = 0; /* no restore in post */
+            dcontext->sys_param4 = (reg_t) fname; /* store for restore in post */
+            *sys_param_addr(dcontext, 0) = (reg_t) drpath;
+            LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
+                (char *)sys_param(dcontext, 0));
+        }, /* except */ {
+            dcontext->sys_param3 = 0; /* no restore in post */
+            dcontext->sys_param4 = 0; /* no restore in post */
+            LOG(THREAD, LOG_SYSCALLS, 2, "argv is unreadable, expect execve to fail\n");
+        });
+    } else {
+        dcontext->sys_param3 = 0; /* no restore in post */
+        dcontext->sys_param4 = 0; /* no restore in post */
+    }
+#endif
 
     /* we need to clean up the .1config file here.  if the execve fails,
      * we'll just live w/o dynamic option re-read.
@@ -5165,6 +5294,17 @@ handle_execve_post(dcontext_t *dcontext)
 #ifdef STATIC_LIBRARY
     /* nothing to clean up */
     return;
+#endif
+#ifdef LINUX
+    if (dcontext->sys_param4 != 0) {
+        /* restore original /proc/.../exe */
+        *sys_param_addr(dcontext, 0) = dcontext->sys_param4;
+        if (dcontext->sys_param3 != 0) {
+            /* restore original argv[0] */
+            const char **argv = (const char **) dcontext->sys_param3;
+            argv[0] = (const char *) dcontext->sys_param4;
+        }
+    }
 #endif
     if (new_envp != NULL) {
         int i;
@@ -5600,31 +5740,44 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
          * The app's TLS slot value is stored into privlib's TLS slot for
          * later restore on switching back to privlib's TLS.
          */
-        byte **app_lib_tls_swap_slot = (byte **)
-            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
         byte **priv_lib_tls_swap_slot = (byte **)
+            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte **app_lib_tls_swap_slot = (byte **)
             (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
+        LOG(THREAD, LOG_LOADER, 3,
+            "%s: switching to app: app slot=&"PFX" *"PFX", priv slot=&"PFX" *"PFX"\n",
+            __FUNCTION__, app_lib_tls_swap_slot, *app_lib_tls_swap_slot,
+            priv_lib_tls_swap_slot, *priv_lib_tls_swap_slot);
         byte *dr_tls_base = *priv_lib_tls_swap_slot;
         *priv_lib_tls_swap_slot = *app_lib_tls_swap_slot;
         *app_lib_tls_swap_slot = dr_tls_base;
+        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting coproc reg to 0x%x\n",
+            __FUNCTION__, (to_app ? "app" : "dr"), os_tls->app_lib_tls_base);
         res = dynamorio_syscall(SYS_set_tls, 1, os_tls->app_lib_tls_base) == 0;
     } else {
         /* Restore the app's TLS slot that we used for storing DR's TLS base,
          * and put DR's TLS base back to privlib's TLS slot.
          */
-        byte **app_lib_tls_swap_slot = (byte **)
-            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
         byte **priv_lib_tls_swap_slot = (byte **)
+            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+        byte **app_lib_tls_swap_slot = (byte **)
             (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
-        byte *dr_tls_base = *priv_lib_tls_swap_slot;
+        byte *dr_tls_base = *app_lib_tls_swap_slot;
+        LOG(THREAD, LOG_LOADER, 3,
+            "%s: switching to DR: app slot=&"PFX" *"PFX", priv slot=&"PFX" *"PFX"\n",
+            __FUNCTION__, app_lib_tls_swap_slot, *app_lib_tls_swap_slot,
+            priv_lib_tls_swap_slot, *priv_lib_tls_swap_slot);
         *app_lib_tls_swap_slot = *priv_lib_tls_swap_slot;
         *priv_lib_tls_swap_slot = dr_tls_base;
+        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting coproc reg to 0x%x\n",
+            __FUNCTION__, (to_app ? "app" : "dr"),
+            os_tls->os_seg_info.priv_lib_tls_base);
         res = dynamorio_syscall(SYS_set_tls, 1,
                                 os_tls->os_seg_info.priv_lib_tls_base) == 0;
     }
     LOG(THREAD, LOG_LOADER, 2,
-        "%s %s: set_tls swap successful for thread "TIDFMT"\n",
-        __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id());
+        "%s %s: set_tls swap success=%d for thread "TIDFMT"\n",
+        __FUNCTION__, to_app ? "to app" : "to DR", res, get_thread_id());
 #endif /* X86/ARM */
     return res;
 }
@@ -6424,8 +6577,17 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
-    /* i#107 syscalls that might change/query app's segment */
 #ifdef LINUX
+    case SYS_readlink:
+        if (DYNAMO_OPTION(early_inject)) {
+            dcontext->sys_param0 = sys_param(dcontext, 0);
+            dcontext->sys_param1 = sys_param(dcontext, 1);
+            dcontext->sys_param2 = sys_param(dcontext, 2);
+        }
+        break;
+
+    /* i#107 syscalls that might change/query app's segment */
+
 # ifdef X64
     case SYS_arch_prctl: {
         /* we handle arch_prctl in post_syscall */
@@ -6994,8 +7156,12 @@ post_system_call(dcontext_t *dcontext)
             app_memory_allocation(dcontext, addr, len, info.prot,
                                   info.type == DR_MEMTYPE_IMAGE
                                   _IF_DEBUG("failed munmap"));
-            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, info.prot,
-                                                  info.type, true/*exists*/));
+            IF_NO_MEMQUERY(memcache_update_locked((app_pc)ALIGN_BACKWARD(addr,
+                                                                         PAGE_SIZE),
+                                                  (app_pc)ALIGN_FORWARD(addr + len,
+                                                                        PAGE_SIZE),
+                                                  info.prot,
+                                                  info.type, false/*add back*/));
         }
         break;
     }
@@ -7309,6 +7475,30 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
+#ifdef LINUX
+    case SYS_readlink:
+        if (success && DYNAMO_OPTION(early_inject)) {
+            /* i#907: /proc/self/exe is a symlink to libdynamorio.so.  We need
+             * to fix it up if the app queries.  Any thread id can be passed to
+             * /proc/%d/exe, so we have to check.  We could instead look for
+             * libdynamorio.so in the result but we've tweaked our injector
+             * in the past to exec different binaries so this seems more robust.
+             */
+            if (symlink_is_self_exe((const char *)dcontext->sys_param0)) {
+                char *tgt = (char *) dcontext->sys_param1;
+                size_t tgt_sz = (size_t) dcontext->sys_param2;
+                int len = snprintf(tgt, tgt_sz, "%s", get_application_name());
+                if (len > 0)
+                    set_success_return_val(dcontext, len);
+                else {
+                    set_failure_return_val(dcontext, EINVAL);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                }
+           }
+        }
+        break;
+#endif
+
 #ifdef VMX86_SERVER
     default:
         if (is_vmkuw_sysnum(sysnum)) {
@@ -7397,6 +7587,9 @@ get_dynamo_library_bounds(void)
                                   BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME" library path: %s\n",
         dynamorio_library_path);
+    snprintf(dynamorio_library_filepath, BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath),
+             "%s%s", dynamorio_library_path, dynamorio_libname);
+    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
 #if !defined(STATIC_LIBRARY) && defined(LINUX)
     ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
 #elif defined(MACOS)
@@ -7425,6 +7618,10 @@ get_dynamo_library_bounds(void)
     NULL_TERMINATE_BUFFER(dynamorio_alt_arch_path);
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME" alt arch path: %s\n",
         dynamorio_alt_arch_path);
+    snprintf(dynamorio_alt_arch_filepath,
+             BUFFER_SIZE_ELEMENTS(dynamorio_alt_arch_filepath),
+             "%s%s", dynamorio_alt_arch_path, dynamorio_libname);
+    NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
 
     return res;
 }

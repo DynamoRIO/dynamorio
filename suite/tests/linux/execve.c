@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,6 @@
 
 #include "tools.h"
 
-#include <sys/types.h>
 #include <unistd.h>
 #include <sys/types.h> /* for wait and mmap */
 #include <sys/wait.h>  /* for wait */

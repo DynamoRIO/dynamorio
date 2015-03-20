@@ -447,7 +447,8 @@ instr_is_mov_imm_to_tos(instr_t *instr)
 bool
 instr_is_undefined(instr_t *instr)
 {
-    return instr_opcode_valid(instr);
+    return (instr_opcode_valid(instr) &&
+            (instr_get_opcode(instr) == OP_udf));
 }
 
 dr_pred_type_t

@@ -374,15 +374,15 @@ enum {
     TYPE_I_b8_b0,
     TYPE_NI_b8_b0, /* negated immed */
     TYPE_I_b8_b16,
+    TYPE_I_b8_b24_b16_b0, /* A32 OP_vbic, etc.: 11:8,24,18:16,3:0 AdvSIMDExpandImm */
+    TYPE_I_b8_b28_b16_b0, /* T32 OP_vbic, etc.: 11:8,28,18:16,3:0 AdvSIMDExpandImm */
     TYPE_I_b12_b6, /* T32-14:12,7:6 */
-    TYPE_I_b16_b0,
+    TYPE_I_b16_b0, /* If 1 byte, then OP_vmov_f{32,64}: VFPExpandImm */
     TYPE_I_b16_b26_b12_b0, /* OP_movw T32-19:16,26,14:12,7:0 */
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
-    TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
     TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 + complex T32 "modified immed" encoding */
     TYPE_I_b26_b12_b0_z, /* T32-26,14:12,7:0 + zero extend immed encoding */
-    TYPE_I_b28_b16_b0, /* OP_vbic, etc. T32: 28,18:16,3:0 */
 
     /* PC-relative jump targets.  All are x2 unless specified. */
     TYPE_J_b0,     /* T16-OP_b: signed immed is stored as value/2 */
@@ -464,6 +464,8 @@ enum {
     TYPE_M_POS_I4_4,    /* mem offs + 8-bit immed split @ 11:8|3:0 */
     TYPE_M_NEG_I4_4,    /* mem offs - 8-bit immed split @ 11:8|3:0 */
     TYPE_M_SI7,         /* mem offs + signed 7-bit immed @ 6:0 */
+    TYPE_M_POS_I5,      /* mem offs + 5-bit immed @ 10:6 */
+    TYPE_M_POS_I5x2,    /* mem offs + 2 * 5-bit immed @ 10:6 */
     TYPE_M_POS_I5x4,    /* mem offs + 4 * 5-bit immed @ 10:6 */
 
     TYPE_M_PCREL_POS_I8x4,/* mem offs pc-relative + 4 * 8-bit immed @  7:0 */

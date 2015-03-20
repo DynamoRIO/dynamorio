@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,7 +59,9 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     switch (sig) {
     case SIGUSR1: {
         struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
-#ifdef X64
+#ifdef ARM
+        void *pc = (void *) sc->arm_pc;
+#elif defined(X64)
         void *pc = (void *) sc->rip;
 #else
         void *pc = (void *) sc->eip;

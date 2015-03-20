@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -792,8 +792,13 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
             os_thread_data_t *ostd;
             our_modify_ldt_t *desc;
             /* update new value set by app */
-            os_tls->app_lib_tls_reg = read_thread_register(SEG_FS);
-            os_tls->app_lib_tls_base = (void *) base;
+            if (TLS_REG_LIB == SEG_FS) {
+                os_tls->app_lib_tls_reg = read_thread_register(SEG_FS);
+                os_tls->app_lib_tls_base = (void *) base;
+            } else {
+                os_tls->app_alt_tls_reg = read_thread_register(SEG_FS);
+                os_tls->app_alt_tls_base = (void *) base;
+            }
             /* update the app_thread_areas */
             ostd = (os_thread_data_t *)dcontext->os_field;
             desc = (our_modify_ldt_t *)ostd->app_thread_areas;
@@ -814,8 +819,13 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         os_thread_data_t *ostd;
         our_modify_ldt_t *desc;
         /* update new value set by app */
-        os_tls->app_alt_tls_reg = read_thread_register(SEG_GS);
-        os_tls->app_alt_tls_base = (void *) base;
+        if (TLS_REG_LIB == SEG_GS) {
+            os_tls->app_lib_tls_reg = read_thread_register(SEG_GS);
+            os_tls->app_lib_tls_base = (void *) base;
+        } else {
+            os_tls->app_alt_tls_reg = read_thread_register(SEG_GS);
+            os_tls->app_alt_tls_base = (void *) base;
+        }
         /* update the app_thread_areas */
         ostd = (os_thread_data_t *)dcontext->os_field;
         desc = ostd->app_thread_areas;

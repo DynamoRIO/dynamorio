@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,52 +31,26 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_ 1
+/* Copyright (c) 2003-2007 Determina Corp. */
 
-void
-memcache_init(void);
+/*
+ * ntdll_shared.h
+ * Routines for calling Windows system calls via the ntdll.dll wrappers,
+ * meant for use beyond just the core DR library.
+ */
 
-void
-memcache_exit(void);
+#ifndef _NTDLL_SHARED_H_
+#define _NTDLL_SHARED_H_ 1
 
-bool
-memcache_initialized(void);
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include "ntdll_types.h"
 
-void
-memcache_lock(void);
-
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
+#ifndef X64
+/* returns raw NTSTATUS */
+NTSTATUS
+nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
+                               size_t buffer_length, size_t *bytes_read);
 #endif
 
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size,
-                     uint prot, bool image);
-
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size,
-                       byte *old_base, size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *old_brk, byte *new_brk);
-
-#endif /* _MEMCACHE_H_ */
+#endif /* _NTDLL_SHARED_H_ */

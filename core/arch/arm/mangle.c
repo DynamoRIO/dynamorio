@@ -394,6 +394,11 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
  *   M A N G L I N G   R O U T I N E S
  */
 
+/* forward declaration */
+static void
+mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                  instr_t *instr, instr_t *next_instr, bool instr_to_be_removed);
+
 /* If instr is inside an IT block, removes it from the block and
  * leaves it as an isolated (un-encodable) predicated instr, with any
  * other instrs from the same block made to be legal on both sides by
@@ -888,6 +893,10 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         ptr_int_t cur_pc = (ptr_int_t)
             decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                           opc, instr);
+        /* for case like tbh [pc, r10, lsl, #1] */
+        if (instr_uses_reg(instr, dr_reg_stolen))
+            mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
+
         if (opc == OP_tbb) {
             PRE(ilist, instr,
                 INSTR_CREATE_ldrb(dcontext, opnd_create_reg(IBL_TARGET_REG),
@@ -928,8 +937,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
                              /* These do not switch modes so we set LSB */
                              OPND_CREATE_INT((cur_pc & 0x000000ff) | 0x1)));
-        /* FIXME i#1551: handle instr using dr_reg_stolen */
-        ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, dr_reg_stolen));
         /* remove the instr */
         remove_instr = true;
     } else if (opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
@@ -940,11 +947,10 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Explicitly writes just the pc */
         uint i;
         bool found_pc;
+        instr_t *immed_next = instr_get_next(instr);
         /* XXX: can anything (non-OP_ldm) have r2 as an additional dst? */
         ASSERT_NOT_IMPLEMENTED(!instr_writes_to_reg(instr, IBL_TARGET_REG,
                                                     DR_QUERY_INCLUDE_ALL));
-        /* FIXME i#1551: handle instr using dr_reg_stolen */
-        ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, dr_reg_stolen));
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_reg(instr_get_dst(instr, i)) &&
                 opnd_get_reg(instr_get_dst(instr, i)) == DR_REG_PC) {
@@ -965,9 +971,16 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 src = instr_get_src(instr, 0);
                 remove_instr = true;
             }
-            PRE(ilist, next_instr,
+            /* We want this before any mangle_rel_addr mangling */
+            POST(ilist, instr,
                 INSTR_CREATE_orr(dcontext, opnd_create_reg(IBL_TARGET_REG), src,
                                  OPND_CREATE_INT(1)));
+        }
+        if (instr_uses_reg(instr, dr_reg_stolen)) {
+            /* Stolen register mangling must happen after orr instr
+             * inserted above but before any mangle_rel_addr mangling.
+             */
+            mangle_stolen_reg(dcontext, ilist, instr, immed_next, remove_instr);
         }
     }
     if (instr_is_predicated(instr)) {
@@ -1041,7 +1054,7 @@ pick_scratch_reg(instr_t *instr, bool dead_reg_ok,
     return reg;
 }
 
-/* Should return NULL if it destroy "instr".  We don't support both destroying
+/* Should return NULL if it destroys "instr".  We don't support both destroying
  * (done only for x86) and changing next_instr (done only for ARM).
  */
 instr_t *
@@ -1058,7 +1071,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
     opnd_t new_op;
     dr_shift_type_t shift_type;
-    uint shift_amt;
+    uint shift_amt, disp;
     bool store = instr_writes_memory(instr);
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
@@ -1072,8 +1085,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     ASSERT(instr_has_rel_addr_reference(instr));
     /* Manual says "unpredicatable" if PC is base of ldm/stm */
-    ASSERT(!instr_reads_gpr_list(instr) &&
-           !instr_writes_gpr_list(instr));
+    ASSERT(!instr_reads_gpr_list(instr) && !instr_writes_gpr_list(instr));
     ASSERT(reg != REG_NULL);
     if (store) {
         mem_op = instr_get_dst(instr, 0);
@@ -1081,18 +1093,34 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         mem_op = instr_get_src(instr, 0);
     }
     ASSERT(opnd_is_base_disp(mem_op));
-    shift_type = opnd_get_index_shift(mem_op, &shift_amt);
-    new_op = opnd_create_base_disp_arm
-        (reg, opnd_get_index(mem_op), shift_type, shift_amt, opnd_get_disp(mem_op),
-         opnd_get_flags(mem_op), opnd_get_size(mem_op));
+    ASSERT(opnd_get_base(mem_op) == DR_REG_PC);
+
+    disp = opnd_get_disp(mem_op);
+    /* For Thumb, there is a special-cased subtract from PC with a 12-bit immed that
+     * has no analogue with a non-PC base.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+        TEST(DR_OPND_NEGATED, opnd_get_flags(mem_op)) &&
+        disp >= 256) {
+        /* Apply the disp now */
+        r15 -= disp;
+        disp = 0;
+    }
+
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
     insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
                            ilist, instr, NULL, NULL);
+
+    shift_type = opnd_get_index_shift(mem_op, &shift_amt);
+    new_op = opnd_create_base_disp_arm
+        (reg, opnd_get_index(mem_op), shift_type, shift_amt, disp,
+         opnd_get_flags(mem_op), opnd_get_size(mem_op));
     if (store) {
         instr_set_dst(instr, 0, new_op);
     } else {
         instr_set_src(instr, 0, new_op);
     }
+
     if (should_restore)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
 
@@ -1186,20 +1214,56 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
 
 /* XXX: merge with or refactor out old STEAL_REGISTER x86 code? */
 /* Mangle simple dr_reg_stolen access.
- * dr_reg_stolen in gpr_list is handled in mangle_gpr_list_{read/write}
+ * dr_reg_stolen in gpr_list is handled in mangle_gpr_list_{read/write}.
+ *
+ * Because this routine switches the register that hold DR's TLS base,
+ * it should be called after all other mangling routines that perform
+ * reg save/restore.
  */
 static void
-mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                  instr_t *instr, instr_t *next_instr, bool instr_to_be_removed)
 {
     ushort slot;
     bool should_restore;
     reg_id_t tmp;
-    instr_t *next_instr = instr_get_next(instr);
 
     /* Our stolen reg model is to expose to the client.  We assume that any
      * meta instrs using it are using it as TLS.
      */
     ASSERT(!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen));
+
+    /* optimization, convert simple mov to ldr/str:
+     * - "mov r0  -> r10"  ==> "str r0 -> [r10_slot]"
+     * - "mov r10 -> r0"   ==> "ldr [r10_slot] -> r0"
+     */
+    if (instr_get_opcode(instr) == OP_mov && opnd_is_reg(instr_get_src(instr, 0))) {
+        opnd_t opnd;
+        ASSERT(instr_num_srcs(instr) == 1 && instr_num_dsts(instr) == 1);
+        ASSERT(opnd_is_reg(instr_get_dst(instr, 0)));
+        /* mov rx -> rx, do nothing */
+        if (opnd_same(instr_get_src(instr, 0), instr_get_dst(instr, 0)))
+            return;
+        /* this optimization changes the original instr, so it is only applied
+         * if instr_to_be_removed is false
+         */
+        if (!instr_to_be_removed) {
+            opnd = opnd_create_tls_slot(os_tls_offset(TLS_REG_STOLEN_SLOT));
+            if (opnd_get_reg(instr_get_src(instr, 0)) == dr_reg_stolen) {
+                /* mov r10 -> rx, convert to a ldr */
+                instr_set_opcode(instr, OP_ldr);
+                instr_set_src(instr, 0, opnd);
+                return;
+            } else {
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == dr_reg_stolen);
+                /* mov rx -> r10, convert to a str */
+                instr_set_opcode(instr, OP_str);
+                instr_set_dst(instr, 0, opnd);
+                return;
+            }
+            ASSERT_NOT_REACHED();
+        }
+    }
 
     /* move stolen reg value into tmp reg for app instr execution */
     tmp = pick_scratch_reg(instr, false, &slot, &should_restore);
@@ -1357,7 +1421,7 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (stolen_reg_is_base) {
         ASSERT(fix_regs[1] == spill_regs[0]);
         ASSERT(opnd_uses_reg(memop, dr_reg_stolen));
-        /* restore dr_reg_stolen from spill_regs[0]  */
+        /* restore dr_reg_stolen from spill_regs[0] */
         restore_tls_base_to_stolen_reg(dcontext, ilist,
                                        instr,
                                        /* XXX: we must restore tls base right after instr
@@ -1385,6 +1449,7 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (reg_found[0] || reg_found[1]) {
         ushort app_val_slot; /* slot holding app value */
         reg_id_t base_reg;
+        reg_id_t scratch = spill_regs[1];
         if (stolen_reg_is_base) {
             /* dr_reg_stolen is used as the base in the app, but it is holding
              * TLS base, so we now put dr_reg_stolen app value into spill_regs[0]
@@ -1400,24 +1465,31 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             ASSERT(fix_regs[1] == dr_reg_stolen);
             app_val_slot = TLS_REG_STOLEN_SLOT;
             base_reg = opnd_get_base(memop);
+            if (opnd_uses_reg(memop, scratch)) {
+                /* We know !stolen_reg_is_base so we can use r0 as scratch instead
+                 * and not have any conflicts.  We keep same TLS slot.
+                 */
+                scratch = spill_regs[0];
+            }
         }
+        ASSERT(!opnd_uses_reg(memop, scratch));
 
         /* save spill reg */
         PRE(ilist, next_instr,
-            instr_create_save_to_tls(dcontext, spill_regs[1], spill_slots[1]));
+            instr_create_save_to_tls(dcontext, scratch, spill_slots[1]));
 
         /* fixup the slot in memlist */
         for (i = 0; i < 2; i++) {
             if (reg_found[i]) {
                 store_reg_to_memlist(dcontext, ilist, instr, next_instr,
                                      base_reg, app_val_slot,
-                                     spill_regs[1], fix_regs[i], reg_pos[i]);
+                                     scratch, fix_regs[i], reg_pos[i]);
             }
         }
 
         /* restore spill reg */
         PRE(ilist, next_instr,
-            instr_create_restore_from_tls(dcontext, spill_regs[1], spill_slots[1]));
+            instr_create_restore_from_tls(dcontext, scratch, spill_slots[1]));
     }
 
     if (stolen_reg_is_base) {
@@ -1599,8 +1671,6 @@ normalize_ldm_instr(dcontext_t *dcontext,
          */
         instr_set_predicate(*pre_ldm_ldr, pred);
         instr_set_translation(*pre_ldm_ldr, pc);
-        /* FIXME i#1551: NYI for ldm r0, {r0-rx}, ldr r0, [r0] clobbers base r0 */
-        ASSERT_NOT_IMPLEMENTED(opnd_get_reg(instr_get_dst(instr, 0)) != base);
     }
 
     if (adjust_pre != 0) {
@@ -1639,6 +1709,11 @@ normalize_ldm_instr(dcontext_t *dcontext,
         instr_set_src(instr, 0, OPND_CREATE_MEMLIST(base));
     }
 
+    /* post ldm base register adjustment */
+    if (!writeback && instr_writes_to_reg(instr, base, DR_QUERY_INCLUDE_ALL)) {
+        /* if the base reg is in the reglist, we do not need to post adjust */
+        adjust_post = 0;
+    }
     if (adjust_post != 0) {
         *post_ldm_adjust = adjust_post > 0 ?
             XINST_CREATE_add(dcontext,
@@ -1650,6 +1725,8 @@ normalize_ldm_instr(dcontext_t *dcontext,
         instr_set_predicate(*post_ldm_adjust, pred);
         instr_set_translation(*post_ldm_adjust, pc);
     }
+
+    /* post ldm load-pc */
     if (write_pc) {
         *ldr_pc = XINST_CREATE_load(dcontext,
                                     opnd_create_reg(DR_REG_PC),
@@ -1695,22 +1772,57 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* pc cannot be used as the base in ldm, so now we only care dr_reg_stolen */
     if (pre_ldm_adjust != NULL) {
         instrlist_preinsert(ilist, instr, pre_ldm_adjust); /* non-meta */
-        if (instr_uses_reg(pre_ldm_adjust, dr_reg_stolen))
-            mangle_stolen_reg(dcontext, ilist, pre_ldm_adjust);
+        if (instr_uses_reg(pre_ldm_adjust, dr_reg_stolen)) {
+            mangle_stolen_reg(dcontext, ilist, pre_ldm_adjust,
+                              /* dr_reg_stolen must be restored right after */
+                              instr_get_next(pre_ldm_adjust), false);
+        }
     }
     if (pre_ldm_ldr != NULL) {
+        /* special case: ldm r0, {r0-rx}, separate ldr r0, [r0] clobbers base r0 */
+        if (opnd_get_reg(instr_get_dst(pre_ldm_ldr, 0)) == SCRATCH_REG0 &&
+            opnd_get_base(instr_get_src(pre_ldm_ldr, 0)) == SCRATCH_REG0) {
+            instr_t *mov;
+            /* save the r1 for possible context restore on signal */
+            PRE(ilist, instr, instr_create_save_to_tls(dcontext, SCRATCH_REG1,
+                                                       TLS_REG1_SLOT));
+            /* mov r0 => r1, */
+            mov = INSTR_CREATE_mov(dcontext,
+                                   opnd_create_reg(SCRATCH_REG1),
+                                   opnd_create_reg(SCRATCH_REG0));
+            instr_set_predicate(mov, instr_get_predicate(instr));
+            PRE(ilist, instr, mov);
+            /* We will only come to here iff instr is "ldm r0, {r0-rx}",
+             * otherwise we will be able to pick a scratch reg without split.
+             * Thus the first dst reg must be r1 after split and the base is r0.
+             * Now we change "ldm r0, {r1-rx}" to "ldm r1, {r1-rx}".
+             */
+            ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == SCRATCH_REG1 &&
+                   opnd_get_base(instr_get_src(instr, 0)) == SCRATCH_REG0);
+            instr_set_src(instr, 0, OPND_CREATE_MEMLIST(SCRATCH_REG1));
+        }
+
         instrlist_preinsert(ilist, instr, pre_ldm_ldr); /* non-meta */
-        if (instr_uses_reg(pre_ldm_ldr, dr_reg_stolen))
-            mangle_stolen_reg(dcontext, ilist, pre_ldm_ldr);
+
+        if (instr_uses_reg(pre_ldm_ldr, dr_reg_stolen)) {
+            mangle_stolen_reg(dcontext, ilist, pre_ldm_ldr,
+                              /* dr_reg_stolen must be restored right after */
+                              instr_get_next(pre_ldm_ldr), false);
+        }
     }
 
-    if (instr_uses_reg(instr, dr_reg_stolen))
-        mangle_stolen_reg(dcontext, ilist, instr);
+    if (instr_uses_reg(instr, dr_reg_stolen)) {
+        /* dr_reg_stolen must be restored right after instr */
+        mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
+    }
 
     if (post_ldm_adjust != NULL) {
         instrlist_preinsert(ilist, next_instr, post_ldm_adjust);
-        if (instr_uses_reg(post_ldm_adjust, dr_reg_stolen))
-            mangle_stolen_reg(dcontext, ilist, post_ldm_adjust);
+        if (instr_uses_reg(post_ldm_adjust, dr_reg_stolen)) {
+            mangle_stolen_reg(dcontext, ilist, post_ldm_adjust,
+                              /* dr_reg_stolen must be restored right after */
+                              instr_get_next(post_ldm_adjust), false);
+        }
     }
 
     if (ldr_pc != NULL) {
@@ -1771,7 +1883,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 
     /* mangle_stolen_reg must happen after mangle_pc_read to avoid reg conflict */
     if (!finished && instr_uses_reg(instr, dr_reg_stolen) && !instr_is_mbr(instr))
-        mangle_stolen_reg(dcontext, ilist, instr);
+        mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
 
     if (in_it) {
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, bound_end);

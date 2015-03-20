@@ -220,6 +220,10 @@ typedef struct _clone_record_t {
      */
     reg_t app_stolen_value;
     dr_isa_mode_t isa_mode;
+    /* To ensure we have the right app lib tls base in child thread,
+     * we store it here if necessary (clone w/o CLONE_SETTLS or vfork).
+     */
+    void *app_lib_tls_base;
 #endif
     /* we leave some padding at base of stack for dynamorio_clone
      * to store values
@@ -563,6 +567,13 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #ifdef ARM
     record->app_stolen_value = get_stolen_reg_val(get_mcontext(dcontext));
     record->isa_mode = dr_get_isa_mode(dcontext);
+    /* If the child thread shares the same TLS with parent by not setting
+     * CLONE_SETTLS or vfork, we put the TLS base here and clear the
+     * thread register in new_thread_setup, so that DR can distinguish
+     * this case from normal pthread thread creation.
+     */
+    record->app_lib_tls_base = (!TEST(CLONE_SETTLS, record->clone_flags)) ?
+        os_get_app_tls_base(dcontext, TLS_REG_LIB) : NULL;
 #endif
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: thread "TIDFMT", pc "PFX"\n",
@@ -675,6 +686,27 @@ get_clone_record_isa_mode(void *record)
 {
     ASSERT(record != NULL);
     return ((clone_record_t *) record)->isa_mode;
+}
+
+void
+set_thread_register_from_clone_record(void *record)
+{
+    /* If record->app_lib_tls_base is not NULL, it means the parent
+     * thread did not setup TLS for the child, and we need clear the
+     * thread register.
+     */
+    if (((clone_record_t *)record)->app_lib_tls_base != NULL)
+        dynamorio_syscall(SYS_set_tls, 1, NULL);
+}
+
+void
+set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record)
+{
+    if (((clone_record_t *)record)->app_lib_tls_base != NULL) {
+        /* child and parent share the same TLS */
+        os_set_app_tls_base(dcontext, TLS_REG_LIB,
+                            ((clone_record_t *)record)->app_lib_tls_base);
+    }
 }
 #endif
 
@@ -1378,7 +1410,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_sigaction_t *save;
     kernel_sigaction_t *non_const_act = (kernel_sigaction_t *) act;
-    /* i#1035: app may pass invalid signum to find MAX_SIGNUM */
+    /* i#1135: app may pass invalid signum to find MAX_SIGNUM */
     if (sig <= MAX_SIGNUM && act != NULL) {
         /* app is installing a new action */
 
@@ -1569,6 +1601,7 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
              * syscall handlers, so we know we'll go back to dispatch and see
              * this flag right away.
              */
+            LOG(THREAD, LOG_ASYNCH, 3, "\tsetting signals_pending flag\n");
             dcontext->signals_pending = true;
             break;
         }
@@ -2651,6 +2684,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
     LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax "PFX"\n", sc->IF_X86_ELSE(SC_XAX, SC_R0));
 
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
+    IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
     sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) last_exit;
     LOG(THREAD, LOG_ASYNCH, 2,
         "\tset next_tag to "PFX", resuming in fcache_return\n", next_pc);
@@ -3580,7 +3614,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     instr_init(dcontext, &instr);
     IF_ARM({
         /* Be sure to use the interrupted mode and not the last-dispatch mode */
-            dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), &old_mode);
+        dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), &old_mode);
     });
     TRY_EXCEPT(dcontext, {
         decode(dcontext, instr_cache_pc, &instr);
@@ -4504,6 +4538,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
         }
+        IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
         return true; /* don't try another signal */
     }
     else if (action == DR_SIGNAL_SUPPRESS ||
@@ -4526,6 +4561,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
             /* after the default action we want to go to the sigcontext */
             dcontext->next_tag = canonicalize_pc_target(dcontext, (app_pc) sc->SC_XIP);
             ucontext_to_mcontext(get_mcontext(dcontext), uc);
+            IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
         }
         execute_default_from_dispatch(dcontext, sig, frame);
         return true;
@@ -4739,6 +4775,17 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
             report_app_problem(dcontext, APPFAULT_CRASH, pc, (byte *)sc->SC_FP,
                                "\nSignal %d delivered to application as default action.\n",
                                sig);
+            /* App may call sigaction to set handler SIG_DFL (unnecessary but legal),
+             * in which case DR will put a handler in info->app_sigaction[sig].
+             * We must clear it, otherwise, signal_thread_exit may cleanup the
+             * handler and set it to SIG_IGN instead.
+             */
+            if (info->app_sigaction[sig] != NULL) {
+                ASSERT(info->we_intercept[sig]);
+                handler_free(dcontext, info->app_sigaction[sig],
+                             sizeof(kernel_sigaction_t));
+                info->app_sigaction[sig] = NULL;
+            }
             /* N.B.: we don't have to restore our handler because the
              * default action is for the process (entire thread group for NPTL) to die!
              */
@@ -4910,7 +4957,7 @@ receive_pending_signal(dcontext_t *dcontext)
              * receive time, to properly handle sigsuspend (i#1340).
              */
             if (!info->sigpending[sig]->unblocked &&
-                !kernel_sigismember(&info->app_sigblocked, sig)) {
+                kernel_sigismember(&info->app_sigblocked, sig)) {
                 LOG(THREAD, LOG_ASYNCH, 3, "\tsignal %d is blocked!\n", sig);
                 continue;
             }
@@ -5853,16 +5900,15 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     ASSERT(ostd != NULL);
 
     if (ostd->terminate) {
-#ifdef X86
          /* PR 297902: exit this thread, without using any stack */
-# ifdef MACOS
+#ifdef MACOS
         /* We need a stack as 32-bit syscalls take args on the stack.
          * We go ahead and use it for x64 too for simpler sysenter return.
          * We don't have a lot of options: we're terminating, so we go ahead
          * and use the app stack.
          */
         byte *app_xsp = (byte *) get_mcontext(dcontext)->xsp;
-# endif
+#endif
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
         if (ksynch_kernel_support()) {
             /* can't use stack once set terminated to 1 so in asm we do:
@@ -5870,12 +5916,13 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
              *   futex_wake_all(&ostd->terminated in xax);
              *   semaphore_signal_all(&ostd->terminated in xax);
              */
-# ifdef MACOS
+#ifdef MACOS
             KSYNCH_TYPE *term = &ostd->terminated;
             ASSERT(sizeof(ostd->terminated.sem) == 4);
-# else
+#else
             volatile int *term = &ostd->terminated;
-# endif
+#endif
+#ifdef X86
             asm("mov %0, %%"ASM_XAX : : "m"(term));
 # ifdef MACOS
             asm("movl $1,4(%"ASM_XAX")");
@@ -5885,20 +5932,26 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
             asm("movl $1,(%"ASM_XAX")");
             asm("jmp dynamorio_futex_wake_and_exit");
 # endif
+#elif defined(ARM)
+            asm("ldr %%"ASM_R0", %0" : : "m"(term));
+            asm("mov %"ASM_R1", #1");
+            asm("str %"ASM_R1",[%"ASM_R0"]");
+            asm("b dynamorio_futex_wake_and_exit");
+#endif
         } else {
             ksynch_set_value(&ostd->terminated, 1);
+#ifdef X86
 # ifdef MACOS
             asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
             asm("jmp _dynamorio_sys_exit");
 # else
             asm("jmp dynamorio_sys_exit");
 # endif
+#elif defined(ARM)
+            asm("b dynamorio_sys_exit");
+#endif /* X86/ARM */
         }
         ASSERT_NOT_REACHED();
-#elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
         return false;
     }
 
@@ -6012,6 +6065,8 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
      * number for client nudges, but I don't think we want to kill the app
      * if an external nudger types the client id wrong.
      */
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: sig=%d code=%d errno=%d\n", __FUNCTION__,
+        siginfo->si_signo, siginfo->si_code, siginfo->si_errno);
     if (siginfo->si_signo != NUDGESIG_SIGNUM
         /* PR 477454: remove the IF_NOT_VMX86 once we have nudge-arg support */
         IF_NOT_VMX86(|| siginfo->si_code != SI_QUEUE
@@ -6049,6 +6104,11 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
         (decode(dcontext, (byte *)buf, &instr) == NULL ||
          /* check for ud2 (xref PR 523161) */
          instr_is_undefined(&instr))) {
+        LOG(THREAD, LOG_ASYNCH, 2, "%s: real illegal instr @"PFX"\n", __FUNCTION__,
+            sc->SC_XIP);
+        DOLOG(2, LOG_ASYNCH, {
+            disassemble_with_bytes(dcontext, (byte *)sc->SC_XIP, THREAD);
+        });
         instr_free(dcontext, &instr);
         return true; /* pass to app */
     }

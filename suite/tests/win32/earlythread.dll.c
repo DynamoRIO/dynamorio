@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,52 +30,44 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_ 1
+/* We create a thread in DllMain to test pre-image-entry threads */
 
-void
-memcache_init(void);
+#include <windows.h>
+#include <process.h> /* for _beginthreadex */
+#include "tools.h"
 
-void
-memcache_exit(void);
+static HANDLE thread;
+static DWORD exit_thread;
 
-bool
-memcache_initialized(void);
+int WINAPI
+run_func(void * arg)
+{
+    while (!exit_thread) {
+        Sleep(200);
+    }
+    return 0;
+}
 
-void
-memcache_lock(void);
+int
+__declspec(dllexport)
+in_lib(int arg)
+{
+    print("in lib\n");
+    return 4;
+}
 
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
-#endif
-
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size,
-                     uint prot, bool image);
-
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size,
-                       byte *old_base, size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *old_brk, byte *new_brk);
-
-#endif /* _MEMCACHE_H_ */
+BOOL APIENTRY
+DllMain(HANDLE module, DWORD reason_for_call, LPVOID reserved)
+{
+    int tid;
+    switch (reason_for_call) {
+    case DLL_PROCESS_ATTACH:
+        thread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
+        break;
+    case DLL_PROCESS_DETACH:
+        exit_thread = 1;
+        WaitForSingleObject((HANDLE)thread, INFINITE);
+        break;
+    }
+    return TRUE;
+}

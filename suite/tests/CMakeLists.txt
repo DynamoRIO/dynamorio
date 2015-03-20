@@ -967,7 +967,9 @@ function(template2expect outexpect template runops, key)
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
   endif ()
   if (${key}_is_cygwin)
-    # i#1478 option used to avoid cygwin messes up output issue
+    # i#1478 option used to avoid cygwin messes up output issue: though
+    # whether the output is messed up seems to depend on the cygwin version,
+    # so currently this is unused.
     set(rundefs "${rundefs} -DCYGWIN")
   endif ()
 
@@ -1829,11 +1831,8 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (NOT ARM)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    if (X64 OR "${CMAKE_SYSTEM_VERSION}" STRLESS "6.2")
-      # FIXME i#1035: this test crashes on win8 wow64
-      # FIXME i#1512: mark api.startstop FLAKY
-      tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
-    endif ()
+    # XXX i#1512: api.startstop is FLAKY
+    tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
   endif (NOT ARM)
   if (NOT ARM) # FIXME i#1551: port to ARM
     # test static decoder library
@@ -1929,9 +1928,7 @@ if (CLIENT_INTERFACE)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
-  if (NOT ARM) # FIXME i#1551: TLS support is broken for raw clone
-    tobuild(linux.clone linux/clone.c)
-  endif (NOT ARM)
+  tobuild(linux.clone linux/clone.c)
 
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
@@ -1991,14 +1988,13 @@ if (UNIX)
   tobuild(linux.sigplain101 linux/sigplain101.c)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
+  tobuild(linux.sigaction   linux/sigaction.c)
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild(linux.sigcontext linux/sigcontext.c)
   endif (NOT ARM)
-  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
-    tobuild(linux.thread linux/thread.c)
-    tobuild(linux.threadexit linux/threadexit.c)
-    tobuild(linux.threadexit2 linux/threadexit2.c)
-  endif (NOT ARM)
+  tobuild(linux.thread linux/thread.c)
+  tobuild(linux.threadexit linux/threadexit.c)
+  tobuild(linux.threadexit2 linux/threadexit2.c)
   tobuild(linux.signalfd linux/signalfd.c)
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
@@ -2008,14 +2004,14 @@ if (UNIX)
   target_link_libraries(linux.eintr ${libpthread})
   torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
-  if (NOT ARM) # FIXME i#1551: finish signal and thread support on ARM
-    tobuild(linux.sigsuspend linux/sigsuspend.c)
-    target_link_libraries(linux.sigsuspend ${libpthread})
-  endif (NOT ARM)
+  tobuild(linux.sigsuspend linux/sigsuspend.c)
+  target_link_libraries(linux.sigsuspend ${libpthread})
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
+
+  tobuild_ops(linux.readlink linux/readlink.c "-early_inject" "exec")
 
   # Test fully static executables, which we only support with early injection
   # or STATIC_LIBRARY.
@@ -2035,27 +2031,21 @@ if (UNIX)
   append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
   append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
 
-  if (NOT ARM) # FIXME i#1551: add thread support to ARM
-    # FIXME i#125: bugs in these, were disabled in the past
-    tobuild_ops(linux.vfork linux/vfork.c ""
-      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
-  endif (NOT ARM)
+  # FIXME i#125: bugs in these, were disabled in the past
+  tobuild_ops(linux.vfork linux/vfork.c ""
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
-  if (NOT ARM) # FIXME i#1551: add thread support to ARM
-    # runs of other builds with custom DR options
-    torunonly(linux.thread-reset linux.thread linux/thread.c
-      "-reset_at_fragment_count 100" "")
-    torunonly(linux.clone-reset linux.clone linux/clone.c
-      "-reset_at_fragment_count 100" "")
-  endif (NOT ARM)
+  # runs of other builds with custom DR options
+  torunonly(linux.thread-reset linux.thread linux/thread.c
+    "-reset_at_fragment_count 100" "")
+  torunonly(linux.clone-reset linux.clone linux/clone.c
+    "-reset_at_fragment_count 100" "")
   tobuild(pthreads.pthreads pthreads/pthreads.c)
-  if (NOT ARM) # FIXME i#1551: add synchall (signal) + fork support to ARM
-    tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
-    tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
-    # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
-    tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
-  endif (NOT ARM)
+  tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
+  tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
+  # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
+  tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
 
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
@@ -2071,13 +2061,11 @@ if (UNIX)
     endif (NOT ARM)
   endif (NOT CMAKE_COMPILER_IS_CLANG)
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    # this app is used in nudge tests
-    # XXX: should all these infloop tests be made cross-platform?
-    # or rely on runall tests that run calc covering this on Windows?
-    add_exe(linux.infloop linux/infloop.c)
-    torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
-  endif (NOT ARM)
+  # this app is used in nudge tests
+  # XXX: should all these infloop tests be made cross-platform?
+  # or rely on runall tests that run calc covering this on Windows?
+  add_exe(linux.infloop linux/infloop.c)
+  torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
@@ -2155,6 +2143,8 @@ else (UNIX)
   tobuild(win32.winapc win32/winapc.c)
   tobuild(win32.winthread win32/winthread.c)
   tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
+
+  tobuild_dll(win32.earlythread win32/earlythread.c "")
 
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
@@ -2262,6 +2252,14 @@ else (UNIX)
   # XXX i#829: mixed-mode stubs and abs far jmps require -heap_in_lower_4GB
   if (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
     if (X64)
+      # XXX i#1636: the earliest injection tests below seem to have the child
+      # native.  Until we figure out what's up I'm at least adding this test
+      # which does inject into the child:
+      torunonly(win32.mixedmode_late
+        ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+        win32/mixedmode.c
+        "-early_inject -heap_in_lower_4GB"
+        "${TEST_32BIT_PATH}/win32.mixedmode.exe;mixedmode")
       torunonly(win32.mixedmode
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
@@ -2287,11 +2285,9 @@ else (UNIX)
 
 endif (UNIX)
 
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  tobuild(security-common.codemod security-common/codemod.c)
-  tochcon(security-common.codemod execmem_exec_t)
-  mark_execstack(security-common.codemod)
-endif (NOT ARM)
+tobuild(security-common.codemod security-common/codemod.c)
+tochcon(security-common.codemod execmem_exec_t)
+mark_execstack(security-common.codemod)
 if (NOT ARM) # FIXME i#1551: port asm to ARM
   tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
   tochcon(security-common.decode-bad-stack execmem_exec_t)

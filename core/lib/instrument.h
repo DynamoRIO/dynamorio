@@ -2475,7 +2475,7 @@ DR_API
  * It also does not invoke the entry point for any dependent libraries
  * loaded as part of loading \p name.
  *
- * \note Currently this routine does not support Windows 8.
+ * \note Currently this routine does not support Windows 8 or higher.
  */
 dr_auxlib64_handle_t
 dr_load_aux_x64_library(const char *name);

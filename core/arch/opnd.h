@@ -731,6 +731,13 @@ typedef enum _dr_opnd_flags_t {
      * on its own.
      */
     DR_OPND_SHIFTED  = 0x02,
+    /**
+     * This operand should be combined with an adjacent operand to create a
+     * single value.  This flag is typically used on immediates: e.g., for ARM's
+     * OP_vbic_i64, two 32-bit immediate operands should be interpreted as the
+     * low and high parts of a 64-bit value.
+     */
+    DR_OPND_MULTI_PART = 0x04,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -776,6 +783,10 @@ struct _opnd_t {
         /* all are 64 bits or less */
         /* NULL_kind has no value */
         ptr_int_t immed_int;   /* IMMED_INTEGER_kind */
+        struct {
+            int low;   /* IMMED_INTEGER_kind with DR_OPND_MULTI_PART */
+            int high;   /* IMMED_INTEGER_kind with DR_OPND_MULTI_PART */
+        } immed_int_multi_part;
         float immed_float;     /* IMMED_FLOAT_kind */
         /* PR 225937: today we provide no way of specifying a 16-bit immediate
          * (encoded as a data16 prefix, which also implies a 16-bit EIP,
@@ -915,6 +926,18 @@ DR_API
  */
 opnd_t
 opnd_create_immed_uint(ptr_uint_t i, opnd_size_t data_size);
+
+DR_API
+/**
+ * Returns an unsigned immediate integer operand with value \p i and size
+ * \p data_size; \p data_size must be a OPSZ_ constant.
+ * This operand can be distinguished from a regular immediate integer
+ * operand by the flag #DR_OPND_MULTI_PART in opnd_get_flags() which tells
+ * the caller to use opnd_get_immed_int64() to retrieve the full value.
+ * \note 32-bit only: use opnd_create_immed_int() for 64-bit architectures.
+ */
+opnd_t
+opnd_create_immed_int64(int64 i, opnd_size_t data_size);
 
 DR_API
 /**
@@ -1270,6 +1293,14 @@ bool
 opnd_is_immed_int(opnd_t opnd);
 
 DR_API
+/**
+ * Returns true iff \p opnd is a special 64-bit immediate integer operand
+ * on a 32-bit architecture.
+ */
+bool
+opnd_is_immed_int64(opnd_t opnd);
+
+DR_API
 /** Returns true iff \p opnd is an immediate float operand. */
 bool
 opnd_is_immed_float(opnd_t opnd);
@@ -1464,17 +1495,37 @@ opnd_get_reg(opnd_t opnd);
 
 DR_API
 /**
- * Assumes \p opnd is either a register operand or a base+disp memory reference.
- * Returns the flags describing additional properties of the register or
- * the index register or displacement component of the memory reference.
+ * Assumes \p opnd is a register operand, base+disp memory reference, or
+ * an immediate integer.
+ * Returns the flags describing additional properties of the register,
+ * the index register or displacement component of the memory reference,
+ * or the immediate operand \p opnd.
  */
 dr_opnd_flags_t
 opnd_get_flags(opnd_t opnd);
 
 DR_API
-/** Assumes opnd is an immediate integer, returns its value. */
+/**
+ * Assumes \p opnd is a register operand, base+disp memory reference, or
+ * an immediate integer.
+ * Sets the flags describing additional properties of the operand to \p flags.
+ */
+void
+opnd_set_flags(opnd_t *opnd, dr_opnd_flags_t flags);
+
+DR_API
+/** Assumes opnd is an immediate integer and returns its value. */
 ptr_int_t
 opnd_get_immed_int(opnd_t opnd);
+
+DR_API
+/**
+ * Assumes opnd is an immediate integer with DR_OPND_MULTI_PART set.
+ * Returns its value.
+ * \note 32-bit only.
+ */
+int64
+opnd_get_immed_int64(opnd_t opnd);
 
 DR_API
 /**
@@ -1486,7 +1537,7 @@ float
 opnd_get_immed_float(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is a (near or far) program address, returns its value. */
+/** Assumes \p opnd is a (near or far) program address and returns its value. */
 app_pc
 opnd_get_pc(opnd_t opnd);
 

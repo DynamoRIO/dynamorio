@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -229,13 +229,15 @@ opnd_create_pc(app_pc pc)
 
 #ifdef X86
 # define OPND_GET_FLAGS(opnd) \
-    (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd), \
-     "opnd_get_flags called on non-reg non-base-disp opnd") \
+    (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || \
+     opnd_is_immed_int(opnd), \
+     "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") \
      0)
 #elif defined(ARM)
 # define OPND_GET_FLAGS(opnd) \
-    (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd), \
-     "opnd_get_flags called on non-reg non-base-disp opnd") \
+    (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || \
+     opnd_is_immed_int(opnd), \
+     "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") \
      (opnd).aux.flags)
 #endif
 #define opnd_get_flags OPND_GET_FLAGS

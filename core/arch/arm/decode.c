@@ -427,6 +427,133 @@ decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_sign
     return val;
 }
 
+/* This routine creates the decoded operand(s) itself */
+static bool
+decode_SIMD_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
+                           uint *counter INOUT)
+{
+    ptr_uint_t val; /* unsigned for logical shifts */
+    /* This is a SIMD modified immedate: an 8-bit value with a 4-bit
+     * "cmode" control which expands the value to 16 or 32 bits (from
+     * there it is tiled into the target SIMD register).
+     * We have the element size in the opcode.  We do not try to expand
+     * to the SIMD size as that would require a 128-bit immed, and it
+     * is a simple tiling.
+     */
+    uint cmode = decode_immed(di, 8, OPSZ_4b, false/*unsigned*/);
+    /* XXX; we sometimes need the "op" bit too but I don't really want
+     * to expand the immed name again and add OPSZ_13b just for this
+     * expansion that we're special-casing anyway.
+     */
+    uint op = decode_immed(di, 5, OPSZ_1b, false/*unsigned*/);
+    opnd_size_t sz = OPSZ_4;
+    val = (ptr_uint_t) decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+    val |= (decode_immed(di, 16, OPSZ_3b, false/*unsigned*/) << 4);
+    val |= (decode_immed(di, (optype == TYPE_I_b8_b28_b16_b0) ? 28 : 24,
+                         OPSZ_1b, false/*unsigned*/) << 7);
+    /* Val is "abcdefgh" for the following patterns: */
+    if ((cmode & 0xe) == 0) {
+        /* cmode = 000x => 00000000 00000000 00000000 abcdefgh */
+        /* nothing to do */
+    } else if ((cmode & 0xe) == 2) {
+        /* cmode = 001x => 00000000 00000000 abcdefgh 00000000 */
+        val = val << 8;
+    } else if ((cmode & 0xe) == 4) {
+        /* cmode = 010x => 00000000 abcdefgh 00000000 00000000 */
+        val = val << 16;
+    } else if ((cmode & 0xe) == 6) {
+        /* cmode = 011x => abcdefgh 00000000 00000000 00000000 */
+        val = val << 24;
+    } else if ((cmode & 0xe) == 8) {
+        /* cmode = 100x => 00000000 abcdefgh */
+        sz = OPSZ_2;
+    } else if ((cmode & 0xe) == 0xa) {
+        /* cmode = 101x => abcdefgh 00000000 */
+        val = val << 8;
+        sz = OPSZ_2;
+    } else if (cmode == 0xc) {
+        /* cmode = 1100 => 00000000 00000000 abcdefgh 11111111 */
+        val = (val << 8) | 0xff;
+    } else if (cmode == 0xd) {
+        /* cmode = 1101 => 00000000 abcdefgh 11111111 11111111 */
+        val = (val << 16) | 0xffff;
+    } else if (cmode == 0xe && op == 0) {
+        /* cmode = 1110 => abcdefgh */
+        sz = OPSZ_1;
+    } else if (cmode == 0xf && op == 0) {
+        /* cmode = 1111 => aBbbbbbc defgh000 00000000 00000000 */
+        /* XXX: ARM assembly seems to not show this floating-point immed in its
+         * expanded form, unlike the integer SIMD immediates: but it's a little
+         * confusing what the assembler expects.
+         */
+        uint a = (val >> 7) & 0x1;
+        uint b = (val >> 6) & 0x1;
+        uint notb = ((~val) >> 6) & 0x1;
+        val = (a << 31) | (notb << 30) | (b << 29) | (b << 28) | (b << 27) |
+            (b << 26) | ((val << 19) & 0x03ff0000);
+    } else if (cmode == 0xe && op == 1) {
+        /* cmode = 1110 =>
+         *   aaaaaaaa bbbbbbbb cccccccc dddddddd eeeeeeee ffffffff gggggggg hhhhhhhh
+         */
+        uint high = 0, low = 0;
+        uint64 val64;
+        high |= TEST(0x80, val) ? 0xff000000 : 0;
+        high |= TEST(0x40, val) ? 0x00ff0000 : 0;
+        high |= TEST(0x20, val) ? 0x0000ff00 : 0;
+        high |= TEST(0x10, val) ? 0x000000ff : 0;
+        low  |= TEST(0x08, val) ? 0xff000000 : 0;
+        low  |= TEST(0x04, val) ? 0x00ff0000 : 0;
+        low  |= TEST(0x02, val) ? 0x0000ff00 : 0;
+        low  |= TEST(0x01, val) ? 0x000000ff : 0;
+        val64 = ((uint64)high << 32) | low;
+        array[(*counter)++] = opnd_create_immed_int64(val64, OPSZ_8);
+        return true;
+   } else {
+        /* cmode = 1111, op = 1 => undefined */
+        val = 0;
+        return false;
+    }
+    array[(*counter)++] = opnd_create_immed_uint(val, sz);
+    return true;
+}
+
+/* This routine creates the decoded operand(s) itself */
+static bool
+decode_VFP_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
+                          uint *counter INOUT)
+{
+    ptr_uint_t val; /* unsigned for logical shifts */
+    /* This is a VFP modified immedate which is expanded.
+     * Xref VFPIMDExpandImm in the manual.
+     * XXX: ARM assembly seems to not show in its expanded form, unlike the
+     * integer SIMD immediates: but it's a little confusing what the assembler
+     * expects.
+     */
+    val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+    val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 4);
+    if (di->opcode == OP_vmov_f32) {
+        /* aBbbbbbc defgh000 00000000 00000000 */
+        uint a = (val >> 7) & 0x1;
+        uint b = (val >> 6) & 0x1;
+        uint notb = ((~val) >> 6) & 0x1;
+        val = (a << 31) | (notb << 30) | (b << 29) | (b << 28) | (b << 27) |
+            (b << 26) | ((val << 19) & 0x03ff0000);
+        array[(*counter)++] = opnd_create_immed_uint(val, OPSZ_4);
+    } else if (di->opcode == OP_vmov_f64) {
+        /* aBbbbbbb bbcdefgh 00000000 00000000 00000000 00000000 00000000 00000000 */
+        uint64 a = (val >> 7) & 0x1;
+        uint64 b = (val >> 6) & 0x1;
+        uint64 notb = ((~val) >> 6) & 0x1;
+        uint64 val64 = (a << 63) | (notb << 62) | (b == 1 ? 0x3fc0000000000000 : 0) |
+            (((uint64)val << 48) & 0x003f000000000000);
+        array[(*counter)++] = opnd_create_immed_int64(val64, OPSZ_8);
+    } else {
+        CLIENT_ASSERT(false, "invalid opcode for VFPExpandImm");
+        return false;
+    }
+    return true;
+}
+
 static bool
 decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
                      opnd_t *array, uint *counter INOUT)
@@ -992,6 +1119,14 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
+    case TYPE_I_b8_b24_b16_b0:
+    case TYPE_I_b8_b28_b16_b0: { /* OP_vbic, OP_vmov: 11:8,{24,28},18:16,3:0 */
+        if (opsize == OPSZ_12b) {
+            return decode_SIMD_modified_immed(di, optype, array, counter);
+        } else
+            CLIENT_ASSERT(false, "unsupported 8-24/28-16-0 split immed size");
+        return true;
+    }
     case TYPE_I_b12_b6: { /* T32.32: 14:12,7:6 */
         if (opsize == OPSZ_5b) {
             val = decode_immed(di, 6, OPSZ_2b, false/*unsigned*/);
@@ -1008,8 +1143,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 0, OPSZ_12b, false/*unsigned*/);
             val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 12);
         } else if (opsize == OPSZ_1) {
-            val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
-            val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 4);
+            return decode_VFP_modified_immed(di, optype, array, counter);
         } else
             CLIENT_ASSERT(false, "unsupported 16-0 split immed size");
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
@@ -1041,30 +1175,6 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 21, OPSZ_1b, false/*unsigned*/) << 1);
         } else
             CLIENT_ASSERT(false, "unsupported 21-6 split immed size");
-        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
-        return true;
-    }
-    case TYPE_I_b24_b16_b0: { /* OP_vbic, OP_vmov: 24,18:16,3:0 */
-        if (opsize == OPSZ_1) {
-            val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
-            val |= (decode_immed(di, 16, OPSZ_3b, false/*unsigned*/) << 4);
-            val |= (decode_immed(di, 24, OPSZ_1b, false/*unsigned*/) << 7);
-        } else
-            CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
-        array[(*counter)++] = opnd_create_immed_uint(val, opsize);
-        return true;
-    }
-    case TYPE_I_b28_b16_b0: { /* OP_vbic, OP_vmov: 24,18:16,3:0 */
-        if (opsize == OPSZ_1) {
-            val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
-            val |= (decode_immed(di, 16, OPSZ_3b, false/*unsigned*/) << 4);
-            val |= (decode_immed(di, 28, OPSZ_1b, false/*unsigned*/) << 7);
-        } else
-            CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
-        /* FIXME i#1551: this and TYPE_I_b24_b16_b0 are special SIMD
-         * immeds that shift their 8-bit value depending on the "cmode"
-         * separate immed (which we've encoded into opcode sizes).
-         */
         array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
@@ -1341,6 +1451,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, -val, opsize);
         return true;
     }
+    case TYPE_M_POS_I5:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regY(di), REG_NULL, 0,
+                                  decode_immed(di, 6, OPSZ_5b, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_POS_I5x2:
+        CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regY(di), REG_NULL, 0,
+                                  2*decode_immed(di, 6, OPSZ_5b, false/*unsigned*/),
+                                  opsize);
+        return true;
     case TYPE_M_POS_I5x4:
         CLIENT_ASSERT(di->T32_16, "supported in T32.16 only");
         array[(*counter)++] =
@@ -1430,7 +1554,7 @@ decode_ext_simd6_idx(uint instr_word)
 static inline uint
 decode_ext_simd5_idx(uint instr_word)
 {
-    return ((instr_word >> 7) & 0x1e) | ((instr_word >> 5) & 0x1); /*5 bits 11:8,5 */
+    return ((instr_word >> 7) & 0x1e) | ((instr_word >> 6) & 0x1); /*5 bits 11:8,6 */
 }
 
 static inline uint
@@ -2590,17 +2714,14 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
     for (check = instrlist_first(ilist); check != NULL; check = instr_get_next(check)) {
         byte buf[THUMB_LONG_INSTR_SIZE];
         instr_t tmp;
-        byte *pc;
+        byte *pc, *npc;
         app_pc addr = instr_get_raw_bits(check);
+        int check_len = instr_length(dcontext, check);
         instr_set_raw_bits_valid(check, false);
         pc = instr_encode_to_copy(dcontext, check, buf, addr);
         instr_init(dcontext, &tmp);
-        /* XXX: the fragile IT block tracking will get off if our encoding doesn't
-         * match the app's in length, b/c we're advancing according to app length
-         * while IT tracking will advance at our length.
-         */
-        decode_from_copy(dcontext, buf, addr, &tmp);
-        if (!instr_same(check, &tmp)) {
+        npc = decode_from_copy(dcontext, buf, addr, &tmp);
+        if (npc != pc || !instr_same(check, &tmp)) {
             LOG(THREAD, LOG_EMIT, 1, "ERROR: from app:  %04x %04x  ",
                 *(ushort*)addr, *(ushort*)(addr+2));
             instr_disassemble(dcontext, check, THREAD);
@@ -2610,6 +2731,20 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
             LOG(THREAD, LOG_EMIT, 1, "\n ");
         }
         ASSERT(instr_same(check, &tmp));
+        if (pc - buf != check_len) {
+            /* The fragile IT block tracking will get off if our encoding doesn't
+             * match the app's in length, b/c we're advancing according to app length
+             * while IT tracking will advance at our length.  We try to adjust for
+             * that here, unfortunately by violating abstraction.
+             * XXX: can we do better?  Can we make an interface for this that
+             * a client could use?  Should IT advancing compute orig_pc length
+             * instead of using di->t32_16 which is based on copy pc?
+             */
+            decode_state_t *ds = get_decode_state(dcontext);
+            if (ds->itb_info.num_instrs != 0) {
+                ds->pc += check_len - (pc - buf);
+            }
+        }
         instr_set_raw_bits_valid(check, true);
         instr_free(dcontext, &tmp);
     }

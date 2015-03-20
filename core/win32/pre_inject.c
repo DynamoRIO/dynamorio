@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -282,9 +282,10 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
         int res;
 #ifndef X64
         if (x64_in_wow64) {
-            init_func = (int_func_t) get_proc_address_64(dll, "dynamorio_app_init");
-            take_over_func = (void_func_t)
-                get_proc_address_64(dll, "dynamorio_app_take_over");
+            init_func = (int_func_t)(ptr_uint_t)/*we know <4GB*/
+                get_proc_address_64((uint64)dll, "dynamorio_app_init");
+            take_over_func = (void_func_t)(ptr_uint_t)/*we know <4GB*/
+                get_proc_address_64((uint64)dll, "dynamorio_app_take_over");
             VERBOSE_MESSAGE("dynamorio_app_init: 0x%08x; dynamorio_app_take_over: 0x%08x\n",
                             init_func, take_over_func);
         } else {
@@ -363,7 +364,15 @@ parameters_present(IF_NOT_X64(bool x64_in_wow64))
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved);
 
-void
+static bool
+running_on_win8_or_later(void)
+{
+    PEB *peb = get_own_peb();
+    return (peb->OSMajorVersion > 6 ||
+            (peb->OSMajorVersion == 6 && peb->OSMinorVersion >= 2));
+}
+
+bool
 process_attach()
 {
     int rununder_mask;
@@ -428,6 +437,11 @@ process_attach()
         }
     }
     ntdll_exit();
+    /* i#1522: self-unloading messes up the win8+ loader so we return false instead */
+    if (running_on_win8_or_later())
+        return false;
+    else
+        return true;
 }
 
 /* DLL entry point is in arch/pre_inject.asm */

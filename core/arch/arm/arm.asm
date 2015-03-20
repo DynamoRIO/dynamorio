@@ -248,21 +248,22 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to initstack for cleanup of dstack */
-        mov      REG_R1, #1
-        ldr      REG_R3, .Lgot1
-        add      REG_R3, REG_R3, pc
-        ldr      REG_R2, .Linitstack_mutex
-.LPIC1: ldr      REG_R2, [REG_R2, REG_R3]
+        /* we use r6, r7, and r8 here so that atomic_xchg doesn't clobber them */
+        mov      REG_R6, #1
+        ldr      REG_R8, .Lgot1
+        add      REG_R8, REG_R8, pc
+        ldr      REG_R7, .Linitstack_mutex
+.LPIC1: ldr      REG_R7, [REG_R7, REG_R8]
 cat_spin:
-        CALLC2(atomic_xchg, REG_R2, REG_R1)
+        CALLC2(atomic_xchg, REG_R7, REG_R6)
         cmp      REG_R0, #0
         beq      cat_have_lock
         yield
         b        cat_spin
 cat_have_lock:
         /* need to grab everything off dstack first */
-        ldr      REG_R6, [sp, #(1*ARG_SZ)]  /* sysnum */
-        ldr      REG_R7, [sp, #(2*ARG_SZ)]  /* sys_arg1 */
+        ldr      REG_R7, [sp, #(1*ARG_SZ)]  /* sysnum */
+        ldr      REG_R6, [sp, #(2*ARG_SZ)]  /* sys_arg1 */
         ldr      REG_R8, [sp, #(3*ARG_SZ)]  /* sys_arg2 */
         /* swap stacks */
         ldr      REG_R2, .Lgot2
@@ -287,9 +288,9 @@ cat_have_lock:
         mov      REG_R2, #-1
         CALLC2(atomic_add, REG_R3, REG_R2)
         /* finally, execute the termination syscall */
-        mov      REG_R0, REG_R7  /* sys_arg1 */
+        mov      REG_R0, REG_R6  /* sys_arg1 */
         mov      REG_R1, REG_R8  /* sys_arg2 */
-        mov      REG_R7, REG_R6  /* sysnum */
+        /* sysnum is in r7 already */
         bx       REG_R5  /* go do the syscall! */
         END_FUNC(cleanup_and_terminate)
 /* Data for PIC code above */
@@ -517,6 +518,45 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         svc      0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_nonrt_sigreturn)
+
+
+/* we need to exit without using any stack, to support
+ * THREAD_SYNCH_TERMINATED_AND_CLEANED.
+ */
+        DECLARE_FUNC(dynamorio_sys_exit)
+GLOBAL_LABEL(dynamorio_sys_exit:)
+#ifdef X64
+# error NYI: i#1569
+#else
+        mov      r0, #0 /* exit code: hardcoded */
+        mov      r7, #SYS_exit
+        svc      0
+#endif
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_sys_exit)
+
+
+/* we need to call futex_wakeall without using any stack, to support
+ * THREAD_SYNCH_TERMINATED_AND_CLEANED.
+ * takes int* futex in r0.
+ */
+        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
+GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
+#ifdef X64
+# error NYI: i#1569
+#else
+        mov      r5, #0 /* arg6 */
+        mov      r4, #0 /* arg5 */
+        mov      r3, #0 /* arg4 */
+        mov      r2, #0x7fffffff /* arg3 = INT_MAX */
+        mov      r1, #1 /* arg2 = FUTEX_WAKE */
+        /* arg1 = &futex, already in r0 */
+        mov      r7, #240 /* SYS_futex */
+        svc      0
+#endif
+        b        GLOBAL_REF(dynamorio_sys_exit)
+        END_FUNC(dynamorio_futex_wake_and_exit)
+
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
