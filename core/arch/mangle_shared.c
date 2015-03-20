@@ -1001,6 +1001,20 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 #endif
             IF_X64(ASSERT_TRUNCATE(int, int, value));
             syscall = (int) value;
+#ifdef ARM
+            if (opnd_get_size(instr_get_dst(prev, 0)) != OPSZ_PTR) {
+                /* sub-reg write: special-case movw,movt, else bail */
+                if (instr_get_opcode(prev) == OP_movt) {
+                    ptr_int_t val2;
+                    prev = instr_get_prev_expanded(dcontext, ilist, prev);
+                    if (prev != NULL && instr_is_mov_constant(prev, &val2)) {
+                        syscall = (int) (value << 16) | (val2 & 0xffff);
+                    } else
+                        return -1;
+                } else
+                    return -1;
+            }
+#endif
 #ifdef CLIENT_INTERFACE
             /* if client added cti target in between, bail and assume non-ignorable */
             for (walk = instrlist_first_expanded(dcontext, ilist);
