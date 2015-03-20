@@ -135,7 +135,8 @@ enum {
 };
 
 /* simple way to disable sandboxing */
-#define SANDBOX_FLAG() (INTERNAL_OPTION(cache_consistency) ? FRAG_SELFMOD_SANDBOXED : 0)
+#define SANDBOX_FLAG() \
+    (INTERNAL_OPTION(hw_cache_consistency) ? FRAG_SELFMOD_SANDBOXED : 0)
 
 /* Fields only used for written_areas */
 typedef struct _ro_vs_sandbox_data_t {
@@ -637,7 +638,7 @@ vm_make_writable(byte *pc, size_t size)
     DEBUG_DECLARE(bool ok = )
         make_writable(start_pc, final_size);
     ASSERT(ok);
-    ASSERT(INTERNAL_OPTION(cache_consistency));
+    ASSERT(INTERNAL_OPTION(hw_cache_consistency));
 }
 
 static void
@@ -645,7 +646,7 @@ vm_make_unwritable(byte *pc, size_t size)
 {
     byte *start_pc = (byte *)ALIGN_BACKWARD(pc, PAGE_SIZE);
     size_t final_size = ALIGN_FORWARD(size + (pc - start_pc), PAGE_SIZE);
-    ASSERT(INTERNAL_OPTION(cache_consistency));
+    ASSERT(INTERNAL_OPTION(hw_cache_consistency));
     make_unwritable(start_pc, final_size);
 
     /* case 8308: We should never call vm_make_unwritable if
@@ -989,7 +990,8 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
              * existing region to be writable to handle cases of os region
              * merging due to our consistency protection changes */
             ASSERT(TEST(VM_WRITABLE, v->buf[i].vm_flags) ||
-                   !TEST(VM_WRITABLE, vm_flags));
+                   !TEST(VM_WRITABLE, vm_flags) ||
+                   !INTERNAL_OPTION(hw_cache_consistency));
             /* FIXME: case 7877: if new is VM_MADE_READONLY and old is not, we
              * must mark old overlapping portion as VM_MADE_READONLY.  Things only
              * worked now b/c VM_MADE_READONLY==VM_WRITABLE, so we can add
@@ -6492,6 +6494,11 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
     }
 #endif
 
+#ifndef PROGRAM_SHEPHERDING
+    if (!INTERNAL_OPTION(hw_cache_consistency))
+        return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
+#endif
+
     /* look for calls making code writable!
      * cache is_executable here w/o holding lock -- if decide to perform state
      * change via flushing, we'll re-check overlap there and all will be atomic
@@ -6499,7 +6506,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
      * deadlock issues w/ thread_initexit_lock
      */
     is_executable = executable_vm_area_overlap(base, base + size, false/*have no lock*/);
-    if (is_executable && TEST(MEMPROT_WRITE, prot) && !TEST(MEMPROT_EXEC, prot)) {
+    if (is_executable && TEST(MEMPROT_WRITE, prot) && !TEST(MEMPROT_EXEC, prot) &&
+        INTERNAL_OPTION(hw_cache_consistency)) {
 #ifdef WINDOWS
         app_pc IAT_start, IAT_end;
         /* Could not page-align and ask for original params but some hookers
@@ -6621,7 +6629,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             hotp_only_mem_prot_change(base, size, true, false);
 #endif
     }
-    else if (is_executable && TESTALL(MEMPROT_WRITE | MEMPROT_EXEC, prot)) {
+    else if (is_executable && TESTALL(MEMPROT_WRITE | MEMPROT_EXEC, prot) &&
+             INTERNAL_OPTION(hw_cache_consistency)) {
         /* Need to flush all fragments in [base, base+size), unless
          * they are ALL already writable
          */
@@ -6650,7 +6659,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
         /* we flush_fragments_finish after security checks to keep them atomic */
     }
     else if (is_executable && is_executable_area_writable(base) &&
-             !TEST(MEMPROT_WRITE, prot) && TEST(MEMPROT_EXEC, prot)) {
+             !TEST(MEMPROT_WRITE, prot) && TEST(MEMPROT_EXEC, prot) &&
+             INTERNAL_OPTION(hw_cache_consistency)) {
         /* executable & writable region being made read-only
          * make sure any future write faults are given to app, not us
          */
@@ -6674,7 +6684,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
      * FIXME: perhaps should do a write_keep for this is_executable, to bind
      * to the subsequent exec areas changes -- though case 2833 would still be there
      */
-    else if (!is_executable && TEST(MEMPROT_EXEC, prot)) {
+    else if (!is_executable && TEST(MEMPROT_EXEC, prot) &&
+             INTERNAL_OPTION(hw_cache_consistency)) {
         if (TEST(MEMPROT_WRITE, prot)) {
             /* do NOT add to executable list if writable */
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
@@ -7023,7 +7034,7 @@ handle_delay_readonly(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
      * would already have had to execute (to get faulting write)
      * so region would already have had to go through here */
     ASSERT(!TEST(FRAG_SELFMOD_SANDBOXED, area->frag_flags));
-    if (!is_on_stack(dcontext, pc, NULL) && INTERNAL_OPTION(cache_consistency)) {
+    if (!is_on_stack(dcontext, pc, NULL) && INTERNAL_OPTION(hw_cache_consistency)) {
         vm_make_unwritable(area->start, area->end - area->start);
         area->vm_flags |= VM_MADE_READONLY;
     } else {
@@ -7889,7 +7900,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                     LOG(GLOBAL, LOG_VMAREAS, 2,
                         "\tNew executable region "PFX"-"PFX" is writable, but selfmod, "
                         "so leaving as writable\n", base_pc, base_pc+size);
-                } else if (INTERNAL_OPTION(cache_consistency)) {
+                } else if (INTERNAL_OPTION(hw_cache_consistency)) {
                     /* Make entire region read-only
                      * If that's too big, i.e., it contains some data, the
                      * region size will be corrected when we get a write
@@ -8025,7 +8036,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||
-               TEST(FRAG_SELFMOD_SANDBOXED, *flags));
+               TEST(FRAG_SELFMOD_SANDBOXED, *flags) ||
+               !INTERNAL_OPTION(hw_cache_consistency));
         ASSERT(is_readable_without_exception_try(pc, 1));
     });
 

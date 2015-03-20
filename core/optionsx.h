@@ -1936,7 +1936,8 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 #ifdef WINDOWS
     PC_OPTION_INTERNAL(bool, noasynch, "disable asynchronous event interceptions")
 #endif
-    PC_OPTION_DEFAULT_INTERNAL(bool, cache_consistency, true, "keep code cache consistent?")
+    PC_OPTION_DEFAULT_INTERNAL(bool, hw_cache_consistency, IF_ARM_ELSE(false, true),
+        "keep code cache consistent in face of hardware implicit icache sync")
     OPTION_DEFAULT_INTERNAL(bool, sandbox_writes, true, "check each sandboxed write for selfmod?")
     /* FIXME: off by default until dll load perf issues are solved: case 3559 */
     OPTION_DEFAULT_INTERNAL(bool, safe_translate_flushed, false,
