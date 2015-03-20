@@ -403,6 +403,8 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
                                                           OPND_CREATE_INT32(0)),
                                       layout.substitution_xl8);
                         instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
+                        instr_set_meta(return_placeholder);
+                        instr_set_our_mangling(return_placeholder, true);
                         /* Append the placeholder manually, because the caller can call
                          * `instrlist_append()` with a "sublist" of instr_t.
                          */

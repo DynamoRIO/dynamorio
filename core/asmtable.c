@@ -1,6 +1,8 @@
 #include "lib/instrument.h"
 #include "asmtable.h"
 
+#ifdef JITOPT
+
 static void
 asmtable_init(asmtable_t *table, uint hash_bits)
 {
@@ -139,3 +141,4 @@ asmtable_unlock(asmtable_t *table)
     mutex_unlock(table->lock);
 }
 
+#endif /* JITOPT */

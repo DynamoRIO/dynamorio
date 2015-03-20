@@ -36,6 +36,7 @@
 #include "dr_annotation.h"
 
 #define MAX_MODE_HISTORY 100
+#define BB_TRUNCATION_LENGTH 2
 
 #define PRINT(s) dr_printf("      <"s">\n")
 #define PRINTF(s, ...) dr_printf("      <"s">\n", __VA_ARGS__)
@@ -185,42 +186,34 @@ dr_emit_flags_t
 bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
-    instr_t *prev, *first = instrlist_first(bb), *instr = instrlist_last(bb);
+    uint app_instruction_count = 0;
+    instr_t *next, *instr = instrlist_first(bb);
 
 #ifdef WINDOWS
     app_pc fragment = dr_fragment_app_pc(tag);
 
-    if ((uint) tag == 0x769d1d24)
-        dr_printf("Magic tag: "PFX"\n", tag);
-
     if ((fragment == skip_truncation[0]) || (fragment == skip_truncation[1])) // || (tag == (app_pc) 0x776cc442) || (tag == (app_pc) 0x769d1d17))
-        return DR_EMIT_DEFAULT;
+        dr_printf("foo\n");
+        //return DR_EMIT_DEFAULT;
 #endif
 
     //dr_printf(PFX": ", tag);
 
-    while ((first != NULL) && !instr_ok_to_mangle(first))
-        first = instr_get_next(first);
-    if (first != NULL) {
-        while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr)) {
-
-            //dr_printf("(m)0x%x ", instr_get_opcode(instr));
-
-            prev = instr_get_prev(instr);
-            instrlist_remove(bb, instr);
-            instr_destroy(drcontext, instr);
-            instr = prev;
+    while (instr != NULL) {
+        next = instr_get_next(instr);
+        if (!instr_is_meta(instr)) {
+            if (app_instruction_count == BB_TRUNCATION_LENGTH) {
+                instrlist_remove(bb, instr);
+                instr_destroy(drcontext, instr);
+                //test_stats.num_instructions_truncated++;
+                //truncated = true;
+            } else {
+                app_instruction_count++;
+            }
         }
-        if ((instr != NULL) && (instr != first)) { // && (tag != (app_pc) 0x776cc442) && (tag != (app_pc) 0x769d1d17)) {
-
-            //dr_printf("0x%x ", instr_get_opcode(instr));
-
-            instrlist_remove(bb, instr);
-            instr_destroy(drcontext, instr);
-        }
-
-        //dr_printf("\n");
+        instr = next;
     }
+
     return DR_EMIT_DEFAULT;
 }
 

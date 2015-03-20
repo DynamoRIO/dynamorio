@@ -7372,8 +7372,12 @@ static void
 handle_delay_readonly(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
 {
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
+#ifdef JIT_MONITORED_AREAS
     ASSERT(TESTALL(VM_DELAY_READONLY|VM_WRITABLE, area->vm_flags) ||
            TESTALL(VM_DELAY_READONLY|VM_JIT_MONITORED, area->vm_flags));
+#else
+    ASSERT(TESTALL(VM_DELAY_READONLY|VM_WRITABLE, area->vm_flags));
+#endif
     /* should never get a selfmod region here, to be marked selfmod
      * would already have had to execute (to get faulting write)
      * so region would already have had to go through here */
@@ -8382,6 +8386,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     result = true;
 
     /* we are building a real bb, assert consistency checks */
+#ifdef JIT_MONITORED_AREAS
     DOCHECK(1, {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
@@ -8391,6 +8396,15 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                TEST(VM_JIT_MONITORED, area->vm_flags));
         ASSERT(is_readable_without_exception_try(pc, 1));
     });
+#else
+    DOCHECK(1, {
+        uint prot2;
+        ok = get_memory_info(pc, NULL, NULL, &prot2);
+        ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||
+               TEST(FRAG_SELFMOD_SANDBOXED, *flags));
+        ASSERT(is_readable_without_exception_try(pc, 1));
+    });
+#endif
 
  check_thread_return:
     check_thread_vm_area_cleanup(dcontext, false/*not aborting*/,

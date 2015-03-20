@@ -4,6 +4,8 @@
 
 #include "globals.h"
 
+#ifdef JITOPT
+
 typedef struct asmtable_entry_t asmtable_entry_t;
 struct asmtable_entry_t {
     ptr_uint_t key;
@@ -48,4 +50,7 @@ asmtable_lock(asmtable_t *table);
 void
 asmtable_unlock(asmtable_t *table);
 
+#endif /* JITOPT */
+
 #endif
+
