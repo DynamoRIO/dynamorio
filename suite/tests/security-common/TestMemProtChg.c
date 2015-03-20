@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,6 +52,7 @@ static void
 do_test(char *buf, size_t len)
 {
     int i, j;
+    const int stride = IF_X86_ELSE(1, 4/*A32 alignment*/);
     char *code;
     protect_mem(buf, len, ALLOW_READ|ALLOW_WRITE);
     for (i = 0; i < 7; i++) {
@@ -66,11 +67,11 @@ do_test(char *buf, size_t len)
                 test_print(code, 3);
                 test_print(code, 1);
                 code = copy_to_buf(buf, len, NULL, CODE_SELF_MOD, COPY_NORMAL);
-                test_print(code, 43981);
+                test_print(code, 43981); /* 0xabcd which is < max 16-bit for ARM */
                 test_print(code, 4660);
             }
-            buf++;
-            len--;
+            buf += stride;
+            len -= stride;
             if (j > 1 && j < 6) {
                 protect_mem_check(buf, len, ALLOW_READ|ALLOW_WRITE, prot_codes[j]);
                 code = copy_to_buf(buf, len, NULL, CODE_SELF_MOD, COPY_NORMAL);

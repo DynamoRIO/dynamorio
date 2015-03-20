@@ -485,38 +485,54 @@ START_FILE
         DECLARE_FUNC(code_self_mod)
 GLOBAL_LABEL(code_self_mod:)
 #ifdef X86
-        mov  REG_XCX, ARG1
-        call next_instr
+        mov      REG_XCX, ARG1
+        call     next_instr
       next_instr:
-        pop  REG_XDX
+        pop      REG_XDX
     /* add to retaddr: 1 == pop
      *                 3 == mov ecx into target
      *                 1 == opcode of target movl
      */
-        mov  DWORD [REG_XDX + 5], ecx /* the modifying store */
-        mov  eax,HEX(12345678) /* this instr's immed gets overwritten */
-        mov  ecx,0 /* counter for diagnostics */
+        mov      DWORD [REG_XDX + 5], ecx /* the modifying store */
+        mov      eax,HEX(12345678) /* this instr's immed gets overwritten */
+        mov      ecx,0 /* counter for diagnostics */
       repeat1:
-        dec  eax
-        inc  ecx
-        cmp  eax,0
-        jnz  repeat1
-        mov  eax,ecx
+        dec      eax
+        inc      ecx
+        cmp      eax,0
+        jnz      repeat1
+        mov      eax,ecx
         ret
 #elif defined(ARM)
-        adr  r2, tomodify
-        sub  r2, r2, #1
-        strb ARG1, [r2] /* the modifying store */
-        movw r0,#0x1234 /* this instr's immed gets overwritten */
-      tomodify: /* next instr, so we can write to bottom byte of prior */
-        mov  r1, #0 /* counter for diagnostics */
+        adr      r2, tomodify
+        /* We only support a 16-bit arg */
+        strb     ARG1, [r2]     /* modifying store: byte 0 */
+        asr      ARG1, #8
+        mov      r3, ARG1
+        bfc      r3, #4, #4
+        strb     r3, [r2, #1]   /* the modifying store: byte 1 bottom nibble */
+        asr      ARG1, #4
+        bfc      ARG1, #4, #4
+        strb     ARG1, [r2, #2] /* modifying store: byte 1 top nibble */
+        mov      r0, r2       /* start of region to flush */
+        add      r1, r2, #4   /* end of region to flush */
+        /* We can't call cache_flush() b/c this code will be copied but not relocated */
+        mov      r2, #0       /* flags: must be 0 */
+        push     {r7}
+        movw     r7, #0x0002  /* SYS_cacheflush bottom half */
+        movt     r7, #0x000f  /* SYS_cacheflush top half */
+        svc      #0           /* flush icache */
+        pop      {r7}
+      tomodify:
+        movw     r0, #0x1234 /* this instr's immed gets overwritten: e3010234 */
+        mov      r1, #0 /* counter for diagnostics */
       repeat1:
-        sub  r0, r0, #1
-        add  r1, r1, #1
-        cmp  r0, #0
-        bne  repeat1
-        mov  r0, r1
-        bx   lr
+        sub      r0, r0, #1
+        add      r1, r1, #1
+        cmp      r0, #0
+        bne      repeat1
+        mov      r0, r1
+        bx       lr
 #else
 # error NYI
 #endif
@@ -526,7 +542,7 @@ GLOBAL_LABEL(code_self_mod:)
 #define FUNCNAME code_inc
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov  REG_SCRATCH0, ARG1
+        mov      REG_SCRATCH0, ARG1
         INC(REG_SCRATCH0)
         RETURN
         END_FUNC(FUNCNAME)
@@ -535,7 +551,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME code_dec
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov  REG_SCRATCH0, ARG1
+        mov      REG_SCRATCH0, ARG1
         DEC(REG_SCRATCH0)
         RETURN
         END_FUNC(FUNCNAME)
@@ -544,7 +560,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME dummy
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov  REG_SCRATCH0, HEX(1)
+        mov      REG_SCRATCH0, HEX(1)
         RETURN
         END_FUNC(FUNCNAME)
 
@@ -553,17 +569,35 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        lea     REG_XAX, [REG_XSP]  /* Load address of retaddr. */
-        xchg    REG_XAX, ARG1       /* Swap with function pointer in arg1. */
-        jmp     REG_XAX             /* Call function, now with &retaddr as arg1. */
+        lea      REG_XAX, [REG_XSP]  /* Load address of retaddr. */
+        xchg     REG_XAX, ARG1       /* Swap with function pointer in arg1. */
+        jmp      REG_XAX             /* Call function, now with &retaddr as arg1. */
 #elif defined(ARM)
-        mov     r1, ARG1
-        mov     r0, lr
-        bx      r1
+        mov      r1, ARG1
+        mov      r0, lr
+        bx       r1
 #else
 # error NYI
 #endif
         END_FUNC(FUNCNAME)
+
+#ifdef ARM
+    /* gcc's __clear_cache is not easily usable: no header, need lib; so we just
+     * roll our own.
+     */
+# undef FUNCNAME
+# define FUNCNAME flush_icache
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        push     {r7}
+        mov      r2, #0       /* flags: must be 0 */
+        movw     r7, #0x0002  /* SYS_cacheflush bottom half */
+        movt     r7, #0x000f  /* SYS_cacheflush top half */
+        svc      #0           /* flush icache */
+        pop      {r7}
+        bx       lr
+        END_FUNC(FUNCNAME)
+#endif
 
 END_FILE
 

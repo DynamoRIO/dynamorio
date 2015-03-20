@@ -2286,15 +2286,13 @@ endif (X64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
 
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  set (TestMemProtChg "security-common.TestMemProtChg")
-  if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
-    set (TestMemProtChg "${TestMemProtChg}_FLAKY")
-  endif (UNIX)
-  tobuild("${TestMemProtChg}" security-common/TestMemProtChg.c)
-  tochcon("${TestMemProtChg}" wine_exec_t)
-  mark_execstack("${TestMemProtChg}")
-endif (NOT ARM)
+set (TestMemProtChg "security-common.TestMemProtChg")
+if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
+  set (TestMemProtChg "${TestMemProtChg}_FLAKY")
+endif (UNIX)
+tobuild("${TestMemProtChg}" security-common/TestMemProtChg.c)
+tochcon("${TestMemProtChg}" wine_exec_t)
+mark_execstack("${TestMemProtChg}")
 
 ###########################################################################
 
