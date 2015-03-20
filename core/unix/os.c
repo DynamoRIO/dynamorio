@@ -4460,6 +4460,7 @@ ignorable_system_call_normalized(int num)
 #if defined(LINUX) && defined(ARM)
     /* syscall changes app's thread register */
     case SYS_set_tls:
+    case SYS_cacheflush:
 #endif
         return false;
 #ifdef LINUX
@@ -6625,6 +6626,24 @@ pre_system_call(dcontext_t *dcontext)
         } else {
             ASSERT_NOT_REACHED();
         }
+        break;
+    }
+    case SYS_cacheflush: {
+        /* We assume we don't want to change the executable_areas list or change
+         * the selfmod status of this region: else we should call something
+         * that invokes handle_modified_code() in a way that handles a bigger
+         * region than a single write.
+         */
+        app_pc start = (app_pc) sys_param(dcontext, 0);
+        app_pc end = (app_pc) sys_param(dcontext, 1);
+        LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 2,
+            "explicit icache flush of "PFX"-"PFX"\n", start, end);
+        flush_fragments_from_region(dcontext, start, end - start,
+                                    /* An unlink flush should be fine: the app must
+                                     * use synch to ensure other threads see the
+                                     * new code.
+                                     */
+                                    false/*don't force synchall*/);
         break;
     }
 # endif /* ARM */
