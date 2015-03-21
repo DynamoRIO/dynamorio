@@ -44,9 +44,7 @@ typedef struct _test_stats_t {
 
 static test_stats_t test_stats;
 static bool bb_truncation_mode;
-
-/* <= 2 covers the corner case of truncating an intercept bb (xref i#1614) */
-#define BB_TRUNCATION_LENGTH 2
+static uint bb_truncation_length;
 
 static ptr_uint_t
 handle_running_on_valgrind(dr_vg_client_request_t *request)
@@ -88,7 +86,7 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
     while (instr != NULL) {
         next = instr_get_next(instr);
         if (!instr_is_meta(instr)) {
-            if (app_instruction_count == BB_TRUNCATION_LENGTH) {
+            if (app_instruction_count == bb_truncation_length) {
                 instrlist_remove(bb, instr);
                 instr_destroy(drcontext, instr);
                 test_stats.num_instructions_truncated++;
@@ -130,7 +128,9 @@ void dr_init(client_id_t id)
     if (strcmp(options, "full-decode") == 0) {
         dr_printf("Init vg-annot with full decoding.\n");
         dr_register_bb_event(empty_bb_event);
-    } else if (strcmp(options, "truncate") == 0) {
+    } else if (strlen(options) >= 8 && strncmp(options, "truncate", 8) == 0) {
+        bb_truncation_length = (options[9] - '0'); /* format is "truncate@n" (0<n<10) */
+        ASSERT(bb_truncation_length < 10 && bb_truncation_length > 0);
         dr_printf("Init vg-annot with bb truncation.\n");
         dr_register_bb_event(bb_event_truncate);
         bb_truncation_mode = true;

@@ -1540,9 +1540,12 @@ if (CLIENT_INTERFACE)
       set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
       torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
         client-interface/vg-annot.c "full-decode" "-max_bb_instrs 3" "")
-      set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
-      torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
-        client-interface/vg-annot.c "truncate" "" "")
+      set(client.vg-annot.bb-truncate-1_expectbase "vg-annot.bb-truncate")
+      torunonly_ci(client.vg-annot.bb-truncate-1 client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "truncate@1" "" "")
+      set(client.vg-annot.bb-truncate-2_expectbase "vg-annot.bb-truncate")
+      torunonly_ci(client.vg-annot.bb-truncate-2 client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "truncate@2" "" "")
       tobuild_ci(client.vg-annot-opt client-interface/vg-annot.c "" "" "")
       optimize(client.vg-annot-opt)
       set(client.vg-annot-opt.full-decode_expectbase "vg-annot.full-decode")
@@ -1554,7 +1557,7 @@ if (CLIENT_INTERFACE)
         "full-decode" "-max_bb_instrs 3" "")
       set(client.vg-annot-opt.bb-truncate_expectbase "vg-annot.bb-truncate")
       torunonly_ci(client.vg-annot-opt.bb-truncate client.vg-annot-opt client.vg-annot.dll
-        client-interface/vg-annot.c "truncate" "" "")
+        client-interface/vg-annot.c "truncate@2" "" "")
     endif (UNIX OR NOT X64)
   endif (ANNOTATIONS AND NOT ARM)
   if (UNIX)
@@ -1613,6 +1616,14 @@ if (CLIENT_INTERFACE)
   endif (PROGRAM_SHEPHERDING)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
+    if (WIN32)
+      set(client.truncate.thread-churn-1_expectbase "truncate.thread-churn")
+      torunonly_ci(client.truncate.thread-churn-1 win32.threadchurn client.truncate.dll
+        client-interface/truncate.c "1" "" "")
+      set(client.truncate.thread-churn-2_expectbase "truncate.thread-churn")
+      torunonly_ci(client.truncate.thread-churn-2 win32.threadchurn client.truncate.dll
+        client-interface/truncate.c "2" "" "")
+    endif (WIN32)
     tobuild_ci(client.dr_options client-interface/dr_options.c
       "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
   endif (NOT ARM)

@@ -488,6 +488,17 @@ is_on_interception_initial_route(byte *pc);
 bool
 is_syscall_trampoline(byte *pc, byte **tgt);
 
+static inline bool
+could_be_hook_occluded_pc(app_pc pc)
+{
+    extern uint intercept_occlusion_mask;
+    return ((((uint) IF_X64((ptr_uint_t)) pc) & intercept_occlusion_mask) ==
+            intercept_occlusion_mask);
+}
+
+byte *
+get_intercept_pc_from_app_pc(app_pc pc, bool occlusions_only, bool exclude_start);
+
 app_pc
 get_app_pc_from_intercept_pc(byte *pc);
 

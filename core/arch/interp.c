@@ -2885,8 +2885,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 
     /* Client might have truncated: re-set fall-through, accounting for annotations. */
     if (last_app_instr != NULL) {
-#ifdef ANNOTATIONS
         bool adjusted_cur_pc = false;
+        app_pc xl8 = instr_get_translation(last_app_instr);
+#ifdef ANNOTATIONS
         if (annotation_label != NULL) {
             if (found_instrumentation_pc) {
                 /* i#1613: if the last app instruction precedes an annotation, extend the
@@ -2895,6 +2896,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                  */
                 bb->cur_pc = trailing_annotation_pc;
                 adjusted_cur_pc = true;
+                LOG(THREAD, LOG_INTERP, 3, "BB ends immediately prior to an annotation. "
+                    "Setting `bb->cur_pc` (for fall-through) to "PFX" so that the "
+                    "annotation will be included.\n", bb->cur_pc);
             } else {
                 /* i#1613: the client removed the app instruction prior to an annotation.
                  * We infer that the client wants to skip the annotation. Remove it now.
@@ -2908,25 +2912,36 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 instr_destroy(dcontext, annotation_placeholder);
             }
         }
-        if (!adjusted_cur_pc) {
 #endif
-            /* We do not take instr_length of what the client put in, but rather
-             * the length of the translation target
-             */
-            app_pc last_app_pc;
 #if defined(WINDOWS) && !defined(STANDALONE_DECODER)
-            /* i#1614: truncation of an intercept resumes in the intercept. */
-            if (is_part_of_interception(instr_get_translation(last_app_instr)))
-                last_app_pc = instr_get_raw_bits(last_app_instr);
-            else
-#endif
-                last_app_pc = instr_get_translation(last_app_instr);
-            bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
-#ifdef ANNOTATIONS
+        /* i#1632: if the last app instruction was taken from an intercept because it was
+         * occluded by the corresponding hook, `bb->cur_pc` should point to the original
+         * app pc (where that instruction was copied from). Cannot use `decode_next_pc()`
+         * on the original app pc because it is now in the middle of the hook.
+         */
+        if (!adjusted_cur_pc && could_be_hook_occluded_pc(xl8)) {
+            app_pc intercept_pc = get_intercept_pc_from_app_pc(xl8,
+                                                               true /* occlusions only */,
+                                                               false /* exclude start */);
+            if (intercept_pc != NULL) {
+                app_pc next_intercept_pc = decode_next_pc(dcontext, intercept_pc);
+                bb->cur_pc = xl8 + (next_intercept_pc - intercept_pc);
+                adjusted_cur_pc = true;
+                LOG(THREAD, LOG_INTERP, 3, "BB ends in the middle of an intercept. "
+                    "Offsetting `bb->cur_pc` (for fall-through) to "PFX" in parallel "
+                    "to intercept instr at "PFX"\n", intercept_pc, bb->cur_pc);
+            }
         }
 #endif
-        LOG(THREAD, LOG_INTERP, 3,
-            "setting cur_pc (for fall-through) to" PFX"\n", bb->cur_pc);
+        /* We do not take instr_length of what the client put in, but rather
+         * the length of the translation target
+         */
+        if (!adjusted_cur_pc) {
+            bb->cur_pc = decode_next_pc(dcontext, xl8);
+            LOG(THREAD, LOG_INTERP, 3,
+                "setting cur_pc (for fall-through) to" PFX"\n", bb->cur_pc);
+        }
+
         /* don't set bb->instr if last instr is still syscall/int.
          * FIXME: I'm not 100% convinced the logic here covers everything
          * build_bb_ilist does.
@@ -3118,6 +3133,25 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
     /* start converting instructions into IR */
     check_new_page_start(dcontext, bb);
+
+#if defined(WINDOWS) && !defined(STANDALONE_DECODER) && defined(CLIENT_INTERFACE)
+    /* i#1632: if `bb->start_pc` points into the middle of a DR intercept hook, change
+     * it so instructions are taken from the intercept instead (note that
+     * `instr_set_translation` will hide this adjustment from the client). N.B.: this
+     * must follow `check_new_page_start()` (above) or `bb.vmlist` will be wrong.
+     */
+    if (could_be_hook_occluded_pc(bb->start_pc)) {
+        app_pc intercept_pc = get_intercept_pc_from_app_pc(bb->start_pc,
+                                                           true /* occlusions only */,
+                                                           true /* exclude start pc */);
+        if (intercept_pc != NULL) {
+            LOG(THREAD, LOG_INTERP, 3, "Changing start_pc from hook-occluded app pc "
+                PFX" to intercept pc "PFX"\n", bb->start_pc, intercept_pc);
+            bb->start_pc = intercept_pc;
+        }
+    }
+#endif
+
     bb->cur_pc = bb->start_pc;
 
     /* for translation in case we break out of loop before decoding any
