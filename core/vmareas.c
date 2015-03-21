@@ -5983,7 +5983,12 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
      * performance hit?  DR itself could allocate memory that was freed
      * externally -- but our DR overlap checks would catch that.
      */
-    ASSERT_CURIOSITY(!executable_vm_area_overlap(base, base + size, false/*have no lock*/));
+    ASSERT_CURIOSITY(!executable_vm_area_overlap(base, base + size,
+                                                 false/*have no lock*/) ||
+                     /* This happens during module loading if we don't flush on mprot */
+                     (!INTERNAL_OPTION(hw_cache_consistency) &&
+                      /* .bss has !image so we just check for existing module overlap */
+                      pc_is_in_module(base)));
 #ifdef PROGRAM_SHEPHERDING
     DODEBUG({
         /* case 4175 - reallocations will overlap with no easy way to

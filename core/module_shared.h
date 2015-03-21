@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -231,6 +231,9 @@ bool os_module_get_flag(app_pc module_base, uint flag);
 
 
 /**************** module_area accessor routines (os shared) *****************/
+
+/* no lock required by caller */
+bool pc_is_in_module(byte *pc);
 
 module_area_t * module_pc_lookup(byte *pc);
 
