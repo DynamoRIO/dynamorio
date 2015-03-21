@@ -1327,7 +1327,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
             instr_set_opcode(instr, OP_sysenter);
             instr_set_num_opnds(dcontext, instr, 1, 0);
             instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
-        } else if (byte1 == 0x34) {
+        } else if (byte1 == 0x35) {
             instr_set_opcode(instr, OP_sysexit);
             instr_set_num_opnds(dcontext, instr, 1, 0);
             instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
