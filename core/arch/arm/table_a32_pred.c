@@ -144,9 +144,9 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_str,     0x05200000, "str",    MN12w, RAw, RBw, RAw, n12, pred, x, tb4[3][0x00]},/*PUW=101*//* XXX: RA=SP + imm12=4, then "push RBw" */
     {OP_ldr,     0x05300000, "ldr",    RBw, RAw, MN12w, RAw, n12, pred, x, tb4[4][0x00]},/*PUW=101*/
     {OP_strb,    0x05400000, "strb",   MN12b, xx, RBb, xx, xx, pred, x, top8[0x5e]},/*PUW=100*/
-    {OP_ldrb,    0x05500000, "ldrb",   RBw, xx, MN12b, xx, xx, pred, x, tb4[8][0x00]},/*PUW=100*/
-    {OP_strb,    0x05600000, "strb",   MN12b, RAw, RBb, RAw, n12, pred, x, tb4[5][0x00]},/*PUW=101*/
-    {OP_ldrb,    0x05700000, "ldrb",   RBw, RAw, MN12b, RAw, n12, pred, x, tb4[6][0x00]},/*PUW=101*/
+    {OP_ldrb,    0x05500000, "ldrb",   RBw, xx, MN12b, xx, xx, pred, x, tb4[6][0x00]},/*PUW=100*/
+    {OP_strb,    0x05600000, "strb",   MN12b, RAw, RBb, RAw, n12, pred, x, tb4[7][0x00]},/*PUW=101*/
+    {OP_ldrb,    0x05700000, "ldrb",   RBw, RAw, MN12b, RAw, n12, pred, x, tb4[8][0x00]},/*PUW=101*/
     /* 58 */
     {OP_str,     0x05800000, "str",    MP12w, xx, RBw, xx, xx, pred, x, top4y[12][0x00]},/*PUW=110*/
     {OP_ldr,     0x05900000, "ldr",    RBw, xx, MP12w, xx, xx, pred, x, top8[0x51]},/*PUW=110*/
@@ -1019,17 +1019,17 @@ const instr_info_t A32_ext_bit4[][2] = {
     {OP_ldr,     0x07b00000, "ldr",    RBw, RAw, MPSw, RAw, RDw, xop_shift|pred, x, tb4[1][0x00]},/*PUW=111*/
     {OP_sbfx,    0x07b00050, "sbfx",   RBw, xx, RDw, i5_7, i5_16, pred, x, DUP_ENTRY},
   }, { /* 5 */
-    {OP_strb,    0x07e00000, "strb",   MPSb, RAw, RBb, RAw, RDw, xop_shift|pred, x, top8[0x76]},/*PUW=111*/
-    {OP_ubfx,    0x07e00050, "ubfx",   RBw, xx, RDw, i5_7, i5_16, pred, x, END_LIST},
-  }, { /* 6 */
-    {OP_ldrb,    0x07f00000, "ldrb",   RBw, RAw, MPSb, RAw, RDw, xop_shift|pred, x, top8[0x77]},/*PUW=111*/
-    {EXT_BIT5,   0x07f00010, "(ext bit5 0)", xx, xx, xx, xx, xx, no, x, 0},
-  }, { /* 7 */
-    {INVALID,    0x07c00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_strb,    0x07c00000, "strb",   MPSb, xx, RBb, xx, xx, pred, x, top8[0x5c]},/*PUW=110*/
     {EXT_RDPC,   0x07c00000, "(ext RDPC 0)", xx, xx, xx, xx, xx, no, x, 0},
-  }, { /* 8 */
+  }, { /* 6 */
     {OP_ldrb,    0x07d00000, "ldrb",   RBw, xx, MPSb, xx, xx, pred, x, top4y[14][0x00]},/*PUW=110*/
     {OP_bfc,     0x07d0001f, "bfc",    RBw, xx, i5_16, i5_7, RBw, pred, x, DUP_ENTRY},
+  }, { /* 7 */
+    {OP_strb,    0x07e00000, "strb",   MPSb, RAw, RBb, RAw, RDw, xop_shift|pred, x, top8[0x76]},/*PUW=111*/
+    {OP_ubfx,    0x07e00050, "ubfx",   RBw, xx, RDw, i5_7, i5_16, pred, x, END_LIST},
+  }, { /* 8 */
+    {OP_ldrb,    0x07f00000, "ldrb",   RBw, RAw, MPSb, RAw, RDw, xop_shift|pred, x, top8[0x77]},/*PUW=111*/
+    {EXT_BIT5,   0x07f00010, "(ext bit5 0)", xx, xx, xx, xx, xx, no, x, 0},
   }, { /* 9 */
     {OP_cdp,     0x0e000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, pred|xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*//*no chain nec.*/
     {OP_mcr,     0x0e000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, pred|xop, x, exop[0x3]},/*XXX: disasm not in dst-src order*/

@@ -3900,7 +3900,7 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 {
     instr_t *instr, *next;
 
-    if (!INTERNAL_OPTION(cache_consistency))
+    if (!INTERNAL_OPTION(hw_cache_consistency))
         return true; /* nothing to do */
 
     /* this code assumes bb covers single, contiguous region */
