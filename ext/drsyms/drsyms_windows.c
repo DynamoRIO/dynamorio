@@ -422,7 +422,8 @@ load_module(HANDLE proc, const char *path)
                 return 0;
             }
         }
-    } while (false);
+        break;
+    } while (true);
 
     next_load += ALIGN_FORWARD(size, 64*1024);
 
