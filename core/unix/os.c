@@ -3217,7 +3217,7 @@ load_shared_library(const char *name, bool reachable)
      */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         return (shlib_handle_t) locate_and_load_private_library(name, reachable);
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
 # else
@@ -3239,7 +3239,7 @@ lookup_library_routine(shlib_handle_t lib, const char *name)
         return (shlib_routine_ptr_t)
             get_private_library_address((app_pc)lib, name);
     }
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlsym(lib, name);
 # else
@@ -3254,7 +3254,7 @@ unload_shared_library(shlib_handle_t lib)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         unload_private_library(lib);
     } else {
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
         ASSERT(!DYNAMO_OPTION(early_inject));
         if (!DYNAMO_OPTION(avoid_dlclose)) {
             dlclose(lib);
@@ -3272,7 +3272,7 @@ shared_library_error(char *buf, int maxlen)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         err = "error in private loader";
     } else {
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
         ASSERT(!DYNAMO_OPTION(early_inject));
         err = dlerror();
         if (err == NULL) {
