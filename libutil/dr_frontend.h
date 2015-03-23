@@ -227,9 +227,11 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# eleme
  *
  * @param[in]  exe      The executable to check for the 64-bit flag.
  * @param[out] is_64    True if \p exe is a 64-bit application.
+ * @param[out] also_32  True if \p exe is a multi-part binary that also contains
+ *                      a 32-bit application.
  */
 drfront_status_t
-drfront_is_64bit_app(const char *exe, OUT bool *is_64);
+drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32);
 
 /**
  * Reads the PE header to determine if \p exe has a GUI.

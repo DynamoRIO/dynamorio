@@ -131,10 +131,13 @@ bool
 module_file_has_module_header(const char *filename);
 
 bool
-module_file_is_module64(file_t f, bool *is64 OUT);
+module_file_is_module64(file_t f, bool *is64 OUT, bool *also32 OUT);
 
+/* A Mach-O universal binary may have many bitwidths.  The one used on execve will be
+ * returned in "platform" and the 2nd one in "alt_platform".
+ */
 bool
-module_get_platform(file_t f, dr_platform_t *platform);
+module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform);
 
 void
 module_add_segment_data(OUT os_module_data_t *out_data,

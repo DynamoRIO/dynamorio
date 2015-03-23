@@ -153,6 +153,7 @@ following minor compatibility changes:
  - Deprecated get_x86_mode(), replacing it with dr_get_isa_mode().
  - Deprecated instr_set_x86_mode(), replacing it with instr_set_isa_mode().
  - Deprecated instr_get_x86_mode(), replacing it with instr_get_isa_mode().
+ - Added a third parameter to drfront_is_64bit_app().
 
 Further non-compatibility-affecting changes include:
 

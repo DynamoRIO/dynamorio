@@ -723,14 +723,13 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
 }
 
 bool
-module_file_is_module64(file_t f, bool *is64 OUT)
+module_file_is_module64(file_t f, bool *is64 OUT, bool *also32 OUT)
 {
-    dr_platform_t platform;
-    if (module_get_platform(f, &platform)) {
-        if (platform == DR_PLATFORM_64BIT)
-            *is64 = true;
-        else
-            *is64 = false;
+    dr_platform_t platform, alt_platform;
+    if (module_get_platform(f, &platform, &alt_platform)) {
+        *is64 = (platform == DR_PLATFORM_64BIT);
+        if (also32 != NULL)
+            *also32 = (platform == DR_PLATFORM_32BIT);
         return true;
     }
     return false;

@@ -886,9 +886,11 @@ module_get_header_size(app_pc module_base)
 }
 
 bool
-module_get_platform(file_t f, dr_platform_t *platform)
+module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform)
 {
     elf_generic_header_t elf_header;
+    if (alt_platform != NULL)
+        *alt_platform = DR_PLATFORM_NONE;
     if (os_read(f, &elf_header, sizeof(elf_header)) != sizeof(elf_header))
         return false;
     if (!is_elf_so_header_common((app_pc)&elf_header, sizeof(elf_header), false))

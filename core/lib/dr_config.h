@@ -146,6 +146,7 @@ typedef enum {
     DR_PLATFORM_DEFAULT, /**< The platform this tool is compiled for. */
     DR_PLATFORM_32BIT,   /**< 32-bit settings (for 32-bit processes). */
     DR_PLATFORM_64BIT,   /**< 64-bit settings (for native 64-bit processes). */
+    DR_PLATFORM_NONE,    /**< Invalid platform. */
 } dr_platform_t;
 
 

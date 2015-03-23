@@ -562,42 +562,10 @@ module_get_header_size(app_pc module_base)
     return 0;
 }
 
-bool
-module_get_platform(file_t f, dr_platform_t *platform)
+static bool
+platform_from_macho(file_t f, dr_platform_t *platform)
 {
-    struct fat_header fat_hdr;
     struct mach_header mach_hdr;
-    /* Both headers start with a 32-bit magic # */
-    uint32_t magic;
-    if (os_read(f, &magic, sizeof(magic)) != sizeof(magic) ||
-        !os_seek(f, 0, SEEK_SET))
-        return false;
-    if (magic == FAT_CIGAM) { /* big-endian */
-        /* This is a "fat" or "universal" binary */
-        struct fat_arch arch;
-        uint num, i;
-        if (os_read(f, &fat_hdr, sizeof(fat_hdr)) != sizeof(fat_hdr))
-            return false;
-        /* OSSwapInt32 is a macro, so there's no lib dependence here */
-        num = OSSwapInt32(fat_hdr.nfat_arch);
-        for (i = 0; i < num; i++) {
-            if (os_read(f, &arch, sizeof(arch)) != sizeof(arch))
-                return false;
-            /* This routine can only return one plaform.  We want the one that
-             * will be used on an execve, which is the one that matches
-             * the kernel's bitwidth.
-             */
-            if ((kernel_is_64bit() && OSSwapInt32(arch.cputype) == CPU_TYPE_X86_64) ||
-                (!kernel_is_64bit() && OSSwapInt32(arch.cputype) == CPU_TYPE_X86)) {
-                /* Line up right before the Mach-O header */
-                if (!os_seek(f, OSSwapInt32(arch.offset), SEEK_SET))
-                    return false;
-                break;
-            }
-        }
-        if (i == num)
-            return false;
-    }
     if (os_read(f, &mach_hdr, sizeof(mach_hdr)) != sizeof(mach_hdr))
         return false;
     if (!is_macho_header((app_pc)&mach_hdr, sizeof(mach_hdr)))
@@ -609,6 +577,69 @@ module_get_platform(file_t f, dr_platform_t *platform)
         return false;
     }
     return true;
+}
+
+bool
+module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform)
+{
+    struct fat_header fat_hdr;
+    /* Both headers start with a 32-bit magic # */
+    uint32_t magic;
+    if (os_read(f, &magic, sizeof(magic)) != sizeof(magic) ||
+        !os_seek(f, 0, SEEK_SET))
+        return false;
+    if (magic == FAT_CIGAM) { /* big-endian */
+        /* This is a "fat" or "universal" binary */
+        struct fat_arch arch;
+        uint num, i;
+        bool found_main = false, found_alt = false;
+        dr_platform_t local_alt = DR_PLATFORM_NONE;
+        int64 cur_pos;
+        if (os_read(f, &fat_hdr, sizeof(fat_hdr)) != sizeof(fat_hdr))
+            return false;
+        /* OSSwapInt32 is a macro, so there's no lib dependence here */
+        num = OSSwapInt32(fat_hdr.nfat_arch);
+        for (i = 0; i < num; i++) {
+            if (os_read(f, &arch, sizeof(arch)) != sizeof(arch))
+                return false;
+            cur_pos = os_tell(f);
+            /* The primary platform is the one that will be used on an execve,
+             * which is the one that matches the kernel's bitwidth.
+             */
+            if ((kernel_is_64bit() && OSSwapInt32(arch.cputype) == CPU_TYPE_X86_64) ||
+                (!kernel_is_64bit() && OSSwapInt32(arch.cputype) == CPU_TYPE_X86)) {
+                /* Line up right before the Mach-O header */
+                if (!os_seek(f, OSSwapInt32(arch.offset), SEEK_SET))
+                    return false;
+                if (!platform_from_macho(f, platform))
+                    return false;
+                found_main = true;
+                if (found_alt)
+                    break;
+            } else if (OSSwapInt32(arch.cputype) == CPU_TYPE_X86_64 ||
+                       OSSwapInt32(arch.cputype) == CPU_TYPE_X86) {
+                /* Line up right before the Mach-O header */
+                if (!os_seek(f, OSSwapInt32(arch.offset), SEEK_SET))
+                    return false;
+                if (platform_from_macho(f, &local_alt)) {
+                    found_alt = true;
+                    if (found_main)
+                        break;
+                }
+            }
+            if (!os_seek(f, cur_pos, SEEK_SET))
+                return false;
+        }
+        if (!found_main && found_alt) {
+            *platform = local_alt;
+            local_alt = DR_PLATFORM_NONE;
+        }
+        if (alt_platform != NULL)
+            *alt_platform = local_alt;
+        return (found_main || found_alt);
+    } else if (alt_platform != NULL)
+        *alt_platform = DR_PLATFORM_NONE;
+    return platform_from_macho(f, platform);
 }
 
 bool

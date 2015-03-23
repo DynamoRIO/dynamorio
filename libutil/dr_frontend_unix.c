@@ -56,7 +56,7 @@
 #include "dr_frontend.h"
 
 extern bool
-module_get_platform(file_t f, dr_platform_t *platform);
+module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform);
 
 #define drfront_die() exit(1)
 
@@ -200,7 +200,7 @@ drfront_char_to_tchar(const char *str, OUT char *wbuf, size_t wbuflen/*# element
 }
 
 drfront_status_t
-drfront_is_64bit_app(const char *exe, OUT bool *is_64)
+drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32)
 {
     FILE *target_file;
     drfront_status_t res = DRFRONT_ERROR;
@@ -210,10 +210,15 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64)
 
     target_file = fopen(exe, "rb");
     if (target_file != NULL) {
-        dr_platform_t platform;
-        if (module_get_platform(fileno(target_file), &platform)) {
+        dr_platform_t platform, alt_platform;
+        if (module_get_platform(fileno(target_file), &platform, &alt_platform)) {
             res = DRFRONT_SUCCESS;
+            /* XXX: on a 32-bit kernel we'll claim a 64+32 binary is *not* 64-bit:
+             * is that ok?
+             */
             *is_64 = (platform == DR_PLATFORM_64BIT);
+            if (also_32 != NULL)
+                *also_32 = (alt_platform == DR_PLATFORM_32BIT);
         }
         fclose(target_file);
     }
