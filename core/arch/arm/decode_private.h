@@ -232,6 +232,7 @@ struct _decode_info_t {
     /* For encoding reglists */
     uint reglist_start;
     uint reglist_stop;
+    bool reglist_simd;
     opnd_size_t reglist_itemsz;
     int memop_sz;
     /* For decoding and encoding shift types.  We need to coordinate across two
@@ -627,6 +628,9 @@ resolve_size_downward(opnd_size_t size);
 
 bool
 optype_is_reg(int optype);
+
+bool
+optype_is_gpr(int optype);
 
 uint
 gpr_list_num_bits(byte optype);

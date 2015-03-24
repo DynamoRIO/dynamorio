@@ -84,6 +84,11 @@ separate_bb:
         mov      pc, r10
         mov      r10, sp
         mov      r3, r10
+
+// test various SIMD cases
+        mov      r7, sp
+        vld3.8   {d10-d12}, [r7]!
+
 // exit
         mov      r0, #1            // stdout
         ldr      r1, =alldone
