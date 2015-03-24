@@ -649,7 +649,7 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_vmull_s16      */ {&A32_ext_simd6[4][0x30],    &T32_ext_simd6[4][0x30],          &T32_ext_simd6[4][0x30]},
     /* OP_vmull_s32      */ {&A32_ext_simd6[5][0x30],    &T32_ext_simd6[5][0x30],          &T32_ext_simd6[5][0x30]},
     /* OP_vmull_s8       */ {&A32_ext_simd8[0][0x3c],    &T32_ext_simd8[0][0x3c],          &T32_ext_simd8[0][0x3c]},
-    /* OP_vmull_u16      */ {&A32_ext_simd6[10][0x2c],   &T32_ext_simd6[10][0x2c],         &T32_ext_simd6[10][0x2c]},
+    /* OP_vmull_u16      */ {&A32_ext_simd6[10][0x30],   &T32_ext_simd6[10][0x30],         &T32_ext_simd6[10][0x30]},
     /* OP_vmull_u32      */ {&A32_ext_simd6[11][0x30],   &T32_ext_simd6[11][0x30],         &T32_ext_simd6[11][0x30]},
     /* OP_vmull_u8       */ {&A32_ext_simd8[1][0x3c],    &T32_ext_simd8[1][0x3c],          &T32_ext_simd8[1][0x3c]},
     /* OP_vmvn           */ {&A32_ext_simd6b[9][0x16],   &T32_ext_simd6b[9][0x16],         &T32_ext_simd6b[9][0x16]},

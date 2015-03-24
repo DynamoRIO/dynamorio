@@ -88,6 +88,7 @@ separate_bb:
 // test various SIMD cases
         mov      r7, sp
         vld3.8   {d10-d12}, [r7]!
+        vmull.u16 q10, d24, d16
 
 // exit
         mov      r0, #1            // stdout
