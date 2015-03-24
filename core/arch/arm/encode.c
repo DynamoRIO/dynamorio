@@ -611,7 +611,7 @@ encode_shift_values(dr_shift_type_t shift, uint amount,
 /* 0 stride means no stride */
 static bool
 encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
-                  bool is_dst, uint *counter INOUT, uint max_num,
+                  bool is_dst, uint *counter INOUT, uint min_num, uint max_num,
                   bool is_simd, uint stride, uint prior,
                   reg_id_t excludeA, reg_id_t excludeB, reg_id_t base_reg)
 {
@@ -671,6 +671,8 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
     LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist_start: %d, reglist_stop: %d\n",
         di->reglist_start, *counter);
     di->reglist_stop = *counter;
+    if (di->reglist_stop - di->reglist_start < min_num)
+        return false;
     /* Due to possible rollback of greedy reglists we can't compare to the
      * memory size here so we check later.
      */
@@ -1301,8 +1303,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 return false;
             base_reg = opnd_get_base(memop);
         }
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, false/*gpr*/,
-                               0/*no restrictions*/, 0,
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 0, max_num,
+                               false/*gpr*/, 0/*no restrictions*/, 0,
                                (optype == TYPE_L_16b_NO_SP ||
                                 optype == TYPE_L_16b_NO_SP_PC) ? DR_REG_SP : DR_REG_NULL,
                                (optype == TYPE_L_16b_NO_SP_PC) ? DR_REG_PC : DR_REG_NULL,
@@ -1330,45 +1332,46 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             prior = instr_get_src(in, opnum - 1);
         if (!opnd_is_reg(prior) || !reg_is_simd(opnd_get_reg(prior)))
             return false;
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, true/*simd*/,
-                               1/*consec*/, 1/*prior entry*/, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 0, max_num,
+                               true/*simd*/, 1/*consec*/, 1/*prior entry*/,
+                               DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         /* We have to allow an empty list b/c the template has the 1st entry */
         return true;
     }
     case TYPE_L_VAx2:
     case TYPE_L_VBx2:
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, 2, true/*simd*/,
                                1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VAx3:
     case TYPE_L_VBx3:
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, true/*simd*/,
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, 3, true/*simd*/,
                                1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VAx4:
     case TYPE_L_VBx4:
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, true/*simd*/,
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, 4, true/*simd*/,
                                1/*consec*/, 0, DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
 
     case TYPE_L_VBx2D:
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, 2, true/*simd*/,
                                2/*doubly-spaced*/, 0,
                                DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VBx3D:
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, true/*simd*/,
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, 3, true/*simd*/,
                                2/*doubly-spaced*/, 0,
                                DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;
         return (di->reglist_stop > di->reglist_start);
     case TYPE_L_VBx4D:
-        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, true/*simd*/,
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, 4, true/*simd*/,
                                2/*doubly-spaced*/, 0,
                                DR_REG_NULL, DR_REG_NULL, DR_REG_NULL))
             return false;

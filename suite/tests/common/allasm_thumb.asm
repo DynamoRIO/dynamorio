@@ -157,6 +157,7 @@ _jmp_target:
         vmov.32  d4[0], r0
         vmov.32  d4[1], r0
         vst2.32  {d4[0],d5[0]}, [sp]
+        vtbl.8   d18, {d17}, d16
 
 // some tricky cases that recently hit bugs
         strd     r12, lr, [sp, #-16]!
