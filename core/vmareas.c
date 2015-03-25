@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -95,6 +95,7 @@ enum {
     /* FIXME case 7877, 3744: need to properly merge pageprot regions with
      * existing selfmod regions before we can truly separate this.  For now we
      * continue to treat selfmod as pageprot.
+     * Once we separate, we should update DR_MADE_READONLY.
      */
     VM_MADE_READONLY = VM_WRITABLE/* FIXME: should be 0x0040 -- see above */,
                                  /* DR has marked this region read
@@ -161,6 +162,10 @@ enum {
 /* simple way to disable sandboxing */
 #define SANDBOX_FLAG() \
     (INTERNAL_OPTION(hw_cache_consistency) ? FRAG_SELFMOD_SANDBOXED : 0)
+
+/* Because VM_MADE_READONLY == VM_WRITABLE it's not sufficient on its own */
+#define DR_MADE_READONLY(flags) \
+    (INTERNAL_OPTION(hw_cache_consistency) && TEST(VM_MADE_READONLY, flags))
 
 /* Fields only used for written_areas */
 typedef struct _ro_vs_sandbox_data_t {
@@ -715,7 +720,7 @@ revert_memory_regions()
 
     read_lock(&executable_areas->lock);
     for (i = 0; i < executable_areas->length; i++) {
-        if (TEST(VM_MADE_READONLY, executable_areas->buf[i].vm_flags)) {
+        if (DR_MADE_READONLY(executable_areas->buf[i].vm_flags)) {
             /* this is a region that dynamorio has marked read only, fix */
             LOG(GLOBAL, LOG_VMAREAS, 1,
                 " fixing permissions for RW executable area "PFX"-"PFX" %s\n",
@@ -1414,7 +1419,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                                   start - v->buf[overlap_start].start);
         }
 #endif
-        if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_start].vm_flags)) {
+        if (restore_prot && DR_MADE_READONLY(v->buf[overlap_start].vm_flags)) {
             vm_make_writable(start, end - start); // even if DGC writer?
         }
         v->buf[overlap_start].end = start;
@@ -1441,7 +1446,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                                   v->buf[overlap_end-1].end - end);
         }
 #endif
-        if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_end-1].vm_flags)) {
+        if (restore_prot && DR_MADE_READONLY(v->buf[overlap_end-1].vm_flags)) {
             vm_make_writable(v->buf[overlap_end-1].start,
                              end - v->buf[overlap_end-1].start);
         }
@@ -1468,7 +1473,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                 v->buf[i].vm_flags &= ~VM_JIT_MANAGED_TYPE;
             }
 #endif
-            if (restore_prot && TEST(VM_MADE_READONLY, v->buf[i].vm_flags)) {
+            if (restore_prot && DR_MADE_READONLY(v->buf[i].vm_flags)) {
                 vm_make_writable(v->buf[i].start, v->buf[i].end - v->buf[i].start);
             }
             /* FIXME: use a free_payload_func instead of this custom
@@ -6275,7 +6280,12 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
      * performance hit?  DR itself could allocate memory that was freed
      * externally -- but our DR overlap checks would catch that.
      */
-    ASSERT_CURIOSITY(!executable_vm_area_overlap(base, base + size, false/*have no lock*/));
+    ASSERT_CURIOSITY(!executable_vm_area_overlap(base, base + size,
+                                                 false/*have no lock*/) ||
+                     /* This happens during module loading if we don't flush on mprot */
+                     (!INTERNAL_OPTION(hw_cache_consistency) &&
+                      /* .bss has !image so we just check for existing module overlap */
+                      pc_is_in_module(base)));
 #ifdef PROGRAM_SHEPHERDING
     DODEBUG({
         /* case 4175 - reallocations will overlap with no easy way to
@@ -11049,7 +11059,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
                         /* not calling remove_vm_area so we have to vm_make_writable
                          * FIXME: why do we have to do anything if already selfmod?
                          */
-                        if (TEST(VM_MADE_READONLY, execarea->vm_flags))
+                        if (DR_MADE_READONLY(execarea->vm_flags))
                             vm_make_writable(execarea->start, execarea->end - execarea->start);
                         continue;
                     }
@@ -11083,7 +11093,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
                         execarea->frag_flags |= SANDBOX_FLAG();
                         STATS_INC(num_selfmod_vm_areas);
                         /* not calling remove_vm_area so we have to vm_make_writable */
-                        if (TEST(VM_MADE_READONLY, execarea->vm_flags))
+                        if (DR_MADE_READONLY(execarea->vm_flags))
                             vm_make_writable(execarea->start, execarea->end - execarea->start);
                     }
                 }

@@ -3221,7 +3221,7 @@ load_shared_library(const char *name, bool reachable)
      */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         return (shlib_handle_t) locate_and_load_private_library(name, reachable);
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
 # else
@@ -3243,7 +3243,7 @@ lookup_library_routine(shlib_handle_t lib, const char *name)
         return (shlib_routine_ptr_t)
             get_private_library_address((app_pc)lib, name);
     }
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlsym(lib, name);
 # else
@@ -3258,7 +3258,7 @@ unload_shared_library(shlib_handle_t lib)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         unload_private_library(lib);
     } else {
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
         ASSERT(!DYNAMO_OPTION(early_inject));
         if (!DYNAMO_OPTION(avoid_dlclose)) {
             dlclose(lib);
@@ -3276,7 +3276,7 @@ shared_library_error(char *buf, int maxlen)
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         err = "error in private loader";
     } else {
-# ifdef STATIC_LIBRARY
+# if defined(STATIC_LIBRARY) || defined(MACOS)
         ASSERT(!DYNAMO_OPTION(early_inject));
         err = dlerror();
         if (err == NULL) {
@@ -4393,6 +4393,7 @@ ignorable_system_call_normalized(int num)
     case SYS_clone:
 #elif defined(MACOS)
     case SYS_bsdthread_create:
+    case SYS_posix_spawn:
 #endif
     case SYS_fork:
     case SYS_vfork:
@@ -5236,7 +5237,7 @@ handle_execve(dcontext_t *dcontext)
      */
     file = os_open(fname, OS_OPEN_READ);
     if (file != INVALID_FILE) {
-        if (!module_file_is_module64(file, &x64))
+        if (!module_file_is_module64(file, &x64, NULL/*only care about primary==execve*/))
             expect_to_fail = true;
         os_close(file);
     } else
@@ -6191,6 +6192,11 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param1 = (reg_t) func_arg;
         *sys_param_addr(dcontext, 0) = (reg_t) new_bsdthread_intercept;
         *sys_param_addr(dcontext, 1) = (reg_t) clone_rec;
+        break;
+    }
+    case SYS_posix_spawn: {
+        /* FIXME i#1644: monitor this call which can be fork or exec */
+        ASSERT_NOT_IMPLEMENTED(false);
         break;
     }
 #endif

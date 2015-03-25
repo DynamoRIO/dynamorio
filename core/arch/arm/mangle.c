@@ -1499,7 +1499,7 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 }
 
-/* We normalize a ldm{ia,ib,da,db} instruction to a sequence of instrunctions:
+/* We normalize a ldm{ia,ib,da,db} instruction to a sequence of instructions:
  * 1. adjust base
  * 2. ldr r0 [base]  # optional split for getting a scratch reg
  * 3. ldmia
@@ -1517,7 +1517,8 @@ normalize_ldm_instr(dcontext_t *dcontext,
     int opcode = instr_get_opcode(instr);
     reg_id_t base = opnd_get_base(instr_get_src(instr, 0));
     bool writeback = instr_num_srcs(instr) > 1;
-    bool write_pc  = instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL);
+    bool write_pc = instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL);
+    bool use_pop_pc = false;
     uint num_dsts = instr_num_dsts(instr);
     int memsz = sizeof(reg_t) * (writeback ? (num_dsts - 1) : num_dsts);
     int adjust_pre = 0, adjust_post = 0, ldr_pc_disp = 0;
@@ -1562,9 +1563,15 @@ normalize_ldm_instr(dcontext_t *dcontext,
         if (write_pc) {
             /* we take pc out of reglist, so need post ldm adjust if w/ writeback */
             if (writeback) {
-                /* XXX: optimize, use "pop pc" instead of "ldr pc" if it is a pop */
-                adjust_post = sizeof(reg_t);
-                ldr_pc_disp = -sizeof(reg_t);
+                /* use "pop pc" instead of "ldr pc" to avoid beyond TOS access */
+                if (base == DR_REG_SP) {
+                    use_pop_pc = true;
+                    adjust_post = 0;
+                    ldr_pc_disp = 0;
+                } else {
+                    adjust_post = sizeof(reg_t);
+                    ldr_pc_disp = -sizeof(reg_t);
+                }
             } else {
                 adjust_post = 0;
                 ldr_pc_disp = memsz - sizeof(reg_t);
@@ -1728,9 +1735,15 @@ normalize_ldm_instr(dcontext_t *dcontext,
 
     /* post ldm load-pc */
     if (write_pc) {
-        *ldr_pc = XINST_CREATE_load(dcontext,
-                                    opnd_create_reg(DR_REG_PC),
-                                    OPND_CREATE_MEMPTR(base, ldr_pc_disp));
+        if (use_pop_pc) {
+            ASSERT(ldr_pc_disp == 0 && base == DR_REG_SP && writeback);
+            /* we use pop_list to generate A32.T16 (2-byte) code in Thumb mode */
+            *ldr_pc = INSTR_CREATE_pop_list(dcontext, 1, opnd_create_reg(DR_REG_PC));
+        } else {
+            *ldr_pc = XINST_CREATE_load(dcontext,
+                                        opnd_create_reg(DR_REG_PC),
+                                        OPND_CREATE_MEMPTR(base, ldr_pc_disp));
+        }
         instr_set_predicate(*ldr_pc, pred);
         instr_set_translation(*ldr_pc, pc);
     }

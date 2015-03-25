@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,6 +74,10 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#ifdef MACOS
+# include <spawn.h>
+# include <crt_externs.h> /* _NSGetEnviron() */
+#endif
 
 #ifdef MACOS
 /* The type is just "int", and the values are different, so we use the Linux
@@ -122,6 +126,10 @@ typedef struct _dr_inject_info_t {
     bool killpg;
     bool exited;
     int exitcode;
+
+#ifdef MACOS
+    bool spawn_32bit;
+#endif
 } dr_inject_info_t;
 
 bool
@@ -252,8 +260,38 @@ pre_execve_early(const char *exe)
     setenv(DYNAMORIO_VAR_EXE_PATH, exe, true/*overwrite*/);
 }
 
+static void
+execute_exec(dr_inject_info_t *info, const char *toexec)
+{
+#ifdef MACOS
+    if (info->spawn_32bit) {
+        /* i#1643: a regular execve will always match the kernel bitwidth */
+        /* XXX: use raw data structures and SYS_posix_spawn */
+        posix_spawnattr_t attr;
+        if (posix_spawnattr_init(&attr) == 0) {
+            cpu_type_t cpu = CPU_TYPE_X86;
+            size_t sz;
+            if (posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC) == 0 &&
+                posix_spawnattr_setbinpref_np(&attr, sizeof(cpu), &cpu, &sz) == 0) {
+                posix_spawn(NULL, toexec, NULL, &attr, (char *const *) info->argv,
+                            /* On Mac, shared libs don't have access to environ
+                             * directly and must use this routine (if we declare
+                             * environ as extern we end up looking in the wrong
+                             * place at some copy of the env vars).
+                             */
+                            (char *const *)*_NSGetEnviron());
+            }
+            /* If we get here the spawn failed */
+            posix_spawnattr_destroy(&attr);
+        }
+        return; /* don't do exec if error */
+    }
+#endif
+    execv(toexec, (char **) info->argv);
+}
+
 static process_id_t
-fork_suspended_child(const char *exe, const char **argv, int fds[2])
+fork_suspended_child(const char *exe, dr_inject_info_t *info, int fds[2])
 {
     process_id_t pid = fork();
     if (pid == 0) {
@@ -295,7 +333,7 @@ fork_suspended_child(const char *exe, const char **argv, int fds[2])
 #ifdef STATIC_LIBRARY
         setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
 #endif
-        execv(real_exe, (char **) argv);
+        execute_exec(info, real_exe);
         /* If execv returns, there was an error. */
         exit(-1);
     }
@@ -326,7 +364,7 @@ inject_early(dr_inject_info_t *info, const char *library_path)
          * variable pointing to the real exe.
          */
         pre_execve_early(info->exe);
-        execv(library_path, (char **) info->argv);
+        execute_exec(info, library_path);
         return false;  /* if execv returns, there was an error */
     } else {
         /* Write the path to DR to the pipe. */
@@ -343,7 +381,7 @@ inject_ld_preload(dr_inject_info_t *info, const char *library_path)
 {
     if (info->exec_self) {
         pre_execve_ld_preload(library_path);
-        execv(info->exe, (char **) info->argv);
+        execute_exec(info, info->exe);
         return false;  /* if execv returns, there was an error */
     } else {
         /* Write the path to DR to the pipe. */
@@ -370,12 +408,13 @@ create_inject_info(const char *exe, const char **argv)
 }
 
 static bool
-module_get_platform_path(const char *exe_path, dr_platform_t *platform)
+module_get_platform_path(const char *exe_path, dr_platform_t *platform,
+                         dr_platform_t *alt_platform)
 {
     file_t fd = os_open(exe_path, OS_OPEN_READ);
     bool res = false;
     if (fd != INVALID_FILE) {
-        res = module_get_platform(fd, platform);
+        res = module_get_platform(fd, platform, alt_platform);
         os_close(fd);
     }
     return res;
@@ -384,8 +423,8 @@ module_get_platform_path(const char *exe_path, dr_platform_t *platform)
 static bool
 exe_is_right_bitwidth(const char *exe, int *errcode)
 {
-    dr_platform_t platform;
-    if (!module_get_platform_path(exe, &platform)) {
+    dr_platform_t platform, alt_platform;
+    if (!module_get_platform_path(exe, &platform, &alt_platform)) {
         *errcode = errno;
         if (*errcode == 0)
             *errcode = ESRCH;
@@ -398,7 +437,8 @@ exe_is_right_bitwidth(const char *exe, int *errcode)
      * XXX: i#1176 and DrM-i#1037, we need a long term solution to
      * support cross-arch injection.
      */
-    if (platform != IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT)) {
+    if (platform != IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT)
+        IF_MACOS(IF_NOT_X64(&& alt_platform != DR_PLATFORM_32BIT))) {
         *errcode = WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE;
         return false;
     }
@@ -415,6 +455,20 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     int fds[2];
     dr_inject_info_t *info = create_inject_info(exe, argv);
     int errcode = 0;
+
+#if defined(MACOS) && !defined(X64)
+    dr_platform_t platform, alt_platform;
+    if (!module_get_platform_path(info->exe, &platform, &alt_platform))
+        return false; /* couldn't read header */
+    if (platform == DR_PLATFORM_64BIT) {
+        /* The target app is a universal binary and we're on a 64-bit kernel,
+         * so we have to use posix_spawn to exec the app as 32-bit.
+         */
+        ASSERT(alt_platform == DR_PLATFORM_32BIT);
+        info->spawn_32bit = true;
+    }
+#endif
+
     if (!exe_is_right_bitwidth(exe, &errcode) &&
         /* WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE is just a warning on Unix,
          * so we carry on but be sure to return the code.
@@ -427,7 +481,8 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     r = pipe(fds);
     if (r != 0)
         goto error;
-    info->pid = fork_suspended_child(exe, argv, fds);
+    info->argv = argv;
+    info->pid = fork_suspended_child(exe, info, fds);
     close(fds[0]);  /* Close reader, keep writer. */
     info->pipe_fd = fds[1];
     info->exec_self = false;
@@ -533,10 +588,21 @@ dr_inject_process_inject(void *data, bool force_injection,
     dr_inject_info_t *info = (dr_inject_info_t *) data;
     char dr_path_buf[MAXIMUM_PATH];
     char dr_ops[MAX_OPTIONS_STRING];
-    dr_platform_t platform;
+    dr_platform_t platform, alt_platform;
 
-    if (!module_get_platform_path(info->exe, &platform))
+    if (!module_get_platform_path(info->exe, &platform, &alt_platform))
         return false; /* couldn't read header */
+
+#if defined(MACOS) && !defined(X64)
+    if (platform == DR_PLATFORM_64BIT) {
+        /* The target app is a universal binary and we're on a 64-bit kernel,
+         * so we have to use posix_spawn to exec the app as 32-bit.
+         */
+        ASSERT(alt_platform == DR_PLATFORM_32BIT);
+        platform = DR_PLATFORM_32BIT;
+        info->spawn_32bit = true;
+    }
+#endif
 
     if (!get_config_val_other_app(info->image_name, info->pid, platform,
                                   DYNAMORIO_VAR_OPTIONS, dr_ops,
@@ -601,7 +667,7 @@ dr_inject_process_run(void *data)
         /* If we're injecting with LD_PRELOAD or STATIC_LIBRARY, we already set
          * up the environment.  If not, then let the app run natively.
          */
-        execv(info->exe, (char **) info->argv);
+        execute_exec(info, info->exe);
         return false;  /* if execv returns, there was an error */
     } else {
         if (info->method == INJECT_PTRACE) {

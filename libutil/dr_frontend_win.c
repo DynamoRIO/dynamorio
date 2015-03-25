@@ -646,7 +646,7 @@ read_nt_headers(const char *exe, IMAGE_NT_HEADERS *nt)
 }
 
 drfront_status_t
-drfront_is_64bit_app(const char *exe, OUT bool *is_64)
+drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32)
 {
     bool res = false;
     IMAGE_NT_HEADERS nt;
@@ -658,6 +658,8 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64)
     f = read_nt_headers(exe, &nt);
     if (f == INVALID_HANDLE_VALUE) {
         *is_64 = res;
+        if (also_32 != NULL)
+            *also_32 = false;
         return DRFRONT_ERROR_INVALID_PARAMETER;
     }
     res = (nt.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
