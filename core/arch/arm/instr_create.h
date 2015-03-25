@@ -715,6 +715,23 @@
   instr_create_1dst_2src((dc), OP_usub8, (Rd), (Rn), (Rm))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (Rd, Rd2, Rn) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rd2 The second destination register opnd_t operand.
+ * \param Rn The source register opnd_t operand.
+ */
+#define INSTR_CREATE_smlals(dc, Rd, Rd2, Rn) \
+  instr_create_2dst_3src((dc), OP_smlals, (Rd), (Rd2), (Rd), (Rd2), (Rn))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (Rd, Rn, Rm, Ra) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -788,29 +805,27 @@
 #define INSTR_CREATE_smlalbt(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_4src((dc), OP_smlalbt, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlald(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlald, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_smlald, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlaldx(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlaldx, (Rd), (Rd2), (Rn), (Rm))
-#define INSTR_CREATE_smlals(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlals, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_smlaldx, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlaltb(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_4src((dc), OP_smlaltb, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlaltt(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_4src((dc), OP_smlaltt, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlsld(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlsld, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_smlsld, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smlsldx(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_smlsldx, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_smlsldx, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smull(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_smull, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_smulls(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_smulls, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_umaal(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_umaal, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_umaal, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_umlal(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_umlal, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_umlal, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_umlals(dc, Rd, Rd2, Rn, Rm) \
-  instr_create_2dst_2src((dc), OP_umlals, (Rd), (Rd2), (Rn), (Rm))
+  instr_create_2dst_4src((dc), OP_umlals, (Rd), (Rd2), (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_umull(dc, Rd, Rd2, Rn, Rm) \
   instr_create_2dst_2src((dc), OP_umull, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_umulls(dc, Rd, Rd2, Rn, Rm) \

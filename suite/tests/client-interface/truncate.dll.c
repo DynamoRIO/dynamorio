@@ -31,24 +31,49 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
+#include <string.h>
+
+#define DEFAULT_BB_TRUNCATION_LENGTH 2
+
+static uint bb_truncation_length;
 
 /* PR 306971: test bb truncation */
 static
 dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
                          bool for_trace, bool translating)
 {
-    /* remove last instr from every multi-instr bb */
-    instr_t *last = instrlist_last(bb);
-    if (last != instrlist_first(bb)) {
-        instrlist_remove(bb, last);
-        instr_destroy(drcontext, last);
+    uint app_instruction_count = 0;
+    instr_t *next, *instr = instrlist_first(bb);
+
+    while (instr != NULL) {
+        next = instr_get_next(instr);
+        if (!instr_is_meta(instr)) {
+            if (app_instruction_count == bb_truncation_length) {
+                instrlist_remove(bb, instr);
+                instr_destroy(drcontext, instr);
+            } else {
+                app_instruction_count++;
+            }
+        }
+        instr = next;
     }
+
     return DR_EMIT_DEFAULT;
 }
 
 DR_EXPORT
 void dr_init(client_id_t id)
 {
+    const char *options = dr_get_options(id);
+    if (strlen(options) == 0) {
+        bb_truncation_length = DEFAULT_BB_TRUNCATION_LENGTH;
+    } else {
+        ASSERT(strlen(options) == 1); /* supports bb truncation at 1-9 instrs */
+        bb_truncation_length = (options[0] - '0');
+        ASSERT(bb_truncation_length < 10 && bb_truncation_length > 0);
+    }
+
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);
 }

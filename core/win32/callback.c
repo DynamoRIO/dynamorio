@@ -159,6 +159,7 @@ typedef struct _intercept_map_elem_t {
     app_pc original_app_pc;
     size_t displace_length; /* includes jmp back */
     size_t orig_length;
+    bool hook_occludes_instrs; /* i#1632: hook replaced instr(s) of differing length */
     struct _intercept_map_elem_t *next;
 } intercept_map_elem_t;
 
@@ -168,6 +169,9 @@ typedef struct _intercept_map_t {
 } intercept_map_t;
 
 static intercept_map_t *intercept_map;
+
+/* i#1632 mask for quick detection of app code pages that may contain intercept hooks. */
+ptr_uint_t intercept_occlusion_mask = ~((ptr_uint_t) 0);
 
 DECLARE_CXTSWPROT_VAR(static mutex_t map_intercept_pc_lock,
                       INIT_LOCK_FREE(map_intercept_pc_lock));
@@ -1378,7 +1382,8 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
 
 static void
 map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
-                           size_t displace_length, size_t orig_length)
+                           size_t displace_length, size_t orig_length,
+                           bool hook_occludes_instrs)
 {
     intercept_map_elem_t *elem = HEAP_TYPE_ALLOC
         (GLOBAL_DCONTEXT, intercept_map_elem_t, ACCT_OTHER, UNPROTECTED);
@@ -1387,6 +1392,7 @@ map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
     elem->original_app_pc = original_app_pc;
     elem->displace_length = displace_length;
     elem->orig_length = orig_length;
+    elem->hook_occludes_instrs = hook_occludes_instrs;
     elem->next = NULL;
 
     mutex_lock(&map_intercept_pc_lock);
@@ -1394,8 +1400,10 @@ map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
     if (intercept_map->head == NULL) {
         intercept_map->head = elem;
         intercept_map->tail = elem;
-    }
-    else {
+    } else if (hook_occludes_instrs) {    /* i#1632: group hook-occluding intercepts at */
+        elem->next = intercept_map->head; /* the head because iteration is frequent.    */
+        intercept_map->head = elem;
+    } else {
         intercept_map->tail->next = elem;
         intercept_map->tail = elem;
     }
@@ -1488,6 +1496,29 @@ get_app_pc_from_intercept_pc(byte *pc)
     return NULL;
 }
 
+/* i#1632: map instrs occluded by an intercept hook to the intercept (as necessary) */
+byte *
+get_intercept_pc_from_app_pc(app_pc pc, bool occlusions_only, bool exclude_start)
+{
+    intercept_map_elem_t *iter = intercept_map->head;
+    /* hook-occluded instrs are always grouped at the head */
+    while (iter != NULL && (!occlusions_only || iter->hook_occludes_instrs)) {
+        byte *start = iter->original_app_pc;
+        byte *end = start + iter->orig_length;
+        if (pc == start) {
+            if (exclude_start)
+                return NULL;
+            else
+                return iter->interception_pc;
+        } else if (pc > start && pc < end)
+            return iter->interception_pc + (pc - start);
+
+        iter = iter->next;
+    }
+
+    return NULL;
+}
+
 bool
 is_intercepted_app_pc(app_pc pc, byte **interception_pc)
 {
@@ -1543,7 +1574,7 @@ emit_resume_jmp(byte *pc, byte *resume_pc, byte *app_pc, byte *xl8_start_pc)
     if (is_in_interception_buffer(pc) && app_pc != NULL) {
         ASSERT(xl8_start_pc != NULL);
         map_intercept_pc_to_app_pc(xl8_start_pc, app_pc, pc - xl8_start_pc,
-                                   pc - xl8_start_pc);
+                                   pc - xl8_start_pc, false /* not a hook occlusion */);
     }
 #ifdef X64
     /* 64-bit abs address is placed after the jmp instr., i.e., rip rel is 0.
@@ -1603,10 +1634,10 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
                byte **alt_exit_tgt_p)
 {
     byte *pc, *our_pc_end, *lpad_start, *lpad_pc, *displaced_app_pc;
-    size_t size;
+    size_t size = 0;
     instrlist_t ilist;
     instr_t *instr;
-    bool changed_prot;
+    bool changed_prot, hook_occludes_instrs = false;
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool is_hooked = false;
     bool ok;
@@ -1633,6 +1664,8 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
         next_pc = decode_cti(dcontext, pc, instr);
         ASSERT(instr_valid(instr));
         instrlist_append(&ilist, instr);
+
+        hook_occludes_instrs = hook_occludes_instrs || (size > 0 || (next_pc - pc) != 5);
 
         /* we do not handle control transfer instructions very well here! (case 2525) */
         if (instr_opcode_valid(instr) && instr_is_cti(instr)) {
@@ -1743,7 +1776,12 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
         /* Map displaced code to original app PCs */
         map_intercept_pc_to_app_pc
             (displaced_app_pc, tgt_pc, size + JMP_LONG_LENGTH /* include jmp back */,
-             size);
+             size, hook_occludes_instrs);
+        if (hook_occludes_instrs) {
+            intercept_occlusion_mask &= (ptr_uint_t) tgt_pc;
+            LOG(GLOBAL, LOG_ASYNCH, 4, "Intercept hook occludes instructions at "PFX". "
+                "Mask is now "PFX".\n", pc, intercept_occlusion_mask);
+        }
 
         /* Copy original instructions to our version, re-relativizing where necessary */
         if (app_code_copy_p != NULL)
@@ -2547,7 +2585,8 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
      * have the translation just in case, even though we hide this jmp from the
      * client.  Xref the PR 219351 comment in is_intercepted_app_pc().
      */
-    map_intercept_pc_to_app_pc(lpad_resume_pc, after_hook_target, JMP_LONG_LENGTH, 0);
+    map_intercept_pc_to_app_pc(lpad_resume_pc, after_hook_target, JMP_LONG_LENGTH, 0,
+                               false /* not a hook occlusion */);
     finalize_landing_pad_code(lpad_start, changed_prot);
 
     emit_pc = pc;
@@ -2579,8 +2618,10 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                              ret_pc /* alternate target to skip syscall */, NULL);
 
     /* Map interception buffer PCs to original app PCs */
-    if (is_in_interception_buffer(pc))
-        map_intercept_pc_to_app_pc(pc, tgt_pc, 10 /* 5 bytes + jmp back */, 5);
+    if (is_in_interception_buffer(pc)) {
+        map_intercept_pc_to_app_pc(pc, tgt_pc, 10 /* 5 bytes + jmp back */, 5,
+                                   false /* not a hook occlusion */);
+    }
 
     /* The normal target, for really doing the system call native, used
      * for letting go normally and for take over.
