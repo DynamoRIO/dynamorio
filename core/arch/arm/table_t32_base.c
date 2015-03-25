@@ -619,8 +619,8 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {OP_smlalbt,  0xfbc00090, "smlalbt",RCw, RBw, RCw, RBw, RAh, xop, x, xexop[0x5]},
     {OP_smlaltb,  0xfbc000a0, "smlaltb",RCw, RBw, RCw, RBw, RAt, xop, x, xexop[0x4]},
     {OP_smlaltt,  0xfbc000b0, "smlaltt",RCw, RBw, RCw, RBw, RAt, xop, x, xexop[0x5]},
-    {OP_smlald,   0xfbc000c0, "smlald", RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
-    {OP_smlaldx,  0xfbc000d0, "smlaldx",RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
+    {OP_smlald,   0xfbc000c0, "smlald", RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
+    {OP_smlaldx,  0xfbc000d0, "smlaldx",RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
     {INVALID,     0xfbc000e0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
@@ -745,8 +745,8 @@ const instr_info_t T32_ext_bit_B4[][2] = {
     {OP_smmls,    0xfb600000, "smmls",  RCw, xx, RAw, RDw, RBw, no, x, END_LIST},
     {OP_smmlsr,   0xfb600010, "smmlsr", RCw, xx, RAw, RDw, RBw, no, x, END_LIST},
   }, { /* 10 */
-    {OP_smlsld,   0xfbd000c0, "smlsld", RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
-    {OP_smlsldx,  0xfbd000d0, "smlsldx",RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
+    {OP_smlsld,   0xfbd000c0, "smlsld", RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
+    {OP_smlsldx,  0xfbd000d0, "smlsldx",RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
   }, { /* 11 */
     {OP_cdp,     0xee000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, xop|srcX4, x, xexop[0x3]},/*XXX: disasm not in dst-src order*//*no chain nec.*/
     {OP_mcr,     0xee000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, xop, x, xexop[0x3]},/*XXX: disasm not in dst-src order*/
@@ -804,8 +804,8 @@ const instr_info_t T32_ext_bit_B5[][2] = {
     {OP_mrs,      0xf3ff8000, "mrs",    RCw, xx, SPSR, xx, xx, no, x, xb5[2][0x00]},/*FIXME i#1551: also mark as reading all flags*/
     {OP_mrs_priv, 0xf3f08020, "mrs",    RCw, xx, SPSR, i5x4_16, xx, no, x, xb5[2][0x01]},
   }, { /* 4 */
-    {OP_umlal,    0xfbe00000, "umlal",  RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
-    {OP_umaal,    0xfbe00060, "umaal",  RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
+    {OP_umlal,    0xfbe00000, "umlal",  RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
+    {OP_umaal,    0xfbe00060, "umaal",  RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
   },
 };
 
@@ -1106,5 +1106,5 @@ const instr_info_t T32_extra_operands[] =
     {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RDh, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RDt, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<srs* cont'd>",  xx, xx, SPSR, xx, xx, no, x, END_LIST},
-    {OP_CONTD, 0x00000000, "<smlal cont'd>",  xx, xx, RDw, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x00000000, "<{s,u}mlal{,d} cont'd>",  xx, xx, RDw, xx, xx, no, x, END_LIST},
 };
