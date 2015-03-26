@@ -285,7 +285,14 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(LINKCOUNT "internal linkcount profiling")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
-option(ANNOTATIONS "annotations" ON)
+
+if (ARM)
+  set(ANNOTATIONS_DEFAULT OFF)
+else ()
+  set(ANNOTATIONS_DEFAULT ON)
+endif ()
+option(ANNOTATIONS "annotations" ${ANNOTATIONS_DEFAULT})
+
 if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
