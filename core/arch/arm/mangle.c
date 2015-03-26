@@ -706,6 +706,14 @@ mangle_add_predicated_fall_through(dcontext_t *dcontext, instrlist_t *ilist,
         instr_set_predicate(mov_imm2, instr_invert_predicate(pred));
 }
 
+static inline bool
+app_instr_is_in_it_block(dcontext_t *dcontext, instr_t *instr)
+{
+    ASSERT(instr_is_app(instr));
+    return (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+            instr_is_predicated(instr));
+}
+
 instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
@@ -716,8 +724,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ptr_int_t target;
     instr_t *mov_imm, *mov_imm2;
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
-    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
-        instr_is_predicated(instr);
+    bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
         /* split instr off from its IT block for easier mangling (we reinstate later) */
@@ -780,8 +787,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     ptr_uint_t retaddr;
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
-    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
-        instr_is_predicated(instr);
+    bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
         /* split instr off from its IT block for easier mangling (we reinstate later) */
@@ -839,8 +845,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     int opc = instr_get_opcode(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
-    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
-        instr_is_predicated(instr);
+    bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
         /* split instr off from its IT block for easier mangling (we reinstate later) */
@@ -1074,8 +1079,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     uint shift_amt, disp;
     bool store = instr_writes_memory(instr);
     /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
-    bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
-        instr_is_predicated(instr);
+    bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
         /* split instr off from its IT block for easier mangling (we reinstate later) */
@@ -1280,11 +1284,19 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
 }
 
 /* replace thread register read instruction with a TLS load instr */
-void
-mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+instr_t *
+mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
+                             instr_t *instr, instr_t *next_instr)
 {
     opnd_t opnd;
     reg_id_t reg;
+    bool in_it = app_instr_is_in_it_block(dcontext, instr);
+    instr_t *bound_start = INSTR_CREATE_label(dcontext);
+    if (in_it) {
+        /* split instr off from its IT block for easier mangling (we reinstate later) */
+        next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
+    }
+    PRE(ilist, instr, bound_start);
     ASSERT(!instr_is_meta(instr) && instr_reads_thread_register(instr));
     reg = opnd_get_reg(instr_get_dst(instr, 0));
     ASSERT(reg_is_gpr(reg) && opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR);
@@ -1297,7 +1309,7 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     ASSERT(reg != DR_REG_PC);
     /* special case: dst reg is dr_reg_stolen */
     if (reg == dr_reg_stolen) {
-        instr_t *next_instr;
+        instr_t *immed_nexti;
         /* we do not mangle r10 in [r10, disp], but need save r10 after execution,
          * so we cannot use mangle_stolen_reg.
          */
@@ -1310,13 +1322,16 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
         /* -- "ldr r10, [r10, disp]" executes here -- */
 
-        next_instr = instr_get_next(instr);
-        restore_tls_base_to_stolen_reg(dcontext, ilist, instr, next_instr,
+        immed_nexti = instr_get_next(instr);
+        restore_tls_base_to_stolen_reg(dcontext, ilist, instr, immed_nexti,
                                        SCRATCH_REG0, TLS_REG0_SLOT);
-        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext,
-                                                             SCRATCH_REG0,
-                                                             TLS_REG0_SLOT));
+        PRE(ilist, immed_nexti, instr_create_restore_from_tls(dcontext,
+                                                              SCRATCH_REG0,
+                                                              TLS_REG0_SLOT));
     }
+    if (in_it)
+        mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
+    return next_instr;
 }
 
 static void
