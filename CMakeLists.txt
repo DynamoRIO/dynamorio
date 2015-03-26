@@ -285,7 +285,7 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(LINKCOUNT "internal linkcount profiling")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
-option(ANNOTATIONS "annotations" OFF)
+option(ANNOTATIONS "annotations" ON)
 if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
@@ -341,7 +341,6 @@ mark_as_advanced(
   preferred_base
   GENERATE_PDBS
   DRSTATS_DEMO
-  ANNOTATIONS
   )
 
 # we clear both base and build-type cflags and then use just base.
@@ -1353,7 +1352,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
     ${BUILD_INCLUDE}/dr_api.h)
   if (NOT ANNOTATIONS)
-    # Kind of a hack but only temporary as we expect to turn on ANNOTATIONS soon.
+    # Kind of a hack, in case the user explicitly disables annotations
     file(READ ${BUILD_INCLUDE}/dr_api.h contents)
     string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
     file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
