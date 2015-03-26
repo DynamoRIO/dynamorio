@@ -378,11 +378,6 @@ void
 patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
              bool hot_patch)
 {
-    /* FIXME i#1551: link reachability: we either need to support OP_ldr into pc
-     * as an exit cti and live w/ ind br cost always, or we need to go
-     * though the stub and replace its 1st instr w/ OP_ldr into pc
-     * when the target is far away.
-     */
     if (isa_mode == DR_ISA_ARM_A32) {
         if (((*(branch_pc + 3)) & 0xf) == 0xa) {
             /* OP_b with 3-byte immed that's stored as >>2 */
@@ -425,15 +420,28 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
             if (hot_patch)
                 machine_cache_sync(branch_pc, branch_pc + THUMB_LONG_INSTR_SIZE, true);
             return;
-        } else if (instr_is_cti_short_rewrite(NULL, branch_pc)) {
-            encode_raw_jmp(isa_mode, target_pc, branch_pc + CTI_SHORT_REWRITE_B_OFFS,
-                           branch_pc + CTI_SHORT_REWRITE_B_OFFS);
-            if (hot_patch) {
-                machine_cache_sync(branch_pc + CTI_SHORT_REWRITE_B_OFFS,
-                                   branch_pc + CTI_SHORT_REWRITE_B_OFFS +
-                                   THUMB_LONG_INSTR_SIZE, true);
+        } else {
+            dcontext_t *dcontext;
+            dr_isa_mode_t old_mode;
+            /* Normally instr_is_cti_short_rewrite() gets the isa mode from an instr_t
+             * param, but we're passing NULL.  Rather than change all its callers
+             * to have to pass in an isa mode we set it here.
+             * XXX: we're duplicating work in instr_is_cti_short_rewrite().
+             */
+            dcontext = get_thread_private_dcontext();
+            dr_set_isa_mode(dcontext, isa_mode, &old_mode);
+            if (instr_is_cti_short_rewrite(NULL, branch_pc)) {
+                encode_raw_jmp(isa_mode, target_pc, branch_pc + CTI_SHORT_REWRITE_B_OFFS,
+                               branch_pc + CTI_SHORT_REWRITE_B_OFFS);
+                if (hot_patch) {
+                    machine_cache_sync(branch_pc + CTI_SHORT_REWRITE_B_OFFS,
+                                       branch_pc + CTI_SHORT_REWRITE_B_OFFS +
+                                       THUMB_LONG_INSTR_SIZE, true);
+                }
+                dr_set_isa_mode(dcontext, old_mode, NULL);
+                return;
             }
-            return;
+            dr_set_isa_mode(dcontext, old_mode, NULL);
         }
     }
     /* FIXME i#1569: add AArch64 support */
