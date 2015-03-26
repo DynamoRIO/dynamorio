@@ -222,6 +222,12 @@ _jmp_target:
         // tbb does not align the current PC and is always 4 bytes long
         tbb      [r10, r4]
 
+// predicated stm
+        mov      r0, #0
+        cmp      r0, #0
+        it       ne
+        stmiane.w r10, {r0, r1}
+
 // SIMD expanded immediates
         vmov.i8  d0, #0x42
         vmov.i16 d0, #0x00ab

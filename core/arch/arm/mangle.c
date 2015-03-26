@@ -1333,6 +1333,7 @@ store_reg_to_memlist(dcontext_t *dcontext,
     bool writeback = instr_num_dsts(instr) > 1;
     uint num_srcs = instr_num_srcs(instr);
     int offs;
+    instr_t *store;
 
     switch (instr_get_opcode(instr)) {
     case OP_stmia:
@@ -1376,11 +1377,16 @@ store_reg_to_memlist(dcontext_t *dcontext,
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, tmp_reg, app_val_slot));
     }
+
     /* store to proper location */
-    PRE(ilist, next_instr, XINST_CREATE_store
-        (dcontext, opnd_create_base_disp(base_reg, REG_NULL, 0,
-                                         offs, OPSZ_PTR),
-         opnd_create_reg(tmp_reg)));
+    store = XINST_CREATE_store
+        (dcontext, opnd_create_base_disp(base_reg, REG_NULL, 0, offs, OPSZ_PTR),
+         opnd_create_reg(tmp_reg));
+    /* we must use the same predicate to avoid crashing here when original didn't run */
+    instr_set_predicate(store, instr_get_predicate(instr));
+    /* app instr, not meta */
+    instr_set_translation(store, instr_get_translation(instr));
+    instrlist_preinsert(ilist, next_instr, store);
 }
 
 /* mangle dr_stolen_reg or pc read in a reglist store (i.e., stm).
