@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -132,3 +132,52 @@ function (place_shared_lib_in_lib_dir target)
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
     ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 endfunction ()
+
+if (UNIX)
+  # We always use a script for our own library bounds (PR 361594).
+  # We could build this at configure time instead of build time as
+  # it does not depend on the source files.
+  # XXX: this is duplicated in DynamoRIOConfig.cmake
+
+  function (set_preferred_base_start_and_end target base set_bounds)
+    if (APPLE)
+      set(ldflags "-image_base ${base}")
+    elseif (NOT LINKER_IS_GNU_GOLD)
+      set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/${target}.ldscript)
+      set_directory_properties(PROPERTIES
+        ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
+      set(ldflags "-Wl,${ld_script_option},\"${ld_script}\"")
+      add_custom_command(TARGET ${target}
+        PRE_LINK
+        COMMAND ${CMAKE_COMMAND}
+        # script does not inherit any vars so we must pass them all in
+        # to work around i#84 be sure to put a space after -D for 1st arg at least
+        ARGS -D outfile=${ld_script}
+             -DCMAKE_LINKER=${CMAKE_LINKER}
+             -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
+             -DLD_FLAGS=${LD_FLAGS}
+             -Dset_preferred=${SET_PREFERRED_BASE}
+             -Dreplace_maxpagesize=${REPLACE_MAXPAGESIZE}
+             -Dpreferred_base=${base}
+             -Dadd_bounds_vars=${set_bounds}
+             -P ${PROJECT_SOURCE_DIR}/make/ldscript.cmake
+        VERBATIM # recommended: p260
+        )
+    else ()
+      set(ldflags "")
+      if (SET_PREFERRED_BASE)
+        # FIXME: This should be -Ttext-segment for bfd, but most golds want -Ttext.
+        # See http://sourceware.org/ml/binutils/2013-02/msg00194.html
+        set(ldflags "-Wl,-Ttext=${base}")
+      endif ()
+      if (set_bounds)
+        # Add our start and end symbols for library bounds.
+        # XXX: hardcoded to dynamorio for now: generalize when necessary.
+        set(ldflags "${ldflags} -Wl,--defsym,dynamorio_so_start=__executable_start")
+        set(ldflags "${ldflags} -Wl,--defsym,dynamorio_so_end=end")
+      endif ()
+    endif ()
+    append_property_string(TARGET ${target} LINK_FLAGS "${ldflags}")
+  endfunction (set_preferred_base_start_and_end)
+
+endif (UNIX)

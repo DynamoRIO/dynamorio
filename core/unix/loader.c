@@ -141,7 +141,7 @@ static void
 privload_relocate_mod(privmod_t *mod);
 
 static void
-privload_create_os_privmod_data(privmod_t *privmod);
+privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc);
 
 static void
 privload_delete_os_privmod_data(privmod_t *privmod);
@@ -172,7 +172,8 @@ os_loader_init_prologue(void)
                           get_shared_lib_name(get_dynamorio_dll_start()),
                           get_dynamorio_library_path());
     ASSERT(mod != NULL);
-    privload_create_os_privmod_data(mod);
+    /* If DR was loaded by system ld.so, then .dynamic *was* relocated (i#1589) */
+    privload_create_os_privmod_data(mod, !DYNAMO_OPTION(early_inject));
     libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
     mod->externally_loaded = true;
 #endif
@@ -271,7 +272,7 @@ privload_add_areas(privmod_t *privmod)
      * We prefer here because it avoids changing the code in
      * loader_shared.c, which affects windows too.
       */
-    privload_create_os_privmod_data(privmod);
+    privload_create_os_privmod_data(privmod,  false/* i#1589: .dynamic not relocated */);
     opd = (os_privmod_data_t *) privmod->os_privmod_data;
     for (i = 0; i < opd->os_data.num_segments; i++) {
         vmvector_add(modlist_areas,
@@ -931,7 +932,7 @@ privload_relocate_mod(privmod_t *mod)
 }
 
 static void
-privload_create_os_privmod_data(privmod_t *privmod)
+privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc)
 {
     os_privmod_data_t *opd;
 
@@ -943,7 +944,7 @@ privload_create_os_privmod_data(privmod_t *privmod)
     /* walk the module's program header to get privmod information */
     module_walk_program_headers(privmod->base, privmod->size,
                                 false, /* segments are remapped */
-                                false, /* i#1589: .dynamic not relocated */
+                                dyn_reloc,
                                 &opd->os_data.base_address, NULL,
                                 &opd->max_end, &opd->soname,
                                 &opd->os_data);

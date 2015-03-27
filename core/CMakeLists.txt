@@ -383,7 +383,7 @@ add_library(dynamorio ${SHARED_OR_STATIC}
   # for automatic rules.
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/genapi.pl
   # ditto: adding here for dependence
-  ${CMAKE_CURRENT_SOURCE_DIR}/CMake_ldscript.cmake
+  ${PROJECT_SOURCE_DIR}/make/ldscript.cmake
   )
 set_target_properties(dynamorio PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
@@ -400,51 +400,6 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 endif ()
 
 target_link_libraries(dynamorio drhelper)
-
-if (UNIX)
-  # We always use a script for our own library bounds (PR 361594).
-  # We could build this at configure time instead of build time as
-  # it does not depend on the source files.
-  # FIXME: this is duplicated in DynamoRIOConfig.cmake
-  set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
-  set_directory_properties(PROPERTIES
-    ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
-
-  function (set_preferred_base_start_and_end target)
-    if (APPLE)
-      set(ldflags "-image_base ${preferred_base}")
-    elseif (NOT LINKER_IS_GNU_GOLD)
-      set(ldflags "-Wl,${ld_script_option},\"${ld_script}\"")
-      add_custom_command(TARGET ${target}
-        PRE_LINK
-        COMMAND ${CMAKE_COMMAND}
-        # script does not inherit any vars so we must pass them all in
-        # to work around i#84 be sure to put a space after -D for 1st arg at least
-        ARGS -D outfile=${ld_script}
-             -DCMAKE_LINKER=${CMAKE_LINKER}
-             -DCMAKE_COMPILER_IS_GNUCC=${CMAKE_COMPILER_IS_GNUCC}
-             -DLD_FLAGS=${LD_FLAGS}
-             -Dset_preferred=${SET_PREFERRED_BASE}
-             -Dreplace_maxpagesize=${REPLACE_MAXPAGESIZE}
-             -Dpreferred_base=${preferred_base}
-             -P ${PROJECT_SOURCE_DIR}/core/CMake_ldscript.cmake
-        VERBATIM # recommended: p260
-        )
-    else ()
-      set(ldflags "")
-      if (SET_PREFERRED_BASE)
-        # FIXME: This should be -Ttext-segment for bfd, but most golds want -Ttext.
-        # See http://sourceware.org/ml/binutils/2013-02/msg00194.html
-        set(ldflags "-Wl,-Ttext=${preferred_base}")
-      endif ()
-      # Add our start and end symbols for library bounds.
-      set(ldflags "${ldflags} -Wl,--defsym,dynamorio_so_start=__executable_start")
-      set(ldflags "${ldflags} -Wl,--defsym,dynamorio_so_end=end")
-    endif ()
-    append_property_string(TARGET ${target} LINK_FLAGS "${ldflags}")
-  endfunction (set_preferred_base_start_and_end)
-
-endif (UNIX)
 
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
@@ -560,7 +515,7 @@ if (UNIX)
     INSTALL_NAME_DIR "@rpath")
 
   # This appends to LINK_FLAGS, so do it after we set them above.
-  set_preferred_base_start_and_end(dynamorio)
+  set_preferred_base_start_and_end(dynamorio ${preferred_base} ON)
 
   if (APPLE OR STATIC_LIBRARY)
     # Static library build uses libdl.  MacOS has no private loader yet.
@@ -956,7 +911,7 @@ if (BUILD_TESTS)
     # which might not be _start.
     append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,--entry,_start")
     target_link_libraries(unit_tests c dl m pthread)
-    set_preferred_base_start_and_end(unit_tests)
+    set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntdll
     target_link_libraries(unit_tests ${WIN32_C_LIB} ntdll_imports)

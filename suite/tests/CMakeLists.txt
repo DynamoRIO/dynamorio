@@ -1949,6 +1949,12 @@ if (UNIX)
 
   tobuild_ops(linux.readlink linux/readlink.c "-early_inject" "exec")
 
+  # Test collision with DR's preferred base
+  tobuild(linux.fib-conflict common/fib.c)
+  set_preferred_base_start_and_end(linux.fib-conflict ${preferred_base} OFF)
+  # XXX i#1227: add a -early test once we have a 2-stage loader that handles
+  # these conflicts.
+
   # Test fully static executables, which we only support with early injection
   # or STATIC_LIBRARY.
   set(fib_static_ops "-early_inject")

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -28,6 +28,16 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
+
+# Arguments:
+# + outfile                 = path to resulting script
+# + CMAKE_LINKER            = path to ld
+# + CMAKE_COMPILER_IS_GNUCC = is it gcc?
+# + LD_FLAGS                = extra ld flags
+# + set_preferred           = whether to set preferred base
+# + preferred_base          = value of preferred base
+# + replace_maxpagesize     = replace the max page size?
+# + add_bounds_vars         = add bounds vars (hardcoded to dynamorio name)
 
 if (APPLE OR NOT CMAKE_COMPILER_IS_GNUCC)
   message(FATAL_ERROR "this script is only for gnu ld")
@@ -77,12 +87,14 @@ if (NOT has_executable_start)
     string "${string}")
 endif (NOT has_executable_start)
 
-# PR 361954: set up vars pointing at our own library bounds using the
-# symbols __executable_start and end defined in default script
-string(REGEX REPLACE
-  "(\n})"
-  "\n  PROVIDE(dynamorio_so_start = __executable_start); PROVIDE(dynamorio_so_end = end);\\1"
-  string "${string}")
+if (add_bounds_vars)
+  # PR 361954: set up vars pointing at our own library bounds using the
+  # symbols __executable_start and end defined in default script
+  string(REGEX REPLACE
+    "(\n})"
+    "\n  PROVIDE(dynamorio_so_start = __executable_start); PROVIDE(dynamorio_so_end = end);\\1"
+    string "${string}")
+endif ()
 
 # PR 253624: right now our library has to be next to our heap, and our
 # heap needs to be in lower 4GB for our fallback TLS (PR 285410), so we
