@@ -50,7 +50,7 @@
 extern "C" {
 #endif
 
-DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, ());
+DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (void));
 
 DR_DECLARE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...));
 

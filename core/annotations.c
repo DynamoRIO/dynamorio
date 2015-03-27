@@ -378,48 +378,49 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
 
             TABLE_RWLOCK(handlers, write, lock);
             handler = strhash_hash_lookup(GLOBAL_DCONTEXT, handlers, layout.name);
-            if (handler != NULL) {
-                if (handler->type == DR_ANNOTATION_HANDLER_CALL) {
-                    /* Substitute the annotation with a label pointing to the handler. */
-                    instr_t *call = INSTR_CREATE_label(dcontext);
-                    dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
-                    SET_ANNOTATION_HANDLER(label_data, handler);
-                    SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
-                    instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-                    instr_set_meta(call);
-                    *substitution = call;
+            if (handler != NULL && handler->type == DR_ANNOTATION_HANDLER_CALL) {
+                /* Substitute the annotation with a label pointing to the handler. */
+                instr_t *call = INSTR_CREATE_label(dcontext);
+                dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
+                SET_ANNOTATION_HANDLER(label_data, handler);
+                SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
+                instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
+                instr_set_meta(call);
+                *substitution = call;
 
-                    handler->is_void = layout.is_void;
-                    if (!handler->is_void) {
-                        /* Append `mov $0x0,%eax` to the annotation substitution, so that
-                         * clients and tools recognize that %xax will be written here.
-                         * The placeholder is "ok to mangle" because it (partially)
-                         * implements the app's annotation. The placeholder will be
-                         * removed post-client during mangling.
-                         */
-                        instr_t *return_placeholder =
-                            INSTR_XL8(INSTR_CREATE_mov_st(dcontext,
-                                                          opnd_create_reg(REG_XAX),
-                                                          OPND_CREATE_INT32(0)),
-                                      layout.substitution_xl8);
-                        instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
-                        /* Append the placeholder manually, because the caller can call
-                         * `instrlist_append()` with a "sublist" of instr_t.
-                         */
-                        instr_set_next(*substitution, return_placeholder);
-                        instr_set_prev(return_placeholder, *substitution);
-                    }
-                } else {
-                    /* Substitute the annotation with `mov $return_value,%eax` */
-                    void *return_value =
-                        handler->receiver_list->instrumentation.return_value;
-                    *substitution =
-                        INSTR_XL8(INSTR_CREATE_mov_imm(dcontext,
-                                                       opnd_create_reg(REG_XAX),
-                                                       OPND_RETURN_VALUE(return_value)),
+                handler->is_void = layout.is_void;
+                if (!handler->is_void) {
+                    /* Append `mov $0x0,%eax` to the annotation substitution, so that
+                     * clients and tools recognize that %xax will be written here.
+                     * The placeholder is "ok to mangle" because it (partially)
+                     * implements the app's annotation. The placeholder will be
+                     * removed post-client during mangling.
+                     */
+                    instr_t *return_placeholder =
+                        INSTR_XL8(INSTR_CREATE_mov_st(dcontext,
+                                                      opnd_create_reg(REG_XAX),
+                                                      OPND_CREATE_INT32(0)),
                                   layout.substitution_xl8);
+                    instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
+                    /* Append the placeholder manually, because the caller can call
+                     * `instrlist_append()` with a "sublist" of instr_t.
+                     */
+                    instr_set_next(*substitution, return_placeholder);
+                    instr_set_prev(return_placeholder, *substitution);
                 }
-            } /* else no handlers, so replace the annotation with nothing */
+            } else { /* Substitute the annotation with `mov $return_value,%eax` */
+                void *return_value;
+
+                if (handler == NULL)
+                    return_value = NULL; /* Return nothing if no handler is registered */
+                else
+                    return_value = handler->receiver_list->instrumentation.return_value;
+                *substitution =
+                    INSTR_XL8(INSTR_CREATE_mov_imm(dcontext,
+                                                   opnd_create_reg(REG_XAX),
+                                                   OPND_RETURN_VALUE(return_value)),
+                              layout.substitution_xl8);
+            }
             TABLE_RWLOCK(handlers, write, unlock);
         }
         /* else (layout.type == ANNOTATION_TYPE_STATEMENT), in which case the only
@@ -610,7 +611,7 @@ dr_annotation_register_return(const char *annotation_name, void *return_value)
         receiver->next = NULL; /* Return value can only have one implementation. */
         handler->receiver_list = receiver;
     } else {
-        result = false; /* Calls are registered, preventing the new return value. */
+        result = false; /* Existing handler prevents the new return value. */
     }
     TABLE_RWLOCK(handlers, write, unlock);
     return result;
@@ -660,7 +661,7 @@ dr_annotation_unregister_return(const char *annotation_name)
     handler = (dr_annotation_handler_t *) strhash_hash_lookup(GLOBAL_DCONTEXT, handlers,
                                                            annotation_name);
     if ((handler != NULL) && (handler->receiver_list != NULL)) {
-        ASSERT(handler->receiver_list->next != NULL);
+        ASSERT(handler->receiver_list->next == NULL);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, handler->receiver_list, dr_annotation_receiver_t,
                        ACCT_OTHER, UNPROTECTED);
         handler->receiver_list = NULL;

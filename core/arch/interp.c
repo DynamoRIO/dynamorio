@@ -2903,13 +2903,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 /* i#1613: the client removed the app instruction prior to an annotation.
                  * We infer that the client wants to skip the annotation. Remove it now.
                  */
-                instr_t *annotation_placeholder = instr_get_next(annotation_label);
+                instr_t *annotation_next = instr_get_next(annotation_label);
                 instrlist_remove(bb->ilist, annotation_label);
                 instr_destroy(dcontext, annotation_label);
-                ASSERT(annotation_placeholder != NULL &&
-                       is_annotation_return_placeholder(annotation_placeholder));
-                instrlist_remove(bb->ilist, annotation_placeholder);
-                instr_destroy(dcontext, annotation_placeholder);
+                if (is_annotation_return_placeholder(annotation_next)) {
+                    instrlist_remove(bb->ilist, annotation_next);
+                    instr_destroy(dcontext, annotation_next);
+                }
             }
         }
 #endif
