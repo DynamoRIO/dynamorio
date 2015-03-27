@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -162,7 +162,10 @@ check_and_mark_native_exec(module_area_t *ma, bool add)
 void
 native_exec_module_load(module_area_t *ma, bool at_map)
 {
-    bool is_native = check_and_mark_native_exec(ma, true/*add*/);
+    bool is_native;
+    if (!DYNAMO_OPTION(native_exec))
+        return;
+    is_native = check_and_mark_native_exec(ma, true/*add*/);
     if (is_native && DYNAMO_OPTION(native_exec_retakeover))
         native_module_hook(ma, at_map);
 }
@@ -170,7 +173,10 @@ native_exec_module_load(module_area_t *ma, bool at_map)
 void
 native_exec_module_unload(module_area_t *ma)
 {
-    bool is_native = check_and_mark_native_exec(ma, false/*!add*/);
+    bool is_native;
+    if (!DYNAMO_OPTION(native_exec))
+        return;
+    is_native = check_and_mark_native_exec(ma, false/*!add*/);
     if (DYNAMO_OPTION(native_exec_retakeover)) {
         if (is_native)
             native_module_unhook(ma);

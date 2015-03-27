@@ -562,8 +562,9 @@ bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags
 
 #ifdef ARM
 /* mangle the instruction that reads thread register */
-void
-mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+instr_t *
+mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
+                             instr_t *instr, instr_t *next_instr);
 #endif /* ARM */
 
 /* offsets within local_state_t used for specific scratch purposes */

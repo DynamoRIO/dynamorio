@@ -775,7 +775,8 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 #  error NYI on AArch64 for writing thread register
 # endif
         if (!instr_is_meta(instr) && instr_reads_thread_register(instr)) {
-            mangle_reads_thread_register(dcontext, ilist, instr);
+            next_instr = mangle_reads_thread_register(dcontext, ilist,
+                                                      instr, next_instr);
             continue;
         }
         /* Our stolen reg model is to expose to the client.  We assume that any
