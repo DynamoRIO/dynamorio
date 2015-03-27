@@ -1952,8 +1952,8 @@ if (UNIX)
   # Test collision with DR's preferred base
   tobuild(linux.fib-conflict common/fib.c)
   set_preferred_base_start_and_end(linux.fib-conflict ${preferred_base} OFF)
-  # XXX i#1227: add a -early test once we have a 2-stage loader that handles
-  # these conflicts.
+  # i#1227: test 2-stage loader
+  torunonly(linux.fib-conflict-early linux.fib-conflict common/fib.c "-early_inject" "")
 
   # Test fully static executables, which we only support with early injection
   # or STATIC_LIBRARY.

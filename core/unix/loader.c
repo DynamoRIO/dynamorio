@@ -875,6 +875,32 @@ get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
     return found;
 }
 
+#ifdef LINUX
+static void
+privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
+{
+    if (opd->rel != NULL) {
+        module_relocate_rel(mod_base, opd,
+                            opd->rel,
+                            opd->rel + opd->relsz / opd->relent);
+    }
+    if (opd->rela != NULL) {
+        module_relocate_rela(mod_base, opd,
+                             opd->rela,
+                             opd->rela + opd->relasz / opd->relaent);
+    }
+    if (opd->jmprel != NULL) {
+        if (opd->pltrel == DT_REL) {
+            module_relocate_rel(mod_base, opd, (ELF_REL_TYPE *)opd->jmprel,
+                                (ELF_REL_TYPE *)(opd->jmprel + opd->pltrelsz));
+        } else if (opd->pltrel == DT_RELA) {
+            module_relocate_rela(mod_base, opd, (ELF_RELA_TYPE *)opd->jmprel,
+                                 (ELF_RELA_TYPE *)(opd->jmprel + opd->pltrelsz));
+        }
+    }
+}
+#endif
+
 static void
 privload_relocate_mod(privmod_t *mod)
 {
@@ -889,25 +915,8 @@ privload_relocate_mod(privmod_t *mod)
     if (opd->tls_block_size != 0)
         privload_mod_tls_init(mod);
 
-    if (opd->rel != NULL) {
-        module_relocate_rel(mod->base, opd,
-                            opd->rel,
-                            opd->rel + opd->relsz / opd->relent);
-    }
-    if (opd->rela != NULL) {
-        module_relocate_rela(mod->base, opd,
-                             opd->rela,
-                             opd->rela + opd->relasz / opd->relaent);
-    }
-    if (opd->jmprel != NULL) {
-        if (opd->pltrel == DT_REL) {
-            module_relocate_rel(mod->base, opd, (ELF_REL_TYPE *)opd->jmprel,
-                                (ELF_REL_TYPE *)(opd->jmprel + opd->pltrelsz));
-        } else if (opd->pltrel == DT_RELA) {
-            module_relocate_rela(mod->base, opd, (ELF_RELA_TYPE *)opd->jmprel,
-                                 (ELF_RELA_TYPE *)(opd->jmprel + opd->pltrelsz));
-        }
-    }
+    privload_relocate_os_privmod_data(opd, mod->base);
+
     /* special handling on I/O file */
     if (strstr(mod->name, "libc.so") == mod->name) {
         privmod_stdout =
@@ -939,6 +948,7 @@ privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc)
     opd = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, os_privmod_data_t,
                           ACCT_OTHER, PROTECTED);
     privmod->os_privmod_data = opd;
+
     memset(opd, 0, sizeof(*opd));
 
     /* walk the module's program header to get privmod information */
@@ -1468,12 +1478,79 @@ reserve_brk(void)
     /* I'd log the results, but logs aren't initialized yet. */
 }
 
+/* i#1227: on a conflict with the app we reload ourselves.
+ * Does not return.
+ */
+static void
+reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
+{
+    elf_loader_t dr_ld;
+    os_privmod_data_t opd;
+    byte *dr_map, *temp1_map = NULL, *temp2_map = NULL;
+    app_pc entry;
+    byte *cur_dr_map = get_dynamorio_dll_start();
+    byte *cur_dr_end = get_dynamorio_dll_end();
+    size_t dr_size = cur_dr_end - cur_dr_map;
+    size_t temp1_size, temp2_size;
+    IF_DEBUG(bool success = )
+        elf_loader_read_headers(&dr_ld, get_dynamorio_library_path());
+    ASSERT(success);
+
+    /* XXX: have better strategy for picking base: currently we rely on
+     * the kernel picking an address, so we have to block out the conflicting
+     * region first.
+     */
+    if (conflict_start < cur_dr_map) {
+        temp1_size = cur_dr_map - conflict_start;
+        temp1_map = os_map_file(-1, &temp1_size, 0, conflict_start, MEMPROT_NONE,
+                                MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
+        ASSERT(temp1_map != NULL);
+    }
+    if (conflict_end > cur_dr_end) {
+        temp2_size = conflict_end - cur_dr_end;
+        temp2_map = os_map_file(-1, &temp2_size, 0, cur_dr_end, MEMPROT_NONE,
+                                MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
+        ASSERT(temp2_map != NULL);
+    }
+
+    /* Now load the 2nd libdynamorio.so */
+    dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file,
+                                  os_unmap_file, os_set_protection, false/*!reachable*/);
+    ASSERT(dr_map != NULL);
+    ASSERT(is_elf_so_header(dr_map, 0));
+
+    /* Relocate it */
+    memset(&opd, 0, sizeof(opd));
+    module_get_os_privmod_data(dr_map, dr_size, false/*!relocated*/, &opd);
+    /* XXX: we assume libdynamorio has no tls block b/c we're not calling
+     * privload_relocate_mod().
+     */
+    ASSERT(opd.tls_block_size == 0);
+    privload_relocate_os_privmod_data(&opd, dr_map);
+
+    if (temp1_map != NULL)
+        os_unmap_file(temp1_map, temp1_size);
+    if (temp2_map != NULL)
+        os_unmap_file(temp2_map, temp2_size);
+
+    entry = (app_pc)dr_ld.ehdr->e_entry + dr_ld.load_delta;
+    elf_loader_destroy(&dr_ld);
+
+    /* Now we transfer control unconditionally to the new DR's _start, after
+     * first restoring init_sp.  We pass along the current (old) DR's bounds
+     * for removal.
+     */
+    xfer_to_new_libdr(entry, init_sp, cur_dr_map, dr_size);
+
+    ASSERT_NOT_REACHED();
+}
+
 /* Called from _start in x86.asm.  sp is the initial app stack pointer that the
  * kernel set up for us, and it points to the usual argc, argv, envp, and auxv
  * that the kernel puts on the stack.
  */
 void
-privload_early_inject(void **sp)
+privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 {
     ptr_int_t *argc = (ptr_int_t *)sp;  /* Kernel writes an elf_addr_t. */
     char **argv = (char **)sp + 1;
@@ -1481,7 +1558,7 @@ privload_early_inject(void **sp)
     app_pc entry = NULL;
     char *exe_path;
     char *exe_basename;
-    app_pc exe_map;
+    app_pc exe_map, exe_end;
     elf_loader_t exe_ld;
     const char *interp;
     priv_mcontext_t mc;
@@ -1494,6 +1571,10 @@ privload_early_inject(void **sp)
          */
         takeover_ptrace((ptrace_stack_args_t *) sp);
     }
+
+    /* i#1227: if we reloaded ourselves, unload the old libdynamorio */
+    if (old_libdr_base != NULL)
+        os_unmap_file(old_libdr_base, old_libdr_size);
 
     dynamorio_set_envp(envp);
 
@@ -1511,6 +1592,17 @@ privload_early_inject(void **sp)
     success = elf_loader_read_headers(&exe_ld, exe_path);
     apicheck(success, "Failed to read app ELF headers.  Check path and "
              "architecture.");
+
+    /* Find range of app to check for conflicts: */
+    exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs,
+                                            exe_ld.ehdr->e_phnum, NULL, &exe_end);
+    if (get_dynamorio_dll_start() < exe_end &&
+        get_dynamorio_dll_end() > exe_map) {
+        /* i#1227: conflict with the app: reload ourselves */
+        reload_dynamorio(sp, exe_map, exe_end);
+        ASSERT_NOT_REACHED();
+    }
+
     exe_map = elf_loader_map_phdrs(&exe_ld,
                                    /* fixed at preferred address,
                                     * will be overridden if preferred base is 0

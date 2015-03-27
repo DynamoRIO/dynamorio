@@ -1003,6 +1003,8 @@ void dynamorio_nonrt_sigreturn(void);
 # ifdef LINUX
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
+void xfer_to_new_libdr(app_pc entry, void **init_sp, byte *cur_dr_map,
+                       size_t cur_dr_size);
 # endif
 # ifdef MACOS
 void new_bsdthread_intercept(void);

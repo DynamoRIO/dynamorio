@@ -7641,10 +7641,10 @@ get_dynamo_library_bounds(void)
 char*
 get_dynamorio_library_path(void)
 {
-    if (!dynamorio_library_path[0]) { /* not cached */
+    if (!dynamorio_library_filepath[0]) { /* not cached */
         get_dynamo_library_bounds();
     }
-    return dynamorio_library_path;
+    return dynamorio_library_filepath;
 }
 
 #ifdef LINUX

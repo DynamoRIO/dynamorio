@@ -1157,23 +1157,50 @@ GLOBAL_LABEL(client_int_syscall:)
 /* i#47: Early injection _start routine.  The kernel sets all registers to zero
  * except the SP and PC.  The stack has argc, argv[], envp[], and the auxiliary
  * vector laid out on it.
+ * If we reload ourselves (i#1227) we'll set xdi and xsi to the base and size
+ * of the old library that needs to be unmapped.
  */
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
 # ifdef X64
+        /* Reverse order to avoid clobbering */
+        mov     ARG3, REG_XSI
+        mov     ARG2, REG_XDI
         mov     ARG1, REG_XSP
 # else
         mov     REG_XAX, REG_XSP
 #  ifdef MACOS
-        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+        lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
 #  endif
+        push    REG_XSI
+        push    REG_XDI
         push    REG_XAX
 # endif
         CALLC0(GLOBAL_REF(privload_early_inject))
         jmp     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 #endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
+
+
+/* i#1227: on a conflict with the app we reload ourselves.
+ * xfer_to_new_libdr(entry, init_sp, cur_dr_map, cur_dr_size)
+ * =>
+ * Invokes entry after setting sp to init_sp and placing the current (old)
+ * libdr bounds in registers for the new libdr to unmap.
+ */
+        DECLARE_FUNC(xfer_to_new_libdr)
+GLOBAL_LABEL(xfer_to_new_libdr:)
+        /* Get the args */
+        mov     REG_XAX, ARG1
+        mov     REG_XBX, ARG2
+        /* _start looks in xdi and xsi for these */
+        mov     REG_XDI, ARG3
+        mov     REG_XSI, ARG4
+        /* Restore sp */
+        mov     REG_XSP, REG_XBX
+        jmp     REG_XAX
+        END_FUNC(xfer_to_new_libdr)
 #endif /* LINUX */
 
 /* while with pre-2.6.9 kernels we were able to rely on the kernel's

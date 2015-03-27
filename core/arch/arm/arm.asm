@@ -91,6 +91,24 @@ GLOBAL_LABEL(_start:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
+
+
+/* i#1227: on a conflict with the app we reload ourselves.
+ * xfer_to_new_libdr(entry, init_sp, cur_dr_map, cur_dr_size)
+ * =>
+ * Invokes entry after setting sp to init_sp and placing the current (old)
+ * libdr bounds in registers for the new libdr to unmap.
+ */
+        DECLARE_FUNC(xfer_to_new_libdr)
+GLOBAL_LABEL(xfer_to_new_libdr:)
+        mov     r5, ARG1
+        /* Restore sp */
+        mov     sp, ARG2
+        /* _start expects these as 2nd & 3rd args */
+        mov     ARG2, ARG3
+        mov     ARG3, ARG4
+        bx      r5
+        END_FUNC(xfer_to_new_libdr)
 #endif /* UNIX */
 
 /* all of the CPUID registers are only accessible in privileged modes */
