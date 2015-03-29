@@ -1891,6 +1891,8 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
     initial_map_size = elf->image_size;
     if (INTERNAL_OPTION(separate_private_bss)) {
         /* place an extra no-access page after .bss */
+        /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
+        /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
         initial_map_size += PAGE_SIZE;
     }
     lib_base = (*map_func)(-1, &initial_map_size, 0, map_base,

@@ -305,6 +305,11 @@ static struct rlimit app_rlimit_nofile;
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
 
+/* i#1004: brk emulation */
+static byte *app_brk_map;
+static byte *app_brk_cur;
+static byte *app_brk_end;
+
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
 
@@ -817,6 +822,9 @@ os_init(void)
 
     /* Ensure initialization */
     get_dynamorio_dll_start();
+
+    if (DYNAMO_OPTION(emulate_brk))
+        init_emulated_brk(NULL);
 }
 
 /* called before any logfiles are opened */
@@ -2517,6 +2525,64 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     return p;
 }
 
+void
+init_emulated_brk(app_pc exe_end)
+{
+    ASSERT(DYNAMO_OPTION(emulate_brk));
+    if (app_brk_map != NULL)
+        return;
+    /* i#1004: emulate brk via a separate mmap.
+     * The real brk starts out empty, but we need at least a page to have an
+     * mmap placeholder.
+     */
+    app_brk_map = mmap_syscall(exe_end, PAGE_SIZE, PROT_READ|PROT_WRITE,
+                               MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    ASSERT(mmap_syscall_succeeded(app_brk_map));
+    app_brk_cur = app_brk_map;
+    app_brk_end = app_brk_map + PAGE_SIZE;
+}
+
+static byte *
+emulate_app_brk(dcontext_t *dcontext, byte *new_val)
+{
+    byte *old_brk = app_brk_cur;
+    ASSERT(DYNAMO_OPTION(emulate_brk));
+    LOG(THREAD, LOG_HEAP, 2, "%s: cur="PFX", requested="PFX"\n",
+        __FUNCTION__, app_brk_cur, new_val);
+    new_val = (byte *) ALIGN_FORWARD(new_val, PAGE_SIZE);
+    if (new_val == NULL || new_val == app_brk_cur ||
+        /* Not allowed to shrink below original base */
+        new_val < app_brk_map) {
+        /* Just return cur val */
+    } else if (new_val < app_brk_cur) {
+        /* Shrink */
+        if (munmap_syscall(new_val, app_brk_cur - new_val) == 0) {
+            app_brk_cur = new_val;
+            app_brk_end = new_val;
+        }
+    } else if (new_val < app_brk_end) {
+        /* We've already allocated the space */
+        app_brk_cur = new_val;
+    } else {
+        /* Expand */
+        byte *remap = (byte *)
+            dynamorio_syscall(SYS_mremap, 4, app_brk_map,
+                              app_brk_end - app_brk_map,
+                              new_val - app_brk_map, 0/*do not move*/);
+        if (mmap_syscall_succeeded(remap)) {
+            ASSERT(remap == app_brk_map);
+            app_brk_cur = new_val;
+            app_brk_end = new_val;
+        } else {
+            LOG(THREAD, LOG_HEAP, 1, "%s: mremap to "PFX" failed\n",
+                __FUNCTION__, new_val);
+        }
+    }
+    if (app_brk_cur != old_brk)
+        handle_app_brk(dcontext, old_brk, app_brk_cur);
+    return app_brk_cur;
+}
+
 #if defined(CLIENT_INTERFACE) && defined(LINUX)
 DR_API
 /* XXX: could add dr_raw_mem_realloc() instead of dr_raw_mremap() -- though there
@@ -2551,18 +2617,23 @@ DR_API
 void *
 dr_raw_brk(void *new_address)
 {
-    /* We pay the cost of 2 syscalls.  This should be infrequent enough that
-     * it doesn't mater.
-     */
-    if (new_address == NULL) {
-        /* Just a query */
-        return (void *) dynamorio_syscall(SYS_brk, 1, new_address);
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (DYNAMO_OPTION(emulate_brk)) {
+        /* i#1004: emulate brk via a separate mmap */
+        return (void *) emulate_app_brk(dcontext, (byte *)new_address);
     } else {
-        byte *old_brk = (byte *) dynamorio_syscall(SYS_brk, 1, 0);
-        byte *res = (byte *) dynamorio_syscall(SYS_brk, 1, new_address);
-        dcontext_t *dcontext = get_thread_private_dcontext();
-        handle_app_brk(dcontext, old_brk, res);
-        return res;
+        /* We pay the cost of 2 syscalls.  This should be infrequent enough that
+         * it doesn't mater.
+         */
+        if (new_address == NULL) {
+            /* Just a query */
+            return (void *) dynamorio_syscall(SYS_brk, 1, new_address);
+        } else {
+            byte *old_brk = (byte *) dynamorio_syscall(SYS_brk, 1, 0);
+            byte *res = (byte *) dynamorio_syscall(SYS_brk, 1, new_address);
+            handle_app_brk(dcontext, old_brk, res);
+            return res;
+        }
     }
 }
 #endif /* CLIENT_INTERFACE && LINUX */
@@ -6096,11 +6167,20 @@ pre_system_call(dcontext_t *dcontext)
     }
 #ifdef LINUX
     case SYS_brk: {
-        /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
-         * We store the old break in the param1 slot.
-         */
-        DODEBUG(dcontext->sys_param0 = (reg_t) sys_param(dcontext, 0););
-        dcontext->sys_param1 = dynamorio_syscall(SYS_brk, 1, 0);
+        if (DYNAMO_OPTION(emulate_brk)) {
+            /* i#1004: emulate brk via a separate mmap */
+            byte *new_val = (byte *) sys_param(dcontext, 0);
+            byte *res = emulate_app_brk(dcontext, new_val);
+            execute_syscall = false;
+            /* SYS_brk returns old brk on failure */
+            set_success_return_val(dcontext, (reg_t)res);
+        } else {
+            /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
+             * We store the old break in the param1 slot.
+             */
+            DODEBUG(dcontext->sys_param0 = (reg_t) sys_param(dcontext, 0););
+            dcontext->sys_param1 = dynamorio_syscall(SYS_brk, 1, 0);
+        }
         break;
     }
     case SYS_uselib: {
@@ -7279,6 +7359,7 @@ post_system_call(dcontext_t *dcontext)
         app_pc old_brk = (app_pc) dcontext->sys_param1;
         app_pc new_brk = (app_pc) result;
         DEBUG_DECLARE(app_pc req_brk = (app_pc) dcontext->sys_param0;);
+        ASSERT(!DYNAMO_OPTION(emulate_brk)); /* shouldn't get here */
 # ifdef DEBUG
         if (DYNAMO_OPTION(early_inject) &&
             req_brk != NULL /* Ignore calls that don't increase brk. */) {

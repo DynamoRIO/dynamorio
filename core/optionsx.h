@@ -1439,15 +1439,20 @@
     OPTION_DEFAULT(bool, follow_systemwide, true, "inject into all spawned processes that are configured to run under dr (app specific RUNUNDER_ON, or no app specific and RUNUNDER_ALL in the global key), dangerous without either -early_inject or -block_mod_load_list_default preventing double injection")
     DYNAMIC_OPTION_DEFAULT(bool, follow_explicit_children, true, "inject into all spawned processes that have app-specific RUNUNDER_EXPLICIT")
 
-    /* FIXME - do we want to make any of the -early_inject* options dynamic?
+    /* XXX: do we want to make any of the -early_inject* options dynamic?
      * if so be sure we update os.c:early_inject_location on change etc. */
     /* i#47: experimental support for early_inject in Linux
      * XXX: this option can only be turned on by drrun via "-early" so that
      * cmdline args can be arranged appropriately.
      */
-    OPTION_DEFAULT(bool, early_inject, IF_WINDOWS_ELSE
-                   /* i#980: too early for kernel32 so we disable */
-                   (IF_CLIENT_INTERFACE_ELSE(false, true), false), "inject early")
+    OPTION_COMMAND(bool, early_inject, IF_WINDOWS_ELSE
+        /* i#980: too early for kernel32 so we disable */
+        (IF_CLIENT_INTERFACE_ELSE(false, true), false), "early_inject", {
+        if (options->early_inject) {
+            /* i#1004: we need to emulate the brk for early injection */
+            IF_UNIX(options->emulate_brk = true;)
+        }
+    }, "inject early", STATIC, OP_PCACHE_GLOBAL)
 #if 0 /* FIXME i#234 NYI: not ready to enable just yet */
     OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
     /* see enum definition is os_shared.h for notes on what works with which
@@ -1486,6 +1491,10 @@
     OPTION_DEFAULT(bool, inject_primary, false,
         /* case 9347 - we may leave early threads as unknown */
         "check and wait for injection in the primary thread")
+#ifdef UNIX
+    /* Should normally only be on if -early_inject is on */
+    OPTION_DEFAULT(bool, emulate_brk, false, "i#1004: emulate brk for early injection")
+#endif
 
     /* options for controlling the synch_with_* routines */
     OPTION_DEFAULT(uint, synch_thread_max_loops, 10000, "max number of wait loops in "

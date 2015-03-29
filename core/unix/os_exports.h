@@ -268,6 +268,8 @@ bool kernel_is_64bit(void);
 void
 os_handle_mov_seg(dcontext_t *dcontext, byte *pc);
 
+void init_emulated_brk(app_pc exe_end);
+
 /* in arch.c */
 bool unhook_vsyscall(void);
 

@@ -97,6 +97,8 @@ static const char *system_lib_paths[] = {
 
 #define RPATH_ORIGIN "$ORIGIN"
 
+#define APP_BRK_GAP 64*1024*1024
+
 static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
 static size_t max_client_tls_size = 2 * PAGE_SIZE;
@@ -1452,30 +1454,43 @@ takeover_ptrace(ptrace_stack_args_t *args)
     dynamo_start(&args->mc);
 }
 
-/* i#1004: as a workaround, reserve some space for sbrk() during early injection
- * before initializing DR's heap.  With early injection, the program break comes
- * somewhere after DR's bss section, subject to some ASLR.  When we allocate our
- * heap, sometimes we mmap right over the break, so any brk() calls will fail.
- * When brk() fails, most malloc() implementations fall back to mmap().
- * However, sometimes libc startup code needs to allocate memory before libc is
- * initialized.  In this case it calls brk(), and will crash if it fails.
- *
- * Ideally we'd just set the break to follow the app's exe, but the kernel
- * forbids setting the break to a value less than the current break.  I also
- * tried to reserve memory by increasing the break by ~20 pages and then
- * resetting it, but the kernel unreserves it.  The current work around is to
- * increase the break by 1.  The loader needs to allocate more than a page of
- * memory, so this doesn't guarantee that further brk() calls will succeed.
- * However, I haven't observed any brk() failures after adding this workaround.
- */
 static void
-reserve_brk(void)
+reserve_brk(app_pc post_app)
 {
-    ptr_int_t start_brk;
-    ASSERT(!dynamo_heap_initialized);
-    start_brk = dynamorio_syscall(SYS_brk, 1, 0);
-    dynamorio_syscall(SYS_brk, 1, start_brk + 1);
-    /* I'd log the results, but logs aren't initialized yet. */
+    /* We haven't parsed the options yet, so we rely on drinjectlib
+     * setting this env var if the user passed -no_emulate_brk:
+     */
+    if (getenv(DYNAMORIO_VAR_NO_EMULATE_BRK) == NULL) {
+        /* i#1004: we're going to emulate the brk via our own mmap.
+         * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
+         * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
+         * in os_init() to ensure no DR mmap limits its size?
+         */
+        dynamo_options.emulate_brk = true; /* not parsed yet */
+        init_emulated_brk(post_app);
+    } else {
+        /* i#1004: as a workaround, reserve some space for sbrk() during early injection
+         * before initializing DR's heap.  With early injection, the program break comes
+         * somewhere after DR's bss section, subject to some ASLR.  When we allocate our
+         * heap, sometimes we mmap right over the break, so any brk() calls will fail.
+         * When brk() fails, most malloc() implementations fall back to mmap().
+         * However, sometimes libc startup code needs to allocate memory before libc is
+         * initialized.  In this case it calls brk(), and will crash if it fails.
+         *
+         * Ideally we'd just set the break to follow the app's exe, but the kernel
+         * forbids setting the break to a value less than the current break.  I also
+         * tried to reserve memory by increasing the break by ~20 pages and then
+         * resetting it, but the kernel unreserves it.  The current work around is to
+         * increase the break by 1.  The loader needs to allocate more than a page of
+         * memory, so this doesn't guarantee that further brk() calls will succeed.
+         * However, I haven't observed any brk() failures after adding this workaround.
+         */
+        ptr_int_t start_brk;
+        ASSERT(!dynamo_heap_initialized);
+        start_brk = dynamorio_syscall(SYS_brk, 1, 0);
+        dynamorio_syscall(SYS_brk, 1, start_brk + 1);
+        /* I'd log the results, but logs aren't initialized yet. */
+    }
 }
 
 /* i#1227: on a conflict with the app we reload ourselves.
@@ -1507,6 +1522,8 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
         ASSERT(temp1_map != NULL);
     }
     if (conflict_end > cur_dr_end) {
+        /* Leave room for the brk */
+        conflict_end += APP_BRK_GAP;
         temp2_size = conflict_end - cur_dr_end;
         temp2_map = os_map_file(-1, &temp2_size, 0, cur_dr_end, MEMPROT_NONE,
                                 MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
@@ -1593,12 +1610,12 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     apicheck(success, "Failed to read app ELF headers.  Check path and "
              "architecture.");
 
-    /* Find range of app to check for conflicts: */
+    /* Find range of app */
     exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs,
                                             exe_ld.ehdr->e_phnum, NULL, &exe_end);
+    /* i#1227: on a conflict with the app: reload ourselves */
     if (get_dynamorio_dll_start() < exe_end &&
         get_dynamorio_dll_end() > exe_map) {
-        /* i#1227: conflict with the app: reload ourselves */
         reload_dynamorio(sp, exe_map, exe_end);
         ASSERT_NOT_REACHED();
     }
@@ -1607,7 +1624,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    /* fixed at preferred address,
                                     * will be overridden if preferred base is 0
                                     */
-                                   true ,
+                                   true,
                                    os_map_file,
                                    os_unmap_file, os_set_protection, false/*!reachable*/);
     apicheck(exe_map != NULL, "Failed to load application.  "
@@ -1627,6 +1644,9 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     }
     dynamorio_syscall(SYS_prctl, 5, PR_SET_NAME, (ptr_uint_t)exe_basename,
                       0, 0, 0);
+
+    reserve_brk(exe_map + exe_ld.image_size +
+                (INTERNAL_OPTION(separate_private_bss) ? PAGE_SIZE : 0));
 
     interp = elf_loader_find_pt_interp(&exe_ld);
     if (interp != NULL) {
@@ -1650,8 +1670,6 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         entry = (app_pc)exe_ld.ehdr->e_entry + exe_ld.load_delta;
     }
     elf_loader_destroy(&exe_ld);
-
-    reserve_brk();
 
     /* Initialize DR *after* we map the app image.  This is consistent with our
      * old behavior, and allows the client to do things like call

@@ -126,6 +126,7 @@ typedef struct _dr_inject_info_t {
     bool killpg;
     bool exited;
     int exitcode;
+    bool no_emulate_brk; /* is -no_emulate_brk in the option string? */
 
 #ifdef MACOS
     bool spawn_32bit;
@@ -255,9 +256,11 @@ pre_execve_ld_preload(const char *dr_path)
  * injection.
  */
 static void
-pre_execve_early(const char *exe)
+pre_execve_early(dr_inject_info_t *info, const char *exe)
 {
     setenv(DYNAMORIO_VAR_EXE_PATH, exe, true/*overwrite*/);
+    if (info->no_emulate_brk)
+        setenv(DYNAMORIO_VAR_NO_EMULATE_BRK, exe, true/*overwrite*/);
 }
 
 static void
@@ -327,7 +330,7 @@ fork_suspended_child(const char *exe, dr_inject_info_t *info, int fds[2])
              */
             real_exe = exe;
         } else if (strstr(pipe_cmd, "exec_dr ") == pipe_cmd) {
-            pre_execve_early(exe);
+            pre_execve_early(info, exe);
             real_exe = arg;
         }
 #ifdef STATIC_LIBRARY
@@ -363,7 +366,7 @@ inject_early(dr_inject_info_t *info, const char *library_path)
         /* exec DR with the original command line and set an environment
          * variable pointing to the real exe.
          */
-        pre_execve_early(info->exe);
+        pre_execve_early(info, info->exe);
         execute_exec(info, library_path);
         return false;  /* if execv returns, there was an error */
     } else {
@@ -614,6 +617,11 @@ dr_inject_process_inject(void *data, bool force_injection,
     if (info->method == INJECT_LD_PRELOAD &&
         option_present(dr_ops, "-early_inject")) {
         info->method = INJECT_EARLY;
+        /* i#1004: -early_inject has to decide whether to emulate the brk
+         * before it can parse the options so we use an env var:
+         */
+        if (option_present(dr_ops, "-no_emulate_brk"))
+            info->no_emulate_brk = true;
     }
 
 #ifdef STATIC_LIBRARY
