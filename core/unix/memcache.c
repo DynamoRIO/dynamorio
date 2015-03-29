@@ -536,7 +536,7 @@ memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size,
 }
 
 void
-memcache_handle_app_brk(byte *old_brk, byte *new_brk)
+memcache_handle_app_brk(byte *lowest_brk/*if known*/, byte *old_brk, byte *new_brk)
 {
     DEBUG_DECLARE(bool ok;)
     ASSERT(ALIGNED(old_brk, PAGE_SIZE));
@@ -552,11 +552,15 @@ memcache_handle_app_brk(byte *old_brk, byte *new_brk)
         uint prot;
         memcache_lock();
         sync_all_memory_areas();
-        info = vmvector_lookup(all_memory_areas, old_brk - 1);
         /* If the heap hasn't been created yet (no brk syscalls), then info
          * will be NULL.  We assume the heap is RW- on creation.
          */
-        prot = ((info != NULL) ? info->prot : MEMPROT_READ|MEMPROT_WRITE);
+        if (lowest_brk != NULL && old_brk == lowest_brk)
+            prot =  MEMPROT_READ|MEMPROT_WRITE;
+        else {
+            info = vmvector_lookup(all_memory_areas, old_brk - 1);
+            prot = ((info != NULL) ? info->prot : MEMPROT_READ|MEMPROT_WRITE);
+        }
         update_all_memory_areas(old_brk, new_brk, prot, DR_MEMTYPE_DATA);
         memcache_unlock();
     }

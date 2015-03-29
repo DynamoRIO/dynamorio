@@ -253,7 +253,8 @@ static bool os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to
 static bool handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
                               byte *old_base, size_t old_size,
                               uint old_prot, uint old_type);
-static void handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk);
+static void handle_app_brk(dcontext_t *dcontext, byte *lowest_brk/*if known*/,
+                           byte *old_brk, byte *new_brk);
 #endif
 
 /* full path to our own library, used for execve */
@@ -305,10 +306,12 @@ static struct rlimit app_rlimit_nofile;
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
 
+#ifdef LINUX
 /* i#1004: brk emulation */
 static byte *app_brk_map;
 static byte *app_brk_cur;
 static byte *app_brk_end;
+#endif
 
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
@@ -823,8 +826,10 @@ os_init(void)
     /* Ensure initialization */
     get_dynamorio_dll_start();
 
+#ifdef LINUX
     if (DYNAMO_OPTION(emulate_brk))
         init_emulated_brk(NULL);
+#endif
 }
 
 /* called before any logfiles are opened */
@@ -2525,6 +2530,7 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     return p;
 }
 
+#ifdef LINUX
 void
 init_emulated_brk(app_pc exe_end)
 {
@@ -2579,9 +2585,10 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
         }
     }
     if (app_brk_cur != old_brk)
-        handle_app_brk(dcontext, old_brk, app_brk_cur);
+        handle_app_brk(dcontext, app_brk_map, old_brk, app_brk_cur);
     return app_brk_cur;
 }
+#endif /* LINUX */
 
 #if defined(CLIENT_INTERFACE) && defined(LINUX)
 DR_API
@@ -2631,7 +2638,7 @@ dr_raw_brk(void *new_address)
         } else {
             byte *old_brk = (byte *) dynamorio_syscall(SYS_brk, 1, 0);
             byte *res = (byte *) dynamorio_syscall(SYS_brk, 1, new_address);
-            handle_app_brk(dcontext, old_brk, res);
+            handle_app_brk(dcontext, NULL, old_brk, res);
             return res;
         }
     }
@@ -7047,7 +7054,8 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
 }
 
 static void
-handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
+handle_app_brk(dcontext_t *dcontext, byte *lowest_brk/*if known*/,
+               byte *old_brk, byte *new_brk)
 {
     /* i#851: the brk might not be page aligned */
     old_brk = (app_pc) ALIGN_FORWARD(old_brk, PAGE_SIZE);
@@ -7065,7 +7073,7 @@ handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
          * w/ security policies.
          */
     }
-    IF_NO_MEMQUERY(memcache_handle_app_brk(old_brk, new_brk));
+    IF_NO_MEMQUERY(memcache_handle_app_brk(lowest_brk, old_brk, new_brk));
 }
 #endif
 
@@ -7369,7 +7377,7 @@ post_system_call(dcontext_t *dcontext)
             });
         }
 # endif
-        handle_app_brk(dcontext, old_brk, new_brk);
+        handle_app_brk(dcontext, NULL, old_brk, new_brk);
         break;
     }
 #endif
