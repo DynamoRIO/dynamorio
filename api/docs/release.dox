@@ -157,6 +157,11 @@ following minor compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - Changed the default injection method on Linux to use "early injection"
+   which begins executing the target application from its very first
+   instruction.  The old behavior can be requested by passing "-late"
+   to drrun or drinject, or including "-no_early_inject" in the options
+   to drinjectlib.
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
  - Added cross-platform instruction creation macros

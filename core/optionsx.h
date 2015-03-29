@@ -1443,13 +1443,15 @@
 
     /* XXX: do we want to make any of the -early_inject* options dynamic?
      * if so be sure we update os.c:early_inject_location on change etc. */
-    /* i#47: experimental support for early_inject in Linux
-     * XXX: this option can only be turned on by drrun via "-early" so that
-     * cmdline args can be arranged appropriately.
+    /* XXX i#47: for Linux, we can't easily have this option on by default as
+     * code like get_application_short_name() called from drpreload before
+     * even _init is run needs to have a non-early default.
+     * Thus we turn this on in privload_early_inject.
      */
     OPTION_COMMAND(bool, early_inject, IF_WINDOWS_ELSE
         /* i#980: too early for kernel32 so we disable */
-        (IF_CLIENT_INTERFACE_ELSE(false, true), false), "early_inject", {
+        (IF_CLIENT_INTERFACE_ELSE(false, true), false),
+        "early_inject", {
         if (options->early_inject) {
             /* i#1004: we need to emulate the brk for early injection */
             IF_UNIX(options->emulate_brk = true;)

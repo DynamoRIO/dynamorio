@@ -615,13 +615,15 @@ dr_inject_process_inject(void *data, bool force_injection,
     }
 
     if (info->method == INJECT_LD_PRELOAD &&
-        option_present(dr_ops, "-early_inject")) {
+        !option_present(dr_ops, "-no_early_inject")) {
+#ifndef MACOS /* XXX i#1285: implement private loader for MacOS */
         info->method = INJECT_EARLY;
         /* i#1004: -early_inject has to decide whether to emulate the brk
          * before it can parse the options so we use an env var:
          */
         if (option_present(dr_ops, "-no_emulate_brk"))
             info->no_emulate_brk = true;
+#endif
     }
 
 #ifdef STATIC_LIBRARY

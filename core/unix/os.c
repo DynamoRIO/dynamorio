@@ -635,7 +635,9 @@ dynamorio_set_envp(char **envp)
 int
 our_init(int argc, char **argv, char **envp)
 {
-    /* if do not want to use drpreload.so, we can take over here */
+    /* If we do not want to use drpreload.so, we can take over here: but when using
+     * drpreload, this is called *after* we have already taken over.
+     */
     extern void dynamorio_app_take_over(void);
     bool takeover = false;
 #ifdef INIT_TAKE_OVER
@@ -651,6 +653,7 @@ our_init(int argc, char **argv, char **envp)
     } else {
         our_environ = envp;
     }
+    /* if using preload, no -early_inject */
     if (!takeover) {
         const char *takeover_env = getenv("DYNAMORIO_TAKEOVER_IN_INIT");
         if (takeover_env != NULL && strcmp(takeover_env, "1") == 0) {

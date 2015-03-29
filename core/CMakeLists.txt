@@ -627,7 +627,7 @@ if (UNIX)
       set(check_deps OFF)
       if (NOT STATIC_LIBRARY AND NOT APPLE)
         # i#46, i#1541, i#1459: we have zero dependencies now by default, except
-        # for MacOS where privlib is NYI (i#1596) and static lib.
+        # for MacOS where privlib is NYI (i#1285) and static lib.
         if (NOT VMSAFE AND NOT VPS) # XXX: these unsupported builds have deps
           set(check_deps ON)
         endif ()

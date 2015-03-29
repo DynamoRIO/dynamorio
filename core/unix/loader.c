@@ -1587,6 +1587,12 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     priv_mcontext_t mc;
     bool success;
 
+    /* XXX i#47: for Linux, we can't easily have this option on by default as
+     * code like get_application_short_name() called from drpreload before
+     * even _init is run needs to have a non-early default.
+     */
+    dynamo_options.early_inject = true;
+
     if (*argc == ARGC_PTRACE_SENTINEL) {
         /* XXX: Teach the injector to look up takeover_ptrace() and call it
          * directly instead of using this sentinel.  We come here because we

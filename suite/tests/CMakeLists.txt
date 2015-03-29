@@ -1399,7 +1399,7 @@ endfunction(optimize)
 # tests
 
 tobuild(common.broadfun common/broadfun.c)
-tobuild(common.fib common/fib.c)
+tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
 if (NOT ARM) # FIXME i#1551: port asm to ARM
   tobuild(common.decode-bad common/decode-bad.c)
   # FIXME i#105: get this working for 32-bit linux
