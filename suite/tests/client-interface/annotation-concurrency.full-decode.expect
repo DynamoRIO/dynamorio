@@ -1,0 +1,259 @@
+      <Init annotation test client with full decoding>
+
+    -------------------------------------------------------------------
+     Performance for solving AX=B Linear Equation using Jacobi method
+     Running on DynamoRIO
+     Client version 2.2.8
+    ...................................................................
+
+     Matrix Size :  1024
+     Threads     :  4
+
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args (handler #1): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Initialize mode 0>
+      <Initialize mode 1>
+      <Initialize context 0 'thread #0' in mode 0>
+      <Initialize context 1 'thread #1' in mode 0>
+      <Initialize context 2 'thread #2' in mode 0>
+      <Initialize context 3 'thread #3' in mode 0>
+      <Initialize context 4 'thread-handling' in mode 0>
+
+     Started iteration 1 of the computation...
+      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (handler #2): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #1): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 2 of the computation...
+      <Test many args (handler #2): a=2, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 3 of the computation...
+      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (handler #2): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #1): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #2): a=3, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 4 of the computation...
+      <Test many args (handler #2): a=4, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 5 of the computation...
+      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (handler #2): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #1): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #2): a=5, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 6 of the computation...
+      <Test many args (handler #2): a=6, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 7 of the computation...
+      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (handler #2): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #1): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #2): a=7, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 8 of the computation...
+      <Test many args (handler #2): a=8, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 9 of the computation...
+      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
+      <Test many args (handler #2): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #1): a=101, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109, j=110>
+      <Test many args (handler #2): a=9, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+     Started iteration 10 of the computation...
+      <Test many args (handler #2): a=10, b=2, c=3, d=4, e=5, f=6, g=7, h=18>
+      <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=28>
+
+     Finished computing current solution distance in mode 1.
+     Mode changed to 0.
+
+
+     The Jacobi Method For AX=B .........DONE
+     Total Number Of iterations   :  10
+    ...................................................................
+      <In context 0 at event 1, the mode changed from 0 to 1>
+      <In context 0 at event 2, the mode changed from 1 to 0>
+      <In context 0 at event 3, the mode changed from 0 to 1>
+      <In context 0 at event 4, the mode changed from 1 to 0>
+      <In context 0 at event 5, the mode changed from 0 to 1>
+      <In context 0 at event 6, the mode changed from 1 to 0>
+      <In context 0 at event 7, the mode changed from 0 to 1>
+      <In context 0 at event 8, the mode changed from 1 to 0>
+      <In context 0 at event 9, the mode changed from 0 to 1>
+      <In context 0 at event 10, the mode changed from 1 to 0>
+      <In context 0 at event 11, the mode changed from 0 to 1>
+      <In context 0 at event 12, the mode changed from 1 to 0>
+      <In context 0 at event 13, the mode changed from 0 to 1>
+      <In context 0 at event 14, the mode changed from 1 to 0>
+      <In context 0 at event 15, the mode changed from 0 to 1>
+      <In context 0 at event 16, the mode changed from 1 to 0>
+      <In context 0 at event 17, the mode changed from 0 to 1>
+      <In context 0 at event 18, the mode changed from 1 to 0>
+      <In context 0 at event 19, the mode changed from 0 to 1>
+      <In context 0 at event 20, the mode changed from 1 to 0>
+      <Context 'thread #0' terminates in mode 0>
+      <In context 1 at event 1, the mode changed from 0 to 1>
+      <In context 1 at event 2, the mode changed from 1 to 0>
+      <In context 1 at event 3, the mode changed from 0 to 1>
+      <In context 1 at event 4, the mode changed from 1 to 0>
+      <In context 1 at event 5, the mode changed from 0 to 1>
+      <In context 1 at event 6, the mode changed from 1 to 0>
+      <In context 1 at event 7, the mode changed from 0 to 1>
+      <In context 1 at event 8, the mode changed from 1 to 0>
+      <In context 1 at event 9, the mode changed from 0 to 1>
+      <In context 1 at event 10, the mode changed from 1 to 0>
+      <In context 1 at event 11, the mode changed from 0 to 1>
+      <In context 1 at event 12, the mode changed from 1 to 0>
+      <In context 1 at event 13, the mode changed from 0 to 1>
+      <In context 1 at event 14, the mode changed from 1 to 0>
+      <In context 1 at event 15, the mode changed from 0 to 1>
+      <In context 1 at event 16, the mode changed from 1 to 0>
+      <In context 1 at event 17, the mode changed from 0 to 1>
+      <In context 1 at event 18, the mode changed from 1 to 0>
+      <In context 1 at event 19, the mode changed from 0 to 1>
+      <In context 1 at event 20, the mode changed from 1 to 0>
+      <Context 'thread #1' terminates in mode 0>
+      <In context 2 at event 1, the mode changed from 0 to 1>
+      <In context 2 at event 2, the mode changed from 1 to 0>
+      <In context 2 at event 3, the mode changed from 0 to 1>
+      <In context 2 at event 4, the mode changed from 1 to 0>
+      <In context 2 at event 5, the mode changed from 0 to 1>
+      <In context 2 at event 6, the mode changed from 1 to 0>
+      <In context 2 at event 7, the mode changed from 0 to 1>
+      <In context 2 at event 8, the mode changed from 1 to 0>
+      <In context 2 at event 9, the mode changed from 0 to 1>
+      <In context 2 at event 10, the mode changed from 1 to 0>
+      <In context 2 at event 11, the mode changed from 0 to 1>
+      <In context 2 at event 12, the mode changed from 1 to 0>
+      <In context 2 at event 13, the mode changed from 0 to 1>
+      <In context 2 at event 14, the mode changed from 1 to 0>
+      <In context 2 at event 15, the mode changed from 0 to 1>
+      <In context 2 at event 16, the mode changed from 1 to 0>
+      <In context 2 at event 17, the mode changed from 0 to 1>
+      <In context 2 at event 18, the mode changed from 1 to 0>
+      <In context 2 at event 19, the mode changed from 0 to 1>
+      <In context 2 at event 20, the mode changed from 1 to 0>
+      <Context 'thread #2' terminates in mode 0>
+      <In context 3 at event 1, the mode changed from 0 to 1>
+      <In context 3 at event 2, the mode changed from 1 to 0>
+      <In context 3 at event 3, the mode changed from 0 to 1>
+      <In context 3 at event 4, the mode changed from 1 to 0>
+      <In context 3 at event 5, the mode changed from 0 to 1>
+      <In context 3 at event 6, the mode changed from 1 to 0>
+      <In context 3 at event 7, the mode changed from 0 to 1>
+      <In context 3 at event 8, the mode changed from 1 to 0>
+      <In context 3 at event 9, the mode changed from 0 to 1>
+      <In context 3 at event 10, the mode changed from 1 to 0>
+      <In context 3 at event 11, the mode changed from 0 to 1>
+      <In context 3 at event 12, the mode changed from 1 to 0>
+      <In context 3 at event 13, the mode changed from 0 to 1>
+      <In context 3 at event 14, the mode changed from 1 to 0>
+      <In context 3 at event 15, the mode changed from 0 to 1>
+      <In context 3 at event 16, the mode changed from 1 to 0>
+      <In context 3 at event 17, the mode changed from 0 to 1>
+      <In context 3 at event 18, the mode changed from 1 to 0>
+      <In context 3 at event 19, the mode changed from 0 to 1>
+      <In context 3 at event 20, the mode changed from 1 to 0>
+      <Context 'thread #3' terminates in mode 0>
+      <In context 4 at event 1, the mode changed from 0 to 1>
+      <In context 4 at event 2, the mode changed from 1 to 0>
+      <In context 4 at event 3, the mode changed from 0 to 1>
+      <In context 4 at event 4, the mode changed from 1 to 0>
+      <In context 4 at event 5, the mode changed from 0 to 1>
+      <In context 4 at event 6, the mode changed from 1 to 0>
+      <In context 4 at event 7, the mode changed from 0 to 1>
+      <In context 4 at event 8, the mode changed from 1 to 0>
+      <In context 4 at event 9, the mode changed from 0 to 1>
+      <In context 4 at event 10, the mode changed from 1 to 0>
+      <In context 4 at event 11, the mode changed from 0 to 1>
+      <In context 4 at event 12, the mode changed from 1 to 0>
+      <In context 4 at event 13, the mode changed from 0 to 1>
+      <In context 4 at event 14, the mode changed from 1 to 0>
+      <In context 4 at event 15, the mode changed from 0 to 1>
+      <In context 4 at event 16, the mode changed from 1 to 0>
+      <In context 4 at event 17, the mode changed from 0 to 1>
+      <In context 4 at event 18, the mode changed from 1 to 0>
+      <In context 4 at event 19, the mode changed from 0 to 1>
+      <In context 4 at event 20, the mode changed from 1 to 0>
+      <In context 4 at event 21, the mode changed from 0 to 1>
+      <In context 4 at event 22, the mode changed from 1 to 0>
+      <In context 4 at event 23, the mode changed from 0 to 1>
+      <In context 4 at event 24, the mode changed from 1 to 0>
+      <In context 4 at event 25, the mode changed from 0 to 1>
+      <In context 4 at event 26, the mode changed from 1 to 0>
+      <In context 4 at event 27, the mode changed from 0 to 1>
+      <In context 4 at event 28, the mode changed from 1 to 0>
+      <In context 4 at event 29, the mode changed from 0 to 1>
+      <In context 4 at event 30, the mode changed from 1 to 0>
+      <In context 4 at event 31, the mode changed from 0 to 1>
+      <In context 4 at event 32, the mode changed from 1 to 0>
+      <In context 4 at event 33, the mode changed from 0 to 1>
+      <In context 4 at event 34, the mode changed from 1 to 0>
+      <In context 4 at event 35, the mode changed from 0 to 1>
+      <In context 4 at event 36, the mode changed from 1 to 0>
+      <In context 4 at event 37, the mode changed from 0 to 1>
+      <In context 4 at event 38, the mode changed from 1 to 0>
+      <In context 4 at event 39, the mode changed from 0 to 1>
+      <In context 4 at event 40, the mode changed from 1 to 0>
+      <Context 'thread-handling' terminates in mode 0>

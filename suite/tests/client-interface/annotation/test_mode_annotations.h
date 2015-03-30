@@ -41,8 +41,15 @@
 #define TEST_ANNOTATION_INIT_CONTEXT(id, name, mode) \
     DR_ANNOTATION(test_annotation_init_context, id, name, mode)
 
+#define TEST_ANNOTATION_GET_MODE(context_id) test_annotation_get_mode(context_id)
+
 #define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
     DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
+
+#define TEST_ANNOTATION_GET_CLIENT_VERSION() test_annotation_get_client_version()
+
+#define TEST_ANNOTATION_ROTATE_VALGRIND_HANDLER(phase) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_rotate_valgrind_handler, , phase)
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,10 +58,17 @@ extern "C" {
 DR_DECLARE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode));
 
 DR_DECLARE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
-    const char *name, unsigned int initial_mode));
+                                                           const char *name,
+                                                           unsigned int initial_mode));
+
+DR_DECLARE_ANNOTATION(unsigned int, test_annotation_get_mode, (unsigned int context_id));
 
 DR_DECLARE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
-    unsigned int mode));
+                                                       unsigned int mode));
+
+DR_DECLARE_ANNOTATION(const char *, test_annotation_get_client_version, (void));
+
+DR_DECLARE_ANNOTATION(void, test_annotation_rotate_valgrind_handler, (int phase));
 
 #ifdef __cplusplus
 }

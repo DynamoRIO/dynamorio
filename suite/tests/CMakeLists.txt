@@ -1525,6 +1525,65 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
   endif (NOT ARM)
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
+
+  if (NOT ARM)
+    set(DynamoRIO_USE_LIBC OFF)
+    if (UNIX)
+      set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
+    else (UNIX)
+      set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
+    endif (UNIX)
+    tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
+      "" "" "${annotation_test_args}")
+    tobuild_appdll(client.annotation-concurrency
+      client-interface/annotation-concurrency.c)
+    if (UNIX)
+      target_link_libraries(client.annotation-concurrency ${libpthread})
+    endif (UNIX)
+    set(client.annotation-concurrency.full-decode_expectbase
+      "annotation-concurrency.full-decode")
+    torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
+      client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+      "full-decode" "" "${annotation_test_args}")
+    set(client.annotation-concurrency.full-decode.tiny-bb_expectbase
+      "annotation-concurrency.full-decode")
+    torunonly_ci(client.annotation-concurrency.full-decode.tiny-bb
+      client.annotation-concurrency client.annotation-concurrency.dll
+      client-interface/annotation-concurrency.c "full-decode" "-max_bb_instrs 2"
+      "${annotation_test_args}")
+    set(client.annotation-concurrency.bb-truncate-1_expectbase
+      "annotation-concurrency.bb-truncate")
+    torunonly_ci(client.annotation-concurrency.bb-truncate-1 client.annotation-concurrency
+      client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+      "truncate@1" "" "${annotation_test_args}")
+    set(client.annotation-concurrency.bb-truncate-2_expectbase
+      "annotation-concurrency.bb-truncate")
+    torunonly_ci(client.annotation-concurrency.bb-truncate-2 client.annotation-concurrency
+      client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+      "truncate@2" "" "${annotation_test_args}")
+
+    if (UNIX)
+      set(annotation_test_args "libclient.annotation-concurrency-opt.appdll.so" "A" "4")
+    else (UNIX)
+      set(annotation_test_args "client.annotation-concurrency-opt.appdll.dll" "A" "4")
+    endif (UNIX)
+    tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
+      "" "" "${annotation_test_args}")
+    optimize(client.annotation-concurrency-opt)
+    tobuild_appdll(client.annotation-concurrency-opt
+      client-interface/annotation-concurrency.c)
+    optimize(client.annotation-concurrency-opt.appdll)
+    if (UNIX)
+      target_link_libraries(client.annotation-concurrency-opt ${libpthread})
+    endif (UNIX)
+    set(client.annotation-concurrency-opt.full-decode_expectbase
+      "annotation-concurrency.full-decode")
+    torunonly_ci(client.annotation-concurrency-opt.full-decode
+      client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
+      client-interface/annotation-concurrency.c "full-decode" "" "${annotation_test_args}")
+    set(DynamoRIO_USE_LIBC ON)
+  endif (NOT ARM)
+
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.
     tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
@@ -1542,7 +1601,7 @@ if (CLIENT_INTERFACE)
         client-interface/vg-annot.c "full-decode" "" "")
       set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
       torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
-        client-interface/vg-annot.c "full-decode" "-max_bb_instrs 3" "")
+        client-interface/vg-annot.c "full-decode" "-max_bb_instrs 2" "")
       set(client.vg-annot.bb-truncate-1_expectbase "vg-annot.bb-truncate")
       torunonly_ci(client.vg-annot.bb-truncate-1 client.vg-annot client.vg-annot.dll
         client-interface/vg-annot.c "truncate@1" "" "")
