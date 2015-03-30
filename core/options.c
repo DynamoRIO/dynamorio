@@ -1954,6 +1954,16 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
+#ifdef DEBUG
+    if (INTERNAL_OPTION(log_at_fragment_count) > 0 && stats->loglevel > 1) {
+        /* start out at 1 */
+        if (dynamo_options.stats_loglevel <= 1)
+            USAGE_ERROR("-log_at_fragment_count expects >1 delayed loglevel");
+        stats->loglevel = 1;
+        changed_options = true;
+    }
+#endif
+
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */
     /* case 7626: don't short-circuit checks, as later ones may be needed */

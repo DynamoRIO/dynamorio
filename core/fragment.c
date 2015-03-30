@@ -2418,6 +2418,17 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
             schedule_reset(RESET_ALL);
         }
     });
+    DODEBUG({
+        if ((uint)GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(log_at_fragment_count)) {
+            /* we started at loglevel 1 and now we raise to the requested level */
+            options_make_writable();
+            stats->loglevel = DYNAMO_OPTION(stats_loglevel);
+            options_restore_readonly();
+            SYSLOG_INTERNAL_INFO("hit -log_at_fragment_count %d, raising loglevel to %d",
+                                 INTERNAL_OPTION(log_at_fragment_count),
+                                 DYNAMO_OPTION(stats_loglevel));
+        }
+    });
 
     /* size is a ushort
      * our offsets are ushorts as well: they assume body_size is small enough, not size
