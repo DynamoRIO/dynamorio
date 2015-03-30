@@ -169,7 +169,9 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
             target = opnd_get_pc(instr_get_target(instr));
         else if (opnd_is_near_instr(instr_get_target(instr))) {
             instr_t *tgt = opnd_get_instr(instr_get_target(instr));
-            /* assumption: target's translation or raw bits are set properly */
+            /* XXX: not using get_app_instr_xl8() b/c drdecodelib doesn't link
+             * mangle_shared.c.
+             */
             target = instr_get_translation(tgt);
             if (target == NULL && instr_raw_bits_valid(tgt))
                 target = instr_get_raw_bits(tgt);
@@ -2505,9 +2507,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
                      op == OP_fwait))
                     control_instr = true;
                 if (!control_instr) {
-                    prior_float = instr_get_translation(prev);
-                    if (prior_float == NULL && instr_raw_bits_valid(prev))
-                        prior_float = instr_get_raw_bits(prev);
+                    prior_float = get_app_instr_xl8(prev);
                     break;
                 }
             }
@@ -2967,15 +2967,18 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     dst = instr_get_dst(instr, 0);
     if (opnd_is_reg(dst) && reg_is_segment(opnd_get_reg(dst))) {
+        app_pc xl8;
         seg = opnd_get_reg(dst);
 #ifdef CLIENT_INTERFACE
         if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
             return;
 #endif
         /* must use the original instr, which might be used by caller */
+        xl8 = get_app_instr_xl8(instr);
         instr_reuse(dcontext, instr);
         instr_set_opcode(instr, OP_nop);
         instr_set_num_opnds(dcontext, instr, 0, 0);
+        instr_set_translation(instr, xl8);
         return;
     }
 

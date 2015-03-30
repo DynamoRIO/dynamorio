@@ -1251,6 +1251,10 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 ptr_uint_t
 get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 
+/* if translation is null, uses raw bits (assumes instr was just decoded from app) */
+app_pc
+get_app_instr_xl8(instr_t *instr);
+
 #ifdef X64
 /* in x86_to_x64.c */
 void

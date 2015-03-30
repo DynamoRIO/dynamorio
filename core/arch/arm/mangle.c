@@ -113,7 +113,9 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
             target = opnd_get_pc(instr_get_target(instr));
         else if (opnd_is_near_instr(instr_get_target(instr))) {
             instr_t *tgt = opnd_get_instr(instr_get_target(instr));
-            /* assumption: target's translation or raw bits are set properly */
+            /* XXX: not using get_app_instr_xl8() b/c drdecodelib doesn't link
+             * mangle_shared.c.
+             */
             target = instr_get_translation(tgt);
             if (target == NULL && instr_raw_bits_valid(tgt))
                 target = instr_get_raw_bits(tgt);
@@ -723,7 +725,6 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     uint opc = instr_get_opcode(instr);
     ptr_int_t target;
     instr_t *mov_imm, *mov_imm2;
-    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
@@ -786,7 +787,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
     ptr_uint_t retaddr;
-    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
@@ -844,7 +844,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     bool remove_instr = false;
     int opc = instr_get_opcode(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
-    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
@@ -1078,7 +1077,6 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     dr_shift_type_t shift_type;
     uint shift_amt, disp;
     bool store = instr_writes_memory(instr);
-    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
@@ -1544,8 +1542,7 @@ normalize_ldm_instr(dcontext_t *dcontext,
     int memsz = sizeof(reg_t) * (writeback ? (num_dsts - 1) : num_dsts);
     int adjust_pre = 0, adjust_post = 0, ldr_pc_disp = 0;
     dr_pred_type_t pred = instr_get_predicate(instr);
-    app_pc pc = instr_get_translation(instr) == NULL ?
-        instr_get_translation(instr) : instr_get_raw_bits(instr);
+    app_pc pc = get_app_instr_xl8(instr);
 
     /* FIXME i#1551: NYI on case like "ldm r10, {r10, pc}": if base reg
      * is clobbered, "ldr pc [base, disp]" will use wrong base value.
@@ -1875,7 +1872,6 @@ instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr)
 {
-    /* XXX i#1551: move this to the mangle() loop to handle all instrs in one place */
     bool finished = false;
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
         instr_is_predicated(instr);

@@ -435,6 +435,16 @@ insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                            ilist, instr, first, second);
 }
 
+app_pc
+get_app_instr_xl8(instr_t *instr)
+{
+    /* assumption: target's translation or raw bits are set properly */
+    app_pc xl8 = instr_get_translation(instr);
+    if (xl8 == NULL && instr_raw_bits_valid(instr))
+        xl8 = instr_get_raw_bits(instr);
+    return xl8;
+}
+
 ptr_uint_t
 get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
@@ -456,9 +466,7 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
      * If a client changes an instr, or our own mangle_rel_addr() does,
      * the raw bits won't be valid but the translation should be.
      */
-    curaddr = (ptr_uint_t) instr_get_translation(instr);
-    if (curaddr == 0 && instr_raw_bits_valid(instr))
-        curaddr = (ptr_uint_t) instr_get_raw_bits(instr);
+    curaddr = (ptr_uint_t) get_app_instr_xl8(instr);
     ASSERT(curaddr != 0);
     /* we use the next app instruction as return address as the client
      * or DR may change the instruction and so its length.
@@ -722,9 +730,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
         if (record_translation) {
             /* make sure inserted instrs translate to the original instr */
-            app_pc xl8 = instr_get_translation(instr);
-            if (xl8 == NULL)
-                xl8 = instr_get_raw_bits(instr);
+            app_pc xl8 = get_app_instr_xl8(instr);
             instrlist_set_translation_target(ilist, xl8);
         }
 
@@ -949,9 +955,7 @@ cti_is_normal_elision(instr_t *instr)
     if (next == NULL || instr_is_meta(next))
         return false;
     tgt = instr_get_target(instr);
-    next_pc = instr_get_translation(next);
-    if (next_pc == NULL && instr_raw_bits_valid(next))
-        next_pc = instr_get_raw_bits(next);
+    next_pc = get_app_instr_xl8(next);
     if (opnd_is_pc(tgt) && next_pc != NULL && opnd_get_pc(tgt) == next_pc)
         return true;
     return false;
