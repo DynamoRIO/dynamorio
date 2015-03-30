@@ -155,6 +155,60 @@ privload_mod_tls_init(privmod_t *mod);
 
 /***************************************************************************/
 
+/* Register a symbol file with gdb.  This symbol needs to be exported so that
+ * gdb can find it even when full debug information is unavailable.  We do
+ * *not* consider it part of DR's public API.
+ * i#531: gdb support for private loader
+ */
+DYNAMORIO_EXPORT void
+dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
+{
+    /* Do nothing.  If gdb is attached with libdynamorio.so-gdb.py loaded, it
+     * will stop here and lift the argument values.
+     */
+    /* FIXME: This only passes the text section offset.  gdb can accept
+     * additional "-s<section> <address>" arguments to locate data sections.
+     * This would be useful for setting watchpoints on client global variables.
+     */
+}
+
+#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
+# if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+static void
+privload_add_gdb_cmd(elf_loader_t *loader, const char *filename, bool reachable)
+{
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    /* Get the text addr to register the ELF with gdb.  The section headers
+     * are not part of the mapped image, so we have to map the whole file.
+     * XXX: seek to e_shoff and read the section headers to avoid this map.
+     */
+    if (elf_loader_map_file(loader, reachable) != NULL) {
+        app_pc text_addr = (app_pc)module_get_text_section(loader->file_map,
+                                                           loader->file_size);
+        text_addr += loader->load_delta;
+        print_to_buffer(gdb_priv_cmds, BUFFER_SIZE_ELEMENTS(gdb_priv_cmds),
+                        &gdb_priv_cmds_sofar, "add-symbol-file '%s' %p\n",
+                        filename, text_addr);
+        /* Add debugging comment about how to get symbol information in gdb. */
+        if (printed_gdb_commands) {
+            /* This is a dynamically loaded auxlib, so we print here.
+             * The client and its direct dependencies are batched up and
+             * printed in os_loader_init_epilogue.
+             */
+            SYSLOG_INTERNAL_INFO("Paste into GDB to debug DynamoRIO clients:\n"
+                                 "add-symbol-file '%s' %p\n",
+                                 filename, text_addr);
+        }
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "for debugger: add-symbol-file %s %p\n", filename, text_addr);
+        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privload_register_gdb), false)) {
+            dr_gdb_add_symbol_file(filename, text_addr);
+        }
+    }
+}
+# endif
+#endif
+
 /* os specific loader initialization prologue before finalizing the load. */
 void
 os_loader_init_prologue(void)
@@ -178,6 +232,17 @@ os_loader_init_prologue(void)
     privload_create_os_privmod_data(mod, !DYNAMO_OPTION(early_inject));
     libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
     mod->externally_loaded = true;
+# if defined(LINUX)/*i#1285*/ && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
+    if (DYNAMO_OPTION(early_inject)) {
+        /* libdynamorio isn't visible to gdb so add to the cmd list */
+        elf_loader_t dr_ld;
+        IF_DEBUG(bool success = )
+            elf_loader_read_headers(&dr_ld, get_dynamorio_library_path());
+        ASSERT(success);
+        privload_add_gdb_cmd(&dr_ld, get_dynamorio_library_path(), false/*!reach*/);
+        elf_loader_destroy(&dr_ld);
+    }
+# endif
 #endif
 }
 
@@ -204,19 +269,6 @@ os_loader_init_epilogue(void)
 # endif /* INTERNAL || CLIENT_INTERFACE */
 #endif
 }
-
-#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-# if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-static void
-privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
-{
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    print_to_buffer(gdb_priv_cmds, BUFFER_SIZE_ELEMENTS(gdb_priv_cmds),
-                    &gdb_priv_cmds_sofar, "add-symbol-file '%s' %p\n",
-                    modpath, text_addr);
-}
-# endif
-#endif
 
 void
 os_loader_exit(void)
@@ -336,23 +388,6 @@ privload_unload_imports(privmod_t *privmod)
     return true;
 }
 
-/* Register a symbol file with gdb.  This symbol needs to be exported so that
- * gdb can find it even when full debug information is unavailable.  We do
- * *not* consider it part of DR's public API.
- * i#531: gdb support for private loader
- */
-DYNAMORIO_EXPORT void
-dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
-{
-    /* Do nothing.  If gdb is attached with libdynamorio.so-gdb.py loaded, it
-     * will stop here and lift the argument values.
-     */
-    /* FIXME: This only passes the text section offset.  gdb can accept
-     * additional "-s<section> <address>" arguments to locate data sections.
-     * This would be useful for setting watchpoints on client global variables.
-     */
-}
-
 /* This only maps, as relocation for ELF requires processing imports first,
  * which we have to delay at init time at least.
  */
@@ -365,9 +400,6 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     prot_fn_t prot_func;
     app_pc base = NULL;
     elf_loader_t loader;
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-    app_pc text_addr;
-#endif
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get appropriate function */
@@ -407,33 +439,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
             *size = loader.image_size;
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-        /* Get the text addr to register the ELF with gdb.  The section headers
-         * are not part of the mapped image, so we have to map the whole file.
-         * XXX: seek to e_shoff and read the section headers to avoid this map.
-         */
-        if (elf_loader_map_file(&loader, reachable) != NULL) {
-            text_addr = (app_pc)module_get_text_section(loader.file_map,
-                                                        loader.file_size);
-            text_addr += loader.load_delta;
-            privload_add_gdb_cmd(filename, text_addr);
-            /* Add debugging comment about how to get symbol information in gdb. */
-            if (printed_gdb_commands) {
-                /* This is a dynamically loaded auxlib, so we print here.
-                 * The client and its direct dependencies are batched up and
-                 * printed in os_loader_init_epilogue.
-                 */
-                SYSLOG_INTERNAL_INFO("Paste into GDB to debug DynamoRIO clients:\n"
-                                     "add-symbol-file '%s' %p\n",
-                                     filename, text_addr);
-            }
-            LOG(GLOBAL, LOG_LOADER, 1,
-                "for debugger: add-symbol-file %s %p\n",
-                filename, text_addr);
-            if (IF_CLIENT_INTERFACE_ELSE(
-                    INTERNAL_OPTION(privload_register_gdb), false)) {
-                dr_gdb_add_symbol_file(filename, text_addr);
-            }
-        }
+        privload_add_gdb_cmd(&loader, filename, reachable);
 #endif
     }
     elf_loader_destroy(&loader);
