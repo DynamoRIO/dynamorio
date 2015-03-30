@@ -720,3 +720,41 @@ instr_reads_thread_register(instr_t *instr)
 #endif /* 64/32 */
     return true;
 }
+
+/* check if instr is mangle instruction stolen reg move: e.g.,
+ * r8 is the stolen reg, and in inline syscall mangling:
+ *  +20   m4 @0x53adcab0  e588a004   str    %r10 -> +0x04(%r8)[4byte]
+ *  +24   m4 @0x53ade98c  e1a0a008   mov    %r8 -> %r10              <== stolen reg move
+ *  +28   m4 @0x53adf0a0  e5880000   str    %r0 -> (%r8)[4byte]
+ *  +32   L3              ef000000   svc    $0x00000000
+ *  +36   m4 @0x53afb368  e1a0800a   mov    %r10 -> %r8              <== stolen reg move
+ *  +40   m4 @0x53af838c  e598a004   ldr    +0x04(%r8)[4byte] -> %r10
+ */
+bool
+instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg)
+{
+    reg_id_t myreg;
+    CLIENT_ASSERT(instr != NULL, "internal error: NULL argument");
+    if (reg == NULL)
+        reg = &myreg;
+    if (instr_is_app(instr) || instr_get_opcode(instr) != OP_mov)
+        return false;
+    ASSERT(instr_num_srcs(instr) == 1 &&
+           instr_num_dsts(instr) == 1 &&
+           opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_is_reg(instr_get_dst(instr, 0)));
+    if (opnd_get_reg(instr_get_src(instr, 0)) == dr_reg_stolen) {
+        if (save != NULL)
+            *save = true;
+        *reg = opnd_get_reg(instr_get_dst(instr, 0));
+        ASSERT(*reg != dr_reg_stolen);
+        return true;
+    }
+    if (opnd_get_reg(instr_get_dst(instr, 0)) == dr_reg_stolen) {
+        if (save != NULL)
+            *save = false;
+        *reg = opnd_get_reg(instr_get_src(instr, 0));
+        return true;
+    }
+    return false;
+}

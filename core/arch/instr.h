@@ -2605,6 +2605,7 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
                               bool *tls, bool *spill, reg_id_t *reg);
 #ifdef ARM
 bool instr_reads_thread_register(instr_t *instr);
+bool instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
 #endif
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other

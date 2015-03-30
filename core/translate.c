@@ -255,6 +255,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         }
         if (instr_is_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg)) {
             r = reg - REG_START_SPILL;
+            ASSERT(r < REG_SPILL_NUM);
             IF_ARM({
                 /* Ignore the spill of r0 into TLS for syscall restart
                  * XXX: we're assuming it's immediately prior to the syscall.
@@ -276,6 +277,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                     spill_tls ? "tls" : "mcontext", reg_names[reg]);
             }
         }
+#ifdef ARM
+        else if (instr_is_stolen_reg_move(inst, &spill, &reg)) {
+            /* do nothing */
+        }
+#endif
         /* PR 267260: Track our own mangle-inserted pushes and pops, for
          * restoring state on an app fault in the middle of our indirect
          * branch mangling.  We only need to support instrs added up until
@@ -385,7 +391,12 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
             reg_t value;
             if (walk->reg_tls[r]) {
                 value = *(reg_t *)(((byte*)&tdcontext->local_state->spill_space) +
-                                   reg_spill_tls_offs(reg));
+                                   /* special handling r10, mangle instr inserted
+                                    * in mangle_syscall_arch
+                                    */
+                                   (IF_ARM(reg == DR_REG_R10 ?
+                                           reg_spill_tls_offs(DR_REG_R1) :)
+                                    reg_spill_tls_offs(reg)));
             } else {
                 value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }

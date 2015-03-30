@@ -462,7 +462,7 @@ extern const reg_id_t dr_reg_fixer[];
 #elif defined(ARM)
 /* We only normally use r0-r3 but we support more in translation code */
 # define REG_START_SPILL   DR_REG_R0
-# define REG_STOP_SPILL    DR_REG_R9
+# define REG_STOP_SPILL    DR_REG_R10 /* r10 might be used in syscall mangling */
 #endif /* X86/ARM */
 #define REG_SPILL_NUM     (REG_STOP_SPILL - REG_START_SPILL + 1)
 

@@ -596,6 +596,21 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      */
     ASSERT(DR_REG_STOLEN_MIN > DR_REG_SYSNUM);
 
+    /* We do need to save the stolen reg if it is caller-saved.
+     * For now we assume that the kernel honors the calling convention
+     * and won't clobber callee-saved regs.
+     */
+    /* The instructions inserted here are checked in instr_is_reg_spill_or_restore
+     * and translate_walk_restore, so any update here must be sync-ed there too.
+     */
+    if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R10),
+                              opnd_create_reg(dr_reg_stolen)));
+    }
+
     /* We have to save r0 in case the syscall is interrupted.  To restart
      * it, we need to replace the kernel's -EINTR in r0 with the original
      * app arg.
@@ -605,17 +620,8 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
 
-    /* We do need to save the stolen reg if it is caller-saved.
-     * For now we assume that the kernel honors the calling convention
-     * and won't clobber callee-saved regs.
-     */
+    /* Post-syscall: */
     if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
-        PRE(ilist, instr,
-            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
-        PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R10),
-                              opnd_create_reg(dr_reg_stolen)));
-        /* Post-syscall: */
         PRE(ilist, next_instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen),
                               opnd_create_reg(DR_REG_R10)));
