@@ -40,7 +40,7 @@
 
 #ifdef ANNOTATIONS /* around whole file */
 
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
 # include "../third_party/valgrind/valgrind.h"
 # include "../third_party/valgrind/memcheck.h"
 #endif
@@ -109,7 +109,7 @@
              ANNOTATION_VOID_LABEL_LENGTH) == 0)
 
 /* Annotation detection factors exclusive to Windows x64. */
-#if defined (WINDOWS) && defined (X64)
+#if defined(WINDOWS) && defined(X64)
 /* Instruction `int 2c` hints that the preceding cbr is probably an annotation head. */
 # define WINDOWS_X64_ANNOTATION_HINT_BYTE 0xcd
 # define X64_WINDOWS_ENCODED_ANNOTATION_HINT 0x2ccd
@@ -212,12 +212,18 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
+#if !(defined(WINDOWS) && defined(X64))
+typedef struct _vg_handlers_t {
+    dr_annotation_handler_t *handlers[DR_VG_ID__LAST];
+} vg_handlers_t;
+#endif
+
 static strhash_table_t *handlers;
 
+#if !(defined(WINDOWS) && defined(X64))
 /* locked under the `handlers` table lock */
-static dr_annotation_handler_t *vg_handlers[DR_VG_ID__LAST];
+static vg_handlers_t *vg_handlers;
 
-#if !(defined (WINDOWS) && defined (X64))
 /* Dispatching function for Valgrind annotations (required because id of the Valgrind
  * client request object cannot be determined statically).
  */
@@ -233,7 +239,7 @@ extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
  * INTERNAL ROUTINE DECLARATIONS
  */
 
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
 /* Valgrind dispatcher, called by the instrumentation of the Valgrind annotations. */
 static void
 handle_vg_annotation(app_pc request_args);
@@ -284,7 +290,11 @@ annotation_init()
                                    free_annotation_handler
                                    _IF_DEBUG("annotation handler hashtable"));
 
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
+    vg_handlers = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, vg_handlers_t,
+                                  ACCT_OTHER, UNPROTECTED);
+    memset(vg_handlers, 0, sizeof(vg_handlers_t));
+
     vg_router.type = DR_ANNOTATION_HANDLER_CALL;
     /* The Valgrind client request object is passed in %xax. */
     vg_router.num_args = 1;
@@ -308,7 +318,7 @@ annotation_init()
                                 DR_ANNOTATION_CALL_TYPE_VARARG);
 #endif
 
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
     /* DR pretends to be Valgrind. */
     dr_annotation_register_valgrind(DR_VG_ID__RUNNING_ON_VALGRIND,
                                     valgrind_running_on_valgrind);
@@ -318,11 +328,14 @@ annotation_init()
 void
 annotation_exit()
 {
+#if !(defined(WINDOWS) && defined(X64))
     uint i;
     for (i = 0; i < DR_VG_ID__LAST; i++) {
-        if (vg_handlers[i] != NULL)
-            free_annotation_handler(vg_handlers[i]);
+        if (vg_handlers->handlers[i] != NULL)
+            free_annotation_handler(vg_handlers->handlers[i]);
     }
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, vg_handlers, vg_handlers_t, ACCT_OTHER, UNPROTECTED);
+#endif
 
     strhash_hash_destroy(GLOBAL_DCONTEXT, handlers);
 }
@@ -336,13 +349,13 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
      * It is passed on the stack and its contents are considered void on function entry.
      */
     instr_t scratch;
-#if defined (WINDOWS) && defined (X64)
+#if defined(WINDOWS) && defined(X64)
     app_pc hint_pc = *start_pc;
     bool hint = true;
     byte hint_byte;
 #endif
 
-#if defined (WINDOWS) && defined (X64)
+#if defined(WINDOWS) && defined(X64)
     if (hint_is_safe) {
         hint_byte = *hint_pc;
     } else {
@@ -367,9 +380,9 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
         /* layout.type is already ANNOTATION_TYPE_NONE */
     });
     if (layout.type != ANNOTATION_TYPE_NONE) {
-        LOG(GLOBAL, LOG_ANNOTATIONS, 2, "Decoded %s instance of %s\n",
-           (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
-           layout.name);
+        LOG(GLOBAL, LOG_ANNOTATIONS, 2, "Decoded %s annotation %s. Next pc now "PFX".\n",
+            (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
+            layout.name, layout.resume_pc);
         /* Notify the caller where to resume decoding app instructions. */
         *start_pc = layout.resume_pc;
 
@@ -433,7 +446,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     return (layout.type != ANNOTATION_TYPE_NONE);
 }
 
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
 void
 instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *xchg_instr,
                                app_pc xchg_pc, app_pc next_pc, uint bb_instr_count)
@@ -548,6 +561,7 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
     return result;
 }
 
+#if !(defined(WINDOWS) && defined(X64))
 bool
 dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
                                 ptr_uint_t (*annotation_callback)
@@ -559,14 +573,14 @@ dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
         return false;
 
     TABLE_RWLOCK(handlers, write, lock);
-    handler = vg_handlers[request_id];
+    handler = vg_handlers->handlers[request_id];
     if (handler == NULL) { /* make a new handler if never registered yet */
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_VALGRIND;
 
-        vg_handlers[request_id] = handler;
+        vg_handlers->handlers[request_id] = handler;
     }
 
     receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_receiver_t,
@@ -579,6 +593,7 @@ dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
     TABLE_RWLOCK(handlers, write, unlock);
     return true;
 }
+#endif
 
 bool
 dr_annotation_register_return(const char *annotation_name, void *return_value)
@@ -671,6 +686,7 @@ dr_annotation_unregister_return(const char *annotation_name)
     return found;
 }
 
+#if !(defined(WINDOWS) && defined(X64))
 bool
 dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
                                   ptr_uint_t (*annotation_callback)
@@ -679,7 +695,7 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
     bool found = false;
     dr_annotation_handler_t *handler;
     TABLE_RWLOCK(handlers, write, lock);
-    handler = vg_handlers[request_id];
+    handler = vg_handlers->handlers[request_id];
     if ((handler != NULL) && (handler->receiver_list != NULL)) {
         dr_annotation_receiver_t *receiver = handler->receiver_list;
         if (receiver->instrumentation.vg_callback == annotation_callback) {
@@ -709,7 +725,6 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
  * ANNOTATION IMPLEMENTATIONS
  */
 
-#if !(defined (WINDOWS) && defined (X64))
 static void
 handle_vg_annotation(app_pc request_args)
 {
@@ -729,8 +744,8 @@ handle_vg_annotation(app_pc request_args)
     request_id = lookup_valgrind_request(request.request);
     if (request_id < DR_VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
-        if (vg_handlers[request_id] != NULL) {
-            receiver = vg_handlers[request_id]->receiver_list;
+        if (vg_handlers->handlers[request_id] != NULL) {
+            receiver = vg_handlers->handlers[request_id]->receiver_list;
             while (receiver != NULL) {
                 result = receiver->instrumentation.vg_callback(&request);
                 receiver = receiver->next;
@@ -857,7 +872,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
                 return false;
             opnd_ptr = got_ptr;
 #endif
-#if defined (WINDOWS) && defined (X64)
+#if defined(WINDOWS) && defined(X64)
             /* In Windows x64, if the `prefetch` instruction was found at
              * `*cur_pc` with no intervening `mov` instruction, the label
              * pointer must be an immediate operand to that `prefetch`.
@@ -890,7 +905,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
     return false;
 }
 
-#if defined (WINDOWS) && defined (X64)
+#if defined(WINDOWS) && defined(X64)
 /* Identify the annotation at layout->start_pc, if any. On Windows x64, some flexibility
  * is required to recognize the annotation sequence because it is compiled instead of
  * explicitly inserted with inline asm (which is unavailable in MSVC for this platform).
@@ -898,11 +913,13 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
  *   (step 2) decode arbitrary instructions up to a `prefetch`,
  *            following any direct branches decoded along the way.
  *   (step 3) skip the `int 3` following the `prefetch`.
- *   (step 4) set the resume pc, so execution resumes within the annotation body.
- *   (step 5) compare the next label token to determine the annotation type.
+ *   (step 4) set the substitution_xl8 to precede the resume_pc, so we'll resume in the
+ *            right place if the client removes all instrs following the substitution.
+ *   (step 5) set the resume pc, so execution resumes within the annotation body.
+ *   (step 6) compare the next label token to determine the annotation type.
  *     Expression annotations only:
- *       (step 6) compare the return type to determine whether the annotation is void.
- *   (step 7) advance the label pointer to the name token
+ *       (step 7) compare the return type to determine whether the annotation is void.
+ *   (step 8) advance the label pointer to the name token
  *            (note that the Statement annotation concludes with a special case).
  */
 static inline void
@@ -922,13 +939,14 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     }
 
     ASSERT(*cur_pc == WINDOWS_X64_OPTIMIZATION_FENCE);                      /* step 3 */
+    layout->substitution_xl8 = cur_pc;                                      /* step 4 */
     cur_pc++;
-    layout->resume_pc = cur_pc;                                             /* step 4 */
+    layout->resume_pc = cur_pc;                                             /* step 5 */
 
-    if (IS_ANNOTATION_STATEMENT_LABEL(layout->name)) {                      /* step 5 */
+    if (IS_ANNOTATION_STATEMENT_LABEL(layout->name)) {                      /* step 6 */
         layout->type = ANNOTATION_TYPE_STATEMENT;
         layout->name += (ANNOTATION_STATEMENT_LABEL_LENGTH + 1);
-        layout->name = strchr(layout->name, ':') + 1;                       /* step 7 */
+        layout->name = strchr(layout->name, ':') + 1;                       /* step 8 */
         /* If the target app contains an annotation whose argument is a function call
          * that gets inlined, and that function contains the same annotation, the
          * compiler will fuse the headers. See
@@ -955,8 +973,8 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     } else {
         layout->type = ANNOTATION_TYPE_EXPRESSION;
         layout->name += (ANNOTATION_EXPRESSION_LABEL_LENGTH + 1);
-        layout->is_void = IS_ANNOTATION_VOID(layout->name);                 /* step 6 */
-        layout->name = strchr(layout->name, ':') + 1;                       /* step 7 */
+        layout->is_void = IS_ANNOTATION_VOID(layout->name);                 /* step 7 */
+        layout->name = strchr(layout->name, ':') + 1;                       /* step 8 */
     }
 }
 #else /* Windows x86 and all Unix  */
