@@ -737,7 +737,8 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
         app_pc modbase =
             /* avoid rank order violation */
             IF_NO_MEMQUERY(v == all_memory_areas ? NULL :)
-            get_module_base(area->start);
+            /* i#1649: avoid rank order for dynamo_areas */
+            (v == dynamo_areas ? NULL : get_module_base(area->start));
         if (modbase != NULL &&
             /* avoid rank order violations */
             v != dynamo_areas &&
