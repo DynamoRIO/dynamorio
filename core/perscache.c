@@ -178,6 +178,8 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
             /* else our LOG statements will crash */
             info->module = dr_strdup("" HEAPACCT(ACCT_VMAREAS));
         }
+        LOG(GLOBAL, LOG_CACHE, 3, "%s %s %p-%p => %p\n", __FUNCTION__,
+            info->module,base_pc, end_pc, info);
     });
     if (for_execution)
         coarse_unit_mark_in_use(info);
@@ -220,6 +222,8 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
 void
 coarse_unit_free(dcontext_t *dcontext, coarse_info_t *info)
 {
+    LOG(GLOBAL, LOG_CACHE, 3, "%s %s %p-%p %p\n", __FUNCTION__, info->module,
+        info->base_pc, info->end_pc, info);
     ASSERT(info != NULL);
     /* Elements should have been freed in coarse_unit_reset_free() */
     ASSERT(info->htable == NULL);
