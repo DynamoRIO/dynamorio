@@ -934,7 +934,8 @@ module_has_text_relocs(app_pc base, bool at_map)
     for (i = 0; i < elf_hdr->e_phnum; i++) {
         if (prog_hdr->p_type == PT_DYNAMIC) {
             dyn = (ELF_DYNAMIC_ENTRY_TYPE *)
-                ((at_map ? prog_hdr->p_offset : prog_hdr->p_vaddr) + load_delta);
+                (at_map ? (base + prog_hdr->p_offset) :
+                 ((app_pc)prog_hdr->p_vaddr + load_delta));
             break;
         }
         prog_hdr++;
