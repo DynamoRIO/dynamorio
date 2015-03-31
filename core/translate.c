@@ -1108,8 +1108,11 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
 #endif
 #ifdef ARM
+        /* dr_reg_stolen is holding DR's TLS on receiving a signal,
+         * so we need put app's reg value into mcontext instead
+         */
         if (!just_pc)
-            set_stolen_reg_val(mcontext, get_stolen_reg_val(mcontext));
+            set_stolen_reg_val(mcontext, tdcontext->local_state->spill_space.reg_stolen);
 #endif
 #ifdef CLIENT_INTERFACE
         if (res != RECREATE_FAILURE) {
