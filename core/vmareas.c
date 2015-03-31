@@ -1260,10 +1260,14 @@ adjust_coarse_unit_bounds(vm_area_t *area, bool if_invalid)
          */
         return;
     }
+    LOG(THREAD_GET, LOG_VMAREAS, 3, "%s: "PFX"-"PFX" vs area "PFX"-"PFX"\n",
+        __FUNCTION__, info->base_pc, info->end_pc, area->start, area->end);
     while (info != NULL) { /* loop over primary and secondary unit */
         /* We should have reset this coarse info when flushing */
-        ASSERT(info->cache == NULL);
-        ASSERT(!info->frozen && !info->persisted);
+        ASSERT((info->cache == NULL && !info->frozen && !info->persisted) ||
+               /* i#1652: if nothing was flushed a pcache may remain */
+               (info->base_pc == area->start &&
+                info->end_pc == area->end));
         /* No longer covers the removed region */
         if (info->base_pc < area->start)
             info->base_pc = area->start;
