@@ -10169,6 +10169,7 @@ vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                                        false/*already unlinked*/,
                                        false/*not in use anyway*/);
                 ASSERT(frozen != premerge);
+                coarse_unit_free(dcontext, premerge);
                 premerge = NULL;
             }
         }
