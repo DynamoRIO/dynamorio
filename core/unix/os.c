@@ -8129,7 +8129,7 @@ find_dynamo_library_vm_areas(void)
      */
     add_dynamo_vm_area(get_dynamorio_dll_start(), get_dynamorio_dll_end(),
                        MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                       true /* from image */ _IF_DEBUG(dynamorio_library_path));
+                       true /* from image */ _IF_DEBUG(dynamorio_library_filepath));
 #endif
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld())

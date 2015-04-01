@@ -231,6 +231,24 @@ os_loader_init_prologue(void)
     /* If DR was loaded by system ld.so, then .dynamic *was* relocated (i#1589) */
     privload_create_os_privmod_data(mod, !DYNAMO_OPTION(early_inject));
     libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
+    if (DYNAMO_OPTION(early_inject)) {
+        /* i#1659: fill in the text-data segment gap to ensure no mmaps in between.
+         * The kernel does not do this.  Our private loader does, so if we reloaded
+         * ourselves this is already in place, but it's expensive to query so
+         * we blindly clobber w/ another no-access mapping.
+         */
+        int i;
+        for (i = 0; i <libdr_opd->os_data.num_segments - 1; i++) {
+            size_t sz = libdr_opd->os_data.segments[i+1].start -
+                libdr_opd->os_data.segments[i].end;
+            if (sz > 0) {
+                DEBUG_DECLARE(byte *fill =)
+                    os_map_file(-1, &sz, 0, libdr_opd->os_data.segments[i].end,
+                                MEMPROT_NONE, MAP_FILE_COPY_ON_WRITE|MAP_FILE_FIXED);
+                ASSERT(fill != NULL);
+            }
+        }
+    }
     mod->externally_loaded = true;
 # if defined(LINUX)/*i#1285*/ && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
     if (DYNAMO_OPTION(early_inject)) {
