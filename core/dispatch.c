@@ -1987,6 +1987,10 @@ handle_post_system_call(dcontext_t *dcontext)
 # endif
     }
 #endif
+#ifdef CLIENT_INTERFACE
+    /* i#1661: ensure we set the right pc for dr_get_mcontext() */
+    get_mcontext(dcontext)->pc = dcontext->asynch_target;
+#endif
 
     post_system_call(dcontext);
 
