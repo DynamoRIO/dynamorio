@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -154,29 +154,7 @@
 /* Constant factors of the Valgrind annotation, as defined in valgrind.h. */
 enum {
     VG_ROL_COUNT = 4,
-    VG_PATTERN_LENGTH = 5,
 };
-
-/* Immediate operands to the special rol instructions.
- * See __SPECIAL_INSTRUCTION_PREAMBLE in valgrind.h.
- */
-#ifdef X64
-static const int
-expected_rol_immeds[VG_PATTERN_LENGTH] = {
-    3,
-    13,
-    61,
-    51
-};
-#else
-static const int
-expected_rol_immeds[VG_PATTERN_LENGTH] = {
-    3,
-    13,
-    29,
-    19
-};
-#endif
 
 typedef enum _annotation_type_t {
     /* Indicates that the analyzed instruction turned out not to be an annotation head. */
