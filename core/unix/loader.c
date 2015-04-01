@@ -45,6 +45,7 @@
 #include "../heap.h"    /* HEAPACCT */
 #ifdef LINUX
 # include "include/syscall.h"
+# include "memquery.h"
 #else
 # include <sys/syscall.h>
 #endif
@@ -1604,6 +1605,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     const char *interp;
     priv_mcontext_t mc;
     bool success;
+    memquery_iter_t iter;
 
     /* XXX i#47: for Linux, we can't easily have this option on by default as
      * code like get_application_short_name() called from drpreload before
@@ -1660,6 +1662,24 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");
     ASSERT(is_elf_so_header(exe_map, 0));
+
+    /* i#1660: the app may have passed a relative path or a symlink to execve,
+     * yet the kernel will put a resolved path into /proc/self/maps.
+     * Rather than us here or in pre-execve, plus in drrun or drinjectlib,
+     * making paths absolute and resolving symlinks to try and match what the
+     * kernel does, we just read the kernel's resolved path.
+     * This is prior to memquery_init() but that's fine (it's already being
+     * called by is_elf_so_header() above).
+     */
+    if (memquery_iterator_start(&iter, exe_map, false/*no heap*/)) {
+        while (memquery_iterator_next(&iter)) {
+            if (iter.vm_start == exe_map) {
+                set_executable_path(iter.comment);
+                break;
+            }
+        }
+        memquery_iterator_stop(&iter);
+    }
 
     privload_setup_auxv(envp, exe_map, exe_ld.load_delta);
 
