@@ -1,0 +1,70 @@
+Native two-args in Square::set_lengths()
+get_area(): s with a: 27.300000
+Native two-args in Triangle::get_b()
+get_area(): s with b: 603.330000
+Native two-args in Triangle::get_c()
+get_area(): s with c: 360326.775900
+get_area(): s with a: 27.300000
+Native two-args in Triangle::get_b()
+get_area(): s with b: 603.330000
+Native two-args in Triangle::get_c()
+get_area(): s with c: 360326.775900
+Native two args: 1012, 5
+Native two-args in Triangle::get_c()
+Native two-args in Triangle::get_b()
+get_area(): s with a: 27.300000
+Native two-args in Triangle::get_b()
+get_area(): s with b: 603.330000
+Native two-args in Triangle::get_c()
+get_area(): s with c: 360326.775900
+Native two-args in Triangle::get_c()
+Native two-args in Triangle::get_b()
+Triangle [4.300000 x 5.200000 x 6.100000] area: 360326.775900 (1031)
+#ifdef WINDOWS
+Native two args: 1012, 5
+#endif
+Native two-args in Triangle::get_b()
+Native two-args in Square::get_area()
+Native two-args in Square::get_side_length()
+Native two-args in Square::get_side_length()
+#ifdef UNIX
+Native two args: 1012, 5
+#endif
+Native two-args in Triangle::get_c()
+Native two-args in Triangle::get_b()
+Native two-args in Triangle::get_c()
+Native two-args in Triangle::get_b()
+Native two-args in Triangle::get_c()
+Native two-args in Triangle::get_b()
+Native two-args in Square::get_area()
+Native two-args in Square::get_side_length()
+Native two-args in Square::get_side_length()
+Native two-args in Square::get_side_length()
+Native two-args in Square::get_side_length()
+Square [7.000000 x 7.000000] area: 49.000000 (1062)
+Native two-args in Square::get_area()
+Native two-args in Square::get_side_length()
+Native two-args in Square::get_side_length()
+Native two-args in Triangle::get_b()
+Native two-args in Fail::Fail()
+Native line 1018
+Native two-args in Fail::get_error_code()
+Fail! 58
+Native line 1019
+three args #0: 6
+Native two args: 1012, 5
+three args #1: 1033
+Native two args: 1012, 5
+three args #2: 1024
+Native two-args in Square::get_area()
+Native two-args in Square::get_side_length()
+Native two-args in Square::get_side_length()
+Native two args: 1012, 5
+Native two args: 1012, 5
+Native two args: 1012, 5
+get_area(): s with a: 27.300000
+Native two-args in Triangle::get_b()
+get_area(): s with b: 603.330000
+Native two-args in Triangle::get_c()
+get_area(): s with c: 360326.775900
+longjmp 1028 (360326.775900)

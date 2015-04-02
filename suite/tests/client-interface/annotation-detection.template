@@ -1,0 +1,178 @@
+      <Init annotation test client with fast decoding>
+      <test_two_args(): 1004, 5>
+get_area(): s with a: 27.300000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+get_area(): s with b: 603.330000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+get_area(): s with c: 360326.775900
+      <test_three_args(): 1005 * 5 * 360326 = 1810638150>
+get_area(): s with a: 27.300000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+get_area(): s with b: 603.330000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+get_area(): s with c: 360326.775900
+      <test_three_args(): 1003 * 5 * 360326 = 1807034890>
+#ifdef WINDOWS
+      <test_two_args(): 1011, 5>
+#endif
+      <test_three_args(): 1015 * 2 * 3 = 6090>
+#ifdef UNIX
+      <test_two_args(): 1011, 5>
+#endif
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+      <test_three_args(): 4 * 5 * 6 = 120>
+      <test_three_args(): 1013 * 3 * 120 = 364680>
+get_area(): s with a: 27.300000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+get_area(): s with b: 603.330000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+get_area(): s with c: 360326.775900
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+Triangle [4.300000 x 5.200000 x 6.100000] area: 360326.775900 (364680)
+#ifdef WINDOWS
+      <test_two_args(): 1011, 5>
+#endif
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1002, 49>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_three_args(): 1013 * 49 * 5 = 248185>
+#ifdef UNIX
+      <test_two_args(): 1011, 5>
+#endif
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+      <test_three_args(): 4 * 5 * 6 = 120>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+      <test_three_args(): 4 * 5 * 6 = 120>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+      <test_three_args(): 4 * 5 * 6 = 120>
+      <test_three_args(): 120 * 120 * 120 = 1728000>
+      <test_three_args(): 1013 * 4 * 1728000 = -1588078592>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1002, 49>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+Square [7.000000 x 7.000000] area: 49.000000 (-1588078592)
+      <Test many args: a=1016, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1002, 49>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+      <test_three_args(): 5 * 49 * 4 = 980>
+      <test_two_args(): 1009, 980>
+      <test_two_args(): 1011, 5>
+      <test_two_args(): 1, 2>
+      <test_two_args(): 1010, 980>
+Fail! 980
+      <test_two_args(): 1011, 5>
+      <test_two_args(): 2, 4>
+      <test_three_args(): 1 * 2 * 3 = 6>
+three args #0: 6
+      <test_two_args(): 1011, 5>
+      <test_three_args(): 1013 * 9 * 8 = 72936>
+      <test_three_args(): 72936 * 2 * 1 = 145872>
+three args #1: 145872
+      <test_three_args(): 1013 * 2 * 3 = 6078>
+      <test_two_args(): 1011, 5>
+      <test_three_args(): 2 * 4 * 6078 = 48624>
+three args #2: 48624
+      <Test many args: a=1014, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1014, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1002, 49>
+      <test_two_args(): 1001, 7>
+      <test_two_args(): 1001, 7>
+      <Test many args: a=1023, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=0, b=5, c=5, d=0, e=0, f=5, g=5, h=0>
+      <Test many args: a=1024, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1025, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <test_two_args(): 1011, 5>
+      <test_three_args(): 1013 * 1 * 5 = 5065>
+      <Test many args: a=1026, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1027, b=2, c=3, d=0, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1021, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1022, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <test_two_args(): 1011, 5>
+      <test_three_args(): 1013 * 2 * 5 = 10130>
+      <Test many args: a=1026, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1027, b=2, c=3, d=0, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1021, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1022, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1028, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1029, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1030, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1028, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1029, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1030, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <test_two_args(): 1011, 5>
+      <Test many args: a=256, b=81, c=3125, d=32, e=8, f=81, g=1, h=3125, i=1>
+      <Test many args: a=1020, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1021, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1022, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1020, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1021, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1022, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1021, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1022, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1021, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1022, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1021, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1022, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <test_three_args(): 1013 * 10 * 5 = 50650>
+#ifdef UNIX
+      <test_three_args(): 1015 * 2 * 3 = 6090>
+#endif
+      <test_two_args(): 1011, 5>
+#ifdef WINDOWS
+      <test_three_args(): 1015 * 2 * 3 = 6090>
+#endif
+get_area(): s with a: 27.300000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+      <test_two_args(): 1006, 6>
+get_area(): s with b: 603.330000
+      <test_two_args(): 1007, 4>
+      <test_three_args(): 1008 * 119 * 30864 = -592768768>
+get_area(): s with c: 360326.775900
+longjmp 50650 (360326.775900)

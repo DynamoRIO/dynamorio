@@ -454,6 +454,9 @@ function (set_cflags source)
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     string(REGEX REPLACE "-std=gnu99" "" cflags "${cflags}")
+    if (WIN32)
+      set(cflags "${cflags} /EHsc")
+    endif (WIN32)
   endif ()
   if ("${source}" MATCHES ".dll.(c|cpp)$")
     # do nothing
@@ -812,7 +815,11 @@ function(tobuild_api test source dr_ops exe_ops decoder)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
   # If using drdecodelib, the app does not load DR, so no reason to use drrun
   # to set options (plus drrun will create a never-deleted .1config file).
-  set(${test}_drinject ${decoder} PARENT_SCOPE)
+  if (decoder)
+    set(${test}_standalone_dr OFF PARENT_SCOPE)
+  else (decoder)
+    set(${test}_standalone_dr ON PARENT_SCOPE)
+  endif (decoder)
 endfunction(tobuild_api)
 
 # run that uses a different build
@@ -1031,7 +1038,7 @@ endfunction(template2expect)
 
 ##################################################
 
-function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
+function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
   if (UNIX)
     set(os_ops "-dumpcore_mask 0")
@@ -1054,11 +1061,9 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
     # Both Windows and non-native Unix tests now use the native drrun frontend.
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
-    if (use_drinject)
-      get_target_property(drrun_path drinject LOCATION${location_suffix})
-    else (use_drinject)
+    if (standalone_dr OR NOT native)
       get_target_property(drrun_path drrun LOCATION${location_suffix})
-    endif (use_drinject)
+    endif (standalone_dr OR NOT native)
     # CMake 3.x seems to put double slashes in there (xref i#1559)
     string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
     set(cmd "${drrun_path}" -s ${TEST_SECONDS} -quiet)
@@ -1086,10 +1091,13 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
         set(cmd ${cmd} -noinject)
       endif ()
     endif (WIN32)
-    if (NOT use_drinject)
+    if (standalone_dr OR NOT native)
       # add dr_ops last to avoid needing extra \ on ;
       set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
-    endif ()
+    else (standalone_dr OR NOT native)
+      # the test is pure native, so we rely on ctest for job control
+      set(${outcmd} "" PARENT_SCOPE)
+    endif (standalone_dr OR NOT native)
 
   elseif (UNIX AND native)
     set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
@@ -1099,15 +1107,18 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
       "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
     # add dr_ops last to avoid needing extra \ on ;
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
-  endif ()
+  else (UNIX AND native)
+    # clear the caller's `outcmd`
+    set(${outcmd} "" PARENT_SCOPE)
+  endif (UNIX AND native)
 
   set(${outops} "${dr_ops}" PARENT_SCOPE)
-endfunction(rundr_cmd)
+endfunction(runtest_cmd)
 
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
 # and ${key}_postcmd, which points to the post-processing executable if necessary.
-function(torun test key source native use_drinject dr_ops exe_ops added_out)
+function(torun test key source native standalone_dr dr_ops exe_ops added_out)
   # Avoid running some tests with invalid option combinations.  For example,
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
@@ -1152,7 +1163,8 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
 
   set(ALREADY_REGEX OFF)
 
-  rundr_cmd(rundr runops ${native} ${use_drinject} "${dr_ops}" ${separate_script})
+  runtest_cmd(rundr runops ${native} ${standalone_dr} "${dr_ops}" ${separate_script})
+
   if (TARGET ${exe})
     get_target_property(exepath ${exe} LOCATION${location_suffix})
   else ()
@@ -1270,7 +1282,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     #   but while that might be useful it could also be confusing.
     template2expect(expect
       ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
-      ${runops}
+      "${runops}"
       ${key})
     # add dependence so cmake will reconfigure if file changes
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
@@ -1371,9 +1383,15 @@ function(torun_ci name test ops)
 endfunction(torun_ci)
 
 function(torun_api name test ops)
-  torun("${name}" ${test} ${${test}_source} ON ${${test}_drinject}
+  torun("${name}" ${test} ${${test}_source} ON ${${test}_standalone_dr}
     "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
 endfunction(torun_api)
+
+function(torunonly_native name realexe expect source exe_ops)
+  set(${name}_expectbase ${expect})
+  set(${name}_realtest ${realexe})
+  torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added)
+endfunction(torunonly_native)
 
 function(torun_runall name test ops)
   # FIXME NYI i#120
@@ -1581,6 +1599,39 @@ if (CLIENT_INTERFACE)
     torunonly_ci(client.annotation-concurrency-opt.full-decode
       client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
       client-interface/annotation-concurrency.c "full-decode" "" "${annotation_test_args}")
+
+    tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
+      "" "" "")
+    set(client.annotation-detection.full-decode_expectbase
+      "annotation-detection.full-decode")
+    torunonly_ci(client.annotation-detection.full-decode client.annotation-detection
+      client.annotation-detection.dll client-interface/annotation-detection.c
+      "full-decode" "" "")
+    set(client.annotation-detection.full-decode.tiny-bb_expectbase
+      "annotation-detection.full-decode")
+    torunonly_ci(client.annotation-detection.full-decode.tiny-bb
+      client.annotation-detection client.annotation-detection.dll
+      client-interface/annotation-detection.c "full-decode" "-max_bb_instrs 2" "")
+    set(client.annotation-detection.bb-truncate-1_expectbase
+      "annotation-detection.bb-truncate")
+    torunonly_ci(client.annotation-detection.bb-truncate-1 client.annotation-detection
+      client.annotation-detection.dll client-interface/annotation-detection.c
+      "truncate@1" "" "")
+    set(client.annotation-detection.bb-truncate-2_expectbase
+      "annotation-detection.bb-truncate")
+    torunonly_ci(client.annotation-detection.bb-truncate-2 client.annotation-detection
+      client.annotation-detection.dll client-interface/annotation-detection.c
+      "truncate@2" "" "")
+    torunonly_native(client.annotation-detection.native client.annotation-detection
+      annotation-detection.native client-interface/annotation-detection.c "")
+
+    set(client.annotation-detection-opt_expectbase "annotation-detection")
+    tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp
+      "" "" "")
+    optimize(client.annotation-detection-opt)
+    torunonly_native(client.annotation-detection-opt.native
+      client.annotation-detection-opt annotation-detection.native
+      client-interface/annotation-detection.c "")
     set(DynamoRIO_USE_LIBC ON)
   endif (NOT ARM)
 
