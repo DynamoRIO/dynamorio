@@ -227,6 +227,9 @@ typedef struct {
     instr_t *instr;             /* the current instr */
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
+#ifdef ARM
+    dr_pred_type_t svc_pred;    /* predicate for conditional svc */
+#endif
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -253,6 +256,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
+    bb->svc_pred = DR_PRED_NONE;
     DODEBUG(bb->initialized = true;);
 }
 
@@ -1795,6 +1799,12 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
     } else
 #endif
         bb->instr->flags |= INSTR_NI_SYSCALL;
+#ifdef ARM
+    if (instr_is_predicated(bb->instr)) {
+        ASSERT(instr_is_syscall(bb->instr));
+        bb->svc_pred = instr_get_predicate(bb->instr);
+    }
+#endif
     /* Set instr to NULL in order to get translation of exit cti correct. */
     bb->instr = NULL;
     /* this block must be the last one in a trace */
@@ -1842,6 +1852,14 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
     if (sysnum != -1 && instrument_filter_syscall(dcontext, sysnum)) {
         BBPRINT(bb, 3, "client asking to intercept => pretending syscall # %d is -1\n",
                 sysnum);
+        sysnum = -1;
+    }
+#endif
+#ifdef ARM
+    if (sysnum != -1 && instr_is_predicated(bb->instr)) {
+        /* FIXME i#1551: add support for inline conditional syscalls mangling */
+        BBPRINT(bb, 3, "conditional system calls cannot be inlined => "
+                "pretending syscall # %d is -1\n", sysnum);
         sysnum = -1;
     }
 #endif
@@ -4082,6 +4100,20 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         instr_exit_branch_set_type(exit_instr, bb->exit_type);
 
         instrlist_append(bb->ilist, exit_instr);
+#ifdef ARM
+        if (bb->svc_pred != DR_PRED_NONE) {
+            /* we have a conditional syscall, add predicate to current exit */
+            instr_set_predicate(exit_instr, bb->svc_pred);
+            /* add another ubr exit as the fall-through */
+            exit_instr = XINST_CREATE_jump(dcontext,
+                                           opnd_create_pc(bb->exit_target));
+            if (bb->record_translation)
+                instr_set_translation(exit_instr, bb->cur_pc);
+            instr_set_our_mangling(exit_instr, true);
+            instr_exit_branch_set_type(exit_instr, LINK_DIRECT|LINK_JMP);
+            instrlist_append(bb->ilist, exit_instr);
+        }
+#endif
     }
 
     /* set flags */

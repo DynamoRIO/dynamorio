@@ -585,6 +585,9 @@ void
 mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     instr_t *instr, instr_t *next_instr)
 {
+    /* FIXME i#1551: NYI for mangling inlined conditional system call */
+    ASSERT_NOT_IMPLEMENTED(!instr_is_predicated(instr));
+
     /* Shared routine already checked method, handled INSTR_NI_SYSCALL*,
      * and inserted the signal barrier and non-auto-restart nop.
      * If we get here, we're dealing with an ignorable syscall.

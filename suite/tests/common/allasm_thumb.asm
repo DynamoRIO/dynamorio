@@ -47,7 +47,10 @@ _start:
         ldr      r1, =hello
         mov      r2, #13           // sizeof(hello)
         mov      r7, #4            // SYS_write
-        svc      0
+        // test conditional syscall within an IT block
+        cmp      r7, #0
+        it       ne
+        svcne    0
         sub      r3, r3, #1
         cmp      r3, #0
         bne      1b
