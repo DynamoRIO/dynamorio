@@ -616,6 +616,8 @@ instrument_init(void)
         while (dr_module_iterator_hasnext(mi)) {
             module_data_t *data = dr_module_iterator_next(mi);
             instrument_module_load(data, true /*already loaded*/);
+            /* XXX; more efficient to set this flag during dr_module_iterator_start */
+            os_module_set_flag(data->start, MODULE_LOAD_EVENT);
             dr_free_module_data(data);
         }
         dr_module_iterator_stop(mi);
@@ -1324,6 +1326,19 @@ dr_xl8_hook_exists(void)
             restore_state_ex_callbacks.num > 0);
 }
 
+#endif /* CLIENT_INTERFACE */
+/* needed outside of CLIENT_INTERFACE for simpler USE_BB_BUILDING_LOCK_STEADY_STATE() */
+bool
+dr_modload_hook_exists(void)
+{
+    /* We do not support (as documented in the module event doxygen)
+     * the client changing this during bb building, as that will mess
+     * up USE_BB_BUILDING_LOCK_STEADY_STATE().
+     */
+    return IF_CLIENT_INTERFACE_ELSE(module_load_callbacks.num > 0, false);
+}
+#ifdef CLIENT_INTERFACE
+
 bool
 hide_tag_from_client(app_pc tag)
 {
@@ -1805,26 +1820,30 @@ dr_module_contains_addr(const module_data_t *data, app_pc addr)
 #endif
 }
 
-/* Looks up the being-loaded module at modbase and invokes the client event */
+/* Looks up module containing pc (assumed to be fully loaded).
+ * If it exists and its client module load event has not been called, calls it.
+ */
 void
-instrument_module_load_trigger(app_pc modbase)
+instrument_module_load_trigger(app_pc pc)
 {
-    /* see notes in module_list_add() where we use to do this: but
-     * we need this to be after exec areas processing so module is
-     * in consistent state in case client acts on it, even though
-     * we have to re-look-up the data here.
-     */
     if (!IS_STRING_OPTION_EMPTY(client_lib)) {
         module_area_t *ma;
         module_data_t *client_data = NULL;
         os_get_module_info_lock();
-        ma = module_pc_lookup(modbase);
-        ASSERT(ma != NULL);
-        if (ma != NULL) {
-            client_data = copy_module_area_to_module_data(ma);
+        ma = module_pc_lookup(pc);
+        if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
+            /* switch to write lock */
             os_get_module_info_unlock();
-            instrument_module_load(client_data, false /*loading now*/);
-            dr_free_module_data(client_data);
+            os_get_module_info_write_lock();
+            ma = module_pc_lookup(pc);
+            if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
+                ma->flags |= MODULE_LOAD_EVENT;
+                client_data = copy_module_area_to_module_data(ma);
+                os_get_module_info_write_unlock();
+                instrument_module_load(client_data, true/*i#884: already loaded*/);
+                dr_free_module_data(client_data);
+            } else
+                os_get_module_info_write_unlock();
         } else
             os_get_module_info_unlock();
     }
@@ -6405,6 +6424,14 @@ dr_delay_flush_region(app_pc start, size_t size, uint flush_id,
     if (size == 0) {
         CLIENT_ASSERT(false, "dr_delay_flush_region: 0 is invalid size for flush");
         return false;
+    }
+
+    /* With the new module load event at 1st execution (i#884), we get a lot of
+     * flush requests during creation of a bb from things like drwrap_replace().
+     * To avoid them flushing from a new module we check overlap up front here.
+     */
+    if (!executable_vm_area_executed_from(start, start+size)) {
+        return true;
     }
 
     /* FIXME - would be nice if we could check the requirements and call

@@ -3780,11 +3780,6 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
         return;
 #endif
 
-#ifdef CLIENT_INTERFACE
-    if (dynamo_initialized && add)
-        instrument_module_load_trigger(base);
-#endif
-
     /* ensure header is readable */
     ASSERT(prot_is_readable(prot));
     ASSERT(!rewalking || add);  /* when rewalking can only add */

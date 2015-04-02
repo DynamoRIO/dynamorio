@@ -178,6 +178,7 @@ typedef struct {
     bool mangle_ilist;       /* should bb ilist be mangled? */
     bool record_translation; /* store translation info for each instr_t? */
     bool has_bb_building_lock; /* usually ==for_cache; used for aborting bb building */
+    bool checked_start_vmarea; /* caller called check_new_page_start() on start_pc */
     file_t outf;               /* send disassembly and notes to a file?
                                 * we use this mainly for dumping trace origins */
     app_pc stop_pc;          /* Optional: NULL for normal termination rules.
@@ -769,6 +770,10 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
 #ifdef CLIENT_INTERFACE
     /* i#805: If we're crossing a module boundary between two modules that are
      * and aren't on null_instrument_list, don't elide the jmp.
+     * XXX i#884: if we haven't yet executed from the 2nd module, the client
+     * won't receive the module load event yet and we might include code
+     * from it here.  It would be tricky to solve that, and it should only happen
+     * if the client turns on elision, so we leave it.
      */
     if ((!!os_module_get_flag(bb->cur_pc, MODULE_NULL_INSTRUMENT)) !=
         (!!os_module_get_flag(new_pc, MODULE_NULL_INSTRUMENT)))
@@ -3069,7 +3074,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      * will catch it
      */
     /* vmlist must start out empty (or N/A) */
-    ASSERT(bb->vmlist == NULL || !bb->record_vmlist);
+    ASSERT(bb->vmlist == NULL || !bb->record_vmlist || bb->checked_start_vmarea);
     ASSERT(!bb->for_cache || bb->record_vmlist); /* for_cache assumes record_vmlist */
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
@@ -3132,7 +3137,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     });
 
     /* start converting instructions into IR */
-    check_new_page_start(dcontext, bb);
+    if (!bb->checked_start_vmarea)
+        check_new_page_start(dcontext, bb);
 
 #if defined(WINDOWS) && !defined(STANDALONE_DECODER) && defined(CLIENT_INTERFACE)
     /* i#1632: if `bb->start_pc` points into the middle of a DR intercept hook, change
@@ -4446,7 +4452,8 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     BBPRINT(bb, IF_DGCDIAG_ELSE(1, 2), "build_native_exec_bb @"PFX"\n", bb->start_pc);
     DOLOG(2, LOG_INTERP, {
         dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
-    check_new_page_start(dcontext, bb);
+    if (!bb->checked_start_vmarea)
+        check_new_page_start(dcontext, bb);
     /* create instrlist after check_new_page_start to avoid memory leak
      * on unreadable memory
      * WARNING: do not add any app instructions to this ilist!
@@ -4772,10 +4779,15 @@ init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
      * a hook when we're ready to call one by storing whether there is a
      * hook at translation/decode decision time: now.
      */
-    if (dr_bb_hook_exists() &&
-        /* i#805: Don't instrument code on the null instru list. */
-        !os_module_get_flag(bb->start_pc, MODULE_NULL_INSTRUMENT)) {
-        bb->pass_to_client = true;
+    if (dr_bb_hook_exists()) {
+        /* i#805: Don't instrument code on the null instru list.
+         * Because the module load event is now on 1st exec, we need to trigger
+         * it now so the client can adjust the null instru list:
+         */
+        check_new_page_start(dcontext, bb);
+        bb->checked_start_vmarea = true;
+        if (!os_module_get_flag(bb->start_pc, MODULE_NULL_INSTRUMENT))
+            bb->pass_to_client = true;
     }
     /* PR 299808: even if no bb hook, for a trace hook we need to
      * record translation and do full decode.  It's racy to check

@@ -133,6 +133,18 @@ clients.
 The changes between version \DR_VERSION and 5.0.0 include the
 following minor compatibility changes:
 
+ - Changed the default injection method on Linux to use "early injection"
+   which begins executing the target application from its very first
+   instruction.  Clients on Linux will now see more application code than
+   they did previously.  The old behavior can be requested by passing
+   "-late" to drrun or drinject, or including "-no_early_inject" in the
+   options to drinjectlib.
+ - Moved the module load event to a later point where the application first
+   executes code from the library.  This enables clients to access properly
+   relocated values inside the library, which was not possible with the
+   prior event point at the first memory mapping of the library.
+   Applications that still wish to see the first mapping will need to
+   monitor system calls to replicate the old control point.
  - To support conditionally executed instructions, added a new parameter of
    type #dr_opnd_query_flags_t to routines that explicitly query what was
    read or written by an instruction: instr_get_eflags(),
@@ -157,11 +169,6 @@ following minor compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
- - Changed the default injection method on Linux to use "early injection"
-   which begins executing the target application from its very first
-   instruction.  The old behavior can be requested by passing "-late"
-   to drrun or drinject, or including "-no_early_inject" in the options
-   to drinjectlib.
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
  - Added cross-platform instruction creation macros

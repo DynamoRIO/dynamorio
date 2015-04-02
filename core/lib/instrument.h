@@ -862,16 +862,20 @@ dr_unregister_fork_init_event(void (*func)(void *drcontext));
 DR_API
 /**
  * Registers a callback function for the module load event.  DR calls
- * \p func whenever the application loads a module.  The \p loaded
- * parameter indicates whether the module is about to be loaded (the
- * normal case) or is already loaded (if the module was already there
- * at the time DR initialized). \note The client should be aware that
- * if the module is being loaded it may not be fully processed by the
- * loader (relocating, rebinding and on Linux segment remapping may
- * have not yet occurred). \note The module_data_t \p *info passed
- * to the callback routine is valid only for the duration of the
- * callback and should not be freed; a persistent copy can be made with
- * dr_copy_module_data().
+ * \p func whenever the application loads a module (typically a
+ * library but this term includes the executable).  The \p loaded
+ * parameter indicates whether the module is fully initialized by the
+ * loader or in the process of being loaded.  This parameter is present
+ * only for backward compatibility: current versions of DR always pass true,
+ * and the client can assume that relocating, rebinding, and (on Linux) segment
+ * remapping have already occurred.
+ *
+ * \note The module_data_t \p info passed to the callback routine is
+ * valid only for the duration of the callback and should not be
+ * freed; a persistent copy can be made with dr_copy_module_data().
+ *
+ * \note Registration cannot be done during the basic block event: it should be
+ * done at initialization time.
  */
 void
 dr_register_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
@@ -882,6 +886,9 @@ DR_API
  * Unregister a callback for the module load event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
+ *
+ * \note Unregistering for this event is not supported during the
+ * basic block event.
  */
 bool
 dr_unregister_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
@@ -1511,7 +1518,7 @@ bool instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
                               dr_restore_state_info_t *info);
 
 module_data_t * copy_module_area_to_module_data(const module_area_t *area);
-void instrument_module_load_trigger(app_pc modbase);
+void instrument_module_load_trigger(app_pc pc);
 void instrument_module_load(module_data_t *data, bool previously_loaded);
 void instrument_module_unload(module_data_t *data);
 
@@ -1538,6 +1545,7 @@ void instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
 
 #endif /* CLIENT_INTERFACE */
 bool dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc);
+bool dr_modload_hook_exists(void);
 #ifdef CLIENT_INTERFACE
 
 void instrument_client_lib_loaded(byte *start, byte *end);

@@ -7304,6 +7304,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         /* not in this thread's current executable list
          * try the global executable area list
          */
+#ifdef CLIENT_INTERFACE
+        /* i#884: module load event is now on first execution */
+        instrument_module_load_trigger(pc);
+#endif
         if (!own_execareas_writelock)
             read_lock(&executable_areas->lock);
         ok = lookup_addr(executable_areas, pc, &area);
