@@ -174,6 +174,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         /* On ARM, we spill registers across an app instr, so go solely on xl8 */
         (IF_X86(!instr_is_our_mangling(inst) ||)
          instr_get_translation(inst) != walk->translation)) {
+        LOG(THREAD_GET, LOG_INTERP, 5, "%s: from one mangle region to another\n",
+            __FUNCTION__);
         /* We assume our manglings are local and contiguous: once out of a
          * mangling region, we're good to go again.
          */
@@ -193,6 +195,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         if (!walk->in_mangle_region) {
             walk->in_mangle_region = true;
             walk->translation = instr_get_translation(inst);
+            LOG(THREAD_GET, LOG_INTERP, 5, "%s: entering mangle region xl8="PFX"\n",
+                __FUNCTION__, walk->translation);
         } else
             ASSERT(walk->translation == instr_get_translation(inst));
         /* PR 302951: we recognize a clean call by its NULL translation.
@@ -280,6 +284,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
 #ifdef ARM
         else if (instr_is_stolen_reg_move(inst, &spill, &reg)) {
             /* do nothing */
+            LOG(THREAD_GET, LOG_INTERP, 5, "%s: stolen reg move\n", __FUNCTION__);
         }
 #endif
         /* PR 267260: Track our own mangle-inserted pushes and pops, for
@@ -375,7 +380,13 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
             translate_pc, walk->translation);
         DOCHECK(1, {
             for (r = 0; r < REG_SPILL_NUM; r++)
-                ASSERT(!walk->reg_spilled[r]);
+                ASSERT(!walk->reg_spilled[r]
+                       /* The special stolen register mangling from
+                        * mangle_syscall_arch() for a non-restartable syscall ends
+                        * up here due to the nop having a xl8 post-syscall.
+                        * We do need to restore that spill.
+                        */
+                       IF_ARM(|| r == 10));
         });
         return;
     }

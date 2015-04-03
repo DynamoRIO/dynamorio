@@ -1952,6 +1952,7 @@ if (UNIX)
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
   tobuild(linux.fork linux/fork.c)
+  tobuild(linux.fork-sleep linux/fork-sleep.c)
   # i#1537: test MSR for fs/gs in fork
   torunonly(linux.fork-MSR linux.fork linux/fork.c
     "-vm_base 0x100000000 -no_vm_base_near_app" "")
