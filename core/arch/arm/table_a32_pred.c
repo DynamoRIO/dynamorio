@@ -1704,25 +1704,25 @@ const instr_info_t A32_ext_RBPC[][2] = {
     {OP_vmrs,    0x0ef1fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, pred|vfp, x, ti19[4][0x00]},
   }, { /* 1 */
     {OP_smlad,   0x07000010, "smlad",  RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},
-    {OP_smuad,   0x0700f010, "smuad",  RCw, xx, RAw, RDw, xx, pred, fWQ, END_LIST},
+    {OP_smuad,   0x0700f010, "smuad",  RAw, xx, RDw, RCw, xx, pred, fWQ, END_LIST},
   }, { /* 2 */
     {OP_smladx,  0x07000030, "smladx", RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},
-    {OP_smuadx,  0x0700f030, "smuadx", RCw, xx, RAw, RDw, xx, pred, fWQ, END_LIST},
+    {OP_smuadx,  0x0700f030, "smuadx", RAw, xx, RDw, RCw, xx, pred, fWQ, END_LIST},
   }, { /* 3 */
     {OP_smlsd,   0x07000050, "smlsd",  RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
-    {OP_smusd,   0x0700f050, "smusd",  RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_smusd,   0x0700f050, "smusd",  RAw, xx, RDw, RCw, xx, pred, x, END_LIST},
   }, { /* 4 */
     {OP_smlsdx,  0x07000070, "smlsdx", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
-    {OP_smusdx,  0x0700f070, "smusdx", RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_smusdx,  0x0700f070, "smusdx", RAw, xx, RDw, RCw, xx, pred, x, END_LIST},
   }, { /* 5 */
     {OP_smmla,   0x07500010, "smmla",  RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
-    {OP_smmul,   0x0750f010, "smmul",  RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_smmul,   0x0750f010, "smmul",  RAw, xx, RDw, RCw, xx, pred, x, END_LIST},
   }, { /* 6 */
     {OP_smmlar,  0x07500030, "smmlar", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
-    {OP_smmulr,  0x0750f030, "smmulr", RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_smmulr,  0x0750f030, "smmulr", RAw, xx, RDw, RCw, xx, pred, x, END_LIST},
   }, { /* 7 */
     {OP_usada8,  0x07800010, "usada8", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
-    {OP_usad8,   0x0780f010, "usad8",  RCw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_usad8,   0x0780f010, "usad8",  RAw, xx, RDw, RCw, xx, pred, x, END_LIST},
   },
 };
 
