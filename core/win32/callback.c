@@ -6533,14 +6533,14 @@ get_pc_after_call(byte *entry, byte **cbret)
 }
 
 /****************************************************************************/
-/* it's possible to load w/o going through the LdrLoad routines (by
- * using MapViewOfSectino), we only use these trampolines for debugging, and
+/* It's possible to load w/o going through the LdrLoad routines (by
+ * using MapViewOfSectino), so we only use these trampolines for debugging, and
  * also for the AppInit injection in order to regain control at an earlier point
  * than waiting for the main image entry point (and, another thread is sometimes
  * scheduled before the main thread gets to its entry point!)
- * Thus we go ahead and intercept load_dll for the non-debug build.
- * We also use this hook for our do not load list, though we could prob. get
- * away with doing that at MapViewOfSection.
+ * We used to use this hook for our do not load list, but we now do that at
+ * MapViewOfSection to avoid needing this hook, as it tends to conflict with
+ * 3rd-party hooks (i#1663).
  */
 GET_NTDLL(LdrLoadDll, (IN PWSTR DllPath OPTIONAL,
                        IN PULONG DllCharacteristics OPTIONAL,
@@ -6548,6 +6548,29 @@ GET_NTDLL(LdrLoadDll, (IN PWSTR DllPath OPTIONAL,
                        OUT PVOID *DllHandle
                        ));
 GET_NTDLL(LdrUnloadDll, (IN PVOID DllHandle));
+
+/* i#1663: since we rarely need these 2 hooks, and they are the most likely
+ * of our hooks to conflict with an app's hooks, we avoid placing them
+ * if we don't need them.
+ */
+static bool
+should_intercept_LdrLoadDll(void)
+{
+#ifdef GBOP
+    if (DYNAMO_OPTION(gbop) != GBOP_DISABLED)
+        return true;
+#endif
+    return DYNAMO_OPTION(hook_ldr_dll_routines);
+}
+
+static bool
+should_intercept_LdrUnloadDll(void)
+{
+    if (DYNAMO_OPTION(svchost_timeout) > 0 &&
+        get_os_version() <= WINDOWS_VERSION_2000)
+        return true;
+    return DYNAMO_OPTION(hook_ldr_dll_routines);
+}
 
 after_intercept_action_t
 intercept_load_dll(app_state_at_intercept_t *state)
@@ -6565,6 +6588,7 @@ intercept_load_dll(app_state_at_intercept_t *state)
         ((ptr_int_t)path <= PAGE_SIZE) ? L"NULL" : path);
     LOG(GLOBAL, LOG_VMAREAS, 2, "\tcharacteristics=%d\n",
         characteristics ? *characteristics : 0);
+    ASSERT(should_intercept_LdrLoadDll());
 
 #ifdef GBOP
     if (DYNAMO_OPTION(gbop) != GBOP_DISABLED) {
@@ -6578,57 +6602,6 @@ intercept_load_dll(app_state_at_intercept_t *state)
         /* FIXME: case 7127: may want alternative handling */
     }
 #endif /* GBOP */
-
-    /* we should be able to block loads even in unknown threads */
-    if (DYNAMO_OPTION(enable_block_mod_load) &&
-        (!IS_STRING_OPTION_EMPTY(block_mod_load_list) ||
-         !IS_STRING_OPTION_EMPTY(block_mod_load_list_default))) {
-        static const UNICODE_STRING dummy_ustring = {0, 0, L""};
-        static const HMODULE dummy_handle = NULL;
-        /* UNICODE_STRINGs don't have to be NULL terminated (though usually
-         * are) we copy to a buf here just to be safe. */
-        wchar_t buf[MAXIMUM_PATH] = {0};
-        const wchar_t *short_name;
-        char name_buf[MAXIMUM_PATH];
-        UNICODE_STRING name_cpy = {0};
-        /* arg pointers are user supplied so be extra carefull */
-        if (safe_read(name, sizeof(UNICODE_STRING), &name_cpy) &&
-            safe_read(name_cpy.Buffer,
-                      MIN(BUFFER_SIZE_BYTES(buf), name_cpy.Length), buf)) {
-            ASSERT_CURIOSITY(name_cpy.Length <= BUFFER_SIZE_BYTES(buf));
-            /* null terminate */
-            buf[MIN(BUFFER_SIZE_ELEMENTS(buf)-1,
-                    name_cpy.Length/sizeof(buf[0]))] = L'\0';
-            short_name = w_get_short_name(buf);
-            snprintf(name_buf, BUFFER_SIZE_ELEMENTS(name_buf), "%ls",
-                     short_name);
-            NULL_TERMINATE_BUFFER(name_buf);
-            string_option_read_lock();
-            if ((!IS_STRING_OPTION_EMPTY(block_mod_load_list) &&
-                 check_filter(DYNAMO_OPTION(block_mod_load_list), name_buf)) ||
-                (!IS_STRING_OPTION_EMPTY(block_mod_load_list_default) &&
-                 check_filter(DYNAMO_OPTION(block_mod_load_list_default),
-                              name_buf))) {
-                string_option_read_unlock();
-                /* Modify args so call fails, stdcall so caller shouldn't care
-                 * about the args being modified. FIXME - alt. we could just
-                 * do the stdcall ret here (for non-takeover need to supply
-                 * a dr location with a ret 4 instruction at hook time and
-                 * return alt_dyn here, for takeover need to modify the
-                 * interception code or pass a flag to asynch_takeover/dispath
-                 * to modify the app state) */
-                LOG(GLOBAL, LOG_ALL, 1,
-                    "Blocking load of module %s\n", name_buf);
-                SYSLOG_INTERNAL_WARNING_ONCE("Blocking load of module %s", name_buf);
-                *((wchar_t **)(state->mc.xsp + XSP_SZ)) = NULL; /* NULL out path */
-                *((const UNICODE_STRING **)(state->mc.xsp + 12)) = &dummy_ustring;
-                /* LdrLoadDll should do this, but let's be sure */
-                safe_write(out_handle, sizeof(HANDLE), &dummy_handle);
-            } else {
-                string_option_read_unlock();
-            }
-        }
-    }
 
     if (tr == NULL) {
         LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: native thread in intercept_load_dll\n");
@@ -6683,6 +6656,7 @@ intercept_unload_dll(app_state_at_intercept_t *state)
     HMODULE h = (HMODULE) APP_PARAM(&state->mc, 0);
     static int in_svchost = -1; /* unknown yet */
     thread_record_t *tr = thread_lookup(get_thread_id());
+    ASSERT(should_intercept_LdrUnloadDll());
 
     if (tr == NULL) {
         LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: native thread in "
@@ -6701,7 +6675,7 @@ intercept_unload_dll(app_state_at_intercept_t *state)
         return AFTER_INTERCEPT_LET_GO;
     }
 
-    if (in_svchost && dynamo_options.svchost_timeout &&
+    if (in_svchost && DYNAMO_OPTION(svchost_timeout) > 0 &&
         /* case 10509: avoid the timeout on platforms where we haven't seen problems */
         get_os_version() <= WINDOWS_VERSION_2000) {
         /* ENTERING GROSS HACK AREA, case 374 */
@@ -7428,37 +7402,37 @@ callback_interception_init_finish(void)
          * FIXME: a better way to do this?  assume entry point will always
          * be start of fragment, add clean call in mangle?
          */
-        load_dll_pc = pc;
-        pc = intercept_call(pc, (byte*)LdrLoadDll, intercept_load_dll,
-                            0, /* no arg */
-                            false /* do not assume esp */,
-                            AFTER_INTERCEPT_DYNAMIC_DECISION,
-                            true /* not critical trampoline, can ignore if
-                                  * hooked with CTI */,
-                            false /* handle CTI */,
-                            NULL, NULL);
-        if (pc == NULL) {
-            /* failed to hook, reset pointer for next routine */
-            pc = load_dll_pc;
-            load_dll_pc = NULL;
+        if (should_intercept_LdrLoadDll()) {
+            load_dll_pc = pc;
+            pc = intercept_call(pc, (byte*)LdrLoadDll, intercept_load_dll,
+                                0, /* no arg */
+                                false /* do not assume esp */,
+                                AFTER_INTERCEPT_DYNAMIC_DECISION,
+                                true /* not critical trampoline, can ignore if
+                                      * hooked with CTI */,
+                                false /* handle CTI */,
+                                NULL, NULL);
+            if (pc == NULL) {
+                /* failed to hook, reset pointer for next routine */
+                pc = load_dll_pc;
+                load_dll_pc = NULL;
+            }
         }
-
-        unload_dll_pc = pc;
-        /* FIXME: used only for DEBUG and svchost_hack (case 374), shouldn't
-         * do it all the time
-         */
-        pc = intercept_call(pc, (byte*)LdrUnloadDll, intercept_unload_dll,
-                            0, /* no arg */
-                            false /* do not assume esp */,
-                            AFTER_INTERCEPT_DYNAMIC_DECISION,
-                            true /* not critical trampoline, can ignore if
-                                  * hooked with CTI */,
-                            false /* handle CTI */,
-                            NULL, NULL);
-        if (pc == NULL) {
-            /* failed to hook, reset pointer for next routine */
-            pc = unload_dll_pc;
-            unload_dll_pc = NULL;
+        if (should_intercept_LdrUnloadDll()) {
+            unload_dll_pc = pc;
+            pc = intercept_call(pc, (byte*)LdrUnloadDll, intercept_unload_dll,
+                                0, /* no arg */
+                                false /* do not assume esp */,
+                                AFTER_INTERCEPT_DYNAMIC_DECISION,
+                                true /* not critical trampoline, can ignore if
+                                      * hooked with CTI */,
+                                false /* handle CTI */,
+                                NULL, NULL);
+            if (pc == NULL) {
+                /* failed to hook, reset pointer for next routine */
+                pc = unload_dll_pc;
+                unload_dll_pc = NULL;
+            }
         }
     }
 

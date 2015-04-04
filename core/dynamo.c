@@ -2682,6 +2682,7 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
      * sets this. */
     dr_preinjected = true;      /* currently only relevant on Win32 */
 #endif
+    LOG(GLOBAL, LOG_TOP, 1, "taking over via preinject in %s\n", __FUNCTION__);
 
     if (!INTERNAL_OPTION(nullcalls) && !have_taken_over) {
         have_taken_over = true;
@@ -2745,7 +2746,7 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
     res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);
-    LOG(GLOBAL, LOG_TOP, 1, "dynamorio_app_init_and_early_take_over\n");
+    LOG(GLOBAL, LOG_TOP, 1, "taking over via early injection in %s\n", __FUNCTION__);
     /* FIXME - restore code needs to be freed, but we have to return through it
      * first... could instead duplicate its tail here if we wrap this
      * routine in asm or eqv. pass the continuation state in as args. */
@@ -2773,7 +2774,7 @@ dynamorio_earliest_init_takeover_C(byte *arg_ptr)
     res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);
-    LOG(GLOBAL, LOG_TOP, 1, "dynamorio_earliest_init_takeover\n");
+    LOG(GLOBAL, LOG_TOP, 1, "taking over via earliest injection in %s\n", __FUNCTION__);
 
     /* earliest_inject_cleanup() is called within dynamorio_app_init() to avoid
      * confusing the exec areas scan

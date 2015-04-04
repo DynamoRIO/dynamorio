@@ -155,6 +155,7 @@ auto_setup(ptr_uint_t appstack)
         dynamorio_app_exit();
         return;
     }
+    LOG(GLOBAL, LOG_TOP, 1, "taking over via late injection in %s\n", __FUNCTION__);
 
     /* For apps injected using follow_children, this is where control should be
      * allowed to go native for hotp_only & thin_client.

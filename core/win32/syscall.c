@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2228,46 +2228,72 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 }
 
 /* NtMapViewOfSection */
-static void
+static bool
 presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
 {
-    DODEBUG({
-        priv_mcontext_t *mc = get_mcontext(dcontext);
-        HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 0);
-        /* trying to make sure we're tracking properly all section
-         * handles
-         *
-         * Unfortunately SHELL32!SHChangeRegistration_Create seems
-         * to be using sections to communicate with explorer.exe
-         * and sends a message via sending a duplicate section
-         * handle, and likely receives a message back in a
-         * similarly duplicated handle from the other process.
-         * Hard to match that particular call so cannot keep a
-         * CURIOSITY here.
-         *
-         * Note we also wouldn't like some global handle being used by
-         * different threads as well, or any other unusually nested
-         * use of NtCreateSection/NtOpenSection before NtMapViewOfSection.
-         *
-         * For non-image sections accessed via OpenSection rather than CreateSection,
-         * we do NOT have the file name here, but we can get it once we have a mapping
-         * via MemorySectionName: plus we don't care about non-images.  But, we don't
-         * have a test for image here, so we leave this LOG note.
-         */
-        const char *file = section_to_file_lookup(section_handle);
-        if (file == NULL &&
-            section_handle != dcontext->aslr_context.randomized_section_handle) {
-            LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS,
-                2, "syscall: NtMapViewOfSection unusual section mapping\n");
+    bool execute = true;
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+    HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 0);
+    /* trying to make sure we're tracking properly all section
+     * handles
+     *
+     * Unfortunately SHELL32!SHChangeRegistration_Create seems
+     * to be using sections to communicate with explorer.exe
+     * and sends a message via sending a duplicate section
+     * handle, and likely receives a message back in a
+     * similarly duplicated handle from the other process.
+     * Hard to match that particular call so cannot keep a
+     * CURIOSITY here.
+     *
+     * Note we also wouldn't like some global handle being used by
+     * different threads as well, or any other unusually nested
+     * use of NtCreateSection/NtOpenSection before NtMapViewOfSection.
+     *
+     * For non-image sections accessed via OpenSection rather than CreateSection,
+     * we do NOT have the file name here, but we can get it once we have a mapping
+     * via MemorySectionName: plus we don't care about non-images.  But, we don't
+     * have a test for image here, so we leave this LOG note.
+     */
+    const char *file = section_to_file_lookup(section_handle);
+    if (file != NULL) {
+        /* we should be able to block loads even in unknown threads */
+        if (DYNAMO_OPTION(enable_block_mod_load) &&
+            (!IS_STRING_OPTION_EMPTY(block_mod_load_list) ||
+             !IS_STRING_OPTION_EMPTY(block_mod_load_list_default))) {
+            const char *short_name = get_short_name(file);
+            string_option_read_lock();
+            if ((!IS_STRING_OPTION_EMPTY(block_mod_load_list) &&
+                 check_filter(DYNAMO_OPTION(block_mod_load_list), short_name)) ||
+                (!IS_STRING_OPTION_EMPTY(block_mod_load_list_default) &&
+                 check_filter(DYNAMO_OPTION(block_mod_load_list_default),
+                              short_name))) {
+                string_option_read_unlock();
+                /* Modify args so call fails, stdcall so caller shouldn't care
+                 * about the args being modified. FIXME - alt. we could just
+                 * do the stdcall ret here (for non-takeover need to supply
+                 * a dr location with a ret 4 instruction at hook time and
+                 * return alt_dyn here, for takeover need to modify the
+                 * interception code or pass a flag to asynch_takeover/dispath
+                 * to modify the app state) */
+                LOG(GLOBAL, LOG_ALL, 1, "Blocking load of module %s\n", file);
+                SYSLOG_INTERNAL_WARNING_ONCE("Blocking load of module %s", file);
+                execute = false;
+                SET_RETURN_VAL(dcontext, STATUS_ACCESS_DENIED);
+                /* With failure we shouldn't have to set any of the out vals */
+            } else {
+                string_option_read_unlock();
+            }
         }
-        if (file != NULL)
-            dr_strfree(file HEAPACCT(ACCT_VMAREAS));
-    });
+        dr_strfree(file HEAPACCT(ACCT_VMAREAS));
+    } else if (section_handle != dcontext->aslr_context.randomized_section_handle) {
+        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS,
+            2, "syscall: NtMapViewOfSection unusual section mapping\n");
+    }
 
-    /* no pre-processing needed except for ASLR */
     if (TESTANY(ASLR_DLL|ASLR_MAPPED, DYNAMO_OPTION(aslr))) {
         aslr_pre_process_mapview(dcontext);
     }
+    return execute;
 }
 
 /* NtUnmapViewOfSection{,Ex} */
@@ -2624,7 +2650,7 @@ pre_system_call(dcontext_t *dcontext)
          */
     }
     else if (sysnum == syscalls[SYS_MapViewOfSection]) {
-        presys_MapViewOfSection(dcontext, param_base);
+        execute_syscall = presys_MapViewOfSection(dcontext, param_base);
     }
     else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
              sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {

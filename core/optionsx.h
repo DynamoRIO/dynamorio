@@ -2256,6 +2256,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT_INTERNAL(bool, hook_image_entry, true, "Allow hooking of the image "
         "entry point when we lose control at a pre-image-entry-point callback return. "
         "Typically it's not needed to regain control if -native_exec_syscalls is on.")
+    OPTION_DEFAULT_INTERNAL(bool, hook_ldr_dll_routines, false,
+        "Hook LdrLoadDll and LdrUnloadDll even with no direct reason other than "
+        "regaining control on AppInit injection.")
     OPTION_DEFAULT(bool, clean_testalert, true, /* case 9288, 10414 SpywareDoctor etc. */
         "restore NtTestAlert to a pristine state at load by clearing away any hooks")
     OPTION_DEFAULT(uint, hook_conflict, 1 /* HOOKED_TRAMPOLINE_SQUASH */, /* case 2525 */
