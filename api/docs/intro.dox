@@ -686,6 +686,7 @@ following sub-sections:
  - \ref sec_utils
  - \ref sec_extlibs
  - \ref sec_comm
+ - \ref sec_annotations
  - \ref sec_options
  - \ref sec_debugging
 \else
@@ -695,6 +696,7 @@ following sub-sections:
  - \ref sec_extlibs
  - \ref sec_extensions
  - \ref sec_comm
+ - \ref sec_annotations
  - \ref sec_64bit_reach
  - \ref sec_utf8
  - \ref sec_options
@@ -1391,6 +1393,73 @@ target application process.  These include:
    the file.
  - Shared memory can be used for bi-directional communication.  For an
    example of this on Windows, see the stats sample (see \ref sec_drstats).
+
+***************************************************************************
+\section sec_annotations Annotations
+
+DynamoRIO provides a binary annotation mechanism which allows the target application to
+communicate directly with the DynamoRIO client, or with DynamoRIO itself. A binary
+annotation is generated from a macro that can be manually inserted into the source code of
+the target program. When compiled, the resulting sequence of assembly instructions has no
+effect on native execution (i.e., it is a nop, or resolves to a static default value),
+but during execution under DynamoRIO, each annotation is detected and transformed into a
+function call to a set of registered handlers. Currently DynamoRIO provides 2 simple
+annotations:
+
+ - <b>DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()</b>
+   Indicates by its return value whether the target app is running under DynamoRIO,
+
+ - <b>DYNAMORIO_ANNOTATE_LOG(format, ...)</b>
+   Writes a message to the DynamoRIO log, when the target app is running under DynamoRIO
+   and logging is enabled.
+
+An annotation may be declared void, as in DYNAMORIO_ANNOTATE_LOG(), or it may have a
+return value, as in the boolean DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO(). The return
+value can be used in a branch predicate, such that some of the target app's code only
+executes under DynamoRIO, or it can be used for in-process communication to obtain data
+from DynamoRIO or its client that is only available during binary translation.
+
+\subsection subsec_annotate_app Annotating an Application
+
+Adding an annotation to a target application is primarily a simple matter of invoking the
+annotation macro at the desired program location. The macros are declared in the C header
+file <b>include/annotations/dr_annotations.h</b>, and each macro operates syntactically
+like a function call. An annotation having a return value can be used as an expression.
+DynamoRIO provides a module which defines the annotations, and clients may also provide
+modules containing custom annotations. Each compilation unit that uses annotations must be
+statically linked with the corresponding annotation module(s). For projects using cmake, a
+convenience function \b use_DynamoRIO_annotations(target, srcs) will configure the
+specified \b srcs to be linked with the annotation module.
+
+\subsection subsec_instr_annotations Instrumenting Annotations
+
+When DynamoRIO encounters an annotation in the target app, it instruments that program
+location in one of two ways:
+
+ - Return value substitution: DynamoRIO replaces the annotation with a constant return
+   value (this instrumentation is only valid for annotations having a return value),
+
+ - Handler invocation: DynamoRIO replaces the annotation with a call to each handler that
+   is currently registered for the annotation. For annotations having a return value, the
+   return value of the last registered handler will be the value to take effect at the
+   target program location.
+
+Annotation handlers are registered using API functions \b dr_annotation_register_call()
+and \b dr_annotation_register_return(). Note that changes to handler registration will
+have no effect on annotations that have already been translated by DynamoRIO into the
+code cache (until the annotated basic blocks are removed from the cache and retranslated).
+The annotation instrumentation invokes the handlers using a separate clean call for each
+handler. The return value for an annotation can be set within a handler function using
+the API function \b dr_annotation_set_return_value().
+
+\subsection subsec_create_annotations Creating Custom Annotations
+
+DynamoRIO client developers may wish to create new annotations to facilitate
+client-specific communication with the target application. For example, a client that
+inspects memory usage may have false positives for variables in the target app that are
+never referenced after initialization. The \ref API_tutorial_annotation1 walks
+through the process of creating a new annotation that allows target application
+developers to explicitly mark any variable as defined.
 
 ***************************************************************************
 \section sec_options Fine-Tuning DynamoRIO: Runtime Parameters

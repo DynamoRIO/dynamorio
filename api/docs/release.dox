@@ -182,6 +182,9 @@ Further non-compatibility-affecting changes include:
    XINST_CREATE_sub(), XINST_CREATE_sub_s(),
    XINST_CREATE_and_s(), XINST_CREATE_cmp(),
    XINST_CREATE_interrupt(), and XINST_CREATE_nop().
+ - Added a new feature: a binary annotation framework that facilitates communication
+   between the target app and the DynamoRIO client and core. See \ref sec_annotations
+   and dr_annotation.h.
  - Added instr_is_predicated(), instr_get_predicate(), and
    instr_set_predicate().
  - Added instr_predicate_triggered().

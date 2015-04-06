@@ -46,11 +46,18 @@ some simple state translation : \subpage API_tutorial_steal_reg1 "steal_reg".
 - A client that adjusts prefetch instructions demonstrating some simple
 app modifications : \subpage API_tutorial_prefetch1 "prefetch".
 
+The following tutorial additionally shows how to create a new annotation to support a
+client-specific feature.
+
+- A new annotation for a hypothetical memory usage client. The annotation marks any
+specified memory region as defined, even when the client analysis shows it is undefined :
+\subpage API_tutorial_annotation1 "create_annotation"
+
 **/
 
 
 /**
-\page API_tutorial_bbdynsize1
+\page API_tutorial_bbdynsize1 average_bb_size
 
 In this tutorial we'll create a simple client that will compute the
 average size of basic blocks executed (in instructions) weighted by
@@ -68,7 +75,7 @@ dr_init(client_id_t id)
 
 [ \ref API_tutorial "prev" | \subpage API_tutorial_bbdynsize2 "next" ]
 
-\page API_tutorial_bbdynsize2
+\page API_tutorial_bbdynsize2 average_bb_size.p2
 Now we register for events we'll need.  For our first pass we only
 need to register for the bb event (to add our instrumentation) and the
 exit event (to display the results).  We don't need to register for
@@ -111,7 +118,7 @@ dr_init(client_id_t id)
 
 [ \ref API_tutorial_bbdynsize1 "prev" | \subpage API_tutorial_bbdynsize3 "next" ]
 
-\page API_tutorial_bbdynsize3
+\page API_tutorial_bbdynsize3  average_bb_size.p3
 Next we add code to track the size of blocks as we build them for our
 as-built count.  This will give us the number of blocks built and
 their average size.  Next we will add the dynamic execution counts.
@@ -193,7 +200,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 [ \ref API_tutorial_bbdynsize2 "prev" | \subpage API_tutorial_bbdynsize4 "next" ]
 
-\page API_tutorial_bbdynsize4
+\page API_tutorial_bbdynsize4  average_bb_size.p4
 Now we add instrumentation to gather the dynamic counts.  For the
 first pass we'll use a clean call to increment the counters from each
 block.  However this approach is very slow since for each basic block
@@ -302,7 +309,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 [ \ref API_tutorial_bbdynsize3 "prev" | \subpage API_tutorial_bbdynsize5 "next" ]
 
-\page API_tutorial_bbdynsize5
+\page API_tutorial_bbdynsize5  average_bb_size.p5
 In this variation we use inlined atomic instructions to adjust the counters.  On
 a single core box this form should be quite fast, but on a multi-core box the
 cache line locking for atomic operations will slow things dramatically.  We'll
@@ -427,7 +434,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 [ \ref API_tutorial_bbdynsize4 "prev" | \subpage API_tutorial_bbdynsize6 "next" ]
 
-\page API_tutorial_bbdynsize6
+\page API_tutorial_bbdynsize6  average_bb_size.p6
 Next up we add an optimization to only save and restore the flags if we can't find a spot
 within the block where the flags are dead.
 
@@ -574,7 +581,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 [ \ref API_tutorial_bbdynsize5 "prev" | \subpage API_tutorial_bbdynsize7 "next" ]
 
-\page API_tutorial_bbdynsize7
+\page API_tutorial_bbdynsize7  average_bb_size.p7
 We now have a pretty fast implementation, probably about as fast as we can get
 on a single core machine.  However, on multi-core systems the cache
 line locking for the atomic operations becomes a bottle neck.  To get around that
@@ -763,7 +770,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 [ \ref API_tutorial_bbdynsize6 "prev" | \subpage API_tutorial_bbdynsize8 "next" ]
 
-\page API_tutorial_bbdynsize8
+\page API_tutorial_bbdynsize8  average_bb_size.p8
 Our final optimization is to note that if we're running with thread-private caches
 (i.e. with the -thread_private option to DynamoRIO) we can use absolute addressing
 on the per-thread counters instead of indirecting via TLS which should greatly speed
@@ -968,7 +975,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 [ \ref API_tutorial_bbdynsize7 "prev" | \subpage API_tutorial_bbdynsize9 "next" ]
 
-\page API_tutorial_bbdynsize9
+\page API_tutorial_bbdynsize9  average_bb_size.p9
 The final multi-core optimized version.  If we are single core then the LOCK version
 is probably faster unless we are running with -thread_private in which case it's probably
 close to equivalent.
@@ -1172,9 +1179,219 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 **/
 
+/**
+\page API_tutorial_annotation1 create_annotation
+
+In this tutorial we'll create a new annotation MEMCLIENT_MARK_MEM_DEFINED_IF_ADDRESSABLE()
+for use in a hypothetical client named MemClient that detects use of uninitialized
+variables. Since an annotation definition has several detailed requirements, it will be
+easiest to start with a copy of a DynamoRIO annotation and transform it into the new
+annotation. The first step is to copy the DynamoRIO souce file
+<b>core/lib/dr_annotations.h</b>:
+
+\code
+#ifndef _DYNAMORIO_ANNOTATIONS_H_
+#define _DYNAMORIO_ANNOTATIONS_H_ 1
+
+#include "dr_annotations_asm.h"
+
+/* To simplify project configuration, this pragma excludes the file from GCC warnings. */
+#ifdef __GNUC__
+# pragma GCC system_header
+#endif
+
+#define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
+    dynamorio_annotate_running_on_dynamorio()
+
+#define DYNAMORIO_ANNOTATE_LOG(format, ...) \
+    DR_ANNOTATION(dynamorio_annotate_log, format, ##__VA_ARGS__)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (void));
+
+DR_DECLARE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...));
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+\endcode
+
+[ \ref API_tutorial "prev" | \subpage API_tutorial_annotation2 "next" ]
+
+\page API_tutorial_annotation2 create_annotation.p2
+
+Next, modify elements of the annotation macro and declaration according to its new
+purpose:
+
+1. Change the name;
+2. Change the return type to void;
+3. Replace the formal parameter list.
+
+\code
++#ifndef _MEMCLIENT_ANNOTATIONS_H_
++#define _MEMCLIENT_ANNOTATIONS_H_ 1
+
+#include "dr_annotations_asm.h"
+
+/* To simplify project configuration, this pragma excludes the file from GCC warnings. */
+#ifdef __GNUC__
+# pragma GCC system_header
+#endif
+
++#define MEMCLIENT_MARK_MEM_DEFINED_IF_ADDRESSABLE(start, size) \
++    DR_ANNOTATION(memclient_mark_mem_defined_if_addressable, start, size)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
++DR_DECLARE_ANNOTATION(void, memclient_mark_mem_defined_if_addressable,
++                      (void *p, size_t size));
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+\endcode
+
+Note that one of the original annotations has been deleted. This completes the header for
+the new annotation, and now the source must be similarly copied and modified.
+
+[ \ref API_tutorial_annotation1 "prev" | \subpage API_tutorial_annotation3 "next" ]
+
+\page API_tutorial_annotation3 create_annotation.p3
+
+To create the annotation source file, first copy <b>core/lib/dr_annotations.c</b>:
+
+\code
+#include "dr_annotations.h"
+
+DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (void), return 0)
+
+DR_DEFINE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...),
+                     return 0)
+\endcode
+
+Note that the last argument to the macro specifies the body of the annotation function,
+which in the case of these annotations must contain a return statement because the
+annotations are non-void.
+
+[ \ref API_tutorial_annotation2 "prev" | \subpage API_tutorial_annotation4 "next" ]
+
+\page API_tutorial_annotation4 create_annotation.p4
+
+Next, modify elements of the annotation definition to match the header:
+
+\code
+#include "dr_annotations.h"
+
++DR_DEFINE_ANNOTATION(void, memclient_mark_mem_defined_if_addressable,
++                     (void *p, size_t size), )
+\endcode
+
+The last argument to the macro is now empty, since the annotation is now void and no
+longer requires (or allows) a return statement.
+
+[ \ref API_tutorial_annotation3 "prev" | \subpage API_tutorial_annotation5 "next" ]
+
+\page API_tutorial_annotation5 create_annotation.p5
+
+Target applications will now be able to mark any region of memory as defined by simply
+invoking the macro MEMCLIENT_MARK_MEM_DEFINED_IF_ADDRESSABLE(). To implement the
+corresponding functionality in memclient, the client developer creates a handler
+function having the same signature as the annotation function and registers it for the
+annotation using dr_annotation_register_call(). For example:
+
+\code
+#include "dr_api.h"
+
+void handle_mark_mem_defined_if_addressable(void *p, size_t size)
+{
+    size_t *skip_size = dr_global_alloc(sizeof(size_t));
+    hashtable_add_replace(skip_init_check_table, p, skip_size);
+}
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    dr_annotation_register_call("memclient_mark_mem_defined_if_addressable",
+                                handle_mark_mem_defined_if_addressable, false, 2);
+}
+\endcode
+
+After registering the handler, all instances of the new annotation will be transformed
+into a clean call to handle_mark_mem_defined_if_addressable(), where the arguments to
+the annotation macro become arguments to the clean call.
+
+[ \ref API_tutorial_annotation4 "prev" | \subpage API_tutorial_annotation6 "next" ]
+
+\page API_tutorial_annotation6 create_annotation.p6
+
+Since the annotation declarations and definitions are only referenced by target programs
+(not by MemClient itself), no additions to the MemClient build are required. However, to
+simplify integration of the new annotation into target programs, the MemClient
+developer may wish to provide a cmake package that defines a function for configuring
+annotations. DynamoRIO provides a similar function use_DynamoRIO_annotations() for its
+default annotations, so it will be easiest to start with a copy of that function from
+DynamoRIOConfig.cmake (which is located in the DynamoRIO source tree in
+make/DynamoRIOConfig.cmake.in):
+
+\verbatim
+# For configuring target applications that use default DynamoRIO annotations
+function (use_DynamoRIO_annotations target target_srcs)
+  set(dr_annotation_dir "${DynamoRIO_cwd}/../include/annotations")
+  set(dr_annotation_srcs "${dr_annotation_dir}/dr_annotations.c")
+  configure_DynamoRIO_annotation_sources("${dr_annotation_srcs}")
+  set(${target_srcs} ${${target_srcs}} ${dr_annotation_srcs} PARENT_SCOPE)
+endfunction (use_DynamoRIO_annotations target target_srcs)
+\endverbatim
+
+[ \ref API_tutorial_annotation5 "prev" | \subpage API_tutorial_annotation7 "next" ]
+
+\page API_tutorial_annotation7 create_annotation.p7
+
+Next modify elements of the cmake function for usage with the MemClient annotations:
+
+1. Replace DynamoRIO with the client name, e.g. MemClient;
+2. Change the variable prefix from dr_ to a suitable prefix, e.g. memclient_;
+3. Specify the client's annotation source file(s).
+
+\verbatim
++# For configuring target applications that use MemClient annotations
++function (use_MemClient_annotations target target_srcs)
++  set(memclient_annotation_dir "${MemClient_cwd}/../include/annotations")
++  set(memclient_annotation_srcs "${memclient_annotation_dir}/memclient_annotations.c")
++  configure_DynamoRIO_annotation_sources("${memclient_annotation_srcs}")
++  set(${target_srcs} ${${target_srcs}} ${memclient_annotation_srcs} PARENT_SCOPE)
++endfunction (use_MemClient_annotations target target_srcs)
+\endverbatim
+
+Note that the cmake variable memclient_annotation_dir has been set to the same direcotry
+as the default DynamoRIO annotation directory, but this is not required--the client
+developer may choose to put the new annotations in any directory within the build output
+area.
+
+In more general terms, this cmake function takes the following steps:
+
+1. Copies the MemClient annotation header and source file to the build output area;
+2. Assigns the required compiler flags;
+3. Adds the source file to the project source list.
+
+Target applications that are not built with cmake will need to take these same 3 steps in
+a comparable way.
+
+[ \ref API_tutorial_annotation6 "prev" | \ref API_tutorial "back" ]
+**/
+
 
 /**
-\page API_tutorial_steal_reg1
+\page API_tutorial_steal_reg1 steal_reg
 <b>coming soon</b>
 
 [ \ref API_tutorial "back" ]
@@ -1182,7 +1399,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
 
 /**
-\page API_tutorial_prefetch1
+\page API_tutorial_prefetch1 prefetch
 <b>coming soon</b>
 
 [ \ref API_tutorial "back" ]
