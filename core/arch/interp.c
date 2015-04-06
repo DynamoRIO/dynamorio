@@ -256,7 +256,9 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
+#ifdef ARM
     bb->svc_pred = DR_PRED_NONE;
+#endif
     DODEBUG(bb->initialized = true;);
 }
 
