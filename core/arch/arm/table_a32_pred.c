@@ -347,14 +347,14 @@ const instr_info_t A32_ext_opc4x[][6] = {
   { /* 0 */
     {OP_and,     0x00000000, "and",    RBw, RAw, RDw, sh2, i5_7, pred|srcX4, x, top4x[0][0x01]},
     {OP_and,     0x00000010, "and",    RBw, RAw, RDw, sh2, RCb, pred|srcX4, x, END_LIST},
-    {OP_mul,     0x00000090, "mul",    RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
+    {OP_mul,     0x00000090, "mul",    RAw, xx, RDw, RCw, xx, pred, x, END_LIST},
     {OP_strh,    0x000000b0, "strh",   Mh, RAw, RBh, RAw, RDNw, pred, x, END_LIST},/*PUW=000*/
     {OP_ldrd,    0x000000d0, "ldrd",   RBEw, RB2w, RAw, Mq, RDNw, xop_wb|pred|dstX3, x, END_LIST},/*PUW=000*/
     {OP_strd,    0x000000f0, "strd",   Mq, RAw, RBEw, RB2w, RDNw, xop_wb|pred, x, END_LIST},/*PUW=000*/
   }, { /* 1 */
     {OP_ands,    0x00100000, "ands",   RBw, RAw, RDw, sh2, i5_7, pred|srcX4, fWNZCV, top4x[1][0x01]},
     {OP_ands,    0x00100010, "ands",   RBw, RAw, RDw, sh2, RCb, pred|srcX4, fWNZCV, END_LIST},
-    {OP_muls,    0x00100090, "muls",   RBw, xx, RAw, RDw, xx, pred, fWNZCV, END_LIST},
+    {OP_muls,    0x00100090, "muls",   RAw, xx, RDw, RCw, xx, pred, fWNZCV, END_LIST},
     {OP_ldrh,    0x001000b0, "ldrh",   RBw, RAw, Mw, RAw, RDNw, pred, x, END_LIST},/*PUW=000*/
     {OP_ldrsb,   0x001000d0, "ldrsb",  RBw, RAw, Mb, RAw, RDNw, pred, x, END_LIST},/*PUW=000*/
     {OP_ldrsh,   0x001000f0, "ldrsh",  RBw, RAw, Mh, RAw, RDNw, pred, x, END_LIST},/*PUW=000*/
