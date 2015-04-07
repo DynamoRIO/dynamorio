@@ -809,6 +809,10 @@ void arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callb
 void arch_thread_profile_exit(dcontext_t *dcontext);
 void arch_profile_exit(void);
 #endif
+#ifdef ARM
+void arch_reset_stolen_reg(void);
+void arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc);
+#endif
 
 bool is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_generated_routine(dcontext_t *dcontext, cache_pc pc);

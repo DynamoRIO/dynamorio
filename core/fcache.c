@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4171,12 +4171,17 @@ fcache_reset_all_caches_proactively(uint target)
     /* no lock needed */
     dynamo_resetting = true;
 
+    IF_ARM({
+        if (INTERNAL_OPTION(steal_reg_at_reset) != 0)
+            arch_reset_stolen_reg();
+    });
+
     /* We free everything before re-init so we can free all heap units.
      * For everything to be freed, it must either be individually freed,
      * or it must reside in non-persistent heap units,
      * which will be thrown out wholesale in heap_reset_free().  The latter
      * is preferable to not waste time on individual deletion.
-     * FIXME: add consistency check walks before and after for all modules
+     * XXX: add consistency check walks before and after for all modules
      */
     for (i = 0; i < num_threads; i++) {
         dcontext_t *dcontext = threads[i]->dcontext;
@@ -4221,7 +4226,7 @@ fcache_reset_all_caches_proactively(uint target)
                 /* N.B.: none of these can assume the executing thread is the
                  * dcontext owner, esp. wrt tls!
                  */
-                /* FIXME: now we have {thread_,}init(), {thread_,}exit(), and
+                /* XXX: now we have {thread_,}init(), {thread_,}exit(), and
                  * *_reset() -- can we systematically construct these lists of
                  * module calls?  The list here, though, is a subset of the others.
                  */
@@ -4237,7 +4242,7 @@ fcache_reset_all_caches_proactively(uint target)
         }
     }
     if (target == RESET_PENDING_DELETION) {
-        /* FIXME: optimization: suspend only those threads with low flushtimes */
+        /* XXX: optimization: suspend only those threads with low flushtimes */
         LOG(GLOBAL, LOG_CACHE, 2,
             "fcache_reset_all_caches_proactively: clearing shared deletion list\n");
         /* free entire shared deletion list */
@@ -4260,9 +4265,9 @@ fcache_reset_all_caches_proactively(uint target)
 
         /* now set up state all over again */
         heap_reset_init();
-# ifdef HOT_PATCHING_INTERFACE
+#ifdef HOT_PATCHING_INTERFACE
         hotp_reset_init();
-# endif
+#endif
         vm_areas_reset_init();
         fcache_reset_init();
         link_reset_init();

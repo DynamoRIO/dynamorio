@@ -2110,6 +2110,13 @@ os_fork_init(dcontext_t *dcontext)
     TABLE_RWLOCK(fd_table, write, unlock);
 }
 
+byte *
+os_get_dr_tls_base(dcontext_t *dcontext)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+    return ostd->dr_tls_base;
+}
+
 /* We only bother swapping the library segment if we're using the private
  * loader.
  */

@@ -51,6 +51,9 @@
 #include "../fcache.h"
 #include "proc.h"
 #include "instrument.h"
+#ifdef ARM
+# include "tls.h" /* get_dr_tls_base_addr */
+#endif
 
 #include <string.h> /* for memcpy */
 
@@ -298,67 +301,16 @@ release_final_page(generated_code_t *code)
 }
 
 static void
-shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
+shared_gencode_emit(generated_code_t *gencode _IF_X64(bool x86_mode))
 {
-    generated_code_t *gencode;
-    ibl_branch_type_t branch_type;
-    byte *pc;
 #ifdef X64
     fragment_t *fragment;
-    bool x86_mode = false;
-    bool x86_to_x64_mode = false;
 #endif
+    byte *pc;
     /* As ARM mode switches are inexpensive, we do not need separate gencode
      * versions and stick with Thumb for all our gencode.
      */
     dr_isa_mode_t isa_mode = dr_get_isa_mode(GLOBAL_DCONTEXT);
-
-    gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE);
-    /* we would return gencode and let caller assign, but emit routines
-     * that this routine calls query the shared vars so we set here
-     */
-#ifdef X64
-    switch (gencode_mode) {
-    case GENCODE_X64:
-        shared_code = gencode;
-        break;
-    case GENCODE_X86:
-        /* we do not call set_x86_mode() b/c much of the gencode may be
-         * 64-bit: it's up the gencode to mark each instr that's 32-bit.
-         */
-        shared_code_x86 = gencode;
-        x86_mode = true;
-        break;
-    case GENCODE_X86_TO_X64:
-        shared_code_x86_to_x64 = gencode;
-        x86_to_x64_mode = true;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-    }
-#else
-    shared_code = gencode;
-#endif
-    memset(gencode, 0, sizeof(*gencode));
-
-    gencode->thread_shared = true;
-    IF_X64(gencode->gencode_mode = gencode_mode);
-    /* Generated code immediately follows struct */
-    gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
-    gencode->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
-    for (branch_type = IBL_BRANCH_TYPE_START;
-         branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-        gencode->trace_ibl[branch_type].initialized = false;
-        gencode->bb_ibl[branch_type].initialized = false;
-        gencode->coarse_ibl[branch_type].initialized = false;
-        /* cache the mode so we can pass just the ibl_code_t around */
-        IF_X64(gencode->trace_ibl[branch_type].x86_mode = x86_mode);
-        IF_X64(gencode->trace_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
-        IF_X64(gencode->bb_ibl[branch_type].x86_mode = x86_mode);
-        IF_X64(gencode->bb_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
-        IF_X64(gencode->coarse_ibl[branch_type].x86_mode = x86_mode);
-        IF_X64(gencode->coarse_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
-    }
 
     pc = gencode->gen_start_pc;
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
@@ -442,8 +394,6 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
      * so we don't need a separate routine for callback return
      */
     gencode->fcache_enter_indirect = gencode->fcache_enter;
-    gencode->shared_syscall_code.x86_mode = x86_mode;
-    gencode->shared_syscall_code.x86_to_x64_mode = x86_to_x64_mode;
 # endif
     /* i#821/PR 284029: for now we assume there are no syscalls in x86 code */
     if (IF_X64_ELSE(!x86_mode, true)) {
@@ -463,7 +413,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
 #elif defined(UNIX) && defined(HAVE_TLS)
     /* PR 212570: we need a thread-shared do_syscall for our vsyscall hook */
     /* PR 361894: we don't support sysenter if no TLS */
-    ASSERT(gencode->do_syscall == NULL);
+    ASSERT(gencode->do_syscall == NULL || dynamo_initialized/*re-gen*/);
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->do_syscall = pc;
     pc = emit_do_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
@@ -512,20 +462,84 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
 
     ASSERT(pc < gencode->commit_end_pc);
     gencode->gen_end_pc = pc;
+}
+
+static void
+shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
+{
+    generated_code_t *gencode;
+    ibl_branch_type_t branch_type;
+#ifdef X64
+    bool x86_mode = false;
+    bool x86_to_x64_mode = false;
+#endif
+
+    gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE);
+    /* we would return gencode and let caller assign, but emit routines
+     * that this routine calls query the shared vars so we set here
+     */
+#ifdef X64
+    switch (gencode_mode) {
+    case GENCODE_X64:
+        shared_code = gencode;
+        break;
+    case GENCODE_X86:
+        /* we do not call set_x86_mode() b/c much of the gencode may be
+         * 64-bit: it's up the gencode to mark each instr that's 32-bit.
+         */
+        shared_code_x86 = gencode;
+        x86_mode = true;
+        break;
+    case GENCODE_X86_TO_X64:
+        shared_code_x86_to_x64 = gencode;
+        x86_to_x64_mode = true;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+#else
+    shared_code = gencode;
+#endif
+    memset(gencode, 0, sizeof(*gencode));
+
+    gencode->thread_shared = true;
+    IF_X64(gencode->gencode_mode = gencode_mode);
+    /* Generated code immediately follows struct */
+    gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
+    gencode->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
+    for (branch_type = IBL_BRANCH_TYPE_START;
+         branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+        gencode->trace_ibl[branch_type].initialized = false;
+        gencode->bb_ibl[branch_type].initialized = false;
+        gencode->coarse_ibl[branch_type].initialized = false;
+        /* cache the mode so we can pass just the ibl_code_t around */
+        IF_X64(gencode->trace_ibl[branch_type].x86_mode = x86_mode);
+        IF_X64(gencode->trace_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
+        IF_X64(gencode->bb_ibl[branch_type].x86_mode = x86_mode);
+        IF_X64(gencode->bb_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
+        IF_X64(gencode->coarse_ibl[branch_type].x86_mode = x86_mode);
+        IF_X64(gencode->coarse_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
+    }
+#if defined(X64) && defined(WINDOWS)
+    gencode->shared_syscall_code.x86_mode = x86_mode;
+    gencode->shared_syscall_code.x86_to_x64_mode = x86_to_x64_mode;
+#endif
+
+    shared_gencode_emit(gencode _IF_X64(x86_mode));
     release_final_page(gencode);
 
     DOLOG(3, LOG_EMIT, {
         dump_emitted_routines(GLOBAL_DCONTEXT, GLOBAL,
                               IF_X64_ELSE(x86_mode ? "thread-shared x86" :
                                           "thread-shared", "thread-shared"),
-                              gencode, pc);
+                              gencode, gencode->gen_end_pc);
     });
 #ifdef INTERNAL
     if (INTERNAL_OPTION(gendump)) {
         dump_emitted_routines_to_file(GLOBAL_DCONTEXT, "gencode-shared",
                                       IF_X64_ELSE(x86_mode ? "thread-shared x86" :
                                                   "thread-shared", "thread-shared"),
-                                      gencode, pc);
+                                      gencode, gencode->gen_end_pc);
     }
 #endif
 #ifdef WINDOWS_PC_SAMPLE
@@ -533,7 +547,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
         dynamo_options.prof_pcs_gencode >= 2 &&
         dynamo_options.prof_pcs_gencode <= 32) {
         gencode->profile =
-            create_profile(gencode->gen_start_pc, pc,
+            create_profile(gencode->gen_start_pc, gencode->gen_end_pc,
                            dynamo_options.prof_pcs_gencode, NULL);
         start_profile(gencode->profile);
     } else
@@ -543,6 +557,51 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     gencode->writable = true;
     protect_generated_code(gencode, READONLY);
 }
+
+#ifdef ARM
+/* Called during a reset when all threads are suspended */
+void
+arch_reset_stolen_reg(void)
+{
+    /* We have no per-thread gencode.  We simply re-emit on top of the existing
+     * shared_code, which means we do not need to update each thread's pointers
+     * to gencode stored in TLS.
+     */
+    dr_isa_mode_t old_mode;
+    dcontext_t *dcontext;
+    if (DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset) == dr_reg_stolen)
+        return;
+    SYSLOG_INTERNAL_INFO("swapping stolen reg from %s to %s",
+                         reg_names[dr_reg_stolen],
+                         reg_names[DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset)]);
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, &old_mode);
+
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    dr_reg_stolen = DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset);
+    ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX);
+    shared_gencode_emit(shared_code _IF_X64(x86_mode));
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+
+    dr_set_isa_mode(dcontext, old_mode, NULL);
+    DOLOG(3, LOG_EMIT, {
+        dump_emitted_routines(GLOBAL_DCONTEXT, GLOBAL, "swap stolen reg", shared_code,
+                              shared_code->gen_end_pc);
+    });
+}
+
+void
+arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc)
+{
+    /* Put the app value in the old stolen reg */
+    *(reg_t*)(((byte *)mc) +
+              opnd_get_reg_dcontext_offs(DR_REG_R0 + INTERNAL_OPTION(steal_reg))) =
+        dcontext->local_state->spill_space.reg_stolen;
+    /* Put the TLs base into the new stolen reg */
+    set_stolen_reg_val(mc, (reg_t) os_get_dr_tls_base(dcontext));
+}
+#endif /* ARM */
 
 #ifdef X64
 /* Sets other-mode ibl targets, for mixed-mode and x86_to_x64 mode */
@@ -1046,7 +1105,6 @@ arch_thread_init(dcontext_t *dcontext)
 
 #ifdef ARM
     /* Store addresses we access via TLS from exit stubs and gencode. */
-    /* FIXME i#1551: add Thumb vs ARM; refactor FRAGMENT_GENCODE_MODE */
     get_local_state_extended()->spill_space.fcache_return =
         PC_AS_JMP_TGT(isa_mode, fcache_return_shared_routine());
     for (branch_type = IBL_BRANCH_TYPE_START;
