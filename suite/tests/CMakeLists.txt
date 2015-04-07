@@ -1107,10 +1107,10 @@ function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_scri
       "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
     # add dr_ops last to avoid needing extra \ on ;
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
-  else (UNIX AND native)
+  else ()
     # clear the caller's `outcmd`
     set(${outcmd} "" PARENT_SCOPE)
-  endif (UNIX AND native)
+  endif ()
 
   set(${outops} "${dr_ops}" PARENT_SCOPE)
 endfunction(runtest_cmd)
