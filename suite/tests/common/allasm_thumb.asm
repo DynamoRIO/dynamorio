@@ -224,6 +224,9 @@ _jmp_target:
         str      r4, [r10]
         // tbb does not align the current PC and is always 4 bytes long
         tbb      [r10, r4]
+        mov      r10, #0
+        tbb      [pc, r10]
+        .word    2
 
 // predicated stm
         mov      r0, #0
