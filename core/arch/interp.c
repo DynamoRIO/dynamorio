@@ -1859,7 +1859,6 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
 #endif
 #ifdef ARM
     if (sysnum != -1 && instr_is_predicated(bb->instr)) {
-        /* FIXME i#1551: add support for inline conditional syscalls mangling */
         BBPRINT(bb, 3, "conditional system calls cannot be inlined => "
                 "pretending syscall # %d is -1\n", sysnum);
         sysnum = -1;

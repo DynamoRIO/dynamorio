@@ -984,9 +984,8 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
          * for the syscall in between
          */
         while (prev != NULL &&
-               instr_num_dsts(prev) > 0 &&
-               opnd_is_reg(instr_get_dst(prev, 0)) &&
-               reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) != sysreg) {
+               !instr_is_syscall(prev) && !instr_is_interrupt(prev) &&
+               !instr_writes_to_reg(prev, sysreg, DR_QUERY_INCLUDE_ALL)) {
 #ifdef CLIENT_INTERFACE
             /* if client added cti in between, bail and assume non-ignorable */
             if (instr_is_cti(prev) &&
@@ -997,7 +996,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 #endif
             prev = instr_get_prev_expanded(dcontext, ilist, prev);
         }
-        if (prev != NULL &&
+        if (prev != NULL && !instr_is_predicated(prev) &&
             instr_is_mov_constant(prev, &value) &&
             opnd_is_reg(instr_get_dst(prev, 0)) &&
             reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) == sysreg) {

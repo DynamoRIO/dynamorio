@@ -51,6 +51,11 @@ _start:
         cmp      r7, #0
         it       ne
         svcne    0
+        // test conditionally set syscall number
+        cmp      r7, r7
+        itt      ne
+        movne    r7, #0            // test find_syscall_num
+        svcne    0                 // should not be executed
         sub      r3, r3, #1
         cmp      r3, #0
         bne      1b
