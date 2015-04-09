@@ -2460,7 +2460,8 @@ mmap_syscall_succeeded(byte *retval)
                      result == -EAGAIN  ||
                      result == -ENOMEM  ||
                      result == -ENODEV  ||
-                     result == -EFAULT);
+                     result == -EFAULT  ||
+                     result == -EPERM);
     return !fail;
 }
 
