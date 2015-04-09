@@ -1060,25 +1060,6 @@
   instr_create_1dst_3src((dc), OP_bfc, (Rd), (imm), (imm2), (Rd))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Rd, Rm, Rn_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param Rm The source register opnd_t operand.
- * \param Rn_or_imm The source register, or integer constant, opnd_t operand.
- */
-#define INSTR_CREATE_asr(dc, Rd, Rm, Rn_or_imm) \
-  instr_create_1dst_2src((dc), OP_asr, (Rd), (Rm), (Rn_or_imm))
-#define INSTR_CREATE_asrs(dc, Rd, Rm, Rn_or_imm) \
-  instr_create_1dst_2src((dc), OP_asrs, (Rd), (Rm), (Rn_or_imm))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (Rd, Rn, Rm_or_imm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -1122,6 +1103,10 @@
    INSTR_CREATE_ands_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
      OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
    instr_create_1dst_2src((dc), OP_ands, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_asr(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_asr, (Rd), (Rn), (Rm_or_imm))
+#define INSTR_CREATE_asrs(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_asrs, (Rd), (Rn), (Rm_or_imm))
 #define INSTR_CREATE_bic(dc, Rd, Rn, Rm_or_imm) \
   (opnd_is_reg(Rm_or_imm) ? \
    INSTR_CREATE_bic_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
