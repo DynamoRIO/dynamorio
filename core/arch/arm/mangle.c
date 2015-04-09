@@ -401,6 +401,27 @@ static void
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
                   instr_t *instr, instr_t *next_instr, bool instr_to_be_removed);
 
+/* optimized spill: only if not immediately spilled already */
+static void
+insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
+                                instr_t *where, reg_id_t reg, ushort slot)
+{
+    instr_t *prev = instr_get_prev(where);
+    bool tls, spill;
+    reg_id_t prior_reg;
+    while (prev != NULL && instr_is_label(prev))
+        prev = instr_get_prev(prev);
+    if (prev != NULL &&
+        instr_is_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg) &&
+        tls && !spill && prior_reg == reg) {
+        /* remove the redundant restore-spill pair */
+        instrlist_remove(ilist, prev);
+        instr_destroy(dcontext, prev);
+    } else {
+        PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
+    }
+}
+
 /* If instr is inside an IT block, removes it from the block and
  * leaves it as an isolated (un-encodable) predicated instr, with any
  * other instrs from the same block made to be legal on both sides by
@@ -1118,7 +1139,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         disp = 0;
     }
 
-    PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+    insert_save_to_tls_if_necessary(dcontext, ilist, instr, reg, slot);
     insert_mov_immed_ptrsz(dcontext, r15, opnd_create_reg(reg),
                            ilist, instr, NULL, NULL);
 
@@ -1162,7 +1183,7 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(!instr_is_meta(instr) &&
            instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL));
 
-    PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+    insert_save_to_tls_if_necessary(dcontext, ilist, instr, reg, slot);
     insert_mov_immed_ptrsz(dcontext, app_r15, opnd_create_reg(reg),
                            ilist, instr, NULL, NULL);
     for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -1184,7 +1205,7 @@ static void
 restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
                                 instr_t *instr, reg_id_t reg, ushort slot)
 {
-    PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+    insert_save_to_tls_if_necessary(dcontext, ilist, instr, reg, slot);
     PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
                                        opnd_create_reg(reg),
                                        opnd_create_reg(dr_reg_stolen)));
@@ -1332,9 +1353,8 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
         /* we do not mangle r10 in [r10, disp], but need save r10 after execution,
          * so we cannot use mangle_stolen_reg.
          */
-        PRE(ilist, instr, instr_create_save_to_tls(dcontext,
-                                                   SCRATCH_REG0,
-                                                   TLS_REG0_SLOT));
+        insert_save_to_tls_if_necessary(dcontext, ilist, instr, SCRATCH_REG0,
+                                        TLS_REG0_SLOT);
         PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
                                            opnd_create_reg(SCRATCH_REG0),
                                            opnd_create_reg(dr_reg_stolen)));
@@ -1515,8 +1535,8 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         ASSERT(!opnd_uses_reg(memop, scratch));
 
         /* save spill reg */
-        PRE(ilist, next_instr,
-            instr_create_save_to_tls(dcontext, scratch, spill_slots[1]));
+        insert_save_to_tls_if_necessary(dcontext, ilist, next_instr,
+                                        scratch, spill_slots[1]);
 
         /* fixup the slot in memlist */
         for (i = 0; i < 2; i++) {
@@ -1836,8 +1856,8 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             opnd_get_base(instr_get_src(pre_ldm_ldr, 0)) == SCRATCH_REG0) {
             instr_t *mov;
             /* save the r1 for possible context restore on signal */
-            PRE(ilist, instr, instr_create_save_to_tls(dcontext, SCRATCH_REG1,
-                                                       TLS_REG1_SLOT));
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, SCRATCH_REG1,
+                                            TLS_REG1_SLOT);
             /* mov r0 => r1, */
             mov = INSTR_CREATE_mov(dcontext,
                                    opnd_create_reg(SCRATCH_REG1),
