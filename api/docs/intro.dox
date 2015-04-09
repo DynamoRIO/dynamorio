@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -422,14 +422,14 @@ Windows Vista or higher, if UAC is enabled, use an elevated (runas admin)
 process. When using \c drconfig.exe and \c drrun.exe in these scenarios, be
 sure that the cmd shell being used was started with elevated permissions.
 
+An alternative method to run an application under DynamoRIO is the \ref
+sec_startstop "app_start()/app_stop()" interface, which requires modifying
+application source code.
+
 \section lin_deploy Linux Deployment
 
 Once DynamoRIO has been unpacked, the same set of helper binaries as on
 Windows provide flexibility in configuring and executing applications.
-The \ref limits_linux_preload "LD_PRELOAD"
-injection mechanism and the \ref sec_startstop "app_start()/app_stop()"
-interface are currently the only supported methods of running
-applications under DynamoRIO on Linux.
 
 There are two methods for invoking an application under DynamoRIO:
  -# Configure and launch in one step via \p drrun
@@ -474,8 +474,8 @@ Use <tt>DYNAMORIO_CONFIGDIR</tt> or global configuration files to
 specify separate options for such a child process.
 
 If a target application binary has suid or sgid bits set, \p drrun will be
-unable to inject into it.  You'll need to use /etc/ld.so.preload as
-described in the \ref limits_linux_preload "Limitations" section.
+unable to inject into it.  Please see workaround suggestions in the \ref
+limits_linux_preload "Limitations" section.
 
 When running scripts it is best to explicitly invoke the interpreter rather
 than invoking the script directly:
@@ -496,6 +496,10 @@ target process.  The 0 argument is an ID supplied at registration which
 uniquely identifies the target client (see dr_deploy.h for details).
 If you used the -c argument to drrun or drconfig to register the client, the
 client's id defaults to 0.
+
+An alternative method to run an application under DynamoRIO is the \ref
+sec_startstop "app_start()/app_stop()" interface, which requires modifying
+application source code.
 
 \endif
 
@@ -1812,6 +1816,10 @@ can launch drrun under gdb as you would normally:
 \code
 gdb --args path/to/drrun <options> -- path/to/app
 \endcode
+
+Before executing the "run" command, you must execute the gdb command "set
+disable-randomization off" in order to avoid strange ASLR behavior by the
+kernel.
 
 Because the executable changes from drrun to the app, the app cannot be
 re-run from gdb's prompt.  To re-run an application from gdb's prompt,

@@ -1284,20 +1284,24 @@ not supported.
     method involving kernel side components that this release has no
     other workaround for.
 \anchor limits_linux_preload
-  - On Linux, the official deployment method in this release (aside
+  - On Linux, the default deployment method (aside
     from the \ref sec_startstop "app_start() app_stop()" interface, which
-    requires soure code modification) is LD_PRELOAD.  This method does not
-    support static binaries, but an experimental injection method which can
-    be enabled with the \p -early flag does.  Binaries with the suid
-    or sgid permission bits set
-    disallow absolute paths in LD_PRELOAD and ignore LD_LIBRARY_PATH, so
-    alternate methods of specifying the path are needed there.  One method
+    requires soure code modification) is unable to run binaries with the suid
+    or sgid permission bits set.  One method of running these binaries
     is to place both libdrpreload.so and libdynamorio's full paths in
     /etc/ld.so.preload.
     You'll need to use a \ref lin_deploy "separate configure step approach".
     Don't forget to run drconfig to create a configuration for the
     application first; otherwise, libdrpreload.so will refuse to take
-    control.
+    control.  This method of injection takes control part-way through
+    initialization of the target application, rather than at the very
+    beginning.  Alternatively, you could run as root, or remove the suid
+    and sgid bits: however, both of those solutions may open up security
+    holes and are not recommended.  If the suid or sgid binary is a leaf
+    child process of the parent target application, another option is to
+    run the problematic child process natively by either creating a configuration
+    file for the child with the "-norun" parameter or running with the
+    \ref op_children "-no_follow_children" runtime option.
   - On Linux, the private loader will fail to load libpthread.so.  Therefore
     clients and the libraries they use cannot link against libpthread.so.
 
