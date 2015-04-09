@@ -1198,6 +1198,12 @@ restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
         !instr_writes_to_exact_reg(instr, dr_reg_stolen, DR_QUERY_DEFAULT)) {
         PRE(ilist, instr, instr_create_restore_from_tls(dcontext, dr_reg_stolen,
                                                         TLS_REG_STOLEN_SLOT));
+    } else {
+        DOLOG(4, LOG_INTERP, {
+            LOG(THREAD, LOG_INTERP, 4, "skip restore stolen reg app value for: ");
+            instr_disassemble(dcontext, instr, THREAD);
+            LOG(THREAD, LOG_INTERP, 4, "\n");
+        });
     }
 }
 
@@ -1216,6 +1222,12 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
                                              os_tls_offset(TLS_REG_STOLEN_SLOT),
                                              OPSZ_PTR),
              opnd_create_reg(dr_reg_stolen)));
+    } else {
+        DOLOG(4, LOG_INTERP, {
+            LOG(THREAD, LOG_INTERP, 4, "skip save stolen reg app value for: ");
+            instr_disassemble(dcontext, instr, THREAD);
+            LOG(THREAD, LOG_INTERP, 4, "\n");
+        });
     }
     /* restore stolen reg from spill reg */
     PRE(ilist, next_instr, INSTR_CREATE_mov(dcontext,
