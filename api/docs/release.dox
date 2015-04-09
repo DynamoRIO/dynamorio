@@ -932,7 +932,7 @@ The changes between version 1.3.0 and version 1.2.0 (0.9.6 9602) are:
    - dr_is_wow64()
  - New signal event for Linux
    - dr_register_signal_event()
- - New option \ref op_pause "-pause_on_error", and error messages to
+ - New option "-pause_on_error", and error messages to
    stdout by default for release builds, to improve Linux debugging
  - New routines for memory allocation and memory manipulation:
    - dr_nonheap_alloc()

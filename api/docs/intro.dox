@@ -1631,7 +1631,10 @@ Options controlling notifications from DynamoRIO:
    dr_messagebox() is not affected by -msgbox_mask. For the
    provided Windows debug build -msgbox_mask defaults to 0xC.
    On Linux the default is 0, as this feature reads from standard input and
-   might conflict with some applications.
+   might conflict with some applications.  On Linux the pause can be
+   changed to use an infinite loop rather than reading from standard input
+   by passing the \b -pause_via_loop runtime option, which allows attaching
+   a debugger.
 
 \attention
    On Vista or higher most Windows services are currently unable to display
@@ -1659,11 +1662,6 @@ Options controlling notifications from DynamoRIO:
 
 \ifnot vmsafe
 Options aiding in debugging:
-
- - \b -pause_on_error: \anchor op_pause
-   For Linux builds only, this option requests that when DynamoRIO
-   encounters an assert or crash that it suspend the process so that a
-   debugger can be attached.
 
  - \b -no_hide: \anchor op_no_hide
     By default, DynamoRIO hides itself from the Windows module list, for
@@ -1805,9 +1803,8 @@ To attach to a process on Windows, use the \ref op_msgbox_mask
 paused the application.  On Linux, the same option can be used and
 the debugger attached while the application waits for enter to be
 pressed.  Since this may not work for applications that themselves
-read from standard input, an alternative exists: the \ref op_pause
-"-pause_on_error" option allows attaching a debugger when a problem
-occurs.
+read from standard input, we also provide the \b -pause_via_loop runtime
+option which sits in an infinite loop rather than waiting for a keypress.
 
 To run an application on Linux under a debugger from process start you
 can launch drrun under gdb as you would normally:

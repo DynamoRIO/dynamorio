@@ -603,6 +603,9 @@
          "show a messagebox for events")
 #ifdef WINDOWS
     OPTION_DEFAULT(uint_time, eventlog_timeout, 10000, "gives the timeout (in ms) to use for an eventlog transaction")
+#else
+    DYNAMIC_OPTION(bool, pause_via_loop,
+        "For -msgbox_mask, use an infinite loop instead of waiting for stdin")
 #endif /* WINDOWS */
     DYNAMIC_OPTION_DEFAULT(uint, syslog_mask, 0, /* PR 232126: re-enable: SYSLOG_ALL */
           "log only specified message types")
@@ -623,6 +626,7 @@
      */
     DYNAMIC_OPTION_DEFAULT(uint, dumpcore_mask, 0,
                            "indicate events to dump core on")
+    /* This is basically superseded by -msgbox_mask + -pause_via_loop (i#1665) */
     IF_UNIX(OPTION_ALIAS(pause_on_error, dumpcore_mask, DUMPCORE_OPTION_PAUSE,
                           STATIC, OP_PCACHE_NOP))
     /* Note that you also won't get more then -report_max violation core dumps */

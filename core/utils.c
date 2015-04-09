@@ -1955,7 +1955,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 
     if (TEST(priority, dynamo_options.msgbox_mask)) {
 #ifdef WINDOWS
-        /* FIXME : could use os_countdown_msgbox (if ever implemented) here to
+        /* XXX: could use os_countdown_msgbox (if ever implemented) here to
          * do a timed out messagebox, could then also replace the os_timeout in
          * vmareas.c
          */
@@ -1965,9 +1965,16 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
          * themselves reading from stdin, but this is a simple way to
          * pause and continue, allowing gdb to attach
          */
-        char keypress;
-        print_file(STDERR, "<press enter to continue>\n");
-        os_read(STDIN, &keypress, sizeof(keypress));
+        if (DYNAMO_OPTION(pause_via_loop)) {
+            while (DYNAMO_OPTION(pause_via_loop)) {
+                /* infinite loop */
+                os_thread_yield();
+            }
+        } else {
+            char keypress;
+            print_file(STDERR, "<press enter to continue>\n");
+            os_read(STDIN, &keypress, sizeof(keypress));
+        }
 #endif
     }
 }
