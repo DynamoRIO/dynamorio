@@ -110,8 +110,11 @@ RunDR()
 def gdb_has_breakpoints():
     match = re.match(r'^(\d+)\.(\d+)', gdb.VERSION)
     if not match:
-        print "Error parsing gdb version (%s)" % gdb.VERSION
-        return False
+        # Some version strings are like this: "Fedora 7.7.1-21.fc20"
+        match = re.match(r'.*\s+(\d+)\.(\d+)', gdb.VERSION)
+        if not match:
+            print "Error parsing gdb version (%s)" % gdb.VERSION
+            return False
     major = int(match.group(1))
     minor = int(match.group(2))
     if major > 7:
