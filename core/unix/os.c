@@ -4980,6 +4980,7 @@ enum {
     ENV_PROP_OPTIONS,
     ENV_PROP_EXECVE_LOGDIR,
     ENV_PROP_EXE_PATH,
+    ENV_PROP_CONFIGDIR,
 };
 
 static const char * const env_to_propagate[] = {
@@ -4999,7 +5000,15 @@ static const char * const env_to_propagate[] = {
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate)/sizeof(env_to_propagate[0]))
 
-/* called at pre-SYS_execve to append DR vars in the target process env vars list */
+/* Called at pre-SYS_execve to append DR vars in the target process env vars list.
+ * For late injection via libdrpreload, we call this for *all children, because
+ * even if -no_follow_children is specified, a whitelist will still ask for takeover
+ * and it's libdrpreload who checks the whitelist.
+ * For -early, however, we check the config ahead of time and only call this routine
+ * if we in fact want to inject.
+ * XXX i#1679: these parent vs child differences bring up corner cases of which
+ * config dir takes precedence (if the child clears the HOME env var, e.g.).
+ */
 static void
 add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app_path)
 {
@@ -5078,11 +5087,10 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
          (((preload<0) ? 1 : 0) +
           ((ldpath<0) ? 1 : 0)));
 
-    if (DYNAMO_OPTION(follow_children)) {
-        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            if (need_var[j] && prop_idx[j] < 0)
-                num_new++;
-        }
+    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+        if ((DYNAMO_OPTION(follow_children) || j == ENV_PROP_EXE_PATH) &&
+            need_var[j] && prop_idx[j] < 0)
+            num_new++;
     }
     /* setup new envp */
     new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
@@ -5137,59 +5145,60 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
             idx_ldpath, new_envp[idx_ldpath]);
     }
     /* propagating DR env vars */
-    if (DYNAMO_OPTION(follow_children)) {
-        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            const char *val = "";
-            if (!need_var[j])
-                continue;
-            switch (j) {
-            case ENV_PROP_RUNUNDER:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
-                /* Must pass RUNUNDER_ALL to get child injected if has no app config.
-                 * If rununder var is already set we assume it's set to 1.
-                 */
-                ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
-                val = "3";
-                break;
-            case ENV_PROP_OPTIONS:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
-                val = option_string;
-                break;
-            case ENV_PROP_EXECVE_LOGDIR:
-                /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXECVE_LOGDIR) == 0);
-                ASSERT(get_log_dir(PROCESS_DIR, NULL, NULL));
-                break;
-            case ENV_PROP_EXE_PATH:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXE_PATH) == 0);
-                val = app_path;
-                break;
-            default:
-                val = getenv(env_to_propagate[j]);
-                if (val == NULL)
-                    val = "";
-                break;
-            }
-            if (j == ENV_PROP_EXECVE_LOGDIR) {
-                uint logdir_length;
-                get_log_dir(PROCESS_DIR, NULL, &logdir_length);
-                /* logdir_length includes the terminating NULL */
-                sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + logdir_length + 1/* '=' */;
-                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
-                get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
-            } else {
-                sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
-                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                snprintf(var, sz, "%s=%s", env_to_propagate[j], val);
-            }
-            *(var+sz-1) = '\0'; /* null terminate */
-            prop_idx[j] = (prop_idx[j] >= 0) ? prop_idx[j] : idx++;
-            new_envp[prop_idx[j]] = var;
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                prop_idx[j], new_envp[prop_idx[j]]);
+    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+        const char *val = "";
+        if (!need_var[j])
+            continue;
+        if (!DYNAMO_OPTION(follow_children) && j != ENV_PROP_EXE_PATH)
+            continue;
+        switch (j) {
+        case ENV_PROP_RUNUNDER:
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
+            /* Must pass RUNUNDER_ALL to get child injected if has no app config.
+             * If rununder var is already set we assume it's set to 1.
+             */
+            ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
+            val = "3";
+            break;
+        case ENV_PROP_OPTIONS:
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
+            val = option_string;
+            break;
+        case ENV_PROP_EXECVE_LOGDIR:
+            /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXECVE_LOGDIR) == 0);
+            ASSERT(get_log_dir(PROCESS_DIR, NULL, NULL));
+            break;
+        case ENV_PROP_EXE_PATH:
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXE_PATH) == 0);
+            val = app_path;
+            break;
+        default:
+            val = getenv(env_to_propagate[j]);
+            if (val == NULL)
+                val = "";
+            break;
         }
-    } else {
+        if (j == ENV_PROP_EXECVE_LOGDIR) {
+            uint logdir_length;
+            get_log_dir(PROCESS_DIR, NULL, &logdir_length);
+            /* logdir_length includes the terminating NULL */
+            sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + logdir_length + 1/* '=' */;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
+            get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
+        } else {
+            sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "%s=%s", env_to_propagate[j], val);
+        }
+        *(var+sz-1) = '\0'; /* null terminate */
+        prop_idx[j] = (prop_idx[j] >= 0) ? prop_idx[j] : idx++;
+        new_envp[prop_idx[j]] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+            prop_idx[j], new_envp[prop_idx[j]]);
+    }
+    if (!DYNAMO_OPTION(follow_children) && !DYNAMO_OPTION(early_inject)) {
         if (prop_idx[ENV_PROP_RUNUNDER] >= 0) {
             /* disable auto-following of this execve, yet still allow preload
              * on other side to inject if config file exists.
@@ -5253,8 +5262,11 @@ handle_execve(dcontext_t *dcontext)
     char *fname = (char *) sys_param(dcontext, 0);
     bool x64 = IF_X64_ELSE(true, false);
     bool expect_to_fail = false;
+    bool should_inject;
     file_t file;
     char *inject_library_path;
+    char rununder_buf[16]; /* just an integer printed in ascii */
+    bool app_specific, from_env, rununder_on;
 #if defined(LINUX) || defined(DEBUG)
     const char **argv = (const char **) sys_param(dcontext, 1);
 #endif
@@ -5326,13 +5338,29 @@ handle_execve(dcontext_t *dcontext)
     inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
         dynamorio_alt_arch_path;
 
-    add_dr_env_vars(dcontext, inject_library_path, fname);
+    should_inject = DYNAMO_OPTION(follow_children);
+    if (get_config_val_other_app(get_short_name(fname), get_process_id(),
+                                 x64 ? DR_PLATFORM_64BIT : DR_PLATFORM_32BIT,
+                                 DYNAMORIO_VAR_RUNUNDER,
+                                 rununder_buf, BUFFER_SIZE_ELEMENTS(rununder_buf),
+                                 &app_specific, &from_env, NULL /* 1config is ok */)) {
+        if (should_inject_from_rununder(rununder_buf, app_specific, from_env,
+                                        &rununder_on))
+            should_inject = rununder_on;
+    }
+
+    if (should_inject)
+        add_dr_env_vars(dcontext, inject_library_path, fname);
+    else {
+        dcontext->sys_param0 = 0;
+        dcontext->sys_param1 = 0;
+    }
 
 #ifdef LINUX
     /* We have to be accurate with expect_to_fail as we cannot come back
      * and fail the syscall once the kernel execs DR!
      */
-    if (DYNAMO_OPTION(early_inject) && !expect_to_fail) {
+    if (should_inject && DYNAMO_OPTION(early_inject) && !expect_to_fail) {
         /* i#909: change the target image to libdynamorio.so */
         const char *drpath = IF_X64_ELSE(x64, !x64) ? dynamorio_library_filepath :
             dynamorio_alt_arch_filepath;

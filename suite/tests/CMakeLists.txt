@@ -1247,7 +1247,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     if (NOT DEFINED ${key}_postcmd)
       set(${key}_postcmd "")
     endif ()
-    add_test(${test} ${CMAKE_COMMAND} -D cmd=${cmd_with_at}
+    add_test(${test} ${CMAKE_COMMAND}
+      -D precmd=${${key}_precmd}
+      -D cmd=${cmd_with_at}
       -D postcmd=${${key}_postcmd}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -P ${runcmp_script})
@@ -1999,6 +2001,33 @@ if (UNIX)
   add_exe(linux.execve-sub linux/execve-sub.c)
   tobuild_ops(linux.execve-null linux/execve-null.c ""
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
+
+  # Test blacklist and whitelist child config vs follow-children options (i#1667).
+  # Use a different name to avoid parallel test conflicts when we manipulate
+  # config files.
+  add_exe(linux.execve-config linux/execve-sub.c)
+  # We want the environment to keep HOME for config dirs (xref i#1679).
+  add_exe(linux.execv linux/execv.c)
+  set(linux.child-blacklist_expectbase "child-blacklist")
+  torunonly(linux.child-blacklist linux.execv linux/execv.c
+    "-follow_children" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-config")
+  get_target_property(drconfig_path drconfig LOCATION${location_suffix})
+  set(linux.child-blacklist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(linux.child-blacklist_precmd
+    "${drconfig_path}@-quiet@-reg@linux.execve-config@-norun")
+  set(linux.child-blacklist_postcmd
+    "${drconfig_path}@-quiet@-unreg@linux.execve-config")
+
+  set(linux.child-whitelist_expectbase "child-whitelist")
+  torunonly(linux.child-whitelist linux.execv linux/execv.c
+    "-no_follow_children" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-config")
+  set(linux.child-whitelist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(linux.child-whitelist_precmd
+    "${drconfig_path}@-quiet@-reg@linux.execve-config@-debug@-ops@-stderr_mask@@0")
+  set(linux.child-whitelist_postcmd
+    "${drconfig_path}@-quiet@-unreg@linux.execve-config")
+  # Can't run in parallel w/ blacklist since manipulating same config file:
+  set(linux.child-whitelist_depends linux.child-blacklist)
 
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)

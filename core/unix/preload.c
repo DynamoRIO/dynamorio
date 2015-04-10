@@ -97,8 +97,7 @@ take_over(const char *pname)
 {
     char *plist;
     const char *runstr;
-    int rununder;
-    bool app_specific, from_env;
+    bool app_specific, from_env, rununder_on;
 # ifdef INTERNAL
     /* HACK just for our benchmark scripts:
      * do not take over a process whose executable is named "texec"
@@ -115,24 +114,10 @@ take_over(const char *pname)
 
     /* i#85/PR 212034: use config files */
     config_init();
-    /* handle rununder values
-     * FIXME: share with systemwide_should_inject()
-     */
     runstr = get_config_val_ex(DYNAMORIO_VAR_RUNUNDER, &app_specific, &from_env);
-    if (runstr == NULL || runstr[0] == '\0')
+    if (!should_inject_from_rununder(runstr, app_specific, from_env, &rununder_on) ||
+        !rununder_on)
         return false;
-    /* decimal only for now */
-    rununder = atoi(runstr);
-    /* env var counts as app-specific */
-    if (!app_specific && !from_env) {
-        if (TEST(RUNUNDER_ALL, rununder))
-            return true;
-        else
-            return false;
-    }
-    if (!TEST(RUNUNDER_ON, rununder))
-        return false;
-    /* Linux ignores RUNUNDER_EXPLICIT, RUNUNDER_COMMANDLINE_*, RUNUNDER_ONCE */
 
     /* FIXME PR 546894: eliminate once all users are updated to use config files */
     plist = getenv("DYNAMORIO_INCLUDE");

@@ -1,6 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
- * Copyright (c) 2009 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,21 +31,55 @@
  * DAMAGE.
  */
 
-/* our version of /bin/basename, built to same bitwidth as libdynamorio.so */
+/*
+ * test of execve
+ */
 
 #include "tools.h"
 
-int
-main(int argc, char *argv[])
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/types.h> /* for wait and mmap */
+#include <sys/wait.h>  /* for wait */
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+
+/***************************************************************************/
+
+int main(int argc, char *argv[])
 {
-    char *basename;
-    if (argc != 2)
-        print("wrong number of args\n");
-    basename = strrchr(argv[1], '/');
-    print("%s\n", (basename == NULL) ? "<null>" : (basename+1));
+    pid_t child;
+    if (argc < 2) {
+        print("ERROR: not enough args\n");
+        return -1;
+    }
+
     if (find_dynamo_library())
-        print("running under DynamoRIO\n");
+        print("parent is running under DynamoRIO\n");
     else
-        print("running natively\n");
+        print("parent is running natively\n");
+    child = fork();
+    if (child < 0) {
+        perror("ERROR on fork");
+    } else if (child > 0) {
+        pid_t result;
+        result = waitpid(child, NULL, 0);
+        assert(result == child);
+        print("child has exited\n");
+    } else {
+        int result;
+        const char *arg[3];
+        arg[0] = argv[1];
+        arg[1] = "/fake/path/it_worked";
+        arg[2] = NULL;
+        if (find_dynamo_library())
+            print("child is running under DynamoRIO\n");
+        else
+            print("child is running natively\n");
+        result = execv(argv[1], (char **)arg);
+        if (result < 0)
+            perror("ERROR in execv");
+    }
     return 0;
 }

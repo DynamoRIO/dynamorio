@@ -997,7 +997,6 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define HOTP_POLICIES_FILENAME "ls-defs.cfg"
 #endif
 
-/* FIXME: the environment vars need to be renamed - it will be a pain */
 #define DYNAMORIO_VAR_CONFIGDIR_ID  DYNAMORIO_CONFIGDIR
 #define DYNAMORIO_VAR_HOME_ID       DYNAMORIO_HOME
 #define DYNAMORIO_VAR_LOGDIR_ID     DYNAMORIO_LOGDIR
