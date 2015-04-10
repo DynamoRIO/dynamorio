@@ -484,10 +484,10 @@ INSTR_INLINE
  * \note As opposed to instr_get_next(), this routine skips all meta
  * instructions inserted by either DynamoRIO or its clients.
  *
- * \note We do recommend using this routine during the phase of application
+ * \note We recommend using this routine during the phase of application
  * code analysis, as any meta instructions present are guaranteed to be ok
  * to skip.
- * However, the caution should be exercised if using this routine after any
+ * However, caution should be exercised if using this routine after any
  * instrumentation insertion has already happened, as instrumentation might
  * affect register usage or other factors being analyzed.
  */
@@ -499,6 +499,25 @@ INSTR_INLINE
 /** Returns the previous instr_t in the instrlist_t that contains \p instr. */
 instr_t*
 instr_get_prev(instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns the previous application (non-meta) instruction in the instruction
+ * list that contains \p instr.
+ *
+ * \note As opposed to instr_get_prev(), this routine skips all meta
+ * instructions inserted by either DynamoRIO or its clients.
+ *
+ * \note We recommend using this routine during the phase of application
+ * code analysis, as any meta instructions present are guaranteed to be ok
+ * to skip.
+ * However, caution should be exercised if using this routine after any
+ * instrumentation insertion has already happened, as instrumentation might
+ * affect register usage or other factors being analyzed.
+ */
+instr_t *
+instr_get_prev_app(instr_t *instr);
 
 DR_API
 INSTR_INLINE

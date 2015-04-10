@@ -175,14 +175,13 @@ instrlist_get_our_mangling(instrlist_t *ilist)
 }
 
 /* returns the first inst in the list */
-instr_t*
+instr_t *
 instrlist_first(instrlist_t *ilist)
 {
     return ilist->first;
 }
 
 /* returns the first app (non-meta) inst in the list */
-DR_API
 instr_t *
 instrlist_first_app(instrlist_t *ilist)
 {
@@ -197,10 +196,21 @@ instrlist_first_app(instrlist_t *ilist)
 }
 
 /* returns the last inst in the list */
-instr_t*
+instr_t *
 instrlist_last(instrlist_t *ilist)
 {
     return ilist->last;
+}
+
+instr_t *
+instrlist_last_app(instrlist_t *ilist)
+{
+    instr_t *last = ilist->last;
+    if (last == NULL)
+        return NULL;
+    if (instr_is_app(last))
+        return last;
+    return instr_get_prev_app(last);
 }
 
 static inline void

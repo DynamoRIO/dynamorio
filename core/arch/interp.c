@@ -3037,6 +3037,50 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
 }
 #endif /* DR_APP_EXPORTS */
 
+/* This routine is called from build_bb_ilist when the number of instructions reaches or
+ * exceeds max_bb_instr.  It checks if bb is safe to stop after instruction stop_after.
+ * On ARM, we do not stop bb building in the middle of an IT block unless there is a
+ * conditional syscall.
+ */
+static bool
+bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
+{
+#ifdef ARM
+    uint num_instr;
+    instr_t *it;
+    ASSERT(ilist != NULL && instrlist_last(ilist) != NULL);
+    /* only thumb mode could have IT blocks */
+    if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
+        return true;
+    if (stop_after == NULL)
+        stop_after = instrlist_last_app(ilist);
+    if (instr_get_opcode(stop_after) == OP_it)
+        return false;
+    if (!instr_is_predicated(stop_after))
+        return true;
+    if (instr_is_cti(stop_after) /* must be the last instr if in IT block */||
+        /* we should not stop in the middle of an IT block unless it is a syscall */
+        instr_is_syscall(stop_after) || instr_is_interrupt(stop_after))
+        return true;
+    /* Walk back to find the IT instr.
+     * This is called while building the bb ilist and before passing it to any clients,
+     * so it is safe to ignore any meta or label instructions.
+     */
+    for (it  = instr_get_prev_app(stop_after), num_instr = 1 /* stop_after */;
+         it != NULL && num_instr <= 4 /* max 4 instr in an IT block */;
+         it  = instr_get_prev_app(it), num_instr++) {
+        if (instr_get_opcode(it) == OP_it)
+            break;
+    }
+    ASSERT(it != NULL && instr_get_opcode(it) == OP_it);
+    ASSERT(num_instr <= instr_it_block_get_count(it));
+    if (num_instr < instr_it_block_get_count(it))
+        return false;
+#endif /* ARM */
+    return true;
+}
+
+
 /* Interprets the application's instructions until the end of a basic
  * block is found, and prepares the resulting instrlist for creation of
  * a fragment, but does not create the fragment, just returns the instrlist.
@@ -3748,9 +3792,22 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              * so just end it here, we'll pick up where we left off
              * if it's legit
              */
-            BBPRINT(bb, 3, "reached -max_bb_instrs, stopping\n");
-            STATS_INC(num_max_bb_instrs_enforced);
-            break;
+            BBPRINT(bb, 3, "reached -max_bb_instrs(%d): %d, ",
+                    DYNAMO_OPTION(max_bb_instrs), total_instrs);
+            if (bb_safe_to_stop(dcontext, bb->ilist, NULL)) {
+                BBPRINT(bb, 3, "stopping\n");
+                STATS_INC(num_max_bb_instrs_enforced);
+                break;
+            } else {
+                /* XXX i#1669: cannot stop bb now, what's the best way to handle?
+                 * We can either roll-back and find previous safe stop point, or
+                 * simply extend the bb with a few more instructions.
+                 * We can always lower the -max_bb_instrs to offset the additional
+                 * instructions.  In contrast, roll-back seems complex and
+                 * potentially problematic.
+                 */
+                BBPRINT(bb, 3, "cannot stop, continuing\n");
+            }
         }
 
     } /* end of while (true) */

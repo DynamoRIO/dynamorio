@@ -1493,7 +1493,9 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (ARM)
-  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm "-early_inject" "")
+  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
+    # set small -max_bb_instrs to test bb_safe_to_stop()
+    "-early_inject -max_bb_instrs 6" "")
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
     "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")

@@ -114,6 +114,8 @@ separate_bb:
         movhi    r10, r0
         b        3f
 3:
+// Test build_bb_ilist() on reaching -max_bb_instrs.
+// Do not change the 20 instructions below.
         itete    vs
         movvs    r3, r10
         movvc    r0, r2
