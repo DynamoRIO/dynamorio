@@ -1607,6 +1607,32 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     bool success;
     memquery_iter_t iter;
 
+    /* i#1676: try to detect ALSR which happens if we're launched from within
+     * gdb w/o 'set disable-randomization off'.  We assume here that our
+     * preferred base does not start with 0x5... and that the ASLR base does:
+     *   64-bit: 0x555555b323ab
+     *   32-bit: 0x56555000
+     */
+    if (old_libdr_base == NULL) {
+        ptr_uint_t match = (ptr_uint_t)0x5 << IF_X64_ELSE(44, 28);
+        ptr_uint_t mask = (ptr_int_t)-1 << IF_X64_ELSE(44, 28);
+        if (((ptr_uint_t)privload_early_inject & mask) == match) {
+            /* The problem is that we can't call any normal routines here, or
+             * even reference global vars like string literals.  We pay the
+             * cost of a separate single-byte store for each of these chars:
+             */
+            const char aslr_msg[] = {
+                'E','R','R','O','R',':',' ','r','u','n',' ',
+                '\'','s','e','t',' ','d','i','s','a','b','l','e','-','r','a','n','d',
+                'o','m','i','z','a','t','i','o','n',' ','o','f','f','\'',' ','t','o',
+                ' ','r','u','n',' ','f','r','o','m',' ','g','d','b','\n'
+            };
+#           define STDERR_FD 2
+            os_write(STDERR_FD, aslr_msg, sizeof(aslr_msg));
+            dynamorio_syscall(SYS_exit_group, 1, -1);
+        }
+    }
+
     /* XXX i#47: for Linux, we can't easily have this option on by default as
      * code like get_application_short_name() called from drpreload before
      * even _init is run needs to have a non-early default.
