@@ -1822,10 +1822,7 @@ disable-randomization off" in order to avoid strange ASLR behavior by the
 kernel.
 
 Because the executable changes from drrun to the app, the app cannot be
-re-run from gdb's prompt.  To re-run an application from gdb's prompt,
-you can perform the work of the \c drrun tool by setting the
-LD_LIBRARY_PATH and LD_PRELOAD environment variables from within the
-debugger.
+re-run from gdb's prompt.
 
 On Linux, the main drawback of debugging from application start rather
 than attaching is that breakpoint instructions (\c int3) inserted by

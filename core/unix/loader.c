@@ -1657,7 +1657,13 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      * real exe path in an environment variable.
      */
     exe_path = getenv(DYNAMORIO_VAR_EXE_PATH);
-    apicheck(exe_path != NULL, DYNAMORIO_VAR_EXE_PATH" env var is not set.");
+    /* i#1677: this happens upon re-launching within gdb, so provide a nice error */
+    if (exe_path == NULL) {
+        /* i#1677: avoid assert in get_application_name_helper() */
+        set_executable_path("UNKNOWN");
+        apicheck(exe_path != NULL, DYNAMORIO_VAR_EXE_PATH" env var is not set.  "
+                 "Are you re-launching within gdb?");
+    }
 
     /* i#907: We can't rely on /proc/self/exe for the executable path, so we
      * have to tell get_application_name() to use this path.
