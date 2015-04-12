@@ -1709,6 +1709,13 @@ bool
 dr_set_client_name(const char *name, const char *report_URL);
 
 DR_API
+/**
+ * Sets the version string presented to users in diagnostic messages.
+ */
+bool
+dr_set_client_version_string(const char *version);
+
+DR_API
 /** Returns the image name (without path) of the current application. */
 const char *
 dr_get_application_name(void);

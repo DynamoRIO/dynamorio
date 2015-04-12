@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1850,6 +1850,9 @@ extern const char *exception_label_client;
 /* pass NULL to use defaults */
 void
 set_exception_strings(const char *override_label, const char *override_url);
+
+void
+set_display_version(const char *ver);
 
 void
 report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,

@@ -2016,7 +2016,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #else
 # define REPORT_MSG_MAX        (271)
 #endif
-#define REPORT_LEN_VERSION    37
+#define REPORT_LEN_VERSION     IF_CLIENT_INTERFACE_ELSE(96,37)
   /* example: "\ninternal version, build 94201\n"
    * For custom builds, the build # is generated as follows
    * (cut-and-paste from Makefile):
@@ -2025,7 +2025,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
    * # YY defaults to 1st 2 letters of CUR_TREE, unless CASENUM is defined,
    * # in which case it is the last 2 letters of CASENUM (all % 10 of course)
    */
-#define REPORT_LEN_OPTIONS   IF_CLIENT_INTERFACE_ELSE(384, 192)
+#define REPORT_LEN_OPTIONS   IF_CLIENT_INTERFACE_ELSE(324, 192)
   /* still not long enough for ALL non-default options but I'll wager money we'll never
    * see this option string truncated, at least for non-internal builds
    * (famous last words?) => yes!  For clients this can get quite long.
@@ -2081,6 +2081,9 @@ static const char *exception_report_url = BUG_REPORT_URL;
 const char *exception_label_client = "Client";
 #endif
 
+/* We allow clients to display their version instead of DR's */
+static char display_version[REPORT_LEN_VERSION];
+
 /* HACK: to avoid duplicating the prefix of the event log message, we
  * skip it for the SYSLOG, but not the other notifications
  */
@@ -2124,6 +2127,17 @@ set_exception_strings(const char *override_label, const char *override_url)
 #ifdef WINDOWS
     debugbox_setup_title();
 #endif
+    if (dynamo_initialized)
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
+void
+set_display_version(const char *ver)
+{
+    if (dynamo_initialized)
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    snprintf(display_version, BUFFER_SIZE_ELEMENTS(display_version), "%s", ver);
+    NULL_TERMINATE_BUFFER(display_version);
     if (dynamo_initialized)
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 }
@@ -2177,11 +2191,16 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     curbuf += (len == -1 ? REPORT_MSG_MAX : (len < 0 ? 0 : len));
     va_end(ap);
 
-    /* don't use dynamorio_version_string, we don't need copyright notice */
-    ASSERT_ROOM(reportbuf, curbuf, REPORT_LEN_VERSION);
-    len = snprintf(curbuf, REPORT_LEN_VERSION, "\n%s, %s\n",
+    if (display_version[0] != '\0') {
+        len = snprintf(curbuf, REPORT_LEN_VERSION, "\n%s\n", display_version);
+        curbuf += (len == -1 ? REPORT_LEN_VERSION : (len < 0 ? 0 : len));
+    } else {
+        /* don't use dynamorio_version_string, we don't need copyright notice */
+        ASSERT_ROOM(reportbuf, curbuf, REPORT_LEN_VERSION);
+        len = snprintf(curbuf, REPORT_LEN_VERSION, "\n%s, %s\n",
                        VERSION_NUMBER_STRING, BUILD_NUMBER_STRING);
-    curbuf += (len == -1 ? REPORT_LEN_VERSION : (len < 0 ? 0 : len));
+        curbuf += (len == -1 ? REPORT_LEN_VERSION : (len < 0 ? 0 : len));
+    }
 
     ASSERT_ROOM(reportbuf, curbuf, REPORT_LEN_OPTIONS);
     /* leave room for newline */

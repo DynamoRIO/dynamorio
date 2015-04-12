@@ -2403,6 +2403,15 @@ dr_set_client_name(const char *name, const char *report_URL)
     return true;
 }
 
+bool
+dr_set_client_version_string(const char *version)
+{
+    if (version == NULL)
+        return false;
+    set_display_version(version);
+    return true;
+}
+
 DR_API const char *
 dr_get_application_name(void)
 {

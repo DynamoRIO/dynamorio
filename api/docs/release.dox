@@ -204,6 +204,7 @@ Further non-compatibility-affecting changes include:
  - Added opnd_set_flags().
  - Added opnd_create_immed_int64(), opnd_is_immed_int64(), and
    opnd_get_immed_int64() for 64-bit immediate SIMD constants on 32-bit ARM.
+ - Added dr_set_client_version_string().
 
 **************************************************
 <hr>
