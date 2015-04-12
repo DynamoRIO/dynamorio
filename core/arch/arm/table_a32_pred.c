@@ -1023,7 +1023,7 @@ const instr_info_t A32_ext_bit4[][2] = {
     {EXT_RDPC,   0x07c00000, "(ext RDPC 0)", xx, xx, xx, xx, xx, no, x, 0},
   }, { /* 6 */
     {OP_ldrb,    0x07d00000, "ldrb",   RBw, xx, MPSb, xx, xx, pred, x, top4y[14][0x00]},/*PUW=110*/
-    {OP_bfc,     0x07d0001f, "bfc",    RBw, xx, i5_16, i5_7, RBw, pred, x, DUP_ENTRY},
+    {EXT_RDPC,   0x07d00000, "(ext RDPC 1)", xx, xx, xx, xx, xx, no, x, 1},
   }, { /* 7 */
     {OP_strb,    0x07e00000, "strb",   MPSb, RAw, RBb, RAw, RDw, xop_shift|pred, x, top8[0x76]},/*PUW=111*/
     {OP_ubfx,    0x07e00050, "ubfx",   RBw, xx, RDw, i5_7, i5_16, pred, x, END_LIST},
@@ -1731,6 +1731,10 @@ const instr_info_t A32_ext_RDPC[][2] = {
   { /* 0 */
     {OP_bfi,     0x07c00010, "bfi",    RBw, RDw, i5_16, i5_7, RBw, pred|srcX4, x, END_LIST},
     {OP_bfc,     0x07c0001f, "bfc",    RBw, xx, i5_16, i5_7, RBw, pred, x, END_LIST},
+  },
+  { /* 1 */
+    {OP_bfi,     0x07d00010, "bfi",    RBw, RDw, i5_16, i5_7, RBw, pred|srcX4, x, DUP_ENTRY},
+    {OP_bfc,     0x07d0001f, "bfc",    RBw, xx, i5_16, i5_7, RBw, pred, x, DUP_ENTRY},
   },
 };
 
