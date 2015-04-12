@@ -83,7 +83,7 @@ const instr_info_t A32_pred_opc8[] = {
     {EXT_OPC4X,  0x01c00000, "(ext opc4x 22)", xx, xx, xx, xx, xx, no, x, 22},
     {EXT_OPC4X,  0x01d00000, "(ext opc4x 23)", xx, xx, xx, xx, xx, no, x, 23},
     {EXT_OPC4X,  0x01e00000, "(ext opc4x 24)", xx, xx, xx, xx, xx, no, x, 24},
-    {EXT_OPC4,   0x01f00000, "(ext opc4 7)", xx, xx, xx, xx, xx, no, x, 7},
+    {EXT_OPC4X,  0x01f00000, "(ext opc4x 25)", xx, xx, xx, xx, xx, no, x, 25},
     /* 20 */
     {OP_and,     0x02000000, "and",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[0][0x00]},
     {OP_ands,    0x02100000, "ands",   RBw, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[1][0x00]},
