@@ -514,7 +514,7 @@
 #endif
 
     /* i#42: Optimize and shrink clean call sequences */
-    /* optimization level:
+    /* Optimization level of clean call instrumentation:
      * 0 - no optimization
      * 1 - callee's register usage analysis, e.g. use of XMM registers
      * 2 - simple callee inline optimization,
@@ -579,7 +579,15 @@
                             "the register stolen/used by DynamoRIO")
     OPTION_DEFAULT_INTERNAL(uint, steal_reg_at_reset, 0,
         "reg to switch to at first reset")
-    OPTION_DEFAULT_INTERNAL(bool, opt_mangle, true, "optimize mangling code")
+    /* Optimization level of mangling:
+     * 0 - no optimization,
+     * 1 - simple optimization with fast and simple analysis for low overhead
+     *     at instrumentation time,
+     * 2 - aggressive optimization with complex analysis for better performance
+     *     at execution time.
+     */
+    OPTION_DEFAULT_INTERNAL(uint, opt_mangle, 1,
+                            "optimization level on optimizing mangle sequences")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE

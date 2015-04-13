@@ -414,17 +414,22 @@ static void
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
                   instr_t *instr, instr_t *next_instr, bool instr_to_be_removed);
 
-/* optimized spill: only if not immediately spilled already */
-static void
-insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
-                                instr_t *where, reg_id_t reg, ushort slot)
+/* i#1662 optimization: we try to pick the same scratch register during
+ * mangling to provide more opportunities for optimization,
+ * xref insert_save_to_tls_if_necessary().
+ *
+ * Returns the prev reg restore instruction.
+ */
+static instr_t *
+find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *prior_reg)
 {
-    instr_t *prev = instr_get_prev(where);
+    instr_t *prev = instr_get_prev(instr);
     bool tls, spill;
-    reg_id_t prior_reg;
 
-    /* this routine is only called for non-mbr mangling */
-    STATS_INC(non_mbr_spills);
+    ASSERT(prior_reg != NULL);
+    *prior_reg = REG_NULL;
+    if (INTERNAL_OPTION(opt_mangle) == 0)
+        return NULL;
     while (prev != NULL &&
            /* We can eliminate the restore/respill pair only if they are executed
             * together, so only our own mangling label instruction is allowed in
@@ -432,9 +437,33 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
             */
            instr_is_label(prev) && instr_is_our_mangling(prev))
         prev = instr_get_prev(prev);
-    if (INTERNAL_OPTION(opt_mangle) && prev != NULL &&
-        instr_is_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg) &&
-        tls && !spill && prior_reg == reg) {
+    if (prev != NULL &&
+        instr_is_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg)) {
+        if (tls && !spill &&
+            *prior_reg >= SCRATCH_REG0 && *prior_reg <= SCRATCH_REG3)
+            return prev;
+    }
+    *prior_reg = REG_NULL;
+    return NULL;
+}
+
+/* optimized spill: only if not immediately spilled already */
+static void
+insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
+                                instr_t *where, reg_id_t reg, ushort slot)
+{
+    instr_t *prev;
+    reg_id_t prior_reg;
+    DEBUG_DECLARE(bool tls;)
+    DEBUG_DECLARE(bool spill;)
+
+    /* this routine is only called for non-mbr mangling */
+    STATS_INC(non_mbr_spills);
+    prev = find_prior_scratch_reg_restore(dcontext, where, &prior_reg);
+    if (INTERNAL_OPTION(opt_mangle) > 0 && prev != NULL && prior_reg == reg) {
+        ASSERT(instr_is_reg_spill_or_restore(dcontext, prev, &tls,
+                                             &spill, &prior_reg) &&
+               tls && !spill && prior_reg == reg);
         /* remove the redundant restore-spill pair */
         instrlist_remove(ilist, prev);
         instr_destroy(dcontext, prev);
@@ -1095,22 +1124,38 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * Returns REG_NULL if fail to find a scratch reg.
  */
 static reg_id_t
-pick_scratch_reg(instr_t *instr, bool dead_reg_ok,
+pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
                  ushort *scratch_slot OUT, bool *should_restore OUT)
 {
     reg_id_t reg;
     ushort slot;
     if (should_restore != NULL)
         *should_restore = true;
-    for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
-         reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
-        if (!instr_uses_reg(instr, reg) &&
-            /* Ensure no conflict in scratch regs for PC or stolen reg
-             * mangling vs ind br mangling.  We can't just check for mbr b/c
-             * of OP_blx.
-             */
-            (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
-            break;
+
+    if (find_prior_scratch_reg_restore(dcontext, instr, &reg) != NULL &&
+        reg != REG_NULL && !instr_uses_reg(instr, reg) &&
+        /* Ensure no conflict in scratch regs for PC or stolen reg
+         * mangling vs ind br mangling.  We can't just check for mbr b/c
+         * of OP_blx.
+         */
+        (!instr_is_cti(instr) || reg != IBL_TARGET_REG)) {
+        ASSERT(reg >= SCRATCH_REG0 && reg <= SCRATCH_REG3);
+        slot = TLS_REG0_SLOT + sizeof(reg_t)*(reg - SCRATCH_REG0);
+        DOLOG(4, LOG_INTERP, {
+            dcontext_t *dcontext = get_thread_private_dcontext();
+            LOG(THREAD, LOG_INTERP, 4, "use last scratch reg %s\n", reg_names[reg]);
+        });
+    } else
+        reg = REG_NULL;
+
+    if (reg == REG_NULL) {
+        for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
+             reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
+            if (!instr_uses_reg(instr, reg) &&
+                /* not pick  IBL_TARGET_REG if instr is a cti */
+                (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
+                break;
+        }
     }
     /* We can only try to pick a dead register if the scratch reg usage
      * allows so (e.g., not across the app instr).
@@ -1155,7 +1200,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     opnd_t mem_op;
     ushort slot;
     bool should_restore;
-    reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
+    reg_id_t reg = pick_scratch_reg(dcontext, instr, true, &slot, &should_restore);
     opnd_t new_op;
     dr_shift_type_t shift_type;
     uint shift_amt, disp;
@@ -1226,7 +1271,7 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     ushort slot;
     bool should_restore;
-    reg_id_t reg = pick_scratch_reg(instr, true, &slot, &should_restore);
+    reg_id_t reg = pick_scratch_reg(dcontext, instr, true, &slot, &should_restore);
     ptr_int_t app_r15 = (ptr_int_t)
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
                       instr_get_opcode(instr), instr);
@@ -1363,7 +1408,7 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
     }
 
     /* move stolen reg value into tmp reg for app instr execution */
-    tmp = pick_scratch_reg(instr, false, &slot, &should_restore);
+    tmp = pick_scratch_reg(dcontext, instr, false, &slot, &should_restore);
     ASSERT(tmp != REG_NULL);
     restore_app_value_to_stolen_reg(dcontext, ilist, instr, tmp, slot);
 
@@ -1768,7 +1813,7 @@ normalize_ldm_instr(dcontext_t *dcontext,
     }
 
     if (instr_uses_reg(instr, dr_reg_stolen) &&
-        pick_scratch_reg(instr, false, NULL, NULL) == REG_NULL) {
+        pick_scratch_reg(dcontext, instr, false, NULL, NULL) == REG_NULL) {
         /* We need split the ldm.
          * We need a scratch reg from r0-r3, so by splitting the bottom reg we're
          * guaranteed to get one.  And since cti uses r2 it works out there.
