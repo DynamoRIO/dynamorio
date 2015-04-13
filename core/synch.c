@@ -457,6 +457,14 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
     if (waiting_at_safe_spot(trec, desired_state))
         return true;
 
+#ifdef ARM
+    if (TESTANY(EFLAGS_IT, mc->cpsr)) {
+        LOG(THREAD_GET, LOG_SYNCH, 2,
+            "thread "TIDFMT" not at safe spot (pc="PFX" in an IT block) for %d\n",
+            trec->id, mc->pc, desired_state);
+        return false;
+    }
+#endif
     /* check if suspended at good spot */
     /* FIXME: right now don't distinguish between suspend and term privileges
      * even though suspend is stronger requirement, are the checks below

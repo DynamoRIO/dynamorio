@@ -2759,14 +2759,29 @@ enum {
     EFLAGS_C =  0x20000000, /**< The bit in the CPSR register of C (carry flag). */
     EFLAGS_V =  0x10000000, /**< The bit in the CPSR register of V (overflow flag). */
     EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation flag). */
-    EFLAGS_GE = 0x000f0000, /**< The bit in the CPSR register of GE[3:0]. */
+    EFLAGS_GE = 0x000f0000, /**< The bits in the CPSR register of GE[3:0]. */
     /**
      * The bit in the CPSR register of T (Thumb mode indicator bit).  This is
      * not readable from user space and should only be examined when looking at
      * machine state from the kernel, such as in a signal handler.
      */
     EFLAGS_T  = 0x00000020,
+    /**
+     * The bits in the CPSR register of the T32 IT block base condition.
+     * This is not readable from user space and should only be examined when
+     * looking at machine state from the kernel, such as in a signal handler.
+     */
+    EFLAGS_IT_COND = 0x0000e000,
+    /**
+     * The bits in the CPSR register of the T32 IT block size.
+     * This is not readable from user space and should only be examined when
+     * looking at machine state from the kernel, such as in a signal handler.
+     */
+    EFLAGS_IT_SIZE = 0x06001c00,
 };
+
+/** The bits in the CPSR register of the T32 IT block state. */
+# define EFLAGS_IT (EFLAGS_IT_COND | EFLAGS_IT_SIZE)
 #endif
 /* DR_API EXPORT END */
 
