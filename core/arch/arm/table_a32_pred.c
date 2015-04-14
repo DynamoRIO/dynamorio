@@ -433,7 +433,7 @@ const instr_info_t A32_ext_opc4x[][6] = {
     {OP_sbc,     0x00c00010, "sbc",    RBw, RAw, RDw, sh2, RCb, pred|srcX4, x, END_LIST},
     {OP_smull,   0x00c00090, "smull",  RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},
     {OP_strh,    0x00c000b0, "strh",   MP44h, RAw, RBh, RAw, i8x8_0, pred, x, top4x[8][0x03]},/*PUW=010*/
-    {OP_ldrd,    0x00c000d0, "ldrd",   RBEw, RB2w, RAw, MPRq, i8x8_0, xop_wb|pred|dstX3, x, top4x[10][0x04]},/*PUW=010*/
+    {OP_ldrd,    0x00c000d0, "ldrd",   RBEw, RB2w, RAw, MP44q, i8x8_0, xop_wb|pred|dstX3, x, top4x[10][0x04]},/*PUW=010*/
     {OP_strd,    0x00c000f0, "strd",   MP44q, RAw, RBEw, RB2w, i8x8_0, xop_wb|pred, x, top4x[10][0x05]},/*PUW=010*/
   }, { /* 13 */
     {OP_sbcs,    0x00d00000, "sbcs",   RBw, RAw, RDw, sh2, i5_7, pred|srcX4, fWNZCV, top4x[13][0x01]},
