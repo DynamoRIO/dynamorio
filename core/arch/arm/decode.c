@@ -43,6 +43,16 @@
  * General strategy:
  * + We use a data-driven table-based approach, as we need to both encode and
  *   decode and a central source of data lets us move in both directions.
+ *
+ * Potential shortcomings:
+ * + i#1685: We do not bother to ensure that "reserved bits" (in
+ *   parentheses in the manual: "(0)") set to 0 are in fact 0 as that
+ *   would require a whole separate mask in our table entries.  Often
+ *   the current processors execute these just fine when set to 1 and
+ *   we would much rather err on the side of too permissive.
+ * + Similarly (also i#1685), we are not currently modeling all the
+ *   widely varying unpredictable conditions when pc or lr is used:
+ *   xref notes at the top of table_a32_pred.c.
  */
 /* FIXME i#1569: add A64 support: for now just A32 */
 

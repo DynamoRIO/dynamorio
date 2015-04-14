@@ -36,11 +36,14 @@
 #include "decode_private.h"
 #include "table_private.h"
 
-/* XXX i#1551 unresolved issues:
+/* XXX i#1685:
  * + Do we want to try and model all of the unpredictable conditions in
  *   each instruction (typically when pc or lr is used but it varies
  *   quite a bit)?  For core DR we don't care as much b/c w/ the fixed-width
  *   we can keep decoding and wait for a fault.
+ * + See comments in arm/decode.c: similarly we don't model the reserved
+ *   "(0)" bits as we'd need a separate mask and it seems very low priority
+ *   and maybe even undesirable to mark an instr invalid with a "(0)" set to 1.
  */
 
 /****************************************************************************

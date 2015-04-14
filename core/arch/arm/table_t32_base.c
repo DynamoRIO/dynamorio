@@ -344,7 +344,7 @@ const instr_info_t T32_ext_fopc8[][192] = {
     {EXT_RBPC,    0xfb700000, "(ext rbpc 16)", xx, xx, xx, xx, xx, no, x, 16},
     {OP_smull,    0xfb800000, "smull",  RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
     {OP_sdiv,     0xfb90f0f0, "sdiv",   RCw, xx, RAw, RDw, xx, no, x, END_LIST},
-    {OP_umull,    0xfba00000, "umull",  RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
+    {EXT_B7_4,    0xfba00000, "(ext b7_4 8)", xx, xx, xx, xx, xx, no, x, 8},
     {OP_udiv,     0xfbb0f0f0, "udiv",   RCw, xx, RAw, RDw, xx, no, x, END_LIST},
     {EXT_B7_4,    0xfbc00000, "(ext b7_4 7)", xx, xx, xx, xx, xx, no, x, 7},
     {EXT_B4,      0xfbd00000, "(ext b4 10)", xx, xx, xx, xx, xx, no, x, 10},
@@ -623,6 +623,24 @@ const instr_info_t T32_ext_bits_B7_4[][16] = {
     {OP_smlaldx,  0xfbc000d0, "smlaldx",RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
     {INVALID,     0xfbc000e0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xfbc000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* 8 */
+    /* We need to ensure 7:4 are 0 for OP_umull */
+    {OP_umull,    0xfba00000, "umull",  RCw, RBw, RAw, RDw, xx, no, x, END_LIST},
+    {INVALID,     0xfba00010, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00020, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00040, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00050, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00070, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00080, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba00090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba000a0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba000c0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba000d0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba000e0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xfba000f0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 

@@ -340,7 +340,7 @@ const op_to_instr_info_t op_instr[] = {
     /* OP_umaal          */ {&A32_ext_opc4x[4][0x02],    &T32_ext_bit_B5[4][0x01],         &T32_ext_bit_B5[4][0x01]},
     /* OP_umlal          */ {&A32_ext_opc4x[10][0x02],   &T32_ext_bit_B5[4][0x00],         &T32_ext_bit_B5[4][0x00]},
     /* OP_umlals         */ {&A32_ext_opc4x[11][0x02],   &invalid_instr,                   &invalid_instr},
-    /* OP_umull          */ {&A32_ext_opc4x[8][0x02],    &T32_ext_fopc8[0][0xba],          &T32_ext_fopc8[0][0xba]},
+    /* OP_umull          */ {&A32_ext_opc4x[8][0x02],    &T32_ext_bits_B7_4[8][0x00],          &T32_ext_bits_B7_4[8][0x00]},
     /* OP_umulls         */ {&A32_ext_opc4x[9][0x02],    &invalid_instr,                   &invalid_instr},
     /* OP_uqadd16        */ {&A32_ext_opc4y[4][0x01],    &T32_ext_bits_B7_4[3][0x05],      &T32_ext_bits_B7_4[3][0x05]},
     /* OP_uqadd8         */ {&A32_ext_opc4y[4][0x05],    &T32_ext_bits_B7_4[2][0x05],      &T32_ext_bits_B7_4[2][0x05]},
