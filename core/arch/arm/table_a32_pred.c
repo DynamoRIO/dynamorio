@@ -731,7 +731,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {EXT_BIT9,   0x01400040, "(ext bit9 5)", xx, xx, xx, xx, xx, no, x, 5},
     {OP_qdadd,   0x01400050, "qdadd",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {INVALID,    0x01400060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_hvc,     0x01400070, "hvc",    xx, xx, i16x8_0, xx, xx, pred, x, END_LIST},
+    {OP_hvc,     0x01400070, "hvc",    xx, xx, i16x16_0, xx, xx, pred, x, END_LIST},
     {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x4]},
     {INVALID,    0x01400090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_smlalbt, 0x014000a0, "smlalbt", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x5]},
