@@ -1098,7 +1098,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_I_b8_b0: {
         if (opsize == OPSZ_2) {
             val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
-            val |= (decode_immed(di, 8, OPSZ_12b, false/*unsigned*/) << 12);
+            val |= (decode_immed(di, 8, OPSZ_12b, false/*unsigned*/) << 4);
         } else if (opsize == OPSZ_1) {
             val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
             val |= (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4);
