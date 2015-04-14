@@ -561,6 +561,15 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     uint i;
     uint count = (uint) decode_immed(di, 0, OPSZ_1, false/*unsigned*/);
     reg_id_t first_reg;
+    /* Use a ceiling of 32 to match manual and avoid weird results from
+     * opnd_size_from_bytes() returning OPSZ_NA.
+     * XXX i#1685: or should we consider to be invalid?
+     * Other decoders strangely are eager to mark invalid when PC as an
+     * operand is officially "unpredictable", but while extra regs here
+     * is also "unpredictable" they seem fine with it.
+     */
+    if (count > 32)
+        count = 32;
     if (upsz == OPSZ_8) {
         /* XXX i#1551: if immed is odd, supposed to be (deprecated) OP_fldmx */
         count /= 2;
@@ -576,8 +585,13 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
         LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n",
             reg_names[first_reg], reg_names[first_reg + i]);
         if ((upsz == OPSZ_8 && first_reg + 1 + i > DR_REG_D31) ||
-            (upsz == OPSZ_4 && first_reg + 1 + i > DR_REG_S31))
-            return false; /* invalid */
+            (upsz == OPSZ_4 && first_reg + 1 + i > DR_REG_S31)) {
+            /* Technically "unpredictable", but as we observe no SIGILL on our
+             * processors, we just truncate and allow it according to our
+             * general philosophy (i#1685).
+             */
+            break;
+        }
         array[(*counter)++] = opnd_create_reg_ex(first_reg + 1 + i, downsz, 0);
         di->reglist_sz += opnd_size_in_bytes(downsz);
     }
