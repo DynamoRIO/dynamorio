@@ -151,7 +151,7 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
 }
 
 /* With register lists we can see quite long operand lists */
-#define MAX_OPNDS IF_X64_ELSE(8, 22)
+#define MAX_OPNDS IF_X64_ELSE(8, 33/*vstm s0-s31*/)
 
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
@@ -2396,8 +2396,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         info = instr_info_extra_opnds(info);
     } while (info != NULL);
 
-    CLIENT_ASSERT(num_srcs < sizeof(srcs)/sizeof(srcs[0]), "internal decode error");
-    CLIENT_ASSERT(num_dsts < sizeof(dsts)/sizeof(dsts[0]), "internal decode error");
+    CLIENT_ASSERT(num_srcs <= sizeof(srcs)/sizeof(srcs[0]), "internal decode error");
+    CLIENT_ASSERT(num_dsts <= sizeof(dsts)/sizeof(dsts[0]), "internal decode error");
 
     /* now copy operands into their real slots */
     instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);

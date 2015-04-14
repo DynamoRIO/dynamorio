@@ -50,11 +50,13 @@
  * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
  * "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> 0x000007fefd1a2728[8byte] %rax "
  */
-#define MAX_INSTR_DIS_SZ 108
+#define MAX_INSTR_DIS_SZ 196
 /* Here's a pretty long one,
  * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> 0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
+ * For ARM:
+ * " 8ca90aa1   vstm.hi %s0 %s1 %s2 %s3 %s4 %s5 %s6 %s7 %s8 %s9 %s10 %s11 %s12 %s13 %s14 %s15 %s16 %s17 %s18 %s19 %s20 %s21 %s22 %s23 %s24 %s25 %s26 %s27 %s28 %s29 %s30 %s31 %r9 -> (%r9)[124byte]"
  */
-#define MAX_PC_DIS_SZ    192
+#define MAX_PC_DIS_SZ    228
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
