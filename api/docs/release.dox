@@ -206,6 +206,7 @@ Further non-compatibility-affecting changes include:
    opnd_get_immed_int64() for 64-bit immediate SIMD constants on 32-bit ARM.
  - Added dr_set_client_version_string().
  - Added instr_get_prev_app() and instrlist_last_app().
+ - Added the \ref op_syntax_arm "-syntax_arm" runtime option.
 
 **************************************************
 <hr>

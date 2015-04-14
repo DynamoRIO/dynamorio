@@ -73,6 +73,12 @@ static const char * const pred_names[] = {
     "",    /* DR_PRED_OP */
 };
 
+/* in disassemble_shared.c */
+void
+internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                          dcontext_t *dcontext, opnd_t opnd,
+                          bool use_size_sfx);
+
 const char *
 instr_predicate_name(dr_pred_type_t pred)
 {
@@ -186,13 +192,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
                             byte optype, opnd_t opnd, bool prev, bool multiple_encodings)
 {
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    switch (optype) {
-    default:
-        CLIENT_ASSERT(false, "missing decode type"); /* catch any missing types */
-    }
-    return false;
+    /* FIXME i#1683: we need to avoid the implicit dst-as-src regs for instrs
+     * such as OP_smlal.
+     */
+    if (prev)
+        print_to_buffer(buf, bufsz, sofar, ", ");
+    internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
+    return true;
 }
 
 const char *
