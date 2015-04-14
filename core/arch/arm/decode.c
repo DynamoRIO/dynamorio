@@ -1104,9 +1104,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4);
         } else
             CLIENT_ASSERT(false, "unsupported 8-0 split immed size");
-        if (optype == TYPE_NI_b8_b0)
-            array[(*counter)++] = opnd_create_immed_int(-val, opsize);
-        else
+        if (optype == TYPE_NI_b8_b0) {
+            /* We need an extra bit for the sign: easiest to just do OPSZ_4 */
+            array[(*counter)++] = opnd_create_immed_int(-val, OPSZ_4);
+        } else
             array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
