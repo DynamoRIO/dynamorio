@@ -999,6 +999,8 @@ enum {
 #define OP_stmia     OP_stm    /**< Alternative opcode name for stm. */
 #define OP_vldmia    OP_vldm   /**< Alternative opcode name for vldm. */
 #define OP_vstmia    OP_vstm   /**< Alternative opcode name for vstm. */
+#define OP_fldmx     OP_vldm   /**< Alternative opcode name for vldm. */
+#define OP_fstmx     OP_vstm   /**< Alternative opcode name for vstm. */
 #define OP_pop       OP_ldr    /**< Alternative opcode name for ldr. */
 #define OP_push      OP_stmdb  /**< Alternative opcode name for stmdb. */
 #define OP_vpop      OP_vldmia /**< Alternative opcode name for vldmia. */

@@ -581,7 +581,9 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     if (count > 32)
         count = 32;
     if (upsz == OPSZ_8) {
-        /* XXX i#1551: if immed is odd, supposed to be (deprecated) OP_fldmx */
+        /* If immed is odd, supposed to be (deprecated) OP_fldmx or OP_fstmx,
+         * but they behave the same way so we treat them as just aliases.
+         */
         count /= 2;
     } else
         CLIENT_ASSERT(upsz == OPSZ_4, "invalid opsz for TYPE_L_CONSEC");
