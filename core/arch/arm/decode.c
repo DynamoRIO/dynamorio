@@ -1653,8 +1653,18 @@ static inline uint
 decode_ext_vldc_idx(uint instr_word)
 {
     int reg = (instr_word & 0xf);
-    uint idx = /*bits (9:8,7:5)*3+X where X based on value of 3:0 */
-        3 * (((instr_word >> 5) & 0x18) | ((instr_word >> 5) & 0x7));
+    uint idx = /*bits (7:5)*3+X where X based on value of 3:0 */
+        3 * ((instr_word >> 5) & 0x7);
+    idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+    return idx;
+}
+
+static inline uint
+decode_ext_vldd_idx(uint instr_word)
+{
+    int reg = (instr_word & 0xf);
+    uint idx = /*bits (7:4)*3+X where X based on value of 3:0 */
+        3 * ((instr_word >> 4) & 0xf);
     idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
     return idx;
 }
@@ -1958,6 +1968,8 @@ decode_instr_info_T32_32(decode_info_t *di)
             info = &T32_ext_vldB[info->code][decode_ext_vldb_idx(instr_word)];
         } else if (info->type == EXT_VLDC) {
             info = &T32_ext_vldC[info->code][decode_ext_vldc_idx(instr_word)];
+        } else if (info->type == EXT_VLDD) {
+            info = &T32_ext_vldD[info->code][decode_ext_vldd_idx(instr_word)];
         } else if (info->type == EXT_VTB) {
             info = &T32_ext_vtb[info->code][decode_ext_vtb_idx(instr_word)];
         } else {
@@ -2207,6 +2219,8 @@ decode_instr_info_A32(decode_info_t *di)
             info = &A32_ext_vldB[info->code][decode_ext_vldb_idx(instr_word)];
         } else if (info->type == EXT_VLDC) {
             info = &A32_ext_vldC[info->code][decode_ext_vldc_idx(instr_word)];
+        } else if (info->type == EXT_VLDD) {
+            info = &A32_ext_vldD[info->code][decode_ext_vldd_idx(instr_word)];
         } else if (info->type == EXT_VTB) {
             info = &A32_ext_vtb[info->code][decode_ext_vtb_idx(instr_word)];
         }

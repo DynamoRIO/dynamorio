@@ -79,7 +79,8 @@ enum {
     EXT_IMM6L,   /* Indexed by bits 10:8,6 */
     EXT_VLDA,    /* Indexed by bits (11:8,7:6)*3+X where X based on value of 3:0 */
     EXT_VLDB,    /* Indexed by bits (11:8,Y)*3+X (see table descr) */
-    EXT_VLDC,    /* Indexed by bits (9:8,7:5)*3+X where X based on value of 3:0 */
+    EXT_VLDC,    /* Indexed by bits (7:5)*3+X where X based on value of 3:0 */
+    EXT_VLDD,    /* Indexed by bits (7:4)*3+X where X based on value of 3:0 */
     EXT_VTB,     /* Indexed by 11:10 and 9:8,6 in a special way */
     /* T32 32-bit only */
     EXT_A10_6_4, /* Indexed by bits A10,6:4 */
@@ -539,7 +540,8 @@ extern const instr_info_t A32_ext_simd2[][4];
 extern const instr_info_t A32_ext_imm6L[][16];
 extern const instr_info_t A32_ext_vldA[][132];
 extern const instr_info_t A32_ext_vldB[][96];
-extern const instr_info_t A32_ext_vldC[][96];
+extern const instr_info_t A32_ext_vldC[][24];
+extern const instr_info_t A32_ext_vldD[][48];
 extern const instr_info_t A32_ext_vtb[][9];
 
 extern const instr_info_t T32_base_e[];
@@ -588,7 +590,8 @@ extern const instr_info_t T32_ext_simd2[][4];
 extern const instr_info_t T32_ext_imm6L[][16];
 extern const instr_info_t T32_ext_vldA[][132];
 extern const instr_info_t T32_ext_vldB[][96];
-extern const instr_info_t T32_ext_vldC[][96];
+extern const instr_info_t T32_ext_vldC[][24];
+extern const instr_info_t T32_ext_vldD[][48];
 extern const instr_info_t T32_ext_vtb[][9];
 
 extern const instr_info_t T32_16_opc4[];

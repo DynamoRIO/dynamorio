@@ -123,6 +123,7 @@
 #define tvlA  (ptr_int_t)&A32_ext_vldA
 #define tvlB  (ptr_int_t)&A32_ext_vldB
 #define tvlC  (ptr_int_t)&A32_ext_vldC
+#define tvlD  (ptr_int_t)&A32_ext_vldD
 #define tvtb  (ptr_int_t)&A32_ext_vtb
 /* T32.32 */
 #define xbase (ptr_int_t)&T32_base_e
@@ -170,6 +171,7 @@
 #define xvlA  (ptr_int_t)&T32_ext_vldA
 #define xvlB  (ptr_int_t)&T32_ext_vldB
 #define xvlC  (ptr_int_t)&T32_ext_vldC
+#define xvlD  (ptr_int_t)&T32_ext_vldD
 #define xvtb  (ptr_int_t)&T32_ext_vtb
 /* T32.16 */
 #define ytop  (ptr_int_t)&T32_16_opc4

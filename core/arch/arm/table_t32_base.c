@@ -804,6 +804,9 @@ const instr_info_t T32_ext_bit_B4[][2] = {
   }, { /* 22 */
     {EXT_VTB,    0xffb00000, "(ext vtb 0)", xx, xx, xx, xx, xx, no, x, 0},
     {EXT_B7,     0xffb00010, "(ext bit7  11)", xx, xx, xx, xx, xx, no, x, 11},
+  }, { /* 23 */
+    {EXT_VLDC,   0xf9a00e00, "(ext vldC  1)",  xx, xx, xx, xx, xx, no, x, 1},
+    {INVALID,    0xf9a00e10, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 

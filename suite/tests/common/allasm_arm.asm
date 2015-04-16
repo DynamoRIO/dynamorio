@@ -102,6 +102,7 @@ separate_bb:
         vld3.8   {d10-d12}, [r7]!
         vmull.u16 q10, d24, d16
         vldm     r7, {d3}
+        vld4.32 {d17[],d19[],d21[],d23[]}, [r7 :128], r12
 
 // exit
         mov      r0, #1            // stdout
