@@ -657,8 +657,8 @@ const instr_info_t T32_ext_B7_4_eq1[][8] = {
  */
 const instr_info_t T32_ext_bits_B6_4[][8] = {
   { /* 0 */
-    {INVALID,     0xf3bf8000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf3bf8010, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_leavex,   0xf3bf8f0f, "leavex", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {OP_enterx,   0xf3bf8f1f, "enterx", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_clrex,    0xf3bf8f2f, "clrex",  xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,     0xf3bf8030, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_dsb,      0xf3bf8f40, "dsb",    xx, xx, i4, xx, xx, no, x, END_LIST},

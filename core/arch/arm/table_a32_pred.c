@@ -702,7 +702,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {INVALID,    0x01000060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_hlt,     0xe1000070, "hlt",    xx, xx, i16x8_0, xx, xx, predAL, x, END_LIST},
     {OP_smlabb,  0x01000080, "smlabb", RAw, xx, RDh, RCh, RBw, pred, x, END_LIST},
-    {INVALID,    0x01000090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_swp,     0x01000090, "swp",    Mw, RBw, Mw, RDw, xx, pred, x, END_LIST},
     {OP_smlabt,  0x010000a0, "smlabt", RAw, xx, RDh, RCt, RBw, pred, x, END_LIST},
     {OP_strh,    0x010000b0, "strh",   MNRh, xx, RBh, xx, xx, pred, x, top4[3][0x0b]},/*PUW=100*/
     {OP_smlatb,  0x010000c0, "smlatb", RAw, xx, RDt, RCh, RBw, pred, x, END_LIST},
@@ -736,7 +736,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {INVALID,    0x01400060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_hvc,     0x01400070, "hvc",    xx, xx, i16x16_0, xx, xx, pred, x, END_LIST},
     {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x4]},
-    {INVALID,    0x01400090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_swpb,    0x01400090, "swpb",   Mb, RBw, Mb, RDb, xx, pred, x, END_LIST},
     {OP_smlalbt, 0x014000a0, "smlalbt", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x5]},
     {OP_strh,    0x014000b0, "strh",   MN44h, xx, RBh, xx, xx, pred, x, top4[0][0x0b]},/*PUW=100*/
     {OP_smlaltb, 0x014000c0, "smlaltb", RAw, RBw, RAw, RBw, RDt, pred|xop, x, exop[0x4]},
