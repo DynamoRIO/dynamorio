@@ -840,7 +840,7 @@ const instr_info_t T32_ext_bit_B7[][2] = {
     {OP_sxtab16,  0xfa20f080, "sxtab16", RCw, xx, RAw, RDw, ro2_4, no, x, END_LIST},
   }, { /* 3 */
     {OP_lsrs,     0xfa30f000, "lsrs",   RCw, xx, RAw, RDw, xx, no, fWNZCV, xb54[1][0x01]},
-    {OP_uxtab16,  0xfa30f080, "uxtab16", RCw, xx, RCw, RDw, ro2_4, no, x, END_LIST},
+    {OP_uxtab16,  0xfa30f080, "uxtab16", RCw, xx, RAw, RDw, ro2_4, no, x, END_LIST},
   }, { /* 4 */
     {OP_asr,      0xfa40f000, "asr",    RCw, xx, RAw, RDw, xx, no, x, xb54[0][0x02]},
     {OP_sxtab,    0xfa40f080, "sxtab",  RCw, xx, RAw, RDw, ro2_4, no, x, END_LIST},
