@@ -590,7 +590,8 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     /* There must be an immediately prior simd reg */
     CLIENT_ASSERT(*counter > 0 && opnd_is_reg(array[*counter-1]),
                   "invalid instr template");
-    count--; /* The prior was already added */
+    if (count > 0)
+        count--; /* The prior was already added */
     first_reg = opnd_get_reg(array[*counter-1]);
     di->reglist_sz = 0;
     for (i = 0; i < count; i++) {
