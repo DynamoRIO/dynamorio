@@ -112,7 +112,7 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_teq,     0x03300000, "teq",    xx, xx, RAw, i12sh, xx, pred, fWNZC, top4x[17][0x00]},
     {OP_movt,    0x03400000, "movt",   RBt, xx, i16x16_0, xx, xx, pred, x, END_LIST},
     {OP_cmp,     0x03500000, "cmp",    xx, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[18][0x00]},
-    {OP_msr,     0x03600000, "msr",    SPSR, xx, i4_16, i12sh, xx, pred, x, END_LIST},
+    {OP_msr,     0x0360f000, "msr",    SPSR, xx, i4_16, i12sh, xx, pred, x, END_LIST},
     {OP_cmn,     0x03700000, "cmn",    xx, xx, RAw, i12sh, xx, pred, fWNZCV, top4x[19][0x00]},
     /* 38 */
     {OP_orr,     0x03800000, "orr",    RBw, xx, RAw, i12sh, xx, pred, x, top4x[20][0x00]},
