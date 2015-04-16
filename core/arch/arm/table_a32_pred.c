@@ -520,7 +520,7 @@ const instr_info_t A32_ext_opc4x[][6] = {
     {OP_mvn,     0x01e00010, "mvn",    RBw, xx, RDw, sh2, RCb, pred, x, END_LIST},
     {EXT_BITS8,  0x01e00090, "(ext bits8 6)", xx, xx, xx, xx, xx, no, x, 6},
     {OP_strh,    0x01e000b0, "strh",   MP44h, RAw, RBh, RAw, i8x8_0, pred, x, DUP_ENTRY},/*PUW=111*/
-    {OP_ldrd,    0x01e000d0, "ldrd",   RBEw, RB2w, RAw, MP44q, i8x8_0, xop_wb|pred|dstX3, x, top4[3][0x0d]},/*PUW=111*/
+    {OP_ldrd,    0x01e000d0, "ldrd",   RBEw, RB2w, RAw, MP44q, i8x8_0, xop_wb|pred|dstX3, x, DUP_ENTRY},/*PUW=111*/
     {OP_strd,    0x01e000f0, "strd",   MP44q, RAw, RBEw, RB2w, i8x8_0, xop_wb|pred, x, DUP_ENTRY},/*PUW=111*/
   }, { /* 25 */
     {OP_mvns,    0x01f00000, "mvns",   RBw, xx, RDw, sh2, i5_7, pred, fWNZCV, top4x[25][0x01]},
@@ -706,7 +706,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_smlabt,  0x010000a0, "smlabt", RAw, xx, RDh, RCt, RBw, pred, x, END_LIST},
     {OP_strh,    0x010000b0, "strh",   MNRh, xx, RBh, xx, xx, pred, x, top4[3][0x0b]},/*PUW=100*/
     {OP_smlatb,  0x010000c0, "smlatb", RAw, xx, RDt, RCh, RBw, pred, x, END_LIST},
-    {OP_ldrd,    0x010000d0, "ldrd",   RBEw, RB2w, MNRq, xx, xx, pred, x, top4x[24][0x04]},/*PUW=100*/
+    {OP_ldrd,    0x010000d0, "ldrd",   RBEw, RB2w, MNRq, xx, xx, pred, x, top4[3][0x0d]},/*PUW=100*/
     {OP_smlatt,  0x010000e0, "smlatt", RAw, xx, RDt, RCt, RBw, pred, x, END_LIST},
     {OP_strd,    0x010000f0, "strd",   MNRq, xx, RBEw, RB2w, xx, pred, x, top4[3][0x0f]},/*PUW=100*/
   }, { /* 1 */
