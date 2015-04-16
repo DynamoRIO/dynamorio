@@ -1095,7 +1095,7 @@ const instr_info_t A32_ext_fp[][3] = {
     {OP_mcrr,    0x0c400000, "mcrr",   CRDw, RAw, RBw, i4_8, i4_7, pred|srcX4, x, END_LIST},
   }, { /* 3 */
     {OP_vmov,    0x0c500a10, "vmov",     RBd, RAd, WCd, WC2d, xx, pred|vfp, x, tfp[2][0x00]},
-    {OP_vmov,    0x0c500b10, "vmov",     VCq, xx, RBd, RAd, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vmov,    0x0c500b10, "vmov",     RBd, RAd, VCq, xx, xx, pred|vfp, x, tfp[2][0x01]},
     {OP_mrrc,    0x0c500000, "mrrc",   RBw, RAw, i4_8, i4_7, CRDw, pred, x, END_LIST},
   }, { /* 4 */
     {INVALID,    0x0c600a00, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},/*PUW=001*/
