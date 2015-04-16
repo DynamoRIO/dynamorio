@@ -778,12 +778,29 @@ function(torunonly_ci test realexe realclient source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(torunonly_ci)
 
+function(torunonly_api test realexe source dr_ops exe_ops use_decoder)
+  set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
+  if (realexe)
+    set(${test}_realtest ${realexe} PARENT_SCOPE)
+  endif (realexe)
+  set(${test}_source ${source} PARENT_SCOPE)
+  set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
+  set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+  # If using drdecodelib, the app does not load DR, so no reason to use drrun
+  # to set options (plus drrun will create a never-deleted .1config file).
+  if (use_decoder)
+    set(${test}_standalone_dr OFF PARENT_SCOPE)
+  else ()
+    set(${test}_standalone_dr ON PARENT_SCOPE)
+  endif ()
+endfunction(torunonly_api)
+
 # client interface standalone app
-function(tobuild_api test source dr_ops exe_ops decoder)
+function(add_api_exe test source use_decoder)
   add_exe(${test} ${source})
-  configure_app_api_build_flags(${test} ${decoder})
+  configure_app_api_build_flags(${test} ${use_decoder})
   add_dependencies(${test} api_headers)
-  if (WIN32 AND NOT decoder)
+  if (WIN32 AND NOT use_decoder)
     # Since we can't set the working dir w/o making an external script,
     # we copy dynamorio.dll into the default dir.  If we just do a POST_BUILD
     # custom command we have races (i#810) so we use a globally unique
@@ -808,19 +825,14 @@ function(tobuild_api test source dr_ops exe_ops decoder)
       set(created_drcopy_target ON PARENT_SCOPE)
     endif ()
     add_dependencies(${test} drcopy)
-  endif (WIN32 AND NOT decoder)
-  set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
-  set(${test}_source ${source} PARENT_SCOPE)
-  set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
-  set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
-  # If using drdecodelib, the app does not load DR, so no reason to use drrun
-  # to set options (plus drrun will create a never-deleted .1config file).
-  if (decoder)
-    set(${test}_standalone_dr OFF PARENT_SCOPE)
-  else (decoder)
-    set(${test}_standalone_dr ON PARENT_SCOPE)
-  endif (decoder)
-endfunction(tobuild_api)
+  endif (WIN32 AND NOT use_decoder)
+endfunction(add_api_exe)
+
+# macro so the PARENT_SCOPE in torunonly_api will reach caller of this
+macro(tobuild_api test source dr_ops exe_ops use_decoder)
+  add_api_exe(${test} ${source} ${use_decoder})
+  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
+endmacro(tobuild_api)
 
 # run that uses a different build
 function(torunonly test realtest source dr_ops exe_ops)
@@ -1865,13 +1877,6 @@ if (CLIENT_INTERFACE)
     # when running tests in parallel: have to generate pcaches first
     set(client.pcache-use_depends client.pcache)
 
-    tobuild_api(api.dis api/dis.c "-syntax_intel"
-      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
-    if (X64)
-      set(api.dis_expectbase "dis-x64")
-    else ()
-      set(api.dis_expectbase "dis-x86")
-    endif ()
     tobuild_api(api.ir api/ir.c "" "" OFF)
     if ("${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
       # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
@@ -1888,6 +1893,28 @@ if (CLIENT_INTERFACE)
       append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
     endif ()
   endif (NOT ARM)
+
+  if (ARM)
+    # Helper exe, used offline to build smaller input binary to test itself:
+    add_api_exe(api.dis-create api/dis-create.c OFF)
+    # XXX i#1686: get -syntax_arm working and test it further here.
+    # For now our template is DR syntax.
+    add_api_exe(api.dis api/dis.c OFF)
+    torunonly_api(api.disA32 api.dis api/dis.c ""
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armA32-randtest.raw;-arm" OFF)
+    set(api.disA32_expectbase "dis-armA32")
+    torunonly_api(api.disT32 api.dis api/dis.c ""
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armT32-randtest.raw;-thumb" OFF)
+    set(api.disT32_expectbase "dis-armT32")
+  else (ARM)
+    tobuild_api(api.dis api/dis.c "-syntax_intel"
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
+    if (X64)
+      set(api.dis_expectbase "dis-x64")
+    else ()
+      set(api.dis_expectbase "dis-x86")
+    endif ()
+  endif (ARM)
 
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     # XXX i#1512: api.startstop is FLAKY

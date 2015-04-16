@@ -31,10 +31,13 @@
  * DAMAGE.
  */
 
-/* Code Manipulation API Sample:
- * dis.c
+/* Helper app to create a small opcode-representative binary for
+ * dis.c.  The idea is to run this on a very large random binary and
+ * it will create from the large binary a small binary suitable for
+ * checking in to the repository.
+ * I ran it like this:
  *
- * Disassembles a binary file containing nothing but code.
+ * LD_LIBRARY_PATH=lib32/release suite/tests/bin/api.dis-create /tmp/randombits /tmp/OUT-dis -arm > opcs
  */
 
 #include "configure.h"
@@ -42,78 +45,98 @@
 #include <assert.h>
 #include <string.h>
 
-#define VERBOSE 1
+#ifndef ARM
+# error NYI
+#endif
 
-/* arbitrary pc for pc-relative operands for consistent output */
-#define ORIG_PC ((app_pc)0x10000000)
+/* Strategy: include NUM_INITIAL random bytes to get some invalid ones,
+ * and then from the rest of the file cap each opcode at NUM_EACH.
+ */
+static uint count[OP_LAST+1];
+#define NUM_COUNT sizeof(count)/sizeof(count[0])
+
+static uint num_tot;
+#define NUM_INITIAL 2048
+#define NUM_EACH 12
 
 static void
-read_data(void *drcontext, byte *start, size_t size)
+read_data(void *drcontext, file_t outf, byte *start, size_t size)
 {
+    instr_t instr;
     byte *pc = start, *prev_pc;
+
+    instr_init(drcontext, &instr);
     while (pc < start + size) {
         /* FIXME: want to cut it off instead of reading beyond for
          * end of file!  If weren't printing it out as go along could
          * mark invalid after seeing whether instr overflows.
          */
         prev_pc = pc;
-#if VERBOSE
-        dr_printf("+0x%04x  ", prev_pc - start);
-#endif
-        pc = disassemble_from_copy(drcontext, pc, ORIG_PC, STDOUT,
-                                   false/*don't show pc*/,
-#if VERBOSE
-                                   true/*show bytes*/
-#else
-                                   false/*do not show bytes*/
-#endif
-                                   );
-#ifdef ARM
-        if (pc == NULL) /* we still know size */
+        instr_reset(drcontext, &instr);
+        pc = decode(drcontext, pc, &instr);
+        num_tot++;
+        if (pc == NULL) {
+            /* we still know size */
             pc = decode_next_pc(drcontext, prev_pc);
-#else
-        /* If invalid, try next byte */
-        /* FIXME: udis86 is going to byte after the one that makes it
-         * invalid: so if 1st byte is invalid opcode, go to 2nd;
-         * if modrm makes it invalid (0xc5 0xc5), go to 3rd.
-         * not clear that's nec. better but we need to reconcile that w/
-         * their diff for automated testing.
+            /* put invalid entries in if they are in first set of random entries */
+            if (num_tot < NUM_INITIAL)
+                dr_write_file(outf, prev_pc, pc - prev_pc);
+        } else {
+            count[instr_get_opcode(&instr)]++;
+            if (count[instr_get_opcode(&instr)] < NUM_EACH || num_tot < NUM_INITIAL)
+                dr_write_file(outf, prev_pc, pc - prev_pc);
+        }
+    }
+    int i;
+    for (i = OP_FIRST; i < NUM_COUNT; i++) {
+        printf("  %d %s: %d\n", i, decode_opcode_name(i), count[i]);
+    }
+
+    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_A32) {
+        /* Even a large random binary is often missing these so we just throw them
+         * in at the end:
          */
-        if (pc == NULL)
-            pc = prev_pc + 1;
-#endif
+        uint rare_opc[] = {
+            0xe320f001, // yield
+            0xf57ff06f, // isb    $0x0f
+            0xf57ff01f, // clrex
+            0xe320f004, // sev
+        };
+        dr_write_file(outf, rare_opc, sizeof(rare_opc));
+    } else {
+        uint rare_opc[] = {
+            0x8f2ff3bf, // clrex
+            0x8f4ff3bf, // dsb    $0x0f
+            0x4fdfe8d7, // ldaex r4, [r7]
+            0x8f1ff3bf, // enterx
+            0x8f0ff3bf, // leavex
+        };
+        dr_write_file(outf, rare_opc, sizeof(rare_opc));
     }
 }
 
 int
 main(int argc, char *argv[])
 {
-    file_t f;
+    file_t f, outf;
     bool ok;
     uint64 file_size;
     size_t map_size;
     byte *map_base;
     void *drcontext = dr_standalone_init();
 
-#ifdef ARM
-    if (argc != 3) {
-        dr_fprintf(STDERR, "Usage: %s <objfile> <-arm|-thumb>\n", argv[0]);
+    if (argc != 4) {
+        dr_fprintf(STDERR, "Usage: %s <objfile> <outfile> <-arm|-thumb>\n", argv[0]);
         return 1;
     }
-    if (strcmp(argv[2], "-arm") == 0)
+    if (strcmp(argv[3], "-arm") == 0)
         dr_set_isa_mode(drcontext, DR_ISA_ARM_A32, NULL);
     else
         dr_set_isa_mode(drcontext, DR_ISA_ARM_THUMB, NULL);
-#else
-    if (argc != 2) {
-        dr_fprintf(STDERR, "Usage: %s <objfile>\n", argv[0]);
-        return 1;
-    }
-#endif
 
     f = dr_open_file(argv[1], DR_FILE_READ | DR_FILE_ALLOW_LARGE);
     if (f == INVALID_FILE) {
-        dr_fprintf(STDERR, "Error opening %s\n", argv[1]);
+        dr_fprintf(STDERR, "Error opening input file %s\n", argv[1]);
         return 1;
     }
     ok = dr_file_size(f, &file_size);
@@ -130,11 +153,16 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    /* XXX: re-run 64-bit asking for 32-bit mode */
+    outf = dr_open_file(argv[2], DR_FILE_WRITE_OVERWRITE);
+    if (outf == INVALID_FILE) {
+        dr_fprintf(STDERR, "Error opening output file %s\n", argv[2]);
+        return 1;
+    }
 
-    read_data(drcontext, map_base, (size_t) file_size);
+    read_data(drcontext, outf, map_base, (size_t) file_size);
 
     dr_unmap_file(map_base, map_size);
     dr_close_file(f);
+    dr_close_file(outf);
     return 0;
 }
