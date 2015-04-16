@@ -101,6 +101,7 @@ separate_bb:
         mov      r7, sp
         vld3.8   {d10-d12}, [r7]!
         vmull.u16 q10, d24, d16
+        vldm     r7, {d3}
 
 // exit
         mov      r0, #1            // stdout

@@ -689,6 +689,29 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
     return true;
 }
 
+/* Called when beyond the operand count of the instr.  Due to the first entry
+ * of a SIMD reglist being its own separate template entry, we have to specially
+ * handle a single-entry list here.
+ */
+static bool
+encode_simd_reglist_single_entry(decode_info_t *di, byte optype, opnd_size_t size_temp)
+{
+    if (optype == TYPE_L_CONSEC) {
+        /* XXX: an "unpredictable" instr with a count of 0 will end up being encoded
+         * with a valid 1 or 2 count and thus won't match the decode: but that
+         * seems ok for such a corner case.
+         */
+        di->reglist_stop = di->reglist_start = 0;
+        /* Be sure to use the sub-reg size from the template */
+        di->reglist_sz = opnd_size_in_bytes(size_temp);
+        /* There should be no rollback, but just to be complete: */
+        di->reglist_itemsz = size_temp;
+        di->reglist_simd = true;
+        return true;
+    }
+    return false;
+}
+
 static bool
 check_reglist_size(decode_info_t *di)
 {
@@ -1138,11 +1161,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return (is_dst ? (instr_num_dsts(in) < opnum) : (instr_num_srcs(in) < opnum));
     } else if (is_dst) {
         if (opnum >= instr_num_dsts(in))
-            return false;
+            return encode_simd_reglist_single_entry(di, optype, size_temp);
         opnd = instr_get_dst(in, opnum);
     } else {
         if (opnum >= instr_num_srcs(in))
-            return false;
+            return encode_simd_reglist_single_entry(di, optype, size_temp);
         opnd = instr_get_src(in, opnum);
     }
 
@@ -2057,10 +2080,19 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         opnum--;
     }
     if (optype != TYPE_NONE) {
-        if (is_dst)
-            opnd = instr_get_dst(in, opnum);
-        else
-            opnd = instr_get_src(in, opnum);
+        if (is_dst) {
+            if (opnum >= instr_num_dsts(in)) {
+                CLIENT_ASSERT(optype == TYPE_L_CONSEC, "only SIMD list can exceed opnds");
+                opnd = opnd_create_null();
+            } else
+                opnd = instr_get_dst(in, opnum);
+        } else {
+            if (opnum >= instr_num_srcs(in)) {
+                CLIENT_ASSERT(optype == TYPE_L_CONSEC, "only SIMD list can exceed opnds");
+                opnd = opnd_create_null();
+            } else
+                opnd = instr_get_src(in, opnum);
+        }
     }
 
     switch (optype) {
