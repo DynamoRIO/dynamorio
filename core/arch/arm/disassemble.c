@@ -179,7 +179,7 @@ opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
             dr_shift_type_t shift = (dr_shift_type_t) opnd_get_immed_int(nxt);
             opnd_t nxt2 = instr_get_src(instr, idx + 2);
             bool immed_amount = opnd_is_immed_int(nxt2);
-            disassemble_shift(buf, bufsz, sofar, "", " ", shift, immed_amount,
+            disassemble_shift(buf, bufsz, sofar, " ", "", shift, immed_amount,
                               immed_amount ? opnd_get_immed_int(nxt2) : 0);
             return (immed_amount ? idx + 2 : idx + 1);
         }

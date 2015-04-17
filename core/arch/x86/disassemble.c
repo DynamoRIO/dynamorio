@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -203,8 +203,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             /* FIXME: really we should put before opcode */
             if (prev)
                 print_to_buffer(buf, bufsz, sofar, ", ");
-            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "",
-                            postop_suffix());
+            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", "");
             return true;
         }
     case TYPE_Y:

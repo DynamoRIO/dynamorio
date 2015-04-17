@@ -661,8 +661,6 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             }
         }
     }
-
-    print_to_buffer(buf, bufsz, sofar, "%s", postop_suffix());
 }
 
 void
@@ -1058,11 +1056,12 @@ static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                            dcontext_t *dcontext, instr_t *instr)
 {
-    int i, sz;
+    int i;
     const instr_info_t * info;
     const char * name;
     int name_width = 6;
     bool use_size_sfx = false;
+    size_t offs_pre_name, offs_post_name, offs_pre_opnds;
 
     if (!instr_valid(instr)) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
@@ -1078,16 +1077,15 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 
     print_instr_prefixes(dcontext, instr, buf, bufsz, sofar);
 
+    offs_pre_name = *sofar;
     print_to_buffer(buf, bufsz, sofar, "%s%s", name, instr_opcode_name_suffix(instr));
-
-    name_width -= print_opcode_suffix(instr, buf, bufsz, sofar);
+    print_opcode_suffix(instr, buf, bufsz, sofar);
+    offs_post_name = *sofar;
+    name_width -= (int)(offs_post_name - offs_pre_name);
     print_to_buffer(buf, bufsz, sofar, " ");
-
-    IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(strlen(name)),
-                         "instr_disassemble: internal truncation error"));
-    sz = (int) strlen(name) + (int) strlen(instr_opcode_name_suffix(instr));
-    for (i=sz; i<name_width; i++)
+    for (i=0; i<name_width; i++)
         print_to_buffer(buf, bufsz, sofar, " ");
+    offs_pre_opnds = *sofar;
 
     /* operands */
     if (!instr_operands_valid(instr)) {
@@ -1107,6 +1105,11 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT|DR_DISASM_ARM,
                 DYNAMO_OPTION(disasm_mask))) {
         instr_disassemble_opnds_noimplicit(buf, bufsz, sofar, dcontext, instr);
+        /* we avoid trailing spaces if no operands */
+        if (*sofar == offs_pre_opnds) {
+            *sofar = offs_post_name;
+            buf[offs_post_name] = '\0';
+        }
         return;
     }
 
@@ -1114,16 +1117,24 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 
     for (i=0; i<instr_num_srcs(instr); i++) {
         opnd_t src = instr_get_src(instr, i);
+        if (i > 0)
+            print_to_buffer(buf, bufsz, sofar, " ");
         sign_extend_immed(instr, i, &src);
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
         i = opnd_disassemble_src_arch(buf, bufsz, sofar, instr, i);
     }
     if (instr_num_dsts(instr) > 0) {
-        print_to_buffer(buf, bufsz, sofar, "-> ");
+        print_to_buffer(buf, bufsz, sofar, " ->");
         for (i=0; i<instr_num_dsts(instr); i++) {
+            print_to_buffer(buf, bufsz, sofar, " ");
             internal_opnd_disassemble(buf, bufsz, sofar, dcontext,
                                       instr_get_dst(instr, i), use_size_sfx);
         }
+    }
+    /* we avoid trailing spaces if no operands */
+    if (*sofar == offs_pre_opnds) {
+        *sofar = offs_post_name;
+        buf[offs_post_name] = '\0';
     }
 }
 

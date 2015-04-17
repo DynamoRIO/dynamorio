@@ -107,13 +107,6 @@ typedef enum {
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
 
-static inline const char *
-postop_suffix(void)
-{
-    return (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT|DR_DISASM_ARM,
-                    DYNAMO_OPTION(disasm_mask)) ? "" : " ");
-}
-
 void
 disassemble_options_init(void);
 
