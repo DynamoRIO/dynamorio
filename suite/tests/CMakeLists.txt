@@ -1317,10 +1317,10 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       "\\\\]" expect "${expect}")
   endif (NOT ALREADY_REGEX)
 
-  if (WIN32)
+  if (WIN32 AND NOT is_runcmp) # for runcmp it's up to the test
     # libc print => CRLF, dr_printf => plain newline: match both
     string(REGEX REPLACE "\n" "\r?\n" expect "${expect}")
-  endif (WIN32)
+  endif ()
 
   if (is_runcmp)
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect" "${expect}")
@@ -1867,6 +1867,11 @@ if (CLIENT_INTERFACE)
 
     tobuild_api(api.dis api/dis.c "-syntax_intel"
       "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
+    if (X64)
+      set(api.dis_expectbase "dis-x64")
+    else ()
+      set(api.dis_expectbase "dis-x86")
+    endif ()
     tobuild_api(api.ir api/ir.c "" "" OFF)
     if ("${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
       # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
@@ -1883,6 +1888,7 @@ if (CLIENT_INTERFACE)
       append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
     endif ()
   endif (NOT ARM)
+
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     # XXX i#1512: api.startstop is FLAKY
     tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
