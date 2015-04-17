@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2151,6 +2151,11 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
     opnd_t opnd;
     ptr_uint_t target;
 
+    if (info == NULL) {
+        CLIENT_ASSERT(false, "encode internal error: encode_cti with wrong opcode");
+        return NULL;
+    }
+
     if (instr->prefixes != 0) {
         if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
             *pc = RAW_PREFIX_jcc_taken;
@@ -2337,7 +2342,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     /* first handle the already-encoded instructions */
     if (instr_raw_bits_valid(instr)) {
-        CLIENT_ASSERT(check_reachable, "internal encode error: cannot encode raw "
+       CLIENT_ASSERT(check_reachable, "internal encode error: cannot encode raw "
                       "bits and ignore reachability");
         /* copy raw bits, possibly re-relativizing */
         return copy_and_re_relativize_raw_instr(dcontext, instr, cache_pc, final_pc);

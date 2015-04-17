@@ -2658,7 +2658,7 @@ opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode, bool it_block)
         return (it_block ? op_instr[opc].T32_it : op_instr[opc].T32);
     else {
         CLIENT_ASSERT(false, "NYI i#1551");
-        return &invalid_instr;
+        return NULL;
     }
 }
 
@@ -2667,10 +2667,12 @@ const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t * info =
-        opcode_to_encoding_info(opcode,
-                                dr_get_isa_mode(get_thread_private_dcontext()),
-                                /* names do not change in IT block */
-                                false);
+        opcode_to_encoding_info(opcode, DR_ISA_ARM_A32, false);
+    if (info == NULL) {
+        info = opcode_to_encoding_info(opcode, DR_ISA_ARM_THUMB,
+                                       /* names do not change in IT block */
+                                       false);
+    }
     if (info != NULL)
         return info->name;
     else
