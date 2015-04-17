@@ -409,6 +409,9 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
     instr_t *prev = instr_get_prev(where);
     bool tls, spill;
     reg_id_t prior_reg;
+
+    /* this routine is only called for non-mbr mangling */
+    STATS_INC(non_mbr_spills);
     while (prev != NULL &&
            /* We can eliminate the restore/respill pair only if they are executed
             * together, so only our own mangling label instruction is allowed in
@@ -422,6 +425,7 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
         /* remove the redundant restore-spill pair */
         instrlist_remove(ilist, prev);
         instr_destroy(dcontext, prev);
+        STATS_INC(non_mbr_respill_avoided);
     } else {
         PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
     }

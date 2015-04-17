@@ -1204,3 +1204,7 @@
     /* i#107 handle application using same segment register */
     STATS_DEF("App reference with FS/GS seg being mangled", app_seg_refs_mangled)
     STATS_DEF("App access FS/GS seg being mangled", app_mov_seg_mangled)
+#ifdef ARM
+    STATS_DEF("Reg spills for non-mbr mangling", non_mbr_spills)
+    STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
+#endif
