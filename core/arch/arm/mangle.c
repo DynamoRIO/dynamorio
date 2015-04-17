@@ -409,9 +409,14 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
     instr_t *prev = instr_get_prev(where);
     bool tls, spill;
     reg_id_t prior_reg;
-    while (prev != NULL && instr_is_label(prev))
+    while (prev != NULL &&
+           /* We can eliminate the restore/respill pair only if they are executed
+            * together, so only our own mangling label instruction is allowed in
+            * between.
+            */
+           instr_is_label(prev) && instr_is_our_mangling(prev))
         prev = instr_get_prev(prev);
-    if (prev != NULL &&
+    if (INTERNAL_OPTION(opt_mangle) && prev != NULL &&
         instr_is_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg) &&
         tls && !spill && prior_reg == reg) {
         /* remove the redundant restore-spill pair */

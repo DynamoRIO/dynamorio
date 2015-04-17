@@ -579,6 +579,7 @@
                             "the register stolen/used by DynamoRIO")
     OPTION_DEFAULT_INTERNAL(uint, steal_reg_at_reset, 0,
         "reg to switch to at first reset")
+    OPTION_DEFAULT_INTERNAL(bool, opt_mangle, true, "optimize mangling code")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
