@@ -387,8 +387,12 @@
   instr_create_0dst_0src((dc), OP_dcps2)
 #define INSTR_CREATE_dcps3(dc) \
   instr_create_0dst_0src((dc), OP_dcps3)
+#define INSTR_CREATE_enterx(dc) \
+  instr_create_0dst_0src((dc), OP_enterx)
 #define INSTR_CREATE_eret(dc) \
   instr_create_0dst_1src((dc), OP_eret, opnd_create_reg(DR_REG_LR))
+#define INSTR_CREATE_leavex(dc) \
+  instr_create_0dst_0src((dc), OP_leavex)
 #define INSTR_CREATE_nop(dc) \
   instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_sev(dc) \
@@ -1747,6 +1751,10 @@
   instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
 #define INSTR_CREATE_ldrsht_wbreg(dc, Rd, mem, Rm) \
   instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+#define INSTR_CREATE_swp(dc, Rd, mem, Rm) \
+  instr_create_2dst_2src((dc), OP_swp, (mem), (Rd), (mem), (Rm))
+#define INSTR_CREATE_swpb(dc, Rd, mem, Rm) \
+  instr_create_2dst_2src((dc), OP_swpb, (mem), (Rd), (mem), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rd, Rm) */
