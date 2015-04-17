@@ -1620,7 +1620,7 @@ decode_ext_simd2_idx(uint instr_word)
 static inline uint
 decode_ext_imm6l_idx(uint instr_word)
 {
-    return ((instr_word >> 7) & 0x6) | ((instr_word >> 6) & 0x1); /* 10:8,6 */
+    return ((instr_word >> 7) & 0xe) | ((instr_word >> 6) & 0x1); /* 10:8,6 */
 }
 
 static inline uint
