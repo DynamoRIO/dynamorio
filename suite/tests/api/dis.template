@@ -3085,7 +3085,7 @@
 +0x1e5b   b4 1d                mov    ah, 0x1d
 +0x1e5d   20 7c 10 37          and    byte ptr [rax+rdx+0x37], bh
 +0x1e61   ee                   out    al, dx
-+0x1e62   0d 33 83 d1 8e       or     eax, 0x8ed18333
++0x1e62   0d 33 00 00 00       or     eax, 0x00000033
 #else
 +0x0000   bf ae 4f 80 95       mov    edi, 0x95804fae
 +0x0005   f1                   int1   
@@ -6249,5 +6249,5 @@
 +0x1e5b   b4 1d                mov    ah, 0x1d
 +0x1e5d   20 7c 10 37          and    byte ptr [eax+edx+0x37], bh
 +0x1e61   ee                   out    al, dx
-+0x1e62   0d 33 83 d1 8e       or     eax, 0x8ed18333
++0x1e62   0d 33 00 00 00       or eax, 0x00000033
 #endif

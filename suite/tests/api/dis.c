@@ -43,73 +43,90 @@
 
 #define VERBOSE 1
 
-#define BUF_SIZE 4096
 /* arbitrary pc for pc-relative operands for consistent output */
 #define ORIG_PC ((app_pc)0x10000000)
 
 static void
-read_data(file_t f, void *drcontext)
+read_data(void *drcontext, byte *start, size_t size)
 {
-    byte sbuf[BUF_SIZE];
-    byte *pc, *prev_pc;
-    ssize_t len, prev_buf_len = 0;
-
-    /* FIXME: re-run 64-bit asking for 32-bit mode */
-
-    do {
-        len = dr_read_file(f, sbuf, sizeof(sbuf));
-        pc = sbuf;
-        while (pc < sbuf+len) {
-            /* FIXME: want to cut it off instead of reading beyond for
-             * end of file!  If weren't printing it out as go along could
-             * mark invalid after seeing whether instr overflows.
-             */
-            prev_pc = pc;
+    byte *pc = start, *prev_pc;
+    while (pc < start + size) {
+        /* FIXME: want to cut it off instead of reading beyond for
+         * end of file!  If weren't printing it out as go along could
+         * mark invalid after seeing whether instr overflows.
+         */
+        prev_pc = pc;
 #if VERBOSE
-            dr_printf("+0x%04x  ", prev_pc - sbuf + prev_buf_len);
+        dr_printf("+0x%04x  ", prev_pc - start);
 #endif
-            pc = disassemble_from_copy(drcontext, pc, ORIG_PC, STDOUT,
-                                       false/*don't show pc*/,
+        pc = disassemble_from_copy(drcontext, pc, ORIG_PC, STDOUT,
+                                   false/*don't show pc*/,
 #if VERBOSE
-                                       true/*show bytes*/
+                                   true/*show bytes*/
 #else
-                                       false/*do not show bytes*/
+                                   false/*do not show bytes*/
 #endif
-                                       );
+                                   );
 #ifdef ARM
-            if (pc == NULL) /* we still know size */
-                pc = decode_next_pc(drcontext, prev_pc);
+        if (pc == NULL) /* we still know size */
+            pc = decode_next_pc(drcontext, prev_pc);
 #else
-            /* If invalid, try next byte */
-            /* FIXME: udis86 is going to byte after the one that makes it
-             * invalid: so if 1st byte is invalid opcode, go to 2nd;
-             * if modrm makes it invalid (0xc5 0xc5), go to 3rd.
-             * not clear that's nec. better but we need to reconcile that w/
-             * their diff for automated testing.
-             */
-            if (pc == NULL)
-                pc = prev_pc + 1;
+        /* If invalid, try next byte */
+        /* FIXME: udis86 is going to byte after the one that makes it
+         * invalid: so if 1st byte is invalid opcode, go to 2nd;
+         * if modrm makes it invalid (0xc5 0xc5), go to 3rd.
+         * not clear that's nec. better but we need to reconcile that w/
+         * their diff for automated testing.
+         */
+        if (pc == NULL)
+            pc = prev_pc + 1;
 #endif
-        }
-        prev_buf_len += sizeof(sbuf);
-    } while (len == sizeof(sbuf));
+    }
 }
 
 int
 main(int argc, char *argv[])
 {
     file_t f;
+    bool ok;
+    uint64 file_size;
+    size_t map_size;
+    byte *map_base;
     void *drcontext = dr_standalone_init();
+
     if (argc != 2) {
         dr_fprintf(STDERR, "Usage: %s <objfile>\n", argv[0]);
         return 1;
     }
+
     f = dr_open_file(argv[1], DR_FILE_READ | DR_FILE_ALLOW_LARGE);
     if (f == INVALID_FILE) {
         dr_fprintf(STDERR, "Error opening %s\n", argv[1]);
         return 1;
     }
-    read_data(f, drcontext);
+    ok = dr_file_size(f, &file_size);
+    if (!ok) {
+        dr_fprintf(STDERR, "Error getting file size for %s\n", argv[1]);
+        dr_close_file(f);
+        return 1;
+    }
+    map_size = (size_t) file_size;
+    map_base = dr_map_file(f, &map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
+    if (map_base == NULL || map_size < file_size) {
+        dr_fprintf(STDERR, "Error mapping %s\n", argv[1]);
+        dr_close_file(f);
+        return 1;
+    }
+
+#ifdef ARM
+    dr_set_isa_mode(drcontext, DR_ISA_ARM_THUMB, NULL);
+    /* XXX: re-run as ARM */
+#endif
+    /* XXX: re-run 64-bit asking for 32-bit mode */
+
+    read_data(drcontext, map_base, (size_t) file_size);
+
+    dr_unmap_file(map_base, map_size);
     dr_close_file(f);
     return 0;
 }
