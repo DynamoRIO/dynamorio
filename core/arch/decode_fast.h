@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,7 +59,7 @@ DR_API
 /**
  * Decodes only enough of the instruction at address \p pc to determine its size.
  * Returns the address of the byte following the instruction.
- * Returns NULL on decoding an invalid instruction.
+ * May return NULL on decoding certain invalid instructions.
  */
 #ifdef UNSUPPORTED_API
 /**

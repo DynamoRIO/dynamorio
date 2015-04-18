@@ -2484,7 +2484,9 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 byte *
 decode_next_pc(dcontext_t *dcontext, byte *pc)
 {
-    /* FIXME i#1551: check for invalid opcodes */
+    /* XXX: check for invalid opcodes, though maybe it's fine to never do so
+     * (xref i#1685).
+     */
     dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
     if (isa_mode == DR_ISA_ARM_THUMB) {
         ushort halfword = *(ushort *)pc;
@@ -2500,7 +2502,9 @@ int
 decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
               _IF_X64(uint *rip_rel_pos))
 {
-    /* FIXME i#1551: check for invalid opcodes */
+    /* XXX: check for invalid opcodes, though maybe it's fine to never do so
+     * (xref i#1685).
+     */
     byte *next_pc = decode_next_pc(dcontext, pc);
     return next_pc - pc;
 }

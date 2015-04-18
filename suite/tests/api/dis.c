@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,6 +76,10 @@ read_data(file_t f, void *drcontext)
                                        false/*do not show bytes*/
 #endif
                                        );
+#ifdef ARM
+            if (pc == NULL) /* we still know size */
+                pc = decode_next_pc(drcontext, prev_pc);
+#else
             /* If invalid, try next byte */
             /* FIXME: udis86 is going to byte after the one that makes it
              * invalid: so if 1st byte is invalid opcode, go to 2nd;
@@ -84,6 +89,7 @@ read_data(file_t f, void *drcontext)
              */
             if (pc == NULL)
                 pc = prev_pc + 1;
+#endif
         }
         prev_buf_len += sizeof(sbuf);
     } while (len == sizeof(sbuf));
