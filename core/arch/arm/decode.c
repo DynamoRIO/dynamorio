@@ -403,7 +403,7 @@ decode_wregA(decode_info_t *di, opnd_size_t opsize)
 {
     /* A32/T32 = 19:16,7 */
     return decode_simd_start(opsize) +
-        (((di->instr_word & 0x000f0000) >> 15) | ((di->instr_word >> 19) & 0x1));
+        (((di->instr_word & 0x000f0000) >> 15) | ((di->instr_word >> 7) & 0x1));
 }
 
 static reg_id_t
