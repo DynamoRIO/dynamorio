@@ -266,7 +266,7 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_ldcl,    0xed700000, "ldcl",   CRBw, RAw, MN8Xw, i4_8, n8x4, xop_wb, x, xfp[13][0x02]},/*PUW=101*/
   }, { /* 22 */
     {OP_vstr,    0xed800a00, "vstr",   MP8Xd, xx, WBd, xx, xx, vfp, x, xfp[14][0x00]},
-    {OP_vstr,    0xed800b00, "vstr",   MN8Xq, xx, VBq, xx, xx, vfp, x, DUP_ENTRY},
+    {OP_vstr,    0xed800b00, "vstr",   MP8Xq, xx, VBq, xx, xx, vfp, x, xfp[14][0x01]},
     {OP_stc,     0xed800000, "stc",    MP8Xw, xx, i4_8, CRBw, i8x4, no, x, xfp[14][0x02]},/*PUW=110*/
   }, { /* 23 */
     {OP_vldr,    0xed900a00, "vldr",   WBd, xx, MP8Xd, xx, xx, vfp, x, xfp[15][0x00]},
@@ -282,7 +282,7 @@ const instr_info_t T32_ext_fp[][3] = {
     {OP_ldc,     0xedb00000, "ldc",    CRBw, RAw, MP8Xw, i4_8, i8x4, xop_wb, x, xfp[17][0x02]},/*PUW=111*/
   }, { /* 26 */
     {OP_vstr,    0xedc00a00, "vstr",   MP8Xd, xx, WBd, xx, xx, vfp, x, DUP_ENTRY},
-    {OP_vstr,    0xedc00b00, "vstr",   MN8Xq, xx, VBq, xx, xx, vfp, x, DUP_ENTRY},
+    {OP_vstr,    0xedc00b00, "vstr",   MP8Xq, xx, VBq, xx, xx, vfp, x, DUP_ENTRY},
     {OP_stcl,    0xedc00000, "stcl",   MP8Xw, xx, i4_8, CRBw, i8x4, no, x, xfp[18][0x02]},/*PUW=110*/
   }, { /* 27 */
     {OP_vldr,    0xedd00a00, "vldr",   WBd, xx, MP8Xd, xx, xx, vfp, x, DUP_ENTRY},

@@ -1174,7 +1174,7 @@ const instr_info_t A32_ext_fp[][3] = {
     {OP_ldcl,    0x0d700000, "ldcl",   CRBw, RAw, MN8Xw, i4_8, n8x4, xop_wb|pred, x, tfp[13][0x02]},/*PUW=101*/
   }, { /* 22 */
     {OP_vstr,    0x0d800a00, "vstr",   MP8Xd, xx, WBd, xx, xx, pred|vfp, x, tfp[14][0x00]},
-    {OP_vstr,    0x0d800b00, "vstr",   MN8Xq, xx, VBq, xx, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vstr,    0x0d800b00, "vstr",   MP8Xq, xx, VBq, xx, xx, pred|vfp, x, tfp[14][0x01]},
     {OP_stc,     0x0d800000, "stc",    MP8Xw, xx, i4_8, CRBw, i8x4, pred, x, tfp[14][0x02]},/*PUW=110*/
   }, { /* 23 */
     {OP_vldr,    0x0d900a00, "vldr",   WBd, xx, MP8Xd, xx, xx, pred|vfp, x, tfp[15][0x00]},
@@ -1190,7 +1190,7 @@ const instr_info_t A32_ext_fp[][3] = {
     {OP_ldc,     0x0db00000, "ldc",    CRBw, RAw, MP8Xw, i4_8, i8x4, xop_wb|pred, x, tfp[17][0x02]},/*PUW=111*/
   }, { /* 26 */
     {OP_vstr,    0x0dc00a00, "vstr",   MP8Xd, xx, WBd, xx, xx, pred|vfp, x, DUP_ENTRY},
-    {OP_vstr,    0x0dc00b00, "vstr",   MN8Xq, xx, VBq, xx, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vstr,    0x0dc00b00, "vstr",   MP8Xq, xx, VBq, xx, xx, pred|vfp, x, DUP_ENTRY},
     {OP_stcl,    0x0dc00000, "stcl",   MP8Xw, xx, i4_8, CRBw, i8x4, pred, x, tfp[18][0x02]},/*PUW=110*/
   }, { /* 27 */
     {OP_vldr,    0x0dd00a00, "vldr",   WBd, xx, MP8Xd, xx, xx, pred|vfp, x, DUP_ENTRY},

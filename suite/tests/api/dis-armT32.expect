@@ -4785,7 +4785,7 @@
 +0x2bea   efdd fae3  vmull.s16 %d29 %d3[2byte] $0x02 -> %q15
 +0x2bee   eedb bacd  vfnms.f32 %s23 %s26 -> %s23
 +0x2bf2   ef9b e5ab  vabal.s16 %d27 %d27 -> %q7
-+0x2bf6   edcb ebe2  vstr   %d30 -> -0x00000388(%r11)[8byte]
++0x2bf6   edcb ebe2  vstr   %d30 -> +0x00000388(%r11)[8byte]
 +0x2bfa   0dde       lsrs   %r3 $0x00000017 -> %r6
 +0x2bfc   f426 612a  bic    %r6 $0x00000aa0 -> %r1
 +0x2c00   f3a2 20ce  usat16 $0x0000000e %r2 -> %r0
@@ -5365,7 +5365,7 @@
 +0x3494   fb20 8e61  smlad  %r0 %r1 %r8 -> %lr
 +0x3498   e914 127a  ldmdb  -0x70(%r4)[28byte] -> %r1 %r3 %r4 %r5 %r6 %r9 %r12
 +0x349c   fb03 21d7  mls    %r3 %r7 %r2 -> %r1
-+0x34a0   edc1 6b2e  vstr   %d22 -> -0x000000b8(%r1)[8byte]
++0x34a0   edc1 6b2e  vstr   %d22 -> +0x000000b8(%r1)[8byte]
 +0x34a4   ecf6 5b32  vldm   (%r6)[80byte] %r6 -> %d21 %d22 %d23 %d24 %d25 %d26 %d27 %d28 %d29 %d30 %d31 %r6
 +0x34a8   ff29 4b26  vqrdmulh.s32 %d9 %d22 -> %d4
 +0x34ac   fb13 f0d9  smulbt %r3[2byte] %r9[2byte] -> %r0
@@ -5645,7 +5645,7 @@
 +0x38f0   efcc 08d4  vshr.s64 %q2 $0x0c -> %q8
 +0x38f4   ffac a0b1  vshr.u64 %d17 $0x2c -> %d10
 +0x38f8   ef9e 4da8  vqdmull.s16 %d30 %d24 -> %q2
-+0x38fc   edcf 2bd6  vstr   %d18 -> -0x00000358(%pc)[8byte]
++0x38fc   edcf 2bd6  vstr   %d18 -> +0x00000358(%pc)[8byte]
 +0x3900   fb62 d50c  smmls  %r2 %r12 %sp -> %r5
 +0x3904   ff07 8765  vabd.u8 %q3 %q10 -> %q4
 +0x3908   ff5b 4097  vqadd.u16 %d27 %d7 -> %d20
@@ -5666,7 +5666,7 @@
 +0x3944   f903 b4a3  vst3.32 %d11 %d12 %d13 $0x02 %r3 %r3 -> (%r3)[24byte] %r3
 +0x3948   e84f 7727  strex  %r7 -> +0x0000009c(%pc)[4byte] %r7
 +0x394c   ff05 27c5  vabd.u8 %q10 %q2 -> %q1
-+0x3950   edce ab3e  vstr   %d26 -> -0x000000f8(%lr)[8byte]
++0x3950   edce ab3e  vstr   %d26 -> +0x000000f8(%lr)[8byte]
 +0x3954   ef8b 55b0  vshl.i64 %d16 $0x0b -> %d5
 +0x3958   ff6b 18cd  vsub.i32 %q13 %q6 -> %q8
 +0x395c   ef8a 2727  vabdl.s8 %d10 %d23 -> %q1
