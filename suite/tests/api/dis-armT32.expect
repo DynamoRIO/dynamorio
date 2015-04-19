@@ -2553,7 +2553,7 @@
 +0x15a4   8ba3       ldrh   +0x1c(%r4)[2byte] -> %r3
 +0x15a6   5bf7       ldrh   (%r6,%r7)[2byte] -> %r7
 +0x15a8   65f6       str    %r6 -> +0x5c(%r6)[4byte]
-+0x15aa   ea11 cf35  tst    %r1 %r5 $0x00000003 $0xb5000000
++0x15aa   ea11 cf35  tst    %r1 %r5 ror 16
 +0x15ae   38a0       subs   %r0 $0x000000a0 -> %r0
 +0x15b0   0ddb       lsrs   %r3 $0x00000017 -> %r3
 +0x15b2   0a45       lsrs   %r0 $0x00000009 -> %r5
@@ -2890,7 +2890,7 @@
 +0x1878   1de6       adds   %r4 $0x00000007 -> %r6
 +0x187a   d9d9       b.ls   $0x0fffffb6
 +0x187c   d024       b.eq   $0x1000004c
-+0x187e   ea11 af07  tst    %r1 %r7 $0x00000000 $0x07000700
++0x187e   ea11 af07  tst    %r1 %r7 lsl 8
 +0x1882   33af       adds   %r3 $0x000000af -> %r3
 +0x1884   4495       add    %sp %r2 -> %sp
 +0x1886   5d61       ldrb   (%r4,%r5)[1byte] -> %r1

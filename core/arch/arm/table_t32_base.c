@@ -1058,7 +1058,7 @@ const instr_info_t T32_ext_RBPC[][2] = {
 const instr_info_t T32_ext_RCPC[][2] = {
   { /* 0 */
     {OP_ands,     0xea100000, "ands",   RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fWNZCV, END_LIST},
-    {OP_tst,      0xea100f00, "tst",    xx, RAw, RDw, sh2_4, i12x26_12_0, srcX4, fWNZC, END_LIST},
+    {OP_tst,      0xea100f00, "tst",    xx, RAw, RDw, sh2_4, i5x12_6, srcX4, fWNZC, END_LIST},
   }, { /* 1 */
     {OP_eors,     0xea900000, "eors",   RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fWNZCV, END_LIST},
     {OP_teq,      0xea900f00, "teq",    xx, RAw, RDw, sh2_4, i5x12_6, srcX4, fWNZC, END_LIST},
