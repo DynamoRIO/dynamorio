@@ -188,15 +188,50 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             bool dst, int *idx INOUT)
 {
     /* FIXME i#1683: we need to avoid the implicit dst-as-src regs for instrs
-     * such as OP_smlal and writeback implicit operands.
+     * such as OP_smlal.
      */
     /* XXX i#1683: we're relying on flags added by the decoder and by the
      * INSTR_CREATE_ macros: DR_OPND_IS_SHIFT, DR_OPND_IN_LIST.
      * For arbitrary level 4 instrs, we should have our encoder set these
      * flags too.
      */
+
+    /* XXX: better to compute these per-instr and cache instead of per-opnd */
     bool reads_list = instr_reads_reg_list(instr);
     bool writes_list = instr_writes_reg_list(instr);
+    int max = dst ? instr_num_dsts(instr) : instr_num_srcs(instr);
+
+    /* Writeback implicit operands for register list instrs */
+    if (*idx == max-1/*always last*/ && opnd_is_reg(opnd) &&
+        (reads_list || writes_list)) {
+        opnd_t memop = writes_list ? instr_get_src(instr, 0) :
+            instr_get_dst(instr, 0);
+        CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
+        if (opnd_get_reg(opnd) == opnd_get_base(memop) &&
+            !TEST(DR_OPND_IN_LIST, opnd_get_flags(opnd)))
+            return false; /* skip */
+    }
+
+    /* Base reg for register list printed first w/o decoration */
+    if (*idx == 0 && dst && (reads_list || writes_list)) {
+        opnd_t memop, last;
+        bool writeback;
+        if (reads_list)
+            memop = opnd;
+        if (writes_list)
+            memop = instr_get_src(instr, 0);
+        CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
+        last = instr_get_dst(instr, instr_num_dsts(instr) - 1);
+        writeback = (opnd_is_reg(last) && opnd_get_reg(last) == opnd_get_base(memop) &&
+                     !TEST(DR_OPND_IN_LIST, opnd_get_flags(last)));
+        reg_disassemble(buf, bufsz, sofar, opnd_get_base(memop), 0, "",
+                        writes_list ? (writeback ? "!, " : ", ") :
+                        (writeback ? "!" : ""));
+        if (reads_list)
+            return true;
+    }
+    if (writes_list && opnd_is_base_disp(opnd))
+        return false; /* already printed */
 
     if (prev) {
         bool printed = false;
@@ -216,28 +251,11 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             print_to_buffer(buf, bufsz, sofar, ", ");
     }
 
-    /* Base reg for register list printed first w/o decoration */
-    if (*idx == 0 && dst && (reads_list || writes_list)) {
-        opnd_t memop;
-        if (reads_list)
-            memop = opnd;
-        if (writes_list)
-            memop = instr_get_src(instr, 0);
-        CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
-        reg_disassemble(buf, bufsz, sofar, opnd_get_base(memop), 0, "",
-                        writes_list ? ", " : "");
-        if (reads_list)
-            return true;
-    }
-    if (writes_list && opnd_is_base_disp(opnd))
-        return false; /* already printed */
-
     /* Register lists */
     if (opnd_is_reg(opnd) && TEST(DR_OPND_IN_LIST, opnd_get_flags(opnd))) {
         /* For now we do not print ranges as "r0-r4" but print each reg.
          * This matches some other decoders but not all.
          */
-        int max = dst ? instr_num_dsts(instr) : instr_num_srcs(instr);
         opnd_t adj = opnd_create_null();
         if (*idx > 0)
             adj = dst ? instr_get_dst(instr, *idx-1) : instr_get_src(instr, *idx-1);
