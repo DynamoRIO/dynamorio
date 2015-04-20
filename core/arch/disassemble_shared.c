@@ -884,20 +884,27 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         instr_info_extra_opnds(info) == NULL)
         multiple_encodings = true;
 
-    /* FIXME i#1683: avoid the cost of encoding unless at L4 */
-    info = get_encoding_info(instr);
-    if (info == NULL) {
-        print_to_buffer(buf, bufsz, sofar, "<INVALID>");
-        return;
-    }
+    IF_X86({ /* XXX i#1683: not using yet on ARM so avoiding the cost */
+        /* XXX: avoid the cost of encoding unless at L4 */
+        info = get_encoding_info(instr);
+        if (info == NULL) {
+            print_to_buffer(buf, bufsz, sofar, "<INVALID>");
+            return;
+        }
+    });
     num = dsts_first() ? instr_num_dsts(instr) : instr_num_srcs(instr);
     for (i=0; i<num; i++) {
         bool printing;
         opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
-        /* FIXME i#1683: -syntax_arm currently fails here on register lists and will
-         * trigger the assert in instr_info_opnd_type().
-         */
-        optype = instr_info_opnd_type(info, !dsts_first(), i);
+        IF_X86_ELSE({
+            optype = instr_info_opnd_type(info, !dsts_first(), i);
+        }, {
+            /* XXX i#1683: -syntax_arm currently fails here on register lists and will
+             * trigger the assert in instr_info_opnd_type().  We don't use the optype on
+             * ARM yet though.
+             */
+            optype = 0;
+        });
         printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
                                                instr, optype, opnd, prev,
                                                multiple_encodings, dsts_first(), &i);
@@ -908,21 +915,30 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     }
     num = dsts_first() ? instr_num_srcs(instr) : instr_num_dsts(instr);
     for (i=0; i<num; i++) {
+        bool print = true;
         opnd = dsts_first() ? instr_get_src(instr, i) : instr_get_dst(instr, i);
-        optype = instr_info_opnd_type(info, dsts_first(), i);
-        /* PR 312458: still not matching Intel-style tools like windbg or udis86:
-         * we need to suppress certain implicit operands, such as:
-         * - div dx, ax
-         * - imul ax
-         * - idiv edx, eax
-         * - in al
-         */
+        IF_X86_ELSE({
+            optype = instr_info_opnd_type(info, dsts_first(), i);
+        }, {
+            /* XXX i#1683: see comment above */
+            optype = 0;
+        });
+        IF_X86({
+            /* PR 312458: still not matching Intel-style tools like windbg or udis86:
+             * we need to suppress certain implicit operands, such as:
+             * - div dx, ax
+             * - imul ax
+             * - idiv edx, eax
+             * - in al
+             */
 
-        /* Don't re-do src==dst of ALU ops */
-        if ((optype != optype_already[0] && optype != optype_already[1] &&
-             optype != optype_already[2]) ||
-            /* Don't suppress 2nd of st* if FP ALU */
-            (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd)))) {
+            /* Don't re-do src==dst of ALU ops */
+            print = ((optype != optype_already[0] && optype != optype_already[1] &&
+                      optype != optype_already[2]) ||
+                     /* Don't suppress 2nd of st* if FP ALU */
+                     (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
+        });
+        if (print) {
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
                                                instr, optype, opnd, prev,
                                                multiple_encodings, !dsts_first(), &i)

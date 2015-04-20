@@ -740,6 +740,8 @@ typedef enum _dr_opnd_flags_t {
     DR_OPND_MULTI_PART = 0x04,
     /** This immediate integer operand should be interpreted as an ARM shift type. */
     DR_OPND_IS_SHIFT   = 0x08,
+    /** A hint indicating that this register operand is part of a register list. */
+    DR_OPND_IN_LIST    = 0x10,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR

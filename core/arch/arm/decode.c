@@ -593,6 +593,7 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     if (count > 0)
         count--; /* The prior was already added */
     first_reg = opnd_get_reg(array[*counter-1]);
+    opnd_set_flags(&array[(*counter)-1], DR_OPND_IN_LIST);
     di->reglist_sz = 0;
     for (i = 0; i < count; i++) {
         LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n",
@@ -605,7 +606,8 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
              */
             break;
         }
-        array[(*counter)++] = opnd_create_reg_ex(first_reg + 1 + i, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(first_reg + 1 + i, downsz,
+                                                 DR_OPND_IN_LIST);
         di->reglist_sz += opnd_size_in_bytes(downsz);
     }
     if (di->mem_needs_reglist_sz != NULL)
@@ -935,10 +937,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                     (optype == TYPE_L_9b_LR || optype == TYPE_L_9b_PC)) {
                     array[(*counter)++] =
                         opnd_create_reg_ex(optype == TYPE_L_9b_LR ? DR_REG_LR : DR_REG_PC,
-                                           downsz, 0);
+                                           downsz, DR_OPND_IN_LIST);
                 } else {
                     array[(*counter)++] =
-                        opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, 0);
+                        opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, DR_OPND_IN_LIST);
                 }
                 di->reglist_sz += opnd_size_in_bytes(downsz);
             }
@@ -959,20 +961,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         uint inc = 1;
         if (optype == TYPE_L_VBx2D || optype == TYPE_L_VBx3D || optype == TYPE_L_VBx4D)
             inc = 2;
-        array[(*counter)++] = opnd_create_reg_ex(start, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start, downsz, DR_OPND_IN_LIST);
         if (reg_is_past_last_simd(start, inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VBx2 || optype == TYPE_L_VBx2D)
             return true;
         if (reg_is_past_last_simd(start, 2*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VBx3 || optype == TYPE_L_VBx3D)
             return true;
         if (reg_is_past_last_simd(start, 3*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, DR_OPND_IN_LIST);
         return true;
     }
     case TYPE_L_VAx2:
@@ -980,20 +982,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_L_VAx4: {
         reg_id_t start = decode_vregA(di, upsz);
         uint inc = 1;
-        array[(*counter)++] = opnd_create_reg_ex(start, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start, downsz, DR_OPND_IN_LIST);
         if (reg_is_past_last_simd(start, inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VAx2)
             return true;
         if (reg_is_past_last_simd(start, 2*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VAx3)
             return true;
         if (reg_is_past_last_simd(start, 3*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, DR_OPND_IN_LIST);
         return true;
     }
 

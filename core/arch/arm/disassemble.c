@@ -184,7 +184,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             bool dst, int *idx INOUT)
 {
     /* FIXME i#1683: we need to avoid the implicit dst-as-src regs for instrs
-     * such as OP_smlal.
+     * such as OP_smlal, writeback implicit operands, register list base disp
+     * offsets, etc.
+     */
+    /* XXX i#1683: we're relying on flags added by the decoder and by the
+     * INSTR_CREATE_ macros: DR_OPND_IS_SHIFT, DR_OPND_IN_LIST.
+     * For arbitrary level 4 instrs, we should have our encoder set these
+     * flags too.
      */
     if (prev) {
         bool printed = false;
@@ -202,6 +208,24 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         }
         if (!printed)
             print_to_buffer(buf, bufsz, sofar, ", ");
+    }
+    /* For now we do not print ranges as "r0-r4" but print each reg.
+     * This matches some other decoders but not all.
+     */
+    if (opnd_is_reg(opnd) && TEST(DR_OPND_IN_LIST, opnd_get_flags(opnd))) {
+        int max = dst ? instr_num_dsts(instr) : instr_num_srcs(instr);
+        opnd_t adj = opnd_create_null();
+        if (*idx > 0)
+            adj = dst ? instr_get_dst(instr, *idx-1) : instr_get_src(instr, *idx-1);
+        if (!opnd_is_reg(adj) || !TEST(DR_OPND_IN_LIST, opnd_get_flags(adj)))
+            print_to_buffer(buf, bufsz, sofar, "{");
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
+        adj = opnd_create_null();
+        if (*idx+1 < max)
+            adj = dst ? instr_get_dst(instr, *idx+1) : instr_get_src(instr, *idx+1);
+        if (!opnd_is_reg(adj) || !TEST(DR_OPND_IN_LIST, opnd_get_flags(adj)))
+            print_to_buffer(buf, bufsz, sofar, "}");
+        return true;
     }
     internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
     return true;
