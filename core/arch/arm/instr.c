@@ -207,6 +207,48 @@ instr_writes_gpr_list(instr_t *instr)
 }
 
 bool
+instr_reads_reg_list(instr_t *instr)
+{
+    int opc = instr_get_opcode(instr);
+    switch (opc) {
+    case OP_stm:
+    case OP_stmib:
+    case OP_stmda:
+    case OP_stmdb:
+    case OP_stm_priv:
+    case OP_stmib_priv:
+    case OP_stmda_priv:
+    case OP_stmdb_priv:
+    case OP_vstm:
+    case OP_vstmdb:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool
+instr_writes_reg_list(instr_t *instr)
+{
+    int opc = instr_get_opcode(instr);
+    switch (opc) {
+    case OP_ldm:
+    case OP_ldmib:
+    case OP_ldmda:
+    case OP_ldmdb:
+    case OP_ldm_priv:
+    case OP_ldmib_priv:
+    case OP_ldmda_priv:
+    case OP_ldmdb_priv:
+    case OP_vldm:
+    case OP_vldmdb:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool
 instr_is_return(instr_t *instr)
 {
     /* There is no "return" opcode so we consider a return to be either:

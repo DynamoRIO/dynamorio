@@ -78,6 +78,10 @@ void
 internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                           dcontext_t *dcontext, opnd_t opnd,
                           bool use_size_sfx);
+void
+reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                reg_id_t reg, dr_opnd_flags_t flags,
+                const char *prefix, const char *suffix);
 
 const char *
 instr_predicate_name(dr_pred_type_t pred)
@@ -184,14 +188,16 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             bool dst, int *idx INOUT)
 {
     /* FIXME i#1683: we need to avoid the implicit dst-as-src regs for instrs
-     * such as OP_smlal, writeback implicit operands, register list base disp
-     * offsets, etc.
+     * such as OP_smlal and writeback implicit operands.
      */
     /* XXX i#1683: we're relying on flags added by the decoder and by the
      * INSTR_CREATE_ macros: DR_OPND_IS_SHIFT, DR_OPND_IN_LIST.
      * For arbitrary level 4 instrs, we should have our encoder set these
      * flags too.
      */
+    bool reads_list = instr_reads_reg_list(instr);
+    bool writes_list = instr_writes_reg_list(instr);
+
     if (prev) {
         bool printed = false;
         if (*idx > 0) {
@@ -209,10 +215,28 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         if (!printed)
             print_to_buffer(buf, bufsz, sofar, ", ");
     }
-    /* For now we do not print ranges as "r0-r4" but print each reg.
-     * This matches some other decoders but not all.
-     */
+
+    /* Base reg for register list printed first w/o decoration */
+    if (*idx == 0 && dst && (reads_list || writes_list)) {
+        opnd_t memop;
+        if (reads_list)
+            memop = opnd;
+        if (writes_list)
+            memop = instr_get_src(instr, 0);
+        CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
+        reg_disassemble(buf, bufsz, sofar, opnd_get_base(memop), 0, "",
+                        writes_list ? ", " : "");
+        if (reads_list)
+            return true;
+    }
+    if (writes_list && opnd_is_base_disp(opnd))
+        return false; /* already printed */
+
+    /* Register lists */
     if (opnd_is_reg(opnd) && TEST(DR_OPND_IN_LIST, opnd_get_flags(opnd))) {
+        /* For now we do not print ranges as "r0-r4" but print each reg.
+         * This matches some other decoders but not all.
+         */
         int max = dst ? instr_num_dsts(instr) : instr_num_srcs(instr);
         opnd_t adj = opnd_create_null();
         if (*idx > 0)
@@ -227,6 +251,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             print_to_buffer(buf, bufsz, sofar, "}");
         return true;
     }
+
     internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
     return true;
 }

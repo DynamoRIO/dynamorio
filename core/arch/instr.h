@@ -2114,6 +2114,12 @@ instr_reads_gpr_list(instr_t *instr);
 
 bool
 instr_writes_gpr_list(instr_t *instr);
+
+bool
+instr_reads_reg_list(instr_t *instr);
+
+bool
+instr_writes_reg_list(instr_t *instr);
 #endif
 
 DR_API

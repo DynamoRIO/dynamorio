@@ -257,8 +257,7 @@ opnd_size_suffix_intel(opnd_t opnd)
 }
 
 static void
-opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            dcontext_t *dcontext, opnd_t opnd)
+opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
     if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
         const char *size_str = opnd_size_suffix_intel(opnd);
@@ -272,15 +271,14 @@ opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 static void
-opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                           dcontext_t *dcontext, opnd_t opnd)
+opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
     reg_id_t seg = opnd_get_segment(opnd);
     reg_id_t base = opnd_get_base(opnd);
     int disp = opnd_get_disp(opnd);
     reg_id_t index = opnd_get_index(opnd);
 
-    opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
+    opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
 
     if (seg != REG_NULL)
         reg_disassemble(buf, bufsz, sofar, seg, 0, "", ":");
@@ -626,14 +624,14 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         opnd_get_flags(opnd), "", "");
         break;
     case BASE_DISP_kind:
-        opnd_base_disp_disassemble(buf, bufsz, sofar, dcontext, opnd);
+        opnd_base_disp_disassemble(buf, bufsz, sofar, opnd);
         break;
 #ifdef X64
     case REL_ADDR_kind:
         print_to_buffer(buf, bufsz, sofar, "<rel> ");
         /* fall-through */
     case ABS_ADDR_kind:
-        opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
+        opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
         if (opnd_get_segment(opnd) != REG_NULL)
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", ":");
         print_to_buffer(buf, bufsz, sofar, PFX"%s", opnd_get_addr(opnd),
