@@ -97,9 +97,8 @@ void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd);
 
-int
-opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          instr_t *instr, int idx);
+bool
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd);
 
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
@@ -539,6 +538,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                           dcontext_t *dcontext, opnd_t opnd,
                           bool use_size_sfx)
 {
+    if (opnd_disassemble_arch(buf, bufsz, sofar, opnd))
+        return;
+
     switch (opnd.kind) {
     case NULL_kind:
         return;
@@ -882,6 +884,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         instr_info_extra_opnds(info) == NULL)
         multiple_encodings = true;
 
+    /* FIXME i#1683: avoid the cost of encoding unless at L4 */
     info = get_encoding_info(instr);
     if (info == NULL) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
@@ -1122,7 +1125,6 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             print_to_buffer(buf, bufsz, sofar, " ");
         sign_extend_immed(instr, i, &src);
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
-        i = opnd_disassemble_src_arch(buf, bufsz, sofar, instr, i);
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, " ->");

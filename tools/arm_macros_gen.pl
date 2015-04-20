@@ -483,6 +483,10 @@ foreach my $opc (keys %entry) {
             $esig =~ s/^mem//;
         }
 
+        if ($sig =~ /\bshift\b/) {
+            $sig =~ s/\bshift/opnd_add_flags(shift DR_OPND_IS_SHIFT)/;
+        }
+
         # Hardcoded implicit args:
         # SPw, LSL, and ASR, and the k8, k16, k32 consts are explicit in the asm.
         # LRw for OP_bl is not.

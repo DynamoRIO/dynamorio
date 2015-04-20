@@ -119,40 +119,39 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
 static void
 disassemble_shift(char *buf, size_t bufsz, size_t *sofar INOUT, const char *prefix,
                   const char *suffix,
-                  dr_shift_type_t shift, bool immed_amount, uint amount)
+                  dr_shift_type_t shift, bool print_amount, uint amount)
 {
     switch (shift) {
     case DR_SHIFT_NONE:
         break;
     case DR_SHIFT_RRX:
         print_to_buffer(buf, bufsz, sofar, "%srrx", prefix);
-        /* XXX i#1551: do not print amount for ARM style */
-        if (immed_amount)
+        if (print_amount && !DYNAMO_OPTION(syntax_arm))
             print_to_buffer(buf, bufsz, sofar, " %d", amount);
         break;
     case DR_SHIFT_LSL:
         /* XXX i#1551: use #%d for ARM style */
         print_to_buffer(buf, bufsz, sofar, "%slsl", prefix);
-        if (immed_amount)
+        if (print_amount)
             print_to_buffer(buf, bufsz, sofar, " %d", amount);
         break;
     case DR_SHIFT_LSR:
         print_to_buffer(buf, bufsz, sofar, "%slsr", prefix);
-        if (immed_amount)
+        if (print_amount)
             print_to_buffer(buf, bufsz, sofar, " %d", amount);
         break;
     case DR_SHIFT_ASR:
         print_to_buffer(buf, bufsz, sofar, "%sasr", prefix);
-        if (immed_amount)
+        if (print_amount)
             print_to_buffer(buf, bufsz, sofar, " %d", amount);
         break;
     case DR_SHIFT_ROR:
         print_to_buffer(buf, bufsz, sofar, "%sror", prefix);
-        if (immed_amount)
+        if (print_amount)
             print_to_buffer(buf, bufsz, sofar, " %d", amount);
         break;
     default:
-        print_to_buffer(buf, bufsz, sofar, ",UNKNOWN SHIFT");
+        print_to_buffer(buf, bufsz, sofar, "%s<UNKNOWN SHIFT>", prefix);
         break;
     }
     print_to_buffer(buf, bufsz, sofar, "%s", suffix);
@@ -167,36 +166,15 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     disassemble_shift(buf, bufsz, sofar, ",", "", shift, true, amount);
 }
 
-int
-opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          instr_t *instr, int idx)
+bool
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
-    opnd_t src = instr_get_src(instr, idx);
-    /* XXX i#1683: our disassembly in ARM syntax is fragile.  Printing individual
-     * shift operands will just print the immed int value: only in an instr will
-     * we print the shift type (e.g., "lsl").  Should we try to do better?  That
-     * would require flags on immed ints, or new opnd types though.
-     */
-    if (opnd_is_reg(src) && TEST(DR_OPND_SHIFTED, opnd_get_flags(src)) &&
-        idx + 2 < instr_num_srcs(instr)) {
-        opnd_t nxt = instr_get_src(instr, idx + 1);
-        if (opnd_is_immed_int(nxt)) {
-            dr_shift_type_t shift = (dr_shift_type_t) opnd_get_immed_int(nxt);
-            opnd_t nxt2 = instr_get_src(instr, idx + 2);
-            bool immed_amount = opnd_is_immed_int(nxt2);
-            disassemble_shift(buf, bufsz, sofar, DYNAMO_OPTION(syntax_arm) ? ", " : " ",
-                              "", shift, immed_amount,
-                              immed_amount ? opnd_get_immed_int(nxt2) : 0);
-            /* XXX i#1683: we want to avoid the comma between the shift type
-             * and the register for register-shifted.  We need to either print
-             * the reg here (though we don't have enough info: need optype, etc.)
-             * or have some state passed through.  Leaning toward the latter, which
-             * may help implement reg lists too.
-             */
-            return (immed_amount ? idx + 2 : idx + 1);
-        }
+    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
+        dr_shift_type_t shift = (dr_shift_type_t) opnd_get_immed_int(opnd);
+        disassemble_shift(buf, bufsz, sofar, "", "", shift, false, 0);
+        return true;
     }
-    return idx;
+    return false;
 }
 
 bool
@@ -208,11 +186,24 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     /* FIXME i#1683: we need to avoid the implicit dst-as-src regs for instrs
      * such as OP_smlal.
      */
-    if (prev)
-        print_to_buffer(buf, bufsz, sofar, ", ");
+    if (prev) {
+        bool printed = false;
+        if (*idx > 0) {
+            opnd_t prior = dst ? instr_get_dst(instr, *idx-1) :
+                instr_get_src(instr, *idx-1);
+            if (opnd_is_immed_int(prior) &&
+                TEST(DR_OPND_IS_SHIFT, opnd_get_flags(prior))) {
+                if (opnd_get_immed_int(prior) == DR_SHIFT_RRX)
+                    return true; /* do not print value, which is always 1 */
+                /* No comma in between */
+                print_to_buffer(buf, bufsz, sofar, " ");
+                printed = true;
+            }
+        }
+        if (!printed)
+            print_to_buffer(buf, bufsz, sofar, ", ");
+    }
     internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
-    if (!dst)
-        *idx = opnd_disassemble_src_arch(buf, bufsz, sofar, instr, *idx);
     return true;
 }
 

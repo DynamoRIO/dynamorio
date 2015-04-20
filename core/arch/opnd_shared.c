@@ -197,6 +197,13 @@ opnd_set_flags(opnd_t *opnd, dr_opnd_flags_t flags)
     opnd->aux.flags = flags;
 }
 
+opnd_t
+opnd_add_flags(opnd_t opnd, dr_opnd_flags_t flags)
+{
+    opnd_set_flags(&opnd, flags | opnd.aux.flags);
+    return opnd;
+}
+
 opnd_size_t
 opnd_get_size(opnd_t opnd)
 {

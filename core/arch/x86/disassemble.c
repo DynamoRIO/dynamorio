@@ -121,12 +121,11 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     }
 }
 
-int
-opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          instr_t *instr, int idx)
+bool
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
     /* nothing */
-    return idx;
+    return false;
 }
 
 static bool

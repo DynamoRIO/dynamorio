@@ -207,6 +207,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_set_client_version_string().
  - Added instr_get_prev_app() and instrlist_last_app().
  - Added the \ref op_syntax_arm "-syntax_arm" runtime option.
+ - Added opnd_add_flags().
 
 **************************************************
 <hr>

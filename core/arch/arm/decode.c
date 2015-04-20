@@ -683,11 +683,10 @@ decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
             array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
             array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
         }
+        opnd_set_flags(&array[*counter - 2], DR_OPND_IS_SHIFT);
         CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),
                       "invalid shift sequence");
-        array[*counter - 3] = opnd_create_reg_ex(opnd_get_reg(array[*counter - 3]),
-                                                 opnd_get_size(array[*counter - 3]),
-                                                 DR_OPND_SHIFTED);
+        opnd_set_flags(&array[*counter - 3], DR_OPND_SHIFTED);
     }
 }
 
