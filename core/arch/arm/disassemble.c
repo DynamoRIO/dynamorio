@@ -55,20 +55,20 @@
 
 static const char * const pred_names[] = {
     "",    /* DR_PRED_NONE */
-    ".eq", /* DR_PRED_EQ */
-    ".ne", /* DR_PRED_NE */
-    ".cs", /* DR_PRED_CS */
-    ".cc", /* DR_PRED_CC */
-    ".mi", /* DR_PRED_MI */
-    ".pl", /* DR_PRED_PL */
-    ".vs", /* DR_PRED_VS */
-    ".vc", /* DR_PRED_VC */
-    ".hi", /* DR_PRED_HI */
-    ".ls", /* DR_PRED_LS */
-    ".ge", /* DR_PRED_GE */
-    ".lt", /* DR_PRED_LT */
-    ".gt", /* DR_PRED_GT */
-    ".le", /* DR_PRED_LE */
+    "eq", /* DR_PRED_EQ */
+    "ne", /* DR_PRED_NE */
+    "cs", /* DR_PRED_CS */
+    "cc", /* DR_PRED_CC */
+    "mi", /* DR_PRED_MI */
+    "pl", /* DR_PRED_PL */
+    "vs", /* DR_PRED_VS */
+    "vc", /* DR_PRED_VC */
+    "hi", /* DR_PRED_HI */
+    "ls", /* DR_PRED_LS */
+    "ge", /* DR_PRED_GE */
+    "lt", /* DR_PRED_LT */
+    "gt", /* DR_PRED_GT */
+    "le", /* DR_PRED_LE */
     "",    /* DR_PRED_AL */
     "",    /* DR_PRED_OP */
 };
@@ -301,7 +301,10 @@ print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT
      */
     dr_pred_type_t pred = instr_get_predicate(instr);
     size_t pre_sofar = *sofar;
-    print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);
+    print_to_buffer(buf, bufsz, sofar, "%s%s",
+                    /* The . really helps to distinguish from the opcode for DR style */
+                    DYNAMO_OPTION(syntax_arm) ? "" :
+                    (pred_names[pred][0] != '\0' ? "." : ""), pred_names[pred]);
     if (instr_get_opcode(instr) == OP_it &&
         opnd_is_immed_int(instr_get_src(instr, 0)) &&
         opnd_is_immed_int(instr_get_src(instr, 1))) {
