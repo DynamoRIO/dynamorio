@@ -149,7 +149,8 @@ instr_implicit_reg(instr_t *instr)
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
-                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings)
+                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings,
+                            bool dst, int *idx INOUT)
 {
     switch (optype) {
     case TYPE_REG:

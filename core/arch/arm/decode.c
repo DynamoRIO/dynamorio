@@ -666,23 +666,23 @@ static void
 decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
 {
     if (*counter > 2 &&
-        di->shift_type_idx == *counter - 2 &&
-        /* We only need to do this for shifts whose amount is an immed.
-         * When the amount is in a reg, only the low 4 DR_SHIFT_* are valid,
-         * and they match the encoded values.
-         */
-        opnd_is_immed_int(array[*counter - 1])) {
-        /* Mark the register as shifted and move the two immediates to a
-         * higher abstraction layer.  Note that b/c we map the lower 4
-         * DR_SHIFT_* values to the encoded values, we can handle either
-         * raw or higher-layer values at encode time.
-         */
-        ptr_int_t sh2 = opnd_get_immed_int(array[*counter - 2]);
-        ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
-        uint amount;
-        dr_shift_type_t type = decode_shift_values(sh2, val, &amount);
-        array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
-        array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
+        di->shift_type_idx == *counter - 2) {
+        /* Mark the register as shifted for proper disassembly. */
+        if (opnd_is_immed_int(array[*counter - 1])) {
+            /* Move the two immediates to a higher abstraction layer.  Note that
+             * b/c we map the lower 4 DR_SHIFT_* values to the encoded values,
+             * we can handle either raw or higher-layer values at encode time.
+             * We only need to do this for shifts whose amount is an immed.
+             * When the amount is in a reg, only the low 4 DR_SHIFT_* are valid,
+             * and they match the encoded values.
+             */
+            ptr_int_t sh2 = opnd_get_immed_int(array[*counter - 2]);
+            ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
+            uint amount;
+            dr_shift_type_t type = decode_shift_values(sh2, val, &amount);
+            array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
+            array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
+        }
         CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),
                       "invalid shift sequence");
         array[*counter - 3] = opnd_create_reg_ex(opnd_get_reg(array[*counter - 3]),
@@ -786,6 +786,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_R_C:
     case TYPE_R_C_TOP: /* we aren't storing whether top in our IR */
         array[(*counter)++] = opnd_create_reg_ex(decode_regC(di), downsz, 0);
+        if (di->shift_type_idx < UINT_MAX)
+            decode_register_shift(di, array, counter);
         return true;
     case TYPE_R_D:
     case TYPE_R_D_TOP: /* we aren't storing whether top in our IR */

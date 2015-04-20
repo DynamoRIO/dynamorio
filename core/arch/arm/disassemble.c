@@ -172,6 +172,11 @@ opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
                           instr_t *instr, int idx)
 {
     opnd_t src = instr_get_src(instr, idx);
+    /* XXX i#1683: our disassembly in ARM syntax is fragile.  Printing individual
+     * shift operands will just print the immed int value: only in an instr will
+     * we print the shift type (e.g., "lsl").  Should we try to do better?  That
+     * would require flags on immed ints, or new opnd types though.
+     */
     if (opnd_is_reg(src) && TEST(DR_OPND_SHIFTED, opnd_get_flags(src)) &&
         idx + 2 < instr_num_srcs(instr)) {
         opnd_t nxt = instr_get_src(instr, idx + 1);
@@ -179,8 +184,15 @@ opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
             dr_shift_type_t shift = (dr_shift_type_t) opnd_get_immed_int(nxt);
             opnd_t nxt2 = instr_get_src(instr, idx + 2);
             bool immed_amount = opnd_is_immed_int(nxt2);
-            disassemble_shift(buf, bufsz, sofar, " ", "", shift, immed_amount,
+            disassemble_shift(buf, bufsz, sofar, DYNAMO_OPTION(syntax_arm) ? ", " : " ",
+                              "", shift, immed_amount,
                               immed_amount ? opnd_get_immed_int(nxt2) : 0);
+            /* XXX i#1683: we want to avoid the comma between the shift type
+             * and the register for register-shifted.  We need to either print
+             * the reg here (though we don't have enough info: need optype, etc.)
+             * or have some state passed through.  Leaning toward the latter, which
+             * may help implement reg lists too.
+             */
             return (immed_amount ? idx + 2 : idx + 1);
         }
     }
@@ -190,7 +202,8 @@ opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
-                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings)
+                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings,
+                            bool dst, int *idx INOUT)
 {
     /* FIXME i#1683: we need to avoid the implicit dst-as-src regs for instrs
      * such as OP_smlal.
@@ -198,6 +211,8 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     if (prev)
         print_to_buffer(buf, bufsz, sofar, ", ");
     internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
+    if (!dst)
+        *idx = opnd_disassemble_src_arch(buf, bufsz, sofar, instr, *idx);
     return true;
 }
 

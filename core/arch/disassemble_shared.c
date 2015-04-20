@@ -104,7 +104,8 @@ opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
-                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings);
+                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings,
+                            bool dst, int *idx INOUT);
 
 const char *
 instr_opcode_name_arch(instr_t *instr, const instr_info_t *info);
@@ -896,7 +897,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         optype = instr_info_opnd_type(info, !dsts_first(), i);
         printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
                                                instr, optype, opnd, prev,
-                                               multiple_encodings);
+                                               multiple_encodings, dsts_first(), &i);
         /* w/o the "printing" check we suppress "push esp" => "push" */
         if (printing && i < 3)
             optype_already[i] = optype;
@@ -921,7 +922,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd)))) {
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
                                                instr, optype, opnd, prev,
-                                               multiple_encodings)
+                                               multiple_encodings, !dsts_first(), &i)
                 || prev;
         }
     }

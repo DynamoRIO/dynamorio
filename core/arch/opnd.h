@@ -713,7 +713,7 @@ typedef enum _dr_shift_type_t {
 } dr_shift_type_t;
 
 /**
- * These flags describe operations performed on the value of a source  register
+ * These flags describe operations performed on the value of a source register
  * before it is combined with other sources as part of the behavior of the
  * containing instruction, or operations performed on an index register or
  * displacement before it is added to or subtracted from the base register.
