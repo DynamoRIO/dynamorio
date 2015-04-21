@@ -1019,13 +1019,13 @@ const instr_info_t A32_ext_simd6[][64] = {
     {OP_vqshl_u16,      0xf3900750, "vqshl.u16",      VBdq, xx, VCdq, i4_16, xx, no, x, tsi6[7][0x13]},/*XXX: imm = imm-16*/
     /* 0x80 */
     {OP_vmlal_u16,      0xf3900800, "vmlal.u16",      VBdq, xx, VAq, VCq, xx, no, x, tsi6[10][0x0a]},
-    {OP_vqshrn_u32,     0xf3900810, "vqshrn.u32",     VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
+    {OP_vqshrun_s32,    0xf3900810, "vqshrun.s32",    VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
     {OP_vmul_i16,       0xf3900840, "vmul.i16",       VBdq, xx, VAdq, VC3h_q, i2x5_3, no, x, tsi6[1][0x27]},
-    {OP_vqrshrn_u32,    0xf3900850, "vqrshrn.u32",    VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
+    {OP_vqrshrun_s32,   0xf3900850, "vqrshrun.s32",   VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
     {INVALID,           0xf3900900, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vqshrun_s32,    0xf3900910, "vqshrun.s32",    VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
+    {OP_vqshrn_u32,     0xf3900910, "vqshrn.u32",     VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
     {INVALID,           0xf3900940, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vqrshrun_s32,   0xf3900950, "vqrshrun.s32",   VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
+    {OP_vqrshrn_u32,    0xf3900950, "vqrshrn.u32",    VBq, xx, VCdq, i4_16, xx, no, x, END_LIST},/*XXX: imm = 16-imm*/
     {OP_vmlsl_u16,      0xf3900a00, "vmlsl.u16",      VBdq, xx, VAq, VCq, xx, no, x, tsi6[10][0x1a]},
     {EXT_IMM1916,       0xf3900a10, "(ext imm1916 2)", xx, xx, xx, xx, xx, no, x, 2},
     {OP_vmull_u16,      0xf3900a40, "vmull.u16",      VBdq, xx, VAq, VC3h_q, i2x5_3, no, x, END_LIST},
@@ -1086,13 +1086,13 @@ const instr_info_t A32_ext_simd6[][64] = {
     {OP_vqshl_u32,      0xf3a00750, "vqshl.u32",      VBdq, xx, VCdq, i5_16, xx, no, x, tsi6[8][0x13]},/*XXX: imm = imm-32*/
     /* 0x80 */
     {OP_vmlal_u32,      0xf3a00800, "vmlal.u32",      VBdq, xx, VAq, VCq, xx, no, x, tsi6[11][0x0a]},
-    {OP_vqshrn_u64,     0xf3a00810, "vqshrn.u64",     VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
+    {OP_vqshrun_s64,    0xf3a00810, "vqshrun.s64",    VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
     {OP_vmul_i32,       0xf3a00840, "vmul.i32",       VBdq, xx, VAdq, VC4d_q, i1_5, no, x, tsi6[2][0x27]},
-    {OP_vqrshrn_u64,    0xf3a00850, "vqrshrn.u64",    VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
+    {OP_vqrshrun_s64,   0xf3a00850, "vqrshrun.s64",   VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
     {INVALID,           0xf3a00900, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vqshrun_s64,    0xf3a00910, "vqshrun.s64",    VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
+    {OP_vqshrn_u64,     0xf3a00910, "vqshrn.u64",     VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
     {OP_vmul_f32,       0xf3a00940, "vmul.f32",       VBdq, xx, VAdq, VC4d_q, i1_5, no, x, tsi6[6][0x37]},
-    {OP_vqrshrun_s64,   0xf3a00950, "vqrshrun.s64",   VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
+    {OP_vqrshrn_u64,    0xf3a00950, "vqrshrn.u64",    VBq, xx, VCdq, i5_16, xx, no, x, END_LIST},/*XXX: imm = 32-imm*/
     {OP_vmlsl_u32,      0xf3a00a00, "vmlsl.u32",      VBdq, xx, VAq, VCq, xx, no, x, tsi6[11][0x1a]},
     {EXT_IMM2016,       0xf3a00a10, "(ext imm2016 1)", xx, xx, xx, xx, xx, no, x, 1},
     {OP_vmull_u32,      0xf3a00a40, "vmull.u32",      VBdq, xx, VAq, VC4d_q, i1_5, no, x, END_LIST},
@@ -1172,10 +1172,10 @@ const instr_info_t A32_ext_simd5[][32] = {
     {OP_vqshlu_s8,      0xf3880650, "vqshlu.s8",      VBdq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = imm-8*/
     {OP_vqshl_u8,       0xf3880710, "vqshl.u8",       VBq, xx, VCq, i3_16, xx, no, x, tsi6[6][0x11]},/*XXX: imm = imm-8*/
     {OP_vqshl_u8,       0xf3880750, "vqshl.u8",       VBdq, xx, VCdq, i3_16, xx, no, x, tsi6[6][0x13]},/*XXX: imm = imm-8*/
-    {OP_vqshrn_u16,     0xf3880810, "vqshrn.u16",     VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
-    {OP_vqrshrn_u16,    0xf3880850, "vqrshrn.u16",    VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
-    {OP_vqshrun_s16,    0xf3880910, "vqshrun.s16",    VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
-    {OP_vqrshrun_s16,   0xf3880950, "vqrshrun.s16",   VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
+    {OP_vqshrun_s16,    0xf3880810, "vqshrun.s16",    VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
+    {OP_vqrshrun_s16,   0xf3880850, "vqrshrun.s16",   VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
+    {OP_vqshrn_u16,     0xf3880910, "vqshrn.u16",     VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
+    {OP_vqrshrn_u16,    0xf3880950, "vqrshrn.u16",    VBq, xx, VCdq, i3_16, xx, no, x, END_LIST},/*XXX: imm = 8-imm*/
     {EXT_IMM1816,       0xf3880a10, "(ext imm1816 1)", xx, xx, xx, xx, xx, no, x, 1},
     {INVALID,           0xf3880a50, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,           0xf3880b10, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
