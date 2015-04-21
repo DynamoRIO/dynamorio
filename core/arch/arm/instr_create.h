@@ -3950,8 +3950,8 @@
   instr_create_1dst_2src((dc), OP_vrshrn_i16, (Vd), (Vm), (imm))
 #define INSTR_CREATE_vrshrn_i32(dc, Vd, Vm, imm) \
   instr_create_1dst_2src((dc), OP_vrshrn_i32, (Vd), (Vm), (imm))
-#define INSTR_CREATE_vrshrn_i8(dc, Vd, Vm, imm) \
-  instr_create_1dst_2src((dc), OP_vrshrn_i8, (Vd), (Vm), (imm))
+#define INSTR_CREATE_vrshrn_i64(dc, Vd, Vm, imm) \
+  instr_create_1dst_2src((dc), OP_vrshrn_i64, (Vd), (Vm), (imm))
 #define INSTR_CREATE_vrsra_s16(dc, Vd, Vm, imm) \
   instr_create_1dst_2src((dc), OP_vrsra_s16, (Vd), (Vm), (imm))
 #define INSTR_CREATE_vrsra_s32(dc, Vd, Vm, imm) \
@@ -4014,8 +4014,8 @@
   instr_create_1dst_2src((dc), OP_vshrn_i16, (Vd), (Vm), (imm))
 #define INSTR_CREATE_vshrn_i32(dc, Vd, Vm, imm) \
   instr_create_1dst_2src((dc), OP_vshrn_i32, (Vd), (Vm), (imm))
-#define INSTR_CREATE_vshrn_i8(dc, Vd, Vm, imm) \
-  instr_create_1dst_2src((dc), OP_vshrn_i8, (Vd), (Vm), (imm))
+#define INSTR_CREATE_vshrn_i64(dc, Vd, Vm, imm) \
+  instr_create_1dst_2src((dc), OP_vshrn_i64, (Vd), (Vm), (imm))
 #define INSTR_CREATE_vsli_16(dc, Vd, Vm, imm) \
   instr_create_1dst_2src((dc), OP_vsli_16, (Vd), (Vm), (imm))
 #define INSTR_CREATE_vsli_32(dc, Vd, Vm, imm) \

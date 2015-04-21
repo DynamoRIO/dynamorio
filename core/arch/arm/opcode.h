@@ -850,7 +850,7 @@ enum {
 /* 784 */     OP_vrshr_u8,        /**< ARM vrshr_u8 opcode. */
 /* 785 */     OP_vrshrn_i16,      /**< ARM vrshrn_i16 opcode. */
 /* 786 */     OP_vrshrn_i32,      /**< ARM vrshrn_i32 opcode. */
-/* 787 */     OP_vrshrn_i8,       /**< ARM vrshrn_i8 opcode. */
+/* 787 */     OP_vrshrn_i64,      /**< ARM vrshrn_i64 opcode. */
 /* 788 */     OP_vrsqrte_f32,     /**< ARM vrsqrte_f32 opcode. */
 /* 789 */     OP_vrsqrte_u32,     /**< ARM vrsqrte_u32 opcode. */
 /* 790 */     OP_vrsqrts_f32,     /**< ARM vrsqrts_f32 opcode. */
@@ -904,7 +904,7 @@ enum {
 /* 838 */     OP_vshr_u8,         /**< ARM vshr_u8 opcode. */
 /* 839 */     OP_vshrn_i16,       /**< ARM vshrn_i16 opcode. */
 /* 840 */     OP_vshrn_i32,       /**< ARM vshrn_i32 opcode. */
-/* 841 */     OP_vshrn_i8,        /**< ARM vshrn_i8 opcode. */
+/* 841 */     OP_vshrn_i64,       /**< ARM vshrn_i64 opcode. */
 /* 842 */     OP_vsli_16,         /**< ARM vsli_16 opcode. */
 /* 843 */     OP_vsli_32,         /**< ARM vsli_32 opcode. */
 /* 844 */     OP_vsli_64,         /**< ARM vsli_64 opcode. */
