@@ -198,6 +198,24 @@ instr_is_non_list_load(instr_t *instr, int *num_toload OUT)
     return false;
 }
 
+static bool
+instr_is_priv_reglist(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr);
+    switch (opcode) {
+    case OP_ldm_priv:
+    case OP_ldmda_priv:
+    case OP_ldmdb_priv:
+    case OP_ldmib_priv:
+    case OP_stm_priv:
+    case OP_stmda_priv:
+    case OP_stmdb_priv:
+    case OP_stmib_priv:
+        return true;
+    }
+    return false;
+}
+
 static void
 disassemble_shift(char *buf, size_t bufsz, size_t *sofar INOUT, const char *prefix,
                   const char *suffix,
@@ -390,8 +408,10 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         adj = opnd_create_null();
         if (*idx+1 < max)
             adj = dst ? instr_get_dst(instr, *idx+1) : instr_get_src(instr, *idx+1);
-        if (!opnd_is_reg(adj) || !TEST(DR_OPND_IN_LIST, opnd_get_flags(adj)))
-            print_to_buffer(buf, bufsz, sofar, "}");
+        if (!opnd_is_reg(adj) || !TEST(DR_OPND_IN_LIST, opnd_get_flags(adj))) {
+            print_to_buffer(buf, bufsz, sofar, "}%s",
+                            instr_is_priv_reglist(instr) ? "^" : "");
+        }
         return true;
     }
 
