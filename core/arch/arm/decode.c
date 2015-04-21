@@ -593,7 +593,7 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     if (count > 0)
         count--; /* The prior was already added */
     first_reg = opnd_get_reg(array[*counter-1]);
-    opnd_set_flags(&array[(*counter)-1], DR_OPND_IN_LIST);
+    array[(*counter)-1] = opnd_add_flags(array[(*counter)-1], DR_OPND_IN_LIST);
     di->reglist_sz = 0;
     for (i = 0; i < count; i++) {
         LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n",
@@ -685,10 +685,10 @@ decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
             array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
             array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
         }
-        opnd_set_flags(&array[*counter - 2], DR_OPND_IS_SHIFT);
+        array[*counter - 2] = opnd_add_flags(array[*counter - 2], DR_OPND_IS_SHIFT);
         CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),
                       "invalid shift sequence");
-        opnd_set_flags(&array[*counter - 3], DR_OPND_SHIFTED);
+        array[*counter - 3] = opnd_add_flags(array[*counter - 3], DR_OPND_SHIFTED);
     }
 }
 
