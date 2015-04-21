@@ -134,6 +134,17 @@ instr_is_non_list_store(instr_t *instr, int *num_tostore OUT)
     case OP_strh:
     case OP_strht:
     case OP_strt:
+    case OP_stc:
+    case OP_stc2:
+    case OP_stc2l:
+    case OP_stcl:
+    case OP_stl:
+    case OP_stlb:
+    case OP_stlex:
+    case OP_stlexb:
+    case OP_stlexd:
+    case OP_stlexh:
+    case OP_stlh:
         if (num_tostore != NULL)
             *num_tostore = 1;
         return true;
@@ -141,6 +152,47 @@ instr_is_non_list_store(instr_t *instr, int *num_tostore OUT)
     case OP_strexd:
         if (num_tostore != NULL)
             *num_tostore = 2;
+        return true;
+    }
+    return false;
+}
+
+static bool
+instr_is_non_list_load(instr_t *instr, int *num_toload OUT)
+{
+    int opcode = instr_get_opcode(instr);
+    switch (opcode) {
+    case OP_ldr:
+    case OP_ldrb:
+    case OP_ldrbt:
+    case OP_ldrex:
+    case OP_ldrexb:
+    case OP_ldrexh:
+    case OP_ldrh:
+    case OP_ldrht:
+    case OP_ldrt:
+    case OP_ldrsb:
+    case OP_ldrsbt:
+    case OP_ldrsh:
+    case OP_ldrsht:
+    case OP_lda:
+    case OP_ldab:
+    case OP_ldaex:
+    case OP_ldaexb:
+    case OP_ldaexd:
+    case OP_ldaexh:
+    case OP_ldah:
+    case OP_ldc:
+    case OP_ldc2:
+    case OP_ldc2l:
+    case OP_ldcl:
+        if (num_toload != NULL)
+            *num_toload = 1;
+        return true;
+    case OP_ldrd:
+    case OP_ldrexd:
+        if (num_toload != NULL)
+            *num_toload = 2;
         return true;
     }
     return false;
@@ -221,12 +273,18 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
      * For arbitrary level 4 instrs, we should do an encode and have our encoder
      * set these flags too.
      */
+    /* XXX: better to have a format string per instr template than to do all
+     * this computation for each operand disasm?  Though then we'd need to do
+     * a full encode, or store a ptr in instr_t to the corresponding template.
+     */
 
     /* XXX: better to compute these per-instr and cache instead of per-opnd */
     bool reads_list = instr_reads_reg_list(instr);
     bool writes_list = instr_writes_reg_list(instr);
+    int tostore = 0;
+    bool nonlist_store = instr_is_non_list_store(instr, &tostore);
+    bool nonlist_load = instr_is_non_list_load(instr, &tostore);
     int max = dst ? instr_num_dsts(instr) : instr_num_srcs(instr);
-    int tostore;
 
     /* Writeback implicit operands for register list instrs */
     if (*idx == max-1/*always last*/ && opnd_is_reg(opnd) &&
@@ -237,6 +295,41 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         if (opnd_get_reg(opnd) == opnd_get_base(memop) &&
             !TEST(DR_OPND_IN_LIST, opnd_get_flags(opnd)))
             return false; /* skip */
+    }
+    /* Writeback implicit operands for non-list instrs */
+    if ((nonlist_store || nonlist_load) &&
+        /* Base reg is always last dst, and implicit srcs are after main srcs */
+        ((dst && *idx == max-1) || (!dst && *idx >= tostore))) {
+        opnd_t memop = nonlist_store ? instr_get_dst(instr, 0) : instr_get_src(instr, 0);
+        CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
+        /* We want to hide:
+         *   1) Base reg as dst
+         *   2) Base reg as src
+         *   3) Disp as src, if present in memop
+         *   4) Index reg as src, if present in memop
+         *   5) Index shift type + amount, if present in memop
+         * In order to distinguish base from index we rely on the table entries
+         * always placing the writeback base last.
+         */
+        if (*idx == max-1) {
+            if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == opnd_get_base(memop))
+                return false; /* skip */
+        } else if (!dst) {
+            dr_shift_type_t type;
+            uint amount;
+            if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == opnd_get_index(memop))
+                return false; /* skip */
+            type = opnd_get_index_shift(memop, &amount);
+            if (opnd_is_immed_int(opnd) &&
+                ((!TEST(DR_OPND_SHIFTED, opnd_get_flags(memop)) &&
+                  /* rule out disp==0 hiding shift type */
+                  max - tostore < 3 &&
+                  opnd_get_immed_int(opnd) == opnd_get_disp(memop)) ||
+                 (TEST(DR_OPND_SHIFTED, opnd_get_flags(memop)) &&
+                  (opnd_get_immed_int(opnd) == type ||
+                   opnd_get_immed_int(opnd) == amount))))
+                return false; /* skip */
+        }
     }
 
     /* Base reg for register list printed first w/o decoration */
@@ -305,11 +398,20 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
 
     /* Store to memory operand ordering: insert store in srcs */
-    if (instr_is_non_list_store(instr, &tostore) && !dst && *idx+1 == tostore) {
+    if (nonlist_store && !dst && *idx+1 == tostore) {
         opnd_t memop = instr_get_dst(instr, 0);
         CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
         print_to_buffer(buf, bufsz, sofar, ", ");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, memop, false);
+        /* FIXME i#1683: we need to print "!" but how do we tell whether
+         * the memop has a disp?
+         */
+    }
+    /* Writeback "!" */
+    if (nonlist_load && opnd_is_base_disp(opnd)) {
+        /* FIXME i#1683: we need to print "!" but how do we tell whether
+         * the memop has a disp?
+         */
     }
 
     return true;
