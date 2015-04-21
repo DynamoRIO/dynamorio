@@ -120,6 +120,32 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
     /* There are no "extra" bytes */
 }
 
+static bool
+instr_is_non_list_store(instr_t *instr, int *num_tostore OUT)
+{
+    int opcode = instr_get_opcode(instr);
+    switch (opcode) {
+    case OP_str:
+    case OP_strb:
+    case OP_strbt:
+    case OP_strex:
+    case OP_strexb:
+    case OP_strexh:
+    case OP_strh:
+    case OP_strht:
+    case OP_strt:
+        if (num_tostore != NULL)
+            *num_tostore = 1;
+        return true;
+    case OP_strd:
+    case OP_strexd:
+        if (num_tostore != NULL)
+            *num_tostore = 2;
+        return true;
+    }
+    return false;
+}
+
 static void
 disassemble_shift(char *buf, size_t bufsz, size_t *sofar INOUT, const char *prefix,
                   const char *suffix,
@@ -192,14 +218,15 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
      */
     /* XXX i#1683: we're relying on flags added by the decoder and by the
      * INSTR_CREATE_ macros: DR_OPND_IS_SHIFT, DR_OPND_IN_LIST.
-     * For arbitrary level 4 instrs, we should have our encoder set these
-     * flags too.
+     * For arbitrary level 4 instrs, we should do an encode and have our encoder
+     * set these flags too.
      */
 
     /* XXX: better to compute these per-instr and cache instead of per-opnd */
     bool reads_list = instr_reads_reg_list(instr);
     bool writes_list = instr_writes_reg_list(instr);
     int max = dst ? instr_num_dsts(instr) : instr_num_srcs(instr);
+    int tostore;
 
     /* Writeback implicit operands for register list instrs */
     if (*idx == max-1/*always last*/ && opnd_is_reg(opnd) &&
@@ -233,6 +260,11 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     if (writes_list && opnd_is_base_disp(opnd))
         return false; /* already printed */
 
+    /* Store to memory operand ordering: skip store in dsts */
+    if (instr_is_non_list_store(instr, NULL) && dst && opnd_is_base_disp(opnd))
+        return false; /* skip */
+
+    /* Now that we have the implicit opnds to skip out of the way, print ", " connector */
     if (prev) {
         bool printed = false;
         if (*idx > 0) {
@@ -271,6 +303,15 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     }
 
     internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
+
+    /* Store to memory operand ordering: insert store in srcs */
+    if (instr_is_non_list_store(instr, &tostore) && !dst && *idx+1 == tostore) {
+        opnd_t memop = instr_get_dst(instr, 0);
+        CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
+        print_to_buffer(buf, bufsz, sofar, ", ");
+        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, memop, false);
+    }
+
     return true;
 }
 
