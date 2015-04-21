@@ -1342,9 +1342,9 @@ const instr_info_t A32_ext_opc4fpA[][3] = {
     {INVALID,     0x0e800a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0e800a40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 9 */
-    {OP_vfnma_f32,0x0e900a00, "vfnma.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
+    {OP_vfnms_f32,0x0e900a00, "vfnms.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
     {INVALID,     0x0e900a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vfnms_f32,0x0e900a40, "vfnms.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
+    {OP_vfnma_f32,0x0e900a40, "vfnma.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
   }, { /* 10 */
     {OP_vfma_f32, 0x0ea00a00, "vfma.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, END_LIST},
     {INVALID,     0x0ea00a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -1354,9 +1354,9 @@ const instr_info_t A32_ext_opc4fpA[][3] = {
     {INVALID,     0x0ec00a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0ec00a40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 12 */
-    {OP_vfnma_f32,0x0ed00a00, "vfnma.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnms_f32,0x0ed00a00, "vfnms.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, DUP_ENTRY},
     {INVALID,     0x0ed00a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vfnms_f32,0x0ed00a40, "vfnms.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnma_f32,0x0ed00a40, "vfnma.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, DUP_ENTRY},
   }, { /* 13 */
     {OP_vfma_f32, 0x0ee00a00, "vfma.f32", WBd, xx, WAd, WCd, xx, pred|vfp, x, DUP_ENTRY},
     {EXT_IMM1916, 0x0ee00a10, "(ext imm1916 3)", xx, xx, xx, xx, xx, no, x, 3},
@@ -1448,13 +1448,13 @@ const instr_info_t A32_ext_opc4fpB[][8] = {
     {INVALID,     0x0e800b60, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0e800b70, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 9 */
-    {OP_vfnma_f64,0x0e900b00, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, END_LIST},
+    {OP_vfnms_f64,0x0e900b00, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, END_LIST},
     {INVALID,     0x0e900b10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vfnma_f64,0x0e900b20, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnms_f64,0x0e900b20, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vmov_u16, 0x0e900b30, "vmov.u16", RBd, xx, VAh_q, i2x21_6, xx, pred|vfp, x, END_LIST},
-    {OP_vfnms_f64,0x0e900b40, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, END_LIST},
+    {OP_vfnma_f64,0x0e900b40, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, END_LIST},
     {INVALID,     0x0e900b50, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vfnms_f64,0x0e900b60, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnma_f64,0x0e900b60, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vmov_u16, 0x0e900b70, "vmov.u16", RBd, xx, VAh_q, i2x21_6, xx, pred|vfp, x, DUP_ENTRY},
   }, { /* 10 */
     {OP_vfma_f64, 0x0ea00b00, "vfma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, END_LIST},
@@ -1475,13 +1475,13 @@ const instr_info_t A32_ext_opc4fpB[][8] = {
     {INVALID,     0x0ec00b60, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0ec00b70, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 12 */
-    {OP_vfnma_f64,0x0ed00b00, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnms_f64,0x0ed00b00, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vmov_u8,  0x0ed00b10, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, pred|vfp, x, END_LIST},
-    {OP_vfnma_f64,0x0ed00b20, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnms_f64,0x0ed00b20, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vmov_u8,  0x0ed00b30, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, pred|vfp, x, DUP_ENTRY},
-    {OP_vfnms_f64,0x0ed00b40, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnma_f64,0x0ed00b40, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vmov_u8,  0x0ed00b50, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, pred|vfp, x, DUP_ENTRY},
-    {OP_vfnms_f64,0x0ed00b60, "vfnms.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
+    {OP_vfnma_f64,0x0ed00b60, "vfnma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
     {OP_vmov_u8,  0x0ed00b70, "vmov.u8",  RBd, xx, VAb_q, i3x21_5, xx, pred|vfp, x, DUP_ENTRY},
   }, { /* 13 */
     {OP_vfma_f64, 0x0ee00b00, "vfma.f64", VBq, xx, VAq, VCq, xx, pred|vfp, x, DUP_ENTRY},
