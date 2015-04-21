@@ -3171,7 +3171,7 @@
 +0x1ae2   93f4       str    %r3 -> +0x000003d0(%sp)[4byte]
 +0x1ae4   6f8e       ldr    +0x78(%r1)[4byte] -> %r6
 +0x1ae6   2443       movs   $0x00000043 -> %r4
-+0x1ae8   f84a ef5a  str    %lr %r10 $0x0000005a -> +0x5a(%r10)[4byte] %r10
++0x1ae8   f84a ef5a  str    %lr $0x0000005a %r10 -> +0x5a(%r10)[4byte] %r10
 +0x1aec   2faa       cmp    %r7 $0x000000aa
 +0x1aee   baad       hlt    $0x2d
 +0x1af0   cd51       ldm    (%r5)[12byte] %r5 -> %r0 %r4 %r6 %r5

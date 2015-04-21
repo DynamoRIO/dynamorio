@@ -1740,17 +1740,17 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_ldrh_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrht_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsb_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsbt_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsh_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsht_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_swp(dc, Rd, mem, Rm) \
   instr_create_2dst_2src((dc), OP_swp, (mem), (Rd), (mem), (Rm))
 #define INSTR_CREATE_swpb(dc, Rd, mem, Rm) \
@@ -1798,9 +1798,9 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_strh_wbreg(dc, mem, Rt, Rm) \
-  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strht_wbreg(dc, mem, Rt, Rm) \
-  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED))
+  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rt2) */
@@ -1890,25 +1890,25 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_ldr_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrb_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrbt_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrh_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrht_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsb_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsbt_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsh_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrsht_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrt_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_ldrt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, imm) */
@@ -1925,17 +1925,17 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_str_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_str, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_str, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strb_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strb, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_strb, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strbt_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strbt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_strbt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strh_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strht_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strt_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
+  instr_create_2dst_3src((dc), OP_strt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, statreg) */
@@ -2021,13 +2021,13 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_ldr_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrb_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldrb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_ldrb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrbt_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldrbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_ldrbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldrt_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldrt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_ldrt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rm, shift, imm) */
@@ -2046,13 +2046,13 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_str_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_str, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_str, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strb_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_strb, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_strb, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strbt_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_strbt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_strbt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_strt_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_strt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
+  instr_create_2dst_5src((dc), OP_strt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, list_len, ...) */
