@@ -1283,6 +1283,20 @@ instr_it_block_get_pred(instr_t *it_instr, uint index);
 
 DR_API
 /**
+ * Computes immediates (firstcond and mask) for creating a new instruction with
+ * opcode #OP_it with the given predicates.  Up to four instructions can exist
+ * in a single IT block.  Pass #DR_PRED_NONE for all predicates beyond the
+ * desired instruction count in the newly created IT block.
+ * Returns whether the given predicates are valid for creating an IT block.
+ * \note ARM-only.
+ */
+bool
+instr_it_block_compute_immediates(dr_pred_type_t pred0, dr_pred_type_t pred1,
+                                  dr_pred_type_t pred2, dr_pred_type_t pred3,
+                                  byte *firstcond_out,  byte *mask_out);
+
+DR_API
+/**
  * Creates a new instruction with opcode #OP_it and immediates set to encode
  * an IT block with the given predicates.  Up to four instructions can exist
  * in a single IT block.  Pass #DR_PRED_NONE for all predicates beyond the

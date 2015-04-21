@@ -200,8 +200,9 @@ Further non-compatibility-affecting changes include:
  - Added instr_remove_srcs() and instr_remove_dsts().
  - Added cross-platform #EFLAGS_READ_ARITH and #EFLAGS_WRITE_ARITH.
  - Added instr_invert_predicate() and instr_predicate_name().
- - Added instr_it_block_get_count(), instr_it_block_get_pred(), and
-   instr_it_block_create() for manipulating IT block instructions on ARM.
+ - Added instr_it_block_get_count(), instr_it_block_get_pred(),
+   instr_it_block_compute_immediates(), and instr_it_block_create()
+   for manipulating IT block instructions on ARM.
  - Added opnd_set_flags().
  - Added opnd_create_immed_int64(), opnd_is_immed_int64(), and
    opnd_get_immed_int64() for 64-bit immediate SIMD constants on 32-bit ARM.

@@ -1782,41 +1782,61 @@ set_bit(byte mask, int pos, int val)
     return mask;
 }
 
-instr_t *
-instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
-                      dr_pred_type_t pred2, dr_pred_type_t pred3)
+bool
+instr_it_block_compute_immediates(dr_pred_type_t pred0, dr_pred_type_t pred1,
+                                  dr_pred_type_t pred2, dr_pred_type_t pred3,
+                                  byte *firstcond_out,  byte *mask_out)
 {
     byte mask = 0;
     byte firstcond = pred0 - DR_PRED_EQ;
     byte first_bit0 = firstcond & 0x1;
     byte first_not0 = (~first_bit0) & 0x1;
-    IF_DEBUG(dr_pred_type_t invert0 = instr_invert_predicate(pred0);)
+    dr_pred_type_t invert0 = instr_invert_predicate(pred0);
     uint num_instrs = IT_BLOCK_MAX_INSTRS;
     LOG(THREAD_GET, LOG_EMIT, 5, "%s: %s, %s, %s, %s; bit0=%d\n", __FUNCTION__,
         instr_predicate_name(pred0), instr_predicate_name(pred1),
         instr_predicate_name(pred2), instr_predicate_name(pred3), first_bit0);
-    /* We could take in an array, but that's harder to use for the caller, so we end
-     * up w/ an unrolled loop here:
+    /* We could take in an array, but that's harder to use for the caller,
+     * so we end up w/ an unrolled loop here:
      */
     if (pred1 == DR_PRED_NONE)
         num_instrs = 1;
     else {
-        CLIENT_ASSERT(pred1 == pred0 || pred1 == invert0, "invalid pred1");
+        if (pred1 != pred0 && pred1 != invert0)
+            return false;
         mask = set_bit(mask, 3, (pred1 == pred0) ? first_bit0 : first_not0);
         if (pred2 == DR_PRED_NONE)
             num_instrs = 2;
         else {
-            CLIENT_ASSERT(pred2 == pred0 || pred2 == invert0, "invalid pred1");
+            if (pred2 != pred0 && pred2 != invert0)
+                return false;
             mask = set_bit(mask, 2, (pred2 == pred0) ? first_bit0 : first_not0);
             if (pred3 == DR_PRED_NONE)
                 num_instrs = 3;
             else {
-                CLIENT_ASSERT(pred3 == pred0 || pred3 == invert0, "invalid pred1");
+                if (pred3 != pred0 && pred3 != invert0)
+                    return false;
                 mask = set_bit(mask, 1, (pred3 == pred0) ? first_bit0 : first_not0);
             }
         }
     }
     mask |= BITMAP_MASK(IT_BLOCK_MAX_INSTRS - num_instrs);
+    if (mask_out != NULL)
+        *mask_out = mask;
+    if (firstcond_out != NULL)
+        *firstcond_out = firstcond;
+    return true;
+}
+
+instr_t *
+instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
+                      dr_pred_type_t pred2, dr_pred_type_t pred3)
+{
+    byte firstcond, mask;
+    if (!instr_it_block_compute_immediates(pred0, pred1, pred2, pred3,
+                                           &firstcond, &mask)) {
+        CLIENT_ASSERT(false, "invalid predicates");
+    }
     /* I did not want to include the massive instr_create.h here */
     return INSTR_CREATE_it(dcontext, OPND_CREATE_INT(firstcond), OPND_CREATE_INT(mask));
 }

@@ -1769,7 +1769,86 @@ bb_process_shared_syscall(dcontext_t *dcontext, build_bb_t *bb, int sysnum)
      * right thing */
     bb->instr = NULL;
 }
-#endif
+#endif /* WINDOWS */
+
+#ifdef ARM
+/* This routine walks back to find the IT instr for current IT block and
+ * the position of instr in current IT block, and returns whether
+ * instr is the last instruction in the block.
+ * This is called while building the bb ilist and before passing it to any
+ * clients, so it is safe to ignore any meta or label instructions.
+ */
+static bool
+instr_is_last_in_it_block(instr_t *instr, instr_t **it_out, uint *pos_out)
+{
+    instr_t *it;
+    int num_instrs;
+    ASSERT(instr != NULL &&
+           instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
+           instr_is_predicated(instr) && instr_is_app(instr));
+    for (it = instr_get_prev_app(instr), num_instrs = 1;
+         it != NULL && num_instrs <= 4 /* max 4 instr in an IT block */;
+         it = instr_get_prev_app(it), num_instrs++) {
+        if (instr_get_opcode(it) == OP_it)
+            break;
+    }
+    ASSERT(it != NULL && instr_get_opcode(it) == OP_it);
+    ASSERT(num_instrs <= instr_it_block_get_count(it));
+    if (it_out != NULL)
+        *it_out = it;
+    if (pos_out != NULL)
+        *pos_out = num_instrs - 1; /* pos starts from 0 */
+    if (num_instrs == instr_it_block_get_count(it))
+        return true;
+    return false;
+}
+
+static void
+adjust_it_instr_for_split(dcontext_t *dcontext, instr_t *it, uint pos)
+{
+    dr_pred_type_t block_pred[IT_BLOCK_MAX_INSTRS];
+    uint i, block_count = instr_it_block_get_count(it);
+    byte firstcond[2], mask[2];
+    DEBUG_DECLARE(bool ok;)
+    ASSERT(pos < instr_it_block_get_count(it)-1);
+    for (i = 0; i < block_count; i++)
+        block_pred[i] = instr_it_block_get_pred(it, i);
+    DOCHECK(CHKLVL_ASSERTS, {
+        instr_t *instr;
+        for (instr  = instr_get_next_app(it), i = 0;
+             instr != NULL;
+             instr  = instr_get_next_app(instr)) {
+            ASSERT(instr_is_predicated(instr) && i <= pos);
+            ASSERT(block_pred[i++] == instr_get_predicate(instr));
+        }
+    });
+    DEBUG_DECLARE(ok =)
+        instr_it_block_compute_immediates
+        (block_pred[0],
+         (pos > 0) ? block_pred[1] : DR_PRED_NONE,
+         (pos > 1) ? block_pred[2] : DR_PRED_NONE,
+         DR_PRED_NONE, /* at most 3 preds */
+         &firstcond[0], &mask[0]);
+    ASSERT(ok);
+    DOCHECK(CHKLVL_ASSERTS, {
+      DEBUG_DECLARE(ok =)
+          instr_it_block_compute_immediates
+          (block_pred[pos+1],
+           (block_count > pos+2) ? block_pred[pos+2] : DR_PRED_NONE,
+           (block_count > pos+3) ? block_pred[pos+3] : DR_PRED_NONE,
+           DR_PRED_NONE, /* at most 3 preds */
+           &firstcond[1], &mask[1]);
+      ASSERT(ok);
+    });
+    /* firstcond should be unchanged */
+    ASSERT(opnd_get_immed_int(instr_get_src(it, 0)) == firstcond[0]);
+    instr_set_src(it, 1, OPND_CREATE_INT(mask[0]));
+    LOG(THREAD, LOG_INTERP, 3,
+        "ending bb in an IT block & adjusting the IT instruction\n");
+    /* FIXME i#1669: NYI on passing split it block info to next bb */
+    ASSERT_NOT_IMPLEMENTED(false);
+}
+#endif /* ARM */
 
 static bool
 bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
@@ -1802,9 +1881,20 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
 #endif
         bb->instr->flags |= INSTR_NI_SYSCALL;
 #ifdef ARM
+    /* we assume all conditional syscalls are treated as non-ignorable */
     if (instr_is_predicated(bb->instr)) {
+        instr_t *it;
+        uint pos;
         ASSERT(instr_is_syscall(bb->instr));
         bb->svc_pred = instr_get_predicate(bb->instr);
+        if (instr_get_isa_mode(bb->instr) == DR_ISA_ARM_THUMB &&
+            !instr_is_last_in_it_block(bb->instr, &it, &pos)) {
+            /* FIXME i#1669: we violate the transparency and clients will see
+             * modified IT instr.  We should adjust the IT instr at mangling
+             * stage after client instrumentation, but that is complex.
+             */
+            adjust_it_instr_for_split(dcontext, it, pos);
+        }
     }
 #endif
     /* Set instr to NULL in order to get translation of exit cti correct. */
@@ -3046,8 +3136,6 @@ static bool
 bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
 {
 #ifdef ARM
-    uint num_instr;
-    instr_t *it;
     ASSERT(ilist != NULL && instrlist_last(ilist) != NULL);
     /* only thumb mode could have IT blocks */
     if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
@@ -3059,23 +3147,10 @@ bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
     if (!instr_is_predicated(stop_after))
         return true;
     if (instr_is_cti(stop_after) /* must be the last instr if in IT block */||
-        /* we should not stop in the middle of an IT block unless it is a syscall */
+        /* we do not stop in the middle of an IT block unless it is a syscall */
         instr_is_syscall(stop_after) || instr_is_interrupt(stop_after))
         return true;
-    /* Walk back to find the IT instr.
-     * This is called while building the bb ilist and before passing it to any clients,
-     * so it is safe to ignore any meta or label instructions.
-     */
-    for (it  = instr_get_prev_app(stop_after), num_instr = 1 /* stop_after */;
-         it != NULL && num_instr <= 4 /* max 4 instr in an IT block */;
-         it  = instr_get_prev_app(it), num_instr++) {
-        if (instr_get_opcode(it) == OP_it)
-            break;
-    }
-    ASSERT(it != NULL && instr_get_opcode(it) == OP_it);
-    ASSERT(num_instr <= instr_it_block_get_count(it));
-    if (num_instr < instr_it_block_get_count(it))
-        return false;
+    return instr_is_last_in_it_block(stop_after, NULL, NULL);
 #endif /* ARM */
     return true;
 }
