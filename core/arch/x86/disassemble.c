@@ -229,8 +229,8 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     return false;
 }
 
-const char *
-instr_opcode_name_arch(instr_t *instr, const instr_info_t *info)
+static const char *
+instr_opcode_name(instr_t *instr)
 {
     if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
         switch (instr_get_opcode(instr)) {
@@ -264,8 +264,8 @@ instr_opcode_name_arch(instr_t *instr, const instr_info_t *info)
     return NULL;
 }
 
-const char *
-instr_opcode_name_suffix_arch(instr_t *instr)
+static const char *
+instr_opcode_name_suffix(instr_t *instr)
 {
     if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
         /* add "b" or "d" suffix */
@@ -308,8 +308,36 @@ instr_opcode_name_suffix_arch(instr_t *instr)
         }
         }
     }
-    return NULL;
+    if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) && instr_operands_valid(instr)) {
+        /* XXX: requiring both src and dst.  Ideally we'd wait until we
+         * see if there is a register or in some cases an immed operand
+         * and then go back and add the suffix.  This will do for now.
+         */
+        if (instr_num_srcs(instr) > 0 && !opnd_is_reg(instr_get_src(instr, 0)) &&
+            instr_num_dsts(instr) > 0 && !opnd_is_reg(instr_get_dst(instr, 0))) {
+            uint sz = instr_memory_reference_size(instr);
+            if (sz == 1)
+                return "b";
+            else if (sz == 2)
+                return "w";
+            else if (sz == 4)
+                return "l";
+            else if (sz == 8)
+                return "q";
+        }
+    }
+    return "";
 }
+
+void
+print_opcode_name(instr_t *instr, const char *name,
+                  char *buf, size_t bufsz, size_t *sofar INOUT)
+{
+    const char *subst_name = instr_opcode_name(instr);
+    print_to_buffer(buf, bufsz, sofar, "%s%s", subst_name == NULL ? name : subst_name,
+                    instr_opcode_name_suffix(instr));
+}
+
 
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,

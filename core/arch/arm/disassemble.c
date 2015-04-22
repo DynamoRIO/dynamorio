@@ -437,18 +437,6 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     return true;
 }
 
-const char *
-instr_opcode_name_arch(instr_t *instr, const instr_info_t *info)
-{
-    return NULL;
-}
-
-const char *
-instr_opcode_name_suffix_arch(instr_t *instr)
-{
-    return NULL;
-}
-
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
                      char *buf, size_t bufsz, size_t *sofar INOUT)
@@ -456,18 +444,10 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
     return;
 }
 
-int
-print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT)
+void
+print_opcode_name(instr_t *instr, const char *name,
+                  char *buf, size_t bufsz, size_t *sofar INOUT)
 {
-    /* FIXME i#1551: but for SIMD we want cond before <dt>, but <dt> is inside the name.
-     * Should we look for '.'?
-     */
-    dr_pred_type_t pred = instr_get_predicate(instr);
-    size_t pre_sofar = *sofar;
-    print_to_buffer(buf, bufsz, sofar, "%s%s",
-                    /* The . really helps to distinguish from the opcode for DR style */
-                    DYNAMO_OPTION(syntax_arm) ? "" :
-                    (pred_names[pred][0] != '\0' ? "." : ""), pred_names[pred]);
     if (instr_get_opcode(instr) == OP_it &&
         opnd_is_immed_int(instr_get_src(instr, 0)) &&
         opnd_is_immed_int(instr_get_src(instr, 1))) {
@@ -480,8 +460,24 @@ print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT
                             TEST(BITMAP_MASK(i), info.preds) ? 't' : 'e');
 
         }
-    }
-    return *sofar - pre_sofar;
+    } else if (instr_is_predicated(instr)) {
+        dr_pred_type_t pred = instr_get_predicate(instr);
+        /* The predicate goes prior to the size specifiers:
+         * "vcvtble.f64.f16", not "vcvtb.f64.f16le".
+         */
+        const char *dot = strchr(name, '.');
+        if (dot != NULL)
+            print_to_buffer(buf, bufsz, sofar, "%.*s", dot - name, name);
+        else
+            print_to_buffer(buf, bufsz, sofar, "%s", name);
+        print_to_buffer(buf, bufsz, sofar, "%s%s",
+                        /* The . really distinguishes from the opcode for DR style */
+                        DYNAMO_OPTION(syntax_arm) ? "" :
+                        (pred_names[pred][0] != '\0' ? "." : ""), pred_names[pred]);
+        if (dot != NULL)
+            print_to_buffer(buf, bufsz, sofar, "%s", dot);
+    } else
+        print_to_buffer(buf, bufsz, sofar, "%s", name);
 }
 
 #endif /* INTERNAL || CLIENT_INTERFACE */

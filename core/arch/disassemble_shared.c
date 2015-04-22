@@ -106,18 +106,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             byte optype, opnd_t opnd, bool prev, bool multiple_encodings,
                             bool dst, int *idx INOUT);
 
-const char *
-instr_opcode_name_arch(instr_t *instr, const instr_info_t *info);
-
-const char *
-instr_opcode_name_suffix_arch(instr_t *instr);
-
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
                      char *buf, size_t bufsz, size_t *sofar INOUT);
 
-int
-print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT);
+void
+print_opcode_name(instr_t *instr, const char *name,
+                  char *buf, size_t bufsz, size_t *sofar INOUT);
 
 /****************************************************************************
  * Printing of instructions
@@ -306,7 +301,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
              * for x64 udis86 negates if at all negative
              */
             if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
-                print_to_buffer(buf, bufsz, sofar, ", #", disp);
+                print_to_buffer(buf, bufsz, sofar, ", #");
             if (IF_X64_ELSE(disp < 0, (disp & 0xff000000) == 0xff000000)) {
                 disp = -disp;
                 print_to_buffer(buf, bufsz, sofar, "-");
@@ -945,42 +940,6 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     }
 }
 
-static const char *
-instr_opcode_name(instr_t *instr, const instr_info_t *info)
-{
-    const char * res = instr_opcode_name_arch(instr, info);
-    if (res != NULL)
-        return res;
-    return info->name;
-}
-
-static const char *
-instr_opcode_name_suffix(instr_t *instr)
-{
-    const char * res = instr_opcode_name_suffix_arch(instr);
-    if (res != NULL)
-        return res;
-    if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) && instr_operands_valid(instr)) {
-        /* XXX: requiring both src and dst.  Ideally we'd wait until we
-         * see if there is a register or in some cases an immed operand
-         * and then go back and add the suffix.  This will do for now.
-         */
-        if (instr_num_srcs(instr) > 0 && !opnd_is_reg(instr_get_src(instr, 0)) &&
-            instr_num_dsts(instr) > 0 && !opnd_is_reg(instr_get_dst(instr, 0))) {
-            uint sz = instr_memory_reference_size(instr);
-            if (sz == 1)
-                return "b";
-            else if (sz == 2)
-                return "w";
-            else if (sz == 4)
-                return "l";
-            else if (sz == 8)
-                return "q";
-        }
-    }
-    return "";
-}
-
 static bool
 instr_needs_opnd_size_sfx(instr_t *instr)
 {
@@ -1089,15 +1048,14 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         return;
     } else if (instr_opcode_valid(instr)) {
         info = instr_get_instr_info(instr);
-        name = instr_opcode_name(instr, info);
+        name = info->name;
     } else
         name = "<RAW>";
 
     print_instr_prefixes(dcontext, instr, buf, bufsz, sofar);
 
     offs_pre_name = *sofar;
-    print_to_buffer(buf, bufsz, sofar, "%s%s", name, instr_opcode_name_suffix(instr));
-    print_opcode_suffix(instr, buf, bufsz, sofar);
+    print_opcode_name(instr, name, buf, bufsz, sofar);
     offs_post_name = *sofar;
     name_width -= (int)(offs_post_name - offs_pre_name);
     print_to_buffer(buf, bufsz, sofar, " ");
