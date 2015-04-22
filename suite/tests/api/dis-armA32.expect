@@ -2305,7 +2305,7 @@
 +0x2400   a6e29348   strbt.ge %r9[1byte] %r8 asr $0x06 %r2 -> (%r2)[1byte] %r2
 +0x2404   e25e0ab5   subs   %lr $0x000b5000 -> %r0
 +0x2408   e0612ea9   rsb    %r1 %r9 lsr $0x1d -> %r2
-+0x240c   90397eb7   ldrh.ls (%r9)[2byte] -%r7 %r9 -> %r7 %r9
++0x240c   90397eb7   ldrht.ls (%r9)[2byte] -%r7 %r9 -> %r7 %r9
 +0x2410   47e7ad76   ubfx.mi %r6 $0x1a $0x07 -> %r10
 +0x2414   b0868c87   add.lt %r6 %r7 lsl $0x19 -> %r8
 +0x2418   25f66ba3   ldrb.cs +0x00000ba3(%r6)[1byte] $0x0ba3 %r6 -> %r6 %r6
@@ -4181,7 +4181,7 @@
 +0x4150   87cea559   bfi.hi %r9 $0x0e $0x0a %r10 -> %r10
 +0x4154   c780b9dd   usada8.gt %sp %r9 %r11 -> %r0
 +0x4158   fce60269   stc2l  $0x02 %c0 $0x01a4 %r6 -> (%r6)[4byte] %r6
-+0x415c   8063d9bc   strh.hi %sp[2byte] $0xffffff64 %r3 -> (%r3)[2byte] %r3
++0x415c   8063d9bc   strht.hi %sp[2byte] $0xffffff64 %r3 -> (%r3)[2byte] %r3
 +0x4160   8ea6fb4d   vfms.hi.f64 %d6 %d13 -> %d15
 +0x4164   f221af53   vrsqrts.f32 %q0 %q1 -> %q5
 +0x4168   6d2d5b7b   vstmdb.vs %d5 %d6 %d7 %d8 %d9 %d10 %d11 %d12 %d13 %d14 %d15 %d16 %d17 %d18 %d19 %d20 %sp -> (%sp)[120byte] %sp
