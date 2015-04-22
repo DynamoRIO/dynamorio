@@ -272,6 +272,9 @@ typedef enum _dr_pred_type_t {
     DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
     DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
     DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
+    /* Aliases */
+    DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
+    DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
 #endif
 } dr_pred_type_t;
 
