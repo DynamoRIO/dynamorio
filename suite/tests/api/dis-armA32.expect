@@ -10996,7 +10996,7 @@
 +0xabcc   f2e655af   vabal.s32 %d22 %d31 -> %q10
 +0xabd0   861ecf7e   ssub16.hi %lr %lr -> %r12
 +0xabd4   f32c38c1   vsub.i32 %q14 %q0 -> %q1
-+0xabd8   f383117b   vbic.i16 $0x000000bb -> %q0
++0xabd8   f383117b   vbic.i32 $0x000000bb -> %q0
 +0xabdc   16351f72   shsub16.ne %r5 %r2 -> %r1
 +0xabe0   f35c94c6   vshl.u16 %q14 %q3 -> %q12
 +0xabe4   f38ccce7   vmull.u8 %d28 %d23 -> %q6
@@ -12026,7 +12026,7 @@
 +0xbbe4   f30468ed   vsub.i8 %q10 %q14 -> %q3
 +0xbbe8   f31fd226   vhsub.u16 %d15 %d22 -> %d13
 +0xbbec   f3f1e058   vshr.u32 %q4 $0x11 -> %q15
-+0xbbf0   f384613d   vbic.i16 $0x000000cd -> %d6
++0xbbf0   f384613d   vbic.i32 $0x000000cd -> %d6
 +0xbbf4   4efeaa68   vcvt.mi.s16.f32 %s17 $0x11 -> %h21
 +0xbbf8   f2dac038   vshr.s16 %d24 $0x0a -> %d28
 +0xbbfc   f296c6e5   vmlsl.s16 %d22 %d5[2byte] $0x02 -> %q6
@@ -13004,7 +13004,7 @@
 +0xcb2c   e10cd844   crc32b %r12 %r4[1byte] -> %sp
 +0xcb30   f3989329   vsubw.u16 %q4 %d25 -> %q4
 +0xcb34   f2e8532c   vsubw.s32 %q4 %d28 -> %q10
-+0xcb38   f3876135   vbic.i16 $0x000000f5 -> %d6
++0xcb38   f3876135   vbic.i32 $0x000000f5 -> %d6
 +0xcb3c   1eb7facf   vcvt.ne.f64.f32 %s30 -> %d15
 +0xcb40   f4a0bd77   vld2.16 (%r0)[4byte] $0x01 %r7 %r0 -> %d11 %d13 %r0
 +0xcb44   168f6f74   sxtb16.ne %r4 $0x00000003 -> %r6
@@ -13158,7 +13158,7 @@
 +0xcd94   f3d87706   vabdl.u16 %d8 %d6 -> %q11
 +0xcd98   f2165ce8   sha1p.32 %q11 %q12 -> %q2
 +0xcd9c   9eb6ab4b   vrintr.ls.f64 %d11 -> %d10
-+0xcda0   f385e138   vbic.i16 $0x000000d8 -> %d14
++0xcda0   f385e138   vbic.i32 $0x000000d8 -> %d14
 +0xcda4   f3d47833   vqshrun.s32 %q9 $0x04 -> %d23
 +0xcda8   76ff7fbf   revsh.vc %pc[2byte] -> %r7
 +0xcdac   f20fca94   vpmin.s8 %d31 %d4 -> %d12
@@ -13186,7 +13186,7 @@
 +0xce04   f3ada1ae   vaddw.u32 %q14 %d30 -> %q5
 +0xce08   eef6eb4a   vrintr.f64 %d10 -> %d30
 +0xce0c   aebaebe7   vcvt.ge.f64.s32 %s15 $0x0f -> %d14
-+0xce10   f3c1f170   vbic.i16 $0x00000090 -> %q15
++0xce10   f3c1f170   vbic.i32 $0x00000090 -> %q15
 +0xce14   f396e978   vqrshrn.u32 %q12 $0x06 -> %d14
 +0xce18   6ef08bec   vabs.vs.f64 %d28 -> %d24
 +0xce1c   eeb75ae7   vcvt.f64.f32 %s15 -> %d5

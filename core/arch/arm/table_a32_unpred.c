@@ -1340,9 +1340,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x10 */
     {OP_vaddw_u8,       0xf3800100, "vaddw.u8",       VBdq, xx, VAdq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf3800110, "vorr.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i16,       0xf3800130, "vbic.i16",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xf3800130, "vbic.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf3800150, "vorr.i32",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {OP_vbic_i16,       0xf3800170, "vbic.i16",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
+    {OP_vbic_i32,       0xf3800170, "vbic.i32",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x20 */
     {OP_vsubl_u8,       0xf3800200, "vsubl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf3800210, "vmov.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
