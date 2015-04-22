@@ -309,16 +309,16 @@ const instr_info_t A32_ext_bit19[][2] = {
 /* Indexed by bit 22 */
 const instr_info_t A32_ext_bit22[][2] = {
   { /* 0 */
-    {OP_pldw,           0xf510f000, "pld",            xx, xx, MN12z, xx, xx, no, x, tb22[3][0x00]},/*PUW=100*/
+    {OP_pldw,           0xf510f000, "pldw",           xx, xx, MN12z, xx, xx, no, x, tb22[3][0x00]},/*PUW=100*/
     {OP_pld,            0xf550f000, "pld",            xx, xx, MN12z, xx, xx, no, x, tb22[3][0x01]},/*PUW=100*/
   }, { /* 1 */
-    {OP_pldw,           0xf590f000, "pld",            xx, xx, MP12z, xx, xx, no, x, tb22[0][0x00]},/*PUW=110*/
+    {OP_pldw,           0xf590f000, "pldw",           xx, xx, MP12z, xx, xx, no, x, tb22[0][0x00]},/*PUW=110*/
     {OP_pld,            0xf5d0f000, "pld",            xx, xx, MP12z, xx, xx, no, x, tb22[0][0x01]},/*PUW=110*/
   }, { /* 2 */
-    {OP_pldw,           0xf710f000, "pld",            xx, xx, MNSz, xx, xx, no, x, END_LIST},/*PUW=100*/
+    {OP_pldw,           0xf710f000, "pldw",           xx, xx, MNSz, xx, xx, no, x, END_LIST},/*PUW=100*/
     {OP_pld,            0xf750f000, "pld",            xx, xx, MNSz, xx, xx, no, x, END_LIST},/*PUW=100*/
   }, { /* 3 */
-    {OP_pldw,           0xf790f000, "pld",            xx, xx, MPSz, xx, xx, no, x, tb22[2][0x00]},/*PUW=110*/
+    {OP_pldw,           0xf790f000, "pldw",           xx, xx, MPSz, xx, xx, no, x, tb22[2][0x00]},/*PUW=110*/
     {OP_pld,            0xf7d0f000, "pld",            xx, xx, MPSz, xx, xx, no, x, tb22[2][0x01]},/*PUW=110*/
   },
 };
@@ -525,9 +525,9 @@ const instr_info_t A32_ext_simd6[][64] = {
   }, { /* 3 */
     /* XXX: this entry is sparse: should we make a new table to somehow compress it? */
     {INVALID,           0xf2300000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vqadd_s64,      0xf2300010, "vqadd.s32",      VBq, xx, VAq, VCq, xx, no, x, tsi6[3][0x03]},
+    {OP_vqadd_s64,      0xf2300010, "vqadd.s64",      VBq, xx, VAq, VCq, xx, no, x, tsi6[3][0x03]},
     {INVALID,           0xf2300040, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vqadd_s64,      0xf2300050, "vqadd.s32",      VBdq, xx, VAdq, VCdq, xx, no, x, END_LIST},
+    {OP_vqadd_s64,      0xf2300050, "vqadd.s64",      VBdq, xx, VAdq, VCdq, xx, no, x, END_LIST},
     {INVALID,           0xf2300100, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_vorn,           0xf2300110, "vorn",           VBq, xx, VAq, VCq, xx, no, x, tsi6[3][0x07]},
     {INVALID,           0xf2300140, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
@@ -853,9 +853,9 @@ const instr_info_t A32_ext_simd6[][64] = {
     {INVALID,           0xf3100f50, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 8 */
     {OP_vhadd_u32,      0xf3200000, "vhadd.u32",      VBq, xx, VAq, VCq, xx, no, x, tsi6[8][0x02]},
-    {OP_vqadd_u32,      0xf3200010, "vqadd.u64",      VBq, xx, VAq, VCq, xx, no, x, tsi6[8][0x03]},
+    {OP_vqadd_u32,      0xf3200010, "vqadd.u32",      VBq, xx, VAq, VCq, xx, no, x, tsi6[8][0x03]},
     {OP_vhadd_u32,      0xf3200040, "vhadd.u32",      VBdq, xx, VAdq, VCdq, xx, no, x, END_LIST},
-    {OP_vqadd_u32,      0xf3200050, "vqadd.u64",      VBdq, xx, VAdq, VCdq, xx, no, x, END_LIST},
+    {OP_vqadd_u32,      0xf3200050, "vqadd.u32",      VBdq, xx, VAdq, VCdq, xx, no, x, END_LIST},
     {OP_vrhadd_u32,     0xf3200100, "vrhadd.u32",     VBq, xx, VAq, VCq, xx, no, x, tsi6[8][0x06]},
     {OP_vbit,           0xf3200110, "vbit",           VBq, xx, VAq, VCq, xx, no, x, tsi6[8][0x07]},
     {OP_vrhadd_u32,     0xf3200140, "vrhadd.u32",     VBdq, xx, VAdq, VCdq, xx, no, x, END_LIST},
@@ -1212,20 +1212,20 @@ const instr_info_t A32_ext_simd5b[][32] = {
     {INVALID,           0xfebb0bc0, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_vcvta_u32_f32,  0xfebc0a40, "vcvta.u32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
     {OP_vcvta_s32_f32,  0xfebc0ac0, "vcvta.s32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvta_u32_f64,  0xfebc0b40, "vcvta.u32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvta_s32_f64,  0xfebc0bc0, "vcvta.s32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvta_u32_f64,  0xfebc0b40, "vcvta.u32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvta_s32_f64,  0xfebc0bc0, "vcvta.s32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
     {OP_vcvtn_u32_f32,  0xfebd0a40, "vcvtn.u32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
     {OP_vcvtn_s32_f32,  0xfebd0ac0, "vcvtn.s32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvtn_u32_f64,  0xfebd0b40, "vcvtn.u32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvtn_s32_f64,  0xfebd0bc0, "vcvtn.s32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvtn_u32_f64,  0xfebd0b40, "vcvtn.u32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvtn_s32_f64,  0xfebd0bc0, "vcvtn.s32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
     {OP_vcvtp_u32_f32,  0xfebe0a40, "vcvtp.u32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
     {OP_vcvtp_s32_f32,  0xfebe0ac0, "vcvtp.s32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvtp_u32_f64,  0xfebe0b40, "vcvtp.u32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvtp_s32_f64,  0xfebe0bc0, "vcvtp.s32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvtp_u32_f64,  0xfebe0b40, "vcvtp.u32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvtp_s32_f64,  0xfebe0bc0, "vcvtp.s32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
     {OP_vcvtm_u32_f32,  0xfebf0a40, "vcvtm.u32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
     {OP_vcvtm_s32_f32,  0xfebf0ac0, "vcvtm.s32.f32",  WBd, xx, WCd, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvtm_u32_f64,  0xfebf0b40, "vcvtm.u32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
-    {OP_vcvtm_s32_f64,  0xfebf0bc0, "vcvtm.s32.f32",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvtm_u32_f64,  0xfebf0b40, "vcvtm.u32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
+    {OP_vcvtm_s32_f64,  0xfebf0bc0, "vcvtm.s32.f64",  WBd, xx, VCq, xx, xx, v8|vfp, x, END_LIST},
   },
 };
 
