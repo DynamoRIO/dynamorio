@@ -576,14 +576,6 @@
  */
 #define INSTR_CREATE_qsub(dc, Rd, Rm, Rn) \
   instr_create_1dst_2src((dc), OP_qsub, (Rd), (Rm), (Rn))
-#define INSTR_CREATE_smulbb(dc, Rd, Rm, Rn) \
-  instr_create_1dst_2src((dc), OP_smulbb, (Rd), (Rm), (Rn))
-#define INSTR_CREATE_smulbt(dc, Rd, Rm, Rn) \
-  instr_create_1dst_2src((dc), OP_smulbt, (Rd), (Rm), (Rn))
-#define INSTR_CREATE_smultb(dc, Rd, Rm, Rn) \
-  instr_create_1dst_2src((dc), OP_smultb, (Rd), (Rm), (Rn))
-#define INSTR_CREATE_smultt(dc, Rd, Rm, Rn) \
-  instr_create_1dst_2src((dc), OP_smultt, (Rd), (Rm), (Rn))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm) */
@@ -663,6 +655,14 @@
   instr_create_1dst_2src((dc), OP_smuad, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_smuadx(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_smuadx, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smulbb(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smulbb, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smulbt(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smulbt, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smultb(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smultb, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_smultt(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_smultt, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_smulwb(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_smulwb, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_smulwt(dc, Rd, Rn, Rm) \

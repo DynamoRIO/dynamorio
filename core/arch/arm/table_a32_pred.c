@@ -703,9 +703,9 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_hlt,     0xe1000070, "hlt",    xx, xx, i16x8_0, xx, xx, predAL, x, END_LIST},
     {OP_smlabb,  0x01000080, "smlabb", RAw, xx, RDh, RCh, RBw, pred, x, END_LIST},
     {OP_swp,     0x01000090, "swp",    Mw, RBw, Mw, RDw, xx, pred, x, END_LIST},
-    {OP_smlabt,  0x010000a0, "smlabt", RAw, xx, RDh, RCt, RBw, pred, x, END_LIST},
+    {OP_smlatb,  0x010000a0, "smlatb", RAw, xx, RDt, RCh, RBw, pred, x, END_LIST},
     {OP_strh,    0x010000b0, "strh",   MNRh, xx, RBh, xx, xx, pred, x, top4[3][0x0b]},/*PUW=100*/
-    {OP_smlatb,  0x010000c0, "smlatb", RAw, xx, RDt, RCh, RBw, pred, x, END_LIST},
+    {OP_smlabt,  0x010000c0, "smlabt", RAw, xx, RDh, RCt, RBw, pred, x, END_LIST},
     {OP_ldrd,    0x010000d0, "ldrd",   RBEw, RB2w, MNRq, xx, xx, pred, x, top4[3][0x0d]},/*PUW=100*/
     {OP_smlatt,  0x010000e0, "smlatt", RAw, xx, RDt, RCt, RBw, pred, x, END_LIST},
     {OP_strd,    0x010000f0, "strd",   MNRq, xx, RBEw, RB2w, xx, pred, x, top4[3][0x0f]},/*PUW=100*/
@@ -735,13 +735,13 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_qdadd,   0x01400050, "qdadd",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {INVALID,    0x01400060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_hvc,     0x01400070, "hvc",    xx, xx, i16x16_0, xx, xx, pred, x, END_LIST},
-    {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x4]},
+    {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x5]},
     {OP_swpb,    0x01400090, "swpb",   Mb, RBw, Mb, RDb, xx, pred, x, END_LIST},
-    {OP_smlalbt, 0x014000a0, "smlalbt", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x5]},
+    {OP_smlaltb, 0x014000a0, "smlaltb", RAw, RBw, RAw, RBw, RDt, pred|xop, x, exop[0x5]},
     {OP_strh,    0x014000b0, "strh",   MN44h, xx, RBh, xx, xx, pred, x, top4[0][0x0b]},/*PUW=100*/
-    {OP_smlaltb, 0x014000c0, "smlaltb", RAw, RBw, RAw, RBw, RDt, pred|xop, x, exop[0x4]},
+    {OP_smlalbt, 0x014000c0, "smlalbt", RAw, RBw, RAw, RBw, RDh, pred|xop, x, exop[0x4]},
     {OP_ldrd,    0x014000d0, "ldrd",   RBEw, RB2w, MN44q, xx, xx, pred, x, top4x[20][0x04]},/*PUW=100*/
-    {OP_smlaltt, 0x014000e0, "smlaltt", RAw, RBw, RAw, RBw, RDt, pred|xop, x, exop[0x5]},
+    {OP_smlaltt, 0x014000e0, "smlaltt", RAw, RBw, RAw, RBw, RDt, pred|xop, x, exop[0x4]},
     {OP_strd,    0x014000f0, "strd",   MN44q, xx, RBEw, RB2w, xx, pred, x, top4[0][0x0f]},/*PUW=100*/
   }, { /* 3 */
     {EXT_BIT9,   0x01600000, "(ext bit9 6)", xx, xx, xx, xx, xx, no, x, 6},
@@ -752,13 +752,13 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_qdsub,   0x01600050, "qdsub",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {OP_eret,    0x0160006e, "eret",   xx, xx, LRw, xx, xx, pred, fWNZCV, END_LIST},
     {OP_smc,     0x01600070, "smc",    xx, xx, i4, xx, xx, pred, x, END_LIST},
-    {OP_smulbb,  0x01600080, "smulbb", RAw, xx, RCh, RDh, xx, pred, x, END_LIST},
+    {OP_smulbb,  0x01600080, "smulbb", RAw, xx, RDh, RCh, xx, pred, x, END_LIST},
     {INVALID,    0x01600090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_smulbt,  0x016000a0, "smulbt", RAw, xx, RCh, RDt, xx, pred, x, END_LIST},
+    {OP_smultb,  0x016000a0, "smultb", RAw, xx, RDt, RCh, xx, pred, x, END_LIST},
     {OP_strh,    0x016000b0, "strh",   MN44h, RAw, RBh, n8x8_0, RAw, pred, x, top4[1][0x0b]},/*PUW=101*/
-    {OP_smultb,  0x016000c0, "smultb", RAw, xx, RCt, RDh, xx, pred, x, END_LIST},
+    {OP_smulbt,  0x016000c0, "smulbt", RAw, xx, RDh, RCt, xx, pred, x, END_LIST},
     {OP_ldrd,    0x016000d0, "ldrd",   RBEw, RB2w, RAw, MN44q, n8x8_0, xop_wb|pred|dstX3, x, top4[1][0x0d]},/*PUW=101*/
-    {OP_smultt,  0x016000e0, "smultt", RAw, xx, RCt, RDt, xx, pred, x, END_LIST},
+    {OP_smultt,  0x016000e0, "smultt", RAw, xx, RDt, RCt, xx, pred, x, END_LIST},
     {OP_strd,    0x016000f0, "strd",   MN44q, RAw, RBEw, RB2w, n8x8_0, xop_wb|pred, x, top4[1][0x0f]},/*PUW=101*/
   }, { /* 4 */
     {EXT_IMM5,   0x01a00000, "(ext imm5 0)", xx, xx, xx, xx, xx, no, x, 0},
@@ -1784,8 +1784,8 @@ const instr_info_t A32_extra_operands[] =
     {OP_CONTD, 0x00000000, "writeback base", xx, xx, RAw, xx, xx, no, x, END_LIST},/*xop_wb*/
     {OP_CONTD, 0x00000000, "writeback index + base", xx, xx, RDw, RAw, xx, no, x, END_LIST},/*xop_wb2*/
     {OP_CONTD, 0x00000000, "<cdp/mcr/mrc cont'd>", xx, xx, i3_5, xx, xx, no, x, END_LIST},
-    {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RCh, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RCt, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RCh, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<srs* cont'd>",  xx, xx, SPSR, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<{s,u}mlal{,d} cont'd>",  xx, xx, RCw, xx, xx, no, x, END_LIST},
 };
