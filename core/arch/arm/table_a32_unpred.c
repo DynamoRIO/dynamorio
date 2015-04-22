@@ -1470,8 +1470,8 @@ const instr_info_t A32_ext_simd6b[][36] = {
     {INVALID,           0xf3b10c80, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,           0xf3b10cc0, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
   }, { /* 1 */
-    {OP_vswp,           0xf3b20000, "vswp.8",         VBq, xx, VCq, xx, xx, no, x, tsi6b[1][0x01]},
-    {OP_vswp,           0xf3b20040, "vswp.8",         VBdq, xx, VCdq, xx, xx, no, x, END_LIST},
+    {OP_vswp,           0xf3b20000, "vswp",           VBq, xx, VCq, xx, xx, no, x, tsi6b[1][0x01]},
+    {OP_vswp,           0xf3b20040, "vswp",           VBdq, xx, VCdq, xx, xx, no, x, END_LIST},
     {OP_vtrn_8,         0xf3b20080, "vtrn.8",         VBq, xx, VCq, xx, xx, no, x, tsi6b[1][0x03]},
     {OP_vtrn_8,         0xf3b200c0, "vtrn.8",         VBdq, xx, VCdq, xx, xx, no, x, END_LIST},
     {OP_vuzp_8,         0xf3b20100, "vuzp.8",         VBq, xx, VCq, xx, xx, no, x, tsi6b[1][0x05]},

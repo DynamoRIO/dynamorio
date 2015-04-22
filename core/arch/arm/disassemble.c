@@ -444,6 +444,24 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
     return;
 }
 
+static bool
+instr_has_built_in_pred_name(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr);
+    switch (opcode) {
+    case OP_vsel_eq_f32:
+    case OP_vsel_eq_f64:
+    case OP_vsel_ge_f32:
+    case OP_vsel_ge_f64:
+    case OP_vsel_gt_f32:
+    case OP_vsel_gt_f64:
+    case OP_vsel_vs_f32:
+    case OP_vsel_vs_f64:
+        return true;
+    }
+    return false;
+}
+
 void
 print_opcode_name(instr_t *instr, const char *name,
                   char *buf, size_t bufsz, size_t *sofar INOUT)
@@ -476,6 +494,12 @@ print_opcode_name(instr_t *instr, const char *name,
                         (pred_names[pred][0] != '\0' ? "." : ""), pred_names[pred]);
         if (dot != NULL)
             print_to_buffer(buf, bufsz, sofar, "%s", dot);
+    } else if (DYNAMO_OPTION(syntax_arm) && instr_has_built_in_pred_name(instr)) {
+        /* Remove the dot */
+        const char *dot = strchr(name, '.');
+        CLIENT_ASSERT(dot != NULL, "disasm internal error");
+        print_to_buffer(buf, bufsz, sofar, "%.*s", dot - name, name);
+        print_to_buffer(buf, bufsz, sofar, "%s", dot+1);
     } else
         print_to_buffer(buf, bufsz, sofar, "%s", name);
 }
