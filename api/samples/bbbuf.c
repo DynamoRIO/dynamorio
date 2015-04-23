@@ -78,7 +78,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     app_pc pc = dr_fragment_app_pc(tag);
     instr_t *mov1, *mov2;
     reg_id_t reg;
+#ifdef ARM
+    /* We need a 2nd scratch reg for several operations */
+    reg_id_t reg2;
+#else
     bool dead;
+#endif
 
     /* We do all our work at the start of the block prior to the first instr */
     if (!drmgr_is_first_instr(drcontext, inst))
@@ -90,13 +95,32 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         return DR_EMIT_DEFAULT;
     }
 
+#ifdef ARM
+    if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg2) != DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        return DR_EMIT_DEFAULT;
+    }
+#endif
+
     /* load buffer pointer from TLS field */
     dr_insert_read_raw_tls(drcontext, bb, inst, tls_seg, tls_offs, reg);
 
     /* store bb's start pc into the buffer */
+#ifdef X86
+    /* XXX i#1694: split this sample into separate simple and optimized versions,
+     * with the simple using cross-platform instru and the optimized split into
+     * arm vs x86 versions.
+     */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      OPND_CREATE_MEMPTR(reg, 0),
                                      bb, inst, &mov1, &mov2);
+#elif defined(ARM)
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
+                                     opnd_create_reg(reg2),
+                                     bb, inst, &mov1, &mov2);
+    MINSERT(bb, inst, XINST_CREATE_store
+            (drcontext, OPND_CREATE_MEMPTR(reg, 0), opnd_create_reg(reg2)));
+#endif
     DR_ASSERT(mov1 != NULL);
     instr_set_meta(mov1);
     if (mov2 != NULL)
@@ -105,6 +129,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* update the TLS buffer pointer by incrementing just the bottom 16 bits of
      * the pointer
      */
+#ifdef X86
     if (drreg_are_aflags_dead(drcontext, inst, &dead) == DRREG_SUCCESS && dead) {
         /* if aflags are dead, we use add directly */
         MINSERT(bb, inst, INSTR_CREATE_add
@@ -114,11 +139,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                  OPND_CREATE_INT8(sizeof(app_pc))));
     } else {
         reg_id_t reg_16;
-#ifdef X64
+# ifdef X64
         reg_16 = reg_32_to_16(reg_64_to_32(reg));
-#else
+# else
         reg_16 = reg_32_to_16(reg);
-#endif
+# endif
         /* we use lea to avoid aflags save/restore */
         MINSERT(bb, inst, INSTR_CREATE_lea
                 (drcontext,
@@ -127,9 +152,25 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                        sizeof(app_pc), OPSZ_lea)));
         dr_insert_write_raw_tls(drcontext, bb, inst, tls_seg, tls_offs, reg);
     }
+#elif defined(ARM)
+    /* We use this sequence:
+     *   mov r1, #4
+     *   uqadd16 r0, r0, r1
+     */
+    MINSERT(bb, inst, INSTR_CREATE_mov
+            (drcontext, opnd_create_reg(reg2), OPND_CREATE_INT8(sizeof(app_pc))));
+    MINSERT(bb, inst, INSTR_CREATE_uqadd16
+            (drcontext, opnd_create_reg(reg), opnd_create_reg(reg),
+             opnd_create_reg(reg2)));
+    dr_insert_write_raw_tls(drcontext, bb, inst, tls_seg, tls_offs, reg);
+#endif
 
     if (drreg_unreserve_register(drcontext, bb, inst, reg) != DRREG_SUCCESS)
         DR_ASSERT(false);
+#ifdef ARM
+    if (drreg_unreserve_register(drcontext, bb, inst, reg2) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+#endif
 
     return DR_EMIT_DEFAULT;
 }

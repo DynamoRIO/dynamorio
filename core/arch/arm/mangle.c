@@ -598,7 +598,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
         val = (ptr_int_t) encode_estimate;
-    ASSERT(opnd_is_reg(dst));
+    CLIENT_ASSERT(opnd_is_reg(dst), "ARM cannot store an immediate direct to memory");
     /* MVN writes the bitwise inverse of an immediate value to the dst register */
     /* XXX: we could check for larger tile/rotate immed patterns */
     if (src_inst == NULL && ~val >= 0 && ~val <= 0xff) {

@@ -206,8 +206,8 @@ configure_DynamoRIO_global(OFF ON)
 # library routines, we could shrink the size of the client binary
 # by disabling libc via "set(DynamoRIO_USE_LIBC OFF)".
 
+add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg")
 if (NOT ARM) # FIXME i#1551: port to ARM
-  add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg")
   add_sample_client(bbcount     "bbcount.c"       "")
   add_sample_client(bbsize      "bbsize.c"        "")
   add_sample_client(cbr         "cbr.c"           "")
