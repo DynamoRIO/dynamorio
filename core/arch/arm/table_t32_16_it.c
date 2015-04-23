@@ -71,7 +71,7 @@ const instr_info_t T32_16_it_opc4[] = {
 const instr_info_t T32_16_it_ext_bit_11[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {OP_lsl,   0x0000, "lsl",        RZw, xx,    RYw, i5_6, xx, no, x, xi126[0][0x01]},
+      {EXT_10_6, 0x0000, "(ext 10:6 0)", xx, xx,    xx,   xx, xx, no,      x,        0},
       {OP_lsr ,  0x0800, "lsr",        RZw, xx,    RYw, i5_6, xx, no, x, xb7[2][0x00]},
     }, { /* 1 */
       {OP_asr,   0x1000, "asr",        RZw, xx,    RYw, i5_6, xx, no, x, xb7[4][0x00]},
@@ -176,7 +176,7 @@ const instr_info_t T32_16_it_ext_bits_9_6[][16] = {
     { /* 0 */
       {OP_and,    0x4000, "and",   RZw, xx, RZDw,  RYw, xx, no, x, xfop8[0][0x00]},
       {OP_eor,    0x4040, "eor",   RZw, xx, RZDw,  RYw, xx, no, x, xfop8[0][0x08]},
-      {OP_lsl,    0x4080, "lsl",   RZw, xx, RZDw,  RYw, xx, no, x, z11[0][0x00]},
+      {OP_lsl,    0x4080, "lsl",   RZw, xx, RZDw,  RYw, xx, no, x, xi126[0][0x01]},
       {OP_lsr,    0x40c0, "lsr",   RZw, xx, RZDw,  RYw, xx, no, x, z11[0][0x01]},
       {OP_asr,    0x4100, "asr",   RZw, xx, RZDw,  RYw, xx, no, x, z11[1][0x00]},
       {OP_adc,    0x4140, "adc",   RZw, xx, RZDw,  RYw, xx, no, x, xfop8[0][0x14]},
@@ -269,5 +269,14 @@ const instr_info_t T32_16_it_ext_bits_6_4[][8] = {
       {OP_sevl,    0xbf50, "sevl",      xx, xx, xx, xx, xx, v8, x, xb20[0][0x05]},
       {INVALID,    0xbf60, "(bad)",     xx, xx, xx, xx, xx, no, x, NA},
       {INVALID,    0xbf70, "(bad)",     xx, xx, xx, xx, xx, no, x, NA},
+    },
+};
+
+/* Indexed by whether bits 10:6 are zero or not */
+const instr_info_t T32_16_it_ext_imm_10_6[][2] = {
+    /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
+    { /* 0 */
+      {OP_mov,   0x0000, "mov",        RZw, xx, RYw,   xx, xx, no, fWNZCV, z96[1][0x08]},
+      {OP_lsl,   0x0000, "lsl",        RZw, xx, RYw, i5_6, xx, no, fWNZCV, z96[0][0x02]},
     },
 };

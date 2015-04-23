@@ -19,7 +19,7 @@
 +0x0024   d522       b.pl   $0x10000048
 +0x0026   2c21       cmp    %r4 $0x00000021
 +0x0028   b74f       <INVALID>
-+0x002a   003c       lsls   %r7 $0x00000000 -> %r4
++0x002a   003c       movs   %r7 -> %r4
 +0x002c   4224       tst    %r4 %r4
 +0x002e   6193       str    %r3 -> +0x18(%r2)[4byte]
 +0x0030   f2da 2e52  <INVALID>
@@ -361,7 +361,7 @@
 +0x0304   c79e       stm    %r1 %r2 %r3 %r4 %r7 %r7 -> (%r7)[20byte] %r7
 +0x0306   c9ba       ldm    (%r1)[20byte] -> %r1 %r3 %r4 %r5 %r7
 +0x0308   3848       subs   %r0 $0x00000048 -> %r0
-+0x030a   000a       lsls   %r1 $0x00000000 -> %r2
++0x030a   000a       movs   %r1 -> %r2
 +0x030c   c02f       stm    %r0 %r1 %r2 %r3 %r5 %r0 -> (%r0)[20byte] %r0
 +0x030e   d185       b.ne   $0x0fffff0e
 +0x0310   2af1       cmp    %r2 $0x000000f1
@@ -2514,7 +2514,7 @@
 +0x154e   2b7c       cmp    %r3 $0x0000007c
 +0x1550   2226       movs   $0x00000026 -> %r2
 +0x1552   14fa       asrs   %r7 $0x00000013 -> %r2
-+0x1554   0034       lsls   %r6 $0x00000000 -> %r4
++0x1554   0034       movs   %r6 -> %r4
 +0x1556   350f       adds   %r5 $0x0000000f -> %r5
 +0x1558   a25c       add    %pc $0x00000170 -> %r2
 +0x155a   ef32 15ad  vrshl.s64 %d18 %d29 -> %d1

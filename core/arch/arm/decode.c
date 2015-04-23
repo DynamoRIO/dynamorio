@@ -2027,6 +2027,11 @@ decode_instr_info_T32_it(decode_info_t *di)
         } else if (info->type == EXT_6_4) {
             idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
             info = &T32_16_it_ext_bits_6_4[info->code][idx];
+        } else if (info->type == EXT_10_6) {
+            idx = di->instr_word & 0x7c0; /* bits 10:6 */
+            if (idx != 0)
+                idx = 1;
+            info = &T32_16_it_ext_imm_10_6[info->code][idx];
         } else {
             ASSERT_NOT_REACHED();
             info = NULL;
@@ -2084,6 +2089,11 @@ decode_instr_info_T32_16(decode_info_t *di)
             if (idx != 0)
                 idx = 1;
             info = &T32_16_ext_imm_3_0[info->code][idx];
+        } else if (info->type == EXT_10_6) {
+            idx = di->instr_word & 0x7c0; /* bits 10:6 */
+            if (idx != 0)
+                idx = 1;
+            info = &T32_16_ext_imm_10_6[info->code][idx];
         } else if (info->type == EXT_6_4) {
             idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
             info = &T32_16_ext_bits_6_4[info->code][idx];
