@@ -471,6 +471,7 @@ print_opcode_name(instr_t *instr, const char *name,
         opnd_is_immed_int(instr_get_src(instr, 1))) {
         it_block_info_t info;
         int i;
+        print_to_buffer(buf, bufsz, sofar, "%s", name);
         it_block_info_init_immeds(&info, opnd_get_immed_int(instr_get_src(instr, 1)),
                                   opnd_get_immed_int(instr_get_src(instr, 0)));
         for (i = 1/*1st is implied*/; i < info.num_instrs; i++) {

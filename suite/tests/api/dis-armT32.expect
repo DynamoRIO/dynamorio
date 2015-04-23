@@ -49,7 +49,7 @@
 +0x0066   b0b3       sub    %sp $0x000000cc -> %sp
 +0x0068   9fec       ldr    +0x000003b0(%sp)[4byte] -> %r7
 +0x006a   123a       asrs   %r7 $0x00000008 -> %r2
-+0x006c   bfd9       tee    $0x0d $0x09
++0x006c   bfd9       ittee  $0x0d $0x09
 +0x006e   8e88       ldrh   +0x34(%r1)[2byte] -> %r0
 +0x0070   d4a5       b.mi   $0x0fffff4e
 +0x0072   9354       str    %r3 -> +0x00000150(%sp)[4byte]
@@ -171,7 +171,7 @@
 +0x016e   92d1       str    %r2 -> +0x00000344(%sp)[4byte]
 +0x0170   085d       lsrs   %r3 $0x00000001 -> %r5
 +0x0172   2d97       cmp    %r5 $0x00000097
-+0x0174   bf8b       ete    $0x08 $0x0b
++0x0174   bf8b       itete  $0x08 $0x0b
 +0x0176   0ded       lsrs   %r5 $0x00000017 -> %r5
 +0x0178   ae1f       add    %sp $0x0000007c -> %r6
 +0x017a   8259       strh   %r1 -> +0x12(%r3)[2byte]
@@ -280,7 +280,7 @@
 +0x0258   4f66       ldr    +0x00000198(%pc)[4byte] -> %r7
 +0x025a   d1cb       b.ne   $0x0fffff9a
 +0x025c   45c4       cmp    %r12 %r8
-+0x025e   bf7d       tte    $0x07 $0x0d
++0x025e   bf7d       ittte  $0x07 $0x0d
 +0x0260   6ab6       ldr    +0x28(%r6)[4byte] -> %r6
 +0x0262   1563       asrs   %r4 $0x00000015 -> %r3
 +0x0264   b158       cbz    $0x1000001a %r0
@@ -453,7 +453,7 @@
 +0x03cc   bca4       ldm    (%sp)[12byte] %sp -> %r2 %r5 %r7 %sp
 +0x03ce   db00       b.lt   $0x10000004
 +0x03d0   1f4f       subs   %r1 $0x00000005 -> %r7
-+0x03d2   bfbd       tte    $0x0b $0x0d
++0x03d2   bfbd       ittte  $0x0b $0x0d
 +0x03d4   adf4       add    %sp $0x000003d0 -> %r5
 +0x03d6   d7c7       b.vc   $0x0fffff92
 +0x03d8   9be2       ldr    +0x00000388(%sp)[4byte] -> %r3
@@ -495,7 +495,7 @@
 +0x0426   4b76       ldr    +0x000001d8(%pc)[4byte] -> %r3
 +0x0428   daef       b.ge   $0x0fffffe2
 +0x042a   da3f       b.ge   $0x10000082
-+0x042c   bfb6       et     $0x0b $0x06
++0x042c   bfb6       itet   $0x0b $0x06
 +0x042e   9f31       ldr    +0x000000c4(%sp)[4byte] -> %r7
 +0x0430   fa5e 40bd  <INVALID>
 +0x0434   6aeb       ldr    +0x2c(%r5)[4byte] -> %r3
@@ -623,7 +623,7 @@
 +0x053e   b34c       cbz    $0x10000056 %r4
 +0x0540   a8bf       add    %sp $0x000002fc -> %r0
 +0x0542   037e       lsls   %r7 $0x0000000d -> %r6
-+0x0544   bf5c       t      $0x05 $0x0c
++0x0544   bf5c       itt    $0x05 $0x0c
 +0x0546   0126       lsls   %r4 $0x00000004 -> %r6
 +0x0548   47b5       blx    %r6 -> %lr
 +0x054a   2c4d       cmp    %r4 $0x0000004d
@@ -840,7 +840,7 @@
 +0x070c   a0fd       add    %pc $0x000003f4 -> %r0
 +0x070e   8e1f       ldrh   +0x30(%r3)[2byte] -> %r7
 +0x0710   e20e       b      $0x10000420
-+0x0712   bfdd       tte    $0x0d $0x0d
++0x0712   bfdd       ittte  $0x0d $0x0d
 +0x0714   091d       lsrs   %r3 $0x00000004 -> %r5
 +0x0716   1a49       subs   %r1 %r1 -> %r1
 +0x0718   309b       adds   %r0 $0x0000009b -> %r0
@@ -1257,7 +1257,7 @@
 +0x0a86   1e9c       subs   %r3 $0x00000002 -> %r4
 +0x0a88   2647       movs   $0x00000047 -> %r6
 +0x0a8a   da8e       b.ge   $0x0fffff20
-+0x0a8c   bf55       ete    $0x05 $0x05
++0x0a8c   bf55       itete  $0x05 $0x05
 +0x0a8e   4ee4       ldr    +0x00000390(%pc)[4byte] -> %r6
 +0x0a90   78e9       ldrb   +0x03(%r5)[1byte] -> %r1
 +0x0a92   2602       movs   $0x00000002 -> %r6
@@ -1855,7 +1855,7 @@
 +0x0fa8   5a2b       ldrh   (%r5,%r0)[2byte] -> %r3
 +0x0faa   79fe       ldrb   +0x07(%r7)[1byte] -> %r6
 +0x0fac   a54e       add    %pc $0x00000138 -> %r5
-+0x0fae   bf54       e      $0x05 $0x04
++0x0fae   bf54       ite    $0x05 $0x04
 +0x0fb0   fb93 be61  <INVALID>
 +0x0fb4   4582       cmp    %r10 %r0
 +0x0fb6   de68       udf    $0x68
@@ -2357,7 +2357,7 @@
 +0x13f2   8ee5       ldrh   +0x36(%r4)[2byte] -> %r5
 +0x13f4   bc7d       ldm    (%sp)[24byte] %sp -> %r0 %r2 %r3 %r4 %r5 %r6 %sp
 +0x13f6   2b88       cmp    %r3 $0x00000088
-+0x13f8   bf43       tte    $0x04 $0x03
++0x13f8   bf43       ittte  $0x04 $0x03
 +0x13fa   3a8e       subs   %r2 $0x0000008e -> %r2
 +0x13fc   7ded       ldrb   +0x17(%r5)[1byte] -> %r5
 +0x13fe   1f73       subs   %r6 $0x00000005 -> %r3
@@ -2442,7 +2442,7 @@
 +0x14a8   b0e4       sub    %sp $0x00000190 -> %sp
 +0x14aa   76bd       strb   %r5 -> +0x1a(%r7)[1byte]
 +0x14ac   225f       movs   $0x0000005f -> %r2
-+0x14ae   bf04       t      $0x00 $0x04
++0x14ae   bf04       itt    $0x00 $0x04
 +0x14b0   4fc7       ldr    +0x0000031c(%pc)[4byte] -> %r7
 +0x14b2   f38b 70fd  usat   $0x1d %r11 lsl $0x1f -> %r0
 +0x14b6   949e       str    %r4 -> +0x00000278(%sp)[4byte]
@@ -2748,7 +2748,7 @@
 +0x1744   7250       strb   %r0 -> +0x09(%r2)[1byte]
 +0x1746   5103       str    %r3 -> (%r0,%r4)[4byte]
 +0x1748   2db9       cmp    %r5 $0x000000b9
-+0x174a   bffd       tte    $0x0f $0x0d
++0x174a   bffd       ittte  $0x0f $0x0d
 +0x174c   12ac       asrs   %r5 $0x0000000a -> %r4
 +0x174e   e117       b      $0x10000232
 +0x1750   4cd6       ldr    +0x00000358(%pc)[4byte] -> %r4
@@ -2798,7 +2798,7 @@
 +0x17b2   3ae0       subs   %r2 $0x000000e0 -> %r2
 +0x17b4   6e2d       ldr    +0x60(%r5)[4byte] -> %r5
 +0x17b6   38e6       subs   %r0 $0x000000e6 -> %r0
-+0x17b8   bf22       tt     $0x02 $0x02
++0x17b8   bf22       ittt   $0x02 $0x02
 +0x17ba   5241       strh   %r1[2byte] -> (%r0,%r1)[2byte]
 +0x17bc   d96a       b.ls   $0x100000d8
 +0x17be   985b       ldr    +0x0000016c(%sp)[4byte] -> %r0
@@ -3654,7 +3654,7 @@
 +0x1f0c   2d97       cmp    %r5 $0x00000097
 +0x1f0e   f51e 4f9c  cmn    %lr $0x00004e00
 +0x1f12   ea3b 8111  bics   %r11 %r1 lsr $0x20 -> %r1
-+0x1f16   bffb       tet    $0x0f $0x0b
++0x1f16   bffb       ittet  $0x0f $0x0b
 +0x1f18   7374       strb   %r4 -> +0x0d(%r6)[1byte]
 +0x1f1a   6caf       ldr    +0x48(%r5)[4byte] -> %r7
 +0x1f1c   5f85       ldrsh  (%r0,%r6)[2byte] -> %r5
@@ -4877,7 +4877,7 @@
 +0x2d34   ef14 a2f6  vqsub.s16 %q10 %q11 -> %q5
 +0x2d38   ef14 27e3  vabd.s16 %q10 %q9 -> %q1
 +0x2d3c   0e4e       lsrs   %r1 $0x00000019 -> %r6
-+0x2d3e   bf1e       tt     $0x01 $0x0e
++0x2d3e   bf1e       ittt   $0x01 $0x0e
 +0x2d40   f069 70ff  orn    %r9 $0x01fe0000 -> %r0
 +0x2d44   e846 0191  strex  %r0 -> +0x00000244(%r6)[4byte] %r1
 +0x2d48   ef9e 5c88  vmull.s16 %d30 %d8 -> %q2
@@ -6171,7 +6171,7 @@
 +0x4116   f966 984c  vld2.16 (%r6)[16byte] $0x00 %r12 %r6 -> %d25 %d26 %r6
 +0x411a   bfd0       sevl
 +0x411c   fb2e a537  smladx %lr %r7 %r10 -> %r5
-+0x4120   bf21       ttt    $0x02 $0x01
++0x4120   bf21       itttt  $0x02 $0x01
 +0x4122   efab 29e5  vmul.f32 %d27 %d5[4byte] $0x01 -> %d2
 +0x4126   f980 34f1  vst1.16 %d3[2byte] $0x03 $0x01 %r1 %r0 -> (%r0)[2byte] %r0
 +0x412a   f36c 27a4  bfi    %r12 $0x0a $0x04 %r7 -> %r7
@@ -6196,14 +6196,14 @@
 +0x4176   fb7d fbd2  usad8  %sp %r2 -> %r11
 +0x417a   f9cd 0422  vst1.16 %d16[2byte] $0x00 $0x00 %r2 %sp -> (%sp)[2byte] %sp
 +0x417e   fffd 27ff  vqshl.u64 %q15 $0x3d -> %q9
-+0x4182   bfac       e      $0x0a $0x0c
++0x4182   bfac       ite    $0x0a $0x0c
 +0x4184   ef88 97a6  vabdl.s8 %d24 %d22 -> %q4
 +0x4188   ef9e b2ce  vmlal.s16 %d30 %d6[2byte] $0x01 -> %q5
 +0x418c   fbc5 5bdf  smlaldx %r11 %r5 %r5 %pc -> %r11 %r5
 +0x4190   efbd a83c  vshrn.i64 %q14 $0x1d -> %d10
 +0x4194   ed26 cb19  vstmdb %d12 %d13 %d14 %d15 %d16 %d17 %d18 %d19 %d20 %d21 %d22 %d23 %r6 -> (%r6)[88byte] %r6
 +0x4198   eef9 4b5a  vmov.u8 %d9[1byte] $0x06 -> %r4
-+0x419c   bf1a       te     $0x01 $0x0a
++0x419c   bf1a       itte   $0x01 $0x0a
 +0x419e   efe8 00ff  vshr.s64 %q15 $0x28 -> %q8
 +0x41a2   ff95 7572  vsli.16 %q9 $0x05 -> %q3
 +0x41a6   ff6d 6449  vshl.u32 %q6 %q4 -> %q11
@@ -6211,7 +6211,7 @@
 +0x41ae   ef81 7016  vmov.i32 $0x00000016 -> %d7
 +0x41b2   e997 d52f  rfe    (%r7)[8byte] -> %cpsr
 +0x41b6   eace 60a6  pkhtb  %lr[2byte] %r6[2byte] $0x02 $0x1a -> %r0
-+0x41ba   bf25       tet    $0x02 $0x05
++0x41ba   bf25       ittet  $0x02 $0x05
 +0x41bc   fb4a 20dd  smlsdx %r10 %sp %r2 -> %r0
 +0x41c0   fb11 14f4  smlatt %r1[2byte] %r4[2byte] %r1 -> %r4
 +0x41c4   ff05 f57c  vqrshl.u8 %q2 %q14 -> %q7
@@ -6340,7 +6340,7 @@
 +0x43a8   e834 d460  rfedb  (%r4)[8byte] %r4 -> %r4 %cpsr
 +0x43ac   f9c1 1844  vst1.32 %d17[4byte] $0x00 $0x00 %r4 %r1 -> (%r1)[4byte] %r1
 +0x43b0   ff22 da04  vpmax.u32 %d2 %d4 -> %d13
-+0x43b4   bfa6       te     $0x0a $0x06
++0x43b4   bfa6       itte   $0x0a $0x06
 +0x43b6   ff60 52a5  vhsub.u32 %d16 %d21 -> %d21
 +0x43ba   ef29 f75f  vaba.s32 %q4 %q7 -> %q7
 +0x43be   ff0e 04eb  vshl.u8 %q15 %q13 -> %q0
@@ -6554,7 +6554,7 @@
 +0x46fc   f908 a351  vst2.16 %d10 %d11 %d12 %d13 $0x01 %r1 %r8 -> (%r8)[32byte] %r8
 +0x4700   ef0c 3847  vadd.i8 %q6 %q3 -> %q1
 +0x4704   efca 37c2  vabdl.s8 %d26 %d2 -> %q9
-+0x4708   bf8d       eet    $0x08 $0x0d
++0x4708   bf8d       iteet  $0x08 $0x0d
 +0x470a   fe63 9ad8  vsel.ge.f32 $0x02 %s7 %s16 -> %s19
 +0x470e   ff10 e122  vrhadd.u16 %d0 %d18 -> %d14
 +0x4712   ef8c f026  vaddl.s8 %d12 %d22 -> %q7
@@ -6678,7 +6678,7 @@
 +0x48e8   ef97 8bc9  vqdmull.s16 %d23 %d1[2byte] $0x01 -> %q4
 +0x48ec   ef15 1606  vmax.s16 %d5 %d6 -> %d1
 +0x48f0   ef62 8aa9  vpmax.s32 %d18 %d25 -> %d24
-+0x48f4   bf09       ett    $0x00 $0x09
++0x48f4   bf09       itett  $0x00 $0x09
 +0x48f6   fbc9 d8bf  smlaltt %r8 %sp %r9[2byte] %pc[2byte] -> %r8 %sp
 +0x48fa   ff8a 158d  vabal.u8 %d26 %d13 -> %q0
 +0x48fe   f96f 8394  vld2.32 (%pc)[32byte] $0x01 %r4 %pc -> %d24 %d25 %d26 %d27 %pc
@@ -6857,7 +6857,7 @@
 +0x4ba6   ffc7 18b1  vshr.u64 %d17 $0x07 -> %d17
 +0x4baa   ef10 6975  vmul.i16 %q0 %q10 -> %q3
 +0x4bae   fffa d752  vqshl.u32 %q1 $0x1a -> %q14
-+0x4bb2   bf9a       te     $0x09 $0x0a
++0x4bb2   bf9a       itte   $0x09 $0x0a
 +0x4bb4   f9e4 9daf  vld2.32 (%r4)[8byte] $0x00 -> %d25 %d27
 +0x4bb8   ef41 9fd6  vrecps.f32 %q8 %q3 -> %q12
 +0x4bbc   ef5e 62a4  vhsub.s16 %d30 %d20 -> %d22
@@ -7332,7 +7332,7 @@
 +0x52fa   efb5 2a17  vshll.s32 %d7 $0x15 -> %q1
 +0x52fe   ee3f aacc  vsub.f32 %s31 %s24 -> %s20
 +0x5302   ef32 f545  vrshl.s64 %q1 %q2 -> %q7
-+0x5306   bf2c       e      $0x02 $0x0c
++0x5306   bf2c       ite    $0x02 $0x0c
 +0x5308   ef21 1cc7  sha1m.32 %q8 %q3 -> %q0
 +0x530c   fe0a 2afb  vsel.eq.f32 $0x00 %s21 %s23 -> %s4
 +0x5310   fe2a da25  vsel.ge.f32 $0x02 %s20 %s11 -> %s26
@@ -7745,7 +7745,7 @@
 +0x595c   ffcd c11f  vsra.u8 %d15 $0x05 -> %d28
 +0x5960   efe5 1106  vaddw.s32 %q2 %d6 -> %q8
 +0x5964   f9a2 b3dc  vld4.8 (%r2)[4byte] $0x06 %r12 %r2 -> %d11[1byte] %d12[1byte] %d13[1byte] %d14[1byte] %r2
-+0x5968   bf37       ett    $0x03 $0x07
++0x5968   bf37       itett  $0x03 $0x07
 +0x596a   ff90 6189  vaddw.u16 %q8 %d9 -> %q3
 +0x596e   ef60 c19c  vorr   %d16 %d12 -> %d28
 +0x5972   f964 d6d2  vld1.64 (%r4)[24byte] $0x01 %r2 %r4 -> %d29 %d30 %d31 %r4
@@ -7786,7 +7786,7 @@
 +0x59fe   f908 ea8c  vst1.32 %d14 %d15 $0x00 %r12 %r8 -> (%r8)[16byte] %r8
 +0x5a02   ff4d 4aa6  vpmax.u8 %d29 %d22 -> %d20
 +0x5a06   ff2e 58f3  vceq.i32 %q15 %q9 -> %q2
-+0x5a0a   bf06       te     $0x00 $0x06
++0x5a0a   bf06       itte   $0x00 $0x06
 +0x5a0c   ef88 f807  vmlal.s8 %d8 %d7 -> %q7
 +0x5a10   41d5       rors   %r5 %r2 -> %r5
 +0x5a12   ef9e 5348  vqdmlal.s16 %d14 %d0[2byte] $0x01 -> %q2
@@ -8234,7 +8234,7 @@
 +0x60e6   ff1d c80f  vsub.i16 %d13 %d15 -> %d12
 +0x60ea   eebd 1a6a  vcvtr.s32.f32 %s21 -> %s2
 +0x60ee   ef8a a21f  vrshr.s8 %d15 $0x02 -> %d10
-+0x60f2   bf87       tee    $0x08 $0x07
++0x60f2   bf87       ittee  $0x08 $0x07
 +0x60f4   ee35 8b7f  vmov.s16 %d5[2byte] $0x03 -> %r8
 +0x60f8   ff82 001d  vmov.i32 $0x000000ad -> %d0
 +0x60fc   f9ad 102b  vld1.8 (%sp)[1byte] $0x01 %r11 %sp -> %d1[1byte] %sp
@@ -8387,7 +8387,7 @@
 +0x633e   eee9 2ba7  vfma.f64 %d25 %d23 -> %d18
 +0x6342   ff02 a2e7  vhsub.u8 %q9 %q11 -> %q5
 +0x6346   ef5e d38e  vcgt.s16 %d30 %d14 -> %d29
-+0x634a   bf89       ett    $0x08 $0x09
++0x634a   bf89       itett  $0x08 $0x09
 +0x634c   ff2a f02c  vhadd.u32 %d10 %d28 -> %d15
 +0x6350   ef88 f75d  vqshl.s8 %q6 $0x00 -> %q7
 +0x6354   bf50       sevl
@@ -8421,7 +8421,7 @@
 +0x63c2   efa5 b6ac  vsubhn.i64 %q10 %q14 -> %d11
 +0x63c6   ef57 d05a  vqadd.s16 %q3 %q5 -> %q14
 +0x63ca   efc0 da1c  vmov.i16 $0x0c00 -> %d29
-+0x63ce   bf8f       eee    $0x08 $0x0f
++0x63ce   bf8f       iteee  $0x08 $0x0f
 +0x63d0   efa8 1ca1  vmull.s32 %d24 %d17 -> %q0
 +0x63d4   bf80       nop
 +0x63d6   f9a1 f6bf  vld3.16 (%r1)[6byte] $0x02 $0x01 -> %d15[2byte] %d17[2byte] %d19[2byte]
@@ -8539,7 +8539,7 @@
 +0x6590   ffda 7957  vqrshrn.u32 %q3 $0x0a -> %d23
 +0x6594   ff1b 5346  vcgt.u16 %q5 %q3 -> %q2
 +0x6598   ffe9 505b  vshr.u32 %q5 $0x09 -> %q10
-+0x659c   bf9f       ttt    $0x09 $0x0f
++0x659c   bf9f       itttt  $0x09 $0x0f
 +0x659e   ef0a c2d7  vqsub.s8 %q13 %q3 -> %q6
 +0x65a2   ffa7 1a89  vmlsl.u32 %d23 %d9 -> %q0
 +0x65a6   f9a7 cd43  vld2.16 (%r7)[4byte] $0x00 %r3 %r7 -> %d12 %d13 %r7
