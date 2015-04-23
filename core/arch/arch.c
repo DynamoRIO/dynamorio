@@ -51,9 +51,6 @@
 #include "../fcache.h"
 #include "proc.h"
 #include "instrument.h"
-#ifdef ARM
-# include "tls.h" /* get_dr_tls_base_addr */
-#endif
 
 #include <string.h> /* for memcpy */
 

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -147,11 +147,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
         dr_save_reg(drcontext, bb, first, reg, SPILL_SLOT_1);
 
     /* load buffer pointer from TLS field */
-    MINSERT(bb, first, INSTR_CREATE_mov_ld
-            (drcontext,
-             opnd_create_reg(reg),
-             opnd_create_far_base_disp(tls_seg, DR_REG_NULL, DR_REG_NULL,
-                                       0, tls_offs, OPSZ_PTR)));
+    dr_insert_read_raw_tls(drcontext, bb, first, tls_seg, tls_offs, reg);
 
     /* store bb's start pc into the buffer */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
@@ -185,11 +181,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                  opnd_create_reg(reg_16),
                  opnd_create_base_disp(reg, DR_REG_NULL, 0,
                                        sizeof(app_pc), OPSZ_lea)));
-        MINSERT(bb, first, INSTR_CREATE_mov_st
-                (drcontext,
-                 opnd_create_far_base_disp(tls_seg, DR_REG_NULL, DR_REG_NULL,
-                                           0, tls_offs, OPSZ_PTR),
-                 opnd_create_reg(reg)));
+        dr_insert_write_raw_tls(drcontext, bb, first, tls_seg, tls_offs, reg);
     }
 
     /* restore register if necessary */

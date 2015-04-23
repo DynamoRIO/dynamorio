@@ -4368,28 +4368,27 @@ DR_API void *
 dr_get_dr_segment_base(IN reg_id_t seg)
 {
 #ifdef ARM
-    /* FIXME i#1551: no segment in ARM, what about TLS? */
-    ASSERT_NOT_IMPLEMENTED(false);
+    if (seg == dr_reg_stolen)
+        return os_get_dr_tls_base(get_thread_private_dcontext());
+    else
+        return NULL;
+#else
+    return get_segment_base(seg);
 #endif
-    return IF_X86_ELSE(get_segment_base(seg), NULL);
 }
 
 DR_API
 bool
-dr_raw_tls_calloc(OUT reg_id_t *segment_register,
+dr_raw_tls_calloc(OUT reg_id_t *tls_register,
                   OUT uint *offset,
                   IN  uint num_slots,
                   IN  uint alignment)
 {
-    CLIENT_ASSERT(segment_register != NULL,
-                  "dr_raw_tls_calloc: segment_register cannot be NULL");
+    CLIENT_ASSERT(tls_register != NULL,
+                  "dr_raw_tls_calloc: tls_register cannot be NULL");
     CLIENT_ASSERT(offset != NULL,
                   "dr_raw_tls_calloc: offset cannot be NULL");
-#ifdef ARM
-    /* FIXME i#1551: no segment in ARM, what about TLS? */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
-    *segment_register = IF_X86_ELSE(SEG_TLS, REG_NULL);
+    *tls_register = IF_X86_ELSE(SEG_TLS, dr_reg_stolen);
     return os_tls_calloc(offset, num_slots, alignment);
 }
 
@@ -4398,6 +4397,51 @@ bool
 dr_raw_tls_cfree(uint offset, uint num_slots)
 {
     return os_tls_cfree(offset, num_slots);
+}
+
+DR_API
+void
+dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t tls_register, uint tls_offs, reg_id_t reg)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_insert_read_tls_field: drcontext cannot be NULL");
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "must use a pointer-sized general-purpose register");
+    IF_X86_ELSE({
+        MINSERT(ilist, where, INSTR_CREATE_mov_ld
+                (dcontext, opnd_create_reg(reg),
+                 opnd_create_far_base_disp(tls_register, DR_REG_NULL, DR_REG_NULL,
+                                           0, tls_offs, OPSZ_PTR)));
+    }, {
+        MINSERT(ilist, where, XINST_CREATE_load
+                (dcontext, opnd_create_reg(reg),
+                 OPND_CREATE_MEMPTR(tls_register, tls_offs)));
+    });
+}
+
+DR_API
+void
+dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t tls_register, uint tls_offs, reg_id_t reg)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_insert_read_tls_field: drcontext cannot be NULL");
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "must use a pointer-sized general-purpose register");
+    IF_X86_ELSE({
+        MINSERT(ilist, where, INSTR_CREATE_mov_st
+                (dcontext,
+                 opnd_create_far_base_disp(tls_register, DR_REG_NULL, DR_REG_NULL,
+                                           0, tls_offs, OPSZ_PTR),
+                 opnd_create_reg(reg)));
+    }, {
+        MINSERT(ilist, where, XINST_CREATE_store
+                (dcontext, OPND_CREATE_MEMPTR(tls_register, tls_offs),
+                 opnd_create_reg(reg)));
+    });
 }
 
 DR_API

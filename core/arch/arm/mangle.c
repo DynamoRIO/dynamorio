@@ -1209,7 +1209,7 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 }
 #endif /* !X64 */
 
-/* save tls_base from dr_stolen_reg to reg and load app value to dr_reg_stolen */
+/* save tls_base from dr_reg_stolen to reg and load app value to dr_reg_stolen */
 static void
 restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
                                 instr_t *instr, reg_id_t reg, ushort slot)
@@ -1452,7 +1452,7 @@ store_reg_to_memlist(dcontext_t *dcontext,
     instrlist_preinsert(ilist, next_instr, store);
 }
 
-/* mangle dr_stolen_reg or pc read in a reglist store (i.e., stm).
+/* mangle dr_reg_stolen or pc read in a reglist store (i.e., stm).
  * Approach: fix up memory slot w/ app value after the store.
  */
 static void

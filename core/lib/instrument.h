@@ -4213,8 +4213,8 @@ dr_set_tls_field(void *drcontext, void *value);
 
 DR_API
 /**
- * Get DR's segment base pointed at \p segment_register.
- * It can be used to get the base of thread-local storage segment
+ * Get DR's thread local storage segment base pointed at by \p tls_register.
+ * It can be used to get the base of the thread-local storage segment
  * used by #dr_raw_tls_calloc.
  *
  * \note It should not be called on thread exit event,
@@ -4222,20 +4222,22 @@ DR_API
  * See #dr_register_thread_exit_event for details.
  */
 void *
-dr_get_dr_segment_base(IN reg_id_t segment_register);
+dr_get_dr_segment_base(IN reg_id_t tls_register);
 
 DR_API
 /**
- * Allocates \p num_slots contiguous thread-local storage slots that
- * can be directly accessed via an offset from \p segment_register.
+ * Allocates \p num_slots contiguous thread-local storage (TLS) slots that
+ * can be directly accessed via an offset from \p tls_register.
  * If \p alignment is non-zero, the slots will be aligned to \p alignment.
  * These slots will be initialized to 0 for each new thread.
  * The slot offsets are [\p offset .. \p offset + (num_slots - 1)].
  * These slots are disjoint from the #dr_spill_slot_t register spill slots
  * and the client tls field (dr_get_tls_field()).
  * Returns whether or not the slots were successfully obtained.
- * The segment base pointed at \p segment_register can be obtained
+ * The linear address of the TLS base pointed at by \p tls_register can be obtained
  * using #dr_get_dr_segment_base.
+ * Raw TLs slots can be read directly using dr_insert_read_raw_tls() and written
+ * using dr_insert_write_raw_tls().
  *
  * \note These slots are useful for thread-shared code caches.  With
  * thread-private caches, DR's memory pools are guaranteed to be
@@ -4249,7 +4251,7 @@ DR_API
  * to no more than 64 slots.
  */
 bool
-dr_raw_tls_calloc(OUT reg_id_t *segment_register,
+dr_raw_tls_calloc(OUT reg_id_t *tls_register,
                   OUT uint *offset,
                   IN  uint num_slots,
                   IN  uint alignment);
@@ -4263,6 +4265,25 @@ DR_API
 bool
 dr_raw_tls_cfree(uint offset, uint num_slots);
 
+DR_API
+/**
+ * Inserts into ilist prior to "where" instruction(s) to read into the
+ * general-purpose full-size register \p reg from the raw TLS slot with offset
+ * \p tls_offs from the TLS base \p tls_register.
+ */
+void
+dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t tls_register, uint tls_offs, reg_id_t reg);
+
+DR_API
+/**
+ * Inserts into ilist prior to "where" instruction(s) to store the value in the
+ * general-purpose full-size register \p reg into the raw TLS slot with offset
+ * \p tls_offs from the TLS base \p tls_register.
+ */
+void
+dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t tls_register, uint tls_offs, reg_id_t reg);
 
 /* PR 222812: due to issues in supporting client thread synchronization
  * and other complexities we are using nudges for simple push-i/o and

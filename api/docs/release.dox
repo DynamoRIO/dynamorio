@@ -284,6 +284,7 @@ Further non-compatibility-affecting changes include:
    which provides the fall-through address.
  - Added instr_is_app(), instr_is_meta(), instr_set_app(), and instr_set_meta().
  - Added reg_get_value_ex().
+ - Added dr_insert_read_raw_tls() and dr_insert_write_raw_tls().
 
 **************************************************
 <hr>
