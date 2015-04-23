@@ -60,7 +60,7 @@ read_data(void *drcontext, byte *start, size_t size)
 #if VERBOSE
         dr_printf("+0x%04x  ", prev_pc - start);
 #endif
-        pc = disassemble_from_copy(drcontext, pc, ORIG_PC, STDOUT,
+        pc = disassemble_from_copy(drcontext, pc, ORIG_PC + (pc - start), STDOUT,
                                    false/*don't show pc*/,
 #if VERBOSE
                                    true/*show bytes*/
