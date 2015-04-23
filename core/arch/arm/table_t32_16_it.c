@@ -276,7 +276,7 @@ const instr_info_t T32_16_it_ext_bits_6_4[][8] = {
 const instr_info_t T32_16_it_ext_imm_10_6[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {OP_mov,   0x0000, "mov",        RZw, xx, RYw,   xx, xx, no, fWNZCV, z96[1][0x08]},
-      {OP_lsl,   0x0000, "lsl",        RZw, xx, RYw, i5_6, xx, no, fWNZCV, z96[0][0x02]},
+      {OP_mov,   0x0000, "mov",        RZw, xx, RYw,   xx, xx, no, x, z96[1][0x08]},
+      {OP_lsl,   0x0000, "lsl",        RZw, xx, RYw, i5_6, xx, no, x, z96[0][0x02]},
     },
 };

@@ -356,7 +356,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         bool writeback;
         if (reads_list)
             memop = opnd;
-        if (writes_list)
+        else
             memop = instr_get_src(instr, 0);
         CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
         last = instr_get_dst(instr, instr_num_dsts(instr) - 1);
