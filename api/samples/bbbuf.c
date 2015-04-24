@@ -46,6 +46,8 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
+#include "drreg.h"
 #include <string.h>
 
 #define MINSERT instrlist_meta_preinsert
@@ -62,97 +64,39 @@
 #define TLS_BUF_SIZE (BUF_64K_BYTE * 2)
 static reg_id_t tls_seg;
 static uint     tls_offs;
+static int      tls_idx;
 
 typedef struct _per_thread_t {
     void *seg_base;
     void *buf_base;
 } per_thread_t;
 
-/* iterate basic block to find a dead register */
-static reg_id_t
-bb_find_dead_reg(instrlist_t *ilist)
-{
-    instr_t *instr;
-    int i;
-    bool reg_is_read[DR_NUM_GPR_REGS] = { false,};
-
-    for (instr  = instrlist_first(ilist);
-         instr != NULL;
-         instr  = instr_get_next(instr)) {
-        if (instr_is_syscall(instr) || instr_is_interrupt(instr))
-            return DR_REG_NULL;
-        for (i = 0; i < DR_NUM_GPR_REGS; i++) {
-            if (!reg_is_read[i] &&
-                instr_reads_from_reg(instr, (reg_id_t)(DR_REG_START_GPR + i),
-                                                       DR_QUERY_DEFAULT)) {
-                reg_is_read[i] = true;
-            }
-            if (!reg_is_read[i] &&
-                instr_writes_to_exact_reg(instr,
-                                          (reg_id_t)(DR_REG_START_GPR + i),
-                                          DR_QUERY_DEFAULT)) {
-                return (reg_id_t)(DR_REG_START_GPR + i);
-            }
-#ifdef X64
-            /* in x64, update on 32-bit register kills the whole register */
-            if (!reg_is_read[i] &&
-                instr_writes_to_exact_reg(instr,
-                                          reg_64_to_32
-                                          ((reg_id_t)(DR_REG_START_GPR + i)),
-                                          DR_QUERY_DEFAULT)) {
-                return (reg_id_t)(DR_REG_START_GPR + i);
-            }
-#endif
-        }
-    }
-    return DR_REG_NULL;
-}
-
-/* iterate basic block to check if aflags are dead after (including) where */
-static bool
-bb_aflags_are_dead(instrlist_t *ilist, instr_t *where)
-{
-    instr_t *instr;
-    uint flags;
-
-    for (instr = where; instr != NULL; instr = instr_get_next(instr)) {
-        flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-        if (TESTANY(EFLAGS_READ_6, flags))
-            return false;
-        if (TESTALL(EFLAGS_WRITE_6, flags))
-            return true;
-    }
-    return false;
-}
-
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *first = instrlist_first(bb);
-    app_pc   pc    = dr_fragment_app_pc(tag);
+    app_pc pc = dr_fragment_app_pc(tag);
     instr_t *mov1, *mov2;
-    /* We try to avoid register stealing by using "dead" register if possible.
-     * However, technically, a fault could come in and want the original value
-     * of the "dead" register, but that's too corner-case for us.
-     */
-    reg_id_t reg   = bb_find_dead_reg(bb);
-    bool     steal = (reg == DR_REG_NULL);
+    reg_id_t reg;
+    bool dead;
 
-    if (reg == DR_REG_NULL)
-        reg = DR_REG_XCX; /* randomly use one if no dead reg found */
+    /* We do all our work at the start of the block prior to the first instr */
+    if (!drmgr_is_first_instr(drcontext, inst))
+        return DR_EMIT_DEFAULT;
 
-    /* save register if necessary */
-    if (steal)
-        dr_save_reg(drcontext, bb, first, reg, SPILL_SLOT_1);
+    /* We need a scratch register */
+    if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg) != DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        return DR_EMIT_DEFAULT;
+    }
 
     /* load buffer pointer from TLS field */
-    dr_insert_read_raw_tls(drcontext, bb, first, tls_seg, tls_offs, reg);
+    dr_insert_read_raw_tls(drcontext, bb, inst, tls_seg, tls_offs, reg);
 
     /* store bb's start pc into the buffer */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      OPND_CREATE_MEMPTR(reg, 0),
-                                     bb, first, &mov1, &mov2);
+                                     bb, inst, &mov1, &mov2);
     DR_ASSERT(mov1 != NULL);
     instr_set_meta(mov1);
     if (mov2 != NULL)
@@ -161,9 +105,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     /* update the TLS buffer pointer by incrementing just the bottom 16 bits of
      * the pointer
      */
-    if (bb_aflags_are_dead(bb, first)) {
+    if (drreg_are_aflags_dead(drcontext, inst, &dead) == DRREG_SUCCESS && dead) {
         /* if aflags are dead, we use add directly */
-        MINSERT(bb, first, INSTR_CREATE_add
+        MINSERT(bb, inst, INSTR_CREATE_add
                 (drcontext,
                  opnd_create_far_base_disp(tls_seg, DR_REG_NULL, DR_REG_NULL,
                                            0, tls_offs, OPSZ_2),
@@ -176,17 +120,16 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
         reg_16 = reg_32_to_16(reg);
 #endif
         /* we use lea to avoid aflags save/restore */
-        MINSERT(bb, first, INSTR_CREATE_lea
+        MINSERT(bb, inst, INSTR_CREATE_lea
                 (drcontext,
                  opnd_create_reg(reg_16),
                  opnd_create_base_disp(reg, DR_REG_NULL, 0,
                                        sizeof(app_pc), OPSZ_lea)));
-        dr_insert_write_raw_tls(drcontext, bb, first, tls_seg, tls_offs, reg);
+        dr_insert_write_raw_tls(drcontext, bb, inst, tls_seg, tls_offs, reg);
     }
 
-    /* restore register if necessary */
-    if (steal)
-        dr_restore_reg(drcontext, bb, first, reg, SPILL_SLOT_1);
+    if (drreg_unreserve_register(drcontext, bb, inst, reg) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 
     return DR_EMIT_DEFAULT;
 }
@@ -197,7 +140,7 @@ event_thread_init(void *drcontext)
     per_thread_t *data = dr_thread_alloc(drcontext, sizeof(*data));
 
     DR_ASSERT(data != NULL);
-    dr_set_tls_field(drcontext, data);
+    drmgr_set_tls_field(drcontext, tls_idx, data);
     /* Keep seg_base in a per-thread data structure so we can get the TLS
      * slot and find where the pointer points to in the buffer.
      * It is mainly for users using a debugger to get the execution history.
@@ -222,7 +165,7 @@ event_thread_init(void *drcontext)
 static void
 event_thread_exit(void *drcontext)
 {
-    per_thread_t *data = dr_get_tls_field(drcontext);
+    per_thread_t *data = drmgr_get_tls_field(drcontext, tls_idx);
     dr_raw_mem_free(data->buf_base, TLS_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(*data));
 }
@@ -232,23 +175,42 @@ event_exit(void)
 {
     if (!dr_raw_tls_cfree(tls_offs, 1))
         DR_ASSERT(false);
+
+    if (!drmgr_unregister_thread_init_event(event_thread_init) ||
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        !drmgr_unregister_tls_field(tls_idx) ||
+        !drmgr_unregister_bb_insertion_event(event_app_instruction) ||
+        drreg_exit() != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
+    drmgr_exit();
 }
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
     dr_set_client_name("DynamoRIO Sample Client 'bbbuf'",
                        "http://dynamorio.org/issues");
+    if (!drmgr_init() ||
+        drreg_init(&ops) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
     /* register events */
-    dr_register_thread_init_event(event_thread_init);
-    dr_register_thread_exit_event(event_thread_exit);
     dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
-    /* The TLS field provided by DR cannot be directly accessed from code cache.
+    if (!drmgr_register_thread_init_event(event_thread_init) ||
+        !drmgr_register_thread_exit_event(event_thread_exit) ||
+        !drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        DR_ASSERT(false);
+
+    tls_idx = drmgr_register_tls_field();
+    DR_ASSERT(tls_idx > -1);
+
+    /* The TLS field provided by DR cannot be directly accessed from the code cache.
      * For better performance, we allocate raw TLS so that we can directly
      * access and update it with a single instruction.
      */
-    if(!dr_raw_tls_calloc(&tls_seg, &tls_offs, 1, 0))
+    if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, 1, 0))
         DR_ASSERT(false);
 }
 

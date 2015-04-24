@@ -207,7 +207,7 @@ configure_DynamoRIO_global(OFF ON)
 # by disabling libc via "set(DynamoRIO_USE_LIBC OFF)".
 
 if (NOT ARM) # FIXME i#1551: port to ARM
-  add_sample_client(bbbuf       "bbbuf.c"         "")
+  add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg")
   add_sample_client(bbcount     "bbcount.c"       "")
   add_sample_client(bbsize      "bbsize.c"        "")
   add_sample_client(cbr         "cbr.c"           "")
