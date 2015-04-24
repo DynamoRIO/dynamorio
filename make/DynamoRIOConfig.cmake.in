@@ -961,7 +961,14 @@ function (use_DynamoRIO_extension target extname)
     else ()
       set(ext_dir "${extname}")
     endif ()
-    if (EXISTS "${DynamoRIO_SOURCE_DIR}/ext")
+    # To support drreg.h including drvector.h we need all the headers
+    # in one spot, so we prefer to point at build dir copy:
+    if (EXISTS "${PROJECT_BINARY_DIR}/ext/include")
+      include_directories(${PROJECT_BINARY_DIR}/ext/include)
+    elseif (EXISTS "${PROJECT_BINARY_DIR}/../../ext/include")
+      # Two up from api/samples/
+      include_directories(${PROJECT_BINARY_DIR}/../../ext/include)
+    elseif (EXISTS "${DynamoRIO_SOURCE_DIR}/ext")
       include_directories(${DynamoRIO_SOURCE_DIR}/ext/${ext_dir})
     elseif (EXISTS "${PROJECT_SOURCE_DIR}/ext")
       include_directories(${PROJECT_SOURCE_DIR}/ext/${ext_dir})

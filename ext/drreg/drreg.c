@@ -45,6 +45,7 @@
 #include "drvector.h"
 #include "drreg.h"
 #include <string.h>
+#include <limits.h>
 
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
@@ -79,6 +80,7 @@ typedef struct _reg_info_t {
      */
     drvector_t live;
     bool in_use;
+    uint app_uses; /* # of uses in this bb by app */
 
     /* Where is the app value for this reg? */
     bool native;   /* app value is in original app reg */
@@ -94,6 +96,7 @@ typedef struct _per_thread_t {
     int live_idx;
     reg_info_t reg[DR_NUM_GPR_REGS];
     reg_info_t aflags;
+    uint app_uses_min, app_uses_max;
     reg_id_t slot_use[MAX_SPILLS]; /* holds the reg_id_t of which reg is inside */
 } per_thread_t;
 
@@ -116,7 +119,7 @@ find_free_slot(per_thread_t *pt)
 {
     uint i;
     for (i = 0; i < MAX_SPILLS; i++) {
-        if (pt->slot_use[MAX_SPILLS] == DR_REG_NULL)
+        if (pt->slot_use[i] == DR_REG_NULL)
             return i;
     }
     return MAX_SPILLS;
@@ -190,6 +193,26 @@ drreg_max_slots_used(OUT uint *max)
  * ANALYSIS AND CROSS-APP-INSTR
  */
 
+static void
+count_app_uses(per_thread_t *pt, opnd_t opnd)
+{
+    int i;
+    for (i = 0; i < opnd_num_regs_used(opnd); i++) {
+        reg_id_t reg = opnd_get_reg_used(opnd, i);
+        if (reg_is_gpr(reg)) {
+            reg = reg_to_pointer_sized(reg);
+            pt->reg[reg-DR_REG_START_GPR].app_uses++;
+            /* Tools that instrument memory uses (memtrace, Dr. Memory, etc.)
+             * want to double-count memory opnd uses, as they need to restore
+             * the app value to get the memory address into a register there.
+             * We go ahead and do that for all tools.
+             */
+            if (opnd_is_memory_reference(opnd))
+                pt->reg[reg-DR_REG_START_GPR].app_uses++;
+        }
+    }
+}
+
 static dr_emit_flags_t
 drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
                         bool for_trace, bool translating, OUT void **user_data)
@@ -199,6 +222,9 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
     ptr_uint_t aflags_new, aflags_cur = 0;
     uint index = 0;
     reg_id_t reg;
+
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
+        pt->reg[reg-DR_REG_START_GPR].app_uses = 0;
 
     /* Reverse scan is more efficient.  This means our indices are also reversed. */
     for (inst = instrlist_last(bb); inst != NULL; inst = instr_get_prev(inst)) {
@@ -246,10 +272,27 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
         }
         drvector_set_entry(&pt->aflags.live, index, (void *)(ptr_uint_t)aflags_cur);
 
+        if (instr_is_app(inst)) {
+            int i;
+            for (i = 0; i < instr_num_dsts(inst); i++)
+                count_app_uses(pt, instr_get_dst(inst, i));
+            for (i = 0; i < instr_num_srcs(inst); i++)
+                count_app_uses(pt, instr_get_src(inst, i));
+        }
+
         index++;
     }
 
     pt->live_idx = index;
+
+    pt->app_uses_min = UINT_MAX;
+    pt->app_uses_max = 0;
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        if (pt->reg[reg-DR_REG_START_GPR].app_uses > pt->app_uses_max)
+            pt->app_uses_max = pt->reg[reg-DR_REG_START_GPR].app_uses;
+        if (pt->reg[reg-DR_REG_START_GPR].app_uses < pt->app_uses_min)
+            pt->app_uses_min = pt->reg[reg-DR_REG_START_GPR].app_uses;
+    }
 
     return DR_EMIT_DEFAULT;
 }
@@ -282,12 +325,56 @@ drreg_event_bb_insert_post(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 
 drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        drvector_t *reg_allowed, OUT reg_id_t *reg)
+                        drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
-    /* FIXME i#511: do not give out dr_get_stolen_reg() */
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    uint slot = find_free_slot(pt);
+    uint min_uses = UINT_MAX;
+    reg_id_t reg, best_reg = DR_REG_NULL;
+    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
+           "must be called from drmgr insertion phase");
+    if (reg_out == NULL)
+        return DRREG_ERROR_INVALID_PARAMETER;
+    if (slot == MAX_SPILLS)
+        return DRREG_ERROR_OUT_OF_SLOTS;
 
-    /* FIXME i#511: NYI */
-    return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+    /* Pick a register */
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        uint idx = reg - DR_REG_START_GPR;
+        if (pt->reg[idx].in_use)
+            continue;
+        if (reg == dr_get_stolen_reg() IF_ARM(|| reg == DR_REG_PC))
+            continue;
+        if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
+            continue;
+        /* If we had a hint as to local vs whole-bb we could downgrade being
+         * dead right now as a priority
+         */
+        if (drvector_get_entry(&pt->reg[idx].live, pt->live_idx) == REG_DEAD)
+            break;
+        if (pt->reg[idx].app_uses == pt->app_uses_min)
+            break;
+        if (pt->reg[idx].app_uses < min_uses) {
+            best_reg = reg;
+            min_uses = pt->reg[idx].app_uses;
+        }
+    }
+    if (reg > DR_REG_STOP_GPR) {
+        if (best_reg != DR_REG_NULL)
+            reg = best_reg;
+        else
+            return DRREG_ERROR_REG_CONFLICT;
+    }
+
+    pt->reg[reg-DR_REG_START_GPR].in_use = true;
+    if (drvector_get_entry(&pt->reg[reg-DR_REG_START_GPR].live, pt->live_idx) == REG_LIVE)
+        spill_reg(drcontext, pt, reg, slot, ilist, where);
+    /* Even if dead now, we need to own a slot for it in case reserved past dead point */
+    pt->reg[reg-DR_REG_START_GPR].native = false;
+    pt->reg[reg-DR_REG_START_GPR].xchg = DR_REG_NULL;
+    pt->reg[reg-DR_REG_START_GPR].slot = slot;
+    *reg_out = reg;
+    return DRREG_SUCCESS;
 }
 
 drreg_status_t
@@ -307,8 +394,21 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
      * drreg_event_bb_insert_post).
      */
 
-    /* FIXME i#511: NYI */
-    return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (!pt->reg[reg-DR_REG_START_GPR].in_use)
+        return DRREG_ERROR_INVALID_PARAMETER;
+    if (drvector_get_entry(&pt->reg[reg-DR_REG_START_GPR].live, pt->live_idx) ==
+        REG_LIVE) {
+        if (pt->reg[reg-DR_REG_START_GPR].xchg != DR_REG_NULL) {
+            /* FIXME i#511: NYI */
+            return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+        }
+        restore_reg(drcontext, pt, reg, pt->reg[reg-DR_REG_START_GPR].slot,
+                    ilist, where, true);
+    }
+    pt->reg[reg-DR_REG_START_GPR].in_use = false;
+    pt->reg[reg-DR_REG_START_GPR].native = true;
+    return DRREG_SUCCESS;
 }
 
 /***************************************************************************
@@ -462,6 +562,7 @@ drreg_thread_init(void *drcontext)
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         drvector_init(&pt->reg[reg-DR_REG_START_GPR].live, 20,
                       false/*!synch*/, NULL);
+        pt->reg[reg-DR_REG_START_GPR].native = true;
     }
     drvector_init(&pt->aflags.live, 20, false/*!synch*/, NULL);
 }

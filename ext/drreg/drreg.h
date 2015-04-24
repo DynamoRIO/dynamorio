@@ -38,6 +38,9 @@
 #ifndef _DRREG_H_
 #define _DRREG_H_ 1
 
+#include "drmgr.h"
+#include "drvector.h"
+
 /**
  * @file drreg.h
  * @brief Header for DynamoRIO Register Management Extension
@@ -217,8 +220,9 @@ DR_EXPORT
  * \p where in \p ilist if necessary.  The register chosen is returned
  * in \p reg.  If \p reg_allowed is non-NULL, only registers from the
  * specified set will be considered, where \p reg_allowed must be a
- * vector with one boolean entry for each general-purpose register in
- * [DR_REG_START_GPR..DR_REG_STOP_GPR].
+ * vector with one entry for each general-purpose register in
+ * [DR_REG_START_GPR..DR_REG_STOP_GPR] where a NULL entry indicates not allowed
+ * and any non-NULL entry indicates allowed.
  *
  * @return whether successful or an error code on failure.
  */
