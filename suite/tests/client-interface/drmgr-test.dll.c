@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -278,8 +278,16 @@ static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data)
 {
-    /* hack to instrument every nth bb.  assumes DR serializes bb events. */
     static int freq;
+
+    CHECK(drmgr_is_first_instr(drcontext, instrlist_first_app(bb)), "first incorrect");
+    CHECK(!drmgr_is_first_instr(drcontext, instrlist_last(bb)) ||
+          instrlist_first_app(bb) == instrlist_last(bb), "first incorrect");
+    CHECK(drmgr_is_last_instr(drcontext, instrlist_last(bb)), "last incorrect");
+    CHECK(!drmgr_is_last_instr(drcontext, instrlist_first_app(bb)) ||
+          instrlist_first_app(bb) == instrlist_last(bb), "last incorrect");
+
+    /* hack to instrument every nth bb.  assumes DR serializes bb events. */
     freq++;
     if (freq % 100 == 0 && inst == (instr_t*)user_data/*first instr*/) {
         /* test read from cache */
@@ -325,8 +333,8 @@ event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb,
 
 static dr_emit_flags_t
 event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                          bool for_trace, bool translating,
-                                          void *user_data)
+                   bool for_trace, bool translating,
+                   void *user_data)
 {
     CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
     return DR_EMIT_DEFAULT;

@@ -210,6 +210,7 @@ Further non-compatibility-affecting changes include:
  - Added the \ref op_syntax_arm "-syntax_arm" runtime option.
  - Added opnd_add_flags().
  - Added drmgr_unregister_bb_insertion_event().
+ - Added drmgr_is_first_instr() and drmgr_is_last_instr().
 
 **************************************************
 <hr>

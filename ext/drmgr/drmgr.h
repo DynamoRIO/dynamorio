@@ -435,6 +435,24 @@ DR_EXPORT
 drmgr_bb_phase_t
 drmgr_current_bb_phase(void *drcontext);
 
+DR_EXPORT
+/**
+ * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
+ * first instruction in the instruction list (as of immediately after the analysis
+ * phase).
+ */
+bool
+drmgr_is_first_instr(void *drcontext, instr_t *instr);
+
+DR_EXPORT
+/**
+ * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
+ * last instruction in the instruction list (as of immediately after the analysis
+ * phase).
+ */
+bool
+drmgr_is_last_instr(void *drcontext, instr_t *instr);
+
 /***************************************************************************
  * TLS
  */
