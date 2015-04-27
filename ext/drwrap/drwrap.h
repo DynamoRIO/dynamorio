@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -103,7 +103,10 @@ enum {
 /** Spill slot used to store user_data parameter for drwrap_replace_native() */
 #define DRWRAP_REPLACE_NATIVE_DATA_SLOT    SPILL_SLOT_2
 
-/** Spill slot used to store application stack address for drwrap_replace_native() */
+/**
+ * Spill slot used to store application stack address (or DR_REG_LR for ARM)
+ * for drwrap_replace_native().
+ */
 #define DRWRAP_REPLACE_NATIVE_SP_SLOT      SPILL_SLOT_3
 
 DR_EXPORT
@@ -217,6 +220,7 @@ DR_EXPORT
  *   point or a call site.
  * @param[in] stack_adjust  The stack adjustment performed at return for the
  *   calling convention used by \p original.
+ *   On ARM, this must be zero.
  * @param[in] user_data  Data made available when \p replacement is
  *   executed.
  * @param[in] override  Whether to replace any existing replacement for \p
@@ -237,6 +241,8 @@ DR_EXPORT
  * DRMGR_PRIORITY_NAME_DRWRAP.
  *
  * \note Far calls are not supported.
+ *
+ * \note This routine is not yet supported on ARM.
  *
  * \return whether successful.
  */
