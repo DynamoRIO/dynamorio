@@ -2172,6 +2172,18 @@ opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
     return op_instr[opc];
 }
 
+app_pc
+dr_app_pc_as_jump_target(dr_isa_mode_t isa_mode, app_pc pc)
+{
+    return pc;
+}
+
+app_pc
+dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
+{
+    return pc;
+}
+
 #ifdef DEBUG
 void
 decode_debug_checks_arch(void)

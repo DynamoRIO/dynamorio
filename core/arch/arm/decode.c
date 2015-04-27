@@ -200,6 +200,20 @@ canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
     }
 }
 
+DR_API
+app_pc
+dr_app_pc_as_jump_target(dr_isa_mode_t isa_mode, app_pc pc)
+{
+    return PC_AS_JMP_TGT(isa_mode, pc);
+}
+
+DR_API
+app_pc
+dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
+{
+    return PC_AS_LOAD_TGT(isa_mode, pc);
+}
+
 /* The "current" pc has an offset in pc-relative computations */
 #define ARM_CUR_PC_OFFS 8
 #define THUMB_CUR_PC_OFFS 4

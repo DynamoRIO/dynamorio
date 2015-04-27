@@ -211,6 +211,7 @@ Further non-compatibility-affecting changes include:
  - Added opnd_add_flags().
  - Added drmgr_unregister_bb_insertion_event().
  - Added drmgr_is_first_instr() and drmgr_is_last_instr().
+ - Added dr_app_pc_as_jump_target() and dr_app_pc_as_load_target().
 
 **************************************************
 <hr>
