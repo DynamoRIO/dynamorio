@@ -197,6 +197,14 @@
 #define XINST_CREATE_jump_mem(dc, m) INSTR_CREATE_jmp_ind(dc, m)
 
 /**
+ * This platform-independent macro creates an instr_t for an indirect
+ * jump instruction through a register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The register opnd holding the target.
+ */
+#define XINST_CREATE_jump_reg(dc, r) INSTR_CREATE_jmp_ind(dc, r)
+
+/**
  * This platform-independent macro creates an instr_t for an immediate
  * integer load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.

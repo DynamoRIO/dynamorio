@@ -157,6 +157,14 @@
     INSTR_CREATE_ldr((dc), opnd_create_reg(DR_REG_PC), (m))
 
 /**
+ * This platform-independent macro creates an instr_t for an indirect
+ * jump instruction through a register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The register opnd holding the target.
+ */
+#define XINST_CREATE_jump_reg(dc, r) INSTR_CREATE_bx((dc), (r))
+
+/**
  * This platform-independent macro creates an instr_t for an immediate
  * integer load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.

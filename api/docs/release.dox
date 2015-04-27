@@ -175,7 +175,7 @@ Further non-compatibility-affecting changes include:
  - Added cross-platform instruction creation macros
    XINST_CREATE_debug_instr(), XINST_CREATE_load(), XINST_CREATE_store(),
    XINST_CREATE_move(), XINST_CREATE_load_simd(), XINST_CREATE_store_simd(),
-   XINST_CREATE_jump_mem(), XINST_CREATE_load_int(),
+   XINST_CREATE_jump_mem(), XINST_CREATE_jump_reg(), XINST_CREATE_load_int(),
    XINST_CREATE_jump(), XINST_CREATE_jump_short(),
    XINST_CREATE_call(), XINST_CREATE_return(),
    XINST_CREATE_add(), XINST_CREATE_add_2src(), XINST_CREATE_add_s(),
