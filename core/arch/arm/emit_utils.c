@@ -950,9 +950,11 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, INSTR_CREATE_ldr(dc, OPREG(DR_REG_R0),
                                  OPND_TLS_FIELD(TLS_TABLE_SLOT(ibl_code->branch_type))));
     ASSERT(sizeof(fragment_entry_t) == 8);
+    ASSERT(HASHTABLE_IBL_OFFSET(ibl_code->branch_type) < 3);
     APP(&ilist, INSTR_CREATE_add_shimm
         (dc, OPREG(DR_REG_R1), OPREG(DR_REG_R0), OPREG(DR_REG_R1),
-         OPND_CREATE_INT(DR_SHIFT_LSL), OPND_CREATE_INT(3)));
+         OPND_CREATE_INT(DR_SHIFT_LSL),
+         OPND_CREATE_INT(3 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type))));
     /* r1 now holds the fragment_entry_t* in the hashtable */
 
     /* Did we hit? */
