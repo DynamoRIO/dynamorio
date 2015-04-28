@@ -345,7 +345,11 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             for (j = 0; j < i; j++)
                 ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
         });
-        if (!opnd_is_reg(args[i]) || regparms[i] != opnd_get_reg(args[i])) {
+        if (opnd_is_immed_int(args[i])) {
+            insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(args[i]),
+                                   opnd_create_reg(regparms[i]),
+                                   ilist, instr_get_next(mark), NULL, NULL);
+        } else if (!opnd_is_reg(args[i]) || regparms[i] != opnd_get_reg(args[i])) {
             POST(ilist, mark, XINST_CREATE_move(dcontext,
                                                 opnd_create_reg(regparms[i]),
                                                 args[i]));
