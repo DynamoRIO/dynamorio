@@ -97,6 +97,11 @@ replace_native_ret_imms(void);
 void
 replace_native_ret_imms_end(void);
 
+#ifdef ARM
+byte *
+get_cur_xsp(void);
+#endif
+
 /***************************************************************************
  * REQUEST TRACKING
  */
@@ -1084,15 +1089,6 @@ drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
 {
     bool res = false;
     replace_native_t *rn;
-#ifdef ARM
-    /* FIXME i#1673: not quite finished: I ported some of the code over, but the
-     * replace_native_xfer asm code and finding and replacing the return address
-     * on the stack (wherever the replacement routine put it) are NYI.
-     * Once fully implemented, update the note in the header doxygen and update
-     * the drwrap-test.dll.c client.
-     */
-    return false;
-#endif
     if (stack_adjust > max_stack_adjust ||
         !ALIGNED(stack_adjust, sizeof(void*))
         IF_ARM(|| stack_adjust != 0))
@@ -1269,11 +1265,15 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
     bool x86 = instr_get_x86_mode(inst);
 #endif
     opnd_size_t stacksz = OPSZ_NA;
+#ifdef X86
     if (topush != NULL) {
         ASSERT(instr_num_dsts(inst) > 1 &&
                opnd_is_base_disp(instr_get_dst(inst, 1)), "expected call");
         stacksz = opnd_get_size(instr_get_dst(inst, 1));
+        ASSERT(IF_X86_ELSE(opc == OP_call || opc == OP_call_ind,
+                           instr_is_call(inst)), "unsupported call type");
     }
+#endif
 
     instrlist_truncate(drcontext, bb, inst);
 
@@ -1283,8 +1283,6 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
            "assuming TLS direct access");
 
     if (topush != NULL) {
-        ASSERT(IF_X86_ELSE(opc == OP_call || opc == OP_call_ind,
-                           instr_is_call(inst)), "unsupported call type");
         drwrap_replace_native_push_retaddr(drcontext, bb, pc, (ptr_int_t) topush,
                                            stacksz _IF_X86_X64(x86));
     }
@@ -1419,9 +1417,13 @@ replace_native_xfer_target(void)
 {
     /* Retrieve the data stored in the bb and in fini */
     void *drcontext = dr_get_current_drcontext();
+#ifdef ARM
+    byte *target = replace_native_ret_stub(0);
+#else
     uint stack_adjust = (uint)
         dr_read_saved_reg(drcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT);
     byte *target = replace_native_ret_stub(stack_adjust);
+#endif
 
     /* Set up for gencode.  We want to re-do the stdcall arg and retaddr teardown,
      * but we don't want the app to see it.  We can't easily do it in
@@ -1451,6 +1453,9 @@ drwrap_replace_native_fini(void *drcontext)
      */
     volatile app_pc app_retaddr;
     byte *xsp = (byte *) dr_read_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT);
+#ifdef ARM
+    byte *cur_xsp = get_cur_xsp();
+#endif
     ASSERT(xsp != NULL, "did client clobber TLS slot?");
 #ifdef ARM
     app_retaddr = (app_pc) dr_read_saved_reg(drcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT);
@@ -1460,22 +1465,27 @@ drwrap_replace_native_fini(void *drcontext)
     /* Store data for replace_native_xfer_helper */
     dr_write_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT, (reg_t)app_retaddr);
 
-    /* DrMem i#1217: zero out this retaddr to avoid messing up high-performance
-     * callstack stack scans.
-     */
-    app_retaddr = 0;
-
     /* Redirect */
 #ifdef ARM
-    /* FIXME i#1673: we assume the replacement routine pushed LR on the stack.
+    /* We assume the replacement routine pushed LR on the stack.
      * We need to scan the stack until we find app_retaddr and then overwrite
      * that slot.
-     * XXX: what if there are multiple copies?
+     * XXX: what if there are multiple copies?  What if the retaddr is left in
+     * LR and never pushed on the stack?
      */
+    while (xsp > cur_xsp && *(app_pc*)xsp != app_retaddr)
+        xsp -= sizeof(app_pc);
+    /* XXX: what can we do if we hit cur xsp?  We'll lose control. */
+    ASSERT(xsp > cur_xsp, "did not find return address: going to lose control");
     *(app_pc *)xsp = (app_pc) replace_native_xfer;
 #else
     *(app_pc *)xsp = (app_pc) replace_native_xfer;
 #endif
+
+    /* DrMem i#1217: zero out this local to avoid messing up high-performance
+     * callstack stack scans.
+     */
+    app_retaddr = 0;
 }
 
 /***************************************************************************

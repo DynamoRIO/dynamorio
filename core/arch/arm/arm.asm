@@ -151,6 +151,16 @@ call_dispatch_alt_stack_no_free:
         pop      {REG_R4, pc}
         END_FUNC(call_switch_stack)
 
+
+#ifdef CLIENT_INTERFACE
+/* FIXME i#1551: NYI on ARM */
+        DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
+GLOBAL_LABEL(dr_call_on_clean_stack:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_call_on_clean_stack)
+#endif /* CLIENT_INTERFACE */
+
+
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* FIXME i#1551: NYI on ARM */

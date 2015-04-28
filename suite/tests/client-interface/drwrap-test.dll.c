@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -170,7 +170,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
             else if (instr_is_call(&inst))
                 addr_replace_callsite = pc;
             pc = next_pc;
-        } while (instr_valid(&inst) && instr_get_opcode(&inst) != OP_ret);
+        } while (instr_valid(&inst) && !instr_is_return(&inst));
         CHECK(addr_replace_callsite != NULL, "cannot find lib export");
         ok = drwrap_replace_native(addr_replace_callsite, (app_pc) replace_callsite,
                                    false/*!at entry*/, 0,
@@ -276,6 +276,7 @@ module_unload_event(void *drcontext, const module_data_t *mod)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    drmgr_init();
     drwrap_init();
     dr_register_exit_event(event_exit);
     drmgr_register_module_load_event(module_load_event);
@@ -289,6 +290,7 @@ event_exit(void)
 {
     drmgr_unregister_tls_field(tls_idx);
     drwrap_exit();
+    drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
 }
 

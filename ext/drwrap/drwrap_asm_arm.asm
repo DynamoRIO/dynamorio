@@ -52,7 +52,20 @@ DECL_EXTERN(replace_native_xfer_target)
 #define FUNCNAME replace_native_xfer
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* FIXME i#1673: NYI */
+        push     {r0} /* save return value from replacement function */
+        /* put app retaddr into the slot we made above the 2 pushes */
+        blx      GLOBAL_REF(replace_native_xfer_app_retaddr)
+        push     {r0}
+
+        /* now get our target */
+        blx      GLOBAL_REF(replace_native_xfer_target)
+        mov      r3, r0
+
+        /* restore regs and go to ibl */
+        pop      {lr}
+        pop      {r0}
+        bx       r3
+        /* never reached */
         bx       lr
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -68,6 +81,16 @@ GLOBAL_LABEL(FUNCNAME:)
 ADDRTAKEN_LABEL(replace_native_ret_imms:)
 ADDRTAKEN_LABEL(replace_native_ret_imms_end:)
         nop
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+
+/* See i#778 notes in the x86 asm: we want an app return instr. */
+#define FUNCNAME get_cur_xsp
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      r0, sp
+        bx       lr
         END_FUNC(FUNCNAME)
 
 

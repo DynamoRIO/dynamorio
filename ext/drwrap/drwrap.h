@@ -242,8 +242,6 @@ DR_EXPORT
  *
  * \note Far calls are not supported.
  *
- * \note This routine is not yet supported on ARM.
- *
  * \return whether successful.
  */
 bool

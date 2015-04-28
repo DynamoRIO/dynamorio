@@ -1796,17 +1796,15 @@ if (CLIENT_INTERFACE)
     use_DynamoRIO_extension(client.drx-test.dll drx)
   endif (NOT ARM)
 
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
-    tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-    get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
-    tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
-    use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
-    tochcon(client.drwrap-test.appdll textrel_shlib_t)
-    if (WIN32)
-      # export from asm code
-      append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
-    endif (WIN32)
-  endif (NOT ARM)
+  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+  get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
+  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+  use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
+  tochcon(client.drwrap-test.appdll textrel_shlib_t)
+  if (WIN32)
+    # export from asm code
+    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
+  endif (WIN32)
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
