@@ -2261,13 +2261,27 @@ decode_instr_info_A32(decode_info_t *di)
  * Caller should set di->isa_mode.
  */
 static byte *
-read_instruction(byte *pc, byte *orig_pc,
+read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
                  const instr_info_t **ret_info, decode_info_t *di
                  _IF_DEBUG(bool report_invalid))
 {
     const instr_info_t *info;
 
     /* Initialize di */
+    di->decorated_pc = pc;
+    /* We support auto-decoding an LSB=1 address as Thumb (i#1688).  We don't
+     * change the thread mode, just the local mode, and we return an LSB=1 next pc.
+     */
+    if (TEST(0x1, (ptr_uint_t)pc)) {
+        if (!TEST(0x1, (ptr_uint_t)orig_pc)) {
+            CLIENT_ASSERT(false, "must have consistent LSB for decode pc and orig_pc");
+            return NULL;
+        }
+        di->isa_mode = DR_ISA_ARM_THUMB;
+        pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, pc);
+        orig_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, orig_pc);
+    } else
+        di->isa_mode = dr_get_isa_mode(dcontext);
     di->start_pc = pc;
     di->orig_pc = orig_pc;
     di->mem_needs_reglist_sz = NULL;
@@ -2275,6 +2289,8 @@ read_instruction(byte *pc, byte *orig_pc,
     di->predicate = DR_PRED_NONE;
     di->T32_16 = false;
     di->shift_type_idx = UINT_MAX;
+    if (di->isa_mode == DR_ISA_ARM_THUMB)
+        di->decode_state = *get_decode_state(dcontext);
 
     /* Read instr bytes and find instr_info */
     if (di->isa_mode == DR_ISA_ARM_THUMB) {
@@ -2320,7 +2336,8 @@ read_instruction(byte *pc, byte *orig_pc,
         ASSERT_NOT_IMPLEMENTED(false);
         di->instr_word = 0;
         *ret_info = &invalid_instr;
-        return NULL;
+        pc = NULL;
+        goto read_instruction_finished;
     }
 
     CLIENT_ASSERT(info != NULL && info->type <= INVALID, "decoding table error");
@@ -2346,11 +2363,20 @@ read_instruction(byte *pc, byte *orig_pc,
             }
         });
         *ret_info = &invalid_instr;
-        return NULL;
+        pc = NULL;
+        goto read_instruction_finished;
     }
 
     /* Unlike x86, we have a fixed size, so we're done */
     *ret_info = info;
+
+ read_instruction_finished:
+    if (di->isa_mode == DR_ISA_ARM_THUMB)
+        set_decode_state(dcontext, &di->decode_state);
+    if (pc != NULL) {
+        /* i#1688: keep LSB=1 decoration */
+        pc = di->decorated_pc + (pc - di->start_pc);
+    }
     return pc;
 }
 
@@ -2360,12 +2386,7 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
 {
     const instr_info_t *info;
     decode_info_t di;
-    di.isa_mode = dr_get_isa_mode(dcontext);
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        di.decode_state = *get_decode_state(dcontext);
-    pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        set_decode_state(dcontext, &di.decode_state);
+    pc = read_instruction(dcontext, pc, pc, &info, &di _IF_DEBUG(true));
     *usage = instr_eflags_conditionally(info->eflags, di.predicate, flags);
     /* we're fine returning NULL on failure */
     return pc;
@@ -2376,12 +2397,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
     const instr_info_t *info;
     decode_info_t di;
-    di.isa_mode = dr_get_isa_mode(dcontext);
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        di.decode_state = *get_decode_state(dcontext);
-    pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        set_decode_state(dcontext, &di.decode_state);
+    pc = read_instruction(dcontext, pc, pc, &info, &di _IF_DEBUG(true));
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     if (!instr_valid(instr)) {
@@ -2399,7 +2415,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 static byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
-    const instr_info_t *info;
+    const instr_info_t *info = &invalid_instr;
     decode_info_t di;
     byte *next_pc;
     uint num_dsts = 0, num_srcs = 0;
@@ -2409,13 +2425,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
 
-    di.isa_mode = dr_get_isa_mode(dcontext);
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        di.decode_state = *get_decode_state(dcontext);
-    next_pc = read_instruction(pc, orig_pc, &info, &di
+    next_pc = read_instruction(dcontext, pc, orig_pc, &info, &di
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        set_decode_state(dcontext, &di.decode_state);
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     di.opcode = info->type; /* needed for decode_cur_pc */
@@ -2528,7 +2539,14 @@ decode_next_pc(dcontext_t *dcontext, byte *pc)
     /* XXX: check for invalid opcodes, though maybe it's fine to never do so
      * (xref i#1685).
      */
-    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
+    dr_isa_mode_t isa_mode;
+    byte *read_pc = pc;
+    if (TEST(0x1, (ptr_uint_t)pc)) {
+        isa_mode = DR_ISA_ARM_THUMB; /* and keep LSB=1 (i#1688) */
+        read_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, read_pc);
+    } else {
+        isa_mode = dr_get_isa_mode(dcontext);
+    }
     if (isa_mode == DR_ISA_ARM_THUMB) {
         ushort halfword = *(ushort *)pc;
         if (TESTALL(0xe800, halfword) || TESTALL(0xf000, halfword))

@@ -46,7 +46,7 @@ following sections:
  - \ref sec_IR
  - \ref sec_events_bt
  - \ref sec_decode
- - \ref sec_64bit
+ - \ref sec_isa
  - \ref sec_IR_utils
  - \ref sec_reg_stolen
  - \ref sec_translation
@@ -58,7 +58,7 @@ following sections:
  - \ref sec_IR
  - \ref sec_events_bt
  - \ref sec_decode
- - \ref sec_64bit
+ - \ref sec_isa
  - \ref sec_IR_utils
  - \ref sec_translation
  - \ref bt_examples
@@ -646,8 +646,8 @@ do {
 instr_free(dcontext, &instr);
 \endcode
 
-The 64-bit build of DynamoRIO is capable of decoding 32-bit code as well.
-See \ref sec_64bit for full details.
+DynamoRIO supports decoding multiple instruction set modes.
+See \ref sec_isa for full details.
 
 \subsection sec_InstrGen Instruction Generation
 
@@ -686,8 +686,8 @@ instruction, two encoding passes are performed: one to find the offset
 of the target instruction, and the other to link the control transfer
 to the proper target offset.
 
-The 64-bit build of DynamoRIO is capable of encoding 32-bit code as well.
-See \ref sec_64bit for details.
+DynamoRIO is capable of encoding multiple instruction set modes.
+See \ref sec_isa for details.
 
 ********************
 \subsection sec_disasm Disassembly
@@ -715,20 +715,29 @@ formats.
   <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
   <tr><td></td></tr></table></td></tr></table></td></tr></table>
 \endhtmlonly
-\section sec_64bit 64-bit Versus 32-bit Instructions
+\section sec_isa Instruction Set Modes
+
+Some architectures support multiple instruction set modes.  The AMD64 build
+of DynamoRIO is capable of decoding and encoding 32-bit IA-32 instructions,
+while the 32-bit ARM build is capable of decoding and encoding both ARM and
+Thumb modes.
+
+In DynamoRIO, each thread has a current mode that is used to determine how
+to interpret instructions while decoding, whose default matches the
+DynamoRIO build.  The dr_set_isa_mode() routine changes the current mode,
+while dr_get_isa_mode() queries the current mode.
+
+Additionally, each instruction contains a flag indicating the mode in which
+it should be encoded.  When an instruction is created or decoded, the
+instruction's flag is set to the thread's current mode.  It can be queried
+with instr_get_isa_mode() and changed with instr_set_isa_mode().
+
+********************
+\subsection sec_64bit 64-bit Versus 32-bit Instructions
 
 The 64-bit build of DynamoRIO uses 64-bit decoding and encoding by
 default, while the 32-bit build uses 32-bit.  The 64-bit build is also
-capable of decoding and encoding 32-bit instructions.  Each thread has a
-current mode that is used to determine how to interpret instructions while
-decoding, whose default matches the DynamoRIO build.  The dr_set_isa_mode()
-routine changes the current mode, while dr_get_isa_mode() queries the current
-mode.
-
-Each instruction contains a flag indicating whether it should be encoded in
-32-bit or 64-bit mode.  When an instruction is created or decoded, the
-instruction's flag is set to the thread's current mode.  It can be queried
-with instr_get_isa_mode() and changed with instr_set_isa_mode().
+capable of decoding and encoding 32-bit instructions.
 
 For a 64-bit build of DynamoRIO, the instruction creation macros all use
 64-bit-sized registers.  The recommended model when generating 32-bit code
@@ -737,6 +746,19 @@ call instr_set_isa_mode(DR_ISA_IA32) and instr_shrink_to_32_bits() on each
 instruction.  Naturally any instruction that differs in more than register
 selection must be special-cased.
 
+********************
+\subsection sec_thumb Thumb Mode Addresses
+
+For 32-bit ARM, target addresses passed as event callbacks or as clean call
+targets should have their least significant bit set to 1 if they need to be
+executed in Thumb mode (#DR_ISA_ARM_THUMB).  Addresses obtained via
+dr_get_proc_address(), or function pointers at the source code level,
+should automatically have this property.  dr_app_pc_as_jump_target() can
+also be used to construct the proper address from an aligned value.
+
+When decoding, if the target address has its least significant bit set to
+1, the decoder switches to Thumb mode for the duration of the decoding,
+regardless of the current thread's mode.
 
 ***************************************************************************
 \htmlonly

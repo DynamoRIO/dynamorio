@@ -735,8 +735,10 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         next_pc = pc + 4;
     }
 
-    if (with_pc)
-        print_to_buffer(buf, bufsz, sofar, "  "PFX" ", orig_pc);
+    if (with_pc) {
+        print_to_buffer(buf, bufsz, sofar, "  "PFX" ",
+                        PC_AS_LOAD_TGT(instr_get_isa_mode(&instr), orig_pc));
+    }
 
     if (with_bytes) {
         extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, &instr);

@@ -1929,8 +1929,13 @@ if (CLIENT_INTERFACE)
   if (NOT ARM) # FIXME i#1551: port to ARM
     # test static decoder library
     tobuild_api(api.ir-static api/ir.c "" "" ON)
-    tobuild_api(api.static api/static.c "" "" ON)
   endif (NOT ARM)
+
+  if (ARM)
+    tobuild_api(api.static api/static_arm.c "" "" ON)
+  else ()
+    tobuild_api(api.static api/static_x86.c "" "" ON)
+  endif ()
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
   # not just check libstdc++-6.dll.

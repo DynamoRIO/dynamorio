@@ -210,6 +210,9 @@ struct _decode_info_t {
     byte *final_pc;
     byte *orig_pc;
 
+    /* For decoding LSB=1 auto-Thumb addresses (i#1688) we keep the LSB=1 decoration */
+    byte *decorated_pc;
+
     /* For instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;

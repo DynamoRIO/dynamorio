@@ -97,6 +97,9 @@ print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
 {
     /* Follow conventions used elsewhere with split for T32, solid for the rest */
     if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB) {
+        /* remove LSB=1 (i#1688) */
+        pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, pc);
+        next_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, next_pc);
         if (next_pc - pc == 0)
             print_to_buffer(buf, bufsz, sofar, "            ", *((ushort *)pc));
         else if (next_pc - pc == 2)
