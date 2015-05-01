@@ -103,6 +103,7 @@ replace_native_ret_imms_end(void);
 
 /* There can only be one replacement for any target so we store just app_pc */
 #define REPLACE_TABLE_HASH_BITS 6
+/* i#1689: we store the decorated (LSB=1) pc (passed from client) in the table */
 static hashtable_t replace_table;
 
 /* Native replacements need to store the stack adjust and user data */
@@ -114,6 +115,7 @@ typedef struct _replace_native_t {
 } replace_native_t;
 
 #define REPLACE_NATIVE_TABLE_HASH_BITS 6
+/* i#1689: we store the decorated (LSB=1) pc (passed from client) in the table */
 static hashtable_t replace_native_table;
 
 static void
@@ -138,6 +140,7 @@ typedef struct _wrap_entry_t {
 } wrap_entry_t;
 
 #define WRAP_TABLE_HASH_BITS 6
+/* i#1689: we store the decorated (LSB=1) pc (passed from client) in the table */
 static hashtable_t wrap_table;
 /* We need recursive locking on the table to support drwrap_unwrap
  * being called from a post event so we use this lock instead of
@@ -230,6 +233,7 @@ fast_safe_read(void *base, size_t size, void *out_buf)
  * for instrumentation.
  */
 #define CALL_SITE_TABLE_HASH_BITS 10
+/* i#1689: we store the aligned (LSB=0) pc here */
 static hashtable_t call_site_table;
 
 /* Hashtable so we can remember post-call pcs (since
@@ -238,6 +242,7 @@ static hashtable_t call_site_table;
  * using an rwlock b/c read on every instruction.
  */
 #define POST_CALL_TABLE_HASH_BITS 10
+/* i#1689: we store the aligned (LSB=0) pc here */
 static hashtable_t post_call_table;
 static void *post_call_rwlock;
 
@@ -704,7 +709,8 @@ drwrap_skip_call(void *wrapcxt_opaque, void *retval, size_t stdcall_args_size)
 #ifdef X86
     wrapcxt->mc->xsp += stdcall_args_size + sizeof(void*)/*retaddr*/;
 #endif
-    wrapcxt->mc->pc = wrapcxt->retaddr;
+    /* be sure to clear LSB */
+    wrapcxt->mc->pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
     /* we can't redirect here b/c we need to release locks */
     pt->skip[pt->wrap_level] = true;
     return true;
@@ -1345,7 +1351,13 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
     for (inst = instrlist_first(bb);
          inst != NULL;
          inst = instr_get_next(inst)) {
-        pc = instr_get_app_pc(inst);
+        /* XXX i#1689: supporting LSB=1 or LSB=0 gets complex.  For now we
+         * assume calls from the client always pass LSB=1 (b/c from
+         * dr_get_proc_address()), which we store in the table.  We assume that
+         * DR always gives us LSB=0, so we add LSB=1 before table lookups.  This
+         * breaks down if the client passes dr_fragment_app_pc()!
+         */
+        pc = dr_app_pc_as_jump_target(instr_get_isa_mode(inst), instr_get_app_pc(inst));
         /* non-native takes precedence */
         if (replace_table.entries > 0) {
             replace = hashtable_lookup(&replace_table, pc);
@@ -1363,6 +1375,8 @@ drwrap_event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
                 if (!rn->at_entry) {
                     if (instr_is_call(inst)) {
                         topush = pc + instr_length(drcontext, inst);
+                        topush = dr_app_pc_as_jump_target(instr_get_isa_mode(inst),
+                                                          topush);
                     } else if (!instr_is_ubr(inst)) {
                         /* usage error?  no, we'll trust user knows what they're doing */
                     }
@@ -1499,7 +1513,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
                                bool enabled)
 {
     post_call_entry_t *e;
-    app_pc retaddr = wrapcxt->retaddr;
+    app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
     /* We will come here again after the flush-redirect.
      * FIXME: should we try to flush the call instr itself: don't
      * know size though but can be pretty sure.
@@ -1567,6 +1581,22 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
     dr_rwlock_write_unlock(post_call_rwlock);
 }
 
+/* For querying with a pc that has been normalized by throwing out LSB=1 (i#1689).
+ * Caller must hold wrap_table lock.
+ */
+static wrap_entry_t *
+wrap_table_lookup_normalized_pc(app_pc pc)
+{
+    wrap_entry_t *wrap = hashtable_lookup(&wrap_table, (void *)pc);
+#ifdef ARM
+    if (wrap == NULL && !TEST(0x1, (ptr_uint_t)pc)) {
+        wrap = hashtable_lookup(&wrap_table, (void *)
+                                dr_app_pc_as_jump_target(DR_ISA_ARM_THUMB, pc));
+    }
+#endif
+    return wrap;
+}
+
 /* assumes that if TEST(DRWRAP_NO_FRILLS, global_flags) then
  * wrap_lock is held
  */
@@ -1574,7 +1604,7 @@ static inline void
 drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
                        drwrap_context_t *wrapcxt, app_pc pc)
 {
-    app_pc retaddr = wrapcxt->retaddr;
+    app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
     int i;
     /* avoid lock and hashtable lookup by caching prior retaddrs */
     for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
@@ -1604,7 +1634,7 @@ drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
         /* if we come back, re-lookup */
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_lock(wrap_lock);
-        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+        wrap = wrap_table_lookup_normalized_pc(pc);
     } else
         dr_rwlock_write_unlock(post_call_rwlock);
 }
@@ -1619,7 +1649,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
     dr_mcontext_t mc;
     uint idx;
     drwrap_context_t wrapcxt;
-    app_pc pc;
+    app_pc pc, decorated_pc;
     /* Do we care about the post wrapper?  If not we can save a lot (b/c our
      * call site method causes a lot of instrumentation when there's high fan-in)
      */
@@ -1656,6 +1686,10 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
         ASSERT(wrap != NULL, "failed to find wrap info");
     }
 
+    /* i#1689: after setting wrapcxt.func for caller, clear LSB */
+    decorated_pc = pc;
+    pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, pc);
+
     /* ensure we have post-call instru */
     if (wrap != NULL) {
         for (e = wrap; e != NULL; e = e->next) {
@@ -1676,7 +1710,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
             dr_recurlock_unlock(wrap_lock);
         return; /* we'll have to skip stuff */
     }
-    pt->last_wrap_func[pt->wrap_level] = pc;
+    pt->last_wrap_func[pt->wrap_level] = decorated_pc;
     if (TEST(DRWRAP_NO_FRILLS, global_flags))
         pt->last_wrap_entry[pt->wrap_level] = wrap;
     pt->app_esp[pt->wrap_level] = mc.xsp;
@@ -1795,7 +1829,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc,
         wrap = pt->last_wrap_entry[level];
     } else {
         dr_recurlock_lock(wrap_lock);
-        wrap = hashtable_lookup(&wrap_table, (void *)pc);
+        wrap = wrap_table_lookup_normalized_pc(pc);
     }
     for (idx = 0; wrap != NULL; idx++, wrap = next) {
         /* handle the list changing between pre and post events */
@@ -1982,7 +2016,12 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 {
     /* XXX: if we had dr_bbs_cross_ctis() query (i#427) we could just check 1st instr */
     wrap_entry_t *wrap;
-    app_pc pc = instr_get_app_pc(inst);
+    /* i#1689: we store in drwrap_table as the original from the client (which
+     * may have LSB=1), as well as in wrapcxt.  We then clear LSB for all other
+     * uses, including all postcall uses.
+     */
+    app_pc pc = dr_app_pc_as_jump_target(instr_get_isa_mode(inst),
+                                         instr_get_app_pc(inst));
 
     /* Strategy: we don't bother to look at call sites; we wait for the callee
      * and flush, under the assumption that we won't have already seen the
@@ -2010,7 +2049,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
     }
     dr_recurlock_unlock(wrap_lock);
 
-    if (post_call_lookup_for_instru(pc)) {
+    if (post_call_lookup_for_instru(instr_get_app_pc(inst)/*normalized*/)) {
         /* XXX: for DRWRAP_FAST_CLEANCALLS we must preserve state b/c
          * our post-call points can be reached through non-return paths.
          * We could insert an inline check for "pt->wrap_level >= 0" but
@@ -2020,6 +2059,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
         dr_cleancall_save_t flags = 0;
         dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_after_callee,
                                 flags, 2,
+                                /* i#1689: retaddrs do have LSB=1 */
                                 OPND_CREATE_INTPTR((ptr_int_t)pc),
                                 /* pass in xsp to avoid dr_get_mcontext */
                                 opnd_create_reg(DR_REG_XSP));
