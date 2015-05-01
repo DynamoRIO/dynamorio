@@ -333,26 +333,35 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     /* FIXME i#1551: we only support limited number of args for now. */
     ASSERT_NOT_IMPLEMENTED(num_args <= NUM_REGPARM);
     for (i = 0; i < num_args; i++) {
-        /* FIXME i#1551: we only implement naive parameter preparation,
-         * where args are all regs or immeds and do not conflict with param regs.
-         */
-        ASSERT_NOT_IMPLEMENTED((opnd_is_reg(args[i]) &&
-                                opnd_get_size(args[i]) == OPSZ_PTR) ||
-                               opnd_is_immed_int(args[i]));
-        DODEBUG({
-            uint j;
-            /* assume no reg used by arg conflicts with regparms */
-            for (j = 0; j < i; j++)
-                ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
-        });
         if (opnd_is_immed_int(args[i])) {
             insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(args[i]),
                                    opnd_create_reg(regparms[i]),
                                    ilist, instr_get_next(mark), NULL, NULL);
-        } else if (!opnd_is_reg(args[i]) || regparms[i] != opnd_get_reg(args[i])) {
-            POST(ilist, mark, XINST_CREATE_move(dcontext,
-                                                opnd_create_reg(regparms[i]),
-                                                args[i]));
+        } else if (opnd_is_reg(args[i])) {
+            ASSERT_NOT_IMPLEMENTED(opnd_get_size(args[i]) == OPSZ_PTR);
+            if (opnd_get_reg(args[i]) == DR_REG_XSP) {
+                instr_t *loc = instr_get_next(mark);
+                PRE(ilist, loc, instr_create_save_to_tls
+                    (dcontext, regparms[i], TLS_REG0_SLOT));
+                insert_get_mcontext_base(dcontext, ilist, loc, regparms[i]);
+                PRE(ilist, loc, instr_create_restore_from_dc_via_reg
+                    (dcontext, regparms[i], regparms[i], XSP_OFFSET));
+            } else if (opnd_get_reg(args[i]) != regparms[i]) {
+                POST(ilist, mark, XINST_CREATE_move(dcontext,
+                                                    opnd_create_reg(regparms[i]),
+                                                    args[i]));
+            }
+        } else {
+            /* FIXME i#1551: we only implement naive parameter preparation,
+             * where args are all regs or immeds and do not conflict with param regs.
+             */
+            ASSERT_NOT_IMPLEMENTED(false);
+            DODEBUG({
+                uint j;
+                /* assume no reg used by arg conflicts with regparms */
+                for (j = 0; j < i; j++)
+                    ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
+            });
         }
     }
     return 0;
