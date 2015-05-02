@@ -956,11 +956,12 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
          OPND_CREATE_INT(3 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type))));
     /* r1 now holds the fragment_entry_t* in the hashtable */
 
-    /* Did we hit? */
-    APP(&ilist, compare_tag);
+    /* load tag from fragment_entry_t* in the hashtable to r0 */
     APP(&ilist, INSTR_CREATE_ldr
         (dc, OPREG(DR_REG_R0),
          OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
+    /* Did we hit? */
+    APP(&ilist, compare_tag);
     /* Using OP_cmp requires saving the flags so we instead subtract and then cbz.
      * XXX: if we add stats, cbz might not reach.
      */
@@ -983,8 +984,13 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * the sentinel at the end.
      */
     APP(&ilist, try_next);
-    APP(&ilist, INSTR_CREATE_add
-        (dc, OPREG(DR_REG_R1), OPREG(DR_REG_R1),
+    ASSERT(offsetof(fragment_entry_t, tag_fragment) == 0);
+    /* post-index load with write back */
+    APP(&ilist, INSTR_CREATE_ldr_wbimm
+        (dc, OPREG(DR_REG_R0),
+         OPND_CREATE_MEMPTR(DR_REG_R1,
+                            (sizeof(fragment_entry_t) +
+                             offsetof(fragment_entry_t, tag_fragment))),
          OPND_CREATE_INT(sizeof(fragment_entry_t))));
     APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(compare_tag)));
 
