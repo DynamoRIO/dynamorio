@@ -480,8 +480,6 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
                                                        OPND_CREATE_INT32(0)),
                                    xchg_pc);
     instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
-    instr_set_meta(return_placeholder);
-    instr_set_our_mangling(return_placeholder, true);
     instrlist_append(bb, return_placeholder);
 }
 #endif
