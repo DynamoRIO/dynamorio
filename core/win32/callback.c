@@ -368,10 +368,12 @@ if (!assume_xsp)
  endif
       # store app xsp in dcontext & switch to dstack; this will be used to save
       # app xsp on the switched stack, i.e., dstack; not used after that.
+      # i#1685: we use the PC slot as it won't affect a new thread that is in the
+      # middle of init on the initstack and came here during client code.
     if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
       mov $MCONTEXT_OFFSET(xcx), xcx
     endif
-      mov xsp, $XSP_OFFSET(xcx)
+      mov xsp, $PC_OFFSET(xcx)
     if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
       mov fs:$TLS_DCONTEXT_OFFSET, xcx
     endif
@@ -383,7 +385,7 @@ if (!assume_xsp)
     if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
       mov $MCONTEXT_OFFSET(xcx), xcx
     endif
-      mov $XSP_OFFSET(xcx), xcx
+      mov $PC_OFFSET(xcx), xcx
       push xcx
 
       # need to record stack method, since dcontext could change in handler
@@ -973,7 +975,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                                                      PROT_OFFS));
         }
         APP(&ilist,
-            instr_create_save_to_dc_via_reg(dcontext, REG_XCX, REG_XSP, XSP_OFFSET));
+            instr_create_save_to_dc_via_reg(dcontext, REG_XCX, REG_XSP, PC_OFFSET));
         if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
             APP(&ilist, INSTR_CREATE_mov_ld
                 (dcontext, opnd_create_reg(REG_XCX),
@@ -992,7 +994,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                                                      PROT_OFFS));
         }
         APP(&ilist,
-            instr_create_restore_from_dc_via_reg(dcontext, REG_XCX, REG_XCX, XSP_OFFSET));
+            instr_create_restore_from_dc_via_reg(dcontext, REG_XCX, REG_XCX, PC_OFFSET));
         APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XCX)));
         APP(&ilist,
             INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(1)));

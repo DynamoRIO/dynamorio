@@ -6067,7 +6067,10 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     }
 #endif
 
-    /* XXX: should we set the pc field? */
+    /* XXX: should we set the pc field?
+     * If we do we'll have to adopt a different solution for i#1685 in our Windows
+     * hooks where today we use the pc slot for temp storage.
+     */
 
     return true;
 }
