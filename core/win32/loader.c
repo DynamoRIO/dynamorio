@@ -537,7 +537,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
          * TEB->ReservedForNtRpc, and TEB->NlsCache.
          */
         void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
-        void *cur_stack_base = get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
+        byte *cur_stack_base = (byte *) get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
         void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
         void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
@@ -551,7 +551,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->dstack - DYNAMORIO_STACK_SIZE);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    !is_dynamo_address(cur_stack_base)) { /* handle two in a row */
+                    !is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
                     dcontext->app_stack_base = cur_stack_base;
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
@@ -582,7 +582,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_stack_limit);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    is_dynamo_address(cur_stack_base)) { /* handle two in a row */
+                    is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET,
                                   dcontext->app_stack_base);
                 }
