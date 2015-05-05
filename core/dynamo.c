@@ -2267,6 +2267,7 @@ dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id)
     trace_abort_and_delete(dcontext);
     fragment_thread_exit(dcontext);
 #ifdef CLIENT_INTERFACE
+    IF_WINDOWS(loader_pre_client_thread_exit(dcontext));
     instrument_thread_exit_event(dcontext);
 #endif
 }

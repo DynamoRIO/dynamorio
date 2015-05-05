@@ -2006,7 +2006,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
      * This results in more fragmentation and larger dynamo_areas so we avoid
      * if we can.  We could consider a 2nd vm_reserve region just for stacks.
      */
-    if (should_swap_peb_pointer() && SWAP_TEB_STACKLIMIT() &&
+    if (should_swap_peb_pointer() && SWAP_TEB_STACKBASE() &&
         (!DYNAMO_OPTION(vm_reserve) && min_addr > NULL) ||
         (DYNAMO_OPTION(vm_reserve) && min_addr > heapmgt->vmheap.start_addr)) {
         try_vmm = false;

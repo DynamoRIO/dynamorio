@@ -1904,8 +1904,8 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
              opnd_create_reg(scratch32)));
     }
 
-    /* We have to swap TEB->StackLimit (i#1102) for x64.
-     * For Win8.1 we have to swap both StackLimit and StackBase (DrMem i#1676).
+    /* See the comment at the definition of SWAP_TEB_STACKLIMIT() for full
+     * discussion of which stack fields we swap.
      */
     if (SWAP_TEB_STACKLIMIT()) {
         if (to_priv) {

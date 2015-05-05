@@ -163,11 +163,18 @@ set_tls(ushort tls_offs, void *value)
 /* even INLINE_FORCED isn't inlining this into get_thread_id() in debug build (i#655) */
 #define get_own_teb() ((TEB *)get_tls(SELF_TIB_OFFSET))
 
-/* We have to swap TEB->StackLimit (i#1102) for x64.
- * For Win8.1 we have to swap both StackLimit and StackBase (DrMem i#1676).
- * To be safest, we swap on all platforms.
+/* We need to meet these requirements:
+ * + DrMi#1676: cur esp is in [StackLimit..StackBase) at all times on Win8.1.
+ * + i#921, i#1102: StackLimit is a valid page at all times.
+ * + DrMi#1723: StackLimit must be updated for app guard page hits, even when
+ *   in client code.
+ * Our solution is:
+ * A) Ensure dstack > app xsp.
+ * B) StackLimit holds app value at all times, except on thread exit where
+ *    loader_pre_client_thread_exit() swaps it.
+ * C) Swap StackBase on context switches between priv and app values.
  */
-#define SWAP_TEB_STACKLIMIT() (true)
+#define SWAP_TEB_STACKLIMIT() (false)
 #define SWAP_TEB_STACKBASE() (true)
 
 /* If this changes our persisted caches may all fail.
@@ -552,6 +559,7 @@ void swap_peb_pointer(dcontext_t *dcontext, bool to_priv);
  */
 void restore_peb_pointer_for_thread(dcontext_t *dcontext);
 void check_app_stack_limit(dcontext_t *dcontext);
+void loader_pre_client_thread_exit(dcontext_t *dcontext);
 #endif
 
 
