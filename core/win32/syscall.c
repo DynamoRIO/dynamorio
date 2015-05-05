@@ -2715,6 +2715,13 @@ pre_system_call(dcontext_t *dcontext)
          */
         ASSERT_NOT_IMPLEMENTED(false);
     }
+    else if (sysnum == syscalls[SYS_RaiseException]) {
+        IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
+        /* FIXME i#1691: detect whether we're inside SEH handling already, in which
+         * case this process is about to die by this secondary exception and
+         * we want to do a normal exit and give the client a chance to clean up.
+         */
+    }
 
  exit_pre_system_call:
     dcontext->whereami = old_whereami;

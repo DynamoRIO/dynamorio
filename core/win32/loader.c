@@ -663,6 +663,33 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
     set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
     LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_nt_rpc);
 }
+
+void
+check_app_stack_limit(dcontext_t *dcontext)
+{
+    /* DrMi#1723: while in priv cxt, client may have touched an app guard page
+     * in another thread, which will result in no update to TEB.StackLimit.  We
+     * try to recover here before any harm is done (although on the new Win8.1,
+     * any fault will result in sudden death w/ a bad StackLimit: i#1676).
+     */
+    MEMORY_BASIC_INFORMATION mbi;
+    byte *check_pc = (byte *)dcontext->app_stack_limit - PAGE_SIZE;
+    size_t res;
+    if (!should_swap_peb_pointer())
+        return;
+    ASSERT(check_pc > (byte *)(ptr_uint_t)PAGE_SIZE);
+    do {
+        res = query_virtual_memory(check_pc, &mbi, sizeof(mbi));
+        check_pc -= PAGE_SIZE;
+    } while (res == sizeof(mbi) && !TEST(PAGE_GUARD, mbi.Protect) &&
+             check_pc > (byte *)(ptr_uint_t)PAGE_SIZE);
+    if (res == sizeof(mbi) && TEST(PAGE_GUARD, mbi.Protect) &&
+        check_pc + PAGE_SIZE < start_pc) {
+        LOG(THREAD, LOG_LOADER, 2, "updated stored TEB.StackLimit from "PFX" to "PFX"\n",
+            dcontext->app_stack_limit, check_pc + PAGE_SIZE);
+        dcontext->app_stack_limit = check_pc + PAGE_SIZE;
+    }
+}
 #endif /* CLIENT_INTERFACE */
 
 bool

@@ -5251,6 +5251,8 @@ intercept_exception(app_state_at_intercept_t *state)
         }
         ASSERT(dcontext != NULL); /* NULL cases handled above */
 
+        IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
+
         /* We dump info after try/except to avoid rank order violation (i#) */
         DOLOG(2, LOG_ASYNCH, {
             dump_exception_info(pExcptRec, cxt);

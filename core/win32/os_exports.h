@@ -551,6 +551,7 @@ void swap_peb_pointer(dcontext_t *dcontext, bool to_priv);
  * or swap private values.  Up to caller to synchronize w/ other thread.
  */
 void restore_peb_pointer_for_thread(dcontext_t *dcontext);
+void check_app_stack_limit(dcontext_t *dcontext);
 #endif
 
 
