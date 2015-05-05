@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -976,7 +976,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
 
     int flags;
     void *my_stack;
-    my_stack = stack_alloc(THREAD_STACK_SIZE);
+    my_stack = stack_alloc(THREAD_STACK_SIZE, NULL);
     /* need SIGCHLD so parent will get that signal when child dies,
      * else have "no children" errors doing a wait
      */

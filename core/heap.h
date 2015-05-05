@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -178,7 +178,7 @@ void
 heap_mmap_retract_commitment(void *retract_start, size_t decommit_size);
 
 /* use stack_alloc to build a stack -- it returns TOS */
-void *stack_alloc(size_t size);
+void *stack_alloc(size_t size, byte *min_addr);
 void stack_free(void *p, size_t size);
 
 #ifdef STACK_GUARD_PAGE

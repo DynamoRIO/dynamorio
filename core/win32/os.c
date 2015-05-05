@@ -2385,7 +2385,7 @@ DR_API bool
 dr_create_client_thread(void (*func)(void *param), void *arg)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
     HANDLE hthread;
     bool res;
     thread_id_t tid;

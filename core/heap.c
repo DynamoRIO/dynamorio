@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1972,14 +1972,18 @@ extend_commitment(vm_addr_t p, size_t size, uint prot,
 /* a wrapper around get_real_memory that adds a guard page on each side of the requested unit.
  * These should consume only uncommitted virtual address and should not use any physical memory.
  * add_vm MUST be false iff this is heap memory, which is updated separately.
+ *
+ * Non-NULL min_addr is only supported for stack allocations (DrMi#1723).
  */
 static vm_addr_t
 get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
-                        bool add_vm, bool guarded _IF_DEBUG(const char *comment))
+                        bool add_vm, bool guarded, byte *min_addr
+                        _IF_DEBUG(const char *comment))
 {
-    vm_addr_t p;
+    vm_addr_t p = NULL;
     uint guard_size = PAGE_SIZE;
     heap_error_code_t error_code;
+    bool try_vmm = true;
     ASSERT(reserve_size >= commit_size);
     if (!guarded || !dynamo_options.guard_pages) {
         if (reserve_size == commit_size)
@@ -1994,7 +1998,48 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
 
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
-    p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* DrMi#1723: if we swap TEB stack fields, a client can trigger an app guard
+     * page.  We have to ensure that the kernel will update TEB.StackLimit in that
+     * case, which requires our dstack to be higher than the app stack.
+     * This results in more fragmentation and larger dynamo_areas so we avoid
+     * if we can.  We could consider a 2nd vm_reserve region just for stacks.
+     */
+    if (should_swap_peb_pointer() && SWAP_TEB_STACKLIMIT() &&
+        (!DYNAMO_OPTION(vm_reserve) && min_addr > NULL) ||
+        (DYNAMO_OPTION(vm_reserve) && min_addr > heapmgt->vmheap.start_addr)) {
+        try_vmm = false;
+    }
+#endif
+
+    if (try_vmm)
+        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    if (!try_vmm || p < (vm_addr_t)min_addr) {
+        if (p != NULL)
+            vmm_heap_free(p, reserve_size, &error_code);
+        p = os_heap_reserve_in_region
+            ((void *)ALIGN_FORWARD(min_addr, PAGE_SIZE),
+             (void *)PAGE_START(POINTER_MAX),
+             reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
+        /* No reason to update heap-reachable b/c stack doesn't need to reach
+         * (min_addr != NULL assumed to be stack).
+         */
+        ASSERT(!DYNAMO_OPTION(stack_shares_gencode)); /* would break reachability */
+        /* If it fails we can't do much: we fall back to within-vmm, if possible,
+         * and rely on our other best-effort TEB.StackLimit updating checks
+         * (check_app_stack_limit()).
+         */
+        if (p == NULL) {
+            SYSLOG_INTERNAL_WARNING_ONCE("Unable to allocate dstack above app stack");
+            if (!try_vmm)
+                p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
+        }
+    }
+#endif
+
     if (p == NULL) {
         /* This is very unlikely to happen - we have to reach at least 2GB reserved memory. */
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory - cannot reserve %dKB. "
@@ -2063,8 +2108,8 @@ heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded)
      * here (or this is a call from a client, for reachability
      * compatibility), put it in vmcode; else in vmheap.
      */
-    void *p = get_guarded_real_memory(reserve_size, commit_size, prot, true, guarded
-                                      _IF_DEBUG("heap_mmap"));
+    void *p = get_guarded_real_memory(reserve_size, commit_size, prot, true, guarded,
+                                      NULL _IF_DEBUG("heap_mmap"));
 #ifdef DEBUG_MEMORY
     if (TEST(MEMPROT_WRITE, prot))
         memset(p, HEAP_ALLOCATED_BYTE, commit_size);
@@ -2328,7 +2373,7 @@ heap_munmap(void *p, size_t size)
  * to detect overflows when used.
  */
 void *
-stack_alloc(size_t size)
+stack_alloc(size_t size, byte *min_addr)
 {
     void *p;
 
@@ -2336,8 +2381,8 @@ stack_alloc(size_t size)
      * FIXME case 2330: commit-on-demand could allow larger max sizes w/o
      * hurting us in the common case
      */
-    p = get_guarded_real_memory(size, size, MEMPROT_READ|MEMPROT_WRITE, true, true
-                                _IF_DEBUG("stack_alloc"));
+    p = get_guarded_real_memory(size, size, MEMPROT_READ|MEMPROT_WRITE, true, true,
+                                min_addr _IF_DEBUG("stack_alloc"));
 #ifdef DEBUG_MEMORY
     memset(p, HEAP_ALLOCATED_BYTE, size);
 #endif
@@ -2713,7 +2758,7 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
         ASSERT(commit_size <= size);
         u = (heap_unit_t *)
             get_guarded_real_memory(size, commit_size, MEMPROT_READ|MEMPROT_WRITE,
-                                    false, true _IF_DEBUG(""));
+                                    false, true, NULL _IF_DEBUG(""));
         new_unit = true;
         /* FIXME: handle low memory conditions by freeing units, + fcache units? */
         ASSERT(u);
@@ -4009,7 +4054,7 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
          */
         ASSERT(su->top_unit == NULL/*init*/ || su->use_lock);
         u = (special_heap_unit_t *) get_guarded_real_memory(size, commit_size, prot,
-                                                            true, true
+                                                            true, true, NULL
                                                             _IF_DEBUG("special_heap"));
         ASSERT(u != NULL);
         u->alloc_pc = (heap_pc) u;

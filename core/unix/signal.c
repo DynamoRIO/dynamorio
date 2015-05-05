@@ -483,7 +483,7 @@ signal_thread_init(dcontext_t *dcontext)
      * i#552 we may terminate the process without freeing the stack, so we
      * stack_alloc it to exempt from the memory leak check.
      */
-    info->sigstack.ss_sp = (char *) stack_alloc(SIGSTACK_SIZE) - SIGSTACK_SIZE;
+    info->sigstack.ss_sp = (char *) stack_alloc(SIGSTACK_SIZE, NULL) - SIGSTACK_SIZE;
     info->sigstack.ss_size = SIGSTACK_SIZE;
     /* kernel will set xsp to sp+size to grow down from there, we don't have to */
     info->sigstack.ss_flags = 0;
@@ -526,7 +526,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #endif
 {
     clone_record_t *record;
-    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: dstack for new thread is "PFX"\n", dstack);
 

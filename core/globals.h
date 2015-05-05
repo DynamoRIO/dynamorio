@@ -558,7 +558,8 @@ void dynamo_thread_under_dynamo(dcontext_t *dcontext);
 void dynamo_thread_not_under_dynamo(dcontext_t *dcontext);
 /* used for synch to prevent thread creation/deletion in critical periods */
 extern mutex_t thread_initexit_lock;
-dcontext_t * create_new_dynamo_context(bool initial, byte *dstack_in);
+dcontext_t * create_new_dynamo_context(bool initial, byte *dstack_in,
+                                       priv_mcontext_t *mc);
 void initialize_dynamo_context(dcontext_t *dcontext);
 dcontext_t * create_callback_dcontext(dcontext_t *old_dcontext);
 int dynamo_nullcalls_exit(void);
