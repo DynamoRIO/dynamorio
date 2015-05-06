@@ -173,6 +173,9 @@ set_tls(ushort tls_offs, void *value)
  * B) StackLimit holds app value at all times, except on thread exit where
  *    loader_pre_client_thread_exit() swaps it.
  * C) Swap StackBase on context switches between priv and app values.
+ *
+ * If either of these macros is changed, dr_call_on_clean_stack() needs to
+ * also be changed to match.
  */
 #define SWAP_TEB_STACKLIMIT() (false)
 #define SWAP_TEB_STACKBASE() (true)

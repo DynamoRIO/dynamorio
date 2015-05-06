@@ -373,11 +373,12 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         push     REG_XBX
         push     REG_XBP /* alignment doesn't matter: swapping stacks */
 # ifdef WINDOWS
-        /* DrMem i#1676: we have to preserve the app's TEB stack fields */
+        /* DrMi#1676: we have to preserve the app's TEB stack fields.
+         * DrMi#1723: we no longer swap StackLimit == BASE_STACK_TIB_OFFSET.
+         * See SWAP_TEB_STACKLIMIT().
+         */
         push     REG_XSI
-        push     REG_XDI
         mov      REG_XSI, SEG_TLS:[TOP_STACK_TIB_OFFSET]
-        mov      REG_XDI, SEG_TLS:[BASE_STACK_TIB_OFFSET]
 # endif
         mov      REG_XBX, REG_XAX
         mov      REG_XBP, REG_XSP
@@ -386,14 +387,8 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      SCRATCH2, [1*ARG_SZ + REG_XAX] /* drcontext */
         RESTORE_FROM_DCONTEXT_VIA_REG(SCRATCH2, dstack_OFFSET, REG_XSP)
 # ifdef WINDOWS
-        /* DrMem i#1676: update TEB stack fields for Win8.1.
-         * XXX: to avoid this cost on pre-Win8.1 we could change this to become
-         * a gencode routine.
-         */
+        /* DrMem i#1676: update TEB stack top field for Win8.1. */
         mov      SEG_TLS:[TOP_STACK_TIB_OFFSET], REG_XSP
-        mov      SCRATCH2, REG_XSP
-        sub      SCRATCH2, DYNAMORIO_STACK_SIZE_UPPER_BOUND
-        mov      SEG_TLS:[BASE_STACK_TIB_OFFSET], SCRATCH2
 # endif
         STACK_PAD_NOPUSH(8, 4, 0)
         mov      SCRATCH2, [10*ARG_SZ + REG_XAX]
@@ -420,8 +415,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 # ifdef WINDOWS
         /* DrMem i#1676: we have to preserve the app's TEB stack fields */
         mov      SEG_TLS:[TOP_STACK_TIB_OFFSET], REG_XSI
-        mov      SEG_TLS:[BASE_STACK_TIB_OFFSET], REG_XDI
-        pop      REG_XDI
         pop      REG_XSI
 # endif
         pop      REG_XBP

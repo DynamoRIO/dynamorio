@@ -5251,8 +5251,6 @@ intercept_exception(app_state_at_intercept_t *state)
         }
         ASSERT(dcontext != NULL); /* NULL cases handled above */
 
-        IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
-
         /* We dump info after try/except to avoid rank order violation (i#) */
         DOLOG(2, LOG_ASYNCH, {
             dump_exception_info(pExcptRec, cxt);
@@ -5478,6 +5476,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 }
 
                 /* wasn't our fault, let it go back to app */
+                IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
                 report_app_exception(dcontext, APPFAULT_FAULT, pExcptRec, cxt,
                                      "Exception occurred in native application code.");
 #ifdef PROTECT_FROM_APP
