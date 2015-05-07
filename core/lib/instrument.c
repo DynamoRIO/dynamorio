@@ -6178,9 +6178,8 @@ dr_redirect_native_target(void *drcontext)
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_redirect_native_target(): drcontext cannot be NULL");
-    /* FIXME i#1551: NYI on ARM (we need emit_client_ibl_xfer()) */
-    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
-    return get_client_ibl_xfer_entry(dcontext);
+    /* The client has no way to know the mode of our gencode so we set LSB here */
+    return PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_client_ibl_xfer_entry(dcontext));
 #endif
 }
 

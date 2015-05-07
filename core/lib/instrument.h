@@ -5424,6 +5424,9 @@ DR_API
  * be emitted with the flag DR_EMIT_MUST_END_TRACE in order to avoid
  * trace building errors.
  *
+ * For ARM, the address returned by this routine has its least significant
+ * bit set to 1 if the target is Thumb.
+ *
  * Returns null on error.
  */
 byte *

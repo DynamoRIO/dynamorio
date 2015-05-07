@@ -1327,7 +1327,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
                 TEST(LINK_RETURN, dcontext->last_exit->flags) ? "ret" :
                 EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
         } else {
-            ASSERT(!DYNAMO_OPTION(indirect_stubs));
+            /* We can get here for -indirect_stubs via client special ibl */
             LOG(THREAD, LOG_DISPATCH, 2, "Exit from sourceless ibl: %s %s",
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
                 TEST(LINK_RETURN, dcontext->last_exit->flags) ? "ret" :

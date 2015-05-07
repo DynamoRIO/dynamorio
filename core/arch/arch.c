@@ -310,6 +310,8 @@ shared_gencode_emit(generated_code_t *gencode _IF_X64(bool x86_mode))
     dr_isa_mode_t isa_mode = dr_get_isa_mode(GLOBAL_DCONTEXT);
 
     pc = gencode->gen_start_pc;
+    /* Temporarily set this so that ibl queries work during generation */
+    gencode->gen_end_pc = gencode->commit_end_pc;
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->fcache_enter = pc;
     pc = emit_fcache_enter_shared(GLOBAL_DCONTEXT, gencode, pc);

@@ -5316,7 +5316,7 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
  * SPECIAL IBL XFER ROUTINES
  */
 
-static inline byte *
+byte *
 special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
                      ibl_entry_point_type_t entry_type,
                      ibl_branch_type_t ibl_type)
@@ -5365,7 +5365,7 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
     instrlist_t ilist;
     patch_list_t patch;
     instr_t *in;
-    size_t len;
+    IF_X86(size_t len;)
     byte *ibl_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
     bool absolute = !code->thread_shared;
 
@@ -5378,8 +5378,9 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
             get_special_ibl_linkstub(ibl_type,
                                      DYNAMO_OPTION(disable_traces) ? false : true);
         APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
-        APP(&ilist, XINST_CREATE_load_int(dcontext, opnd_create_reg(SCRATCH_REG1),
-                                          OPND_CREATE_INTPTR((ptr_int_t)linkstub)));
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)linkstub,
+                               opnd_create_reg(SCRATCH_REG1),
+                               &ilist, NULL, NULL, NULL);
     }
 
     if (code->thread_shared || DYNAMO_OPTION(private_ib_in_tls)) {
@@ -5408,12 +5409,13 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
         in = instrlist_first(custom_ilist);
     }
 
-#ifdef X64
+#ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode))
         instrlist_convert_to_x86(&ilist);
 #endif
     /* do not add new instrs that need conversion to x86 below here! */
 
+#ifdef X86
     /* to support patching the 4-byte pc-rel tgt we must ensure it doesn't
      * cross a cache line
      */
@@ -5423,28 +5425,27 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
     if (CROSSES_ALIGNMENT(pc + len + 1/*opcode*/, 4, PAD_JMPS_ALIGNMENT)) {
         instr_t *nop_inst;
         len = ALIGN_FORWARD(pc + len + 1, 4) - (ptr_uint_t)(pc + len + 1);
-#ifdef X86
         nop_inst = INSTR_CREATE_nopNbyte(dcontext, (uint)len);
-#elif defined(ARM)
-        nop_inst = NULL;
-        /* FIXMED i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif
-#ifdef X64
+# ifdef X64
         if (GENCODE_IS_X86(code->gencode_mode)) {
             instr_set_x86_mode(nop_inst, true/*x86*/);
             instr_shrink_to_32_bits(nop_inst);
         }
-#endif
+# endif
         /* XXX: better to put prior to entry point but then need to change model
          * of who assigns entry point
          */
         APP(&ilist, nop_inst);
     }
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_tgt)));
+#elif defined(ARM)
+    APP(&ilist, INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_PC),
+                                 OPND_TLS_FIELD(get_ibl_entry_tls_offs
+                                                (dcontext, ibl_tgt))));
+#endif
     add_patch_marker(&patch, instrlist_last(&ilist),
                      PATCH_UINT_SIZED /* pc relative */,
-                     0 /* point at opcode of jecxz */,
+                     0 /* point at opcode */,
                      (ptr_uint_t*)&code->special_ibl_unlink_offs[index]);
 
     /* now encode the instructions */
@@ -5455,40 +5456,6 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
     instrlist_clear(dcontext, &ilist);
 
     return pc;
-}
-
-static void
-relink_special_ibl_xfer(dcontext_t *dcontext, int index,
-                        ibl_entry_point_type_t entry_type,
-                        ibl_branch_type_t ibl_type)
-{
-    generated_code_t *code;
-    byte *pc, *ibl_tgt;
-# ifdef ARM
-    /* FIXME i#1551: NYI on ARM */
-    return;
-# endif
-    if (dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
-        code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
-    } else {
-#ifdef X64
-        code = SHARED_GENCODE_MATCH_THREAD(dcontext);
-#else
-        ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
-        code = THREAD_GENCODE(dcontext);
-#endif
-    }
-    if (code == NULL) /* shared_code_x86, or thread private that we don't need */
-        return;
-    ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
-    ASSERT(code->special_ibl_xfer[index] != NULL);
-    pc = (code->special_ibl_xfer[index] +
-          code->special_ibl_unlink_offs[index] + 1/*jmp opcode*/);
-
-    protect_generated_code(code, WRITABLE);
-    insert_relative_target(pc, ibl_tgt, code->thread_shared/*hot patch*/);
-    protect_generated_code(code, READONLY);
 }
 
 void
@@ -5527,10 +5494,6 @@ unlink_special_ibl_xfer(dcontext_t *dcontext)
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
-# ifdef ARM
-    /* FIXME i#1551: NYI on ARM */
-    return pc;
-# endif
     /* The client puts the target in SPILL_SLOT_REDIRECT_NATIVE_TGT. */
     return emit_special_ibl_xfer(dcontext, pc, code, CLIENT_IBL_IDX,
                                  IBL_RETURN, NULL,

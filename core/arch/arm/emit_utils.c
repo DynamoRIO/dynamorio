@@ -127,10 +127,10 @@ insert_spill_reg(byte *pc, fragment_t *f, reg_id_t src)
 }
 
 static byte *
-insert_ldr_tls_to_pc(byte *pc, fragment_t *f, uint offs)
+insert_ldr_tls_to_pc(byte *pc, uint frag_flags, uint offs)
 {
     /* ldr pc, [r10, #offs] */
-    if (FRAG_IS_THUMB(f->flags)) {
+    if (FRAG_IS_THUMB(frag_flags)) {
         *(ushort*)pc = 0xf8d0 | (dr_reg_stolen - DR_REG_R0);
         pc += THUMB_SHORT_INSTR_SIZE;
         *(ushort*)pc = 0xf000 | offs;
@@ -261,7 +261,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* movt dst, #top-half-&linkstub */
         pc = insert_mov_linkstub(pc, f, l, DR_REG_R0);
         /* ldr pc, [r10, #fcache-return-offs] */
-        pc = insert_ldr_tls_to_pc(pc, f,
+        pc = insert_ldr_tls_to_pc(pc, f->flags,
                                   get_fcache_return_tls_offs(dcontext, f->flags));
         /* The final slot is a data slot only used if the target is far away. */
         pc += sizeof(app_pc);
@@ -275,7 +275,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* movt dst, #top-half-&linkstub */
         pc = insert_mov_linkstub(pc, f, l, DR_REG_R1);
         /* ldr pc, [r10, #ibl-offs] */
-        pc = insert_ldr_tls_to_pc(pc, f,
+        pc = insert_ldr_tls_to_pc(pc, f->flags,
                                   get_ibl_entry_tls_offs(dcontext, exit_target));
     }
     return (int) (pc - stub_pc);
@@ -313,7 +313,7 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f,
 void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 {
-    /* For far-away targetes, we branch to the stub and use an
+    /* For far-away targets, we branch to the stub and use an
      * indirect branch from there:
      *        b stub
      *      stub:
@@ -485,7 +485,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
     pc = stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - ARM_INSTR_SIZE;
     /* ldr pc, [r10, #ibl-offs] */
-    insert_ldr_tls_to_pc(pc, f, get_ibl_entry_tls_offs(dcontext, exit_target));
+    insert_ldr_tls_to_pc(pc, f->flags, get_ibl_entry_tls_offs(dcontext, exit_target));
     /* XXX: since we need a syscall to sync, we should start out linked */
     if (hot_patch)
         machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
@@ -542,10 +542,9 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     pc = stub_pc + exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
                                   f->flags) - ARM_INSTR_SIZE;
     /* ldr pc, [r10, #ibl-offs] */
-    insert_ldr_tls_to_pc(pc, f, get_ibl_entry_tls_offs(dcontext, exit_target));
+    insert_ldr_tls_to_pc(pc, f->flags, get_ibl_entry_tls_offs(dcontext, exit_target));
     machine_cache_sync(pc, pc + ARM_INSTR_SIZE, true);
 }
-
 
 /*******************************************************************************
  * COARSE-GRAIN FRAGMENT SUPPORT
@@ -1033,6 +1032,35 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     ibl_code->ibl_routine_length = encode_with_patch_list(dc, patch, &ilist, pc);
     instrlist_clear(dc, &ilist);
     return pc + ibl_code->ibl_routine_length;
+}
+
+void
+relink_special_ibl_xfer(dcontext_t *dcontext, int index,
+                        ibl_entry_point_type_t entry_type,
+                        ibl_branch_type_t ibl_type)
+{
+    generated_code_t *code;
+    byte *pc, *ibl_tgt;
+    if (dcontext == GLOBAL_DCONTEXT) {
+        ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
+    } else {
+        ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = THREAD_GENCODE(dcontext);
+    }
+    if (code == NULL) /* thread private that we don't need */
+        return;
+    ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
+    ASSERT(code->special_ibl_xfer[index] != NULL);
+    pc = (code->special_ibl_xfer[index] + code->special_ibl_unlink_offs[index]);
+
+    protect_generated_code(code, WRITABLE);
+    /* ldr pc, [r10, #ibl-offs] */
+    /* Here we assume that our gencode is all Thumb! */
+    ASSERT(DEFAULT_ISA_MODE == DR_ISA_ARM_THUMB);
+    insert_ldr_tls_to_pc(pc, FRAG_THUMB, get_ibl_entry_tls_offs(dcontext, ibl_tgt));
+    machine_cache_sync(pc, pc + THUMB_LONG_INSTR_SIZE, true);
+    protect_generated_code(code, READONLY);
 }
 
 bool

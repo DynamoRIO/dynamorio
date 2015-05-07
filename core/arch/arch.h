@@ -1306,6 +1306,17 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
                          uint counter_offset,
                          reg_id_t scratch_register);
 #endif
+
+void
+relink_special_ibl_xfer(dcontext_t *dcontext, int index,
+                        ibl_entry_point_type_t entry_type,
+                        ibl_branch_type_t ibl_type);
+
+byte *
+special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
+                     ibl_entry_point_type_t entry_type,
+                     ibl_branch_type_t ibl_type);
+
 /* we are sharing bbs w/o ibs -- we assume that a bb
  * w/ a direct branch cannot have an ib and thus is shared
  */
