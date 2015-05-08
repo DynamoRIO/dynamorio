@@ -2693,12 +2693,8 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_READ_6    0x0000011f
-/** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-# define EFLAGS_READ_ARITH EFLAGS_READ_6
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_WRITE_6   0x0008f800
-/** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Platform-independent macro for reads all arithmetic flags. */
 # define EFLAGS_READ_ARITH   EFLAGS_READ_6

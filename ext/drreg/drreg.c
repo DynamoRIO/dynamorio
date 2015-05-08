@@ -75,7 +75,7 @@ typedef struct _reg_info_t {
      */
     /* The live vector holds one entry per app instr in the bb.
      * For registers, each vector entry holds REG_{LIVE,DEAD}.
-     * For aflags, each vector entry holds a ptr_uint_t with the EFLAGS_READ_6 bits
+     * For aflags, each vector entry holds a ptr_uint_t with the EFLAGS_READ_ARITH bits
      * telling which arithmetic flags are live at that point.
      */
     drvector_t live;
@@ -125,19 +125,6 @@ find_free_slot(per_thread_t *pt)
     return MAX_SPILLS;
 }
 
-static opnd_t
-spill_slot_opnd(uint slot)
-{
-    /* FIXME i#511: port to ARM by switching to dr_insert_{read,write}_raw_tls() */
-    ASSERT(slot < ops.num_spill_slots, "internal spill slot error");
-    return opnd_create_far_base_disp_ex
-        /* must use 0 scale to match what DR decodes for opnd_same */
-        (tls_seg, REG_NULL, REG_NULL, 0,
-         tls_slot_offs + slot*sizeof(ptr_uint_t), OPSZ_PTR,
-         /* modern processors don't want addr16 prefixes */
-         false, true, false);
-}
-
 /* Up to caller to update pt->reg.  This routine updates pt->slot_use. */
 static void
 spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
@@ -146,8 +133,8 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     ASSERT(pt->slot_use[slot] == DR_REG_NULL, "internal tracking error");
     pt->slot_use[slot] = reg;
     if (slot < ops.num_spill_slots) {
-        PRE(ilist, where,
-            INSTR_CREATE_mov_st(drcontext, spill_slot_opnd(slot), opnd_create_reg(reg)));
+        dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
+                                tls_slot_offs + slot*sizeof(ptr_uint_t), reg);
     } else {
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_save_reg(drcontext, ilist, where, reg, DR_slot);
@@ -167,8 +154,8 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     if (release)
         pt->slot_use[slot] = DR_REG_NULL;
     if (slot < ops.num_spill_slots) {
-        PRE(ilist, where,
-            INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(reg), spill_slot_opnd(slot)));
+        dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
+                               tls_slot_offs + slot*sizeof(ptr_uint_t), reg);
     } else {
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_restore_reg(drcontext, ilist, where, reg, DR_slot);
@@ -254,20 +241,20 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
         /* aflags liveness */
         aflags_new = instr_get_arith_flags(inst, DR_QUERY_INCLUDE_COND_SRCS);
         if (xfer)
-            aflags_cur = EFLAGS_READ_6; /* assume flags are read before written */
+            aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
         else {
             uint aflags_cur, aflags_read, aflags_w2r;
             if (index == 0)
-                aflags_cur = EFLAGS_READ_6; /* assume flags are read before written */
+                aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
             else {
                 aflags_cur = (uint)(ptr_uint_t)
                     drvector_get_entry(&pt->aflags.live, index-1);
             }
-            aflags_read = (aflags_new & EFLAGS_READ_6);
+            aflags_read = (aflags_new & EFLAGS_READ_ARITH);
             /* if a flag is read by inst, set the read bit */
-            aflags_cur |= (aflags_new & EFLAGS_READ_6);
+            aflags_cur |= (aflags_new & EFLAGS_READ_ARITH);
             /* if a flag is written and not read by inst, clear the read bit */
-            aflags_w2r = EFLAGS_WRITE_TO_READ(aflags_new & EFLAGS_WRITE_6);
+            aflags_w2r = EFLAGS_WRITE_TO_READ(aflags_new & EFLAGS_WRITE_ARITH);
             aflags_cur &= ~(aflags_w2r & ~aflags_read);
         }
         drvector_set_entry(&pt->aflags.live, index, (void *)(ptr_uint_t)aflags_cur);
@@ -421,17 +408,26 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
+#ifdef X86
     uint temp_slot = find_free_slot(pt);
+#elif defined(ARM)
+    drreg_status_t res = DRREG_SUCCESS;
+    reg_id_t scratch;
+#endif
     ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
            "must be called from drmgr insertion phase");
     /* Just like scratch regs, flags are exclusively owned */
     if (pt->aflags.in_use)
         return DRREG_ERROR_IN_USE;
-    if (!TESTANY(EFLAGS_READ_6, aflags)) {
+    if (!TESTANY(EFLAGS_READ_ARITH, aflags)) {
         pt->aflags.in_use = true;
         pt->aflags.native = true;
         return DRREG_SUCCESS;
     }
+
+#ifdef X86
+    if (temp_slot == MAX_SPILLS)
+        return DRREG_ERROR_OUT_OF_SLOTS;
     if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use) {
         /* No way to tell whoever is using xax that we need it */
         /* FIXME i#511: pick an unreserved reg, spill it, and put xax there
@@ -439,8 +435,6 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
          */
         return DRREG_ERROR_REG_CONFLICT;
     }
-    if (temp_slot == MAX_SPILLS)
-        return DRREG_ERROR_OUT_OF_SLOTS;
     if (drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
         REG_LIVE)
         spill_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where);
@@ -453,13 +447,24 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
      * possible.  For now, for simplicity, we always put into aflags TLS slot.
      */
     spill_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where);
+    if (drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
+        REG_LIVE)
+        restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
+#elif defined(ARM)
+    res = drreg_reserve_register(drcontext, ilist, where, NULL, &scratch);
+    if (res != DRREG_SUCCESS)
+        return res;
+    dr_save_arith_flags_to_reg(drcontext, ilist, where, scratch);
+    spill_reg(drcontext, pt, scratch, AFLAGS_SLOT, ilist, where);
+    res = drreg_unreserve_register(drcontext, ilist, where, scratch);
+    if (res != DRREG_SUCCESS)
+        return res; /* XXX: undo already-inserted instrs? */
+#endif
+
     pt->aflags.in_use = true;
     pt->aflags.native = false;
     pt->aflags.xchg = DR_REG_NULL;
     pt->aflags.slot = AFLAGS_SLOT;
-    if (drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
-        REG_LIVE)
-        restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
     return DRREG_SUCCESS;
 }
 
@@ -473,12 +478,18 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
      */
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
+#ifdef X86
     uint temp_slot = find_free_slot(pt);
+#elif defined(ARM)
+    drreg_status_t res = DRREG_SUCCESS;
+    reg_id_t scratch;
+#endif
     ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
            "must be called from drmgr insertion phase");
     pt->aflags.in_use = false;
-    if (!TESTANY(EFLAGS_READ_6, aflags))
+    if (!TESTANY(EFLAGS_READ_ARITH, aflags))
         return true;
+#ifdef X86
     if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use) {
         /* FIXME i#511: pick an unreserved reg, spill it, and put xax there
          * temporarily.
@@ -499,6 +510,16 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     if (drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
         REG_LIVE)
         restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
+#elif defined(ARM)
+    res = drreg_reserve_register(drcontext, ilist, where, NULL, &scratch);
+    if (res != DRREG_SUCCESS)
+        return res;
+    restore_reg(drcontext, pt, scratch, AFLAGS_SLOT, ilist, where, true);
+    dr_restore_arith_flags_from_reg(drcontext, ilist, where, scratch);
+    res = drreg_unreserve_register(drcontext, ilist, where, scratch);
+    if (res != DRREG_SUCCESS)
+        return res; /* XXX: undo already-inserted instrs? */
+#endif
     return DRREG_SUCCESS;
 }
 
@@ -525,7 +546,7 @@ drreg_are_aflags_dead(void *drcontext, instr_t *inst, bool *dead)
         return res;
     if (dead == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
-    *dead = !TESTANY(EFLAGS_READ_6, flags);
+    *dead = !TESTANY(EFLAGS_READ_ARITH, flags);
     return DRREG_SUCCESS;
 }
 

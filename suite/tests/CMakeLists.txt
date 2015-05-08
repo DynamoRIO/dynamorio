@@ -1785,11 +1785,9 @@ if (CLIENT_INTERFACE)
     endif (UNIX)
   endif (NOT ARM)
 
-  if (NOT ARM) # FIXME i#1551: port drreg to ARM
-    tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
-    use_DynamoRIO_extension(client.drreg-test.dll drmgr)
-    use_DynamoRIO_extension(client.drreg-test.dll drreg)
-  endif (NOT ARM)
+  tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-test.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-test.dll drreg)
 
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")

@@ -45,6 +45,8 @@
     }                                    \
 } while (0);
 
+#define TEST_REG IF_X86_ELSE(DR_REG_XDI, DR_REG_R4)
+
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
@@ -61,9 +63,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drvector_init(&allowed, DR_NUM_GPR_REGS, false/*!synch*/, NULL);
     for (reg = 0; reg < DR_NUM_GPR_REGS; reg++)
         drvector_set_entry(&allowed, reg, NULL);
-    drvector_set_entry(&allowed, DR_REG_XDI-DR_REG_START_GPR, (void *)(ptr_uint_t)1);
+    drvector_set_entry(&allowed, TEST_REG-DR_REG_START_GPR, (void *)(ptr_uint_t)1);
     res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
-    CHECK(res == DRREG_SUCCESS && reg == DR_REG_XDI, "only 1 choice");
+    CHECK(res == DRREG_SUCCESS && reg == TEST_REG, "only 1 choice");
     res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
     CHECK(res == DRREG_ERROR_REG_CONFLICT, "still reserved");
     res = drreg_unreserve_register(drcontext, bb, inst, reg);

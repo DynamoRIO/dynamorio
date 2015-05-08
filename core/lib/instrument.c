@@ -4412,8 +4412,12 @@ dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
     IF_X86_ELSE({
         MINSERT(ilist, where, INSTR_CREATE_mov_ld
                 (dcontext, opnd_create_reg(reg),
-                 opnd_create_far_base_disp(tls_register, DR_REG_NULL, DR_REG_NULL,
-                                           0, tls_offs, OPSZ_PTR)));
+                 opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL,
+                                              0, tls_offs, OPSZ_PTR,
+                                              /* modern processors don't want addr16
+                                               * prefixes
+                                               */
+                                              false, true, false)));
     }, {
         MINSERT(ilist, where, XINST_CREATE_load
                 (dcontext, opnd_create_reg(reg),
@@ -4434,8 +4438,10 @@ dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
     IF_X86_ELSE({
         MINSERT(ilist, where, INSTR_CREATE_mov_st
                 (dcontext,
-                 opnd_create_far_base_disp(tls_register, DR_REG_NULL, DR_REG_NULL,
-                                           0, tls_offs, OPSZ_PTR),
+                 opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL,
+                                              0, tls_offs, OPSZ_PTR,
+                                              /* no addr16 prefixes, for modern proc */
+                                              false, true, false),
                  opnd_create_reg(reg)));
     }, {
         MINSERT(ilist, where, XINST_CREATE_store
