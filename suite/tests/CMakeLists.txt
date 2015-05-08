@@ -2008,8 +2008,7 @@ if (CLIENT_INTERFACE)
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
-    torunonly_ci(tool.drltrace common.eflags drltrace common/eflags.c
-      "-only_from_app" "" "")
+    torunonly_ci(tool.drltrace common.fib drltrace common/fib.c "-only_from_app" "" "")
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
 
     torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")

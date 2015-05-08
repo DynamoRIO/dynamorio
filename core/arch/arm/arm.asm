@@ -454,6 +454,16 @@ GLOBAL_LABEL(memset:)
 
 
 #ifdef CLIENT_INTERFACE
+/* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
+ *
+ * int dr_try_start(try_except_context_t *cxt) ;
+ */
+        DECLARE_EXPORTED_FUNC(dr_try_start)
+GLOBAL_LABEL(dr_try_start:)
+        add      ARG1, ARG1, #TRY_CXT_SETJMP_OFFS
+        b        GLOBAL_REF(dr_setjmp)
+        END_FUNC(dr_try_start)
+
 /* int cdecl dr_setjmp(dr_jmp_buf *buf);
  */
         DECLARE_FUNC(dr_setjmp)

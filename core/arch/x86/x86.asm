@@ -1755,7 +1755,6 @@ GLOBAL_LABEL(native_plt_call:)
  *
  * int dr_try_start(try_except_context_t *cxt) ;
  */
-# define TRY_CXT_SETJMP_OFFS 0 /* offsetof(try_except_context_t, context) */
         DECLARE_EXPORTED_FUNC(dr_try_start)
 GLOBAL_LABEL(dr_try_start:)
         add      ARG1, TRY_CXT_SETJMP_OFFS
