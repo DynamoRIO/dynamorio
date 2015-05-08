@@ -1,0 +1,13 @@
+Index: common/native-elf-format
+===================================================================
+--- common/native-elf-format    (revision 3194)
++++ common/native-elf-format    (working copy)
+@@ -35,6 +35,8 @@
+             elfarch = "EM_386";
+         } else if (match($0, ".*[xX]86-64")) {
+             elfarch = "EM_X86_64";
++        } else if (match($0, "ARM")) {
++            elfarch = "EM_ARM"
+         } else {
+             elfarch = "unknown";
+         }

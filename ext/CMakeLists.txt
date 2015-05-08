@@ -110,9 +110,9 @@ add_subdirectory(drmgr)
 add_subdirectory(drx)
 add_subdirectory(drwrap)
 add_subdirectory(drreg)
+add_subdirectory(drsyms)
 # FIXME i#1551: port all extension libraries to ARM
 if (NOT ARM)
-  add_subdirectory(drsyms)
   add_subdirectory(drutil)
 endif (NOT ARM)
 
