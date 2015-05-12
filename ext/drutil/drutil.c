@@ -55,6 +55,9 @@
 /* for inserting an app instruction, which must have a translation ("xl8") field */
 #define PREXL8 instrlist_preinsert
 
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+#define TEST  TESTANY
+
 /***************************************************************************
  * INIT
  */
@@ -90,6 +93,16 @@ drutil_exit(void)
 /***************************************************************************
  * MEMORY TRACING
  */
+#ifdef X86
+static bool
+drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch);
+#elif defined(ARM)
+static bool
+drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch);
+#endif /* X86/ARM */
+
 
 /* Could be optimized to have scratch==dst for many common cases, but
  * need way to get a 2nd reg for corner cases: simpler to ask caller
@@ -105,6 +118,18 @@ DR_EXPORT
 bool
 drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                            opnd_t memref, reg_id_t dst, reg_id_t scratch)
+{
+#ifdef X86
+    return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch);
+#elif defined(ARM)
+    return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch);
+#endif
+}
+
+#ifdef X86
+static bool
+drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch)
 {
     if (opnd_is_far_base_disp(memref) &&
         /* We assume that far memory references via %ds and %es are flat,
@@ -198,20 +223,162 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
     }
     return true;
 }
+#elif defined(ARM)
+static bool
+instr_has_opnd(instr_t *instr, opnd_t opnd)
+{
+    int i;
+    if (instr == NULL)
+        return false;
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        if (opnd_same(opnd, instr_get_src(instr, i)))
+            return true;
+    }
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        if (opnd_same(opnd, instr_get_dst(instr, i)))
+            return true;
+    }
+    return false;
+}
+
+static instr_t *
+instrlist_find_app_instr(instrlist_t *ilist, instr_t *where, opnd_t opnd)
+{
+    instr_t *app;
+    /* looking for app instr at/after where */
+    for (app  = instr_is_app(where) ? where : instr_get_next_app(where);
+         app != NULL;
+         app  = instr_get_next_app(app)) {
+        if (instr_has_opnd(app, opnd))
+            return app;
+    }
+    /* looking for app instr before where */
+    for (app  = instr_get_prev_app(where);
+         app != NULL;
+         app  = instr_get_prev_app(app)) {
+        if (instr_has_opnd(app, opnd))
+            return app;
+    }
+    return NULL;
+}
+
+static reg_id_t
+replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where,
+                   opnd_t memref, reg_id_t dst, reg_id_t scratch)
+{
+    reg_id_t reg;
+    reg = opnd_uses_reg(memref, dst) ? scratch : dst;
+    DR_ASSERT(!opnd_uses_reg(memref, reg));
+    dr_insert_get_stolen_reg_value(drcontext, bb, where, reg);
+    return reg;
+}
+
+static bool
+drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch)
+{
+    if (!opnd_is_base_disp(memref))
+        return false;
+    if (opnd_get_base(memref) == DR_REG_PC) {
+        app_pc target;
+        instr_t *first, *second;
+        /* We need the app instr for getting the rel_addr_target.
+         * XXX: add drutil_insert_get_mem_addr_ex to let client provide app instr.
+         */
+        instr_t *app = instrlist_find_app_instr(bb, where, memref);
+        if (app == NULL)
+            return false;
+        if (!instr_get_rel_addr_target(app, &target))
+            return false;
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)target,
+                                         opnd_create_reg(dst), bb, where,
+                                         &first, &second);
+        instr_set_meta(first);
+        if (second != NULL)
+            instr_set_meta(second);
+    } else {
+        instr_t *instr;
+        uint amount;
+        dr_shift_type_t shift;
+        reg_id_t base   = opnd_get_base(memref);
+        reg_id_t index  = opnd_get_index(memref);
+        int      disp   = opnd_get_disp(memref);
+        reg_id_t stolen = dr_get_stolen_reg();
+        if (dst == stolen || scratch == stolen)
+            return false;
+        if (base == stolen)
+            base = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch);
+        else if (index == stolen)
+            index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch);
+        if (index == REG_NULL && opnd_get_disp(memref) != 0) {
+            /* first try "add dst, base, #disp" */
+            instr = TEST(DR_OPND_NEGATED, opnd_get_flags(memref)) ?
+                INSTR_CREATE_sub(drcontext,
+                                 opnd_create_reg(dst),
+                                 opnd_create_reg(base),
+                                 OPND_CREATE_INT(disp)) :
+                INSTR_CREATE_add(drcontext,
+                                 opnd_create_reg(dst),
+                                 opnd_create_reg(base),
+                                 OPND_CREATE_INT(disp));
+            if (instr_is_encoding_possible(instr)) {
+                PRE(bb, where, instr);
+                return true;
+            }
+            instr_destroy(drcontext, instr);
+            /* The memref may have a disp that cannot be directly encoded into an
+             * add_imm instr, so we use movw to put disp into the scratch instead
+             * and fake it as an index reg to insert an add instr later.
+             */
+            /* if dst is used in memref, we use scratch instead */
+            index = (base == dst) ? scratch : dst;
+            PRE(bb, where, XINST_CREATE_load_int(drcontext,
+                                                 opnd_create_reg(index),
+                                                 OPND_CREATE_INT(disp)));
+            /* "add" instr is inserted below with a fake index reg added here */
+        }
+        if (index != REG_NULL) {
+            shift = opnd_get_index_shift(memref, &amount);
+            instr = TEST(DR_OPND_NEGATED, opnd_get_flags(memref)) ?
+                INSTR_CREATE_sub_shimm(drcontext,
+                                       opnd_create_reg(dst),
+                                       opnd_create_reg(base),
+                                       opnd_create_reg(index),
+                                       OPND_CREATE_INT(shift),
+                                       OPND_CREATE_INT(amount)) :
+                INSTR_CREATE_add_shimm(drcontext,
+                                       opnd_create_reg(dst),
+                                       opnd_create_reg(base),
+                                       opnd_create_reg(index),
+                                       OPND_CREATE_INT(shift),
+                                       OPND_CREATE_INT(amount));
+            PRE(bb, where, instr);
+        } else if (base != dst) {
+            PRE(bb, where, INSTR_CREATE_mov(drcontext,
+                                            opnd_create_reg(dst),
+                                            opnd_create_reg(base)));
+        }
+    }
+    return true;
+}
+#endif /* X86/ARM */
 
 DR_EXPORT
 uint
 drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
 {
+#ifdef X86
     if (inst != NULL && instr_get_opcode(inst) == OP_enter) {
         uint extra_pushes = (uint) opnd_get_immed_int(instr_get_src(inst, 1));
         uint sz = opnd_size_in_bytes(opnd_get_size(instr_get_dst(inst, 1)));
         ASSERT(opnd_is_immed_int(instr_get_src(inst, 1)), "malformed OP_enter");
         return sz*extra_pushes;
     } else
+#endif /* X86 */
         return opnd_size_in_bytes(opnd_get_size(memref));
 }
 
+#ifdef X86
 static bool
 opc_is_stringop_loop(uint opc)
 {
@@ -256,15 +423,18 @@ create_nonloop_stringop(void *drcontext, instr_t *inst)
     instr_set_translation(res, instr_get_app_pc(inst));
     return res;
 }
+#endif /* X86 */
 
 DR_EXPORT
 bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT,
                             instr_t **stringop OUT)
 {
+#ifdef X86
     instr_t *inst, *next_inst, *first_app = NULL;
     bool delete_rest = false;
     uint opc;
+#endif
 
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_APP2APP) {
         USAGE_ERROR("drutil_expand_rep_string* must be called from "
@@ -272,6 +442,7 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
         return false;
     }
 
+#ifdef X86
     /* Make a rep string instr be its own bb: the loop is going to
      * duplicate the tail anyway, and have to terminate at the added cbr.
      */
@@ -394,6 +565,12 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
             *expanded = true;
     } else if (expanded != NULL)
         *expanded = false;
+#elif defined(ARM)
+    if (expanded != NULL)
+        *expanded = false;
+    if (stringop != NULL)
+        *stringop = NULL;
+#endif
 
     return true;
 }

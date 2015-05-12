@@ -97,10 +97,14 @@ event_exit(void)
 static bool
 instr_is_stringop_loop(instr_t *inst)
 {
+#ifdef X86
     int opc = instr_get_opcode(inst);
     return (opc == OP_rep_ins || opc == OP_rep_outs || opc == OP_rep_movs ||
             opc == OP_rep_stos || opc == OP_rep_lods || opc == OP_rep_cmps ||
             opc == OP_repne_cmps || opc == OP_rep_scas || opc == OP_repne_scas);
+#elif defined(ARM)
+    return false;
+#endif
 }
 
 static dr_emit_flags_t
@@ -159,20 +163,22 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 bool for_trace, bool translating, void *user_data)
 {
     int i;
+    reg_id_t reg1 = IF_X86_ELSE(REG_XAX, DR_REG_R0);
+    reg_id_t reg2 = IF_X86_ELSE(REG_XDX, DR_REG_R1);
     CHECK(!instr_is_stringop_loop(instr), "rep str conversion missed one");
     if (instr_writes_memory(instr)) {
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                dr_save_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
-                dr_save_reg(drcontext, bb, instr, REG_XDX, SPILL_SLOT_2);
+                dr_save_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
+                dr_save_reg(drcontext, bb, instr, reg2, SPILL_SLOT_2);
                 /* XXX: should come up w/ some clever way to ensure
                  * this gets the right address: for now just making sure
                  * it doesn't crash
                  */
                 drutil_insert_get_mem_addr(drcontext, bb, instr,
-                                           instr_get_dst(instr, i), REG_XAX, REG_XDX);
-                dr_restore_reg(drcontext, bb, instr, REG_XDX, SPILL_SLOT_2);
-                dr_restore_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
+                                           instr_get_dst(instr, i), reg1, reg2);
+                dr_restore_reg(drcontext, bb, instr, reg2, SPILL_SLOT_2);
+                dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
             }
         }
     }
