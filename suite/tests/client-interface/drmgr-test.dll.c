@@ -96,6 +96,10 @@ static dr_emit_flags_t event_bb4_insert(void *drcontext, void *tag, instrlist_t 
 static dr_emit_flags_t event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
                                                bool for_trace, bool translating,
                                                void *user_data);
+static dr_emit_flags_t event_bb4_insert2(void *drcontext, void *tag, instrlist_t *bb,
+                                         instr_t *inst, bool for_trace, bool translating,
+                                         void *user_data);
+
 
 static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
@@ -118,6 +122,19 @@ dr_init(client_id_t id)
                                                  event_bb_insert,
                                                  &priority);
     CHECK(ok, "drmgr register bb failed");
+
+    /* check register/unregister instrumentation_ex */
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app,
+                                                    event_bb4_analysis,
+                                                    event_bb4_insert2,
+                                                    event_bb4_instru2instru,
+                                                    NULL);
+    CHECK(ok, "drmgr_register_bb_instrumentation_ex_event failed");
+    ok = drmgr_unregister_bb_instrumentation_ex_event(event_bb4_app2app,
+                                                      event_bb4_analysis,
+                                                      event_bb4_insert2,
+                                                      event_bb4_instru2instru);
+    CHECK(ok, "drmgr_unregister_bb_instrumentation_ex_event failed");
 
     /* test data passing among all 4 phases */
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app,
@@ -351,6 +368,15 @@ event_bb4_insert(void *drcontext, void *tag, instrlist_t *bb,
                  void *user_data)
 {
     CHECK(user_data == (void *) ((ptr_uint_t)tag + 1), "user data not preserved");
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb4_insert2(void *drcontext, void *tag, instrlist_t *bb,
+                  instr_t *inst, bool for_trace, bool translating,
+                  void *user_data)
+{
+    CHECK(false, "should never be executed");
     return DR_EMIT_DEFAULT;
 }
 

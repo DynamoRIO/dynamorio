@@ -1042,6 +1042,10 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
         return false; /* invalid params */
     ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, NULL, app2app_func,
                             NULL, NULL) && ok;
+    /* Although analysis_func and insertion_func are registered together in
+     * drmgr_register_bb_instrumentation_ex_event, drmgr_bb_cb_remove only
+     * checks analysis_func, so we pass NULL instead of insertion_func here.
+     */
     ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL, NULL,
                             analysis_func, NULL) && ok;
     ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL, NULL,
