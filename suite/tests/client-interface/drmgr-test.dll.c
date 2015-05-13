@@ -279,6 +279,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data)
 {
     static int freq;
+    reg_id_t reg1 = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    reg_id_t reg2 = IF_X86_ELSE(DR_REG_XCX, DR_REG_R1);
 
     CHECK(drmgr_is_first_instr(drcontext, instrlist_first_app(bb)), "first incorrect");
     CHECK(!drmgr_is_first_instr(drcontext, instrlist_last(bb)) ||
@@ -291,32 +293,35 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     freq++;
     if (freq % 100 == 0 && inst == (instr_t*)user_data/*first instr*/) {
         /* test read from cache */
-        dr_save_reg(drcontext, bb, inst, DR_REG_XAX, SPILL_SLOT_1);
-        drmgr_insert_read_tls_field(drcontext, tls_idx, bb, inst, DR_REG_XAX);
+        dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
+        drmgr_insert_read_tls_field(drcontext, tls_idx, bb, inst, reg1);
         dr_insert_clean_call(drcontext, bb, inst, (void *)check_tls_from_cache,
-                             false, 1, opnd_create_reg(DR_REG_XAX));
-        drmgr_insert_read_cls_field(drcontext, cls_idx, bb, inst, DR_REG_XAX);
+                             false, 1, opnd_create_reg(reg1));
+        drmgr_insert_read_cls_field(drcontext, cls_idx, bb, inst, reg1);
         dr_insert_clean_call(drcontext, bb, inst, (void *)check_cls_from_cache,
-                             false, 1, opnd_create_reg(DR_REG_XAX));
-        dr_restore_reg(drcontext, bb, inst, DR_REG_XAX, SPILL_SLOT_1);
+                             false, 1, opnd_create_reg(reg1));
+        dr_restore_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
     }
     if (freq % 300 == 0 && inst == (instr_t*)user_data/*first instr*/) {
+        instr_t *first, *second;
         /* test write from cache */
-        dr_save_reg(drcontext, bb, inst, DR_REG_XAX, SPILL_SLOT_1);
-        dr_save_reg(drcontext, bb, inst, DR_REG_XCX, SPILL_SLOT_2);
-        instrlist_meta_preinsert(bb, inst, INSTR_CREATE_mov_imm
-                                 (drcontext, opnd_create_reg(DR_REG_EAX),
-                                  OPND_CREATE_INT32(MAGIC_NUMBER_FROM_CACHE)));
-        drmgr_insert_write_tls_field(drcontext, tls_idx, bb, inst, DR_REG_XAX,
-                                     DR_REG_XCX);
+        dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
+        dr_save_reg(drcontext, bb, inst, reg2, SPILL_SLOT_2);
+        instrlist_insert_mov_immed_ptrsz(drcontext,
+                                         (ptr_int_t)MAGIC_NUMBER_FROM_CACHE,
+                                         opnd_create_reg(reg1),
+                                         bb, inst, &first, &second);
+        instr_set_meta(first);
+        if (second != NULL)
+            instr_set_meta(second);
+        drmgr_insert_write_tls_field(drcontext, tls_idx, bb, inst, reg1, reg2);
         dr_insert_clean_call(drcontext, bb, inst, (void *)check_tls_write_from_cache,
                              false, 0);
-        drmgr_insert_write_cls_field(drcontext, cls_idx, bb, inst, DR_REG_XAX,
-                                     DR_REG_XCX);
+        drmgr_insert_write_cls_field(drcontext, cls_idx, bb, inst, reg1, reg2);
         dr_insert_clean_call(drcontext, bb, inst, (void *)check_cls_write_from_cache,
                              false, 0);
-        dr_restore_reg(drcontext, bb, inst, DR_REG_XCX, SPILL_SLOT_2);
-        dr_restore_reg(drcontext, bb, inst, DR_REG_XAX, SPILL_SLOT_1);
+        dr_restore_reg(drcontext, bb, inst, reg2, SPILL_SLOT_2);
+        dr_restore_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
     }
     return DR_EMIT_DEFAULT;
 }

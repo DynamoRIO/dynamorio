@@ -298,6 +298,8 @@ main(int argc, char **argv)
      * this gets the right address: for now just making sure
      * it doesn't crash.
      */
+#else
+    print("%c\n", table[1]);
 #endif
 
     intervals = 10;

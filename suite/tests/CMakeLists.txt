@@ -1777,22 +1777,18 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
-    tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
-    use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
-    if (UNIX)
-      target_link_libraries(client.drmgr-test ${libpthread})
-    endif (UNIX)
-  endif (NOT ARM)
+  tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
+  use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
+  if (UNIX)
+    target_link_libraries(client.drmgr-test ${libpthread})
+  endif (UNIX)
 
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
-    use_DynamoRIO_extension(client.drx-test.dll drx)
-  endif (NOT ARM)
+  tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+  use_DynamoRIO_extension(client.drx-test.dll drx)
 
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
   get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
