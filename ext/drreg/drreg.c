@@ -366,10 +366,40 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 drreg_status_t
 drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
-                    reg_id_t app_reg, OUT reg_id_t *dst_reg)
+                    reg_id_t app_reg, reg_id_t dst_reg)
 {
-    /* FIXME i#511: NYI */
-    return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (!reg_is_pointer_sized(app_reg) || !reg_is_pointer_sized(dst_reg))
+        return DRREG_ERROR_INVALID_PARAMETER;
+
+    /* check if app_reg is stolen reg */
+    if (app_reg == dr_get_stolen_reg()) {
+        if (dr_insert_get_stolen_reg_value(drcontext, ilist, where, dst_reg))
+            return DRREG_SUCCESS;
+        ASSERT(false, "internal error on getting stolen reg app value");
+        return DRREG_ERROR;
+    }
+    /* check if app_reg is an unreserved reg */
+    if (!pt->reg[app_reg-DR_REG_START_GPR].in_use) {
+        PRE(ilist, where, XINST_CREATE_move(drcontext,
+                                            opnd_create_reg(dst_reg),
+                                            opnd_create_reg(app_reg)));
+        return DRREG_SUCCESS;
+    }
+
+    /* we may lost the app value for a dead reg */
+    if (drvector_get_entry(&pt->reg[app_reg-DR_REG_START_GPR].live,
+                           pt->live_idx) != REG_LIVE)
+        return DRREG_ERROR_NO_APP_VALUE;
+    /* restore app value back to app_reg */
+    if (pt->reg[app_reg-DR_REG_START_GPR].xchg != DR_REG_NULL) {
+        /* FIXME i#511: NYI */
+        return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+    }
+    restore_reg(drcontext, pt, app_reg,
+                pt->reg[app_reg-DR_REG_START_GPR].slot,
+                ilist, where, false);
+    return DRREG_SUCCESS;
 }
 
 drreg_status_t

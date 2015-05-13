@@ -51,12 +51,26 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
 {
-    reg_id_t reg;
+    reg_id_t reg, random = IF_X86_ELSE(DR_REG_XDI, DR_REG_R5);
     drreg_status_t res;
     drvector_t allowed;
 
     res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
     CHECK(res == DRREG_SUCCESS, "default reserve should always work");
+    /* test restore app value back to reg */
+    res = drreg_get_app_value(drcontext, bb, inst, reg, reg);
+    CHECK(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE,
+          "restore app value could only fail on dead reg");
+    /* test get stolen reg to reg */
+    if (dr_get_stolen_reg() != REG_NULL) {
+        res = drreg_get_app_value(drcontext, bb, inst, dr_get_stolen_reg(), reg);
+        CHECK(res == DRREG_SUCCESS, "get stolen reg app value should always work");
+    }
+    /* test get random reg to reg */
+    res = drreg_get_app_value(drcontext, bb, inst, random, reg);
+    CHECK(res == DRREG_SUCCESS ||
+          (res == DRREG_ERROR_NO_APP_VALUE && reg == random),
+          "get random reg app value should always work");
     res = drreg_unreserve_register(drcontext, bb, inst, reg);
     CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
 

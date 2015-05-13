@@ -64,6 +64,11 @@ typedef enum {
     DRREG_ERROR_REG_CONFLICT,       /**< Operation failed: register conflict */
     DRREG_ERROR_IN_USE,             /**< Operation failed: resource already in use */
     DRREG_ERROR_OUT_OF_SLOTS,       /**< Operation failed: no more TLS slots */
+    /**
+     * Operation failed: app value not available.
+     * Set \p conservative in \p drreg_options_t to avoid this error.
+     */
+    DRREG_ERROR_NO_APP_VALUE,
 } drreg_status_t;
 
 /***************************************************************************
@@ -238,12 +243,14 @@ DR_EXPORT
  * done for reserved registers prior to an application instruction
  * that reads \p app_reg, but sometimes instrumentation needs to read
  * the application value of a register that has been reserved.
+ * If \p app_reg is a dead register, DRREG_ERROR_NO_APP_VALUE may be
+ * returned. Set \p conservative in \p drreg_options_t to avoid this error.
  *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
 drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
-                    reg_id_t app_reg, OUT reg_id_t *dst_reg);
+                    reg_id_t app_reg, reg_id_t dst_reg);
 
 DR_EXPORT
 /**
