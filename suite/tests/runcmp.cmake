@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -53,23 +54,13 @@ endif (cmd_result)
 # we assume it has already been processed w/ regex => literal, etc.
 file(READ "${cmp}" str)
 
-# we do not support regex b/c ctest can't handle big regex:
+# We do not support regex b/c ctest can't handle big regex:
 #   "RegularExpression::compile(): Expression too big."
-# so we use STREQUAL
+# so we use STREQUAL.
 
-if (WIN32)
-  # our test prep turned \n into \r?\n so revert
-  string(REGEX REPLACE "\r\\?" "" str "${str}")
-endif (WIN32)
-
-# unfortunately the preprocessor collapses spaces that aren't at the
-# start of a line on Linux, and for the api/dis.c we have trailing spaces added,
-# so we try to do a "diff -b" here:
-string(REGEX REPLACE "  *" " " cmd_out "${cmd_out}")
-string(REGEX REPLACE "  *" " " str "${str}")
-# trailing space differences on both platforms
-string(REGEX REPLACE " *(\r?\n)" "\\1" cmd_out "${cmd_out}")
-string(REGEX REPLACE " *(\r?\n)" "\\1" str "${str}")
+# We used to implement a "diff -b" via cmake regex on the output and expect
+# file, but that gets really slow (30s for 750KB strings) so now we require
+# strict matches.
 
 if (NOT "${cmd_out}" STREQUAL "${str}")
   # make it easier to debug

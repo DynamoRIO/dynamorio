@@ -174,6 +174,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         /* On ARM, we spill registers across an app instr, so go solely on xl8 */
         (IF_X86(!instr_is_our_mangling(inst) ||)
          instr_get_translation(inst) != walk->translation)) {
+        LOG(THREAD_GET, LOG_INTERP, 5, "%s: from one mangle region to another\n",
+            __FUNCTION__);
         /* We assume our manglings are local and contiguous: once out of a
          * mangling region, we're good to go again.
          */
@@ -193,6 +195,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         if (!walk->in_mangle_region) {
             walk->in_mangle_region = true;
             walk->translation = instr_get_translation(inst);
+            LOG(THREAD_GET, LOG_INTERP, 5, "%s: entering mangle region xl8="PFX"\n",
+                __FUNCTION__, walk->translation);
         } else
             ASSERT(walk->translation == instr_get_translation(inst));
         /* PR 302951: we recognize a clean call by its NULL translation.
@@ -255,6 +259,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         }
         if (instr_is_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg)) {
             r = reg - REG_START_SPILL;
+            ASSERT(r < REG_SPILL_NUM);
             IF_ARM({
                 /* Ignore the spill of r0 into TLS for syscall restart
                  * XXX: we're assuming it's immediately prior to the syscall.
@@ -276,6 +281,12 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                     spill_tls ? "tls" : "mcontext", reg_names[reg]);
             }
         }
+#ifdef ARM
+        else if (instr_is_stolen_reg_move(inst, &spill, &reg)) {
+            /* do nothing */
+            LOG(THREAD_GET, LOG_INTERP, 5, "%s: stolen reg move\n", __FUNCTION__);
+        }
+#endif
         /* PR 267260: Track our own mangle-inserted pushes and pops, for
          * restoring state on an app fault in the middle of our indirect
          * branch mangling.  We only need to support instrs added up until
@@ -369,7 +380,13 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
             translate_pc, walk->translation);
         DOCHECK(1, {
             for (r = 0; r < REG_SPILL_NUM; r++)
-                ASSERT(!walk->reg_spilled[r]);
+                ASSERT(!walk->reg_spilled[r]
+                       /* The special stolen register mangling from
+                        * mangle_syscall_arch() for a non-restartable syscall ends
+                        * up here due to the nop having a xl8 post-syscall.
+                        * We do need to restore that spill.
+                        */
+                       IF_ARM(|| r == 10));
         });
         return;
     }
@@ -385,7 +402,12 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
             reg_t value;
             if (walk->reg_tls[r]) {
                 value = *(reg_t *)(((byte*)&tdcontext->local_state->spill_space) +
-                                   reg_spill_tls_offs(reg));
+                                   /* special handling r10, mangle instr inserted
+                                    * in mangle_syscall_arch
+                                    */
+                                   (IF_ARM(reg == DR_REG_R10 ?
+                                           reg_spill_tls_offs(DR_REG_R1) :)
+                                    reg_spill_tls_offs(reg)));
             } else {
                 value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }
@@ -1101,8 +1123,11 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
 #endif
 #ifdef ARM
+        /* dr_reg_stolen is holding DR's TLS on receiving a signal,
+         * so we need put app's reg value into mcontext instead
+         */
         if (!just_pc)
-            set_stolen_reg_val(mcontext, get_stolen_reg_val(mcontext));
+            set_stolen_reg_val(mcontext, tdcontext->local_state->spill_space.reg_stolen);
 #endif
 #ifdef CLIENT_INTERFACE
         if (res != RECREATE_FAILURE) {

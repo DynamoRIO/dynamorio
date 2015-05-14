@@ -79,16 +79,34 @@ separate_bb:
         cmp      r0, #0
         addne    pc, r10, pc
 
+        mov      r10, pc
+        bx       r10
+
 // test dr_reg_stolen mangling optimization
         mov      r10, pc
         mov      pc, r10
         mov      r10, sp
         mov      r3, r10
+        push     {r0-r15}
+        add      sp, sp, #16
+        pop      {r4-r11}
+        add      sp, sp, #16
+        cmp      r10, #0
+        movne    r3, r9
+        moveq    r3, r10
+        movne    r9, r3
+        moveq    r10, r3
 
 // test various SIMD cases
         mov      r7, sp
         vld3.8   {d10-d12}, [r7]!
         vmull.u16 q10, d24, d16
+        vldm     r7, {d3}
+        vld4.32  {d17[],d19[],d21[],d23[]}, [r7 :128], r12
+        vsri.64  d28, d15, #1
+        vsli.32  d27, d0, #31
+        vqmovun.s32 d4, q8
+        vqshlu.s64 d3, d9, #13
 
 // exit
         mov      r0, #1            // stdout

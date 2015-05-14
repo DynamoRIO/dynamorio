@@ -1,0 +1,4 @@
+parent is running under DynamoRIO
+child is running under DynamoRIO
+received SIGCHLD
+child has exited

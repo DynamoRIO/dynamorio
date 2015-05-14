@@ -2385,7 +2385,7 @@ DR_API bool
 dr_create_client_thread(void (*func)(void *param), void *arg)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
     HANDLE hthread;
     bool res;
     thread_id_t tid;
@@ -3778,11 +3778,6 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
 #ifndef X64
     if (module_is_64bit(base))
         return;
-#endif
-
-#ifdef CLIENT_INTERFACE
-    if (dynamo_initialized && add)
-        instrument_module_load_trigger(base);
 #endif
 
     /* ensure header is readable */

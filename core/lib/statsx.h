@@ -1246,3 +1246,7 @@
     RSTATS_DEF("App-managed instrumentations", app_managed_instrumentations)
     RSTATS_DEF("Max incoming direct linkstubs", max_incoming_direct_linkstubs)
 #endif
+#ifdef ARM
+    STATS_DEF("Reg spills for non-mbr mangling", non_mbr_spills)
+    STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
+#endif

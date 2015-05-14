@@ -398,7 +398,7 @@ instr_get_note(instr_t *instr)
 }
 
 INSTR_INLINE
-instr_t*
+instr_t *
 instr_get_next(instr_t *instr)
 {
     return instr->next;
@@ -417,10 +417,22 @@ instr_get_next_app(instr_t *instr)
 }
 
 INSTR_INLINE
-instr_t*
+instr_t *
 instr_get_prev(instr_t *instr)
 {
     return instr->prev;
+}
+
+INSTR_INLINE
+instr_t *
+instr_get_prev_app(instr_t *instr)
+{
+    CLIENT_ASSERT(instr != NULL, "instr_get_prev_app: passed NULL");
+    for (instr = instr->prev; instr != NULL; instr = instr->prev) {
+        if (instr_is_app(instr))
+            return instr;
+    }
+    return NULL;
 }
 
 INSTR_INLINE

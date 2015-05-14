@@ -619,6 +619,27 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist);
 # endif
 #endif
 
+DR_API
+/**
+ * Given an application program counter value, returns the
+ * corresponding value to use as an indirect branch target for the
+ * given \p isa_mode.  For ARM's Thumb mode (#DR_ISA_ARM_THUMB), this
+ * involves setting the least signifiant bit of the address.
+ */
+app_pc
+dr_app_pc_as_jump_target(dr_isa_mode_t isa_mode, app_pc pc);
+
+DR_API
+/**
+ * Given an application program counter value, returns the
+ * corresponding value to use as a memory load target for the given \p
+ * isa_mode, or for comparing to the application address inside a
+ * basic block or trace.  For ARM's Thumb mode (#DR_ISA_ARM_THUMB),
+ * this involves clearing the least significant bit of the address.
+ */
+app_pc
+dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc);
+
 /* for debugging: printing out types and sizes */
 extern const char * const type_names[];
 extern const char * const size_names[];

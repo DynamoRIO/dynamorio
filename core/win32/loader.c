@@ -440,6 +440,10 @@ get_private_peb(void)
 bool
 should_swap_peb_pointer(void)
 {
+    /* FIXME i#1692: now that we need to swap TEB stack fields even with no
+     * client, we need to split the PEB and non-stack TEB swapping from the
+     * TEB swapping.  Right now they're all intertwined under "swap PEB".
+     */
     return (INTERNAL_OPTION(private_peb) &&
             !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib));
 }
@@ -537,7 +541,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
          * TEB->ReservedForNtRpc, and TEB->NlsCache.
          */
         void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
-        void *cur_stack_base = get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
+        byte *cur_stack_base = (byte *) get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
         void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
         void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
@@ -551,7 +555,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->dstack - DYNAMORIO_STACK_SIZE);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    !is_dynamo_address(cur_stack_base)) { /* handle two in a row */
+                    !is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
                     dcontext->app_stack_base = cur_stack_base;
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
@@ -582,7 +586,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_stack_limit);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    is_dynamo_address(cur_stack_base)) { /* handle two in a row */
+                    is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET,
                                   dcontext->app_stack_base);
                 }
@@ -662,6 +666,56 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
     LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
     set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
     LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_nt_rpc);
+}
+
+void
+loader_pre_client_thread_exit(dcontext_t *dcontext)
+{
+    /* See comments by SWAP_TEB_STACKLIMIT() on our overall strategy.
+     * At thread exit, prior to running client or privlib code, we need to
+     * remove references to the app stack, which could be freed now (if at
+     * process exit or some other synchall from another thread).
+     */
+    if (should_swap_peb_pointer()) {
+        set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
+                      dcontext->dstack - DYNAMORIO_STACK_SIZE);
+    }
+}
+
+void
+check_app_stack_limit(dcontext_t *dcontext)
+{
+    /* DrMi#1723: while in priv cxt, client may have touched an app guard page
+     * in another thread, which will result in no update to TEB.StackLimit.  We
+     * try to recover here before any harm is done (although on the new Win8.1,
+     * any fault will result in sudden death w/ a bad StackLimit: i#1676).
+     */
+    MEMORY_BASIC_INFORMATION mbi;
+    byte *start_pc, *check_pc;
+    size_t res;
+    if (!should_swap_peb_pointer())
+        return;
+    if (SWAP_TEB_STACKLIMIT())
+        start_pc = (byte *)dcontext->app_stack_limit;
+    else
+        start_pc = (byte *)get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
+    ASSERT(start_pc > (byte *)(ptr_uint_t)PAGE_SIZE);
+    check_pc = start_pc;
+    do {
+        check_pc -= PAGE_SIZE;
+        res = query_virtual_memory(check_pc, &mbi, sizeof(mbi));
+    } while (res == sizeof(mbi) && !TEST(PAGE_GUARD, mbi.Protect) &&
+             check_pc > (byte *)(ptr_uint_t)PAGE_SIZE);
+    if (res == sizeof(mbi) && TEST(PAGE_GUARD, mbi.Protect) &&
+        check_pc + PAGE_SIZE < start_pc) {
+        LOG(THREAD, LOG_LOADER, 2, "updated stored TEB.StackLimit from "PFX" to "PFX"\n",
+            start_pc, check_pc + PAGE_SIZE);
+        dcontext->app_stack_limit = check_pc + PAGE_SIZE;
+        if (SWAP_TEB_STACKLIMIT())
+            dcontext->app_stack_limit = check_pc + PAGE_SIZE;
+        else
+            set_teb_field(dcontext, BASE_STACK_TIB_OFFSET, check_pc + PAGE_SIZE);
+    }
 }
 #endif /* CLIENT_INTERFACE */
 

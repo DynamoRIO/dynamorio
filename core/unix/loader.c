@@ -45,6 +45,7 @@
 #include "../heap.h"    /* HEAPACCT */
 #ifdef LINUX
 # include "include/syscall.h"
+# include "memquery.h"
 #else
 # include <sys/syscall.h>
 #endif
@@ -97,6 +98,8 @@ static const char *system_lib_paths[] = {
 
 #define RPATH_ORIGIN "$ORIGIN"
 
+#define APP_BRK_GAP 64*1024*1024
+
 static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
 static size_t max_client_tls_size = 2 * PAGE_SIZE;
@@ -141,7 +144,7 @@ static void
 privload_relocate_mod(privmod_t *mod);
 
 static void
-privload_create_os_privmod_data(privmod_t *privmod);
+privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc);
 
 static void
 privload_delete_os_privmod_data(privmod_t *privmod);
@@ -152,6 +155,60 @@ privload_mod_tls_init(privmod_t *mod);
 #endif
 
 /***************************************************************************/
+
+/* Register a symbol file with gdb.  This symbol needs to be exported so that
+ * gdb can find it even when full debug information is unavailable.  We do
+ * *not* consider it part of DR's public API.
+ * i#531: gdb support for private loader
+ */
+DYNAMORIO_EXPORT void
+dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
+{
+    /* Do nothing.  If gdb is attached with libdynamorio.so-gdb.py loaded, it
+     * will stop here and lift the argument values.
+     */
+    /* FIXME: This only passes the text section offset.  gdb can accept
+     * additional "-s<section> <address>" arguments to locate data sections.
+     * This would be useful for setting watchpoints on client global variables.
+     */
+}
+
+#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
+# if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+static void
+privload_add_gdb_cmd(elf_loader_t *loader, const char *filename, bool reachable)
+{
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    /* Get the text addr to register the ELF with gdb.  The section headers
+     * are not part of the mapped image, so we have to map the whole file.
+     * XXX: seek to e_shoff and read the section headers to avoid this map.
+     */
+    if (elf_loader_map_file(loader, reachable) != NULL) {
+        app_pc text_addr = (app_pc)module_get_text_section(loader->file_map,
+                                                           loader->file_size);
+        text_addr += loader->load_delta;
+        print_to_buffer(gdb_priv_cmds, BUFFER_SIZE_ELEMENTS(gdb_priv_cmds),
+                        &gdb_priv_cmds_sofar, "add-symbol-file '%s' %p\n",
+                        filename, text_addr);
+        /* Add debugging comment about how to get symbol information in gdb. */
+        if (printed_gdb_commands) {
+            /* This is a dynamically loaded auxlib, so we print here.
+             * The client and its direct dependencies are batched up and
+             * printed in os_loader_init_epilogue.
+             */
+            SYSLOG_INTERNAL_INFO("Paste into GDB to debug DynamoRIO clients:\n"
+                                 "add-symbol-file '%s' %p\n",
+                                 filename, text_addr);
+        }
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "for debugger: add-symbol-file %s %p\n", filename, text_addr);
+        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privload_register_gdb), false)) {
+            dr_gdb_add_symbol_file(filename, text_addr);
+        }
+    }
+}
+# endif
+#endif
 
 /* os specific loader initialization prologue before finalizing the load. */
 void
@@ -172,9 +229,39 @@ os_loader_init_prologue(void)
                           get_shared_lib_name(get_dynamorio_dll_start()),
                           get_dynamorio_library_path());
     ASSERT(mod != NULL);
-    privload_create_os_privmod_data(mod);
+    /* If DR was loaded by system ld.so, then .dynamic *was* relocated (i#1589) */
+    privload_create_os_privmod_data(mod, !DYNAMO_OPTION(early_inject));
     libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
+    if (DYNAMO_OPTION(early_inject)) {
+        /* i#1659: fill in the text-data segment gap to ensure no mmaps in between.
+         * The kernel does not do this.  Our private loader does, so if we reloaded
+         * ourselves this is already in place, but it's expensive to query so
+         * we blindly clobber w/ another no-access mapping.
+         */
+        int i;
+        for (i = 0; i <libdr_opd->os_data.num_segments - 1; i++) {
+            size_t sz = libdr_opd->os_data.segments[i+1].start -
+                libdr_opd->os_data.segments[i].end;
+            if (sz > 0) {
+                DEBUG_DECLARE(byte *fill =)
+                    os_map_file(-1, &sz, 0, libdr_opd->os_data.segments[i].end,
+                                MEMPROT_NONE, MAP_FILE_COPY_ON_WRITE|MAP_FILE_FIXED);
+                ASSERT(fill != NULL);
+            }
+        }
+    }
     mod->externally_loaded = true;
+# if defined(LINUX)/*i#1285*/ && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
+    if (DYNAMO_OPTION(early_inject)) {
+        /* libdynamorio isn't visible to gdb so add to the cmd list */
+        elf_loader_t dr_ld;
+        IF_DEBUG(bool success = )
+            elf_loader_read_headers(&dr_ld, get_dynamorio_library_path());
+        ASSERT(success);
+        privload_add_gdb_cmd(&dr_ld, get_dynamorio_library_path(), false/*!reach*/);
+        elf_loader_destroy(&dr_ld);
+    }
+# endif
 #endif
 }
 
@@ -201,19 +288,6 @@ os_loader_init_epilogue(void)
 # endif /* INTERNAL || CLIENT_INTERFACE */
 #endif
 }
-
-#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-# if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-static void
-privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
-{
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    print_to_buffer(gdb_priv_cmds, BUFFER_SIZE_ELEMENTS(gdb_priv_cmds),
-                    &gdb_priv_cmds_sofar, "add-symbol-file '%s' %p\n",
-                    modpath, text_addr);
-}
-# endif
-#endif
 
 void
 os_loader_exit(void)
@@ -271,7 +345,7 @@ privload_add_areas(privmod_t *privmod)
      * We prefer here because it avoids changing the code in
      * loader_shared.c, which affects windows too.
       */
-    privload_create_os_privmod_data(privmod);
+    privload_create_os_privmod_data(privmod,  false/* i#1589: .dynamic not relocated */);
     opd = (os_privmod_data_t *) privmod->os_privmod_data;
     for (i = 0; i < opd->os_data.num_segments; i++) {
         vmvector_add(modlist_areas,
@@ -333,23 +407,6 @@ privload_unload_imports(privmod_t *privmod)
     return true;
 }
 
-/* Register a symbol file with gdb.  This symbol needs to be exported so that
- * gdb can find it even when full debug information is unavailable.  We do
- * *not* consider it part of DR's public API.
- * i#531: gdb support for private loader
- */
-DYNAMORIO_EXPORT void
-dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
-{
-    /* Do nothing.  If gdb is attached with libdynamorio.so-gdb.py loaded, it
-     * will stop here and lift the argument values.
-     */
-    /* FIXME: This only passes the text section offset.  gdb can accept
-     * additional "-s<section> <address>" arguments to locate data sections.
-     * This would be useful for setting watchpoints on client global variables.
-     */
-}
-
 /* This only maps, as relocation for ELF requires processing imports first,
  * which we have to delay at init time at least.
  */
@@ -362,9 +419,6 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     prot_fn_t prot_func;
     app_pc base = NULL;
     elf_loader_t loader;
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-    app_pc text_addr;
-#endif
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     /* get appropriate function */
@@ -404,33 +458,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
             *size = loader.image_size;
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-        /* Get the text addr to register the ELF with gdb.  The section headers
-         * are not part of the mapped image, so we have to map the whole file.
-         * XXX: seek to e_shoff and read the section headers to avoid this map.
-         */
-        if (elf_loader_map_file(&loader, reachable) != NULL) {
-            text_addr = (app_pc)module_get_text_section(loader.file_map,
-                                                        loader.file_size);
-            text_addr += loader.load_delta;
-            privload_add_gdb_cmd(filename, text_addr);
-            /* Add debugging comment about how to get symbol information in gdb. */
-            if (printed_gdb_commands) {
-                /* This is a dynamically loaded auxlib, so we print here.
-                 * The client and its direct dependencies are batched up and
-                 * printed in os_loader_init_epilogue.
-                 */
-                SYSLOG_INTERNAL_INFO("Paste into GDB to debug DynamoRIO clients:\n"
-                                     "add-symbol-file '%s' %p\n",
-                                     filename, text_addr);
-            }
-            LOG(GLOBAL, LOG_LOADER, 1,
-                "for debugger: add-symbol-file %s %p\n",
-                filename, text_addr);
-            if (IF_CLIENT_INTERFACE_ELSE(
-                    INTERNAL_OPTION(privload_register_gdb), false)) {
-                dr_gdb_add_symbol_file(filename, text_addr);
-            }
-        }
+        privload_add_gdb_cmd(&loader, filename, reachable);
 #endif
     }
     elf_loader_destroy(&loader);
@@ -874,6 +902,32 @@ get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
     return found;
 }
 
+#ifdef LINUX
+static void
+privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
+{
+    if (opd->rel != NULL) {
+        module_relocate_rel(mod_base, opd,
+                            opd->rel,
+                            opd->rel + opd->relsz / opd->relent);
+    }
+    if (opd->rela != NULL) {
+        module_relocate_rela(mod_base, opd,
+                             opd->rela,
+                             opd->rela + opd->relasz / opd->relaent);
+    }
+    if (opd->jmprel != NULL) {
+        if (opd->pltrel == DT_REL) {
+            module_relocate_rel(mod_base, opd, (ELF_REL_TYPE *)opd->jmprel,
+                                (ELF_REL_TYPE *)(opd->jmprel + opd->pltrelsz));
+        } else if (opd->pltrel == DT_RELA) {
+            module_relocate_rela(mod_base, opd, (ELF_RELA_TYPE *)opd->jmprel,
+                                 (ELF_RELA_TYPE *)(opd->jmprel + opd->pltrelsz));
+        }
+    }
+}
+#endif
+
 static void
 privload_relocate_mod(privmod_t *mod)
 {
@@ -888,25 +942,8 @@ privload_relocate_mod(privmod_t *mod)
     if (opd->tls_block_size != 0)
         privload_mod_tls_init(mod);
 
-    if (opd->rel != NULL) {
-        module_relocate_rel(mod->base, opd,
-                            opd->rel,
-                            opd->rel + opd->relsz / opd->relent);
-    }
-    if (opd->rela != NULL) {
-        module_relocate_rela(mod->base, opd,
-                             opd->rela,
-                             opd->rela + opd->relasz / opd->relaent);
-    }
-    if (opd->jmprel != NULL) {
-        if (opd->pltrel == DT_REL) {
-            module_relocate_rel(mod->base, opd, (ELF_REL_TYPE *)opd->jmprel,
-                                (ELF_REL_TYPE *)(opd->jmprel + opd->pltrelsz));
-        } else if (opd->pltrel == DT_RELA) {
-            module_relocate_rela(mod->base, opd, (ELF_RELA_TYPE *)opd->jmprel,
-                                 (ELF_RELA_TYPE *)(opd->jmprel + opd->pltrelsz));
-        }
-    }
+    privload_relocate_os_privmod_data(opd, mod->base);
+
     /* special handling on I/O file */
     if (strstr(mod->name, "libc.so") == mod->name) {
         privmod_stdout =
@@ -931,19 +968,20 @@ privload_relocate_mod(privmod_t *mod)
 }
 
 static void
-privload_create_os_privmod_data(privmod_t *privmod)
+privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc)
 {
     os_privmod_data_t *opd;
 
     opd = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, os_privmod_data_t,
                           ACCT_OTHER, PROTECTED);
     privmod->os_privmod_data = opd;
+
     memset(opd, 0, sizeof(*opd));
 
     /* walk the module's program header to get privmod information */
     module_walk_program_headers(privmod->base, privmod->size,
                                 false, /* segments are remapped */
-                                false, /* i#1589: .dynamic not relocated */
+                                dyn_reloc,
                                 &opd->os_data.base_address, NULL,
                                 &opd->max_end, &opd->soname,
                                 &opd->os_data);
@@ -1441,30 +1479,112 @@ takeover_ptrace(ptrace_stack_args_t *args)
     dynamo_start(&args->mc);
 }
 
-/* i#1004: as a workaround, reserve some space for sbrk() during early injection
- * before initializing DR's heap.  With early injection, the program break comes
- * somewhere after DR's bss section, subject to some ASLR.  When we allocate our
- * heap, sometimes we mmap right over the break, so any brk() calls will fail.
- * When brk() fails, most malloc() implementations fall back to mmap().
- * However, sometimes libc startup code needs to allocate memory before libc is
- * initialized.  In this case it calls brk(), and will crash if it fails.
- *
- * Ideally we'd just set the break to follow the app's exe, but the kernel
- * forbids setting the break to a value less than the current break.  I also
- * tried to reserve memory by increasing the break by ~20 pages and then
- * resetting it, but the kernel unreserves it.  The current work around is to
- * increase the break by 1.  The loader needs to allocate more than a page of
- * memory, so this doesn't guarantee that further brk() calls will succeed.
- * However, I haven't observed any brk() failures after adding this workaround.
+static void
+reserve_brk(app_pc post_app)
+{
+    /* We haven't parsed the options yet, so we rely on drinjectlib
+     * setting this env var if the user passed -no_emulate_brk:
+     */
+    if (getenv(DYNAMORIO_VAR_NO_EMULATE_BRK) == NULL) {
+        /* i#1004: we're going to emulate the brk via our own mmap.
+         * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
+         * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
+         * in os_init() to ensure no DR mmap limits its size?
+         */
+        dynamo_options.emulate_brk = true; /* not parsed yet */
+        init_emulated_brk(post_app);
+    } else {
+        /* i#1004: as a workaround, reserve some space for sbrk() during early injection
+         * before initializing DR's heap.  With early injection, the program break comes
+         * somewhere after DR's bss section, subject to some ASLR.  When we allocate our
+         * heap, sometimes we mmap right over the break, so any brk() calls will fail.
+         * When brk() fails, most malloc() implementations fall back to mmap().
+         * However, sometimes libc startup code needs to allocate memory before libc is
+         * initialized.  In this case it calls brk(), and will crash if it fails.
+         *
+         * Ideally we'd just set the break to follow the app's exe, but the kernel
+         * forbids setting the break to a value less than the current break.  I also
+         * tried to reserve memory by increasing the break by ~20 pages and then
+         * resetting it, but the kernel unreserves it.  The current work around is to
+         * increase the break by 1.  The loader needs to allocate more than a page of
+         * memory, so this doesn't guarantee that further brk() calls will succeed.
+         * However, I haven't observed any brk() failures after adding this workaround.
+         */
+        ptr_int_t start_brk;
+        ASSERT(!dynamo_heap_initialized);
+        start_brk = dynamorio_syscall(SYS_brk, 1, 0);
+        dynamorio_syscall(SYS_brk, 1, start_brk + 1);
+        /* I'd log the results, but logs aren't initialized yet. */
+    }
+}
+
+/* i#1227: on a conflict with the app we reload ourselves.
+ * Does not return.
  */
 static void
-reserve_brk(void)
+reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 {
-    ptr_int_t start_brk;
-    ASSERT(!dynamo_heap_initialized);
-    start_brk = dynamorio_syscall(SYS_brk, 1, 0);
-    dynamorio_syscall(SYS_brk, 1, start_brk + 1);
-    /* I'd log the results, but logs aren't initialized yet. */
+    elf_loader_t dr_ld;
+    os_privmod_data_t opd;
+    byte *dr_map, *temp1_map = NULL, *temp2_map = NULL;
+    app_pc entry;
+    byte *cur_dr_map = get_dynamorio_dll_start();
+    byte *cur_dr_end = get_dynamorio_dll_end();
+    size_t dr_size = cur_dr_end - cur_dr_map;
+    size_t temp1_size, temp2_size;
+    IF_DEBUG(bool success = )
+        elf_loader_read_headers(&dr_ld, get_dynamorio_library_path());
+    ASSERT(success);
+
+    /* XXX: have better strategy for picking base: currently we rely on
+     * the kernel picking an address, so we have to block out the conflicting
+     * region first.
+     */
+    if (conflict_start < cur_dr_map) {
+        temp1_size = cur_dr_map - conflict_start;
+        temp1_map = os_map_file(-1, &temp1_size, 0, conflict_start, MEMPROT_NONE,
+                                MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
+        ASSERT(temp1_map != NULL);
+    }
+    if (conflict_end > cur_dr_end) {
+        /* Leave room for the brk */
+        conflict_end += APP_BRK_GAP;
+        temp2_size = conflict_end - cur_dr_end;
+        temp2_map = os_map_file(-1, &temp2_size, 0, cur_dr_end, MEMPROT_NONE,
+                                MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
+        ASSERT(temp2_map != NULL);
+    }
+
+    /* Now load the 2nd libdynamorio.so */
+    dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file,
+                                  os_unmap_file, os_set_protection, false/*!reachable*/);
+    ASSERT(dr_map != NULL);
+    ASSERT(is_elf_so_header(dr_map, 0));
+
+    /* Relocate it */
+    memset(&opd, 0, sizeof(opd));
+    module_get_os_privmod_data(dr_map, dr_size, false/*!relocated*/, &opd);
+    /* XXX: we assume libdynamorio has no tls block b/c we're not calling
+     * privload_relocate_mod().
+     */
+    ASSERT(opd.tls_block_size == 0);
+    privload_relocate_os_privmod_data(&opd, dr_map);
+
+    if (temp1_map != NULL)
+        os_unmap_file(temp1_map, temp1_size);
+    if (temp2_map != NULL)
+        os_unmap_file(temp2_map, temp2_size);
+
+    entry = (app_pc)dr_ld.ehdr->e_entry + dr_ld.load_delta;
+    elf_loader_destroy(&dr_ld);
+
+    /* Now we transfer control unconditionally to the new DR's _start, after
+     * first restoring init_sp.  We pass along the current (old) DR's bounds
+     * for removal.
+     */
+    xfer_to_new_libdr(entry, init_sp, cur_dr_map, dr_size);
+
+    ASSERT_NOT_REACHED();
 }
 
 /* Called from _start in x86.asm.  sp is the initial app stack pointer that the
@@ -1472,7 +1592,7 @@ reserve_brk(void)
  * that the kernel puts on the stack.
  */
 void
-privload_early_inject(void **sp)
+privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 {
     ptr_int_t *argc = (ptr_int_t *)sp;  /* Kernel writes an elf_addr_t. */
     char **argv = (char **)sp + 1;
@@ -1480,11 +1600,44 @@ privload_early_inject(void **sp)
     app_pc entry = NULL;
     char *exe_path;
     char *exe_basename;
-    app_pc exe_map;
+    app_pc exe_map, exe_end;
     elf_loader_t exe_ld;
     const char *interp;
     priv_mcontext_t mc;
     bool success;
+    memquery_iter_t iter;
+
+    /* i#1676: try to detect ALSR which happens if we're launched from within
+     * gdb w/o 'set disable-randomization off'.  We assume here that our
+     * preferred base does not start with 0x5... and that the ASLR base does:
+     *   64-bit: 0x555555b323ab
+     *   32-bit: 0x56555000
+     */
+    if (old_libdr_base == NULL) {
+        ptr_uint_t match = (ptr_uint_t)0x5 << IF_X64_ELSE(44, 28);
+        ptr_uint_t mask = (ptr_int_t)-1 << IF_X64_ELSE(44, 28);
+        if (((ptr_uint_t)privload_early_inject & mask) == match) {
+            /* The problem is that we can't call any normal routines here, or
+             * even reference global vars like string literals.  We pay the
+             * cost of a separate single-byte store for each of these chars:
+             */
+            const char aslr_msg[] = {
+                'E','R','R','O','R',':',' ','r','u','n',' ',
+                '\'','s','e','t',' ','d','i','s','a','b','l','e','-','r','a','n','d',
+                'o','m','i','z','a','t','i','o','n',' ','o','f','f','\'',' ','t','o',
+                ' ','r','u','n',' ','f','r','o','m',' ','g','d','b','\n'
+            };
+#           define STDERR_FD 2
+            os_write(STDERR_FD, aslr_msg, sizeof(aslr_msg));
+            dynamorio_syscall(SYS_exit_group, 1, -1);
+        }
+    }
+
+    /* XXX i#47: for Linux, we can't easily have this option on by default as
+     * code like get_application_short_name() called from drpreload before
+     * even _init is run needs to have a non-early default.
+     */
+    dynamo_options.early_inject = true;
 
     if (*argc == ARGC_PTRACE_SENTINEL) {
         /* XXX: Teach the injector to look up takeover_ptrace() and call it
@@ -1494,13 +1647,23 @@ privload_early_inject(void **sp)
         takeover_ptrace((ptrace_stack_args_t *) sp);
     }
 
+    /* i#1227: if we reloaded ourselves, unload the old libdynamorio */
+    if (old_libdr_base != NULL)
+        os_unmap_file(old_libdr_base, old_libdr_size);
+
     dynamorio_set_envp(envp);
 
     /* argv[0] doesn't actually have to be the path to the exe, so we put the
      * real exe path in an environment variable.
      */
     exe_path = getenv(DYNAMORIO_VAR_EXE_PATH);
-    apicheck(exe_path != NULL, DYNAMORIO_VAR_EXE_PATH" env var is not set.");
+    /* i#1677: this happens upon re-launching within gdb, so provide a nice error */
+    if (exe_path == NULL) {
+        /* i#1677: avoid assert in get_application_name_helper() */
+        set_executable_path("UNKNOWN");
+        apicheck(exe_path != NULL, DYNAMORIO_VAR_EXE_PATH" env var is not set.  "
+                 "Are you re-launching within gdb?");
+    }
 
     /* i#907: We can't rely on /proc/self/exe for the executable path, so we
      * have to tell get_application_name() to use this path.
@@ -1510,16 +1673,45 @@ privload_early_inject(void **sp)
     success = elf_loader_read_headers(&exe_ld, exe_path);
     apicheck(success, "Failed to read app ELF headers.  Check path and "
              "architecture.");
+
+    /* Find range of app */
+    exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs,
+                                            exe_ld.ehdr->e_phnum, NULL, &exe_end);
+    /* i#1227: on a conflict with the app: reload ourselves */
+    if (get_dynamorio_dll_start() < exe_end &&
+        get_dynamorio_dll_end() > exe_map) {
+        reload_dynamorio(sp, exe_map, exe_end);
+        ASSERT_NOT_REACHED();
+    }
+
     exe_map = elf_loader_map_phdrs(&exe_ld,
                                    /* fixed at preferred address,
                                     * will be overridden if preferred base is 0
                                     */
-                                   true ,
+                                   true,
                                    os_map_file,
                                    os_unmap_file, os_set_protection, false/*!reachable*/);
     apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");
     ASSERT(is_elf_so_header(exe_map, 0));
+
+    /* i#1660: the app may have passed a relative path or a symlink to execve,
+     * yet the kernel will put a resolved path into /proc/self/maps.
+     * Rather than us here or in pre-execve, plus in drrun or drinjectlib,
+     * making paths absolute and resolving symlinks to try and match what the
+     * kernel does, we just read the kernel's resolved path.
+     * This is prior to memquery_init() but that's fine (it's already being
+     * called by is_elf_so_header() above).
+     */
+    if (memquery_iterator_start(&iter, exe_map, false/*no heap*/)) {
+        while (memquery_iterator_next(&iter)) {
+            if (iter.vm_start == exe_map) {
+                set_executable_path(iter.comment);
+                break;
+            }
+        }
+        memquery_iterator_stop(&iter);
+    }
 
     privload_setup_auxv(envp, exe_map, exe_ld.load_delta);
 
@@ -1534,6 +1726,9 @@ privload_early_inject(void **sp)
     }
     dynamorio_syscall(SYS_prctl, 5, PR_SET_NAME, (ptr_uint_t)exe_basename,
                       0, 0, 0);
+
+    reserve_brk(exe_map + exe_ld.image_size +
+                (INTERNAL_OPTION(separate_private_bss) ? PAGE_SIZE : 0));
 
     interp = elf_loader_find_pt_interp(&exe_ld);
     if (interp != NULL) {
@@ -1557,8 +1752,6 @@ privload_early_inject(void **sp)
         entry = (app_pc)exe_ld.ehdr->e_entry + exe_ld.load_delta;
     }
     elf_loader_destroy(&exe_ld);
-
-    reserve_brk();
 
     /* Initialize DR *after* we map the app image.  This is consistent with our
      * old behavior, and allows the client to do things like call

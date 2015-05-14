@@ -2800,7 +2800,7 @@ instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
         CLIENT_ASSERT(!check_order ||
                       (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
                       "instr_create_Ndst_Msrc_varsrc: wrong register order in reglist");
-        instr_set_src(in, var_ord + i, opnd);
+        instr_set_src(in, var_ord + i, opnd_add_flags(opnd, DR_OPND_IN_LIST));
         if (check_order)
             prev_reg = opnd_get_reg(opnd);
     }
@@ -2832,7 +2832,7 @@ instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
         CLIENT_ASSERT(!check_order ||
                       (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
                       "instr_create_Ndst_Msrc_vardst: wrong register order in reglist");
-        instr_set_dst(in, var_ord + i, opnd);
+        instr_set_dst(in, var_ord + i, opnd_add_flags(opnd, DR_OPND_IN_LIST));
         if (check_order)
             prev_reg = opnd_get_reg(opnd);
     }
@@ -3256,6 +3256,24 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
                 *tls = true;
             return true;
         }
+#ifdef ARM
+        /* mangling instr inserted by mangle_syscall_arch */
+        if (check_disp == os_tls_offset(TLS_REG1_SLOT) && *reg == DR_REG_R10) {
+            ASSERT(*reg != dr_reg_stolen);
+            DODEBUG({
+                instr_t *syscall = instr_get_next(instr);
+                while (syscall != NULL) {
+                    if (instr_is_syscall(syscall))
+                        break;
+                    syscall = instr_get_next(syscall);
+                }
+                ASSERT(syscall != NULL);
+            });
+            if (tls != NULL)
+                *tls = true;
+            return true;
+        }
+#endif
     }
     if (dcontext != GLOBAL_DCONTEXT &&
         instr_check_mcontext_spill_restore(dcontext, instr, spill,

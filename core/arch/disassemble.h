@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,11 +50,13 @@
  * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
  * "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> 0x000007fefd1a2728[8byte] %rax "
  */
-#define MAX_INSTR_DIS_SZ 108
+#define MAX_INSTR_DIS_SZ 196
 /* Here's a pretty long one,
  * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> 0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
+ * For ARM:
+ * " 8ca90aa1   vstm.hi %s0 %s1 %s2 %s3 %s4 %s5 %s6 %s7 %s8 %s9 %s10 %s11 %s12 %s13 %s14 %s15 %s16 %s17 %s18 %s19 %s20 %s21 %s22 %s23 %s24 %s25 %s26 %s27 %s28 %s29 %s30 %s31 %r9 -> (%r9)[124byte]"
  */
-#define MAX_PC_DIS_SZ    192
+#define MAX_PC_DIS_SZ    228
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
@@ -96,15 +98,14 @@ typedef enum {
      * suffix "[Nbytes]".  Setting this flag removes that suffix.
      */
     DR_DISASM_NO_OPND_SIZE   =  0x8,
+    /**
+     * Requests standard ARM assembler syntax for disassembly.  This
+     * sets the same option that is controlled by the runtime option
+     * \p -syntax_arm.  Implicit operands are not displayed.
+     */
+    DR_DISASM_ARM            =  0x10,
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
-
-static inline const char *
-postop_suffix(void)
-{
-    return (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) ?
-            "" : " ");
-}
 
 void
 disassemble_options_init(void);
@@ -112,6 +113,9 @@ disassemble_options_init(void);
 DR_API
 /**
  * Sets the disassembly style and decoding options.
+ * The default is to use DR's custom syntax, unless one of the \ref op_syntax_intel
+ * "-syntax_intel", \ref op_syntax_att "-syntax_att", or \ref op_syntax_arm
+ * "-syntax_arm" runtime options is specified.
  */
 void
 disassemble_set_syntax(dr_disasm_flags_t flags);
@@ -119,8 +123,7 @@ disassemble_set_syntax(dr_disasm_flags_t flags);
 DR_API
 /**
  * Decodes and then prints the instruction at address \p pc to file \p outfile.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  * Returns the address of the subsequent instruction, or NULL if the instruction
  * at \p pc is invalid.
  */
@@ -132,8 +135,7 @@ DR_UNS_API /* deprecated from interface */
  * Decodes and then prints the instruction at address \p pc to file \p outfile.
  * Prior to the instruction the address and raw bytes of the instruction
  * are printed.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  * Returns the address of the subsequent instruction, or a guess if the instruction
  * at \p pc is invalid.
  */
@@ -145,8 +147,7 @@ DR_API
  * Decodes and then prints the instruction at address \p pc to file \p outfile.
  * Prior to the instruction the address is printed if \p show_pc and the raw
  * bytes are printed if \p show_bytes.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  * Returns the address of the subsequent instruction, or NULL if the instruction
  * at \p pc is invalid.
  */
@@ -161,8 +162,7 @@ DR_API
  * instruction to file \p outfile.
  * Prior to the instruction the address \p orig_pc is printed if \p show_pc and the raw
  * bytes are printed if \p show_bytes.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  * Returns the address of the subsequent instruction after the copy at
  * \p copy_pc, or NULL if the instruction at \p copy_pc is invalid.
  */
@@ -182,8 +182,7 @@ DR_API
  *
  * Prior to the instruction the address \p orig_pc is printed if \p show_pc and the raw
  * bytes are printed if \p show_bytes.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  * Returns the address of the subsequent instruction after the copy at
  * \p copy_pc, or NULL if the instruction at \p copy_pc is invalid.
  */
@@ -201,8 +200,7 @@ DR_API
  * just-decoded instrs, and does not check that the instruction has a
  * valid encoding.  Prints each operand with leading zeros indicating
  * the size.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  */
 void
 instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile);
@@ -218,8 +216,7 @@ DR_API
  * just-decoded instrs, and does not check that the instruction has a
  * valid encoding.  Prints each operand with leading zeros indicating
  * the size.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  */
 size_t
 instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,
@@ -229,8 +226,7 @@ instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,
 DR_API
 /**
  * Prints the operand \p opnd to file \p outfile.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  */
 void
 opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile);
@@ -241,8 +237,7 @@ DR_API
  * Always null-terminates, and will not print more than \p bufsz characters,
  * which includes the final null character.
  * Returns the number of characters printed, not including the final null.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  */
 size_t
 opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd, char *buf, size_t bufsz);
@@ -251,8 +246,7 @@ opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd, char *buf, size_t 
 DR_API
 /**
  * Prints each instruction in \p ilist in sequence to \p outfile.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  */
 void
 instrlist_disassemble(dcontext_t *dcontext, app_pc tag,

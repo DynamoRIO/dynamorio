@@ -47,7 +47,15 @@ _start:
         ldr      r1, =hello
         mov      r2, #13           // sizeof(hello)
         mov      r7, #4            // SYS_write
-        svc      0
+        // test conditional syscall within an IT block
+        cmp      r7, #0
+        it       ne
+        svcne    0
+        // test conditionally set syscall number
+        cmp      r7, r7
+        itt      ne
+        movne    r7, #0            // test find_syscall_num
+        svcne    0                 // should not be executed
         sub      r3, r3, #1
         cmp      r3, #0
         bne      1b
@@ -106,6 +114,8 @@ separate_bb:
         movhi    r10, r0
         b        3f
 3:
+// Test build_bb_ilist() on reaching -max_bb_instrs.
+// Do not change the 20 instructions below.
         itete    vs
         movvs    r3, r10
         movvc    r0, r2
@@ -221,6 +231,9 @@ _jmp_target:
         str      r4, [r10]
         // tbb does not align the current PC and is always 4 bytes long
         tbb      [r10, r4]
+        mov      r10, #0
+        tbb      [pc, r10]
+        .word    2
 
 // predicated stm
         mov      r0, #0

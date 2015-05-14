@@ -272,6 +272,9 @@ typedef enum _dr_pred_type_t {
     DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
     DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
     DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
+    /* Aliases */
+    DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
+    DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
 #endif
 } dr_pred_type_t;
 
@@ -484,10 +487,10 @@ INSTR_INLINE
  * \note As opposed to instr_get_next(), this routine skips all meta
  * instructions inserted by either DynamoRIO or its clients.
  *
- * \note We do recommend using this routine during the phase of application
+ * \note We recommend using this routine during the phase of application
  * code analysis, as any meta instructions present are guaranteed to be ok
  * to skip.
- * However, the caution should be exercised if using this routine after any
+ * However, caution should be exercised if using this routine after any
  * instrumentation insertion has already happened, as instrumentation might
  * affect register usage or other factors being analyzed.
  */
@@ -499,6 +502,25 @@ INSTR_INLINE
 /** Returns the previous instr_t in the instrlist_t that contains \p instr. */
 instr_t*
 instr_get_prev(instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns the previous application (non-meta) instruction in the instruction
+ * list that contains \p instr.
+ *
+ * \note As opposed to instr_get_prev(), this routine skips all meta
+ * instructions inserted by either DynamoRIO or its clients.
+ *
+ * \note We recommend using this routine during the phase of application
+ * code analysis, as any meta instructions present are guaranteed to be ok
+ * to skip.
+ * However, caution should be exercised if using this routine after any
+ * instrumentation insertion has already happened, as instrumentation might
+ * affect register usage or other factors being analyzed.
+ */
+instr_t *
+instr_get_prev_app(instr_t *instr);
 
 DR_API
 INSTR_INLINE
@@ -2095,6 +2117,12 @@ instr_reads_gpr_list(instr_t *instr);
 
 bool
 instr_writes_gpr_list(instr_t *instr);
+
+bool
+instr_reads_reg_list(instr_t *instr);
+
+bool
+instr_writes_reg_list(instr_t *instr);
 #endif
 
 DR_API
@@ -2605,6 +2633,7 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
                               bool *tls, bool *spill, reg_id_t *reg);
 #ifdef ARM
 bool instr_reads_thread_register(instr_t *instr);
+bool instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
 #endif
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other
@@ -2664,12 +2693,8 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_READ_6    0x0000011f
-/** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-# define EFLAGS_READ_ARITH EFLAGS_READ_6
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_WRITE_6   0x0008f800
-/** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Platform-independent macro for reads all arithmetic flags. */
 # define EFLAGS_READ_ARITH   EFLAGS_READ_6
@@ -2739,14 +2764,29 @@ enum {
     EFLAGS_C =  0x20000000, /**< The bit in the CPSR register of C (carry flag). */
     EFLAGS_V =  0x10000000, /**< The bit in the CPSR register of V (overflow flag). */
     EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation flag). */
-    EFLAGS_GE = 0x000f0000, /**< The bit in the CPSR register of GE[3:0]. */
+    EFLAGS_GE = 0x000f0000, /**< The bits in the CPSR register of GE[3:0]. */
     /**
      * The bit in the CPSR register of T (Thumb mode indicator bit).  This is
      * not readable from user space and should only be examined when looking at
      * machine state from the kernel, such as in a signal handler.
      */
     EFLAGS_T  = 0x00000020,
+    /**
+     * The bits in the CPSR register of the T32 IT block base condition.
+     * This is not readable from user space and should only be examined when
+     * looking at machine state from the kernel, such as in a signal handler.
+     */
+    EFLAGS_IT_COND = 0x0000e000,
+    /**
+     * The bits in the CPSR register of the T32 IT block size.
+     * This is not readable from user space and should only be examined when
+     * looking at machine state from the kernel, such as in a signal handler.
+     */
+    EFLAGS_IT_SIZE = 0x06001c00,
 };
+
+/** The bits in the CPSR register of the T32 IT block state. */
+# define EFLAGS_IT (EFLAGS_IT_COND | EFLAGS_IT_SIZE)
 #endif
 /* DR_API EXPORT END */
 

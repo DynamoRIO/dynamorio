@@ -79,11 +79,12 @@ nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
                                size_t buffer_length, size_t *bytes_read)
 {
     /* This syscall was added in 2003 so we can't statically link. */
-    typedef NTSTATUS (*NtWow64ReadVirtualMemory64_t)(HANDLE ProcessHandle,
-                                                    IN PVOID64 BaseAddress,
-                                                    OUT PVOID Buffer,
-                                                    IN ULONGLONG BufferSize,
-                                                    OUT PULONGLONG NumberOfBytesRead);
+    typedef NTSTATUS (NTAPI *NtWow64ReadVirtualMemory64_t)
+        (HANDLE ProcessHandle,
+         IN PVOID64 BaseAddress,
+         OUT PVOID Buffer,
+         IN ULONGLONG BufferSize,
+         OUT PULONGLONG NumberOfBytesRead);
     static NtWow64ReadVirtualMemory64_t ntcall;
     NTSTATUS res;
     if (ntcall == NULL) {

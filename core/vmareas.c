@@ -773,7 +773,8 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
         app_pc modbase =
             /* avoid rank order violation */
             IF_NO_MEMQUERY(v == all_memory_areas ? NULL :)
-            get_module_base(area->start);
+            /* i#1649: avoid rank order for dynamo_areas */
+            (v == dynamo_areas ? NULL : get_module_base(area->start));
         if (modbase != NULL &&
             /* avoid rank order violations */
             v != dynamo_areas &&
@@ -955,12 +956,17 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
     /* if we have overlap, we extend an existing area -- else we add a new area */
     int overlap_start = -1, overlap_end = -1;
     DEBUG_DECLARE(uint flagignore;)
+    IF_UNIX(IF_DEBUG(IF_NO_MEMQUERY(extern vm_area_vector_t *all_memory_areas;)))
 
     ASSERT(start < end);
 
     //ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s\n",
                 start, end, name_vm_area_vector(v)); // can't call get_memory_info() here (ever)
+    LOG(GLOBAL, LOG_VMAREAS, 4, "in add_vm_area%s "PFX" "PFX" %s\n",
+        (v == executable_areas ? " executable_areas" :
+         (v == IF_LINUX_ELSE(all_memory_areas, NULL) ? " all_memory_areas" :
+          (v == dynamo_areas ? " dynamo_areas" : ""))), start, end, comment);
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap, or adjacency of same type (including all flags, and never
@@ -1329,10 +1335,14 @@ adjust_coarse_unit_bounds(vm_area_t *area, bool if_invalid)
          */
         return;
     }
+    LOG(THREAD_GET, LOG_VMAREAS, 3, "%s: "PFX"-"PFX" vs area "PFX"-"PFX"\n",
+        __FUNCTION__, info->base_pc, info->end_pc, area->start, area->end);
     while (info != NULL) { /* loop over primary and secondary unit */
         /* We should have reset this coarse info when flushing */
-        ASSERT(info->cache == NULL);
-        ASSERT(!info->frozen && !info->persisted);
+        ASSERT((info->cache == NULL && !info->frozen && !info->persisted) ||
+               /* i#1652: if nothing was flushed a pcache may remain */
+               (info->base_pc == area->start &&
+                info->end_pc == area->end));
         /* No longer covers the removed region */
         if (info->base_pc < area->start)
             info->base_pc = area->start;
@@ -2688,7 +2698,8 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
 }
 
 static coarse_info_t *
-vm_area_load_coarse_unit(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
+vm_area_load_coarse_unit(app_pc *start INOUT, app_pc *end INOUT,
+                         uint vm_flags, uint frag_flags,
                          bool delayed _IF_DEBUG(const char *comment))
 {
     coarse_info_t *info;
@@ -2703,12 +2714,12 @@ vm_area_load_coarse_unit(app_pc start, app_pc end, uint vm_flags, uint frag_flag
      * which won't happen w/ -coarse_units that requires shared bbs.
      */
     info = coarse_unit_load(dcontext == NULL ? GLOBAL_DCONTEXT : dcontext,
-                            start, end, true/*for execution*/);
+                            *start, *end, true/*for execution*/);
     if (info != NULL) {
-        ASSERT(info->base_pc >= start && info->end_pc <= end);
+        ASSERT(info->base_pc >= *start && info->end_pc <= *end);
         LOG(GLOBAL, LOG_VMAREAS, 1,
             "using persisted coarse unit %s "PFX"-"PFX" for "PFX"-"PFX"\n",
-            info->module, info->base_pc, info->end_pc, start, end);
+            info->module, info->base_pc, info->end_pc, *start, *end);
         /* Case 8640/9653/8639: adjust region bounds so that a
          * cache consistency event outside the persisted region
          * does not invalidate it (mainly targeting loader rebinding).
@@ -2719,24 +2730,24 @@ vm_area_load_coarse_unit(app_pc start, app_pc end, uint vm_flags, uint frag_flag
          * means we can fail post-split even that way.  So we go ahead and split
          * up front here.  For 4.4 we should move this to 1st exec.
          */
-        if (delayed && (info->base_pc > start || info->end_pc < end)) {
+        if (delayed && (info->base_pc > *start || info->end_pc < *end)) {
             /* we already added a region for the whole range earlier */
-            remove_vm_area(executable_areas, start, end, false/*leave writability*/);
+            remove_vm_area(executable_areas, *start, *end, false/*leave writability*/);
             add_executable_vm_area_helper(info->base_pc, info->end_pc,
                                           vm_flags, frag_flags, info
                                           _IF_DEBUG(comment));
         }
-        if (info->base_pc > start) {
-            add_executable_vm_area_helper(start, info->base_pc,
+        if (info->base_pc > *start) {
+            add_executable_vm_area_helper(*start, info->base_pc,
                                           vm_flags, frag_flags, NULL
                                           _IF_DEBUG(comment));
-            start = info->base_pc;
+            *start = info->base_pc;
         }
-        if (info->end_pc < end) {
-            add_executable_vm_area_helper(info->end_pc, end,
+        if (info->end_pc < *end) {
+            add_executable_vm_area_helper(info->end_pc, *end,
                                           vm_flags, frag_flags, NULL
                                           _IF_DEBUG(comment));
-            end = info->end_pc;
+            *end = info->end_pc;
         }
         /* if !delayed we'll add the region for the unit in caller */
         ASSERT(info->frozen && info->persisted);
@@ -2814,7 +2825,7 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
             /* if clients are present, don't load until after they're initialized */
             IF_CLIENT_INTERFACE(&& (dynamo_initialized ||
                                     IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)))) {
-            info = vm_area_load_coarse_unit(start, end, vm_flags, frag_flags, false
+            info = vm_area_load_coarse_unit(&start, &end, vm_flags, frag_flags, false
                                             _IF_DEBUG(comment));
         }
     }
@@ -2921,8 +2932,9 @@ vm_area_delay_load_coarse_units(void)
             /* store cur_info b/c a might be blown away */
             coarse_info_t *cur_info = (coarse_info_t *) a->custom.client;
             if (cur_info == NULL || !cur_info->frozen) {
+                app_pc start = a->start, end = a->end;
                 coarse_info_t *info =
-                    vm_area_load_coarse_unit(a->start, a->end, a->vm_flags,
+                    vm_area_load_coarse_unit(&start, &end, a->vm_flags,
                                              a->frag_flags, true _IF_DEBUG(a->comment));
                 if (info != NULL) {
                     /* re-acquire a and i */
@@ -7652,6 +7664,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         /* not in this thread's current executable list
          * try the global executable area list
          */
+#ifdef CLIENT_INTERFACE
+        /* i#884: module load event is now on first execution */
+        instrument_module_load_trigger(pc);
+#endif
         if (!own_execareas_writelock)
             read_lock(&executable_areas->lock);
         ok = lookup_addr(executable_areas, pc, &area);
@@ -10684,6 +10700,7 @@ vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                                        false/*already unlinked*/,
                                        false/*not in use anyway*/);
                 ASSERT(frozen != premerge);
+                coarse_unit_free(dcontext, premerge);
                 premerge = NULL;
             }
         }

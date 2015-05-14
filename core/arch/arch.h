@@ -438,6 +438,12 @@ insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        instr_t **first, instr_t **second);
 
 /* in mangle.c arch-specific implementation */
+#ifdef ARM
+int
+reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
+                    instr_t *end);
+#endif
+
 reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg);
 uint
@@ -1262,6 +1268,10 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 ptr_uint_t
 get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 
+/* if translation is null, uses raw bits (assumes instr was just decoded from app) */
+app_pc
+get_app_instr_xl8(instr_t *instr);
+
 #ifdef X64
 /* in x86_to_x64.c */
 void
@@ -1313,6 +1323,17 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
                          uint counter_offset,
                          reg_id_t scratch_register);
 #endif
+
+void
+relink_special_ibl_xfer(dcontext_t *dcontext, int index,
+                        ibl_entry_point_type_t entry_type,
+                        ibl_branch_type_t ibl_type);
+
+byte *
+special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
+                     ibl_entry_point_type_t entry_type,
+                     ibl_branch_type_t ibl_type);
+
 /* we are sharing bbs w/o ibs -- we assume that a bb
  * w/ a direct branch cannot have an ib and thus is shared
  */

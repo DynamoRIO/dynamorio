@@ -32,7 +32,7 @@
 
 #include "dr_annotations.h"
 
-DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0)
+DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (void), return 0)
 
 DR_DEFINE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...),
                      return 0)

@@ -3136,6 +3136,36 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     return pc + ibl_code->ibl_routine_length;
 }
 
+void
+relink_special_ibl_xfer(dcontext_t *dcontext, int index,
+                        ibl_entry_point_type_t entry_type,
+                        ibl_branch_type_t ibl_type)
+{
+    generated_code_t *code;
+    byte *pc, *ibl_tgt;
+    if (dcontext == GLOBAL_DCONTEXT) {
+        ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
+    } else {
+#ifdef X64
+        code = SHARED_GENCODE_MATCH_THREAD(dcontext);
+#else
+        ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = THREAD_GENCODE(dcontext);
+#endif
+    }
+    if (code == NULL) /* shared_code_x86, or thread private that we don't need */
+        return;
+    ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
+    ASSERT(code->special_ibl_xfer[index] != NULL);
+    pc = (code->special_ibl_xfer[index] +
+          code->special_ibl_unlink_offs[index] + 1/*jmp opcode*/);
+
+    protect_generated_code(code, WRITABLE);
+    insert_relative_target(pc, ibl_tgt, code->thread_shared/*hot patch*/);
+    protect_generated_code(code, READONLY);
+}
+
 /* If code_buf points to a jmp rel32 returns true and returns the target of
  * the jmp in jmp_target as if was located at app_loc. */
 bool

@@ -228,6 +228,12 @@ DR_API
  * - A system call or interrupt instruction can only be added
  * if it satisfies the above constraints: i.e., if it is the final
  * instruction in the block and the only system call or interrupt.
+ * - All IT blocks must be legal.  For example, application instructions
+ * inside an IT block cannot be removed or added to without also
+ * updating the OP_it instruction itself.  Clients can use
+ * the combination of dr_remove_it_instrs() and dr_insert_it_instrs()
+ * to more easily manage IT blocks while maintaining the simplicity
+ * of examining individual instructions in isolation.
  * - The block's application source code (as indicated by the
  * translation targets, set by #instr_set_translation()) must remain
  * within the original bounds of the block (the one exception to this
@@ -862,16 +868,20 @@ dr_unregister_fork_init_event(void (*func)(void *drcontext));
 DR_API
 /**
  * Registers a callback function for the module load event.  DR calls
- * \p func whenever the application loads a module.  The \p loaded
- * parameter indicates whether the module is about to be loaded (the
- * normal case) or is already loaded (if the module was already there
- * at the time DR initialized). \note The client should be aware that
- * if the module is being loaded it may not be fully processed by the
- * loader (relocating, rebinding and on Linux segment remapping may
- * have not yet occurred). \note The module_data_t \p *info passed
- * to the callback routine is valid only for the duration of the
- * callback and should not be freed; a persistent copy can be made with
- * dr_copy_module_data().
+ * \p func whenever the application loads a module (typically a
+ * library but this term includes the executable).  The \p loaded
+ * parameter indicates whether the module is fully initialized by the
+ * loader or in the process of being loaded.  This parameter is present
+ * only for backward compatibility: current versions of DR always pass true,
+ * and the client can assume that relocating, rebinding, and (on Linux) segment
+ * remapping have already occurred.
+ *
+ * \note The module_data_t \p info passed to the callback routine is
+ * valid only for the duration of the callback and should not be
+ * freed; a persistent copy can be made with dr_copy_module_data().
+ *
+ * \note Registration cannot be done during the basic block event: it should be
+ * done at initialization time.
  */
 void
 dr_register_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
@@ -882,6 +892,9 @@ DR_API
  * Unregister a callback for the module load event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
+ *
+ * \note Unregistering for this event is not supported during the
+ * basic block event.
  */
 bool
 dr_unregister_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
@@ -1511,7 +1524,7 @@ bool instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
                               dr_restore_state_info_t *info);
 
 module_data_t * copy_module_area_to_module_data(const module_area_t *area);
-void instrument_module_load_trigger(app_pc modbase);
+void instrument_module_load_trigger(app_pc pc);
 void instrument_module_load(module_data_t *data, bool previously_loaded);
 void instrument_module_unload(module_data_t *data);
 
@@ -1538,6 +1551,7 @@ void instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
 
 #endif /* CLIENT_INTERFACE */
 bool dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc);
+bool dr_modload_hook_exists(void);
 #ifdef CLIENT_INTERFACE
 
 void instrument_client_lib_loaded(byte *start, byte *end);
@@ -1699,6 +1713,13 @@ DR_API
  */
 bool
 dr_set_client_name(const char *name, const char *report_URL);
+
+DR_API
+/**
+ * Sets the version string presented to users in diagnostic messages.
+ */
+bool
+dr_set_client_version_string(const char *version);
 
 DR_API
 /** Returns the image name (without path) of the current application. */
@@ -4198,8 +4219,8 @@ dr_set_tls_field(void *drcontext, void *value);
 
 DR_API
 /**
- * Get DR's segment base pointed at \p segment_register.
- * It can be used to get the base of thread-local storage segment
+ * Get DR's thread local storage segment base pointed at by \p tls_register.
+ * It can be used to get the base of the thread-local storage segment
  * used by #dr_raw_tls_calloc.
  *
  * \note It should not be called on thread exit event,
@@ -4207,20 +4228,22 @@ DR_API
  * See #dr_register_thread_exit_event for details.
  */
 void *
-dr_get_dr_segment_base(IN reg_id_t segment_register);
+dr_get_dr_segment_base(IN reg_id_t tls_register);
 
 DR_API
 /**
- * Allocates \p num_slots contiguous thread-local storage slots that
- * can be directly accessed via an offset from \p segment_register.
+ * Allocates \p num_slots contiguous thread-local storage (TLS) slots that
+ * can be directly accessed via an offset from \p tls_register.
  * If \p alignment is non-zero, the slots will be aligned to \p alignment.
  * These slots will be initialized to 0 for each new thread.
  * The slot offsets are [\p offset .. \p offset + (num_slots - 1)].
  * These slots are disjoint from the #dr_spill_slot_t register spill slots
  * and the client tls field (dr_get_tls_field()).
  * Returns whether or not the slots were successfully obtained.
- * The segment base pointed at \p segment_register can be obtained
+ * The linear address of the TLS base pointed at by \p tls_register can be obtained
  * using #dr_get_dr_segment_base.
+ * Raw TLs slots can be read directly using dr_insert_read_raw_tls() and written
+ * using dr_insert_write_raw_tls().
  *
  * \note These slots are useful for thread-shared code caches.  With
  * thread-private caches, DR's memory pools are guaranteed to be
@@ -4234,7 +4257,7 @@ DR_API
  * to no more than 64 slots.
  */
 bool
-dr_raw_tls_calloc(OUT reg_id_t *segment_register,
+dr_raw_tls_calloc(OUT reg_id_t *tls_register,
                   OUT uint *offset,
                   IN  uint num_slots,
                   IN  uint alignment);
@@ -4248,6 +4271,25 @@ DR_API
 bool
 dr_raw_tls_cfree(uint offset, uint num_slots);
 
+DR_API
+/**
+ * Inserts into ilist prior to "where" instruction(s) to read into the
+ * general-purpose full-size register \p reg from the raw TLS slot with offset
+ * \p tls_offs from the TLS base \p tls_register.
+ */
+void
+dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t tls_register, uint tls_offs, reg_id_t reg);
+
+DR_API
+/**
+ * Inserts into ilist prior to "where" instruction(s) to store the value in the
+ * general-purpose full-size register \p reg into the raw TLS slot with offset
+ * \p tls_offs from the TLS base \p tls_register.
+ */
+void
+dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t tls_register, uint tls_offs, reg_id_t reg);
 
 /* PR 222812: due to issues in supporting client thread synchronization
  * and other complexities we are using nudges for simple push-i/o and
@@ -5388,6 +5430,9 @@ DR_API
  * be emitted with the flag DR_EMIT_MUST_END_TRACE in order to avoid
  * trace building errors.
  *
+ * For ARM, the address returned by this routine has its least significant
+ * bit set to 1 if the target is Thumb.
+ *
  * Returns null on error.
  */
 byte *
@@ -5503,6 +5548,40 @@ DR_API
 bool
 dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
                                instr_t *instr, reg_id_t reg);
+
+DR_API
+/**
+ * Removes all OP_it instructions from \p ilist without changing the
+ * instructions that were inside each IT block.  This is intended to
+ * be paired with dr_insert_it_instrs(), where a client's examination
+ * of the application instruction list and insertion of
+ * instrumentation occurs in between the two calls and thus does not
+ * have to worry about groups of instructions that cannot be separated
+ * or changed.  The resulting predicated instructions are not
+ * encodable in Thumb mode (#DR_ISA_ARM_THUMB): dr_insert_it_instrs()
+ * must be called before encoding.
+ *
+ * \return the number of OP_it instructions removed; -1 on error.
+ *
+ * \note ARM-only
+ */
+int
+dr_remove_it_instrs(void *drcontext, instrlist_t *ilist);
+
+DR_API
+/**
+ * Inserts enough OP_it instructions with proper parameters into \p
+ * ilist to make all predicated instructions in \p ilist legal in
+ * Thumb mode (#DR_ISA_ARM_THUMB).  Treats predicated app and tool
+ * instructions identically, but marks inserted OP_it instructions as
+ * app instructions (see instr_set_app()).
+ *
+ * \return the number of OP_it instructions inserted; -1 on error.
+ *
+ * \note ARM-only
+ */
+int
+dr_insert_it_instrs(void *drcontext, instrlist_t *ilist);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */

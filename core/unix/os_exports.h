@@ -127,6 +127,7 @@
 
 void *get_tls(ushort tls_offs);
 void set_tls(ushort tls_offs, void *value);
+byte *os_get_dr_tls_base(dcontext_t *dcontext);
 
 /* in os.c */
 void os_file_init(void);
@@ -267,6 +268,8 @@ bool kernel_is_64bit(void);
 
 void
 os_handle_mov_seg(dcontext_t *dcontext, byte *pc);
+
+void init_emulated_brk(app_pc exe_end);
 
 /* in arch.c */
 bool unhook_vsyscall(void);

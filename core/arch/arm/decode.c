@@ -43,6 +43,16 @@
  * General strategy:
  * + We use a data-driven table-based approach, as we need to both encode and
  *   decode and a central source of data lets us move in both directions.
+ *
+ * Potential shortcomings:
+ * + i#1685: We do not bother to ensure that "reserved bits" (in
+ *   parentheses in the manual: "(0)") set to 0 are in fact 0 as that
+ *   would require a whole separate mask in our table entries.  Often
+ *   the current processors execute these just fine when set to 1 and
+ *   we would much rather err on the side of too permissive.
+ * + Similarly (also i#1685), we are not currently modeling all the
+ *   widely varying unpredictable conditions when pc or lr is used:
+ *   xref notes at the top of table_a32_pred.c.
  */
 /* FIXME i#1569: add A64 support: for now just A32 */
 
@@ -151,7 +161,7 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
 }
 
 /* With register lists we can see quite long operand lists */
-#define MAX_OPNDS IF_X64_ELSE(8, 22)
+#define MAX_OPNDS IF_X64_ELSE(8, 33/*vstm s0-s31*/)
 
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
@@ -188,6 +198,20 @@ canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
         });
         return pc;
     }
+}
+
+DR_API
+app_pc
+dr_app_pc_as_jump_target(dr_isa_mode_t isa_mode, app_pc pc)
+{
+    return PC_AS_JMP_TGT(isa_mode, pc);
+}
+
+DR_API
+app_pc
+dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
+{
+    return PC_AS_LOAD_TGT(isa_mode, pc);
 }
 
 /* The "current" pc has an offset in pc-relative computations */
@@ -393,7 +417,7 @@ decode_wregA(decode_info_t *di, opnd_size_t opsize)
 {
     /* A32/T32 = 19:16,7 */
     return decode_simd_start(opsize) +
-        (((di->instr_word & 0x000f0000) >> 15) | ((di->instr_word >> 19) & 0x1));
+        (((di->instr_word & 0x000f0000) >> 15) | ((di->instr_word >> 7) & 0x1));
 }
 
 static reg_id_t
@@ -561,24 +585,43 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
     uint i;
     uint count = (uint) decode_immed(di, 0, OPSZ_1, false/*unsigned*/);
     reg_id_t first_reg;
+    /* Use a ceiling of 32 to match manual and avoid weird results from
+     * opnd_size_from_bytes() returning OPSZ_NA.
+     * XXX i#1685: or should we consider to be invalid?
+     * Other decoders strangely are eager to mark invalid when PC as an
+     * operand is officially "unpredictable", but while extra regs here
+     * is also "unpredictable" they seem fine with it.
+     */
+    if (count > 32)
+        count = 32;
     if (upsz == OPSZ_8) {
-        /* XXX i#1551: if immed is odd, supposed to be (deprecated) OP_fldmx */
+        /* If immed is odd, supposed to be (deprecated) OP_fldmx or OP_fstmx,
+         * but they behave the same way so we treat them as just aliases.
+         */
         count /= 2;
     } else
         CLIENT_ASSERT(upsz == OPSZ_4, "invalid opsz for TYPE_L_CONSEC");
     /* There must be an immediately prior simd reg */
     CLIENT_ASSERT(*counter > 0 && opnd_is_reg(array[*counter-1]),
                   "invalid instr template");
-    count--; /* The prior was already added */
+    if (count > 0)
+        count--; /* The prior was already added */
     first_reg = opnd_get_reg(array[*counter-1]);
+    array[(*counter)-1] = opnd_add_flags(array[(*counter)-1], DR_OPND_IN_LIST);
     di->reglist_sz = 0;
     for (i = 0; i < count; i++) {
         LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n",
             reg_names[first_reg], reg_names[first_reg + i]);
         if ((upsz == OPSZ_8 && first_reg + 1 + i > DR_REG_D31) ||
-            (upsz == OPSZ_4 && first_reg + 1 + i > DR_REG_S31))
-            return false; /* invalid */
-        array[(*counter)++] = opnd_create_reg_ex(first_reg + 1 + i, downsz, 0);
+            (upsz == OPSZ_4 && first_reg + 1 + i > DR_REG_S31)) {
+            /* Technically "unpredictable", but as we observe no SIGILL on our
+             * processors, we just truncate and allow it according to our
+             * general philosophy (i#1685).
+             */
+            break;
+        }
+        array[(*counter)++] = opnd_create_reg_ex(first_reg + 1 + i, downsz,
+                                                 DR_OPND_IN_LIST);
         di->reglist_sz += opnd_size_in_bytes(downsz);
     }
     if (di->mem_needs_reglist_sz != NULL)
@@ -639,28 +682,27 @@ static void
 decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
 {
     if (*counter > 2 &&
-        di->shift_type_idx == *counter - 2 &&
-        /* We only need to do this for shifts whose amount is an immed.
-         * When the amount is in a reg, only the low 4 DR_SHIFT_* are valid,
-         * and they match the encoded values.
-         */
-        opnd_is_immed_int(array[*counter - 1])) {
-        /* Mark the register as shifted and move the two immediates to a
-         * higher abstraction layer.  Note that b/c we map the lower 4
-         * DR_SHIFT_* values to the encoded values, we can handle either
-         * raw or higher-layer values at encode time.
-         */
-        ptr_int_t sh2 = opnd_get_immed_int(array[*counter - 2]);
-        ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
-        uint amount;
-        dr_shift_type_t type = decode_shift_values(sh2, val, &amount);
-        array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
-        array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
+        di->shift_type_idx == *counter - 2) {
+        /* Mark the register as shifted for proper disassembly. */
+        if (opnd_is_immed_int(array[*counter - 1])) {
+            /* Move the two immediates to a higher abstraction layer.  Note that
+             * b/c we map the lower 4 DR_SHIFT_* values to the encoded values,
+             * we can handle either raw or higher-layer values at encode time.
+             * We only need to do this for shifts whose amount is an immed.
+             * When the amount is in a reg, only the low 4 DR_SHIFT_* are valid,
+             * and they match the encoded values.
+             */
+            ptr_int_t sh2 = opnd_get_immed_int(array[*counter - 2]);
+            ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
+            uint amount;
+            dr_shift_type_t type = decode_shift_values(sh2, val, &amount);
+            array[*counter - 2] = opnd_create_immed_uint(type, OPSZ_2b);
+            array[*counter - 1] = opnd_create_immed_uint(amount, OPSZ_5b);
+        }
+        array[*counter - 2] = opnd_add_flags(array[*counter - 2], DR_OPND_IS_SHIFT);
         CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),
                       "invalid shift sequence");
-        array[*counter - 3] = opnd_create_reg_ex(opnd_get_reg(array[*counter - 3]),
-                                                 opnd_get_size(array[*counter - 3]),
-                                                 DR_OPND_SHIFTED);
+        array[*counter - 3] = opnd_add_flags(array[*counter - 3], DR_OPND_SHIFTED);
     }
 }
 
@@ -759,6 +801,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_R_C:
     case TYPE_R_C_TOP: /* we aren't storing whether top in our IR */
         array[(*counter)++] = opnd_create_reg_ex(decode_regC(di), downsz, 0);
+        if (di->shift_type_idx < UINT_MAX)
+            decode_register_shift(di, array, counter);
         return true;
     case TYPE_R_D:
     case TYPE_R_D_TOP: /* we aren't storing whether top in our IR */
@@ -907,10 +951,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                     (optype == TYPE_L_9b_LR || optype == TYPE_L_9b_PC)) {
                     array[(*counter)++] =
                         opnd_create_reg_ex(optype == TYPE_L_9b_LR ? DR_REG_LR : DR_REG_PC,
-                                           downsz, 0);
+                                           downsz, DR_OPND_IN_LIST);
                 } else {
                     array[(*counter)++] =
-                        opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, 0);
+                        opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, DR_OPND_IN_LIST);
                 }
                 di->reglist_sz += opnd_size_in_bytes(downsz);
             }
@@ -931,20 +975,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         uint inc = 1;
         if (optype == TYPE_L_VBx2D || optype == TYPE_L_VBx3D || optype == TYPE_L_VBx4D)
             inc = 2;
-        array[(*counter)++] = opnd_create_reg_ex(start, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start, downsz, DR_OPND_IN_LIST);
         if (reg_is_past_last_simd(start, inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VBx2 || optype == TYPE_L_VBx2D)
             return true;
         if (reg_is_past_last_simd(start, 2*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VBx3 || optype == TYPE_L_VBx3D)
             return true;
         if (reg_is_past_last_simd(start, 3*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, DR_OPND_IN_LIST);
         return true;
     }
     case TYPE_L_VAx2:
@@ -952,20 +996,20 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_L_VAx4: {
         reg_id_t start = decode_vregA(di, upsz);
         uint inc = 1;
-        array[(*counter)++] = opnd_create_reg_ex(start, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start, downsz, DR_OPND_IN_LIST);
         if (reg_is_past_last_simd(start, inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VAx2)
             return true;
         if (reg_is_past_last_simd(start, 2*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, DR_OPND_IN_LIST);
         if (optype == TYPE_L_VAx3)
             return true;
         if (reg_is_past_last_simd(start, 3*inc))
             return false;
-        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, 0);
+        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, DR_OPND_IN_LIST);
         return true;
     }
 
@@ -1098,15 +1142,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_I_b8_b0: {
         if (opsize == OPSZ_2) {
             val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
-            val |= (decode_immed(di, 8, OPSZ_12b, false/*unsigned*/) << 12);
+            val |= (decode_immed(di, 8, OPSZ_12b, false/*unsigned*/) << 4);
         } else if (opsize == OPSZ_1) {
             val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
             val |= (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4);
         } else
             CLIENT_ASSERT(false, "unsupported 8-0 split immed size");
-        if (optype == TYPE_NI_b8_b0)
-            array[(*counter)++] = opnd_create_immed_int(-val, opsize);
-        else
+        if (optype == TYPE_NI_b8_b0) {
+            /* We need an extra bit for the sign: easiest to just do OPSZ_4 */
+            array[(*counter)++] = opnd_create_immed_int(-val, OPSZ_4);
+        } else
             array[(*counter)++] = opnd_create_immed_uint(val, opsize);
         return true;
     }
@@ -1592,7 +1637,7 @@ decode_ext_simd2_idx(uint instr_word)
 static inline uint
 decode_ext_imm6l_idx(uint instr_word)
 {
-    return ((instr_word >> 7) & 0x6) | ((instr_word >> 6) & 0x1); /* 10:8,6 */
+    return ((instr_word >> 7) & 0xe) | ((instr_word >> 6) & 0x1); /* 10:8,6 */
 }
 
 static inline uint
@@ -1625,8 +1670,18 @@ static inline uint
 decode_ext_vldc_idx(uint instr_word)
 {
     int reg = (instr_word & 0xf);
-    uint idx = /*bits (9:8,7:5)*3+X where X based on value of 3:0 */
-        3 * (((instr_word >> 5) & 0x18) | ((instr_word >> 5) & 0x7));
+    uint idx = /*bits (7:5)*3+X where X based on value of 3:0 */
+        3 * ((instr_word >> 5) & 0x7);
+    idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+    return idx;
+}
+
+static inline uint
+decode_ext_vldd_idx(uint instr_word)
+{
+    int reg = (instr_word & 0xf);
+    uint idx = /*bits (7:4)*3+X where X based on value of 3:0 */
+        3 * ((instr_word >> 4) & 0xf);
     idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
     return idx;
 }
@@ -1930,6 +1985,8 @@ decode_instr_info_T32_32(decode_info_t *di)
             info = &T32_ext_vldB[info->code][decode_ext_vldb_idx(instr_word)];
         } else if (info->type == EXT_VLDC) {
             info = &T32_ext_vldC[info->code][decode_ext_vldc_idx(instr_word)];
+        } else if (info->type == EXT_VLDD) {
+            info = &T32_ext_vldD[info->code][decode_ext_vldd_idx(instr_word)];
         } else if (info->type == EXT_VTB) {
             info = &T32_ext_vtb[info->code][decode_ext_vtb_idx(instr_word)];
         } else {
@@ -1984,6 +2041,11 @@ decode_instr_info_T32_it(decode_info_t *di)
         } else if (info->type == EXT_6_4) {
             idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
             info = &T32_16_it_ext_bits_6_4[info->code][idx];
+        } else if (info->type == EXT_10_6) {
+            idx = di->instr_word & 0x7c0; /* bits 10:6 */
+            if (idx != 0)
+                idx = 1;
+            info = &T32_16_it_ext_imm_10_6[info->code][idx];
         } else {
             ASSERT_NOT_REACHED();
             info = NULL;
@@ -2041,6 +2103,11 @@ decode_instr_info_T32_16(decode_info_t *di)
             if (idx != 0)
                 idx = 1;
             info = &T32_16_ext_imm_3_0[info->code][idx];
+        } else if (info->type == EXT_10_6) {
+            idx = di->instr_word & 0x7c0; /* bits 10:6 */
+            if (idx != 0)
+                idx = 1;
+            info = &T32_16_ext_imm_10_6[info->code][idx];
         } else if (info->type == EXT_6_4) {
             idx = (di->instr_word >> 4) & 0x7; /* bits 6:4 */
             info = &T32_16_ext_bits_6_4[info->code][idx];
@@ -2179,6 +2246,8 @@ decode_instr_info_A32(decode_info_t *di)
             info = &A32_ext_vldB[info->code][decode_ext_vldb_idx(instr_word)];
         } else if (info->type == EXT_VLDC) {
             info = &A32_ext_vldC[info->code][decode_ext_vldc_idx(instr_word)];
+        } else if (info->type == EXT_VLDD) {
+            info = &A32_ext_vldD[info->code][decode_ext_vldd_idx(instr_word)];
         } else if (info->type == EXT_VTB) {
             info = &A32_ext_vtb[info->code][decode_ext_vtb_idx(instr_word)];
         }
@@ -2192,13 +2261,27 @@ decode_instr_info_A32(decode_info_t *di)
  * Caller should set di->isa_mode.
  */
 static byte *
-read_instruction(byte *pc, byte *orig_pc,
+read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
                  const instr_info_t **ret_info, decode_info_t *di
                  _IF_DEBUG(bool report_invalid))
 {
     const instr_info_t *info;
 
     /* Initialize di */
+    di->decorated_pc = pc;
+    /* We support auto-decoding an LSB=1 address as Thumb (i#1688).  We don't
+     * change the thread mode, just the local mode, and we return an LSB=1 next pc.
+     */
+    if (TEST(0x1, (ptr_uint_t)pc)) {
+        if (!TEST(0x1, (ptr_uint_t)orig_pc)) {
+            CLIENT_ASSERT(false, "must have consistent LSB for decode pc and orig_pc");
+            return NULL;
+        }
+        di->isa_mode = DR_ISA_ARM_THUMB;
+        pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, pc);
+        orig_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, orig_pc);
+    } else
+        di->isa_mode = dr_get_isa_mode(dcontext);
     di->start_pc = pc;
     di->orig_pc = orig_pc;
     di->mem_needs_reglist_sz = NULL;
@@ -2206,6 +2289,8 @@ read_instruction(byte *pc, byte *orig_pc,
     di->predicate = DR_PRED_NONE;
     di->T32_16 = false;
     di->shift_type_idx = UINT_MAX;
+    if (di->isa_mode == DR_ISA_ARM_THUMB)
+        di->decode_state = *get_decode_state(dcontext);
 
     /* Read instr bytes and find instr_info */
     if (di->isa_mode == DR_ISA_ARM_THUMB) {
@@ -2251,7 +2336,8 @@ read_instruction(byte *pc, byte *orig_pc,
         ASSERT_NOT_IMPLEMENTED(false);
         di->instr_word = 0;
         *ret_info = &invalid_instr;
-        return NULL;
+        pc = NULL;
+        goto read_instruction_finished;
     }
 
     CLIENT_ASSERT(info != NULL && info->type <= INVALID, "decoding table error");
@@ -2277,11 +2363,20 @@ read_instruction(byte *pc, byte *orig_pc,
             }
         });
         *ret_info = &invalid_instr;
-        return NULL;
+        pc = NULL;
+        goto read_instruction_finished;
     }
 
     /* Unlike x86, we have a fixed size, so we're done */
     *ret_info = info;
+
+ read_instruction_finished:
+    if (di->isa_mode == DR_ISA_ARM_THUMB)
+        set_decode_state(dcontext, &di->decode_state);
+    if (pc != NULL) {
+        /* i#1688: keep LSB=1 decoration */
+        pc = di->decorated_pc + (pc - di->start_pc);
+    }
     return pc;
 }
 
@@ -2291,12 +2386,7 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
 {
     const instr_info_t *info;
     decode_info_t di;
-    di.isa_mode = dr_get_isa_mode(dcontext);
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        di.decode_state = *get_decode_state(dcontext);
-    pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        set_decode_state(dcontext, &di.decode_state);
+    pc = read_instruction(dcontext, pc, pc, &info, &di _IF_DEBUG(true));
     *usage = instr_eflags_conditionally(info->eflags, di.predicate, flags);
     /* we're fine returning NULL on failure */
     return pc;
@@ -2307,12 +2397,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
     const instr_info_t *info;
     decode_info_t di;
-    di.isa_mode = dr_get_isa_mode(dcontext);
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        di.decode_state = *get_decode_state(dcontext);
-    pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        set_decode_state(dcontext, &di.decode_state);
+    pc = read_instruction(dcontext, pc, pc, &info, &di _IF_DEBUG(true));
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     if (!instr_valid(instr)) {
@@ -2330,7 +2415,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 static byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
-    const instr_info_t *info;
+    const instr_info_t *info = &invalid_instr;
     decode_info_t di;
     byte *next_pc;
     uint num_dsts = 0, num_srcs = 0;
@@ -2340,13 +2425,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
 
-    di.isa_mode = dr_get_isa_mode(dcontext);
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        di.decode_state = *get_decode_state(dcontext);
-    next_pc = read_instruction(pc, orig_pc, &info, &di
+    next_pc = read_instruction(dcontext, pc, orig_pc, &info, &di
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
-    if (di.isa_mode == DR_ISA_ARM_THUMB)
-        set_decode_state(dcontext, &di.decode_state);
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     di.opcode = info->type; /* needed for decode_cur_pc */
@@ -2395,8 +2475,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         info = instr_info_extra_opnds(info);
     } while (info != NULL);
 
-    CLIENT_ASSERT(num_srcs < sizeof(srcs)/sizeof(srcs[0]), "internal decode error");
-    CLIENT_ASSERT(num_dsts < sizeof(dsts)/sizeof(dsts[0]), "internal decode error");
+    CLIENT_ASSERT(num_srcs <= sizeof(srcs)/sizeof(srcs[0]), "internal decode error");
+    CLIENT_ASSERT(num_dsts <= sizeof(dsts)/sizeof(dsts[0]), "internal decode error");
 
     /* now copy operands into their real slots */
     instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);
@@ -2456,8 +2536,17 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 byte *
 decode_next_pc(dcontext_t *dcontext, byte *pc)
 {
-    /* FIXME i#1551: check for invalid opcodes */
-    dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
+    /* XXX: check for invalid opcodes, though maybe it's fine to never do so
+     * (xref i#1685).
+     */
+    dr_isa_mode_t isa_mode;
+    byte *read_pc = pc;
+    if (TEST(0x1, (ptr_uint_t)pc)) {
+        isa_mode = DR_ISA_ARM_THUMB; /* and keep LSB=1 (i#1688) */
+        read_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, read_pc);
+    } else {
+        isa_mode = dr_get_isa_mode(dcontext);
+    }
     if (isa_mode == DR_ISA_ARM_THUMB) {
         ushort halfword = *(ushort *)pc;
         if (TESTALL(0xe800, halfword) || TESTALL(0xf000, halfword))
@@ -2472,7 +2561,9 @@ int
 decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
               _IF_X64(uint *rip_rel_pos))
 {
-    /* FIXME i#1551: check for invalid opcodes */
+    /* XXX: check for invalid opcodes, though maybe it's fine to never do so
+     * (xref i#1685).
+     */
     byte *next_pc = decode_next_pc(dcontext, pc);
     return next_pc - pc;
 }
@@ -2612,7 +2703,7 @@ opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode, bool it_block)
         return (it_block ? op_instr[opc].T32_it : op_instr[opc].T32);
     else {
         CLIENT_ASSERT(false, "NYI i#1551");
-        return &invalid_instr;
+        return NULL;
     }
 }
 
@@ -2621,10 +2712,12 @@ const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t * info =
-        opcode_to_encoding_info(opcode,
-                                dr_get_isa_mode(get_thread_private_dcontext()),
-                                /* names do not change in IT block */
-                                false);
+        opcode_to_encoding_info(opcode, DR_ISA_ARM_A32, false);
+    if (info == NULL) {
+        info = opcode_to_encoding_info(opcode, DR_ISA_ARM_THUMB,
+                                       /* names do not change in IT block */
+                                       false);
+    }
     if (info != NULL)
         return info->name;
     else

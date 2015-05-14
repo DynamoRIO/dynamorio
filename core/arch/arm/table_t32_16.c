@@ -69,11 +69,11 @@ const instr_info_t T32_16_opc4[] = {
 const instr_info_t T32_16_ext_bit_11[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {OP_lsls,  0x0000, "lsls",       RZw, xx,    RYw, i5_6, xx, no, fWNZCV, xi126[2][0x01]},
+      {EXT_10_6, 0x0000, "(ext 10:6 0)", xx, xx,    xx,   xx, xx, no,      x,        0},
       {OP_lsrs,  0x0800, "lsrs",       RZw, xx,    RYw, i5_6, xx, no, fWNZCV, xb7[3][0x00]},
     }, { /* 1 */
       {OP_asrs,  0x1000, "asrs",       RZw, xx,    RYw, i5_6, xx, no, fWNZCV, xb7[5][0x00]},
-      {EXT_10_9, 0x1800, "ext 10:9 0", xx,  xx,     xx,   xx, xx, no,      x,        0},
+      {EXT_10_9, 0x1800, "(ext 10:9 0)", xx, xx,    xx,   xx, xx, no,      x,        0},
     }, { /* 2 */
       {OP_movs,  0x2000, "movs",       RWw, xx,     i8,   xx, xx, no, fWNZCV, xrapc[5][0x01]},
       {OP_cmp,   0x2800, "cmp",        xx,  xx,    RWw,   i8, xx, no, fWNZCV, xrcpc[7][0x01]},
@@ -174,7 +174,7 @@ const instr_info_t T32_16_ext_bits_9_6[][16] = {
     { /* 0 */
       {OP_ands,    0x4000, "ands",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xrcpc[4][0x00]},
       {OP_eors,    0x4040, "eors",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xrcpc[5][0x00]},
-      {OP_lsls,    0x4080, "lsls",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, y11[0][0x00]},
+      {OP_lsls,    0x4080, "lsls",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xi126[2][0x01]},
       {OP_lsrs,    0x40c0, "lsrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, y11[0][0x01]},
       {OP_asrs,    0x4100, "asrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, y11[1][0x00]},
       {OP_adcs,    0x4140, "adcs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xfop8[0][0x15]},
@@ -266,12 +266,21 @@ const instr_info_t T32_16_ext_bits_7_6[][4] = {
     },
 };
 
-/* Indexed by whether bits 3:0 is zero or not */
+/* Indexed by whether bits 3:0 are zero or not */
 const instr_info_t T32_16_ext_imm_3_0[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
       {EXT_6_4,    0xbf00, "ext 6:4 0", xx, xx,   xx, xx, xx, no, x,        0},
       {OP_it,      0xbf00, "it",        xx, xx, i4_4, i4, xx, no, x, END_LIST},
+    },
+};
+
+/* Indexed by whether bits 10:6 are zero or not */
+const instr_info_t T32_16_ext_imm_10_6[][2] = {
+    /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
+    { /* 0 */
+      {OP_movs,  0x0000, "movs",       RZw, xx, RYw,   xx, xx, no, fWNZCV, y11[2][0x00]},
+      {OP_lsls,  0x0000, "lsls",       RZw, xx, RYw, i5_6, xx, no, fWNZCV, y96[0][0x02]},
     },
 };
 

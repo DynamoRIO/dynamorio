@@ -999,7 +999,6 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define HOTP_POLICIES_FILENAME "ls-defs.cfg"
 #endif
 
-/* FIXME: the environment vars need to be renamed - it will be a pain */
 #define DYNAMORIO_VAR_CONFIGDIR_ID  DYNAMORIO_CONFIGDIR
 #define DYNAMORIO_VAR_HOME_ID       DYNAMORIO_HOME
 #define DYNAMORIO_VAR_LOGDIR_ID     DYNAMORIO_LOGDIR
@@ -1080,6 +1079,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define DYNAMORIO_VAR_EXE_PATH        "DYNAMORIO_EXE_PATH"
 #  define DYNAMORIO_VAR_EXECVE          "DYNAMORIO_POST_EXECVE"
 #  define DYNAMORIO_VAR_EXECVE_LOGDIR   "DYNAMORIO_EXECVE_LOGDIR"
+#  define DYNAMORIO_VAR_NO_EMULATE_BRK  "DYNAMORIO_NO_EMULATE_BRK"
 #  define L_IF_WIN(x) x
 
 #else /* WINDOWS */

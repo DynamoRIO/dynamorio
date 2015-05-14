@@ -616,6 +616,8 @@ instrument_init(void)
         while (dr_module_iterator_hasnext(mi)) {
             module_data_t *data = dr_module_iterator_next(mi);
             instrument_module_load(data, true /*already loaded*/);
+            /* XXX; more efficient to set this flag during dr_module_iterator_start */
+            os_module_set_flag(data->start, MODULE_LOAD_EVENT);
             dr_free_module_data(data);
         }
         dr_module_iterator_stop(mi);
@@ -1324,6 +1326,19 @@ dr_xl8_hook_exists(void)
             restore_state_ex_callbacks.num > 0);
 }
 
+#endif /* CLIENT_INTERFACE */
+/* needed outside of CLIENT_INTERFACE for simpler USE_BB_BUILDING_LOCK_STEADY_STATE() */
+bool
+dr_modload_hook_exists(void)
+{
+    /* We do not support (as documented in the module event doxygen)
+     * the client changing this during bb building, as that will mess
+     * up USE_BB_BUILDING_LOCK_STEADY_STATE().
+     */
+    return IF_CLIENT_INTERFACE_ELSE(module_load_callbacks.num > 0, false);
+}
+#ifdef CLIENT_INTERFACE
+
 bool
 hide_tag_from_client(app_pc tag)
 {
@@ -1805,26 +1820,30 @@ dr_module_contains_addr(const module_data_t *data, app_pc addr)
 #endif
 }
 
-/* Looks up the being-loaded module at modbase and invokes the client event */
+/* Looks up module containing pc (assumed to be fully loaded).
+ * If it exists and its client module load event has not been called, calls it.
+ */
 void
-instrument_module_load_trigger(app_pc modbase)
+instrument_module_load_trigger(app_pc pc)
 {
-    /* see notes in module_list_add() where we use to do this: but
-     * we need this to be after exec areas processing so module is
-     * in consistent state in case client acts on it, even though
-     * we have to re-look-up the data here.
-     */
     if (!IS_STRING_OPTION_EMPTY(client_lib)) {
         module_area_t *ma;
         module_data_t *client_data = NULL;
         os_get_module_info_lock();
-        ma = module_pc_lookup(modbase);
-        ASSERT(ma != NULL);
-        if (ma != NULL) {
-            client_data = copy_module_area_to_module_data(ma);
+        ma = module_pc_lookup(pc);
+        if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
+            /* switch to write lock */
             os_get_module_info_unlock();
-            instrument_module_load(client_data, false /*loading now*/);
-            dr_free_module_data(client_data);
+            os_get_module_info_write_lock();
+            ma = module_pc_lookup(pc);
+            if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
+                ma->flags |= MODULE_LOAD_EVENT;
+                client_data = copy_module_area_to_module_data(ma);
+                os_get_module_info_write_unlock();
+                instrument_module_load(client_data, true/*i#884: already loaded*/);
+                dr_free_module_data(client_data);
+            } else
+                os_get_module_info_write_unlock();
         } else
             os_get_module_info_unlock();
     }
@@ -2381,6 +2400,15 @@ dr_set_client_name(const char *name, const char *report_URL)
     if (name == NULL || report_URL == NULL)
         return false;
     set_exception_strings(name, report_URL);
+    return true;
+}
+
+bool
+dr_set_client_version_string(const char *version)
+{
+    if (version == NULL)
+        return false;
+    set_display_version(version);
     return true;
 }
 
@@ -4340,28 +4368,27 @@ DR_API void *
 dr_get_dr_segment_base(IN reg_id_t seg)
 {
 #ifdef ARM
-    /* FIXME i#1551: no segment in ARM, what about TLS? */
-    ASSERT_NOT_IMPLEMENTED(false);
+    if (seg == dr_reg_stolen)
+        return os_get_dr_tls_base(get_thread_private_dcontext());
+    else
+        return NULL;
+#else
+    return get_segment_base(seg);
 #endif
-    return IF_X86_ELSE(get_segment_base(seg), NULL);
 }
 
 DR_API
 bool
-dr_raw_tls_calloc(OUT reg_id_t *segment_register,
+dr_raw_tls_calloc(OUT reg_id_t *tls_register,
                   OUT uint *offset,
                   IN  uint num_slots,
                   IN  uint alignment)
 {
-    CLIENT_ASSERT(segment_register != NULL,
-                  "dr_raw_tls_calloc: segment_register cannot be NULL");
+    CLIENT_ASSERT(tls_register != NULL,
+                  "dr_raw_tls_calloc: tls_register cannot be NULL");
     CLIENT_ASSERT(offset != NULL,
                   "dr_raw_tls_calloc: offset cannot be NULL");
-#ifdef ARM
-    /* FIXME i#1551: no segment in ARM, what about TLS? */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
-    *segment_register = IF_X86_ELSE(SEG_TLS, REG_NULL);
+    *tls_register = IF_X86_ELSE(SEG_TLS, dr_reg_stolen);
     return os_tls_calloc(offset, num_slots, alignment);
 }
 
@@ -4370,6 +4397,57 @@ bool
 dr_raw_tls_cfree(uint offset, uint num_slots)
 {
     return os_tls_cfree(offset, num_slots);
+}
+
+DR_API
+void
+dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t tls_register, uint tls_offs, reg_id_t reg)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_insert_read_tls_field: drcontext cannot be NULL");
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "must use a pointer-sized general-purpose register");
+    IF_X86_ELSE({
+        MINSERT(ilist, where, INSTR_CREATE_mov_ld
+                (dcontext, opnd_create_reg(reg),
+                 opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL,
+                                              0, tls_offs, OPSZ_PTR,
+                                              /* modern processors don't want addr16
+                                               * prefixes
+                                               */
+                                              false, true, false)));
+    }, {
+        MINSERT(ilist, where, XINST_CREATE_load
+                (dcontext, opnd_create_reg(reg),
+                 OPND_CREATE_MEMPTR(tls_register, tls_offs)));
+    });
+}
+
+DR_API
+void
+dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t tls_register, uint tls_offs, reg_id_t reg)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_insert_read_tls_field: drcontext cannot be NULL");
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "must use a pointer-sized general-purpose register");
+    IF_X86_ELSE({
+        MINSERT(ilist, where, INSTR_CREATE_mov_st
+                (dcontext,
+                 opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL,
+                                              0, tls_offs, OPSZ_PTR,
+                                              /* no addr16 prefixes, for modern proc */
+                                              false, true, false),
+                 opnd_create_reg(reg)));
+    }, {
+        MINSERT(ilist, where, XINST_CREATE_store
+                (dcontext, OPND_CREATE_MEMPTR(tls_register, tls_offs),
+                 opnd_create_reg(reg)));
+    });
 }
 
 DR_API
@@ -5995,7 +6073,10 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     }
 #endif
 
-    /* XXX: should we set the pc field? */
+    /* XXX: should we set the pc field?
+     * If we do we'll have to adopt a different solution for i#1685 in our Windows
+     * hooks where today we use the pc slot for temp storage.
+     */
 
     return true;
 }
@@ -6103,9 +6184,8 @@ dr_redirect_native_target(void *drcontext)
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_redirect_native_target(): drcontext cannot be NULL");
-    /* FIXME i#1551: NYI on ARM (we need emit_client_ibl_xfer()) */
-    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
-    return get_client_ibl_xfer_entry(dcontext);
+    /* The client has no way to know the mode of our gencode so we set LSB here */
+    return PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_client_ibl_xfer_entry(dcontext));
 #endif
 }
 
@@ -6405,6 +6485,14 @@ dr_delay_flush_region(app_pc start, size_t size, uint flush_id,
     if (size == 0) {
         CLIENT_ASSERT(false, "dr_delay_flush_region: 0 is invalid size for flush");
         return false;
+    }
+
+    /* With the new module load event at 1st execution (i#884), we get a lot of
+     * flush requests during creation of a bb from things like drwrap_replace().
+     * To avoid them flushing from a new module we check overlap up front here.
+     */
+    if (!executable_vm_area_executed_from(start, start+size)) {
+        return true;
     }
 
     /* FIXME - would be nice if we could check the requirements and call
@@ -6860,6 +6948,42 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
          instr_create_restore_from_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
 #endif
     return true;
+}
+
+DR_API
+int
+dr_remove_it_instrs(void *drcontext, instrlist_t *ilist)
+{
+#ifdef X86
+    return 0;
+#elif defined(ARM)
+    int res = 0;
+    instr_t *inst, *next;
+    for (inst = instrlist_first(ilist); inst != NULL; inst = next) {
+        next = instr_get_next(inst);
+        if (instr_get_opcode(inst) == OP_it) {
+            res++;
+            instrlist_remove(ilist, inst);
+            instr_destroy(drcontext, inst);
+        }
+    }
+    return res;
+#endif
+}
+
+DR_API
+int
+dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
+{
+#ifdef X86
+    return 0;
+#elif defined(ARM)
+    instr_t *first = instrlist_first(ilist);
+    if (first == NULL || instr_get_isa_mode(first) != DR_ISA_ARM_THUMB)
+        return 0;
+    return reinstate_it_blocks((dcontext_t*)drcontext, ilist,
+                               instrlist_first(ilist), NULL);
+#endif
 }
 
 /***************************************************************************

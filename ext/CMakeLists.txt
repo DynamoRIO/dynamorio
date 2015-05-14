@@ -108,11 +108,12 @@ add_subdirectory(drcontainers)
 add_subdirectory(drgui)
 add_subdirectory(drmgr)
 add_subdirectory(drx)
+add_subdirectory(drwrap)
+add_subdirectory(drreg)
+add_subdirectory(drsyms)
 # FIXME i#1551: port all extension libraries to ARM
 if (NOT ARM)
-  add_subdirectory(drsyms)
   add_subdirectory(drutil)
-  add_subdirectory(drwrap)
 endif (NOT ARM)
 
 # documentation is put into main DR docs/ dir

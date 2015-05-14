@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -97,6 +97,12 @@ get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache);
 
 int
 get_unqualified_parameter(const char *name, char *value, int maxlen);
+
+# ifdef UNIX
+bool
+should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env,
+                            bool *rununder_on OUT);
+# endif
 
 #endif /* PARAMS_IN_REGISTRY */
 /**************************************************/

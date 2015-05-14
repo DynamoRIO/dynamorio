@@ -45,6 +45,10 @@ else ()
   set(BITS "32")
 endif ()
 
+if (ARM)
+  set(ARCH "-arm")
+endif()
+
 # we need libc b/c our elftoolchain libraries use it
 set(DynamoRIO_USE_LIBC ON)
 
@@ -119,9 +123,12 @@ elseif (UNIX)
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho/lib${BITS}/libelftc.a")
   else (APPLE)
     set(srcs ${srcs} drsyms_elf.c)
-    set(dwarf_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libdwarf.a")
-    set(elftc_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelftc.a")
-    set(elf_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelf.a")
+    set(dwarf_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
+    set(elftc_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
+    set(elf_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelf.a")
   endif (APPLE)
   set(srcs_static ${srcs})
 endif (WIN32)

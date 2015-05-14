@@ -91,8 +91,6 @@ endif (UNIX)
 # N.B.: if short-suite tests are added to other than the debug-internal-{32,64}
 # builds, update runsuite.cmake to build the tests for those builds!
 
-set(EMPTY_LIST "")
-
 set(vmap_run_list
   # our main configuration
   "SHORT::-code_api"
@@ -456,6 +454,9 @@ function (set_cflags source)
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     string(REGEX REPLACE "-std=gnu99" "" cflags "${cflags}")
+    if (WIN32)
+      set(cflags "${cflags} /EHsc")
+    endif (WIN32)
   endif ()
   if ("${source}" MATCHES ".dll.(c|cpp)$")
     # do nothing
@@ -549,10 +550,6 @@ function(add_exe test source)
 
   add_executable(${test} ${test_srcs})
 
-  if (NOT UNIX AND "${srccode}" MATCHES "include <stdexcept>")
-    append_property_string(TARGET ${test} COMPILE_FLAGS "/EHsc")
-  endif (NOT UNIX AND "${srccode}" MATCHES "include <stdexcept>")
-
   set_target_properties(${test} PROPERTIES
     LINK_FLAGS "${ARCH_DEBUG}"
     # we don't want the default rpath of <builddir>/lib as it makes
@@ -638,20 +635,10 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
 
   if (NOT "${source}" MATCHES "\\.runall$")
-    #set(test_srcs ${source} ${${extra_sources}})
-    #add_exe(${test} ${test_srcs})
     add_exe(${test} ${source})
   elseif (STATIC_LIBRARY)
     return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
   endif ()
-
-  if ("${test}" MATCHES "-opt$")
-    if (UNIX)
-      append_property_string(TARGET ${test} COMPILE_FLAGS "-O3")
-    else ()
-      append_property_string(TARGET ${test} COMPILE_FLAGS "/Ox /GL")
-    endif (UNIX)
-  endif ("${test}" MATCHES "-opt$")
 
   add_library(${test}.dll ${SHARED_OR_STATIC} ${client_source})
   if (NOT "${source}" MATCHES "cpp\\.cpp")
@@ -744,15 +731,6 @@ function(tobuild_appdll test source)
 
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
-
-    if ("${test}" MATCHES "-opt$")
-      if (UNIX)
-        append_property_string(TARGET ${test}.appdll COMPILE_FLAGS "-O3")
-      else ()
-        append_property_string(TARGET ${test}.appdll COMPILE_FLAGS "/Ox /GL")
-      endif (UNIX)
-    endif ("${test}" MATCHES "-opt$")
-
     # so far these are all dynamically loaded so we don't bother
     # with "target_link_libraries(${test} ${test}.appdll)"
     if ("${srccode}" MATCHES "include \"tools\\.h\"")
@@ -800,12 +778,29 @@ function(torunonly_ci test realexe realclient source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(torunonly_ci)
 
+function(torunonly_api test realexe source dr_ops exe_ops use_decoder)
+  set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
+  if (realexe)
+    set(${test}_realtest ${realexe} PARENT_SCOPE)
+  endif (realexe)
+  set(${test}_source ${source} PARENT_SCOPE)
+  set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
+  set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+  # If using drdecodelib, the app does not load DR, so no reason to use drrun
+  # to set options (plus drrun will create a never-deleted .1config file).
+  if (use_decoder)
+    set(${test}_standalone_dr OFF PARENT_SCOPE)
+  else ()
+    set(${test}_standalone_dr ON PARENT_SCOPE)
+  endif ()
+endfunction(torunonly_api)
+
 # client interface standalone app
-function(tobuild_api test source dr_ops exe_ops decoder)
+function(add_api_exe test source use_decoder)
   add_exe(${test} ${source})
-  configure_app_api_build_flags(${test} ${decoder})
+  configure_app_api_build_flags(${test} ${use_decoder})
   add_dependencies(${test} api_headers)
-  if (WIN32 AND NOT decoder)
+  if (WIN32 AND NOT use_decoder)
     # Since we can't set the working dir w/o making an external script,
     # we copy dynamorio.dll into the default dir.  If we just do a POST_BUILD
     # custom command we have races (i#810) so we use a globally unique
@@ -830,15 +825,14 @@ function(tobuild_api test source dr_ops exe_ops decoder)
       set(created_drcopy_target ON PARENT_SCOPE)
     endif ()
     add_dependencies(${test} drcopy)
-  endif (WIN32 AND NOT decoder)
-  set(testlist_api ${testlist_api} ${test} PARENT_SCOPE)
-  set(${test}_source ${source} PARENT_SCOPE)
-  set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
-  set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
-  # If using drdecodelib, the app does not load DR, so no reason to use drrun
-  # to set options (plus drrun will create a never-deleted .1config file).
-  set(${test}_drinject ${decoder} PARENT_SCOPE)
-endfunction(tobuild_api)
+  endif (WIN32 AND NOT use_decoder)
+endfunction(add_api_exe)
+
+# macro so the PARENT_SCOPE in torunonly_api will reach caller of this
+macro(tobuild_api test source dr_ops exe_ops use_decoder)
+  add_api_exe(${test} ${source} ${use_decoder})
+  torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
+endmacro(tobuild_api)
 
 # run that uses a different build
 function(torunonly test realtest source dr_ops exe_ops)
@@ -904,15 +898,6 @@ function (use_DynamoRIO_test_annotations target target_srcs)
   configure_DynamoRIO_annotation_sources("${dr_annotation_test_srcs}")
   set(${target_srcs} ${${target_srcs}} ${dr_annotation_test_srcs} PARENT_SCOPE)
 endfunction (use_DynamoRIO_test_annotations target target_srcs)
-
-# optimize the target
-function(optimize target)
-  if (UNIX)
-    append_property_string(TARGET ${target} COMPILE_FLAGS "-O3")
-  else ()
-    append_property_string(TARGET ${target} COMPILE_FLAGS "/Ox /GL")
-  endif (UNIX)
-endfunction(optimize)
 
 ###########################################################################
 # RUNNING
@@ -1065,7 +1050,7 @@ endfunction(template2expect)
 
 ##################################################
 
-function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
+function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
   if (UNIX)
     set(os_ops "-dumpcore_mask 0")
@@ -1088,11 +1073,9 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
     # Both Windows and non-native Unix tests now use the native drrun frontend.
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
-    if (use_drinject)
-      get_target_property(drrun_path drinject LOCATION${location_suffix})
-    else (use_drinject)
+    if (standalone_dr OR NOT native)
       get_target_property(drrun_path drrun LOCATION${location_suffix})
-    endif (use_drinject)
+    endif (standalone_dr OR NOT native)
     # CMake 3.x seems to put double slashes in there (xref i#1559)
     string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
     set(cmd "${drrun_path}" -s ${TEST_SECONDS} -quiet)
@@ -1120,10 +1103,13 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
         set(cmd ${cmd} -noinject)
       endif ()
     endif (WIN32)
-    if (NOT use_drinject)
+    if (standalone_dr OR NOT native)
       # add dr_ops last to avoid needing extra \ on ;
       set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
-    endif ()
+    else (standalone_dr OR NOT native)
+      # the test is pure native, so we rely on ctest for job control
+      set(${outcmd} "" PARENT_SCOPE)
+    endif (standalone_dr OR NOT native)
 
   elseif (UNIX AND native)
     set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
@@ -1133,15 +1119,18 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
       "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
     # add dr_ops last to avoid needing extra \ on ;
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
+  else ()
+    # clear the caller's `outcmd`
+    set(${outcmd} "" PARENT_SCOPE)
   endif ()
 
   set(${outops} "${dr_ops}" PARENT_SCOPE)
-endfunction(rundr_cmd)
+endfunction(runtest_cmd)
 
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
 # and ${key}_postcmd, which points to the post-processing executable if necessary.
-function(torun test key source native use_drinject dr_ops exe_ops added_out)
+function(torun test key source native standalone_dr dr_ops exe_ops added_out)
   # Avoid running some tests with invalid option combinations.  For example,
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
@@ -1186,7 +1175,8 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
 
   set(ALREADY_REGEX OFF)
 
-  rundr_cmd(rundr runops ${native} ${use_drinject} "${dr_ops}" ${separate_script})
+  runtest_cmd(rundr runops ${native} ${standalone_dr} "${dr_ops}" ${separate_script})
+
   if (TARGET ${exe})
     get_target_property(exepath ${exe} LOCATION${location_suffix})
   else ()
@@ -1269,7 +1259,9 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     if (NOT DEFINED ${key}_postcmd)
       set(${key}_postcmd "")
     endif ()
-    add_test(${test} ${CMAKE_COMMAND} -D cmd=${cmd_with_at}
+    add_test(${test} ${CMAKE_COMMAND}
+      -D precmd=${${key}_precmd}
+      -D cmd=${cmd_with_at}
       -D postcmd=${${key}_postcmd}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -P ${runcmp_script})
@@ -1304,7 +1296,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     #   but while that might be useful it could also be confusing.
     template2expect(expect
       ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
-      ${runops}
+      "${runops}"
       ${key})
     # add dependence so cmake will reconfigure if file changes
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
@@ -1324,7 +1316,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     set(ALREADY_REGEX ON)
   else (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
     message(FATAL_ERROR
-      "no .expect or .template or .templatex for ${srcpath}/${expectbase} for ${key}. Need for example ${srcpath}/${expectbase}.expect")
+      "no .expect or .template or .templatex for ${srcpath}/${expectbase} for ${key}")
   endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
 
   if (NOT ALREADY_REGEX)
@@ -1337,10 +1329,10 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
       "\\\\]" expect "${expect}")
   endif (NOT ALREADY_REGEX)
 
-  if (WIN32)
+  if (WIN32 AND NOT is_runcmp) # for runcmp it's up to the test
     # libc print => CRLF, dr_printf => plain newline: match both
     string(REGEX REPLACE "\n" "\r?\n" expect "${expect}")
-  endif (WIN32)
+  endif ()
 
   if (is_runcmp)
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect" "${expect}")
@@ -1405,9 +1397,15 @@ function(torun_ci name test ops)
 endfunction(torun_ci)
 
 function(torun_api name test ops)
-  torun("${name}" ${test} ${${test}_source} ON ${${test}_drinject}
+  torun("${name}" ${test} ${${test}_source} ON ${${test}_standalone_dr}
     "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
 endfunction(torun_api)
+
+function(torunonly_native name realexe expect source exe_ops)
+  set(${name}_expectbase ${expect})
+  set(${name}_realtest ${realexe})
+  torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added)
+endfunction(torunonly_native)
 
 function(torun_runall name test ops)
   # FIXME NYI i#120
@@ -1433,7 +1431,7 @@ endfunction(optimize)
 # tests
 
 tobuild(common.broadfun common/broadfun.c)
-tobuild(common.fib common/fib.c)
+tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
 if (NOT ARM) # FIXME i#1551: port asm to ARM
   tobuild(common.decode-bad common/decode-bad.c)
   # FIXME i#105: get this working for 32-bit linux
@@ -1455,22 +1453,25 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
   tobuild(common.getretaddr common/getretaddr.c)
 
+  # XXX i#1651: we don't support -native_exec combined with -early_inject so
+  # for now we pass -no_early_inject to all of these tests.
   tobuild_appdll(common.nativeexec common/nativeexec.c)
   get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})
   get_filename_component(native_dll_name "${native_dll_name}" NAME)
   tobuild_ops(common.nativeexec common/nativeexec.c
-    "-native_exec_list ${native_dll_name}" "")
+    "-no_early_inject -native_exec_list ${native_dll_name}" "")
   target_link_libraries(common.nativeexec common.nativeexec.appdll)
   # We want rpath on Linux so we can load the appdll.
   set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
   if (UNIX)
     # FIXME i#978: Windows support NYI
     torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
-      "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
+      "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover" "")
     torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover" "")
+      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover" "")
     torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
+      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover"
+      "-bind_now")
     # XXX: the next 3 tests, and perhaps all of these native_exec tests,
     # really want a mode with -no_private_loader -no_mangle_app_seg.  With
     # our reluctance to add lib deps back to DR, that's going to require a
@@ -1478,12 +1479,12 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
     # (in which case a new build param should be added to re-enable libdl),
     # we leave the tests here as regression tests but w/ private loader in place.
     torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
+      "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
     # No swap TLS and no kstats for optimized native_exec
     torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
+      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
     torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
-      "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
+      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
   endif ()
 
   # App seg mangling makes dstack test fail, and our default build does not
@@ -1504,7 +1505,9 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (ARM)
-  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm "-early_inject" "")
+  tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
+    # set small -max_bb_instrs to test bb_safe_to_stop()
+    "-early_inject -max_bb_instrs 6" "")
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
     "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")
@@ -1538,6 +1541,14 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+    tobuild_ci(client.abort client-interface/abort.c "" "" "")
+    tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
+    tobuild_ci(client.modules client-interface/modules.c "" "" "")
+    tobuild_appdll(client.modules client-interface/modules.c)
+    # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
+    append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
+  endif (NOT ARM)
+  if (NOT ARM) # FIXME i#1551: port to ARM
     tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
     tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
@@ -1546,61 +1557,104 @@ if (CLIENT_INTERFACE)
       client-interface/count-ctis.c "" "-opt_cleancall 0" "")
     tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
     tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
-    tobuild_ci(client.abort client-interface/abort.c "" "" "")
-    tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
-    tobuild_ci(client.modules client-interface/modules.c "" "" "")
-    tobuild_appdll(client.modules client-interface/modules.c)
-    # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
-    append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
   endif (NOT ARM)
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
 
-  set(DynamoRIO_USE_LIBC OFF)
-  tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
-    "" "" "A4")
-  tobuild_appdll(client.annotation-concurrency client-interface/annotation-concurrency.c)
-  if (UNIX)
-    target_link_libraries(client.annotation-concurrency ${libpthread})
-  endif (UNIX)
-  set(client.annotation-concurrency.full-decode_expectbase
-    "annotation-concurrency.full-decode")
-  torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
-    client.annotation-concurrency.dll client-interface/annotation-concurrency.c
-    "full-decode" "" "A4")
-  set(client.annotation-concurrency.full-decode.tiny-bb_expectbase
-    "annotation-concurrency.full-decode")
-  torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
-    client.annotation-concurrency.dll client-interface/annotation-concurrency.c
-    "full-decode" "-max_bb_instrs 3" "A4")
-  set(client.annotation-concurrency.bb-truncate_expectbase
-    "annotation-concurrency.bb-truncate")
-  torunonly_ci(client.annotation-concurrency.bb-truncate client.annotation-concurrency
-    client.annotation-concurrency.dll client-interface/annotation-concurrency.c
-    "truncate" "" "A4")
+  if (NOT ARM)
+    set(DynamoRIO_USE_LIBC OFF)
+    if (UNIX)
+      set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
+    else (UNIX)
+      set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
+    endif (UNIX)
+    tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
+      "" "" "${annotation_test_args}")
+    tobuild_appdll(client.annotation-concurrency
+      client-interface/annotation-concurrency.c)
+    if (UNIX)
+      target_link_libraries(client.annotation-concurrency ${libpthread})
+    endif (UNIX)
+    set(client.annotation-concurrency.full-decode_expectbase
+      "annotation-concurrency.full-decode")
+    torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
+      client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+      "full-decode" "" "${annotation_test_args}")
+    set(client.annotation-concurrency.full-decode.tiny-bb_expectbase
+      "annotation-concurrency.full-decode")
+    torunonly_ci(client.annotation-concurrency.full-decode.tiny-bb
+      client.annotation-concurrency client.annotation-concurrency.dll
+      client-interface/annotation-concurrency.c "full-decode" "-max_bb_instrs 2"
+      "${annotation_test_args}")
+    set(client.annotation-concurrency.bb-truncate-1_expectbase
+      "annotation-concurrency.bb-truncate")
+    torunonly_ci(client.annotation-concurrency.bb-truncate-1 client.annotation-concurrency
+      client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+      "truncate@1" "" "${annotation_test_args}")
+    set(client.annotation-concurrency.bb-truncate-2_expectbase
+      "annotation-concurrency.bb-truncate")
+    torunonly_ci(client.annotation-concurrency.bb-truncate-2 client.annotation-concurrency
+      client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+      "truncate@2" "" "${annotation_test_args}")
 
-  tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
-    "" "" "A4")
-  tobuild_appdll(client.annotation-concurrency-opt
-    client-interface/annotation-concurrency.c)
-  if (UNIX)
-    target_link_libraries(client.annotation-concurrency-opt ${libpthread})
-  endif (UNIX)
-  set(client.annotation-concurrency-opt.full-decode_expectbase
-    "annotation-concurrency.full-decode")
-  torunonly_ci(client.annotation-concurrency-opt.full-decode
-    client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
-    client-interface/annotation-concurrency.c "full-decode" "" "A4")
+    if (UNIX)
+      set(annotation_test_args "libclient.annotation-concurrency-opt.appdll.so" "A" "4")
+    else (UNIX)
+      set(annotation_test_args "client.annotation-concurrency-opt.appdll.dll" "A" "4")
+    endif (UNIX)
+    tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
+      "" "" "${annotation_test_args}")
+    optimize(client.annotation-concurrency-opt)
+    tobuild_appdll(client.annotation-concurrency-opt
+      client-interface/annotation-concurrency.c)
+    optimize(client.annotation-concurrency-opt.appdll)
+    if (UNIX)
+      target_link_libraries(client.annotation-concurrency-opt ${libpthread})
+    endif (UNIX)
+    set(client.annotation-concurrency-opt.full-decode_expectbase
+      "annotation-concurrency.full-decode")
+    torunonly_ci(client.annotation-concurrency-opt.full-decode
+      client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
+      client-interface/annotation-concurrency.c "full-decode" "" "${annotation_test_args}")
 
-  tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp "" "" "")
-  tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp "" "" "")
-  set(client.annotation-detection-opt_expectbase "annotation-detection-opt")
-  set(DynamoRIO_USE_LIBC ON)
+    tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
+      "" "" "")
+    set(client.annotation-detection.full-decode_expectbase
+      "annotation-detection.full-decode")
+    torunonly_ci(client.annotation-detection.full-decode client.annotation-detection
+      client.annotation-detection.dll client-interface/annotation-detection.c
+      "full-decode" "" "")
+    set(client.annotation-detection.full-decode.tiny-bb_expectbase
+      "annotation-detection.full-decode")
+    torunonly_ci(client.annotation-detection.full-decode.tiny-bb
+      client.annotation-detection client.annotation-detection.dll
+      client-interface/annotation-detection.c "full-decode" "-max_bb_instrs 2" "")
+    set(client.annotation-detection.bb-truncate-1_expectbase
+      "annotation-detection.bb-truncate")
+    torunonly_ci(client.annotation-detection.bb-truncate-1 client.annotation-detection
+      client.annotation-detection.dll client-interface/annotation-detection.c
+      "truncate@1" "" "")
+    set(client.annotation-detection.bb-truncate-2_expectbase
+      "annotation-detection.bb-truncate")
+    torunonly_ci(client.annotation-detection.bb-truncate-2 client.annotation-detection
+      client.annotation-detection.dll client-interface/annotation-detection.c
+      "truncate@2" "" "")
+    torunonly_native(client.annotation-detection.native client.annotation-detection
+      annotation-detection.native client-interface/annotation-detection.c "")
+
+    set(client.annotation-detection-opt_expectbase "annotation-detection")
+    tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp
+      "" "" "")
+    optimize(client.annotation-detection-opt)
+    torunonly_native(client.annotation-detection-opt.native
+      client.annotation-detection-opt annotation-detection.native
+      client-interface/annotation-detection.c "")
+    set(DynamoRIO_USE_LIBC ON)
+  endif (NOT ARM)
 
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.
     tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
   endif ()
-  get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
@@ -1614,7 +1668,7 @@ if (CLIENT_INTERFACE)
         client-interface/vg-annot.c "full-decode" "" "")
       set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
       torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
-        client-interface/vg-annot.c "full-decode" "-max_bb_instrs 3" "")
+        client-interface/vg-annot.c "full-decode" "-max_bb_instrs 2" "")
       set(client.vg-annot.bb-truncate-1_expectbase "vg-annot.bb-truncate")
       torunonly_ci(client.vg-annot.bb-truncate-1 client.vg-annot client.vg-annot.dll
         client-interface/vg-annot.c "truncate@1" "" "")
@@ -1723,30 +1777,28 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
-    tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
-    use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
-    if (UNIX)
-      target_link_libraries(client.drmgr-test ${libpthread})
-    endif (UNIX)
-  endif (NOT ARM)
+  tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
+  use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
+  if (UNIX)
+    target_link_libraries(client.drmgr-test ${libpthread})
+  endif (UNIX)
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
-    use_DynamoRIO_extension(client.drx-test.dll drx)
-  endif (NOT ARM)
+  tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-test.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-test.dll drreg)
 
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
-    tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-    get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
-    tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
-    use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
-    tochcon(client.drwrap-test.appdll textrel_shlib_t)
-    if (WIN32)
-      # export from asm code
-      append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
-    endif (WIN32)
-  endif (NOT ARM)
+  tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+  use_DynamoRIO_extension(client.drx-test.dll drx)
+
+  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+  get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
+  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+  use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
+  tochcon(client.drwrap-test.appdll textrel_shlib_t)
+  if (WIN32)
+    # export from asm code
+    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
+  endif (WIN32)
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
@@ -1823,8 +1875,6 @@ if (CLIENT_INTERFACE)
     # when running tests in parallel: have to generate pcaches first
     set(client.pcache-use_depends client.pcache)
 
-    tobuild_api(api.dis api/dis.c "-syntax_intel"
-      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
     tobuild_api(api.ir api/ir.c "" "" OFF)
     if ("${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
       # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
@@ -1841,6 +1891,29 @@ if (CLIENT_INTERFACE)
       append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
     endif ()
   endif (NOT ARM)
+
+  if (ARM)
+    # Helper exe, used offline to build smaller input binary to test itself:
+    add_api_exe(api.dis-create api/dis-create.c OFF)
+    # XXX i#1686: get -syntax_arm working and test it further here.
+    # For now our template is DR syntax.
+    add_api_exe(api.dis api/dis.c OFF)
+    torunonly_api(api.disA32 api.dis api/dis.c ""
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armA32-randtest.raw;-arm" OFF)
+    set(api.disA32_expectbase "dis-armA32")
+    torunonly_api(api.disT32 api.dis api/dis.c ""
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armT32-randtest.raw;-thumb" OFF)
+    set(api.disT32_expectbase "dis-armT32")
+  else (ARM)
+    tobuild_api(api.dis api/dis.c "-syntax_intel"
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
+    if (X64)
+      set(api.dis_expectbase "dis-x64")
+    else ()
+      set(api.dis_expectbase "dis-x86")
+    endif ()
+  endif (ARM)
+
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     # XXX i#1512: api.startstop is FLAKY
     tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
@@ -1848,8 +1921,13 @@ if (CLIENT_INTERFACE)
   if (NOT ARM) # FIXME i#1551: port to ARM
     # test static decoder library
     tobuild_api(api.ir-static api/ir.c "" "" ON)
-    tobuild_api(api.static api/static.c "" "" ON)
   endif (NOT ARM)
+
+  if (ARM)
+    tobuild_api(api.static api/static_arm.c "" "" ON)
+  else ()
+    tobuild_api(api.static api/static_x86.c "" "" ON)
+  endif ()
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
   # not just check libstdc++-6.dll.
@@ -1926,8 +2004,7 @@ if (CLIENT_INTERFACE)
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
-    torunonly_ci(tool.drltrace common.eflags drltrace common/eflags.c
-      "-only_from_app" "" "")
+    torunonly_ci(tool.drltrace common.fib drltrace common/fib.c "-only_from_app" "" "")
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
 
     torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
@@ -1962,9 +2039,37 @@ if (UNIX)
   tobuild_ops(linux.execve-null linux/execve-null.c ""
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
 
+  # Test blacklist and whitelist child config vs follow-children options (i#1667).
+  # Use a different name to avoid parallel test conflicts when we manipulate
+  # config files.
+  add_exe(linux.execve-config linux/execve-sub.c)
+  # We want the environment to keep HOME for config dirs (xref i#1679).
+  add_exe(linux.execv linux/execv.c)
+  set(linux.child-blacklist_expectbase "child-blacklist")
+  torunonly(linux.child-blacklist linux.execv linux/execv.c
+    "-follow_children" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-config")
+  get_target_property(drconfig_path drconfig LOCATION${location_suffix})
+  set(linux.child-blacklist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(linux.child-blacklist_precmd
+    "${drconfig_path}@-quiet@-reg@linux.execve-config@-norun")
+  set(linux.child-blacklist_postcmd
+    "${drconfig_path}@-quiet@-unreg@linux.execve-config")
+
+  set(linux.child-whitelist_expectbase "child-whitelist")
+  torunonly(linux.child-whitelist linux.execv linux/execv.c
+    "-no_follow_children" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-config")
+  set(linux.child-whitelist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(linux.child-whitelist_precmd
+    "${drconfig_path}@-quiet@-reg@linux.execve-config@-debug@-ops@-stderr_mask@@0")
+  set(linux.child-whitelist_postcmd
+    "${drconfig_path}@-quiet@-unreg@linux.execve-config")
+  # Can't run in parallel w/ blacklist since manipulating same config file:
+  set(linux.child-whitelist_depends linux.child-blacklist)
+
   tobuild(linux.execve-rec linux/execve-rec.c)
   tobuild(linux.exit linux/exit.c)
   tobuild(linux.fork linux/fork.c)
+  tobuild(linux.fork-sleep linux/fork-sleep.c)
   # i#1537: test MSR for fs/gs in fork
   torunonly(linux.fork-MSR linux.fork linux/fork.c
     "-vm_base 0x100000000 -no_vm_base_near_app" "")
@@ -2023,6 +2128,12 @@ if (UNIX)
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
 
   tobuild_ops(linux.readlink linux/readlink.c "-early_inject" "exec")
+
+  # Test collision with DR's preferred base
+  tobuild(linux.fib-conflict common/fib.c)
+  set_preferred_base_start_and_end(linux.fib-conflict ${preferred_base} OFF)
+  # i#1227: test 2-stage loader
+  torunonly(linux.fib-conflict-early linux.fib-conflict common/fib.c "-early_inject" "")
 
   # Test fully static executables, which we only support with early injection
   # or STATIC_LIBRARY.

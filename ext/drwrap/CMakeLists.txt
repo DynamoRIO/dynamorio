@@ -50,8 +50,14 @@ get_DynamoRIO_defines(DR_DEFINES OFF)
 string(REPLACE " " ";" DR_DEFINES "${DR_DEFINES}")
 set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
 set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
-add_asm_target(drwrap_asm.asm drwrap_asm_src drwrap_asm_tgt ""
+if (ARM)
+  set(asm_file "drwrap_asm_arm.asm")
+else ()
+  set(asm_file "drwrap_asm_x86.asm")
+endif ()
+add_asm_target(${asm_file} drwrap_asm_src drwrap_asm_tgt ""
   "${asm_flags}" "${asm_deps}")
+
 #
 ##################################################
 

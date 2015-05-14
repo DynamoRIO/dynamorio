@@ -181,6 +181,7 @@ typedef struct {
     bool mangle_ilist;       /* should bb ilist be mangled? */
     bool record_translation; /* store translation info for each instr_t? */
     bool has_bb_building_lock; /* usually ==for_cache; used for aborting bb building */
+    bool checked_start_vmarea; /* caller called check_new_page_start() on start_pc */
     file_t outf;               /* send disassembly and notes to a file?
                                 * we use this mainly for dumping trace origins */
     app_pc stop_pc;          /* Optional: NULL for normal termination rules.
@@ -231,6 +232,9 @@ typedef struct {
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
     bool may_be_dgc_writer;
     bool is_dgc_instrumented;
+#ifdef ARM
+    dr_pred_type_t svc_pred;    /* predicate for conditional svc */
+#endif
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -258,6 +262,9 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
     bb->may_be_dgc_writer = false;
+#ifdef ARM
+    bb->svc_pred = DR_PRED_NONE;
+#endif
     DODEBUG(bb->initialized = true;);
 }
 
@@ -784,6 +791,10 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
 #ifdef CLIENT_INTERFACE
     /* i#805: If we're crossing a module boundary between two modules that are
      * and aren't on null_instrument_list, don't elide the jmp.
+     * XXX i#884: if we haven't yet executed from the 2nd module, the client
+     * won't receive the module load event yet and we might include code
+     * from it here.  It would be tricky to solve that, and it should only happen
+     * if the client turns on elision, so we leave it.
      */
     if ((!!os_module_get_flag(bb->cur_pc, MODULE_NULL_INSTRUMENT)) !=
         (!!os_module_get_flag(new_pc, MODULE_NULL_INSTRUMENT)))
@@ -1806,6 +1817,12 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
     } else
 #endif
         bb->instr->flags |= INSTR_NI_SYSCALL;
+#ifdef ARM
+    if (instr_is_predicated(bb->instr)) {
+        ASSERT(instr_is_syscall(bb->instr));
+        bb->svc_pred = instr_get_predicate(bb->instr);
+    }
+#endif
     /* Set instr to NULL in order to get translation of exit cti correct. */
     bb->instr = NULL;
     /* this block must be the last one in a trace */
@@ -1853,6 +1870,13 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
     if (sysnum != -1 && instrument_filter_syscall(dcontext, sysnum)) {
         BBPRINT(bb, 3, "client asking to intercept => pretending syscall # %d is -1\n",
                 sysnum);
+        sysnum = -1;
+    }
+#endif
+#ifdef ARM
+    if (sysnum != -1 && instr_is_predicated(bb->instr)) {
+        BBPRINT(bb, 3, "conditional system calls cannot be inlined => "
+                "pretending syscall # %d is -1\n", sysnum);
         sysnum = -1;
     }
 #endif
@@ -3029,6 +3053,50 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
 }
 #endif /* DR_APP_EXPORTS */
 
+/* This routine is called from build_bb_ilist when the number of instructions reaches or
+ * exceeds max_bb_instr.  It checks if bb is safe to stop after instruction stop_after.
+ * On ARM, we do not stop bb building in the middle of an IT block unless there is a
+ * conditional syscall.
+ */
+static bool
+bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
+{
+#ifdef ARM
+    uint num_instr;
+    instr_t *it;
+    ASSERT(ilist != NULL && instrlist_last(ilist) != NULL);
+    /* only thumb mode could have IT blocks */
+    if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
+        return true;
+    if (stop_after == NULL)
+        stop_after = instrlist_last_app(ilist);
+    if (instr_get_opcode(stop_after) == OP_it)
+        return false;
+    if (!instr_is_predicated(stop_after))
+        return true;
+    if (instr_is_cti(stop_after) /* must be the last instr if in IT block */||
+        /* we should not stop in the middle of an IT block unless it is a syscall */
+        instr_is_syscall(stop_after) || instr_is_interrupt(stop_after))
+        return true;
+    /* Walk back to find the IT instr.
+     * This is called while building the bb ilist and before passing it to any clients,
+     * so it is safe to ignore any meta or label instructions.
+     */
+    for (it  = instr_get_prev_app(stop_after), num_instr = 1 /* stop_after */;
+         it != NULL && num_instr <= 4 /* max 4 instr in an IT block */;
+         it  = instr_get_prev_app(it), num_instr++) {
+        if (instr_get_opcode(it) == OP_it)
+            break;
+    }
+    ASSERT(it != NULL && instr_get_opcode(it) == OP_it);
+    ASSERT(num_instr <= instr_it_block_get_count(it));
+    if (num_instr < instr_it_block_get_count(it))
+        return false;
+#endif /* ARM */
+    return true;
+}
+
+
 /* Interprets the application's instructions until the end of a basic
  * block is found, and prepares the resulting instrlist for creation of
  * a fragment, but does not create the fragment, just returns the instrlist.
@@ -3088,7 +3156,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      * will catch it
      */
     /* vmlist must start out empty (or N/A) */
-    ASSERT(bb->vmlist == NULL || !bb->record_vmlist);
+    ASSERT(bb->vmlist == NULL || !bb->record_vmlist || bb->checked_start_vmarea);
     ASSERT(!bb->for_cache || bb->record_vmlist); /* for_cache assumes record_vmlist */
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
@@ -3151,7 +3219,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     });
 
     /* start converting instructions into IR */
-    check_new_page_start(dcontext, bb);
+    if (!bb->checked_start_vmarea)
+        check_new_page_start(dcontext, bb);
 
 #if defined(WINDOWS) && !defined(STANDALONE_DECODER) && defined(CLIENT_INTERFACE)
     /* i#1632: if `bb->start_pc` points into the middle of a DR intercept hook, change
@@ -3769,9 +3838,22 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              * so just end it here, we'll pick up where we left off
              * if it's legit
              */
-            BBPRINT(bb, 3, "reached -max_bb_instrs, stopping\n");
-            STATS_INC(num_max_bb_instrs_enforced);
-            break;
+            BBPRINT(bb, 3, "reached -max_bb_instrs(%d): %d, ",
+                    DYNAMO_OPTION(max_bb_instrs), total_instrs);
+            if (bb_safe_to_stop(dcontext, bb->ilist, NULL)) {
+                BBPRINT(bb, 3, "stopping\n");
+                STATS_INC(num_max_bb_instrs_enforced);
+                break;
+            } else {
+                /* XXX i#1669: cannot stop bb now, what's the best way to handle?
+                 * We can either roll-back and find previous safe stop point, or
+                 * simply extend the bb with a few more instructions.
+                 * We can always lower the -max_bb_instrs to offset the additional
+                 * instructions.  In contrast, roll-back seems complex and
+                 * potentially problematic.
+                 */
+                BBPRINT(bb, 3, "cannot stop, continuing\n");
+            }
         }
 
     } /* end of while (true) */
@@ -4122,6 +4204,20 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         instr_exit_branch_set_type(exit_instr, bb->exit_type);
 
         instrlist_append(bb->ilist, exit_instr);
+#ifdef ARM
+        if (bb->svc_pred != DR_PRED_NONE) {
+            /* we have a conditional syscall, add predicate to current exit */
+            instr_set_predicate(exit_instr, bb->svc_pred);
+            /* add another ubr exit as the fall-through */
+            exit_instr = XINST_CREATE_jump(dcontext,
+                                           opnd_create_pc(bb->exit_target));
+            if (bb->record_translation)
+                instr_set_translation(exit_instr, bb->cur_pc);
+            instr_set_our_mangling(exit_instr, true);
+            instr_exit_branch_set_type(exit_instr, LINK_DIRECT|LINK_JMP);
+            instrlist_append(bb->ilist, exit_instr);
+        }
+#endif
     }
 
     /* set flags */
@@ -4497,7 +4593,8 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     BBPRINT(bb, IF_DGCDIAG_ELSE(1, 2), "build_native_exec_bb @"PFX"\n", bb->start_pc);
     DOLOG(2, LOG_INTERP, {
         dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
-    check_new_page_start(dcontext, bb);
+    if (!bb->checked_start_vmarea)
+        check_new_page_start(dcontext, bb);
     /* create instrlist after check_new_page_start to avoid memory leak
      * on unreadable memory
      * WARNING: do not add any app instructions to this ilist!
@@ -4823,10 +4920,15 @@ init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
      * a hook when we're ready to call one by storing whether there is a
      * hook at translation/decode decision time: now.
      */
-    if (dr_bb_hook_exists() &&
-        /* i#805: Don't instrument code on the null instru list. */
-        !os_module_get_flag(bb->start_pc, MODULE_NULL_INSTRUMENT)) {
-        bb->pass_to_client = true;
+    if (dr_bb_hook_exists()) {
+        /* i#805: Don't instrument code on the null instru list.
+         * Because the module load event is now on 1st exec, we need to trigger
+         * it now so the client can adjust the null instru list:
+         */
+        check_new_page_start(dcontext, bb);
+        bb->checked_start_vmarea = true;
+        if (!os_module_get_flag(bb->start_pc, MODULE_NULL_INSTRUMENT))
+            bb->pass_to_client = true;
     }
     /* PR 299808: even if no bb hook, for a trace hook we need to
      * record translation and do full decode.  It's racy to check

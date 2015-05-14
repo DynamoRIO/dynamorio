@@ -276,7 +276,10 @@ const char *options_list_str =
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
     "       -no_inject         Run the application natively.\n"
 # ifdef UNIX  /* FIXME i#725: Windows attach NYI */
-    "       -early             Whether to use early injection.\n"
+#  ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
+    "       -early             Requests early injection (the default).\n"
+    "       -late              Requests late injection.\n"
+#  endif
     "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
     "                          for pid to launch and inject into a new process.\n"
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
@@ -1141,14 +1144,20 @@ int main(int argc, char *argv[])
             /* FIXME: use pid below to attach. */
             continue;
         }
+#  ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
         else if (strcmp(argv[i], "-early") == 0) {
-            /* Appending -early_inject to extra_ops communicates our intentions
+            /* Now the default: left here just for back-compat */
+            continue;
+        }
+        else if (strcmp(argv[i], "-late") == 0) {
+            /* Appending -no_early_inject to extra_ops communicates our intentions
              * to drinjectlib.
              */
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
-                             &extra_ops_sofar, "-early_inject");
+                             &extra_ops_sofar, "-no_early_inject");
             continue;
         }
+#  endif
 # endif /* UNIX */
         else if (strcmp(argv[i], "-exit0") == 0) {
             exit0 = true;
@@ -1571,6 +1580,24 @@ int main(int argc, char *argv[])
         dr_get_config_dir(global, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
     }
 # ifdef UNIX
+    /* i#1676: detect whether under gdb */
+    _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "/proc/%d/exe", getppid());
+    NULL_TERMINATE_BUFFER(buf);
+    i = readlink(buf, buf, BUFFER_SIZE_ELEMENTS(buf));
+    if (i > 0) {
+        if (i < BUFFER_SIZE_ELEMENTS(buf))
+            buf[i] = '\0';
+        else
+            NULL_TERMINATE_BUFFER(buf);
+        if (strstr(buf, "gdb") != NULL) {
+            /* We can't tell whether the user already ran this, so just a
+             * warning.  We have a check in the child which should also catch
+             * this if the ASLR base hasn't change.
+             */
+            warn("To successfully launch DynamoRIO from gdb, be sure to run "
+                 "'set disable-randomization off' first.");
+        }
+    }
     /* On Linux, we use exec by default to create the app process.  This matches
      * our drrun shell script and makes scripting easier for the user.
      */

@@ -457,6 +457,14 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
     if (waiting_at_safe_spot(trec, desired_state))
         return true;
 
+#ifdef ARM
+    if (TESTANY(EFLAGS_IT, mc->cpsr)) {
+        LOG(THREAD_GET, LOG_SYNCH, 2,
+            "thread "TIDFMT" not at safe spot (pc="PFX" in an IT block) for %d\n",
+            trec->id, mc->pc, desired_state);
+        return false;
+    }
+#endif
     /* check if suspended at good spot */
     /* FIXME: right now don't distinguish between suspend and term privileges
      * even though suspend is stronger requirement, are the checks below
@@ -1570,6 +1578,18 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         ASSERT(is_after_syscall_address(dcontext, pre_translation) ||
                pre_translation == IF_WINDOWS_ELSE(vsyscall_after_syscall,
                                                   vsyscall_sysenter_return_pc));
+        IF_ARM({
+            if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
+                /* We don't want to translate, just update the stolen reg values */
+                arch_mcontext_reset_stolen_reg(dcontext, mc);
+                res = set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
+                                                 synch_state _IF_X64((void *)mc)
+                                                 _IF_WINDOWS(NULL));
+                ASSERT(res);
+                /* cxt is freed by set_synched_thread_context() or target thread */
+                free_cxt = false;
+            }
+        });
     } else {
         res = translate_mcontext(tr, mc, true/*restore memory*/, NULL);
         ASSERT(res);
@@ -1587,6 +1607,14 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             "\ttranslation pc = "PFX"\n", mc->pc);
         ASSERT(!is_dynamo_address((app_pc)mc->pc) &&
                !in_fcache((app_pc)mc->pc));
+        IF_ARM({
+            if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
+                /* XXX: do we need this?  Will signal.c will fix it up prior
+                 * to sigreturn from suspend handler?
+                 */
+                arch_mcontext_reset_stolen_reg(dcontext, mc);
+            }
+        });
         /* We send all threads, regardless of whether was in DR or not, to
          * re-interp from translated cxt, to avoid having to handle stale
          * local state problems if we simply resumed.

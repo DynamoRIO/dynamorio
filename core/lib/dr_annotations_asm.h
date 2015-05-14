@@ -60,13 +60,15 @@
 #endif
 
 #ifdef _MSC_VER
-# define EXTERN extern
-#else
 # ifdef __cplusplus
 #  define EXTERN extern "C"
-#  define EXTERN_C extern "C"
 # else
 #  define EXTERN extern
+# endif
+#else
+# ifdef __cplusplus
+#  define EXTERN_C extern "C"
+# else
 #  define EXTERN_C
 # endif
 #endif
@@ -87,6 +89,9 @@
         "dynamorio-annotation:expression:"#return_type":"#annotation; \
     const char *annotation##_statement_label = \
         "dynamorio-annotation:statement:"#return_type":"#annotation;
+#  define DR_EXTERN_ANNOTATION_LABELS(annotation, return_type) \
+    EXTERN const char *annotation##_expression_label; \
+    EXTERN const char *annotation##_statement_label;
 /* The magic numbers for the head and tail are specially selected to establish immovable
  * "bookends" on the annotation around which the compiler and optimizers will not reorder
  * instructions. The values 0xfffffffffffffff0 and 0xfffffffffffffff1 are chosen because:
@@ -103,7 +108,6 @@
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 do { \
     if ((unsigned __int64) GET_RETURN_PTR() > DR_ANNOTATION_STATEMENT_HEAD) { \
-        extern const char *annotation##_statement_label; \
         __int2c(); \
         _m_prefetchw(annotation##_statement_label); \
         __debugbreak(); \
@@ -114,7 +118,6 @@ do { \
 } while ((unsigned __int64) GET_RETURN_PTR() > DR_ANNOTATION_STATEMENT_TAIL)
 #  define DR_ANNOTATION_FUNCTION(annotation, body) \
     if (GET_RETURN_PTR() == (void *) 0) { \
-        extern const char *annotation##_expression_label; \
         __int2c(); \
         _m_prefetchw(annotation##_expression_label); \
         __debugbreak(); \
@@ -127,11 +130,12 @@ do { \
  * target of this jump is always the following jump, i.e. (mov=5 + pop/nop=1) => 6.
  */
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
-        EXTERN const char *annotation##_label = \
+        const char *annotation##_label = \
             "dynamorio-annotation:"#return_type":"#annotation;
+#  define DR_EXTERN_ANNOTATION_LABELS(annotation, return_type) \
+        EXTERN const char *annotation##_label;
 #  define DR_ANNOTATION_OR_NATIVE_INSTANCE(unique_id, annotation, native_version, ...) \
     { \
-        extern const char *annotation##_label; \
         __asm { \
             __asm _emit 0xeb \
             __asm _emit 0x06 \
@@ -161,6 +165,7 @@ do { \
     DR_ANNOTATION_FUNCTION_INSTANCE(__COUNTER__, annotation, body)
 # endif
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
+    DR_EXTERN_ANNOTATION_LABELS(annotation, return_type) \
     return_type __fastcall annotation parameters
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
     DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \

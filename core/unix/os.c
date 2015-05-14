@@ -253,7 +253,8 @@ static bool os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to
 static bool handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
                               byte *old_base, size_t old_size,
                               uint old_prot, uint old_type);
-static void handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk);
+static void handle_app_brk(dcontext_t *dcontext, byte *lowest_brk/*if known*/,
+                           byte *old_brk, byte *new_brk);
 #endif
 
 /* full path to our own library, used for execve */
@@ -304,6 +305,13 @@ static struct rlimit app_rlimit_nofile;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
+
+#ifdef LINUX
+/* i#1004: brk emulation */
+static byte *app_brk_map;
+static byte *app_brk_cur;
+static byte *app_brk_end;
+#endif
 
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
@@ -627,7 +635,9 @@ dynamorio_set_envp(char **envp)
 int
 our_init(int argc, char **argv, char **envp)
 {
-    /* if do not want to use drpreload.so, we can take over here */
+    /* If we do not want to use drpreload.so, we can take over here: but when using
+     * drpreload, this is called *after* we have already taken over.
+     */
     extern void dynamorio_app_take_over(void);
     bool takeover = false;
 #ifdef INIT_TAKE_OVER
@@ -643,6 +653,7 @@ our_init(int argc, char **argv, char **envp)
     } else {
         our_environ = envp;
     }
+    /* if using preload, no -early_inject */
     if (!takeover) {
         const char *takeover_env = getenv("DYNAMORIO_TAKEOVER_IN_INIT");
         if (takeover_env != NULL && strcmp(takeover_env, "1") == 0) {
@@ -817,6 +828,11 @@ os_init(void)
 
     /* Ensure initialization */
     get_dynamorio_dll_start();
+
+#ifdef LINUX
+    if (DYNAMO_OPTION(emulate_brk))
+        init_emulated_brk(NULL);
+#endif
 }
 
 /* called before any logfiles are opened */
@@ -2098,6 +2114,13 @@ os_fork_init(dcontext_t *dcontext)
     TABLE_RWLOCK(fd_table, write, unlock);
 }
 
+byte *
+os_get_dr_tls_base(dcontext_t *dcontext)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+    return ostd->dr_tls_base;
+}
+
 /* We only bother swapping the library segment if we're using the private
  * loader.
  */
@@ -2441,7 +2464,8 @@ mmap_syscall_succeeded(byte *retval)
                      result == -EAGAIN  ||
                      result == -ENOMEM  ||
                      result == -ENODEV  ||
-                     result == -EFAULT);
+                     result == -EFAULT  ||
+                     result == -EPERM);
     return !fail;
 }
 
@@ -2521,6 +2545,66 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     return p;
 }
 
+#ifdef LINUX
+void
+init_emulated_brk(app_pc exe_end)
+{
+    ASSERT(DYNAMO_OPTION(emulate_brk));
+    if (app_brk_map != NULL)
+        return;
+    /* i#1004: emulate brk via a separate mmap.
+     * The real brk starts out empty, but we need at least a page to have an
+     * mmap placeholder.
+     */
+    app_brk_map = mmap_syscall(exe_end, PAGE_SIZE, PROT_READ|PROT_WRITE,
+                               MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    ASSERT(mmap_syscall_succeeded(app_brk_map));
+    app_brk_cur = app_brk_map;
+    app_brk_end = app_brk_map + PAGE_SIZE;
+}
+
+static byte *
+emulate_app_brk(dcontext_t *dcontext, byte *new_val)
+{
+    byte *old_brk = app_brk_cur;
+    ASSERT(DYNAMO_OPTION(emulate_brk));
+    LOG(THREAD, LOG_HEAP, 2, "%s: cur="PFX", requested="PFX"\n",
+        __FUNCTION__, app_brk_cur, new_val);
+    new_val = (byte *) ALIGN_FORWARD(new_val, PAGE_SIZE);
+    if (new_val == NULL || new_val == app_brk_cur ||
+        /* Not allowed to shrink below original base */
+        new_val < app_brk_map) {
+        /* Just return cur val */
+    } else if (new_val < app_brk_cur) {
+        /* Shrink */
+        if (munmap_syscall(new_val, app_brk_cur - new_val) == 0) {
+            app_brk_cur = new_val;
+            app_brk_end = new_val;
+        }
+    } else if (new_val < app_brk_end) {
+        /* We've already allocated the space */
+        app_brk_cur = new_val;
+    } else {
+        /* Expand */
+        byte *remap = (byte *)
+            dynamorio_syscall(SYS_mremap, 4, app_brk_map,
+                              app_brk_end - app_brk_map,
+                              new_val - app_brk_map, 0/*do not move*/);
+        if (mmap_syscall_succeeded(remap)) {
+            ASSERT(remap == app_brk_map);
+            app_brk_cur = new_val;
+            app_brk_end = new_val;
+        } else {
+            LOG(THREAD, LOG_HEAP, 1, "%s: mremap to "PFX" failed\n",
+                __FUNCTION__, new_val);
+        }
+    }
+    if (app_brk_cur != old_brk)
+        handle_app_brk(dcontext, app_brk_map, old_brk, app_brk_cur);
+    return app_brk_cur;
+}
+#endif /* LINUX */
+
 #if defined(CLIENT_INTERFACE) && defined(LINUX)
 DR_API
 /* XXX: could add dr_raw_mem_realloc() instead of dr_raw_mremap() -- though there
@@ -2555,18 +2639,23 @@ DR_API
 void *
 dr_raw_brk(void *new_address)
 {
-    /* We pay the cost of 2 syscalls.  This should be infrequent enough that
-     * it doesn't mater.
-     */
-    if (new_address == NULL) {
-        /* Just a query */
-        return (void *) dynamorio_syscall(SYS_brk, 1, new_address);
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (DYNAMO_OPTION(emulate_brk)) {
+        /* i#1004: emulate brk via a separate mmap */
+        return (void *) emulate_app_brk(dcontext, (byte *)new_address);
     } else {
-        byte *old_brk = (byte *) dynamorio_syscall(SYS_brk, 1, 0);
-        byte *res = (byte *) dynamorio_syscall(SYS_brk, 1, new_address);
-        dcontext_t *dcontext = get_thread_private_dcontext();
-        handle_app_brk(dcontext, old_brk, res);
-        return res;
+        /* We pay the cost of 2 syscalls.  This should be infrequent enough that
+         * it doesn't mater.
+         */
+        if (new_address == NULL) {
+            /* Just a query */
+            return (void *) dynamorio_syscall(SYS_brk, 1, new_address);
+        } else {
+            byte *old_brk = (byte *) dynamorio_syscall(SYS_brk, 1, 0);
+            byte *res = (byte *) dynamorio_syscall(SYS_brk, 1, new_address);
+            handle_app_brk(dcontext, NULL, old_brk, res);
+            return res;
+        }
     }
 }
 #endif /* CLIENT_INTERFACE && LINUX */
@@ -4899,6 +4988,7 @@ enum {
     ENV_PROP_OPTIONS,
     ENV_PROP_EXECVE_LOGDIR,
     ENV_PROP_EXE_PATH,
+    ENV_PROP_CONFIGDIR,
 };
 
 static const char * const env_to_propagate[] = {
@@ -4918,7 +5008,15 @@ static const char * const env_to_propagate[] = {
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate)/sizeof(env_to_propagate[0]))
 
-/* called at pre-SYS_execve to append DR vars in the target process env vars list */
+/* Called at pre-SYS_execve to append DR vars in the target process env vars list.
+ * For late injection via libdrpreload, we call this for *all children, because
+ * even if -no_follow_children is specified, a whitelist will still ask for takeover
+ * and it's libdrpreload who checks the whitelist.
+ * For -early, however, we check the config ahead of time and only call this routine
+ * if we in fact want to inject.
+ * XXX i#1679: these parent vs child differences bring up corner cases of which
+ * config dir takes precedence (if the child clears the HOME env var, e.g.).
+ */
 static void
 add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app_path)
 {
@@ -4997,11 +5095,10 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
          (((preload<0) ? 1 : 0) +
           ((ldpath<0) ? 1 : 0)));
 
-    if (DYNAMO_OPTION(follow_children)) {
-        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            if (need_var[j] && prop_idx[j] < 0)
-                num_new++;
-        }
+    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+        if ((DYNAMO_OPTION(follow_children) || j == ENV_PROP_EXE_PATH) &&
+            need_var[j] && prop_idx[j] < 0)
+            num_new++;
     }
     /* setup new envp */
     new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
@@ -5056,59 +5153,60 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
             idx_ldpath, new_envp[idx_ldpath]);
     }
     /* propagating DR env vars */
-    if (DYNAMO_OPTION(follow_children)) {
-        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            const char *val = "";
-            if (!need_var[j])
-                continue;
-            switch (j) {
-            case ENV_PROP_RUNUNDER:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
-                /* Must pass RUNUNDER_ALL to get child injected if has no app config.
-                 * If rununder var is already set we assume it's set to 1.
-                 */
-                ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
-                val = "3";
-                break;
-            case ENV_PROP_OPTIONS:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
-                val = option_string;
-                break;
-            case ENV_PROP_EXECVE_LOGDIR:
-                /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXECVE_LOGDIR) == 0);
-                ASSERT(get_log_dir(PROCESS_DIR, NULL, NULL));
-                break;
-            case ENV_PROP_EXE_PATH:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXE_PATH) == 0);
-                val = app_path;
-                break;
-            default:
-                val = getenv(env_to_propagate[j]);
-                if (val == NULL)
-                    val = "";
-                break;
-            }
-            if (j == ENV_PROP_EXECVE_LOGDIR) {
-                uint logdir_length;
-                get_log_dir(PROCESS_DIR, NULL, &logdir_length);
-                /* logdir_length includes the terminating NULL */
-                sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + logdir_length + 1/* '=' */;
-                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
-                get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
-            } else {
-                sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
-                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                snprintf(var, sz, "%s=%s", env_to_propagate[j], val);
-            }
-            *(var+sz-1) = '\0'; /* null terminate */
-            prop_idx[j] = (prop_idx[j] >= 0) ? prop_idx[j] : idx++;
-            new_envp[prop_idx[j]] = var;
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                prop_idx[j], new_envp[prop_idx[j]]);
+    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+        const char *val = "";
+        if (!need_var[j])
+            continue;
+        if (!DYNAMO_OPTION(follow_children) && j != ENV_PROP_EXE_PATH)
+            continue;
+        switch (j) {
+        case ENV_PROP_RUNUNDER:
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
+            /* Must pass RUNUNDER_ALL to get child injected if has no app config.
+             * If rununder var is already set we assume it's set to 1.
+             */
+            ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
+            val = "3";
+            break;
+        case ENV_PROP_OPTIONS:
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
+            val = option_string;
+            break;
+        case ENV_PROP_EXECVE_LOGDIR:
+            /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXECVE_LOGDIR) == 0);
+            ASSERT(get_log_dir(PROCESS_DIR, NULL, NULL));
+            break;
+        case ENV_PROP_EXE_PATH:
+            ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXE_PATH) == 0);
+            val = app_path;
+            break;
+        default:
+            val = getenv(env_to_propagate[j]);
+            if (val == NULL)
+                val = "";
+            break;
         }
-    } else {
+        if (j == ENV_PROP_EXECVE_LOGDIR) {
+            uint logdir_length;
+            get_log_dir(PROCESS_DIR, NULL, &logdir_length);
+            /* logdir_length includes the terminating NULL */
+            sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + logdir_length + 1/* '=' */;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
+            get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
+        } else {
+            sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "%s=%s", env_to_propagate[j], val);
+        }
+        *(var+sz-1) = '\0'; /* null terminate */
+        prop_idx[j] = (prop_idx[j] >= 0) ? prop_idx[j] : idx++;
+        new_envp[prop_idx[j]] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+            prop_idx[j], new_envp[prop_idx[j]]);
+    }
+    if (!DYNAMO_OPTION(follow_children) && !DYNAMO_OPTION(early_inject)) {
         if (prop_idx[ENV_PROP_RUNUNDER] >= 0) {
             /* disable auto-following of this execve, yet still allow preload
              * on other side to inject if config file exists.
@@ -5172,8 +5270,11 @@ handle_execve(dcontext_t *dcontext)
     char *fname = (char *) sys_param(dcontext, 0);
     bool x64 = IF_X64_ELSE(true, false);
     bool expect_to_fail = false;
+    bool should_inject;
     file_t file;
     char *inject_library_path;
+    char rununder_buf[16]; /* just an integer printed in ascii */
+    bool app_specific, from_env, rununder_on;
 #if defined(LINUX) || defined(DEBUG)
     const char **argv = (const char **) sys_param(dcontext, 1);
 #endif
@@ -5245,13 +5346,29 @@ handle_execve(dcontext_t *dcontext)
     inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
         dynamorio_alt_arch_path;
 
-    add_dr_env_vars(dcontext, inject_library_path, fname);
+    should_inject = DYNAMO_OPTION(follow_children);
+    if (get_config_val_other_app(get_short_name(fname), get_process_id(),
+                                 x64 ? DR_PLATFORM_64BIT : DR_PLATFORM_32BIT,
+                                 DYNAMORIO_VAR_RUNUNDER,
+                                 rununder_buf, BUFFER_SIZE_ELEMENTS(rununder_buf),
+                                 &app_specific, &from_env, NULL /* 1config is ok */)) {
+        if (should_inject_from_rununder(rununder_buf, app_specific, from_env,
+                                        &rununder_on))
+            should_inject = rununder_on;
+    }
+
+    if (should_inject)
+        add_dr_env_vars(dcontext, inject_library_path, fname);
+    else {
+        dcontext->sys_param0 = 0;
+        dcontext->sys_param1 = 0;
+    }
 
 #ifdef LINUX
     /* We have to be accurate with expect_to_fail as we cannot come back
      * and fail the syscall once the kernel execs DR!
      */
-    if (DYNAMO_OPTION(early_inject) && !expect_to_fail) {
+    if (should_inject && DYNAMO_OPTION(early_inject) && !expect_to_fail) {
         /* i#909: change the target image to libdynamorio.so */
         const char *drpath = IF_X64_ELSE(x64, !x64) ? dynamorio_library_filepath :
             dynamorio_alt_arch_filepath;
@@ -6104,11 +6221,20 @@ pre_system_call(dcontext_t *dcontext)
     }
 #ifdef LINUX
     case SYS_brk: {
-        /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
-         * We store the old break in the param1 slot.
-         */
-        DODEBUG(dcontext->sys_param0 = (reg_t) sys_param(dcontext, 0););
-        dcontext->sys_param1 = dynamorio_syscall(SYS_brk, 1, 0);
+        if (DYNAMO_OPTION(emulate_brk)) {
+            /* i#1004: emulate brk via a separate mmap */
+            byte *new_val = (byte *) sys_param(dcontext, 0);
+            byte *res = emulate_app_brk(dcontext, new_val);
+            execute_syscall = false;
+            /* SYS_brk returns old brk on failure */
+            set_success_return_val(dcontext, (reg_t)res);
+        } else {
+            /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
+             * We store the old break in the param1 slot.
+             */
+            DODEBUG(dcontext->sys_param0 = (reg_t) sys_param(dcontext, 0););
+            dcontext->sys_param1 = dynamorio_syscall(SYS_brk, 1, 0);
+        }
         break;
     }
     case SYS_uselib: {
@@ -6788,9 +6914,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 {
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
-#ifdef CLIENT_INTERFACE
-    bool inform_client = false;
-#endif
 
     LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",%s,%s)\n",
         base, size, memprot_string(memprot), map_type);
@@ -6907,9 +7030,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 #endif /* HAVE_MEMINFO */
         /* XREF 307599 on rounding module end to the next PAGE boundary */
         module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, filename, inode);
-#ifdef CLIENT_INTERFACE
-        inform_client = true;
-#endif
         if (found_map)
             dr_strfree(filename HEAPACCT(ACCT_OTHER));
     }
@@ -6924,12 +7044,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     if (app_memory_allocation(dcontext, base, size, memprot, image _IF_DEBUG(map_type)))
         STATS_INC(num_app_code_modules);
     LOG(THREAD, LOG_SYSCALLS, 4, "\t app_mem_alloc -- DONE\n");
-
-#ifdef CLIENT_INTERFACE
-    /* invoke the client event only after DR's state is consistent */
-    if (inform_client && dynamo_initialized)
-        instrument_module_load_trigger(base);
-#endif
 }
 
 #ifdef LINUX
@@ -6978,7 +7092,8 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
 }
 
 static void
-handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
+handle_app_brk(dcontext_t *dcontext, byte *lowest_brk/*if known*/,
+               byte *old_brk, byte *new_brk)
 {
     /* i#851: the brk might not be page aligned */
     old_brk = (app_pc) ALIGN_FORWARD(old_brk, PAGE_SIZE);
@@ -6996,7 +7111,7 @@ handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
          * w/ security policies.
          */
     }
-    IF_NO_MEMQUERY(memcache_handle_app_brk(old_brk, new_brk));
+    IF_NO_MEMQUERY(memcache_handle_app_brk(lowest_brk, old_brk, new_brk));
 }
 #endif
 
@@ -7290,6 +7405,7 @@ post_system_call(dcontext_t *dcontext)
         app_pc old_brk = (app_pc) dcontext->sys_param1;
         app_pc new_brk = (app_pc) result;
         DEBUG_DECLARE(app_pc req_brk = (app_pc) dcontext->sys_param0;);
+        ASSERT(!DYNAMO_OPTION(emulate_brk)); /* shouldn't get here */
 # ifdef DEBUG
         if (DYNAMO_OPTION(early_inject) &&
             req_brk != NULL /* Ignore calls that don't increase brk. */) {
@@ -7299,7 +7415,7 @@ post_system_call(dcontext_t *dcontext)
             });
         }
 # endif
-        handle_app_brk(dcontext, old_brk, new_brk);
+        handle_app_brk(dcontext, NULL, old_brk, new_brk);
         break;
     }
 #endif
@@ -7655,10 +7771,10 @@ get_dynamo_library_bounds(void)
 char*
 get_dynamorio_library_path(void)
 {
-    if (!dynamorio_library_path[0]) { /* not cached */
+    if (!dynamorio_library_filepath[0]) { /* not cached */
         get_dynamo_library_bounds();
     }
-    return dynamorio_library_path;
+    return dynamorio_library_filepath;
 }
 
 #ifdef LINUX
@@ -8051,7 +8167,7 @@ find_dynamo_library_vm_areas(void)
      */
     add_dynamo_vm_area(get_dynamorio_dll_start(), get_dynamorio_dll_end(),
                        MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
-                       true /* from image */ _IF_DEBUG(dynamorio_library_path));
+                       true /* from image */ _IF_DEBUG(dynamorio_library_filepath));
 #endif
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld())

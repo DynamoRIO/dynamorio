@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,23 +30,51 @@
  * DAMAGE.
  */
 
-#include <string.h> /* memset */
+/* This client provides handlers for a set of hypothetical annotations that the app uses
+ * to (a) report app activity and (b) control the client by setting various mode states.
+ * The client supports three execution modes, selected via command line argument:
+ *
+ *   - default (fast decoding): no argument
+ *   - full decoding: "full-decode"
+ *   - truncation: "truncate@#", where "#" is a single digit 1-9 indicating the maximum
+ *                 number of app instructions that remain in each bb after truncation.
+ */
+
 #include "dr_api.h"
+#include "client_tools.h"
 #include "dr_ir_opnd.h"
 #include "dr_annotation.h"
+#include <string.h> /* memset */
 
 #define MAX_MODE_HISTORY 100
-#define BB_TRUNCATION_LENGTH 2
+#define UNKNOWN_MODE 0xffffffffU
 
-#define PRINT(s) dr_printf("      <"s">\n")
-#define PRINTF(s, ...) dr_printf("      <"s">\n", __VA_ARGS__)
+#ifdef X64
+# define MIN_MEM_DEFINES 10000000U
+#else
+# define MIN_MEM_DEFINES 1000000U
+#endif
 
+/* This macro wraps all messages printed from the client in "< >", e.g. "<message>".
+ * This makes it easier to understand the verbose output from this test when something
+ * has gone wrong. The macro additionally acquires a lock for thread safety (see i#1647).
+ */
+#define PRINTF(...) \
+do { \
+    dr_mutex_lock(write_lock); \
+    dr_fprintf(STDERR, "      <"); \
+    dr_fprintf(STDERR, __VA_ARGS__); \
+    dr_fprintf(STDERR, ">\n"); \
+    dr_mutex_unlock(write_lock); \
+} while (0)
+
+/* Defines a hypothetical "analysis context", which is associated with an app thread */
 typedef struct _context_t {
     uint id;
     char *label;
-    uint mode;
-    uint *mode_history;
-    uint mode_history_index;
+    uint mode;               /* hypothetical "analysis mode" of the associated thread */
+    uint *mode_history;      /* for recording mode changes to evaluate the test */
+    uint mode_history_index; /* index into `mode_history` */
     struct _context_t *next;
 } context_t;
 
@@ -55,18 +83,36 @@ typedef struct _context_list_t {
     context_t *tail;
 } context_list_t;
 
-static void *context_lock;
+typedef struct _mem_defines_t {
+    unsigned long v1;
+    unsigned long v2;
+    unsigned long v3;
+    unsigned long v4;
+} mem_defines_t;
+
+static void *context_lock, *write_lock;
 static context_list_t *context_list;
-
-static client_id_t client_id;
-
-#ifdef WINDOWS
-static app_pc *skip_truncation;
+#if !(defined (WINDOWS) && defined (X64))
+static mem_defines_t *mem_defines;
 #endif
 
-typedef struct _counter_t {
-    uint count;
-} counter_t;
+static client_id_t client_id;
+static uint bb_truncation_length;
+
+static void
+test_eight_args_v1(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h);
+static void
+test_eight_args_v2(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h);
+static void
+test_nine_args_v1(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, uint i);
+static void
+test_nine_args_v2(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, uint i);
+static void
+test_ten_args_v1(uint a, uint b, uint c, uint d, uint e, uint f,
+                 uint g, uint h, uint i, uint j);
+static void
+test_ten_args_v2(uint a, uint b, uint c, uint d, uint e, uint f,
+                 uint g, uint h, uint i, uint j);
 
 static inline context_t *
 get_context(uint id)
@@ -79,12 +125,22 @@ get_context(uint id)
     return NULL;
 }
 
+/* Convenience function to register a call handler */
+static void
+register_call(const char *annotation, void *target, uint num_args)
+{
+    dr_annotation_register_call(annotation, target, false, num_args,
+                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
+}
+
+/* Annotation handler to initialize a hypothetical "analysis mode" with integer id */
 static void
 init_mode(uint mode)
 {
     PRINTF("Initialize mode %d", mode);
 }
 
+/* Annotation handler to initialize a client context (associated with an app thread) */
 static void
 init_context(uint id, const char *label, uint initial_mode)
 {
@@ -117,6 +173,22 @@ init_context(uint id, const char *label, uint initial_mode)
     dr_mutex_unlock(context_lock);
 }
 
+/* Annotation accessor for the hypothetical "analysis mode" of the specified context */
+static void
+get_mode(uint context_id)
+{
+    context_t *context;
+
+    dr_mutex_lock(context_lock);
+    context = get_context(context_id);
+    if (context != NULL)
+        dr_annotation_set_return_value(context->mode);
+    else
+        dr_annotation_set_return_value(UNKNOWN_MODE);
+    dr_mutex_unlock(context_lock);
+}
+
+/* Annotation handler to set a hypothetical "analysis mode" for the specified context */
 static void
 set_mode(uint context_id, uint new_mode)
 {
@@ -134,47 +206,149 @@ set_mode(uint context_id, uint new_mode)
     dr_mutex_unlock(context_lock);
 }
 
-static void
-test_eight_args(uint a, uint b, uint c, uint d, uint e, uint f,
-                uint g, uint h)
+#if !(defined (WINDOWS) && defined (X64))
+/* Identical Valgrind annotation handlers for concurrent rotation and invocation */
+static ptr_uint_t
+handle_make_mem_defined_if_addressable_v1(dr_vg_client_request_t *request)
 {
-    PRINTF("Test many args: "
-        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d",
-        a, b, c, d, e, f, g, h);
+    mem_defines->v1 += request->args[1];
+    return 0;
 }
 
-static void
-test_nine_args(uint a, uint b, uint c, uint d, uint e, uint f,
-               uint g, uint h, uint i)
+static ptr_uint_t
+handle_make_mem_defined_if_addressable_v2(dr_vg_client_request_t *request)
 {
-    PRINTF("Test many args: "
-        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d",
-        a, b, c, d, e, f, g, h, i);
+    mem_defines->v2 += request->args[1];
+    return 0;
 }
 
-static void
-test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
-              uint g, uint h, uint i, uint j)
+static ptr_uint_t
+handle_make_mem_defined_if_addressable_v3(dr_vg_client_request_t *request)
 {
-    PRINTF("Test many args: "
-        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d",
-        a, b, c, d, e, f, g, h, i, j);
+    mem_defines->v3 += request->args[1];
+    return 0;
 }
 
-static void
-event_module_load(void *drcontext, const module_data_t *info, bool loaded)
+static ptr_uint_t
+handle_make_mem_defined_if_addressable_v4(dr_vg_client_request_t *request)
 {
-#ifdef WINDOWS // truncating these blocks causes app exceptions (unrelated to annotations)
-    if ((info->names.module_name != NULL) &&
-        (strcmp("ntdll.dll", info->names.module_name) == 0)) {
-        skip_truncation[0] = (app_pc) dr_get_proc_address(info->handle,
-                                                          "KiUserExceptionDispatcher");
-        skip_truncation[1] = (app_pc) dr_get_proc_address(info->handle,
-                                                          "LdrInitializeThunk");
+    mem_defines->v4 += request->args[1];
+    return 0;
+}
+
+/* Annotation handler to rotate among registered Valgrind handlers. Exercises concurrent
+ * un/registration and invocation of valgrind annotation handlers.
+ */
+static void
+rotate_valgrind_handler(int phase)
+{
+    switch (phase) {
+        case 0:
+            dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                            handle_make_mem_defined_if_addressable_v1);
+            break;
+        case 1:
+            dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                            handle_make_mem_defined_if_addressable_v2);
+            break;
+        case 2:
+            dr_annotation_unregister_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                              handle_make_mem_defined_if_addressable_v1);
+            break;
+        case 3:
+            dr_annotation_unregister_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                              handle_make_mem_defined_if_addressable_v2);
+            break;
+        case 4:
+            dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                            handle_make_mem_defined_if_addressable_v3);
+            break;
+        case 5:
+            dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                            handle_make_mem_defined_if_addressable_v4);
+            break;
+        case 6:
+            dr_annotation_unregister_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                              handle_make_mem_defined_if_addressable_v3);
+            break;
+        case 7:
+            dr_annotation_unregister_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                              handle_make_mem_defined_if_addressable_v4);
+            break;
     }
+}
 #endif
+
+/* First handler for an annotation with 8 arguments */
+static void
+test_eight_args_v1(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h)
+{
+    PRINTF("Test many args (handler #1): "
+           "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d",
+           a, b, c, d, e, f, g, h);
 }
 
+/* Second handler for an annotation with 8 arguments */
+static void
+test_eight_args_v2(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h)
+{
+    PRINTF("Test many args (handler #2): "
+           "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d",
+           a, b, c, d, e, f, g, h);
+
+    /* Verify that a reloaded module gets instrumented with the current handlers. This
+     * registration executes only on the first iteration (`a` is the iteration count),
+     * and the modules are unloaded and reloaded within each iteration.
+     */
+    if (h == 18) {
+        if (a == 1)
+            register_call("test_annotation_nine_args", (void *) test_nine_args_v2, 9);
+        else if (a == 3)
+            dr_annotation_unregister_call("test_annotation_nine_args", test_nine_args_v1);
+    }
+}
+
+/* First handler for an annotation with 9 arguments */
+static void
+test_nine_args_v1(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, uint i)
+{
+    /* omit handler number to allow non-deterministic ordering */
+    PRINTF("Test many args (concurrent handler): "
+           "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d",
+           a, b, c, d, e, f, g, h, i);
+}
+
+/* Second handler for an annotation with 9 arguments */
+static void
+test_nine_args_v2(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, uint i)
+{
+    /* omit handler number to allow non-deterministic ordering */
+    PRINTF("Test many args (concurrent handler): "
+           "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d",
+           a, b, c, d, e, f, g, h, i);
+}
+
+/* First handler for an annotation with 10 arguments */
+static void
+test_ten_args_v1(uint a, uint b, uint c, uint d, uint e, uint f,
+                 uint g, uint h, uint i, uint j)
+{
+    PRINTF("Test many args (handler #1): "
+           "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d",
+           a, b, c, d, e, f, g, h, i, j);
+}
+
+/* Second handler for an annotation with 10 arguments */
+static void
+test_ten_args_v2(uint a, uint b, uint c, uint d, uint e, uint f,
+                 uint g, uint h, uint i, uint j)
+{
+    PRINTF("Test many args (handler #2): "
+           "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d",
+           a, b, c, d, e, f, g, h, i, j);
+}
+
+/* Enables full decoding */
 dr_emit_flags_t
 empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                bool for_trace, bool translating)
@@ -182,6 +356,7 @@ empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
+/* Truncates every basic block to the length specified in the CL option (see dr_init) */
 dr_emit_flags_t
 bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
@@ -189,24 +364,12 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
     uint app_instruction_count = 0;
     instr_t *next, *instr = instrlist_first(bb);
 
-#ifdef WINDOWS
-    app_pc fragment = dr_fragment_app_pc(tag);
-
-    if ((fragment == skip_truncation[0]) || (fragment == skip_truncation[1])) // || (tag == (app_pc) 0x776cc442) || (tag == (app_pc) 0x769d1d17))
-        dr_printf("foo\n");
-        //return DR_EMIT_DEFAULT;
-#endif
-
-    //dr_printf(PFX": ", tag);
-
     while (instr != NULL) {
         next = instr_get_next(instr);
         if (!instr_is_meta(instr)) {
-            if (app_instruction_count == BB_TRUNCATION_LENGTH) {
+            if (app_instruction_count == bb_truncation_length) {
                 instrlist_remove(bb, instr);
                 instr_destroy(drcontext, instr);
-                //test_stats.num_instructions_truncated++;
-                //truncated = true;
             } else {
                 app_instruction_count++;
             }
@@ -217,13 +380,7 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
-static void
-register_call(const char *annotation, void *target, uint num_args)
-{
-    dr_annotation_register_call(annotation, target, false, num_args,
-                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
-}
-
+/* Report the history of "analysis mode" changes and clean up local allocations */
 static void
 event_exit(void)
 {
@@ -235,13 +392,21 @@ event_exit(void)
 
         for (i = 1; i < context->mode_history_index; i++) {
             PRINTF("In context %d at event %d, the mode changed from %d to %d",
-                context->id, i, context->mode_history[i-1], context->mode_history[i]);
+                   context->id, i, context->mode_history[i-1], context->mode_history[i]);
         }
         PRINTF("Context '%s' terminates in mode %d",
                context->label, context->mode);
     }
 
+#if !(defined (WINDOWS) && defined (X64))
+    ASSERT(mem_defines->v1 > MIN_MEM_DEFINES);
+    ASSERT(mem_defines->v2 > MIN_MEM_DEFINES);
+    ASSERT(mem_defines->v3 > MIN_MEM_DEFINES);
+    ASSERT(mem_defines->v4 > MIN_MEM_DEFINES);
+#endif
+
     dr_mutex_destroy(context_lock);
+    dr_mutex_destroy(write_lock);
     for (context = context_list->head; context != NULL; context = next) {
         next = context->next;
 
@@ -250,16 +415,19 @@ event_exit(void)
         dr_global_free(context, sizeof(context_t));
     }
     dr_global_free(context_list, sizeof(context_list_t));
-
-#ifdef WINDOWS
-    dr_global_free(skip_truncation, 2 * sizeof(app_pc));
+#if !(defined (WINDOWS) && defined (X64))
+    dr_global_free(mem_defines, sizeof(mem_defines_t));
 #endif
 }
 
+/* Parse CL options and register DR event handlers and annotation handlers */
 DR_EXPORT void
 dr_init(client_id_t id)
 {
     const char *options = dr_get_options(id);
+
+    context_lock = dr_mutex_create();
+    write_lock = dr_mutex_create();
 
 # ifdef WINDOWS
     dr_enable_console_printing();
@@ -268,46 +436,49 @@ dr_init(client_id_t id)
     client_id = id;
 
     if (strcmp(options, "full-decode") == 0) {
-        PRINT("Init annotation test client with full decoding");
+        PRINTF("Init annotation test client with full decoding");
         dr_register_bb_event(empty_bb_event);
-    } else if (strcmp(options, "truncate") == 0) {
-        PRINT("Init annotation test client with bb truncation");
+    } else if (strlen(options) >= 8 && strncmp(options, "truncate", 8) == 0) {
+        bb_truncation_length = (options[9] - '0'); /* format is "truncate@n" (0<n<10) */
+        ASSERT(bb_truncation_length < 10 && bb_truncation_length > 0);
+        PRINTF("Init annotation test client with bb truncation");
         dr_register_bb_event(bb_event_truncate);
     } else {
-        PRINT("Init annotation test client with fast decoding");
+        PRINTF("Init annotation test client with fast decoding");
     }
-
-    context_lock = dr_mutex_create();
 
     context_list = dr_global_alloc(sizeof(context_list_t));
     memset(context_list, 0, sizeof(context_list_t));
 
-#ifdef WINDOWS
-    skip_truncation = dr_global_alloc(2 * sizeof(app_pc));
-    memset(skip_truncation, 0, 2 * sizeof(app_pc));
+#if !(defined (WINDOWS) && defined (X64))
+    mem_defines = dr_global_alloc(sizeof(mem_defines_t));
+    memset(mem_defines, 0, sizeof(mem_defines_t));
 #endif
 
     dr_register_exit_event(event_exit);
-    dr_register_module_load_event(event_module_load);
 
     register_call("test_annotation_init_mode", (void *) init_mode, 1);
     register_call("test_annotation_init_context", (void *) init_context, 3);
+    register_call("test_annotation_get_mode", (void *) get_mode, 1);
     register_call("test_annotation_set_mode", (void *) set_mode, 2);
-    register_call("test_annotation_eight_args", (void *) test_eight_args, 8);
-    register_call("test_annotation_nine_args", (void *) test_nine_args, 9);
-    register_call("test_annotation_ten_args", (void *) test_ten_args, 10);
+#if !(defined (WINDOWS) && defined (X64))
+    register_call("test_annotation_rotate_valgrind_handler",
+                  (void *) rotate_valgrind_handler, 1);
+#endif
 
+    register_call("test_annotation_eight_args", (void *) test_eight_args_v1, 8);
+    register_call("test_annotation_eight_args", (void *) test_eight_args_v2, 8);
+    /* Test removing the last handler */
+    dr_annotation_unregister_call("test_annotation_eight_args", test_eight_args_v1);
+
+    register_call("test_annotation_nine_args", (void *) test_nine_args_v1, 9);
+    register_call("test_annotation_nine_args", (void *) test_nine_args_v2, 9);
+    /* Test removing the first handler */
+    dr_annotation_unregister_call("test_annotation_nine_args", test_nine_args_v2);
+
+    /* Test multiple handlers */
+    register_call("test_annotation_ten_args", (void *) test_ten_args_v1, 10);
+    register_call("test_annotation_ten_args", (void *) test_ten_args_v2, 10);
+
+    dr_annotation_register_return("test_annotation_get_client_version", (void *) "2.2.8");
 }
-
-/*
-� Register by addr
-� Unregister by name
-� Register by name
-� Unregister by addr
-� Unregister Valgrind annots
-� Unregister return
-� Register return by name
-
-By name un/register: execute existing in loaded module, also load module and execute
-By addr un/register: execute
-*/

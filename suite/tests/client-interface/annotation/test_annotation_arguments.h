@@ -38,8 +38,7 @@
 #define TEST_ANNOTATION_TWO_ARGS(a, b, native_version) \
     DR_ANNOTATION_OR_NATIVE(test_annotation_two_args, native_version, a, b)
 
-#define TEST_ANNOTATION_THREE_ARGS(a, b, c) \
-    test_annotation_three_args(a, b, c)
+#define TEST_ANNOTATION_THREE_ARGS(a, b, c) test_annotation_three_args(a, b, c)
 
 #define TEST_ANNOTATION_EIGHT_ARGS(a, b, c, d, e, f, g, h) \
     DR_ANNOTATION(test_annotation_eight_args, a, b, c, d, e, f, g, h)
@@ -54,24 +53,25 @@
 extern "C" {
 #endif
 
-DR_DECLARE_ANNOTATION(void, test_annotation_two_args, (unsigned int a,
-    unsigned int b));
+DR_DECLARE_ANNOTATION(void, test_annotation_two_args,
+                      (unsigned int a, unsigned int b));
 
-DR_DECLARE_ANNOTATION(int, test_annotation_three_args, (unsigned int a,
-    unsigned int b, unsigned int c));
+DR_DECLARE_ANNOTATION(int, test_annotation_three_args,
+                      (unsigned int a, unsigned int b, unsigned int c));
 
-DR_DECLARE_ANNOTATION(void, test_annotation_eight_args, (unsigned int a,
-    unsigned int b, unsigned int c, unsigned int d, unsigned int e,
-    unsigned int f, unsigned int g, unsigned int h));
+DR_DECLARE_ANNOTATION(void, test_annotation_eight_args,
+                      (unsigned int a, unsigned int b, unsigned int c, unsigned int d,
+                       unsigned int e, unsigned int f, unsigned int g, unsigned int h));
 
-DR_DECLARE_ANNOTATION(void, test_annotation_nine_args, (unsigned int a,
-    unsigned int b, unsigned int c, unsigned int d, unsigned int e,
-    unsigned int f, unsigned int g, unsigned int h, unsigned int i));
+DR_DECLARE_ANNOTATION(void, test_annotation_nine_args,
+                      (unsigned int a, unsigned int b, unsigned int c, unsigned int d,
+                       unsigned int e, unsigned int f, unsigned int g, unsigned int h,
+                       unsigned int i));
 
-DR_DECLARE_ANNOTATION(void, test_annotation_ten_args, (unsigned int a,
-    unsigned int b, unsigned int c, unsigned int d, unsigned int e,
-    unsigned int f, unsigned int g, unsigned int h, unsigned int i,
-    unsigned int j));
+DR_DECLARE_ANNOTATION(void, test_annotation_ten_args,
+                      (unsigned int a, unsigned int b, unsigned int c, unsigned int d,
+                       unsigned int e, unsigned int f, unsigned int g, unsigned int h,
+                       unsigned int i, unsigned int j));
 
 #ifdef __cplusplus
 }

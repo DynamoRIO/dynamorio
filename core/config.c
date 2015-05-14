@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -734,6 +734,32 @@ get_unqualified_parameter(const char *name, char *value, int maxlen)
     /* we don't use qualified names w/ our config files yet */
     return get_parameter(name, value, maxlen);
 }
+
+# ifdef UNIX
+/* Handle rununder values (Windows does this in systemwide_should_inject() and
+ * has more complex logic as it has more options).
+ */
+bool
+should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env,
+                            bool *rununder_on OUT)
+{
+    int rununder;
+    *rununder_on = false;
+    if (runstr == NULL || runstr[0] == '\0')
+        return false;
+    /* decimal only for now */
+    if (sscanf(runstr, "%d", &rununder) != 1)
+        return false;
+    /* env var counts as app-specific */
+    if (!app_specific && !from_env) {
+        if (TEST(RUNUNDER_ALL, rununder))
+            *rununder_on = true;
+    } else if (TEST(RUNUNDER_ON, rununder))
+        *rununder_on = true;
+    /* Linux ignores RUNUNDER_EXPLICIT, RUNUNDER_COMMANDLINE_*, RUNUNDER_ONCE */
+    return true;
+}
+# endif
 
 #else /* !PARAMS_IN_REGISTRY around whole file */
 

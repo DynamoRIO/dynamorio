@@ -36,11 +36,11 @@
  * shared between core & tools/nudgeunix.c
  */
 
+#include "configure.h"
 #include <string.h>
 #include <unistd.h>
-#include <syscall.h>
+#include "syscall.h"
 
-#include "configure.h"
 #include "globals_shared.h"
 #ifndef NOT_DYNAMORIO_CORE
 # include "../globals.h" /* for arch_exports.h for dynamorio_syscall */

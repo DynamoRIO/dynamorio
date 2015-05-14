@@ -373,11 +373,12 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         push     REG_XBX
         push     REG_XBP /* alignment doesn't matter: swapping stacks */
 # ifdef WINDOWS
-        /* DrMem i#1676: we have to preserve the app's TEB stack fields */
+        /* DrMi#1676: we have to preserve the app's TEB stack fields.
+         * DrMi#1723: we no longer swap StackLimit == BASE_STACK_TIB_OFFSET.
+         * See SWAP_TEB_STACKLIMIT().
+         */
         push     REG_XSI
-        push     REG_XDI
         mov      REG_XSI, SEG_TLS:[TOP_STACK_TIB_OFFSET]
-        mov      REG_XDI, SEG_TLS:[BASE_STACK_TIB_OFFSET]
 # endif
         mov      REG_XBX, REG_XAX
         mov      REG_XBP, REG_XSP
@@ -386,14 +387,8 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      SCRATCH2, [1*ARG_SZ + REG_XAX] /* drcontext */
         RESTORE_FROM_DCONTEXT_VIA_REG(SCRATCH2, dstack_OFFSET, REG_XSP)
 # ifdef WINDOWS
-        /* DrMem i#1676: update TEB stack fields for Win8.1.
-         * XXX: to avoid this cost on pre-Win8.1 we could change this to become
-         * a gencode routine.
-         */
+        /* DrMem i#1676: update TEB stack top field for Win8.1. */
         mov      SEG_TLS:[TOP_STACK_TIB_OFFSET], REG_XSP
-        mov      SCRATCH2, REG_XSP
-        sub      SCRATCH2, DYNAMORIO_STACK_SIZE_UPPER_BOUND
-        mov      SEG_TLS:[BASE_STACK_TIB_OFFSET], SCRATCH2
 # endif
         STACK_PAD_NOPUSH(8, 4, 0)
         mov      SCRATCH2, [10*ARG_SZ + REG_XAX]
@@ -420,8 +415,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 # ifdef WINDOWS
         /* DrMem i#1676: we have to preserve the app's TEB stack fields */
         mov      SEG_TLS:[TOP_STACK_TIB_OFFSET], REG_XSI
-        mov      SEG_TLS:[BASE_STACK_TIB_OFFSET], REG_XDI
-        pop      REG_XDI
         pop      REG_XSI
 # endif
         pop      REG_XBP
@@ -1157,23 +1150,50 @@ GLOBAL_LABEL(client_int_syscall:)
 /* i#47: Early injection _start routine.  The kernel sets all registers to zero
  * except the SP and PC.  The stack has argc, argv[], envp[], and the auxiliary
  * vector laid out on it.
+ * If we reload ourselves (i#1227) we'll set xdi and xsi to the base and size
+ * of the old library that needs to be unmapped.
  */
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
 # ifdef X64
+        /* Reverse order to avoid clobbering */
+        mov     ARG3, REG_XSI
+        mov     ARG2, REG_XDI
         mov     ARG1, REG_XSP
 # else
         mov     REG_XAX, REG_XSP
 #  ifdef MACOS
-        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+        lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
 #  endif
+        push    REG_XSI
+        push    REG_XDI
         push    REG_XAX
 # endif
         CALLC0(GLOBAL_REF(privload_early_inject))
         jmp     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 #endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
+
+
+/* i#1227: on a conflict with the app we reload ourselves.
+ * xfer_to_new_libdr(entry, init_sp, cur_dr_map, cur_dr_size)
+ * =>
+ * Invokes entry after setting sp to init_sp and placing the current (old)
+ * libdr bounds in registers for the new libdr to unmap.
+ */
+        DECLARE_FUNC(xfer_to_new_libdr)
+GLOBAL_LABEL(xfer_to_new_libdr:)
+        /* Get the args */
+        mov     REG_XAX, ARG1
+        mov     REG_XBX, ARG2
+        /* _start looks in xdi and xsi for these */
+        mov     REG_XDI, ARG3
+        mov     REG_XSI, ARG4
+        /* Restore sp */
+        mov     REG_XSP, REG_XBX
+        jmp     REG_XAX
+        END_FUNC(xfer_to_new_libdr)
 #endif /* LINUX */
 
 /* while with pre-2.6.9 kernels we were able to rely on the kernel's
@@ -1735,7 +1755,6 @@ GLOBAL_LABEL(native_plt_call:)
  *
  * int dr_try_start(try_except_context_t *cxt) ;
  */
-# define TRY_CXT_SETJMP_OFFS 0 /* offsetof(try_except_context_t, context) */
         DECLARE_EXPORTED_FUNC(dr_try_start)
 GLOBAL_LABEL(dr_try_start:)
         add      ARG1, TRY_CXT_SETJMP_OFFS

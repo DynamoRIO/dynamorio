@@ -910,19 +910,39 @@ dispatch_exit_fcache(dcontext_t *dcontext)
     /* case 7966: no distinction of islinking-ness for hotp_only & thin_client */
     ASSERT(RUNNING_WITHOUT_CODE_CACHE() || is_couldbelinking(dcontext));
 
-#if defined(WINDOWS) && defined (CLIENT_INTERFACE)
-    ASSERT(!is_dynamo_address(dcontext->app_fls_data));
-    ASSERT(dcontext->app_fls_data == NULL ||
-           dcontext->app_fls_data != dcontext->priv_fls_data);
-    ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
-    ASSERT(dcontext->app_nt_rpc == NULL ||
-           dcontext->app_nt_rpc != dcontext->priv_nt_rpc);
-    ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
-    ASSERT(!is_dynamo_address(dcontext->app_stack_limit) || IS_CLIENT_THREAD(dcontext));
-    ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
-           IS_CLIENT_THREAD(dcontext));
-    ASSERT(dcontext->app_nls_cache == NULL ||
-           dcontext->app_nls_cache != dcontext->priv_nls_cache);
+#if defined(WINDOWS) && defined (CLIENT_INTERFACE) && defined(DEBUG)
+    if (should_swap_peb_pointer()) {
+        ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+        ASSERT(dcontext->app_fls_data == NULL ||
+               dcontext->app_fls_data != dcontext->priv_fls_data);
+        ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
+        ASSERT(dcontext->app_nt_rpc == NULL ||
+               dcontext->app_nt_rpc != dcontext->priv_nt_rpc);
+        ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
+        ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
+               IS_CLIENT_THREAD(dcontext));
+        ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
+               IS_CLIENT_THREAD(dcontext));
+        ASSERT((SWAP_TEB_STACKBASE() &&
+                is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET)-1)) ||
+               (!SWAP_TEB_STACKBASE() &&
+                !is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET)-1)));
+        ASSERT((SWAP_TEB_STACKLIMIT() &&
+                is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))) ||
+               (!SWAP_TEB_STACKLIMIT() &&
+                !is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))));
+        /* DrMi#1723: ensure client hitting app guard page updated TEB.StackLimit.
+         * Unfortunately this does happen with fiber code that updates TEB before
+         * swapping the stack in the next bb so we make it a curiosity.
+         */
+        ASSERT_CURIOSITY_ONCE
+            ((SWAP_TEB_STACKLIMIT() &&
+              get_mcontext(dcontext)->xsp >= (reg_t)dcontext->app_stack_limit) ||
+             (!SWAP_TEB_STACKLIMIT() &&
+              get_mcontext(dcontext)->xsp >= (reg_t)get_tls(BASE_STACK_TIB_OFFSET)));
+        ASSERT(dcontext->app_nls_cache == NULL ||
+               dcontext->app_nls_cache != dcontext->priv_nls_cache);
+    }
 #endif
 
     if (LINKSTUB_INDIRECT(dcontext->last_exit->flags)) {
@@ -1315,7 +1335,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
                 TEST(LINK_RETURN, dcontext->last_exit->flags) ? "ret" :
                 EXIT_IS_CALL(dcontext->last_exit->flags) ? "call*" : "jmp*");
         } else {
-            ASSERT(!DYNAMO_OPTION(indirect_stubs));
+            /* We can get here for -indirect_stubs via client special ibl */
             LOG(THREAD, LOG_DISPATCH, 2, "Exit from sourceless ibl: %s %s",
                 TEST(FRAG_IS_TRACE, last_f->flags) ? "trace" : "bb",
                 TEST(LINK_RETURN, dcontext->last_exit->flags) ? "ret" :
@@ -1994,6 +2014,10 @@ handle_post_system_call(dcontext_t *dcontext)
         skip_adjust = true;
 # endif
     }
+#endif
+#ifdef CLIENT_INTERFACE
+    /* i#1661: ensure we set the right pc for dr_get_mcontext() */
+    get_mcontext(dcontext)->pc = dcontext->asynch_target;
 #endif
 
     post_system_call(dcontext);

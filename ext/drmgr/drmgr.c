@@ -148,6 +148,13 @@ typedef struct _cb_list_t {
 #define EVENTS_INITIAL_SZ 10
 #define EVENTS_STACK_SZ 16
 
+/* Our own TLS data */
+typedef struct _per_thread_t {
+    drmgr_bb_phase_t cur_phase;
+    instr_t *first_app;
+    instr_t *last_app;
+} per_thread_t;
+
 /***************************************************************************
  * GLOBALS
  */
@@ -175,8 +182,7 @@ static const drmgr_priority_t default_priority = {
     sizeof(default_priority), "__DEFAULT__", NULL, NULL, 0
 };
 
-/* We store the current bb phase in a TLS slot. */
-static int tls_idx_bb_phase;
+static int our_tls_idx;
 
 static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
@@ -309,6 +315,12 @@ static void
 drmgr_cls_exit(void);
 #endif
 
+static void
+our_thread_init_event(void *drcontext);
+
+static void
+our_thread_exit_event(void *drcontext);
+
 /***************************************************************************
  * INIT
  */
@@ -358,7 +370,10 @@ drmgr_init(void)
     drmgr_bb_init();
     drmgr_event_init();
 
-    tls_idx_bb_phase = drmgr_register_tls_field();
+    our_tls_idx = drmgr_register_tls_field();
+    if (!drmgr_register_thread_init_event(our_thread_init_event) ||
+        !drmgr_register_thread_exit_event(our_thread_exit_event))
+        return false;
 
     return true;
 }
@@ -372,7 +387,9 @@ drmgr_exit(void)
     if (count != 0)
         return;
 
-    drmgr_unregister_tls_field(tls_idx_bb_phase);
+    drmgr_unregister_tls_field(our_tls_idx);
+    drmgr_unregister_thread_init_event(our_thread_init_event);
+    drmgr_unregister_thread_exit_event(our_thread_exit_event);
 
     drmgr_bb_exit();
     drmgr_event_exit();
@@ -565,6 +582,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     cb_list_t iter_app2app;
     cb_list_t iter_insert;
     cb_list_t iter_instru;
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
 
     dr_rwlock_read_lock(bb_cb_lock);
     /* We use arrays to more easily support unregistering while in an event (i#1356).
@@ -589,8 +607,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     /* XXX: better to avoid all this set_tls overhead and assume DR is globally
      * synchronizing bb building anyway and use a global var + mutex?
      */
-    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
-                        (void *)(ptr_int_t)DRMGR_PHASE_APP2APP);
+    pt->cur_phase = DRMGR_PHASE_APP2APP;
     for (quartet_idx = 0, i = 0; i < iter_app2app.num; i++) {
         e = &iter_app2app.cbs.bb[i];
         if (!e->pri.valid)
@@ -604,8 +621,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* Pass 2: analysis */
-    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
-                        (void *)(ptr_int_t)DRMGR_PHASE_ANALYSIS);
+    pt->cur_phase = DRMGR_PHASE_ANALYSIS;
     for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num; i++) {
         e = &iter_insert.cbs.bb[i];
         if (!e->pri.valid)
@@ -627,9 +643,13 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* Pass 3: instru, per instr */
-    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
-                        (void *)(ptr_int_t)DRMGR_PHASE_INSERTION);
+    pt->cur_phase = DRMGR_PHASE_INSERTION;
+    pt->first_app = instrlist_first(bb);
+    pt->last_app = instrlist_last(bb);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
+#ifdef ARM
+        instr_t *prev = instr_get_prev(inst);
+#endif
         next_inst = instr_get_next(inst);
         for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num; i++) {
             e = &iter_insert.cbs.bb[i];
@@ -650,11 +670,25 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             }
             /* XXX: add checks that cb followed the rules */
         }
+#ifdef ARM
+        /* We auto-magically predicate instrumentation inserted prior to a
+         * predicated app instr, in Thumb mode.
+         * XXX: we should add a mechanism to avoid this for particular instru!
+         * Add a custom dr_emit_flags_t return value?
+         */
+        if (instr_get_isa_mode(inst) == DR_ISA_ARM_THUMB &&
+            instr_is_predicated(inst) && !instr_is_cbr(inst)) {
+            prev = (prev == NULL) ? instrlist_first(bb) : instr_get_next(prev);
+            for (; prev != inst && prev != NULL; prev = instr_get_next(prev)) {
+                if (!instr_is_app(prev))
+                    instr_set_predicate(prev, instr_get_predicate(inst));
+            }
+        }
+#endif
     }
 
     /* Pass 4: final */
-    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
-                        (void *)(ptr_int_t)DRMGR_PHASE_INSTRU2INSTRU);
+    pt->cur_phase = DRMGR_PHASE_INSTRU2INSTRU;
     for (quartet_idx = 0, i = 0; i < iter_instru.num; i++) {
         e = &iter_instru.cbs.bb[i];
         if (!e->pri.valid)
@@ -670,8 +704,20 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     /* Pass 5: our private pass to support multiple non-meta ctis in app2app phase */
     drmgr_fix_app_ctis(drcontext, bb);
 
-    drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
-                        (void *)(ptr_int_t)DRMGR_PHASE_NONE);
+#ifdef ARM
+    /* Pass 6: private pass to legalize conditional Thumb instrs.
+     * Xref various discussions about removing IT instrs earlier, but there's a
+     * conflict w/ tools who want to see the original instr stream and it's not
+     * clear *when* to remove them.  Thus, we live w/ an inconsistent state
+     * until this point.
+     */
+    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
+        dr_remove_it_instrs(drcontext, bb);
+        dr_insert_it_instrs(drcontext, bb);
+    }
+#endif
+
+    pt->cur_phase = DRMGR_PHASE_NONE;
 
     if (pair_count > 0)
         dr_thread_free(drcontext, pair_data, sizeof(void*)*pair_count);
@@ -876,6 +922,7 @@ static bool
 drmgr_bb_cb_remove(cb_list_t *list,
                    drmgr_xform_cb_t xform_func,
                    drmgr_analysis_cb_t analysis_func,
+                   drmgr_insertion_cb_t insertion_func,
                    /* for quartet */
                    drmgr_app2app_ex_cb_t app2app_ex_func,
                    drmgr_ilist_ex_cb_t analysis_ex_func,
@@ -886,6 +933,8 @@ drmgr_bb_cb_remove(cb_list_t *list,
     ASSERT(list != NULL, "invalid internal params");
     ASSERT((xform_func != NULL && analysis_func == NULL) ||
            (xform_func == NULL && analysis_func != NULL) ||
+           (xform_func == NULL && analysis_func == NULL &&
+            insertion_func != NULL) ||
            (xform_func == NULL && analysis_func == NULL &&
             (app2app_ex_func != NULL ||
              analysis_ex_func != NULL ||
@@ -898,6 +947,7 @@ drmgr_bb_cb_remove(cb_list_t *list,
             continue;
         if ((xform_func != NULL && xform_func == e->cb.xform_cb) ||
             (analysis_func != NULL && analysis_func == e->cb.pair.analysis_cb) ||
+            (insertion_func != NULL && insertion_func == e->cb.pair.insertion_cb) ||
             (app2app_ex_func != NULL && app2app_ex_func == e->cb.app2app_ex_cb) ||
             (analysis_ex_func != NULL &&
              analysis_ex_func == e->cb.pair_ex.analysis_ex_cb) ||
@@ -947,7 +997,7 @@ drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -956,7 +1006,18 @@ drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL,
+                              NULL, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_bb_insertion_event(drmgr_insertion_cb_t func)
+{
+    if (func == NULL)
+        return false; /* invalid params */
+    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, func, NULL, NULL,
+                              NULL);
 }
 
 DR_EXPORT
@@ -965,7 +1026,7 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -979,11 +1040,11 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
     if (app2app_func == NULL || analysis_func == NULL || insertion_func == NULL ||
         instru2instru_func == NULL)
         return false; /* invalid params */
-    ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, app2app_func,
+    ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, NULL, app2app_func,
                             NULL, NULL) && ok;
-    ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL,
+    ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL, NULL,
                             analysis_func, NULL) && ok;
-    ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL,
+    ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL, NULL,
                             NULL, instru2instru_func) && ok;
     return ok;
 }
@@ -992,8 +1053,39 @@ DR_EXPORT
 drmgr_bb_phase_t
 drmgr_current_bb_phase(void *drcontext)
 {
-    return (drmgr_bb_phase_t)(ptr_int_t)
-        drmgr_get_tls_field(drcontext, tls_idx_bb_phase);
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
+    return pt->cur_phase;
+}
+
+DR_EXPORT
+bool
+drmgr_is_first_instr(void *drcontext, instr_t *instr)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
+    return instr == pt->first_app;
+}
+
+DR_EXPORT
+bool
+drmgr_is_last_instr(void *drcontext, instr_t *instr)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
+    return instr == pt->last_app;
+}
+
+static void
+our_thread_init_event(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *) dr_thread_alloc(drcontext, sizeof(*pt));
+    memset(pt, 0, sizeof(*pt));
+    drmgr_set_tls_field(drcontext, our_tls_idx, (void *) pt);
+}
+
+static void
+our_thread_exit_event(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
+    dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
 /***************************************************************************

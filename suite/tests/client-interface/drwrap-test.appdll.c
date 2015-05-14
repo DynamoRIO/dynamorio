@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -271,15 +271,17 @@ DECL_EXTERN(level2)
 #define FUNCNAME makes_tailcall
         DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-# if defined(UNIX) && defined(X64)
+# if defined(UNIX) && defined(X64) && !defined(ARM)
         push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
         call     PTRSZ SYMREF(level2_ptr)
         pop      REG_XBP
         ret
 # else
-        jmp      level2
+        JUMP     level2
 # endif
+# ifndef ARM
         ret /* won't get here */
+# endif
         END_FUNC(FUNCNAME)
 
 END_FILE

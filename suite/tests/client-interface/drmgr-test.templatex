@@ -1,10 +1,11 @@
 in pre_sys_B
 in pre_sys_A
+/* B is here with late injection */
+in post_sys_B
+in post_sys_A
 #ifdef UNIX
 B
 #endif
-in post_sys_B
-in post_sys_A
 #ifdef WINDOWS
 About to create thread
 in wnd_callback 0x0*0000024 0

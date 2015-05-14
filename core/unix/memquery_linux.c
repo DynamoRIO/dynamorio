@@ -110,6 +110,9 @@ static char comment_buf_iter[BUFSIZE];
 void
 memquery_init(void)
 {
+    /* XXX: if anything substantial is added here, the memquery use
+     * in privload_early_inject() will have to be re-evaluated.
+     */
     ASSERT(sizeof(maps_iter_t) <= MEMQUERY_INTERNAL_DATA_LEN);
 }
 

@@ -39,8 +39,7 @@
  *
  * Note that when printing out instructions:
  * Uses DR syntax of "srcs -> dsts" including implicit operands, unless
- * -syntax_att (AT&T syntax) or -syntax_intel (Intel syntax) is specified.
- * See the info pages for "as" for details on the differences.
+ * a -syntax_* runtime option is specified or disassemble_set_syntax() is called.
  */
 
 /*
@@ -98,27 +97,22 @@ void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd);
 
-int
-opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
-                          instr_t *instr, int idx);
+bool
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd);
 
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
-                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings);
-
-const char *
-instr_opcode_name_arch(instr_t *instr, const instr_info_t *info);
-
-const char *
-instr_opcode_name_suffix_arch(instr_t *instr);
+                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings,
+                            bool dst, int *idx INOUT);
 
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
                      char *buf, size_t bufsz, size_t *sofar INOUT);
 
-int
-print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT);
+void
+print_opcode_name(instr_t *instr, const char *name,
+                  char *buf, size_t bufsz, size_t *sofar INOUT);
 
 /****************************************************************************
  * Printing of instructions
@@ -135,6 +129,9 @@ disassemble_options_init(void)
     if (DYNAMO_OPTION(syntax_att)) {
         flags |= DR_DISASM_ATT;
         flags &= ~DR_DISASM_INTEL; /* mutually exclusive */
+    }
+    if (DYNAMO_OPTION(syntax_arm)) {
+        flags |= DR_DISASM_ARM;
     }
     /* This option is separate as it's not strictly a disasm style */
     dynamo_options.decode_strict = TEST(DR_DISASM_STRICT_INVALID, flags);
@@ -158,6 +155,12 @@ disassemble_set_syntax(dr_disasm_flags_t flags)
 #endif
 }
 
+static inline bool
+dsts_first(void)
+{
+    return TESTANY(DR_DISASM_INTEL|DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask));
+}
+
 static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                            dcontext_t *dcontext, instr_t *instr);
@@ -165,7 +168,8 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 static inline const char *
 immed_prefix(void)
 {
-    return (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "" : "$");
+    return (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "" :
+            (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)) ? "#" : "$"));
 }
 
 void
@@ -174,8 +178,8 @@ reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                 const char *prefix, const char *suffix)
 {
     print_to_buffer(buf, bufsz, sofar,
-                    TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "%s%s%s%s" :
-                    "%s%s%%%s%s",
+                    TESTANY(DR_DISASM_INTEL|DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)) ?
+                    "%s%s%s%s" : "%s%s%%%s%s",
                     prefix, TEST(DR_OPND_NEGATED, flags) ? "-" : "",
                     reg_names[reg], suffix);
 }
@@ -248,8 +252,7 @@ opnd_size_suffix_intel(opnd_t opnd)
 }
 
 static void
-opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            dcontext_t *dcontext, opnd_t opnd)
+opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
     if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
         const char *size_str = opnd_size_suffix_intel(opnd);
@@ -257,25 +260,25 @@ opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT,
             print_to_buffer(buf, bufsz, sofar, "%s ptr [", size_str);
         else /* assume size implied by opcode */
             print_to_buffer(buf, bufsz, sofar, "[");
+    } else if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
+        print_to_buffer(buf, bufsz, sofar, "[");
     }
-
 }
 
 static void
-opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                           dcontext_t *dcontext, opnd_t opnd)
+opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
     reg_id_t seg = opnd_get_segment(opnd);
     reg_id_t base = opnd_get_base(opnd);
     int disp = opnd_get_disp(opnd);
     reg_id_t index = opnd_get_index(opnd);
 
-    opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
+    opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
 
     if (seg != REG_NULL)
         reg_disassemble(buf, bufsz, sofar, seg, 0, "", ":");
 
-    if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
+    if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
         if (base != REG_NULL)
             reg_disassemble(buf, bufsz, sofar, base, 0, "", "");
         if (index != REG_NULL) {
@@ -297,17 +300,21 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             /* windbg negates if top byte is 0xff
              * for x64 udis86 negates if at all negative
              */
+            if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
+                print_to_buffer(buf, bufsz, sofar, ", #");
             if (IF_X64_ELSE(disp < 0, (disp & 0xff000000) == 0xff000000)) {
                 disp = -disp;
                 print_to_buffer(buf, bufsz, sofar, "-");
             } else if (base != REG_NULL || index != REG_NULL) {
                 if (TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)))
                     print_to_buffer(buf, bufsz, sofar, "-");
-                else
+                else if (!TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
                     print_to_buffer(buf, bufsz, sofar, "+");
             }
         }
-        if (disp >= INT8_MIN && disp <= INT8_MAX &&
+        if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
+            print_to_buffer(buf, bufsz, sofar, "%d", disp);
+        else if (disp >= INT8_MIN && disp <= INT8_MAX &&
             !opnd_is_disp_force_full(opnd))
             print_to_buffer(buf, bufsz, sofar, "0x%02x", disp);
         else if (opnd_is_disp_short_addr(opnd))
@@ -316,7 +323,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             print_to_buffer(buf, bufsz, sofar, "0x%08x", disp);
     }
 
-    if (!TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
+    if (!TESTANY(DR_DISASM_INTEL|DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
         if (base != REG_NULL || index != REG_NULL) {
             print_to_buffer(buf, bufsz, sofar, "(");
             if (base != REG_NULL)
@@ -329,7 +336,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         }
     }
 
-    if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)))
+    if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
         print_to_buffer(buf, bufsz, sofar, "]");
 }
 
@@ -524,6 +531,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                           dcontext_t *dcontext, opnd_t opnd,
                           bool use_size_sfx)
 {
+    if (opnd_disassemble_arch(buf, bufsz, sofar, opnd))
+        return;
+
     switch (opnd.kind) {
     case NULL_kind:
         return;
@@ -543,7 +553,10 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
              * We rely on instr_disassemble to temporarily change operand
              * size to sign-extend to match the size of adjacent operands.
              */
-            if (sz <= 1) {
+            if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
+                print_to_buffer(buf, bufsz, sofar, "%s%s%d", immed_prefix(),
+                                sign, (uint)val);
+            } else if (sz <= 1) {
                 print_to_buffer(buf, bufsz, sofar, "%s%s0x%02x", immed_prefix(),
                                 sign, (uint)((byte)val));
             } else if (sz <= 2) {
@@ -606,14 +619,14 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         opnd_get_flags(opnd), "", "");
         break;
     case BASE_DISP_kind:
-        opnd_base_disp_disassemble(buf, bufsz, sofar, dcontext, opnd);
+        opnd_base_disp_disassemble(buf, bufsz, sofar, opnd);
         break;
 #ifdef X64
     case REL_ADDR_kind:
         print_to_buffer(buf, bufsz, sofar, "<rel> ");
         /* fall-through */
     case ABS_ADDR_kind:
-        opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
+        opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
         if (opnd_get_segment(opnd) != REG_NULL)
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", ":");
         print_to_buffer(buf, bufsz, sofar, PFX"%s", opnd_get_addr(opnd),
@@ -644,8 +657,6 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             }
         }
     }
-
-    print_to_buffer(buf, bufsz, sofar, "%s", postop_suffix());
 }
 
 void
@@ -724,8 +735,10 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         next_pc = pc + 4;
     }
 
-    if (with_pc)
-        print_to_buffer(buf, bufsz, sofar, "  "PFX" ", orig_pc);
+    if (with_pc) {
+        print_to_buffer(buf, bufsz, sofar, "  "PFX" ",
+                        PC_AS_LOAD_TGT(instr_get_isa_mode(&instr), orig_pc));
+    }
 
     if (with_bytes) {
         extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, &instr);
@@ -866,89 +879,67 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         instr_info_extra_opnds(info) == NULL)
         multiple_encodings = true;
 
-    info = get_encoding_info(instr);
-    if (info == NULL) {
-        print_to_buffer(buf, bufsz, sofar, "<INVALID>");
-        return;
-    }
-    num = TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ?
-        instr_num_dsts(instr) : instr_num_srcs(instr);
+    IF_X86({ /* XXX i#1683: not using yet on ARM so avoiding the cost */
+        /* XXX: avoid the cost of encoding unless at L4 */
+        info = get_encoding_info(instr);
+        if (info == NULL) {
+            print_to_buffer(buf, bufsz, sofar, "<INVALID>");
+            return;
+        }
+    });
+    num = dsts_first() ? instr_num_dsts(instr) : instr_num_srcs(instr);
     for (i=0; i<num; i++) {
         bool printing;
-        opnd = TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ?
-            instr_get_dst(instr, i) : instr_get_src(instr, i);
-        optype = instr_info_opnd_type(info, !TEST(DR_DISASM_INTEL,
-                                                  DYNAMO_OPTION(disasm_mask)), i);
+        opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
+        IF_X86_ELSE({
+            optype = instr_info_opnd_type(info, !dsts_first(), i);
+        }, {
+            /* XXX i#1683: -syntax_arm currently fails here on register lists and will
+             * trigger the assert in instr_info_opnd_type().  We don't use the optype on
+             * ARM yet though.
+             */
+            optype = 0;
+        });
         printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
                                                instr, optype, opnd, prev,
-                                               multiple_encodings);
+                                               multiple_encodings, dsts_first(), &i);
         /* w/o the "printing" check we suppress "push esp" => "push" */
         if (printing && i < 3)
             optype_already[i] = optype;
         prev = printing || prev;
     }
-    num = TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ?
-        instr_num_srcs(instr) : instr_num_dsts(instr);
+    num = dsts_first() ? instr_num_srcs(instr) : instr_num_dsts(instr);
     for (i=0; i<num; i++) {
-        opnd = TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ?
-            instr_get_src(instr, i) : instr_get_dst(instr, i);
-        optype = instr_info_opnd_type(info, TEST(DR_DISASM_INTEL,
-                                                 DYNAMO_OPTION(disasm_mask)), i);
-        /* PR 312458: still not matching Intel-style tools like windbg or udis86:
-         * we need to suppress certain implicit operands, such as:
-         * - div dx, ax
-         * - imul ax
-         * - idiv edx, eax
-         * - in al
-         */
+        bool print = true;
+        opnd = dsts_first() ? instr_get_src(instr, i) : instr_get_dst(instr, i);
+        IF_X86_ELSE({
+            optype = instr_info_opnd_type(info, dsts_first(), i);
+        }, {
+            /* XXX i#1683: see comment above */
+            optype = 0;
+        });
+        IF_X86({
+            /* PR 312458: still not matching Intel-style tools like windbg or udis86:
+             * we need to suppress certain implicit operands, such as:
+             * - div dx, ax
+             * - imul ax
+             * - idiv edx, eax
+             * - in al
+             */
 
-        /* Don't re-do src==dst of ALU ops */
-        if ((optype != optype_already[0] && optype != optype_already[1] &&
-             optype != optype_already[2]) ||
-            /* Don't suppress 2nd of st* if FP ALU */
-            (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd)))) {
+            /* Don't re-do src==dst of ALU ops */
+            print = ((optype != optype_already[0] && optype != optype_already[1] &&
+                      optype != optype_already[2]) ||
+                     /* Don't suppress 2nd of st* if FP ALU */
+                     (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
+        });
+        if (print) {
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext,
                                                instr, optype, opnd, prev,
-                                               multiple_encodings)
+                                               multiple_encodings, !dsts_first(), &i)
                 || prev;
         }
     }
-}
-
-static const char *
-instr_opcode_name(instr_t *instr, const instr_info_t *info)
-{
-    const char * res = instr_opcode_name_arch(instr, info);
-    if (res != NULL)
-        return res;
-    return info->name;
-}
-
-static const char *
-instr_opcode_name_suffix(instr_t *instr)
-{
-    const char * res = instr_opcode_name_suffix_arch(instr);
-    if (res != NULL)
-        return res;
-    if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) && instr_operands_valid(instr)) {
-        /* XXX: requiring both src and dst.  Ideally we'd wait until we
-         * see if there is a register or in some cases an immed operand
-         * and then go back and add the suffix.  This will do for now.
-         */
-        if (instr_num_srcs(instr) > 0 && !opnd_is_reg(instr_get_src(instr, 0)) &&
-            instr_num_dsts(instr) > 0 && !opnd_is_reg(instr_get_dst(instr, 0))) {
-            uint sz = instr_memory_reference_size(instr);
-            if (sz == 1)
-                return "b";
-            else if (sz == 2)
-                return "w";
-            else if (sz == 4)
-                return "l";
-            else if (sz == 8)
-                return "q";
-        }
-    }
-    return "";
 }
 
 static bool
@@ -1044,11 +1035,12 @@ static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                            dcontext_t *dcontext, instr_t *instr)
 {
-    int i, sz;
+    int i;
     const instr_info_t * info;
     const char * name;
     int name_width = 6;
     bool use_size_sfx = false;
+    size_t offs_pre_name, offs_post_name, offs_pre_opnds;
 
     if (!instr_valid(instr)) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
@@ -1058,22 +1050,20 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         return;
     } else if (instr_opcode_valid(instr)) {
         info = instr_get_instr_info(instr);
-        name = instr_opcode_name(instr, info);
+        name = info->name;
     } else
         name = "<RAW>";
 
     print_instr_prefixes(dcontext, instr, buf, bufsz, sofar);
 
-    print_to_buffer(buf, bufsz, sofar, "%s%s", name, instr_opcode_name_suffix(instr));
-
-    name_width -= print_opcode_suffix(instr, buf, bufsz, sofar);
+    offs_pre_name = *sofar;
+    print_opcode_name(instr, name, buf, bufsz, sofar);
+    offs_post_name = *sofar;
+    name_width -= (int)(offs_post_name - offs_pre_name);
     print_to_buffer(buf, bufsz, sofar, " ");
-
-    IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(strlen(name)),
-                         "instr_disassemble: internal truncation error"));
-    sz = (int) strlen(name) + (int) strlen(instr_opcode_name_suffix(instr));
-    for (i=sz; i<name_width; i++)
+    for (i=0; i<name_width; i++)
         print_to_buffer(buf, bufsz, sofar, " ");
+    offs_pre_opnds = *sofar;
 
     /* operands */
     if (!instr_operands_valid(instr)) {
@@ -1090,8 +1080,14 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         return;
     }
 
-    if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
+    if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT|DR_DISASM_ARM,
+                DYNAMO_OPTION(disasm_mask))) {
         instr_disassemble_opnds_noimplicit(buf, bufsz, sofar, dcontext, instr);
+        /* we avoid trailing spaces if no operands */
+        if (*sofar == offs_pre_opnds) {
+            *sofar = offs_post_name;
+            buf[offs_post_name] = '\0';
+        }
         return;
     }
 
@@ -1099,16 +1095,23 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 
     for (i=0; i<instr_num_srcs(instr); i++) {
         opnd_t src = instr_get_src(instr, i);
+        if (i > 0)
+            print_to_buffer(buf, bufsz, sofar, " ");
         sign_extend_immed(instr, i, &src);
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
-        i = opnd_disassemble_src_arch(buf, bufsz, sofar, instr, i);
     }
     if (instr_num_dsts(instr) > 0) {
-        print_to_buffer(buf, bufsz, sofar, "-> ");
+        print_to_buffer(buf, bufsz, sofar, " ->");
         for (i=0; i<instr_num_dsts(instr); i++) {
+            print_to_buffer(buf, bufsz, sofar, " ");
             internal_opnd_disassemble(buf, bufsz, sofar, dcontext,
                                       instr_get_dst(instr, i), use_size_sfx);
         }
+    }
+    /* we avoid trailing spaces if no operands */
+    if (*sofar == offs_pre_opnds) {
+        *sofar = offs_post_name;
+        buf[offs_post_name] = '\0';
     }
 }
 
@@ -1139,8 +1142,7 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
  * just-decoded instrs, and does not check that the instruction has a
  * valid encoding.  Prints each operand with leading zeros indicating
  * the size.
- * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
- * "-syntax_intel" runtime option is specified.
+ * Uses DR syntax unless otherwise specified (see disassemble_set_syntax()).
  */
 size_t
 instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,

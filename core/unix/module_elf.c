@@ -934,7 +934,8 @@ module_has_text_relocs(app_pc base, bool at_map)
     for (i = 0; i < elf_hdr->e_phnum; i++) {
         if (prog_hdr->p_type == PT_DYNAMIC) {
             dyn = (ELF_DYNAMIC_ENTRY_TYPE *)
-                ((at_map ? prog_hdr->p_offset : prog_hdr->p_vaddr) + load_delta);
+                (at_map ? (base + prog_hdr->p_offset) :
+                 ((app_pc)prog_hdr->p_vaddr + load_delta));
             break;
         }
         prog_hdr++;
@@ -1891,6 +1892,8 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
     initial_map_size = elf->image_size;
     if (INTERNAL_OPTION(separate_private_bss)) {
         /* place an extra no-access page after .bss */
+        /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
+        /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
         initial_map_size += PAGE_SIZE;
     }
     lib_base = (*map_func)(-1, &initial_map_size, 0, map_base,

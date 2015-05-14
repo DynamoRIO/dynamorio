@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -856,8 +856,13 @@ int atomic_swap(volatile int *addr, int value);
         operation##_recursive_lock(&(lock));                                  \
 } while (0)
 /* internal use only */
-#define USE_BB_BUILDING_LOCK_STEADY_STATE()                                  \
-    (DYNAMO_OPTION(shared_bbs) && !INTERNAL_OPTION(single_thread_in_DR))
+/* We need to serialize bbs for thread-private for first-execution module load
+ * events (i#884).
+ */
+extern bool dr_modload_hook_exists(void); /* hard to include instrument.h here */
+#define USE_BB_BUILDING_LOCK_STEADY_STATE()                                   \
+    ((DYNAMO_OPTION(shared_bbs) && !INTERNAL_OPTION(single_thread_in_DR)) ||  \
+     dr_modload_hook_exists())
 /* anyone guarding the bb_building_lock with this must use SHARED_BB_{UN,}LOCK */
 #define USE_BB_BUILDING_LOCK()                                               \
     (USE_BB_BUILDING_LOCK_STEADY_STATE() && bb_lock_start)
@@ -1901,6 +1906,9 @@ extern const char *exception_label_client;
 /* pass NULL to use defaults */
 void
 set_exception_strings(const char *override_label, const char *override_url);
+
+void
+set_display_version(const char *ver);
 
 void
 report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,

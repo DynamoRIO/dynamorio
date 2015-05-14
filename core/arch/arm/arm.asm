@@ -91,6 +91,24 @@ GLOBAL_LABEL(_start:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
+
+
+/* i#1227: on a conflict with the app we reload ourselves.
+ * xfer_to_new_libdr(entry, init_sp, cur_dr_map, cur_dr_size)
+ * =>
+ * Invokes entry after setting sp to init_sp and placing the current (old)
+ * libdr bounds in registers for the new libdr to unmap.
+ */
+        DECLARE_FUNC(xfer_to_new_libdr)
+GLOBAL_LABEL(xfer_to_new_libdr:)
+        mov     r5, ARG1
+        /* Restore sp */
+        mov     sp, ARG2
+        /* _start expects these as 2nd & 3rd args */
+        mov     ARG2, ARG3
+        mov     ARG3, ARG4
+        bx      r5
+        END_FUNC(xfer_to_new_libdr)
 #endif /* UNIX */
 
 /* all of the CPUID registers are only accessible in privileged modes */
@@ -132,6 +150,16 @@ call_dispatch_alt_stack_no_free:
         /* restore and return */
         pop      {REG_R4, pc}
         END_FUNC(call_switch_stack)
+
+
+#ifdef CLIENT_INTERFACE
+/* FIXME i#1551: NYI on ARM */
+        DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
+GLOBAL_LABEL(dr_call_on_clean_stack:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_call_on_clean_stack)
+#endif /* CLIENT_INTERFACE */
+
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
@@ -426,6 +454,16 @@ GLOBAL_LABEL(memset:)
 
 
 #ifdef CLIENT_INTERFACE
+/* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
+ *
+ * int dr_try_start(try_except_context_t *cxt) ;
+ */
+        DECLARE_EXPORTED_FUNC(dr_try_start)
+GLOBAL_LABEL(dr_try_start:)
+        add      ARG1, ARG1, #TRY_CXT_SETJMP_OFFS
+        b        GLOBAL_REF(dr_setjmp)
+        END_FUNC(dr_try_start)
+
 /* int cdecl dr_setjmp(dr_jmp_buf *buf);
  */
         DECLARE_FUNC(dr_setjmp)

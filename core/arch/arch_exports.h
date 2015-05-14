@@ -817,6 +817,10 @@ void arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callb
 void arch_thread_profile_exit(dcontext_t *dcontext);
 void arch_profile_exit(void);
 #endif
+#ifdef ARM
+void arch_reset_stolen_reg(void);
+void arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc);
+#endif
 
 bool is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_generated_routine(dcontext_t *dcontext, cache_pc pc);
@@ -1011,6 +1015,8 @@ void dynamorio_nonrt_sigreturn(void);
 # ifdef LINUX
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
+void xfer_to_new_libdr(app_pc entry, void **init_sp, byte *cur_dr_map,
+                       size_t cur_dr_size);
 # endif
 # ifdef MACOS
 void new_bsdthread_intercept(void);
@@ -1232,6 +1238,7 @@ decode_init(void);
 # endif
 
 # define PC_AS_JMP_TGT(isa_mode, pc) pc
+# define PC_AS_LOAD_TGT(isa_mode, pc) pc
 
 # define SIZE_MOV_XAX_TO_TLS(flags, require_addr16) \
     (FRAG_IS_32(flags) ? \
@@ -1320,6 +1327,8 @@ decode_init(void);
 
 # define PC_AS_JMP_TGT(isa_mode, pc) \
     ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) | 1) : pc)
+# define PC_AS_LOAD_TGT(isa_mode, pc) \
+    ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) & ~0x1) : pc)
 
 # define FRAGMENT_BASE_PREFIX_SIZE(flags) \
     (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)

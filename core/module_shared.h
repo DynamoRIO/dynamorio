@@ -200,6 +200,8 @@ enum {
 #endif
 #ifdef CLIENT_INTERFACE
     MODULE_NULL_INSTRUMENT = 0x00000080,
+    /* we use this to send just one module load event on 1st exec (i#884) */
+    MODULE_LOAD_EVENT      = 0x00000100,
 #endif
 };
 

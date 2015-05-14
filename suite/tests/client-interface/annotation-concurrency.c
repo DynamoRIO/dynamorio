@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,14 +30,26 @@
  * DAMAGE.
  */
 
-#if defined(_MSC_VER) && !defined(WINDOWS)
-# define WINDOWS
-#endif
+/* This app is designed to test several aspects of the DR annotations. The basic
+ * functionality of the app is to solve simple linear equations using the Jacobi method.
+ * It exercises the following special cases of annotations:
+ *
+ *   - long argument lists
+ *   - concurrent invocation of annotations
+ *   - concurrent un/registration of Valgrind annotation handlers
+ *   - un/registration between subsequent translation of the same DR annotation
+ *   - repeatedly loading and unloading the same shared library, which is also annotated
+ *
+ * Note that concurrent un/registration of DR annotations is not an interesting test case
+ * because a DR annotation is instrumented directly with a clean call, and does not
+ * change behavior with un/registration after the instrumentation has occurred.
+ */
 
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "tools.h"
 #include "dr_annotations.h"
 #include "test_mode_annotations.h"
 #include "test_annotation_arguments.h"
@@ -54,24 +66,23 @@
 #define MAX_ITERATIONS 10
 #define MAX_THREADS 8
 #define TOLERANCE 1.0E-5
+#define UNKNOWN_MODE 0xffffffffU
 
 #ifdef WINDOWS
-# define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__);
-# define LIB_NAME "client.annotation-concurrency.appdll.dll"
-# define MODULE_TYPE HMODULE
+# define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__)
+# define THREAD_ENTRY_DECL int WINAPI
+typedef HMODULE MODULE_TYPE;
 #else
-# define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
-// opt loads the non-opt appdll... pass name as arg? or opt flag?
-# define LIB_NAME "libclient.annotation-concurrency.appdll.so"
-# define MODULE_TYPE void *
+# define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__)
+# define THREAD_ENTRY_DECL void
+typedef void * MODULE_TYPE;
 #endif
 
 #define VALIDATE(value, predicate, error_message) \
 do { \
     if (value predicate) { \
-        printf("\n Error: "error_message"\n", value); \
-        fflush(stdout); \
-        exit(-1); \
+        print("\n Error: "error_message"\n", value); \
+        exit(1); \
     } \
 } while (0)
 
@@ -85,30 +96,88 @@ enum {
     MODE_1
 };
 
+static double **a_matrix, *rhs_vector, *x_new, *x_old;
+static int thread_handling_index = 0, matrix_size;
+
+/* shared library handles */
+static const char *lib_name;
+static MODULE_TYPE jacobi_module;
+static void (*jacobi_init)(int matrix_size, bool enable_annotations);
+static void (*jacobi_exit)();
+static void (*jacobi)(double *dst, double *src, double **coefficients,
+                      double *rhs_vector, int limit, unsigned int worker_id);
+
 static void
-usage(const char *message);
-
-static double
-distance(double *x_old, double *x_new);
-
-static void *
-find_function(MODULE_TYPE module, const char *name);
-
-void (*jacobi_init)(int matrix_size, int annotation_mode);
-void (*jacobi_exit)();
-void (*jacobi)(double *dst, double *src, double **coefficients,
-               double *rhs_vector, int limit);
+print_usage()
+{
+    print("usage: jacobi { A | B | C }<thread-count>\n");
+    print(" e.g.: jacobi A4\n");
+}
 
 #ifdef WINDOWS
-int WINAPI
+static void *
+find_function(MODULE_TYPE jacobi_module, const char *name)
+{
+    void *function = GetProcAddress(jacobi_module, name);
+    if (function == NULL) {
+        print("Error: failed to load %s() from lib %s:\n", name, lib_name);
+        exit(1);
+    }
+    return function;
+}
 #else
-void
+static void *
+find_function(MODULE_TYPE jacobi_module, const char *name)
+{
+    char *error;
+    void *function = dlsym(jacobi_module, name);
+    if (error = dlerror()) {
+        print("Error: failed to load %s() from lib %s:\n%s\n", name, lib_name, error);
+        exit(1);
+    }
+    return function;
+}
 #endif
-thread_main(thread_init_t *);
 
-static double **a_matrix, *rhs_vector, *x_new, *x_old;
-static int thread_handling_index, matrix_size;
-MODULE_TYPE module;
+/* Computes current solution accuracy. Called at the end of each work cycle. */
+static double
+distance(double *x_old, double *x_new)
+{
+    int i;
+    double sum = 0.0;
+
+    TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1,
+    {
+        print("     Mode 1 on %d\n", thread_handling_index);
+    });
+    for (i = 0; i < matrix_size; i++)
+        sum += (x_new[i] - x_old[i]) * (x_new[i] - x_old[i]);
+    print("\n     Finished computing current solution distance in mode %d.\n",
+           TEST_ANNOTATION_GET_MODE(thread_handling_index));
+    TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_0,
+    {
+        print("     Mode 0 on %d\n", thread_handling_index);
+    });
+    print("     Mode changed to %d.\n", TEST_ANNOTATION_GET_MODE(thread_handling_index));
+    return sum;
+}
+
+THREAD_ENTRY_DECL
+thread_main(thread_init_t *init)
+{
+    TEST_ANNOTATION_SET_MODE(init->id, MODE_1,
+    {
+        print("     Mode 1 on %d\n", init->id);
+    });
+    jacobi(x_new, x_old, a_matrix, rhs_vector, init->iteration_count, init->id);
+    TEST_ANNOTATION_SET_MODE(init->id, MODE_0,
+    {
+        print("     Mode 0 on %d\n", init->id);
+    });
+#ifdef WINDOWS
+    return 0;
+#endif
+}
 
 int main(int argc, char **argv)
 {
@@ -119,66 +188,85 @@ int main(int argc, char **argv)
 #ifdef WINDOWS
     uintptr_t result;
     HANDLE *threads;
-#else
+#else /* UNIX */
     int result;
-    char *error;
+    char *error, *filename_start, *lib_path;
+    char buffer[1024];
     pthread_attr_t pta;
     pthread_t *threads;
 #endif
 
-#ifndef WINDOWS
-    char buffer[1024];
-    char *scan, *lib_path = argv[0];
+    /* Parse and evaluate arguments */
+    if (argc != 4) {
+        print("Wrong number of arguments--found %d but expected 3.\n", argc);
+        for (i = 1; i < argc; i++)
+            print("\targ: '%s'\n", argv[i]);
+        print_usage();
+        exit(1);
+    }
+
+    lib_name = argv[1];
+
+#ifdef UNIX
+    /* Find the test's dynamic library in the app cwd */
+    lib_path = argv[0];
     if (lib_path[0] == '/') {
         strcpy(buffer, lib_path);
     } else {
         if (getcwd(buffer, 1024) == NULL) {
-            printf("Failed to locate the test module!\n");
+            print("Failed to locate the test module!\n");
             exit(1);
         }
         strcat(buffer, "/");
         strcat(buffer, lib_path);
     }
     lib_path = buffer;
-    scan = lib_path + strlen(lib_path);
-    while ((--scan > lib_path) && (*scan != '/'))
-        ;
-    *(scan+1) = '\0';
-    strcat(lib_path, LIB_NAME);
+    filename_start = strrchr(lib_path, '/');
+    if (filename_start == NULL) {
+        print("Failed to locate the test module!\n");
+        exit(1);
+    }
+    *(filename_start + 1) = '\0';
+    strcat(lib_path, lib_name);
 #endif
 
-    printf("\n    -------------------------------------------------------------------");
-    printf("\n     Performance for solving AX=B Linear Equation using Jacobi method");
-    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
-        printf("\n     Running on DynamoRIO");
-    else
-        printf("\n     Running native");
-    printf("\n    ...................................................................\n");
+    /* Print app banner */
+    print("\n    -------------------------------------------------------------------");
+    print("\n     Performance for solving AX=B Linear Equation using Jacobi method");
+    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()) {
+        print("\n     Running on DynamoRIO");
+        print("\n     Client version %s", TEST_ANNOTATION_GET_CLIENT_VERSION());
+    } else {
+        print("\n     Running native");
+    }
+    print("\n    ...................................................................\n");
 
-    if( argc != 2 )
-        usage("Wrong number of arguments.");
-
-    class_id = *argv[1] - 'A';
-    num_threads = atoi(argv[1] + 1);
+    class_id = *argv[2] - 'A';
+    num_threads = atoi(argv[3]);
 
     if (num_threads > MAX_THREADS) {
-        printf("\nMaximum thread count is %d. Exiting now.\n", MAX_THREADS);
-        exit(-1);
+        print("\nMaximum thread count is %d. Exiting now.\n", MAX_THREADS);
+        exit(1);
     }
     if ((class_id >= 0) && (class_id <= 2))
         matrix_size = 1024 * (1 << class_id);
-    else
-        usage("Unknown class id");
+    else {
+        print("Unknown class id\n");
+        print_usage();
+        exit(1);
+    }
 
-    printf("\n     Matrix Size :  %d", matrix_size);
-    printf("\n     Threads     :  %d", num_threads);
-    printf("\n\n");
-    fflush(stdout);
+    print("\n     Matrix Size :  %d", matrix_size);
+    print("\n     Threads     :  %d", num_threads);
+    print("\n\n");
 
+    /* Allocate data structures */
     a_matrix = (double **) malloc(matrix_size * sizeof(double *));
     rhs_vector = (double *) malloc(matrix_size * sizeof(double));
+    x_new = (double *) malloc(matrix_size * sizeof(double));
+    x_old = (double *) malloc(matrix_size * sizeof(double));
 
-    /* Populating the a_matrix and rhs_vector */
+    /* Initialize the data structures */
     row_sum = (double) (matrix_size * (matrix_size + 1) / 2.0);
     for (i_row = 0; i_row < matrix_size; i_row++) {
         a_matrix[i_row] = (double *) malloc(matrix_size * sizeof(double));
@@ -194,25 +282,26 @@ int main(int argc, char **argv)
 
     TEST_ANNOTATION_TEN_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
-    x_new = (double *) malloc(matrix_size * sizeof(double));
-    x_old = (double *) malloc(matrix_size * sizeof(double));
-
     /* Initailize X[i] = B[i] */
     for (i_row = 0; i_row < matrix_size; i_row++) {
         x_new[i_row] =  rhs_vector[i_row];
     }
 
-    TEST_ANNOTATION_INIT_MODE(MODE_0);
-    TEST_ANNOTATION_INIT_MODE(MODE_1);
+    /* Initialize the client's per-thread data structures (if necessary) */
+    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()) {
+        TEST_ANNOTATION_INIT_MODE(MODE_0);
+        TEST_ANNOTATION_INIT_MODE(MODE_1);
 
-    for (i_thread = 0; i_thread < num_threads; i_thread++) {
-        char counter_name[32] = {0};
-        SPRINTF(counter_name, 32, "thread #%d", i_thread);
-        TEST_ANNOTATION_INIT_CONTEXT(i_thread, counter_name, MODE_0);
+        for (i_thread = 0; i_thread < num_threads; i_thread++) {
+            char counter_name[32] = {0};
+            SPRINTF(counter_name, 32, "thread #%d", i_thread);
+            TEST_ANNOTATION_INIT_CONTEXT(i_thread, counter_name, MODE_0);
+        }
+        thread_handling_index = num_threads;
+        TEST_ANNOTATION_INIT_CONTEXT(thread_handling_index, "thread-handling", MODE_0);
     }
-    thread_handling_index = num_threads;
-    TEST_ANNOTATION_INIT_CONTEXT(thread_handling_index, "thread-handling", MODE_0);
 
+    /* Allocate and initialize threads */
 #ifdef WINDOWS
     threads = (HANDLE*) malloc(sizeof(HANDLE) * num_threads);
 #else
@@ -226,49 +315,57 @@ int main(int argc, char **argv)
     }
 
     do {
+        /* Initialize the next iteration */
         for (i = 0; i < matrix_size; i++)
             x_old[i] = x_new[i];
 
+        /* Load the shared library */
 #ifdef WINDOWS
-        module = LoadLibrary(LIB_NAME);
-        if (module == NULL) {
-            printf("Error: failed to load "LIB_NAME"\n");
+        jacobi_module = LoadLibrary(lib_name);
+        if (jacobi_module == NULL) {
+            print("Error: failed to load lib %s\n", lib_name);
             exit(1);
         }
 #else
-        module = dlopen(lib_path, RTLD_LAZY);
-        if (module == 0) {
-            printf("Error: failed to load "LIB_NAME"\n");
+        jacobi_module = dlopen(lib_path, RTLD_LAZY);
+        if (jacobi_module == 0) {
+            print("Error: failed to load lib %s\n", lib_path);
             exit(1);
         }
 #endif
 
-        jacobi_init = find_function(module, "jacobi_init");
-        jacobi_exit = find_function(module, "jacobi_exit");
-        jacobi = find_function(module, "jacobi");
+        /* Find the shared functions */
+        jacobi_init = find_function(jacobi_module, "jacobi_init");
+        jacobi_exit = find_function(jacobi_module, "jacobi_exit");
+        jacobi = find_function(jacobi_module, "jacobi");
 
         iteration++;
-        printf("\n     Started iteration %d of the computation...\n", iteration);
-        fflush(stdout);
+        print("\n     Started iteration %d of the computation...\n", iteration);
 
-        jacobi_init(matrix_size, iteration % 2);
+        /* Initialize the shared library */
+        jacobi_init(matrix_size, (iteration % 2) > 0);
 
         TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1,
-            {printf("Mode 1 on %d\n", thread_handling_index);});
+        {
+            print("     Mode 1 on %d\n", thread_handling_index);
+        });
 
+        /* Create work threads */
         for (i_thread = 0; i_thread < num_threads; i_thread++) {
-            /* Creating The Threads */
 #ifdef WINDOWS
-            result = _beginthreadex(NULL, 0, thread_main, &thread_inits[i_thread], 0, NULL);
+            result = _beginthreadex(NULL, 0, thread_main, &thread_inits[i_thread], 0,
+                                    NULL);
             VALIDATE(result, <= 0, "_beginthread() returned code %d ");
             threads[i_thread] = (HANDLE) result;
 #else
-            result = pthread_create(&threads[i_thread], &pta, (void *(*) (void *))thread_main,
+            result = pthread_create(&threads[i_thread], &pta,
+                                    (void *(*) (void *))thread_main,
                                     (void *) &thread_inits[i_thread]);
             VALIDATE(result, != 0, "pthread_create() returned code %d");
 #endif
         }
 
+        /* Wait for the work threads to complete */
 #ifdef WINDOWS
         WaitForMultipleObjects(num_threads, threads, TRUE /* all */, INFINITE);
 #else
@@ -279,30 +376,35 @@ int main(int argc, char **argv)
 #endif
 
         TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_0,
-            {printf("Mode 0 on %d\n", thread_handling_index);});
+        {
+            print("     Mode 0 on %d\n", thread_handling_index);
+        });
 
-#ifndef WINDOWS
+        /* Clean up work threads */
+#ifdef UNIX
         result = pthread_attr_destroy(&pta);
         VALIDATE(result, != 0, "pthread_attr_destroy() returned code %d");
 #endif
 
         jacobi_exit();
+
+        /* Release the shared library */
 #ifdef WINDOWS
-        if (module != NULL)
-            FreeLibrary(module);
+        if (jacobi_module != NULL)
+            FreeLibrary(jacobi_module);
 #else
-        if (module != 0)
-            dlclose(module);
+        if (jacobi_module != 0)
+            dlclose(jacobi_module);
 #endif
 
-        TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
-        TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
+        TEST_ANNOTATION_EIGHT_ARGS(iteration, 2, 3, 4, 5, 6, 7, 18);
+        TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 28);
     } while ((distance(x_old, x_new) >= TOLERANCE) && (iteration < MAX_ITERATIONS));
 
-    printf("\n");
-    printf("\n     The Jacobi Method For AX=B .........DONE");
-    printf("\n     Total Number Of iterations   :  %d",iteration);
-    printf("\n    ...................................................................\n");
+    print("\n");
+    print("\n     The Jacobi Method For AX=B .........DONE");
+    print("\n     Total Number Of iterations   :  %d", iteration);
+    print("\n    ...................................................................\n");
 
     free(x_new);
     free(x_old);
@@ -313,90 +415,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
-static void
-usage(const char *message)
-{
-    printf("%s\n", message);
-    printf("usage: jacobi { A | B | C }<thread-count>\n");
-    printf(" e.g.: jacobi A4\n");
-    exit(-1);
-}
-
-#ifdef WINDOWS
-static void *
-find_function(MODULE_TYPE module, const char *name)
-{
-    void *function = GetProcAddress(module, name);
-    if (function == NULL) {
-        printf("Error: failed to load %s() from "LIB_NAME":\n", name);
-        exit(1);
-    }
-    return function;
-}
-#else
-static void *
-find_function(MODULE_TYPE module, const char *name)
-{
-    char *error;
-    void *function = dlsym(module, name);
-    if (error = dlerror()) {
-        printf("Error: failed to load %s() from "LIB_NAME":\n%s\n", name, error);
-        exit(1);
-    }
-    return function;
-}
-#endif
-
-double distance(double *x_old, double *x_new)
-{
-    int i;
-    double sum = 0.0;
-
-    TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1,
-        {printf("Mode 1 on %d\n", thread_handling_index);});
-    for (i = 0; i < matrix_size; i++)
-        sum += (x_new[i] - x_old[i]) * (x_new[i] - x_old[i]);
-    TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_0,
-        {printf("Mode 0 on %d\n", thread_handling_index);});
-    return sum;
-}
-
-#ifdef WINDOWS
-int WINAPI
-#else
-void
-#endif
-thread_main(thread_init_t *init)
-{
-    TEST_ANNOTATION_SET_MODE(init->id, MODE_1,
-    {
-        printf("Mode 1 on %d\n", init->id);
-    });
-    jacobi(x_new, x_old, a_matrix, rhs_vector, init->iteration_count);
-    TEST_ANNOTATION_SET_MODE(init->id, MODE_0, {printf("Mode 0 on %d\n", init->id);});
-#ifdef WINDOWS
-    return 0;
-#endif
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

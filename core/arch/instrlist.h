@@ -131,10 +131,10 @@ DR_API
  *
  * \note All preceding meta instructions will be skipped.
  *
- * \note We do recommend using this routine during the phase of application
+ * \note We recommend using this routine during the phase of application
  * code analysis, as any non-app instructions present are guaranteed to be ok
  * to skip.
- * However, the caution should be exercised if using this routine after any
+ * However, caution should be exercised if using this routine after any
  * instrumentation insertion has already happened, as instrumentation might
  * affect register usage or other factors being analyzed.
  */
@@ -145,6 +145,23 @@ DR_API
 /** Returns the last instr_t in \p ilist. */
 instr_t*
 instrlist_last(instrlist_t *ilist);
+
+DR_API
+/**
+ * Returns the last application (non-meta) instruction in the instruction list
+ * \p ilist.
+ *
+ * \note All preceding meta instructions will be skipped.
+ *
+ * \note We recommend using this routine during the phase of application
+ * code analysis, as any non-app instructions present are guaranteed to be ok
+ * to skip.
+ * However, caution should be exercised if using this routine after any
+ * instrumentation insertion has already happened, as instrumentation might
+ * affect register usage or other factors being analyzed.
+ */
+instr_t *
+instrlist_last_app(instrlist_t *ilist);
 
 DR_API
 /** Adds \p instr to the end of \p ilist. */

@@ -475,9 +475,16 @@ foreach my $opc (keys %entry) {
         } elsif (($opc =~ /^OP_stc/ || $opc =~ /^OP_ldc/) &&
                  $sig eq 'cpreg; mem imm imm2') {
             $name .= "_option";
-        } elsif ($esig =~ 'RBw; .* RBw$') {
+        } elsif ($esig =~ /RBw; .* RBw$/) {
             # Implicit arg for OP_bfc and OP_bfi
             $esig =~ s/RBw$//;
+        } elsif ($esig =~ /mem.*; mem/) {
+            # Implicit arg for OP_swp*
+            $esig =~ s/^mem//;
+        }
+
+        if ($sig =~ /\bshift\b/) {
+            $sig =~ s/\bshift/opnd_add_flags(shift DR_OPND_IS_SHIFT)/;
         }
 
         # Hardcoded implicit args:

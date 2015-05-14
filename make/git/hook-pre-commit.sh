@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,16 @@ Use a topic branch instead.
 Aborting commit.
 EOF
     exit 1
+fi
+
+# Avoid mistakes in author configurations:
+AUTHORINFO=$(git var GIT_AUTHOR_IDENT) || exit 1
+NAME=$(printf '%s\n' "${AUTHORINFO}" | sed -n 's/^\(.*\) <.*$/\1/p')
+EMAIL=$(printf '%s\n' "${AUTHORINFO}" | sed -n 's/^.* <\(.*\)> .*$/\1/p')
+existing=`git log --author="${NAME} <${EMAIL}>" -n 1`
+if [ -z "${existing}" ]; then
+    printf "WARNING: \"${NAME} <${EMAIL}>\" is a new author.\n"
+    printf "Please double-check that it is configured properly.\n"
 fi
 
 # XXX: move code style checks here from runsuite.cmake?

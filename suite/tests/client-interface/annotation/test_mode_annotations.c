@@ -34,8 +34,15 @@
 
 DR_DEFINE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode), )
 
-DR_DEFINE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
-    const char *name, unsigned int initial_mode), )
+DR_DEFINE_ANNOTATION(void, test_annotation_init_context,
+                     (unsigned int id, const char *name, unsigned int initial_mode), )
 
-DR_DEFINE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
-    unsigned int mode), )
+DR_DEFINE_ANNOTATION(unsigned int, test_annotation_get_mode, (unsigned int context_id),
+                     return 0)
+
+DR_DEFINE_ANNOTATION(void, test_annotation_set_mode,
+                     (unsigned int context_id, unsigned int mode), )
+
+DR_DEFINE_ANNOTATION(const char *, test_annotation_get_client_version, (void), )
+
+DR_DEFINE_ANNOTATION(void, test_annotation_rotate_valgrind_handler, (int phase), )

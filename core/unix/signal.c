@@ -487,7 +487,7 @@ signal_thread_init(dcontext_t *dcontext)
      * i#552 we may terminate the process without freeing the stack, so we
      * stack_alloc it to exempt from the memory leak check.
      */
-    info->sigstack.ss_sp = (char *) stack_alloc(SIGSTACK_SIZE) - SIGSTACK_SIZE;
+    info->sigstack.ss_sp = (char *) stack_alloc(SIGSTACK_SIZE, NULL) - SIGSTACK_SIZE;
     info->sigstack.ss_size = SIGSTACK_SIZE;
     /* kernel will set xsp to sp+size to grow down from there, we don't have to */
     info->sigstack.ss_flags = 0;
@@ -530,7 +530,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #endif
 {
     clone_record_t *record;
-    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+    byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: dstack for new thread is "PFX"\n", dstack);
 
@@ -2676,8 +2676,20 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
      * still go to the private fcache_return for simplicity.
      */
     sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
+#ifdef ARM
+    /* We do not have to set dr_reg_stolen in dcontext's mcontext here
+     * because dcontext's mcontext is stale and we used the mcontext
+     * created from recreate_app_state_internal with the original sigcontext.
+     */
+    /* We restore dr_reg_stolen's app value in recreate_app_state_internal,
+     * so now we need set dr_reg_stolen to hold DR's TLS before sigreturn
+     * from DR's handler.
+     */
+    ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t) *get_dr_tls_base_addr());
+    set_sigcxt_stolen_reg(sc, (reg_t) *get_dr_tls_base_addr());
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
-    IF_ARM(set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE));
+    set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
+#endif
 
 #if defined(X64) || defined(ARM)
     /* x64 always uses shared gencode */
@@ -2691,6 +2703,11 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
     sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) last_exit;
     LOG(THREAD, LOG_ASYNCH, 2,
         "\tset next_tag to "PFX", resuming in fcache_return\n", next_pc);
+    LOG(THREAD, LOG_ASYNCH, 3, "transfer_from_sig_handler_to_fcache_return\n");
+    DOLOG(3, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 3, "sigcontext:\n");
+        dump_sigcontext(dcontext, sc);
+    });
 }
 
 #ifdef CLIENT_INTERFACE

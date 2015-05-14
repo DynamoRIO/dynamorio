@@ -231,6 +231,7 @@
     OPTION_INTERNAL(bool, tracedump_origins, "write out original instructions for each trace")
     OPTION(bool, syntax_intel, "use Intel disassembly syntax")
     OPTION(bool, syntax_att, "use AT&T disassembly syntax")
+    OPTION(bool, syntax_arm, "use ARM disassembly syntax")
     /* whether to mark gray-area instrs as invalid when we know the length (i#1118) */
     OPTION(bool, decode_strict, "mark all known-invalid instructions as invalid")
     OPTION(uint, disasm_mask, "disassembly style as a dr_disasm_flags_t bitmask")
@@ -270,6 +271,8 @@
         if (stats != NULL && for_this_process)
             stats->loglevel = options->stats_loglevel;
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
+    OPTION_INTERNAL(uint, log_at_fragment_count,
+        "start execution at loglevel 1 and raise to the specified -loglevel at this fragment count")
     /* Note that these are not truly DYNAMIC, and they don't get synchronized before each LOG */
     OPTION_DEFAULT(uint, checklevel, 2, "level of asserts/consistency checks (PR 211887)")
 
@@ -575,6 +578,9 @@
     /* we only allow register between r8 and r12(A32)/r29(A64) to be used */
     OPTION_DEFAULT_INTERNAL(uint, steal_reg, IF_X64_ELSE(28/*r28*/, 10/*r10*/),
                             "the register stolen/used by DynamoRIO")
+    OPTION_DEFAULT_INTERNAL(uint, steal_reg_at_reset, 0,
+        "reg to switch to at first reset")
+    OPTION_DEFAULT_INTERNAL(bool, opt_mangle, true, "optimize mangling code")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -600,6 +606,9 @@
          "show a messagebox for events")
 #ifdef WINDOWS
     OPTION_DEFAULT(uint_time, eventlog_timeout, 10000, "gives the timeout (in ms) to use for an eventlog transaction")
+#else
+    DYNAMIC_OPTION(bool, pause_via_loop,
+        "For -msgbox_mask, use an infinite loop instead of waiting for stdin")
 #endif /* WINDOWS */
     DYNAMIC_OPTION_DEFAULT(uint, syslog_mask, 0, /* PR 232126: re-enable: SYSLOG_ALL */
           "log only specified message types")
@@ -620,6 +629,7 @@
      */
     DYNAMIC_OPTION_DEFAULT(uint, dumpcore_mask, 0,
                            "indicate events to dump core on")
+    /* This is basically superseded by -msgbox_mask + -pause_via_loop (i#1665) */
     IF_UNIX(OPTION_ALIAS(pause_on_error, dumpcore_mask, DUMPCORE_OPTION_PAUSE,
                           STATIC, OP_PCACHE_NOP))
     /* Note that you also won't get more then -report_max violation core dumps */
@@ -720,7 +730,12 @@
      * on Linux.
      * FIXME PR 403008: stack_shares_gencode fails on vmkernel
      */
-    OPTION_DEFAULT(bool, stack_shares_gencode, IF_UNIX_ELSE(false, true),
+    OPTION_DEFAULT(bool, stack_shares_gencode,
+                   /* We disable for client builds for DrMi#1723 for high-up stacks
+                    * that aren't nec reachable.  Plus, client stacks are big
+                    * enough now (56K) that this option was internally never triggered.
+                    */
+                   IF_UNIX_ELSE(false, IF_CLIENT_INTERFACE_ELSE(false, true)),
         "stack and thread-private generated code share an allocation region")
 
     OPTION_DEFAULT(uint, spinlock_count_on_SMP, 1000U, "spinlock loop cycles on SMP")
@@ -1441,15 +1456,22 @@
     OPTION_DEFAULT(bool, follow_systemwide, true, "inject into all spawned processes that are configured to run under dr (app specific RUNUNDER_ON, or no app specific and RUNUNDER_ALL in the global key), dangerous without either -early_inject or -block_mod_load_list_default preventing double injection")
     DYNAMIC_OPTION_DEFAULT(bool, follow_explicit_children, true, "inject into all spawned processes that have app-specific RUNUNDER_EXPLICIT")
 
-    /* FIXME - do we want to make any of the -early_inject* options dynamic?
+    /* XXX: do we want to make any of the -early_inject* options dynamic?
      * if so be sure we update os.c:early_inject_location on change etc. */
-    /* i#47: experimental support for early_inject in Linux
-     * XXX: this option can only be turned on by drrun via "-early" so that
-     * cmdline args can be arranged appropriately.
+    /* XXX i#47: for Linux, we can't easily have this option on by default as
+     * code like get_application_short_name() called from drpreload before
+     * even _init is run needs to have a non-early default.
+     * Thus we turn this on in privload_early_inject.
      */
-    OPTION_DEFAULT(bool, early_inject, IF_WINDOWS_ELSE
-                   /* i#980: too early for kernel32 so we disable */
-                   (IF_CLIENT_INTERFACE_ELSE(false, true), false), "inject early")
+    OPTION_COMMAND(bool, early_inject, IF_WINDOWS_ELSE
+        /* i#980: too early for kernel32 so we disable */
+        (IF_CLIENT_INTERFACE_ELSE(false, true), false),
+        "early_inject", {
+        if (options->early_inject) {
+            /* i#1004: we need to emulate the brk for early injection */
+            IF_UNIX(options->emulate_brk = true;)
+        }
+    }, "inject early", STATIC, OP_PCACHE_GLOBAL)
 #if 0 /* FIXME i#234 NYI: not ready to enable just yet */
     OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
     /* see enum definition is os_shared.h for notes on what works with which
@@ -1488,6 +1510,10 @@
     OPTION_DEFAULT(bool, inject_primary, false,
         /* case 9347 - we may leave early threads as unknown */
         "check and wait for injection in the primary thread")
+#ifdef UNIX
+    /* Should normally only be on if -early_inject is on */
+    OPTION_DEFAULT(bool, emulate_brk, false, "i#1004: emulate brk for early injection")
+#endif
 
     /* options for controlling the synch_with_* routines */
     OPTION_DEFAULT(uint, synch_thread_max_loops, 10000, "max number of wait loops in "
@@ -2245,6 +2271,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT_INTERNAL(bool, hook_image_entry, true, "Allow hooking of the image "
         "entry point when we lose control at a pre-image-entry-point callback return. "
         "Typically it's not needed to regain control if -native_exec_syscalls is on.")
+    OPTION_DEFAULT_INTERNAL(bool, hook_ldr_dll_routines, false,
+        "Hook LdrLoadDll and LdrUnloadDll even with no direct reason other than "
+        "regaining control on AppInit injection.")
     OPTION_DEFAULT(bool, clean_testalert, true, /* case 9288, 10414 SpywareDoctor etc. */
         "restore NtTestAlert to a pristine state at load by clearing away any hooks")
     OPTION_DEFAULT(uint, hook_conflict, 1 /* HOOKED_TRAMPOLINE_SQUASH */, /* case 2525 */

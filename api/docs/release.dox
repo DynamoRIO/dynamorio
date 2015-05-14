@@ -133,6 +133,18 @@ clients.
 The changes between version \DR_VERSION and 5.0.0 include the
 following minor compatibility changes:
 
+ - Changed the default injection method on Linux to use "early injection"
+   which begins executing the target application from its very first
+   instruction.  Clients on Linux will now see more application code than
+   they did previously.  The old behavior can be requested by passing
+   "-late" to drrun or drinject, or including "-no_early_inject" in the
+   options to drinjectlib.
+ - Moved the module load event to a later point where the application first
+   executes code from the library.  This enables clients to access properly
+   relocated values inside the library, which was not possible with the
+   prior event point at the first memory mapping of the library.
+   Applications that still wish to see the first mapping will need to
+   monitor system calls to replicate the old control point.
  - To support conditionally executed instructions, added a new parameter of
    type #dr_opnd_query_flags_t to routines that explicitly query what was
    read or written by an instruction: instr_get_eflags(),
@@ -157,12 +169,13 @@ following minor compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - Added a new scratch register coordination Extension, \p drreg.
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
  - Added cross-platform instruction creation macros
    XINST_CREATE_debug_instr(), XINST_CREATE_load(), XINST_CREATE_store(),
    XINST_CREATE_move(), XINST_CREATE_load_simd(), XINST_CREATE_store_simd(),
-   XINST_CREATE_jump_mem(), XINST_CREATE_load_int(),
+   XINST_CREATE_jump_mem(), XINST_CREATE_jump_reg(), XINST_CREATE_load_int(),
    XINST_CREATE_jump(), XINST_CREATE_jump_short(),
    XINST_CREATE_call(), XINST_CREATE_return(),
    XINST_CREATE_add(), XINST_CREATE_add_2src(), XINST_CREATE_add_s(),
@@ -192,6 +205,15 @@ Further non-compatibility-affecting changes include:
  - Added opnd_set_flags().
  - Added opnd_create_immed_int64(), opnd_is_immed_int64(), and
    opnd_get_immed_int64() for 64-bit immediate SIMD constants on 32-bit ARM.
+ - Added dr_set_client_version_string().
+ - Added instr_get_prev_app() and instrlist_last_app().
+ - Added the \ref op_syntax_arm "-syntax_arm" runtime option.
+ - Added opnd_add_flags().
+ - Added drmgr_unregister_bb_insertion_event().
+ - Added drmgr_is_first_instr() and drmgr_is_last_instr().
+ - Added dr_app_pc_as_jump_target() and dr_app_pc_as_load_target().
+ - Added dr_remove_it_instrs() and dr_insert_it_instrs().
+ - Added automated conditional instrumentation to drmgr.
 
 **************************************************
 <hr>
@@ -268,6 +290,7 @@ Further non-compatibility-affecting changes include:
    which provides the fall-through address.
  - Added instr_is_app(), instr_is_meta(), instr_set_app(), and instr_set_meta().
  - Added reg_get_value_ex().
+ - Added dr_insert_read_raw_tls() and dr_insert_write_raw_tls().
 
 **************************************************
 <hr>
@@ -920,7 +943,7 @@ The changes between version 1.3.0 and version 1.2.0 (0.9.6 9602) are:
    - dr_is_wow64()
  - New signal event for Linux
    - dr_register_signal_event()
- - New option \ref op_pause "-pause_on_error", and error messages to
+ - New option "-pause_on_error", and error messages to
    stdout by default for release builds, to improve Linux debugging
  - New routines for memory allocation and memory manipulation:
    - dr_nonheap_alloc()
@@ -1272,20 +1295,24 @@ not supported.
     method involving kernel side components that this release has no
     other workaround for.
 \anchor limits_linux_preload
-  - On Linux, the official deployment method in this release (aside
+  - On Linux, the default deployment method (aside
     from the \ref sec_startstop "app_start() app_stop()" interface, which
-    requires soure code modification) is LD_PRELOAD.  This method does not
-    support static binaries, but an experimental injection method which can
-    be enabled with the \p -early flag does.  Binaries with the suid
-    or sgid permission bits set
-    disallow absolute paths in LD_PRELOAD and ignore LD_LIBRARY_PATH, so
-    alternate methods of specifying the path are needed there.  One method
+    requires soure code modification) is unable to run binaries with the suid
+    or sgid permission bits set.  One method of running these binaries
     is to place both libdrpreload.so and libdynamorio's full paths in
     /etc/ld.so.preload.
     You'll need to use a \ref lin_deploy "separate configure step approach".
     Don't forget to run drconfig to create a configuration for the
     application first; otherwise, libdrpreload.so will refuse to take
-    control.
+    control.  This method of injection takes control part-way through
+    initialization of the target application, rather than at the very
+    beginning.  Alternatively, you could run as root, or remove the suid
+    and sgid bits: however, both of those solutions may open up security
+    holes and are not recommended.  If the suid or sgid binary is a leaf
+    child process of the parent target application, another option is to
+    run the problematic child process natively by either creating a configuration
+    file for the child with the "-norun" parameter or running with the
+    \ref op_children "-no_follow_children" runtime option.
   - On Linux, the private loader will fail to load libpthread.so.  Therefore
     clients and the libraries they use cannot link against libpthread.so.
 
@@ -1318,4 +1345,3 @@ group</a>.
 \endif
 
 */
-

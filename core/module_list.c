@@ -313,7 +313,9 @@ module_list_remove(app_pc base, size_t view_size)
      * call the client till after we've released the module areas lock */
     if (!IS_STRING_OPTION_EMPTY(client_lib)
         /* don't notify for drearlyhelper* or other during-init modules */
-        && dynamo_initialized) {
+        && dynamo_initialized
+        /* don't notify for modules that were not executed (i#884) */
+        && TEST(MODULE_LOAD_EVENT, ma->flags)) {
         client_data = copy_module_area_to_module_data(ma);
         inform_client = true;
     }

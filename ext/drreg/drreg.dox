@@ -1,0 +1,79 @@
+/* **********************************************************
+ * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drreg Multi-Instrumentation Manager
+
+The \p drreg DynamoRIO Register Management Extension is a mediator for
+selecting, preserving, and using registers among multiple instrumentation
+components.  The interface must be used in concert with the \p drmgr
+instrumentation pass scheme.
+
+CAUTION: this extension is still a work in progress.  Not all pieces are
+implemented yet, and the interface may be in flux until the details are
+finalized.
+
+ - \ref sec_drreg_setup
+ - \ref sec_drreg_usage
+
+\section sec_drreg_setup Setup
+
+To use \p drreg with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drreg) \endcode
+
+That will automatically set up the include path and library dependence.
+
+The initialization routine \p drreg_init() must be called prior to any of
+the other routines.  Additional calls to drreg_init() are allowed (so long
+as they are paired with corresponding calls to drreg_exit()) but only the
+first caller's options are honored.  Typically this is the end-user tool
+itself, with most other library components not directly interacting with
+drreg (libraries often take in scratch registers from the caller for most
+of their operations).
+
+\section sec_drreg_usage Usage
+
+The \p drreg API is based on a reservation model.  Each general-purpose
+register may be reserved for a period of time and then unreserved.  The
+process of reserving spills the application value, if necessary.  A
+reservation implies exclusive access to that register.  Reservations may
+extend across application instructions, in which case \p drreg will
+automatically restore or re-spill application values, when the intervening
+application instruction reads or writes that register, while still
+preserving the client's value in that register for use after the
+application instruction.
+
+*/

@@ -79,7 +79,8 @@ enum {
     EXT_IMM6L,   /* Indexed by bits 10:8,6 */
     EXT_VLDA,    /* Indexed by bits (11:8,7:6)*3+X where X based on value of 3:0 */
     EXT_VLDB,    /* Indexed by bits (11:8,Y)*3+X (see table descr) */
-    EXT_VLDC,    /* Indexed by bits (9:8,7:5)*3+X where X based on value of 3:0 */
+    EXT_VLDC,    /* Indexed by bits (7:5)*3+X where X based on value of 3:0 */
+    EXT_VLDD,    /* Indexed by bits (7:4)*3+X where X based on value of 3:0 */
     EXT_VTB,     /* Indexed by 11:10 and 9:8,6 in a special way */
     /* T32 32-bit only */
     EXT_A10_6_4, /* Indexed by bits A10,6:4 */
@@ -106,6 +107,7 @@ enum {
     EXT_11_8,    /* Indexed by bits 11:8 */
     EXT_10_9,    /* Indexed by bits 10:9 */
     EXT_10_8,    /* Indexed by whether Rn(10:8) is also in the reglist(7:0) */
+    EXT_10_6,    /* Indexed by whether imm 10:6 is zero or not */
     EXT_9_6,     /* Indexed by bits 9:6 */
     EXT_7_6,     /* Indexed by bits 7:6 */
     EXT_7,       /* Indexed by bit  7 */
@@ -207,6 +209,9 @@ struct _decode_info_t {
     byte *start_pc;
     byte *final_pc;
     byte *orig_pc;
+
+    /* For decoding LSB=1 auto-Thumb addresses (i#1688) we keep the LSB=1 decoration */
+    byte *decorated_pc;
 
     /* For instr_t* target encoding */
     ptr_int_t cur_note;
@@ -539,7 +544,8 @@ extern const instr_info_t A32_ext_simd2[][4];
 extern const instr_info_t A32_ext_imm6L[][16];
 extern const instr_info_t A32_ext_vldA[][132];
 extern const instr_info_t A32_ext_vldB[][96];
-extern const instr_info_t A32_ext_vldC[][96];
+extern const instr_info_t A32_ext_vldC[][24];
+extern const instr_info_t A32_ext_vldD[][48];
 extern const instr_info_t A32_ext_vtb[][9];
 
 extern const instr_info_t T32_base_e[];
@@ -588,7 +594,8 @@ extern const instr_info_t T32_ext_simd2[][4];
 extern const instr_info_t T32_ext_imm6L[][16];
 extern const instr_info_t T32_ext_vldA[][132];
 extern const instr_info_t T32_ext_vldB[][96];
-extern const instr_info_t T32_ext_vldC[][96];
+extern const instr_info_t T32_ext_vldC[][24];
+extern const instr_info_t T32_ext_vldD[][48];
 extern const instr_info_t T32_ext_vtb[][9];
 
 extern const instr_info_t T32_16_opc4[];
@@ -603,6 +610,7 @@ extern const instr_info_t T32_16_ext_bits_10_9[][4];
 extern const instr_info_t T32_16_ext_bits_10_8[][2];
 extern const instr_info_t T32_16_ext_bits_7_6[][4];
 extern const instr_info_t T32_16_ext_bits_6_4[][8];
+extern const instr_info_t T32_16_ext_imm_10_6[][2];
 extern const instr_info_t T32_16_ext_imm_3_0[][2];
 
 extern const instr_info_t T32_16_it_opc4[];
@@ -616,6 +624,7 @@ extern const instr_info_t T32_16_it_ext_bits_10_9[][4];
 extern const instr_info_t T32_16_it_ext_bits_10_8[][2];
 extern const instr_info_t T32_16_it_ext_bits_7_6[][4];
 extern const instr_info_t T32_16_it_ext_bits_6_4[][8];
+extern const instr_info_t T32_16_it_ext_imm_10_6[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const op_to_instr_info_t const op_instr[];

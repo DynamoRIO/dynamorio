@@ -517,13 +517,13 @@ dynamorio_app_init(void)
         /* initial stack so we don't have to use app's
          * N.B.: we never de-allocate initstack (see comments in app_exit)
          */
-        initstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
+        initstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
 
 #if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
         /* PR203701: separate stack for error reporting when the
          * dstack is exhausted
          */
-        exception_stack = (byte *) stack_alloc(EXCEPTION_STACK_SIZE);
+        exception_stack = (byte *) stack_alloc(EXCEPTION_STACK_SIZE, NULL);
 #endif
 #ifdef WINDOWS
         if (!INTERNAL_OPTION(noasynch)) {
@@ -861,7 +861,7 @@ standalone_init(void)
 
 #ifdef STANDALONE_UNIT_TEST
     os_tls_init();
-    dcontext = create_new_dynamo_context(true/*initial*/, NULL);
+    dcontext = create_new_dynamo_context(true/*initial*/, NULL, NULL);
     set_thread_private_dcontext(dcontext);
     /* sanity check */
     ASSERT(get_thread_private_dcontext() == dcontext);
@@ -1455,7 +1455,7 @@ dynamo_process_exit(void)
 }
 
 dcontext_t *
-create_new_dynamo_context(bool initial, byte *dstack_in)
+create_new_dynamo_context(bool initial, byte *dstack_in, priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
     size_t alloc = sizeof(dcontext_t) + proc_get_cache_line_size();
@@ -1487,10 +1487,25 @@ create_new_dynamo_context(bool initial, byte *dstack_in)
 
     /* we share a single dstack across all callbacks */
     if (initial) {
-        if (dstack_in == NULL)
-            dcontext->dstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
+        /* DrMi#1723: our dstack needs to be at a higher address than the app
+         * stack.  If mc passed, use its xsp; else use cur xsp (initial thread
+         * is on the app stack here: xref i#1105), for lower bound for dstack.
+         */
+        byte *app_xsp;
+        if (mc == NULL)
+            GET_STACK_PTR(app_xsp);
         else
+            app_xsp = (byte *) mc->xsp;
+        if (dstack_in == NULL) {
+            dcontext->dstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE, app_xsp);
+        } else
             dcontext->dstack = dstack_in;   /* xref i#149/PR 403015 */
+#ifdef WINDOWS
+        DOCHECK(1, {
+            if (dcontext->dstack < app_xsp)
+                SYSLOG_INTERNAL_WARNING_ONCE("dstack is below app xsp");
+        });
+#endif
     } else {
         /* dstack may be pre-allocated only at thread init, not at callback */
         ASSERT(dstack_in == NULL);
@@ -1663,7 +1678,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
 dcontext_t *
 create_callback_dcontext(dcontext_t *old_dcontext)
 {
-    dcontext_t *new_dcontext = create_new_dynamo_context(false, NULL);
+    dcontext_t *new_dcontext = create_new_dynamo_context(false, NULL, NULL);
     new_dcontext->valid = false;
     /* all of these fields are shared among all dcontexts of a thread: */
     new_dcontext->owning_thread = old_dcontext->owning_thread;
@@ -2111,7 +2126,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     }
 
     os_tls_init();
-    dcontext = create_new_dynamo_context(true/*initial*/, dstack_in);
+    dcontext = create_new_dynamo_context(true/*initial*/, dstack_in, mc);
     initialize_dynamo_context(dcontext);
     set_thread_private_dcontext(dcontext);
     /* sanity check */
@@ -2279,6 +2294,7 @@ dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id)
     trace_abort_and_delete(dcontext);
     fragment_thread_exit(dcontext);
 #ifdef CLIENT_INTERFACE
+    IF_WINDOWS(loader_pre_client_thread_exit(dcontext));
     instrument_thread_exit_event(dcontext);
 #endif
 }
@@ -2709,6 +2725,7 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
      * sets this. */
     dr_preinjected = true;      /* currently only relevant on Win32 */
 #endif
+    LOG(GLOBAL, LOG_TOP, 1, "taking over via preinject in %s\n", __FUNCTION__);
 
     if (!INTERNAL_OPTION(nullcalls) && !have_taken_over) {
         have_taken_over = true;
@@ -2772,7 +2789,7 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
     res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);
-    LOG(GLOBAL, LOG_TOP, 1, "dynamorio_app_init_and_early_take_over\n");
+    LOG(GLOBAL, LOG_TOP, 1, "taking over via early injection in %s\n", __FUNCTION__);
     /* FIXME - restore code needs to be freed, but we have to return through it
      * first... could instead duplicate its tail here if we wrap this
      * routine in asm or eqv. pass the continuation state in as args. */
@@ -2800,7 +2817,7 @@ dynamorio_earliest_init_takeover_C(byte *arg_ptr)
     res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);
-    LOG(GLOBAL, LOG_TOP, 1, "dynamorio_earliest_init_takeover\n");
+    LOG(GLOBAL, LOG_TOP, 1, "taking over via earliest injection in %s\n", __FUNCTION__);
 
     /* earliest_inject_cleanup() is called within dynamorio_app_init() to avoid
      * confusing the exec areas scan

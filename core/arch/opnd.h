@@ -462,7 +462,7 @@ extern const reg_id_t dr_reg_fixer[];
 #elif defined(ARM)
 /* We only normally use r0-r3 but we support more in translation code */
 # define REG_START_SPILL   DR_REG_R0
-# define REG_STOP_SPILL    DR_REG_R9
+# define REG_STOP_SPILL    DR_REG_R10 /* r10 might be used in syscall mangling */
 #endif /* X86/ARM */
 #define REG_SPILL_NUM     (REG_STOP_SPILL - REG_START_SPILL + 1)
 
@@ -713,7 +713,7 @@ typedef enum _dr_shift_type_t {
 } dr_shift_type_t;
 
 /**
- * These flags describe operations performed on the value of a source  register
+ * These flags describe operations performed on the value of a source register
  * before it is combined with other sources as part of the behavior of the
  * containing instruction, or operations performed on an index register or
  * displacement before it is added to or subtracted from the base register.
@@ -738,6 +738,10 @@ typedef enum _dr_opnd_flags_t {
      * low and high parts of a 64-bit value.
      */
     DR_OPND_MULTI_PART = 0x04,
+    /** This immediate integer operand should be interpreted as an ARM shift type. */
+    DR_OPND_IS_SHIFT   = 0x08,
+    /** A hint indicating that this register operand is part of a register list. */
+    DR_OPND_IN_LIST    = 0x10,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -745,8 +749,6 @@ typedef enum _dr_opnd_flags_t {
 /* We assume all addressing regs are in the lower 256 of the DR_REG_ enum. */
 # define REG_SPECIFIER_BITS 8
 # define SCALE_SPECIFIER_BITS 4
-/* We need to keep opnd_t the same size */
-# define FLAGS_BITS REG_SPECIFIER_BITS
 
 /**
  * opnd_t type exposed for optional "fast IR" access.  Note that DynamoRIO
@@ -776,8 +778,9 @@ struct _opnd_t {
                                                 * and ABS_ADDR_kind, on x86 */
         ushort disp;           /* MEM_INSTR_kind */
         ushort shift;          /* INSTR_kind */
-        /* We have to use byte and not the enum type to get cl to not align */
-        byte/*dr_opnd_flags_t*/ flags : FLAGS_BITS; /* ARM: REG_kind + BASE_DISP_kind */
+        /* We have to use a shorter type, not the enum type, to get cl to not align */
+        /* Used for ARM: REG_kind, BASE_DISP_kind, and IMMED_INTEGER_kind */
+        ushort/*dr_opnd_flags_t*/ flags;
     } aux;
     union {
         /* all are 64 bits or less */
@@ -1512,6 +1515,17 @@ DR_API
  */
 void
 opnd_set_flags(opnd_t *opnd, dr_opnd_flags_t flags);
+
+DR_API
+/**
+ * Assumes \p opnd is a register operand, base+disp memory reference, or
+ * an immediate integer.
+ * Sets the flags describing additional properties of the operand to
+ * be the current flags plus the \p flags parameter and returns the
+ * new operand value.
+ */
+opnd_t
+opnd_add_flags(opnd_t opnd, dr_opnd_flags_t flags);
 
 DR_API
 /** Assumes opnd is an immediate integer and returns its value. */
