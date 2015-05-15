@@ -6951,6 +6951,24 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
 }
 
 DR_API
+bool
+dr_insert_set_stolen_reg_value(void *drcontext, instrlist_t *ilist,
+                               instr_t *instr, reg_id_t reg)
+{
+    IF_X86(CLIENT_ASSERT(false, "dr_insert_set_stolen_reg: should not be reached\n"));
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "dr_insert_set_stolen_reg: reg has wrong size\n");
+    CLIENT_ASSERT(!reg_is_stolen(reg),
+                  "dr_insert_set_stolen_reg: reg is used by DynamoRIO\n");
+#ifdef ARM
+    instrlist_meta_preinsert
+        (ilist, instr,
+         instr_create_save_to_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
+#endif
+    return true;
+}
+
+DR_API
 int
 dr_remove_it_instrs(void *drcontext, instrlist_t *ilist)
 {

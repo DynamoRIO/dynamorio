@@ -2157,8 +2157,9 @@ DR_API
  * Returns true iff \p reg is stolen by DynamoRIO for internal use.
  *
  * \note The register stolen by DynamoRIO may not be used by the client
- * for instrumentation. Use dr_insert_get_stolen_reg() to get the
- * application value of the stolen register in the instrumentation.
+ * for instrumentation. Use dr_insert_get_stolen_reg() and
+ * dr_insert_set_stolen_reg() to get and set the application value of
+ * the stolen register in the instrumentation.
  * Reference \ref sec_reg_stolen for more information.
  */
 bool

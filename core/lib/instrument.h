@@ -5551,6 +5551,20 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
 
 DR_API
 /**
+ * Insert code to set the value of register \p reg as the application value of
+ * the register stolen by DynamoRIO
+ * Reference \ref sec_reg_stolen for more information.
+ *
+ * \return whether successful.
+ *
+ * \note ARM-only
+ */
+bool
+dr_insert_set_stolen_reg_value(void *drcontext, instrlist_t *ilist,
+                               instr_t *instr, reg_id_t reg);
+
+DR_API
+/**
  * Removes all OP_it instructions from \p ilist without changing the
  * instructions that were inside each IT block.  This is intended to
  * be paired with dr_insert_it_instrs(), where a client's examination

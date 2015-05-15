@@ -195,7 +195,7 @@ Further non-compatibility-affecting changes include:
    and instr_create_Ndst_Msrc_varsrc().
  - Added OPND_CREATE_MEMLIST().
  - Added dr_get_stolen_reg(), dr_insert_get_stolen_reg_value(),
-   and reg_is_stolen().
+   dr_insert_set_stolen_reg_value(), and reg_is_stolen().
  - Added opnd_create_immed_uint().
  - Added instr_remove_srcs() and instr_remove_dsts().
  - Added cross-platform #EFLAGS_READ_ARITH and #EFLAGS_WRITE_ARITH.

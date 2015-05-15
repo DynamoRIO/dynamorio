@@ -1039,6 +1039,8 @@ register. To use the application value of the stolen register in the inserted co
 the client must first use dr_insert_get_stolen_reg_value() to insert code to get
 the value into another register.
 Otherwise, the TLS base value might be used instead.
+Similarly, the client should use dr_insert_set_stolen_reg_value() to set the
+application value of the stolen register.
 
 ***************************************************************************
 \htmlonly
