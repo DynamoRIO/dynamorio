@@ -215,6 +215,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_app_pc_as_jump_target() and dr_app_pc_as_load_target().
  - Added dr_remove_it_instrs() and dr_insert_it_instrs().
  - Added automated conditional instrumentation to drmgr.
+ - Added dr_insert_read_raw_tls() and dr_insert_write_raw_tls().
 
 **************************************************
 <hr>
@@ -291,7 +292,6 @@ Further non-compatibility-affecting changes include:
    which provides the fall-through address.
  - Added instr_is_app(), instr_is_meta(), instr_set_app(), and instr_set_meta().
  - Added reg_get_value_ex().
- - Added dr_insert_read_raw_tls() and dr_insert_write_raw_tls().
 
 **************************************************
 <hr>
