@@ -457,8 +457,8 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
     DEBUG_DECLARE(bool tls;)
     DEBUG_DECLARE(bool spill;)
 
-    /* this routine is only called for non-mbr mangling */
-    STATS_INC(non_mbr_spills);
+    /* this routine is only called from mangling */
+    STATS_INC(mangle_spills);
     prev = find_prior_scratch_reg_restore(dcontext, where, &prior_reg);
     if (INTERNAL_OPTION(opt_mangle) > 0 && prev != NULL && prior_reg == reg) {
         ASSERT(instr_is_reg_spill_or_restore(dcontext, prev, &tls,
@@ -467,7 +467,8 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
         /* remove the redundant restore-spill pair */
         instrlist_remove(ilist, prev);
         instr_destroy(dcontext, prev);
-        STATS_INC(non_mbr_respill_avoided);
+        STATS_INC(mangle_respill_avoided);
+        LOG(THREAD, LOG_INTERP, 4, "remove reg %s respill\n", reg_names[reg]);
     } else {
         PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
     }
@@ -876,8 +877,8 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         if (instr_get_isa_mode(instr) == DR_ISA_ARM_A32)
             target = (ptr_int_t) PC_AS_JMP_TGT(DR_ISA_ARM_THUMB, (app_pc)target);
-        PRE(ilist, instr,
-            instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+        insert_save_to_tls_if_necessary(dcontext, ilist, instr,
+                                        IBL_TARGET_REG, IBL_TARGET_SLOT);
         insert_mov_immed_ptrsz(dcontext, target, opnd_create_reg(IBL_TARGET_REG),
                                ilist, instr, NULL, NULL);
         if (instr_is_predicated(instr)) {
@@ -905,8 +906,8 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* split instr off from its IT block for easier mangling (we reinstate later) */
         next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
     }
-    PRE(ilist, instr,
-        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    insert_save_to_tls_if_necessary(dcontext, ilist, instr,
+                                    IBL_TARGET_REG, IBL_TARGET_SLOT);
     /* We need the spill to be unconditional so start pred processing here */
     PRE(ilist, instr, bound_start);
 
@@ -962,8 +963,8 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* split instr off from its IT block for easier mangling (we reinstate later) */
         next_instr = mangle_remove_from_it_block(dcontext, ilist, instr);
     }
-    PRE(ilist, instr,
-        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    insert_save_to_tls_if_necessary(dcontext, ilist, instr,
+                                    IBL_TARGET_REG, IBL_TARGET_SLOT);
     /* We need the spill to be unconditional so start pred processing here */
     PRE(ilist, instr, bound_start);
     /* Most gpr_list writes are handled by mangle_gpr_list_writes by extracting
@@ -1141,20 +1142,26 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
         (!instr_is_cti(instr) || reg != IBL_TARGET_REG)) {
         ASSERT(reg >= SCRATCH_REG0 && reg <= SCRATCH_REG3);
         slot = TLS_REG0_SLOT + sizeof(reg_t)*(reg - SCRATCH_REG0);
-        DOLOG(4, LOG_INTERP, {
-            dcontext_t *dcontext = get_thread_private_dcontext();
-            LOG(THREAD, LOG_INTERP, 4, "use last scratch reg %s\n", reg_names[reg]);
-        });
+        LOG(THREAD, LOG_INTERP, 4, "use prior scratch reg %s\n", reg_names[reg]);
     } else
         reg = REG_NULL;
 
     if (reg == REG_NULL) {
-        for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
-             reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
-            if (!instr_uses_reg(instr, reg) &&
-                /* not pick  IBL_TARGET_REG if instr is a cti */
-                (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
-                break;
+        if (INTERNAL_OPTION(opt_mangle) > 0 &&
+            !instr_is_cti(instr) && instr_get_next_app(instr) != NULL &&
+            instr_is_cti(instr_get_next_app(instr)) &&
+            !instr_uses_reg(instr, IBL_TARGET_REG)) {
+            /* if next app instr is CTI, we prefer IBL_TARGET_REG */
+            reg  = IBL_TARGET_REG;
+            slot = IBL_TARGET_SLOT;
+        } else {
+            for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
+                 reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
+                if (!instr_uses_reg(instr, reg) &&
+                    /* do not pick IBL_TARGET_REG if instr is a cti */
+                    (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
+                    break;
+            }
         }
     }
     /* We can only try to pick a dead register if the scratch reg usage
@@ -1326,13 +1333,12 @@ restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
     }
 }
 
-/* store app value from dr_reg_stolen to slot if writback is true and
- * restore tls_base from reg back to dr_reg_stolen
+/* store app value from dr_reg_stolen to TLS_REG_STOLEN_SLOT and restore tls_base
+ * from reg back to dr_reg_stolen
  */
 static void
 restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
-                               instr_t *instr, instr_t *next_instr,
-                               reg_id_t reg, ushort slot)
+                               instr_t *instr, instr_t *next_instr, reg_id_t reg)
 {
     /* store app val back if it might be written  */
     if (instr_writes_to_reg(instr, dr_reg_stolen, DR_QUERY_INCLUDE_COND_DSTS)) {
@@ -1415,7 +1421,7 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
     /* -- app instr executes here -- */
 
     /* restore tls_base back to dr_reg_stolen */
-    restore_tls_base_to_stolen_reg(dcontext, ilist, instr, next_instr, tmp, slot);
+    restore_tls_base_to_stolen_reg(dcontext, ilist, instr, next_instr, tmp);
     /* restore tmp if necessary */
     if (should_restore)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, tmp, slot));
@@ -1448,23 +1454,27 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
     /* special case: dst reg is dr_reg_stolen */
     if (reg == dr_reg_stolen) {
         instr_t *immed_nexti;
+        reg_id_t scratch_reg;
+        ushort   scratch_slot;
         /* we do not mangle r10 in [r10, disp], but need save r10 after execution,
          * so we cannot use mangle_stolen_reg.
          */
-        insert_save_to_tls_if_necessary(dcontext, ilist, instr, SCRATCH_REG0,
-                                        TLS_REG0_SLOT);
+        scratch_reg = pick_scratch_reg(dcontext, instr, false,
+                                       &scratch_slot, NULL);
+        insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch_reg,
+                                        scratch_slot);
         PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
-                                           opnd_create_reg(SCRATCH_REG0),
+                                           opnd_create_reg(scratch_reg),
                                            opnd_create_reg(dr_reg_stolen)));
 
         /* -- "ldr r10, [r10, disp]" executes here -- */
 
         immed_nexti = instr_get_next(instr);
         restore_tls_base_to_stolen_reg(dcontext, ilist, instr, immed_nexti,
-                                       SCRATCH_REG0, TLS_REG0_SLOT);
+                                       scratch_reg);
         PRE(ilist, immed_nexti, instr_create_restore_from_tls(dcontext,
-                                                              SCRATCH_REG0,
-                                                              TLS_REG0_SLOT));
+                                                              scratch_reg,
+                                                              scratch_slot));
     }
     if (in_it)
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
@@ -1582,12 +1592,11 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* restore dr_reg_stolen from spill_regs[0] */
         restore_tls_base_to_stolen_reg(dcontext, ilist,
                                        instr,
-                                       /* XXX: we must restore tls base right after instr
-                                        * for other TLS usage, so we use instr_get_next
-                                        * instead of next_instr.
+                                       /* XXX: we must restore tls base right after
+                                        * instr for other TLS usage, so we use
+                                        * instr_get_next instead of next_instr.
                                         */
-                                       instr_get_next(instr),
-                                       spill_regs[0], spill_slots[0]);
+                                       instr_get_next(instr), spill_regs[0]);
         /* do not restore spill_reg[0] as we may use it as scratch reg later */
     }
 
