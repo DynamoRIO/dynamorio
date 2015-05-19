@@ -1802,7 +1802,7 @@ reg_32_to_16(reg_id_t reg)
                   "reg_32_to_16: passed non-32-bit reg");
     return (reg - REG_START_32) + REG_START_16;
 #elif defined(ARM)
-    CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
+    CLIENT_ASSERT(false, "reg_32_to_16 not supported on ARM");
     return REG_NULL;
 #endif
 }
@@ -1867,12 +1867,13 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
 {
     CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
                   "reg_32_to_opsz: passed non-32-bit reg");
+    /* On ARM, we use the same reg for the size of 8, 16, and 32 bit */
     if (sz == OPSZ_4)
         return reg;
     else if (sz == OPSZ_2)
-        return reg_32_to_16(reg);
+        return IF_ARM_ELSE(reg, reg_32_to_16(reg));
     else if (sz == OPSZ_1)
-        return reg_32_to_8(reg);
+        return IF_ARM_ELSE(reg, reg_32_to_8(reg));
 #ifdef X64
     else if (sz == OPSZ_8)
         return reg_32_to_64(reg);

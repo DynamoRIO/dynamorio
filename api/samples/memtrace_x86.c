@@ -32,7 +32,7 @@
  */
 
 /* Code Manipulation API Sample:
- * memtrace.c
+ * memtrace_x86.c
  *
  * Collects the instruction address, data address, and size of every
  * memory reference and dumps the results to a file.
@@ -46,6 +46,9 @@
  * loops to obtain every memory reference and of
  * drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
  * memory references.
+ *
+ * This is an x86 specific implementation of memory tracing client sample,
+ * xref memtrace_simple.c for a simple arch-independent implementation.
  */
 
 #include <string.h> /* for memset */
@@ -507,4 +510,3 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_restore_reg(drcontext, ilist, where, reg1, SPILL_SLOT_2);
     dr_restore_reg(drcontext, ilist, where, reg2, SPILL_SLOT_3);
 }
-
