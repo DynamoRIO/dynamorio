@@ -640,9 +640,8 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
          */
 
         /* libelftc code use fp ops so we have to save fp state (i#756) */
-        /* 512 and 16 are specified by DR but not named consts */
-        byte fp_raw[512 + 16];
-        byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, 16);
+        byte fp_raw[DR_FPSTATE_BUF_SIZE + DR_FPSTATE_ALIGN];
+        byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
 
         proc_save_fpstate(fp_align);
         status = elftc_demangle(mangled, dst, dst_sz, ELFTC_DEM_GNU3);

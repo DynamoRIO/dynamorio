@@ -1817,17 +1817,17 @@ if (CLIENT_INTERFACE)
     endif (dbghelp_path)
   endif ()
 
-  if (NOT ARM) # FIXME i#1551: port to ARM
-    tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
-    get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
-    tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
-      "-stack_size 36K" "${drsyms_libpath}")
-    # Disable optimizations for the exe and appdll to allow stack tracing.
-    disable_optimizations_for_file(client-interface/drsyms-test.cpp)
-    disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
-    use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
-    use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+  tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
+  get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
+  tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
+    "-stack_size 36K" "${drsyms_libpath}")
+  # Disable optimizations for the exe and appdll to allow stack tracing.
+  disable_optimizations_for_file(client-interface/drsyms-test.cpp)
+  disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
+  use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
+  use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
+  if (NOT ARM) # FIXME i#1551: port to ARM
     # We check these two statements here b/c not all gcc compilers support
     # cross - architecture compilation (e.g. perl mingw x64 doesn't support
     # x32 app compilation).

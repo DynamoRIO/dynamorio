@@ -54,12 +54,32 @@
 
 /* page size is 4K on all DR-supported platforms */
 #ifndef PAGE_SIZE /* defined on Mac */
-#  define PAGE_SIZE (4*1024) /**< Size of a page of memory. */
+# define PAGE_SIZE (4*1024) /**< Size of a page of memory. */
 #endif
 
 /**< Convenience macro to align to the start of a page of memory. */
 #define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE)-1))
 
+/**
+ * The maximum possible required size of floating point state buffer for
+ * processors with different features (i.e., the processors with the FXSR
+ * feature on x86, or the processors with the VFPv3 feature on ARM).
+ * \note The actual required buffer size may vary depending on the processor
+ * feature.  \note proc_fpstate_save_size() can be used to determine the
+ * particular size needed.
+ */
+#ifdef X86
+# define DR_FPSTATE_BUF_SIZE 512
+#elif defined(ARM)
+# define DR_FPSTATE_BUF_SIZE (32*64)
+#endif
+
+/** The alignment requirements of floating point state buffer. */
+#ifdef X86
+# define DR_FPSTATE_ALIGN  16
+#elif defined(ARM)
+# define DR_FPSTATE_ALIGN  4
+#endif
 /** Constants returned by proc_get_vendor(). */
 enum {
     VENDOR_INTEL,   /**< proc_get_vendor() processor identification: Intel */
@@ -408,11 +428,16 @@ proc_fpstate_save_size(void);
 
 DR_API
 /**
- * Saves the floating point state into the 16-byte-aligned buffer \p buf,
- * which must be 512 bytes for processors with the FXSR feature, and
- * 108 bytes for those without (where this routine does not support
- * 16-bit operand sizing).  \note proc_fpstate_save_size() can be used
- * to determine the particular size needed.
+ * Saves the floating point state into the buffer \p buf.
+ *
+ * On x86, the buffer must be 16-byte-aligned, and it must be
+ * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
+ * and 108 bytes for those without (where this routine does not support
+ * 16-bit operand sizing).  On ARM, the buffer must be 4-byte-aligned and
+ * it must be 2048 (DR_FPSTATE_BUF_SIZE) bytes.
+ *
+ * \note proc_fpstate_save_size() can be used to determine the particular
+ * size needed.
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
  * of the ISA mode of the current thread (see dr_get_isa_mode()).
@@ -433,11 +458,15 @@ proc_save_fpstate(byte *buf);
 
 DR_API
 /**
- * Restores the floating point state from the 16-byte-aligned buffer
- * \p buf, which must be 512 bytes for processors with the FXSR feature,
- * and 108 bytes for those without (where this routine does not
- * support 16-bit operand sizing).  \note proc_fpstate_save_size() can
- * be used to determine the particular size needed.
+ * Restores the floating point state from the buffer \p buf.
+ * On x86, the buffer must be 16-byte-aligned, and it must be
+ * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
+ * and 108 bytes for those without (where this routine does not support
+ * 16-bit operand sizing).  On ARM, the buffer must be 4-byte-aligned and
+ * it must be 2048 (DR_FPSTATE_BUF_SIZE) bytes.
+ *
+ * \note proc_fpstate_save_size() can be used to determine the particular
+ * size needed.
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
  * of the ISA mode of the current thread (see dr_get_isa_mode()).

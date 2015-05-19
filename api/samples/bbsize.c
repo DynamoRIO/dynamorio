@@ -47,6 +47,9 @@
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
+#define ALIGN_FORWARD(x, alignment) \
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
+
 static void *stats_mutex; /* for multithread support */
 static int num_bb;
 static double ave_size;
@@ -107,8 +110,8 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     int cur_size = 0;
 
     /* we use fp ops so we have to save fp state */
-    byte fp_raw[512 + 16];
-    byte *fp_align = (byte *) ( (((ptr_uint_t)fp_raw) + 16) & ((ptr_uint_t)-16) );
+    byte fp_raw[DR_FPSTATE_BUF_SIZE + DR_FPSTATE_ALIGN];
+    byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
 
     if (translating)
         return DR_EMIT_DEFAULT;

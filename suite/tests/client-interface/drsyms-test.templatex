@@ -45,7 +45,7 @@ found tools.h
 found drsyms-test.appdll.cpp
 stack trace:
 drsyms-test\.appdll\.cpp:52!dll_public
-#if !(defined(WINDOWS) && defined(X64))
+#if !(defined(WINDOWS) && defined(X64)) && !defined(ARM)
 drsyms-test\.appdll\.cpp:59!dll_static
 drsyms-test\.appdll\.cpp:65!dll_export
 drsyms-test\.cpp:75!.anonymous namespace.::Foo::Bar
