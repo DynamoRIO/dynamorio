@@ -54,7 +54,7 @@ test_LSB(void)
 {
     /* Test i#1688: LSB=1 decoding */
     const ushort b[] = {
-        0xf300,0xe100, 0x4668,
+        0xf300,0xe100, 0x4668, 0x0002,
     };
     byte *pc = (byte *)b;
     byte *start = pc;
