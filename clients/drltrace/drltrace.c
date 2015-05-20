@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -39,6 +39,7 @@
  * -logdir <dir>       Sets log directory, which by default is "-".
  *                     If set to "-", the tool prints to stderr.
  * -only_from_app      Only reports library calls from the application itself.
+ * -only_to_lib <lib>  Only reports calls to the library <lib>.
  * -ignore_underscore  Ignores library routine names starting with "_".
  * -verbose <N>        For debugging the tool itself.
  */
@@ -54,6 +55,7 @@
  *
  * + Add filtering of which library routines to trace.
  *   This would likely be via a configuration file.
+ *   Currently we have a simple -only_to_lib option.
  *
  * + Add argument values and return values.  The number and type of each
  *   argument and return would likely come from the filter configuration
@@ -80,6 +82,7 @@ typedef struct _drltrace_options_t {
     char logdir[MAXIMUM_PATH];
     bool only_from_app;
     bool ignore_underscore;
+    char only_to_lib[MAXIMUM_PATH];
 } drltrace_options_t;
 
 static drltrace_options_t options;
@@ -186,17 +189,27 @@ iterate_exports(const module_data_t *info, bool add)
     dr_symbol_export_iterator_stop(exp_iter);
 }
 
+static bool
+library_matches_filter(const module_data_t *info)
+{
+    if (options.only_to_lib[0] != '\0') {
+        const char *libname = dr_module_preferred_name(info);
+        return (libname != NULL && strstr(libname, options.only_to_lib) != NULL);
+    }
+    return true;
+}
+
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    if (info->start != exe_start)
+    if (info->start != exe_start && library_matches_filter(info))
         iterate_exports(info, true/*add*/);
 }
 
 static void
 event_module_unload(void *drcontext, const module_data_t *info)
 {
-    if (info->start != exe_start)
+    if (info->start != exe_start && library_matches_filter(info))
         iterate_exports(info, false/*remove*/);
 }
 
@@ -261,6 +274,10 @@ options_init(client_id_t id)
             USAGE_CHECK(s != NULL, "missing logdir path");
         } else if (strcmp(token, "-only_from_app") == 0) {
             options.only_from_app = true;
+        } else if (strcmp(token, "-only_to_lib") == 0) {
+            s = dr_get_token(s, options.only_to_lib,
+                             BUFFER_SIZE_ELEMENTS(options.only_to_lib));
+            USAGE_CHECK(s != NULL, "missing library name");
         } else if (strcmp(token, "-ignore_underscore") == 0) {
             options.ignore_underscore = true;
         } else if (strcmp(token, "-verbose") == 0) {
