@@ -41,6 +41,8 @@
  * -only_from_app      Only reports library calls from the application itself.
  * -only_to_lib <lib>  Only reports calls to the library <lib>.
  * -ignore_underscore  Ignores library routine names starting with "_".
+ * -all_args <N>       Prints N arg values for every library call.
+ *                     Set to 2 by default.
  * -verbose <N>        For debugging the tool itself.
  */
 
@@ -59,7 +61,8 @@
  *
  * + Add argument values and return values.  The number and type of each
  *   argument and return would likely come from the filter configuration
- *   file.
+ *   file, or from querying debug information.
+ *   Today we have simple type-blind printing via -all_args.
  *
  * + Add 2 more modes, both gathering statistics rather than a full
  *   trace: one mode that counts total calls, and one that just
@@ -83,6 +86,7 @@ typedef struct _drltrace_options_t {
     bool only_from_app;
     bool ignore_underscore;
     char only_to_lib[MAXIMUM_PATH];
+    uint all_args;
 } drltrace_options_t;
 
 static drltrace_options_t options;
@@ -139,9 +143,25 @@ lib_entry(void *wrapcxt, INOUT void **user_data)
     mod = dr_lookup_module(func);
     if (mod != NULL)
         modname = dr_module_preferred_name(mod);
-    dr_fprintf(outf, "%s%s%s%s\n", (outf == STDERR ? STDERR_PREFIX : ""),
+    dr_fprintf(outf, "%s%s%s%s", (outf == STDERR ? STDERR_PREFIX : ""),
                modname == NULL ? "" : modname,
                modname == NULL ? "" : "!", name);
+    if (options.all_args > 0) {
+        uint i;
+        void *drcontext = drwrap_get_drcontext(wrapcxt);
+        dr_fprintf(outf, "(");
+        DR_TRY_EXCEPT(drcontext, {
+            for (i = 0; i < options.all_args; i++) {
+                dr_fprintf(outf, "%s"PFX, (i != 0) ? ", " : "",
+                           drwrap_get_arg(wrapcxt, i));
+            }
+        }, {
+            dr_fprintf(outf, "<invalid memory>");
+            /* Just keep going */
+        });
+        dr_fprintf(outf, ")");
+    }
+    dr_fprintf(outf, "\n");
     if (mod != NULL)
         dr_free_module_data(mod);
 }
@@ -264,6 +284,7 @@ options_init(client_id_t id)
 
     /* default values */
     dr_snprintf(options.logdir, BUFFER_SIZE_ELEMENTS(options.logdir), "-");
+    options.all_args = 2;
 
     for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
          s != NULL;
@@ -280,6 +301,13 @@ options_init(client_id_t id)
             USAGE_CHECK(s != NULL, "missing library name");
         } else if (strcmp(token, "-ignore_underscore") == 0) {
             options.ignore_underscore = true;
+        } else if (strcmp(token, "-all_args") == 0) {
+            s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token));
+            USAGE_CHECK(s != NULL, "missing -all_args number");
+            if (s != NULL) {
+                int res = dr_sscanf(token, "%u", &options.all_args);
+                USAGE_CHECK(res == 1, "invalid -all_args number");
+            }
         } else if (strcmp(token, "-verbose") == 0) {
             s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token));
             USAGE_CHECK(s != NULL, "missing -verbose number");
