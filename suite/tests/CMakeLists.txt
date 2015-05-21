@@ -2059,8 +2059,13 @@ if (UNIX)
   torunonly(linux.child-whitelist linux.execv linux/execv.c
     "-no_follow_children" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-config")
   set(linux.child-whitelist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  if (DEBUG)
+    set(debug_args "@-debug")
+  else (DEBUG)
+    set(debug_args "")
+  endif (DEBUG)
   set(linux.child-whitelist_precmd
-    "${drconfig_path}@-quiet@-reg@linux.execve-config@-debug@-ops@-stderr_mask@@0")
+    "${drconfig_path}@-quiet@-reg@linux.execve-config${debug_args}@-ops@-stderr_mask@@0")
   set(linux.child-whitelist_postcmd
     "${drconfig_path}@-quiet@-unreg@linux.execve-config")
   # Can't run in parallel w/ blacklist since manipulating same config file:
