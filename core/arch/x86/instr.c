@@ -1433,3 +1433,10 @@ instr_is_nop(instr_t *inst)
         return true;
     return false;
 }
+
+DR_API
+bool
+instr_is_exclusive_store(instr_t *instr)
+{
+    return false;
+}

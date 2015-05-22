@@ -181,7 +181,9 @@ Further non-compatibility-affecting changes include:
    XINST_CREATE_add(), XINST_CREATE_add_2src(), XINST_CREATE_add_s(),
    XINST_CREATE_sub(), XINST_CREATE_sub_s(),
    XINST_CREATE_and_s(), XINST_CREATE_cmp(),
-   XINST_CREATE_interrupt(), and XINST_CREATE_nop().
+   XINST_CREATE_interrupt(), XINST_CREATE_nop(),
+   XINST_CREATE_load_1byte(), XINST_CREATE_load_2bytes(),
+   XINST_CREATE_store_1byte(), and XINST_CREATE_store_2bytes().
  - Added a new feature: a binary annotation framework that facilitates communication
    between the target app and the DynamoRIO client and core. See \ref sec_annotations
    and dr_annotation.h.
@@ -219,6 +221,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_remove_it_instrs() and dr_insert_it_instrs().
  - Added automated conditional instrumentation to drmgr.
  - Added dr_insert_read_raw_tls() and dr_insert_write_raw_tls().
+ - Added instr_is_exclusive_store().
 
 **************************************************
 <hr>

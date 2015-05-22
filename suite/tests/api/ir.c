@@ -1284,6 +1284,54 @@ test_predication(void *dc)
     instr_destroy(dc, instr);
 }
 
+static void
+test_xinst_create(void *dc)
+{
+    byte *pc;
+    reg_id_t reg = DR_REG_XDX;
+    instr_t *ins1, *ins2;
+    /* load 1 byte */
+    ins1 = XINST_CREATE_load_1byte
+        (dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)), MEMARG(OPSZ_1));
+    pc = instr_encode(dc, ins1, buf);
+    ASSERT(pc != NULL);
+    ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(ins1, ins2));
+    instr_reset(dc, ins1);
+    instr_reset(dc, ins2);
+    /* load 2 bytes */
+    ins1 = XINST_CREATE_load_2bytes
+        (dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)), MEMARG(OPSZ_2));
+    pc = instr_encode(dc, ins1, buf);
+    ASSERT(pc != NULL);
+    ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(ins1, ins2));
+    instr_reset(dc, ins1);
+    instr_reset(dc, ins2);
+    /* store 1 byte */
+    ins1 = XINST_CREATE_store_1byte
+        (dc, MEMARG(OPSZ_1), opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)));
+    pc = instr_encode(dc, ins1, buf);
+    ASSERT(pc != NULL);
+    ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(ins1, ins2));
+    instr_reset(dc, ins1);
+    instr_reset(dc, ins2);
+    /* store 1 byte */
+    ins1 = XINST_CREATE_store_2bytes
+        (dc, MEMARG(OPSZ_2), opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)));
+    pc = instr_encode(dc, ins1, buf);
+    ASSERT(pc != NULL);
+    ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(ins1, ins2));
+    instr_reset(dc, ins1);
+    instr_reset(dc, ins2);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1344,6 +1392,8 @@ main(int argc, char *argv[])
     test_disasm_sizes(dcontext);
 
     test_predication(dcontext);
+
+    test_xinst_create(dcontext);
 
     print("all done\n");
     return 0;

@@ -168,9 +168,10 @@ insert_save_type(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   opnd_create_reg(scratch),
                                   OPND_CREATE_INT16(type)));
     MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEM16(base, offsetof(mem_ref_t, type)),
-                               opnd_create_reg(scratch)));
+            XINST_CREATE_store_2bytes(drcontext,
+                                      OPND_CREATE_MEM16(base,
+                                                        offsetof(mem_ref_t, type)),
+                                      opnd_create_reg(scratch)));
 }
 
 static void
@@ -183,9 +184,10 @@ insert_save_size(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   opnd_create_reg(scratch),
                                   OPND_CREATE_INT16(size)));
     MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEM16(base, offsetof(mem_ref_t, size)),
-                               opnd_create_reg(scratch)));
+            XINST_CREATE_store_2bytes(drcontext,
+                                      OPND_CREATE_MEM16(base,
+                                                        offsetof(mem_ref_t, size)),
+                                      opnd_create_reg(scratch)));
 }
 
 static void
@@ -202,7 +204,8 @@ insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
         instr_set_meta(mov2);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(base, offsetof(mem_ref_t, addr)),
+                               OPND_CREATE_MEMPTR(base,
+                                                  offsetof(mem_ref_t, addr)),
                                opnd_create_reg(scratch)));
 }
 
@@ -217,7 +220,8 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(reg_ptr, offsetof(mem_ref_t, addr)),
+                               OPND_CREATE_MEMPTR(reg_ptr,
+                                                  offsetof(mem_ref_t, addr)),
                                opnd_create_reg(reg_addr)));
 }
 
@@ -303,8 +307,18 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
             instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i), true);
     }
 
-    /* insert code to call clean call for processing the enries */
-    dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
+    /* insert code to call clean_call for processing the buffer */
+    if (/* XXX i#1702: it is ok to skip a few clean calls on predicated instructions,
+         * since the buffer will be dumped later by other clean calls.
+         */
+        IF_X86_ELSE(true, !instr_is_predicated(instr))
+        /* FIXME i#1698: there are constraints for code between ldrex/strex pairs,
+         * so we minimize the instrumentation in between by skipping the clean call.
+         * However, there is still a chance that the instrumentation code may clear the
+         * exclusive monitor state.
+         */
+        IF_ARM(&& !instr_is_exclusive_store(instr)))
+        dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
 
     return DR_EMIT_DEFAULT;
 }

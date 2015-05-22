@@ -800,3 +800,12 @@ instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg)
     }
     return false;
 }
+
+DR_API
+bool
+instr_is_exclusive_store(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr);
+    return (opcode == OP_strex  || opcode == OP_strexb ||
+            opcode == OP_strexd || opcode == OP_strexh);
+}

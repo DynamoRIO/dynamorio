@@ -1306,7 +1306,15 @@ DR_API
 instr_t *
 instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
                       dr_pred_type_t pred2, dr_pred_type_t pred3);
-#endif
+#endif /* ARM */
+
+DR_API
+/**
+ * Returns true iff \p instr is an exclusive store instruction,
+ * e.g., OP_strex on ARM.
+ */
+bool
+instr_is_exclusive_store(instr_t *instr);
 
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred);

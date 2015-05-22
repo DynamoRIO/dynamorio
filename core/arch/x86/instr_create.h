@@ -146,7 +146,8 @@
 #define XINST_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
 
 /**
- * This platform-independent creates an instr_t for a memory load instruction.
+ * This platform-independent macro creates an instr_t for a 4-byte
+ * or 8-byte (x64 only) memory load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
@@ -154,12 +155,49 @@
 #define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a memory store instruction.
+ * This platform-independent macro creates an instr_t for a 1-byte
+ * memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_1byte(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
+
+/**
+ * This platform-independent macro creates an instr_t for a 2-byte
+ * memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_2bytes(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
+
+/**
+ * This platform-independent macro creates an instr_t for a 4-byte
+ * or 8-byte (x64 only) memory store instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
+
+/**
+ * This platform-independent macro creates an instr_t for a 1-byte
+ * memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define XINST_CREATE_store_1byte(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
+
+/**
+ * This platform-independent macro creates an instr_t for a 2-byte
+ * memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define XINST_CREATE_store_2bytes(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
 
 /**
  * This platform-independent macro creates an instr_t for a register
