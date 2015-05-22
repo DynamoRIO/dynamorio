@@ -392,7 +392,11 @@ encode_state_init(encode_state_t *state, decode_info_t *di, instr_t *instr)
             opnd_get_immed_int(instr_get_src(instr, 1));
     }
     it_block_info_init(&state->itb_info, di);
-    state->instr = instr_get_next(instr);
+    /* forward to the next non-label instr */
+    for (state->instr  = instr_get_next(instr);
+         state->instr != NULL && instr_is_label(state->instr);
+         state->instr  = instr_get_next(state->instr))
+        ; /* do nothing to skip the label instr */
     if (state->instr == NULL) {
         CLIENT_ASSERT(instr_get_prev(instr) == NULL, /* ok if not in ilist */
                       "invalid IT block sequence");
@@ -417,8 +421,13 @@ encode_state_advance(encode_state_t *state, instr_t *instr)
      * prior-instr matching logic matching too far.  We also don't want to
      * reset yet, so we can handle a prior-instr on the last instr.
      */
-    if (it_block_info_advance(&state->itb_info))
-        state->instr = instr_get_next(instr);
+    if (it_block_info_advance(&state->itb_info)) {
+        /* forward to the next non-label instr */
+        for (state->instr  = instr_get_next(instr);
+             state->instr != NULL && instr_is_label(state->instr);
+             state->instr  = instr_get_next(state->instr))
+            ; /* do nothing to skip the label instr */
+    }
     return pred;
 }
 

@@ -543,6 +543,8 @@ reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
             /* Do not put OP_b exit cti into block: patch_branch can't handle */
             instr_get_opcode(instr) != OP_b &&
             instr_get_opcode(instr) != OP_b_short;
+        if (instr_is_label(instr))
+            continue;
         if (block_start != NULL) {
             bool matches = true;
             ASSERT(block_count < IT_BLOCK_MAX_INSTRS);
