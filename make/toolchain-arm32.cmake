@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,16 +28,17 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# For cross compiling on 32-bit arm Linux using arm-linux-gnueabi-gcc package:
+# For cross compiling on 32-bit arm Linux using gcc-arm-linux-gnueabihf package:
 # - install arm-linux-gnueabi-gcc package:
-#   $ sudo apt-get install g*arm-linux-gnueabi
+#   $ sudo apt-get install gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 # - cross-compiling config
 #   $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm32.cmake ../dynamorio
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 # If using a different target, set -DTARGET_ABI=<abi> on the command line.
+# However, some of our pre-built libraries (such as libelftc) assume gnueabihf.
 if (NOT DEFINED TARGET_ABI)
-  set(TARGET_ABI "linux-gnueabi")
+  set(TARGET_ABI "linux-gnueabihf")
 endif ()
 # specify the cross compiler
 SET(CMAKE_C_COMPILER   arm-${TARGET_ABI}-gcc)
