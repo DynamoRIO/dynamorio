@@ -485,7 +485,7 @@ dynamorio_app_init(void)
          */
         SYSLOG(SYSLOG_INFORMATION,
                IF_CLIENT_INTERFACE_ELSE(INFO_PROCESS_START_CLIENT, INFO_PROCESS_START),
-               IF_CLIENT_INTERFACE_ELSE(3, 2),
+               IF_CLIENT_INTERFACE_ELSE(2, 3),
                get_application_name(), get_application_pid()
                _IF_NOT_CLIENT_INTERFACE(get_application_md5()));
 
