@@ -1325,7 +1325,10 @@
     OPTION_DEFAULT(bool, cache_shared_free_list, true,
         "use size-separated free lists to manage empty shared cache slots")
 
-    OPTION_COMMAND(bool, enable_reset, true, "enable_reset", {
+    /* FIXME i#1674: enable on ARM once bugs are fixed, along with all the
+     * reset_* trigger options as well.
+     */
+    OPTION_COMMAND(bool, enable_reset, IF_ARM_ELSE(false, true), "enable_reset", {
         if (!options->enable_reset) {
             DISABLE_RESET(options);
         }
@@ -1343,24 +1346,29 @@
     OPTION_DEFAULT(bool, switch_to_os_at_vmm_reset_limit, true,
         "if we hit the reset_at_vmm_*_limit switch to requesting from the os (so we'll "
         "only actually reset once the os is out and we're at the limit)")
-    OPTION_DEFAULT(bool, reset_at_switch_to_os_at_vmm_limit, true,
+    OPTION_DEFAULT(bool, reset_at_switch_to_os_at_vmm_limit,
+        IF_ARM_ELSE(false, true), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "schedule a reset the first (and only the first) time we switch to the os "
         "allocations from -switch_to_os_at_vmm_reset_limit above")
-    OPTION_DEFAULT(uint, reset_at_vmm_percent_free_limit, 10,
+    OPTION_DEFAULT(uint, reset_at_vmm_percent_free_limit,
+        IF_ARM_ELSE(0, 10), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all when vmm heap % free is < reset_at_vmm_percent_free (0 disables)")
     OPTION_DEFAULT(uint_size, reset_at_vmm_free_limit, 0,
         "reset all when vmm heap has less then reset_at_vmm_free free memory remaining")
     OPTION_DEFAULT(uint, report_reset_vmm_threshold, 3,
         "syslog one thrash warning message after this many resets at low vmm heap free")
-    OPTION_DEFAULT(bool, reset_at_vmm_full, true,
+    OPTION_DEFAULT(bool, reset_at_vmm_full,
+        IF_ARM_ELSE(false, true), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches the first time vmm heap runs out of space")
     OPTION_DEFAULT(uint, reset_at_commit_percent_free_limit, 0,
         "reset all less then this % of the commit limit remains free (0 disables)")
-    OPTION_DEFAULT(uint_size, reset_at_commit_free_limit, (32 * 1024 * 1024),
-         "reset all when less then this much free committable memory remains")
+    OPTION_DEFAULT(uint_size, reset_at_commit_free_limit,
+        IF_ARM_ELSE(0, (32 * 1024 * 1024)), /* i#1674: re-enable once ARM bugs fixed */
+        "reset all when less then this much free committable memory remains")
     OPTION_DEFAULT(uint, report_reset_commit_threshold, 3,
         "syslog one thrash warning message after this many resets at low commit")
-    OPTION_DEFAULT(uint, reset_every_nth_pending, 35,
+    OPTION_DEFAULT(uint, reset_every_nth_pending,
+        IF_ARM_ELSE(0, 35), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches when pending deletion has this many entries")
     /* the reset-by-unit options focus on filled units and not created units
      * to avoid being triggered by new, empty, private units for new threads

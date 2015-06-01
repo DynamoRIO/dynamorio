@@ -2165,9 +2165,9 @@ if (UNIX)
 
   # runs of other builds with custom DR options
   torunonly(linux.thread-reset linux.thread linux/thread.c
-    "-reset_at_fragment_count 100" "")
+    "-enable_reset -reset_at_fragment_count 100" "")
   torunonly(linux.clone-reset linux.clone linux/clone.c
-    "-reset_at_fragment_count 100" "")
+    "-enable_reset -reset_at_fragment_count 100" "")
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
@@ -2192,7 +2192,7 @@ if (UNIX)
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
   add_exe(linux.infloop linux/infloop.c)
-  torunonly(linux.reset linux/infloop linux/reset.runall "" "-v")
+  torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
