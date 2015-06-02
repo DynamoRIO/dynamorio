@@ -609,7 +609,7 @@ opc_jcc_taken(int opc, reg_t eflags)
 {
     /* FIXME i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
-    return NULL;
+    return false;
 }
 
 /* Given eflags, returns whether or not the conditional branch instr would be taken */
