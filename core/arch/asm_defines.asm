@@ -41,12 +41,16 @@
 
 #include "configure.h"
 
-#if defined(X86_64) && !defined(X64)
+#if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
 # define X64
 #endif
 
 #if (defined(X86_64) || defined(X86_32)) && !defined(X86)
 # define X86
+#endif
+
+#if (defined(ARM_64) || defined(ARM_32)) && !defined(ARM)
+# define ARM
 #endif
 
 #ifdef ARM
