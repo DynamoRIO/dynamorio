@@ -1827,34 +1827,34 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
+  # We check these two statements here b/c not all gcc compilers support
+  # cross - architecture compilation (e.g. perl mingw x64 doesn't support
+  # x32 app compilation).
+  if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
+    # test drsyms dwarf-on-windows capabilities.
+    # cmake doesn't support a new compiler so we do a simple build here.
+    tobuild_gcc(client.drsyms-testgcc.exe
+      client-interface/drsyms-test.cpp client.drsyms-test "")
+    tobuild_gcc(client.drsyms-testgcc.appdll.dll
+      client-interface/drsyms-test.appdll.cpp client.drsyms-test "-shared")
+    torunonly_ci(client.drsyms-testgcc
+      ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.exe
+      client.drsyms-test.dll client-interface/drsyms-test.cpp "" "-stack_size 36K"
+      "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.appdll.dll")
+    set(client.drsyms-testgcc_expectbase "drsyms-testgcc")
+    if (GCC_IS_CYGWIN)
+      set(client.drsyms-testgcc_is_cygwin ON)
+    endif()
+  endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
+
+  tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
+  use_DynamoRIO_extension(client.drutil-test.dll drutil)
+  use_DynamoRIO_extension(client.drutil-test.dll drmgr)
+  if (UNIX)
+    target_link_libraries(client.drutil-test ${libpthread})
+  endif (UNIX)
+
   if (NOT ARM) # FIXME i#1551: port to ARM
-    # We check these two statements here b/c not all gcc compilers support
-    # cross - architecture compilation (e.g. perl mingw x64 doesn't support
-    # x32 app compilation).
-    if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
-      # test drsyms dwarf-on-windows capabilities.
-      # cmake doesn't support a new compiler so we do a simple build here.
-      tobuild_gcc(client.drsyms-testgcc.exe
-        client-interface/drsyms-test.cpp client.drsyms-test "")
-      tobuild_gcc(client.drsyms-testgcc.appdll.dll
-        client-interface/drsyms-test.appdll.cpp client.drsyms-test "-shared")
-      torunonly_ci(client.drsyms-testgcc
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.exe
-        client.drsyms-test.dll client-interface/drsyms-test.cpp "" "-stack_size 36K"
-        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.appdll.dll")
-      set(client.drsyms-testgcc_expectbase "drsyms-testgcc")
-      if (GCC_IS_CYGWIN)
-        set(client.drsyms-testgcc_is_cygwin ON)
-      endif()
-    endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
-
-    tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
-    use_DynamoRIO_extension(client.drutil-test.dll drutil)
-    use_DynamoRIO_extension(client.drutil-test.dll drmgr)
-    if (UNIX)
-      target_link_libraries(client.drutil-test ${libpthread})
-    endif (UNIX)
-
     # We need to load w/ the same base so the test passes
     set(DynamoRIO_SET_PREFERRED_BASE ON)
     set(PREFERRED_BASE 0x6f000000)
