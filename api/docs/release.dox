@@ -222,6 +222,7 @@ Further non-compatibility-affecting changes include:
  - Added automated conditional instrumentation to drmgr.
  - Added dr_insert_read_raw_tls() and dr_insert_write_raw_tls().
  - Added instr_is_exclusive_store().
+ - Added #DR_FILE_WRITE_ONLY.
 
 **************************************************
 <hr>

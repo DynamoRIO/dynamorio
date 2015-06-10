@@ -3574,7 +3574,9 @@ os_open(const char *fname, int os_open_flags)
     int flags = 0;
     if (TEST(OS_OPEN_ALLOW_LARGE, os_open_flags))
         flags |= O_LARGEFILE;
-    if (!TEST(OS_OPEN_WRITE, os_open_flags))
+    if (TEST(OS_OPEN_WRITE_ONLY, os_open_flags))
+        res = open_syscall(fname, flags|O_WRONLY, 0);
+    else if (!TEST(OS_OPEN_WRITE, os_open_flags))
         res = open_syscall(fname, flags|O_RDONLY, 0);
     else {
         res = open_syscall(fname, flags|O_RDWR|O_CREAT|

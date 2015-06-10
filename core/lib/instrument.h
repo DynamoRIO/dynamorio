@@ -3597,6 +3597,12 @@ dr_file_exists(const char *fname);
 #define DR_FILE_ALLOW_LARGE       0x10
 /** Linux-only.  This file will be closed in the child of a fork. */
 #define DR_FILE_CLOSE_ON_FORK     0x20
+/**
+ * Open with write-only access.  Meant for use with pipes.  Linux-only.
+ * Mutually exclusive with DR_FILE_WRITE_REQUIRE_NEW, DR_FILE_WRITE_APPEND, and
+ * DR_FILE_WRITE_OVERWRITE.
+ */
+#define DR_FILE_WRITE_ONLY        0x40
 /* DR_API EXPORT END */
 
 DR_API

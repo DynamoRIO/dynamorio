@@ -707,15 +707,16 @@ bool remove_from_all_memory_areas(app_pc start, app_pc end);
 
 /* file operations */
 /* defaults to read only access, if write is not set ignores others */
-#define OS_OPEN_READ        0x01
-#define OS_OPEN_WRITE       0x02
-#define OS_OPEN_APPEND      0x04 /* if not set, the file is truncated */
-#define OS_OPEN_REQUIRE_NEW 0x08
-#define OS_EXECUTE          0x10 /* only used on win32, currently */
-#define OS_SHARE_DELETE     0x20 /* only used on win32, currently */
-#define OS_OPEN_FORCE_OWNER 0x40 /* only used on win32, currently */
-#define OS_OPEN_ALLOW_LARGE 0x80 /* only used on linux32, currently */
-#define OS_OPEN_CLOSE_ON_FORK 0x100 /* only used on linux */
+#define OS_OPEN_READ          0x001
+#define OS_OPEN_WRITE         0x002
+#define OS_OPEN_WRITE_ONLY    0x004 /* for linux pipes: ignores _APPEND + _NEW flags */
+#define OS_OPEN_APPEND        0x008 /* if not set, the file is truncated */
+#define OS_OPEN_REQUIRE_NEW   0x010
+#define OS_EXECUTE            0x020 /* only used on win32, currently */
+#define OS_SHARE_DELETE       0x040 /* only used on win32, currently */
+#define OS_OPEN_FORCE_OWNER   0x080 /* only used on win32, currently */
+#define OS_OPEN_ALLOW_LARGE   0x100 /* only used on linux32, currently */
+#define OS_OPEN_CLOSE_ON_FORK 0x200 /* only used on linux */
 #define OS_OPEN_RESERVED  0x10000000 /* used for fd_table on linux */
 /* always use OS_OPEN_REQUIRE_NEW when asking for OS_OPEN_WRITE, in
  * order to avoid hard link or symbolic link attacks if the file is in

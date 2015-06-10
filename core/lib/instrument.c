@@ -3769,6 +3769,10 @@ dr_open_file(const char *fname, uint mode_flags)
         CLIENT_ASSERT((flags == 0), "dr_open_file: multiple write modes selected");
         flags |= OS_OPEN_WRITE;
     }
+    if (TEST(DR_FILE_WRITE_ONLY, mode_flags)) {
+        CLIENT_ASSERT((flags == 0), "dr_open_file: multiple write modes selected");
+        flags |= OS_OPEN_WRITE_ONLY;
+    }
     if (TEST(DR_FILE_READ, mode_flags))
         flags |= OS_OPEN_READ;
     CLIENT_ASSERT((flags != 0), "dr_open_file: no mode selected");

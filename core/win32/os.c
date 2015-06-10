@@ -6349,6 +6349,8 @@ os_open(const char *fname, int os_open_flags)
     if (!TEST(OS_OPEN_WRITE, os_open_flags))
         return os_internal_create_file(fname, false, access, sharing, FILE_OPEN);
 
+    /* We ignore OS_OPEN_WRITE_ONLY: Linux-only */
+
     /* clients are allowed to open the file however they want, xref PR 227737 */
     ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) || standalone_library
                            IF_CLIENT_INTERFACE(|| !IS_INTERNAL_STRING_OPTION_EMPTY
