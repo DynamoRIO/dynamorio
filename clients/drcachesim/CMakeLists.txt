@@ -43,6 +43,8 @@ if (UNIX)
     simulator/simulator.cpp
     simulator/ipc_reader.cpp
     common/named_pipe_${os_name}.cpp
+    simulator/cache.cpp
+    simulator/cache_stats.cpp
     )
 
   add_library(drmemtrace SHARED

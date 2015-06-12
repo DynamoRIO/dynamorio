@@ -120,6 +120,7 @@ memtrace(void *drcontext)
     data    = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     buf_ptr = BUF_PTR(data->seg_base);
     for (mem_ref = (memref_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
+        // FIXME i#1703: convert from virtual to physical if requested and avail
         mem_ref->id = id;
         data->num_refs++;
     }

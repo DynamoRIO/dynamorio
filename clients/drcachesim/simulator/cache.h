@@ -30,43 +30,43 @@
  * DAMAGE.
  */
 
-/* This is the binary data format for what we send through IPC between the
- * memory tracing clients running inside the application(s) and the simulator
- * process.
- * We aren't bothering to pack it as it won't be over the network or persisted.
- * It's already arranged to minimize padding.
+/* cache: represents a single hardware cache.
  */
 
-#ifndef _MEMREF_H_
-#define _MEMREF_H_ 1
+#ifndef _CACHE_H_
+#define _CACHE_H_ 1
 
-#include "stdint.h"
+#include "cache_line.h"
+#include "cache_stats.h"
 
-typedef uintptr_t addr_t;
+// Statistics collection is abstracted out into the cache_stats_t class.
 
-enum {
-    REF_TYPE_READ  = 0,
-    REF_TYPE_WRITE = 1,
+// Different replacement policies are expected to be implemented by
+// subclassing cache_t.
+
+// We assume we're only invoked from a single thread of control and do
+// not need to synchronize data access.
+
+class cache_t
+{
+ public:
+    cache_t();
+    virtual bool init(int associativity, int line_size, int num_lines,
+                      cache_t *parent, cache_stats_t *stats);
+    virtual ~cache_t();
+    virtual void request(addr_t addr, bool write);
+
+ private:
+    virtual void replace_update(int line_idx, int way);
+    virtual int replace_which_way(int line_idx);
+
+    int associativity;
+    int line_size;
+    int num_lines;
+    cache_t *parent;
+    cache_line_t *lines;
+    int lines_per_set;
+    cache_stats_t *stats;
 };
 
-/* Each mem_ref_t is a <tid, type, size, addr> entry representing a memory reference
- * instruction or the reference information, e.g.:
- * - mem ref instr: { type = 42 (call), size = 5, addr = 0x7f59c2d002d3 }
- * - mem ref info:  { type = 1 (write), size = 8, addr = 0x7ffeacab0ec8 }
- */
-typedef struct _memref_t {
-    // XXX: for MacOS and Windows thread identifiers are 64-bit.
-    // Plus, we probably want to know which process as well, so we may want
-    // to switch to an internal id, maybe counting the processes and threads
-    // (ideally with name strings somewhere?).  Or we can use the thread id
-    // and store info on which process in a global file.
-    //
-    // XXX i#1703: we could get rid of the id from each entry and have a
-    // separate special entry saying "all subsequent entries belong to this thread".
-    unsigned int id;     // 4 bytes: thread identifier
-    unsigned short type; // 2 bytes: r(0), w(1), or opcode (0/1 are invalid opcodes)
-    unsigned short size; // 2 bytes: mem ref size or instr length
-    addr_t addr;         // 4/8 bytes: mem ref addr or instr pc
-} memref_t;
-
-#endif /* _MEMREF_H_ */
+#endif /* _CACHE_H_ */

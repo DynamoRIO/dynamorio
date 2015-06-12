@@ -35,6 +35,10 @@
 #include "utils.h"
 #include "../common/memref.h"
 #include "ipc_reader.h"
+#include "cache_stats.h"
+#include "cache.h"
+
+int verbose;
 
 int
 main(int argc, const char *argv[])
@@ -51,20 +55,49 @@ main(int argc, const char *argv[])
         return 1;
     }
 
+    // FIXME i#1703: take params from args
+    // FIXME i#1703: build a separate L1D per specified core, and use a
+    // static assignment of app threads to cores.
+    cache_stats_t stats_L1D;
+    cache_t cache_L1D;
+    // L2 is our shared level in our simple hierarchy here.
+    cache_stats_t stats_L2;
+    cache_t cache_L2;
+    if (!cache_L2.init(8, 64, 8192/*512KB cache*/, NULL, &stats_L2) ||
+        !cache_L1D.init(4, 64, 512/*32KB cache*/, &cache_L2, &stats_L1D)) {
+        ERROR("failed to initialize caches");
+        return 1;
+    }
+
     // FIXME i#1703: add options to select either ipc_reader_t or
     // a recorded trace file reader, and use a base class reader_t
     // here.
     for (; ipc_iter != ipc_end; ++ipc_iter) {
         memref_t memref = *ipc_iter;
         // FIXME i#1703: pass to caches per static core assignment.
+
+        // FIXME i#1703: process the instr entries to record PC.
+
         // FIXME i#1703: add and handle special entries for thread exit,
         // and possible subsequent pid reuse.
-        std::cout << "::" << memref.id << ":: " <<
-            // FIXME: should compute PC and print here
-            ((memref.type == REF_TYPE_READ) ? "R " :
-             ((memref.type == REF_TYPE_WRITE) ? "W " : "<instr> ")) <<
-            memref.addr << " x" << memref.size << std::endl;
+        // Xref cache_stats.h comment: we may want to build a simulator-internal
+        // struct that contains tid and pc in every entry.
+
+        cache_L1D.request(memref.addr, memref.type == REF_TYPE_WRITE);
+
+        if (verbose > 1) {
+            std::cout << "::" << memref.id << ":: " <<
+                // FIXME: should compute PC and print here
+                ((memref.type == REF_TYPE_READ) ? "R " :
+                 ((memref.type == REF_TYPE_WRITE) ? "W " : "<instr> ")) <<
+                memref.addr << " x" << memref.size << std::endl;
+        }
     }
+
+    std::cout << "L1D stats:" << std::endl;
+    stats_L1D.print_stats();
+    std::cout << "L2 stats:" << std::endl;
+    stats_L2.print_stats();
 
     return 0;
 }

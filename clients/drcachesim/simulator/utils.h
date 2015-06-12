@@ -40,4 +40,6 @@
 // XXX: perhaps we should use a C++-ish stream approach instead
 #define ERROR(msg, ...) fprintf(stderr, msg, ## __VA_ARGS__)
 
+#define IS_POWER_OF_2(x) ((x) == 0 || ((x) & ((x)-1)) == 0)
+
 #endif /* _UTILS_H_ */
