@@ -167,7 +167,7 @@ typedef HANDLE file_t;
 
 #else /* UNIX */
 /* uint, ushort, and ulong are in types.h */
-# ifdef MACOS
+# if defined(MACOS) || defined(ANDROID)
 typedef unsigned long ulong;
 # endif
 #include <sys/types.h> /* for wait */
@@ -684,15 +684,15 @@ typedef struct {
     /* WARNING: if you change the offsets of any of these fields,
      * you must also change the offsets in <arch>/<arch.s>
      */
-    priv_mcontext_t mcontext;        /* real machine context (in arch_exports.h) */
+    priv_mcontext_t mcontext;   /* real machine context (in arch_exports.h) */
 #ifdef UNIX
-    int            errno;           /* errno used for DR (no longer used for app) */
+    int dr_errno;               /* errno used for DR (no longer used for app) */
 #endif
-    bool at_syscall;                /* for shared deletion syscalls_synch_flush,
-                                     * as well as syscalls handled from dispatch,
-                                     * and for reset to identify when at syscalls
-                                     */
-    ushort exit_reason;             /* Allows multiplexing LINK_SPECIAL_EXIT */
+    bool at_syscall;            /* for shared deletion syscalls_synch_flush,
+                                 * as well as syscalls handled from dispatch,
+                                 * and for reset to identify when at syscalls
+                                 */
+    ushort exit_reason;         /* Allows multiplexing LINK_SPECIAL_EXIT */
     /* Above fields are padded to 8 bytes on all archs except Win x86-32. */
 
 #ifdef CLIENT_INTERFACE

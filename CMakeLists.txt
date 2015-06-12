@@ -182,6 +182,12 @@ if (WIN32)
   set(WINDOWS 1)
 endif (WIN32)
 
+# Assuming we cross compile on a Linux system and UNIX is set by CMake.
+# ANDROID is not mutually exclusive with LINUX or UNIX.
+if (CMAKE_SYSTEM_NAME MATCHES "^Android")
+  set(ANDROID 1)
+endif ()
+
 # The target architecture.
 # For cross-compilation this should still work as you're supposed to set this var.
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")

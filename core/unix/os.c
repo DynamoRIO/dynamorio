@@ -385,7 +385,7 @@ __errno_location(void) {
         return &init_errno;
     else {
         /* WARNING: init_errno is in data segment so can be RO! */
-        return &(dcontext->upcontext_ptr->errno);
+        return &(dcontext->upcontext_ptr->dr_errno);
     }
 }
 #endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */

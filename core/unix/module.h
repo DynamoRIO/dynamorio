@@ -164,12 +164,12 @@ redirect_free(void *ptr);
 void *
 redirect_realloc(void *ptr, size_t size);
 
-#ifdef LINUX
-typedef struct _IO_FILE stdfile_t;
-#  define STDFILE_FILENO _fileno
-#elif defined(MACOS)
+#if defined(MACOS) || defined(ANDROID)
 typedef FILE stdfile_t;
-#  define STDFILE_FILENO _file
+# define STDFILE_FILENO _file
+#elif defined(LINUX)
+typedef struct _IO_FILE stdfile_t;
+# define STDFILE_FILENO _fileno
 #endif
 extern stdfile_t **privmod_stdout;
 extern stdfile_t **privmod_stderr;

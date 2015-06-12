@@ -51,7 +51,8 @@
 #cmakedefine LINUX
 #cmakedefine VMKERNEL
 #cmakedefine MACOS
-#if defined(MACOS) || defined (LINUX) || defined(VMKERNEL)
+#cmakedefine ANDROID
+#if defined(MACOS) || defined (LINUX) || defined(VMKERNEL) || defined(ANDROID)
 # define UNIX
 #endif
 

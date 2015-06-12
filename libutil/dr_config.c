@@ -58,7 +58,7 @@
 # include <sys/stat.h>
 # include <sys/types.h>
 # include <unistd.h>
-# ifdef MACOS
+# if defined(MACOS) || defined(ANDROID)
 #  include <sys/syscall.h>
 # else
 #  include <syscall.h>
