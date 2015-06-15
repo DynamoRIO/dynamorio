@@ -36,8 +36,8 @@
 #ifndef _CACHE_STATS_H_
 #define _CACHE_STATS_H_ 1
 
-#include "../common/memref.h" // for addr_t
 #include <inttypes.h>
+#include "memref.h"
 
 class cache_stats_t
 {
@@ -45,12 +45,7 @@ class cache_stats_t
     cache_stats_t();
     virtual ~cache_stats_t();
 
-    // FIXME i#1703: we also want the process, thread, PC and whether
-    // this is an instr fetch, regular data, or some kind of prefetch:
-    // perhaps we should rename memref_t to ipc_ref_t or sthg and have
-    // a local memref structure that contains everything we want to
-    // know?
-    virtual void access(addr_t addr, bool write, bool hit);
+    virtual void access(const memref_t &memref, bool hit);
 
     virtual void print_stats();
 

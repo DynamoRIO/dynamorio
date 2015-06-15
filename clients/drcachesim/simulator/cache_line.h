@@ -37,7 +37,7 @@
 #define _CACHE_LINE_H_ 1
 
 #include <inttypes.h>
-#include "../common/memref.h"
+#include "memref.h"
 
 class cache_line_t
 {

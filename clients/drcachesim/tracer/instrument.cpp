@@ -44,7 +44,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drutil.h"
-#include "../common/memref.h"
+#include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
 
 // XXX: share these instead of duplicating
@@ -76,13 +76,13 @@ static options_t options;
  */
 #define MAX_NUM_MEM_REFS 4096
 /* The maximum size of buffer for holding mem_refs. */
-#define MEM_BUF_SIZE (sizeof(memref_t) * MAX_NUM_MEM_REFS)
+#define MEM_BUF_SIZE (sizeof(trace_entry_t) * MAX_NUM_MEM_REFS)
 
 /* thread private buffer and counter */
 typedef struct {
-    byte      *seg_base;
-    memref_t *buf_base;
-    uint64     num_refs;
+    byte *seg_base;
+    trace_entry_t *buf_base;
+    uint64 num_refs;
 } per_thread_t;
 
 /* we write to a single global pipe */
@@ -101,7 +101,9 @@ static reg_id_t tls_seg;
 static uint     tls_offs;
 static int      tls_idx;
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base)+tls_offs+(enum_val))
-#define BUF_PTR(tls_base) *(memref_t **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
+#define BUF_PTR(tls_base) *(trace_entry_t **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
+/* We leave a slot at the start so we can easily insert a header entry */
+#define BUF_HDR_SLOTS 1
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -109,33 +111,35 @@ static void
 memtrace(void *drcontext)
 {
     per_thread_t *data;
-    memref_t *mem_ref, *buf_ptr;
-    // FIXME i#1703: we need a better thread id scheme that lets us identify
-    // the process and thread easily in the simulator.  Perhaps we can
-    // use the OS id here and just write an entry into a global file
-    // or something identifying which process it belongs to.
-    unsigned int id = (unsigned int) dr_get_thread_id(drcontext);
+    trace_entry_t *header, *mem_ref, *buf_ptr;
     size_t towrite;
 
     data    = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+
+    /* The initial slot is left empty for the thread entry, which we add here */
+    header = data->buf_base;
+    header->type = TRACE_TYPE_THREAD;
+    header->size = sizeof(thread_id_t);
+    header->addr = (addr_t) dr_get_thread_id(drcontext);
+
     buf_ptr = BUF_PTR(data->seg_base);
-    for (mem_ref = (memref_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
+    for (mem_ref = (trace_entry_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
         // FIXME i#1703: convert from virtual to physical if requested and avail
-        mem_ref->id = id;
         data->num_refs++;
     }
     towrite = (byte *)buf_ptr - (byte *)data->buf_base;
 
     // FIXME i#1703: split up to ensure atomic if > PIPE_BUF.
-    // When we split, ensure we do not split on an instr entry and not
-    // a memref entry.
+    // When we split, ensure we re-emit any headers (like thread id) after the
+    // split and that we don't split in the middle of an instr fetch-memref
+    // sequence or a thread id-process id sequence.
     if (ipc_pipe.write((void *)data->buf_base, towrite) < (ssize_t)towrite)
         DR_ASSERT(false);
 
-    BUF_PTR(data->seg_base) = data->buf_base;
+    BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
 }
 
-/* clean_call dumps the memory reference info to the log file */
+/* clean_call send the memory reference info to the simulator */
 static void
 clean_call(void)
 {
@@ -175,7 +179,7 @@ insert_save_type(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where,
             XINST_CREATE_store_2bytes(drcontext,
                                       OPND_CREATE_MEM16(base,
-                                                        offsetof(memref_t, type)),
+                                                        offsetof(trace_entry_t, type)),
                                       opnd_create_reg(scratch)));
 }
 
@@ -191,7 +195,7 @@ insert_save_size(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where,
             XINST_CREATE_store_2bytes(drcontext,
                                       OPND_CREATE_MEM16(base,
-                                                        offsetof(memref_t, size)),
+                                                        offsetof(trace_entry_t, size)),
                                       opnd_create_reg(scratch)));
 }
 
@@ -210,7 +214,7 @@ insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(base,
-                                                  offsetof(memref_t, addr)),
+                                                  offsetof(trace_entry_t, addr)),
                                opnd_create_reg(scratch)));
 }
 
@@ -226,7 +230,7 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(reg_ptr,
-                                                  offsetof(memref_t, addr)),
+                                                  offsetof(trace_entry_t, addr)),
                                opnd_create_reg(reg_addr)));
 }
 
@@ -250,7 +254,7 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
                      (ushort)instr_length(drcontext, where));
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(where));
-    insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(memref_t));
+    insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(trace_entry_t));
     /* restore scratch registers */
     dr_restore_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
     dr_restore_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
@@ -273,10 +277,10 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     /* save_addr should be called first as reg_ptr or reg_tmp maybe used in ref */
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     write ? REF_TYPE_WRITE : REF_TYPE_READ);
+                     write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)drutil_opnd_mem_size_in_bytes(ref, where));
-    insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(memref_t));
+    insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(trace_entry_t));
 
     /* restore scratch registers */
     dr_restore_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
@@ -299,7 +303,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         return DR_EMIT_DEFAULT;
 
     /* insert code to add an entry for app instruction */
-    instrument_instr(drcontext, bb, instr);
+    /* FIXME i#1703: I'm disabling this temporarily.  We either want a full
+     * instruction fetch trace for all instructions, or we want to add a PC
+     * field: unless the average # of memrefs is >=2 (certainly not true for
+     * ARM, seems unlikely for x86 as well) having a separate instr field takes
+     * more space, unless we really need the opcode, which is not clear if we
+     * have sideline or offline symbolization of the PC.
+     */
+    if (false)
+        instrument_instr(drcontext, bb, instr);
 
     /* insert code to add an entry for each memory reference opnd */
     for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -354,11 +366,11 @@ event_thread_init(void *drcontext)
      * slot and find where the pointer points to in the buffer.
      */
     data->seg_base = (byte *) dr_get_dr_segment_base(tls_seg);
-    data->buf_base = (memref_t *)
+    data->buf_base = (trace_entry_t *)
         dr_raw_mem_alloc(MEM_BUF_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     DR_ASSERT(data->seg_base != NULL && data->buf_base != NULL);
-    /* put buf_base to TLS as starting buf_ptr */
-    BUF_PTR(data->seg_base) = data->buf_base;
+    /* put buf_base to TLS plus header slots as starting buf_ptr */
+    BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
 
     data->num_refs = 0;
 }

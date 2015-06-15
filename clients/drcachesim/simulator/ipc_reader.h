@@ -40,7 +40,7 @@
 
 #include <list>
 #include <string>
-#include "../common/memref.h"
+#include "memref.h"
 #include "reader.h"
 #include "../common/named_pipe.h"
 
@@ -63,6 +63,7 @@ class ipc_reader_t : public reader_t
     bool at_eof;
     named_pipe_t pipe;
     memref_t cur;
+    memref_tid_t cur_tid;
 };
 
 #endif /* _IPC_READER_H_ */

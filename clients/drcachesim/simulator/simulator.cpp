@@ -33,7 +33,7 @@
 #include <iostream>
 #include <iterator>
 #include "utils.h"
-#include "../common/memref.h"
+#include "memref.h"
 #include "ipc_reader.h"
 #include "cache_stats.h"
 #include "cache.h"
@@ -76,20 +76,17 @@ main(int argc, const char *argv[])
         memref_t memref = *ipc_iter;
         // FIXME i#1703: pass to caches per static core assignment.
 
-        // FIXME i#1703: process the instr entries to record PC.
+        // FIXME i#1703: process instr fetch entries to record PC here, or
+        // in the reader?
 
-        // FIXME i#1703: add and handle special entries for thread exit,
-        // and possible subsequent pid reuse.
-        // Xref cache_stats.h comment: we may want to build a simulator-internal
-        // struct that contains tid and pc in every entry.
-
-        cache_L1D.request(memref.addr, memref.type == REF_TYPE_WRITE);
+        cache_L1D.request(memref);
 
         if (verbose > 1) {
-            std::cout << "::" << memref.id << ":: " <<
-                // FIXME: should compute PC and print here
-                ((memref.type == REF_TYPE_READ) ? "R " :
-                 ((memref.type == REF_TYPE_WRITE) ? "W " : "<instr> ")) <<
+            std::cout << "::" << memref.tid << ":: " <<
+                // FIXME i#1703: should compute PC and print here
+                ((memref.type == TRACE_TYPE_READ) ? "R " :
+                 // FIXME i#1703: auto-convert to string
+                 ((memref.type == TRACE_TYPE_WRITE) ? "W " : "<meta> ")) <<
                 memref.addr << " x" << memref.size << std::endl;
         }
     }

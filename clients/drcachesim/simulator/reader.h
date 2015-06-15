@@ -39,7 +39,7 @@
 
 #include <iterator>
 #include <assert.h>
-#include "../common/memref.h"
+#include "memref.h"
 
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
 {

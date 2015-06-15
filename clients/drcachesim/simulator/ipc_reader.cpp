@@ -30,7 +30,8 @@
  * DAMAGE.
  */
 
-#include "../common/memref.h"
+#include <assert.h>
+#include "memref.h"
 #include "ipc_reader.h"
 #include "utils.h"
 
@@ -104,16 +105,45 @@ ipc_reader_t::operator++()
     // If we ever switch to separate IPC buffers per application thread,
     // we'd do the merging and timestamp ordering here.
 
+    trace_entry_t entry;
     // We bail if we get a partial read, or EOF, or any error.
-    if (pipe.read(&cur, sizeof(cur)) < (ssize_t)sizeof(cur)) { // blocking read
-        at_eof = true;
+    while (true) {
+        if (pipe.read(&entry, sizeof(entry)) < (ssize_t)sizeof(entry)) { // blocking read
+            at_eof = true;
+            break;
+        } else {
+            bool have_memref = false;
+            switch (entry.type) {
+            case TRACE_TYPE_READ:
+            case TRACE_TYPE_WRITE:
+            case TRACE_TYPE_PREFETCH:
+                have_memref = true;
+                cur.tid = cur_tid;
+                cur.type = entry.type;
+                cur.size = entry.size;
+                cur.addr = entry.addr;
+                break;
+            case TRACE_TYPE_INSTR:
+                // FIXME i#1703: NYI.
+                // It's also not yet decided how to handle the PC for a mem ref
+                // vs an instr fetch: who we have a PC field?
+                break;
+            case TRACE_TYPE_FLUSH:
+                // FIXME i#1703: NYI
+                break;
+            case TRACE_TYPE_THREAD:
+                cur_tid = (memref_tid_t) entry.addr;
+                break;
+            default:
+                ERROR("Unknown trace entry type %d\n", entry.type);
+                assert(false);
+                at_eof = true; // bail
+                break;
+            }
+            if (have_memref)
+                break;
+        }
     }
-
-    // For now we put all the handling of special memref_t entries
-    // (such as thread exit and possible pid reuse, PC vs memory address, etc.)
-    // into the simulator and we just pass the data through.
-    // This means that we assume a recorded trace file would contain
-    // these same entries.
 
     return *this;
 }

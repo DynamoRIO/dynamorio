@@ -43,7 +43,7 @@ cache_stats_t::~cache_stats_t()
 }
 
 void
-cache_stats_t::access(addr_t addr, bool write, bool hit)
+cache_stats_t::access(const memref_t &memref, bool hit)
 {
     // We assume we're single-threaded.
     // We're only computing miss rate so we just inc counters here.

@@ -30,43 +30,27 @@
  * DAMAGE.
  */
 
-/* This is the binary data format for what we send through IPC between the
- * memory tracing clients running inside the application(s) and the simulator
- * process.
- * We aren't bothering to pack it as it won't be over the network or persisted.
- * It's already arranged to minimize padding.
- */
+/* This is the data format that the simulator takes as input */
 
 #ifndef _MEMREF_H_
 #define _MEMREF_H_ 1
 
-#include "stdint.h"
+#include <stdint.h>
+#include "../common/trace_entry.h"
 
-typedef uintptr_t addr_t;
+// On some platforms, like MacOS, a thread id is 64 bits.
+typedef int_least64_t memref_tid_t;
 
-enum {
-    REF_TYPE_READ  = 0,
-    REF_TYPE_WRITE = 1,
-};
-
-/* Each mem_ref_t is a <tid, type, size, addr> entry representing a memory reference
- * instruction or the reference information, e.g.:
- * - mem ref instr: { type = 42 (call), size = 5, addr = 0x7f59c2d002d3 }
- * - mem ref info:  { type = 1 (write), size = 8, addr = 0x7ffeacab0ec8 }
- */
 typedef struct _memref_t {
-    // XXX: for MacOS and Windows thread identifiers are 64-bit.
-    // Plus, we probably want to know which process as well, so we may want
-    // to switch to an internal id, maybe counting the processes and threads
-    // (ideally with name strings somewhere?).  Or we can use the thread id
-    // and store info on which process in a global file.
-    //
-    // XXX i#1703: we could get rid of the id from each entry and have a
-    // separate special entry saying "all subsequent entries belong to this thread".
-    unsigned int id;     // 4 bytes: thread identifier
-    unsigned short type; // 2 bytes: r(0), w(1), or opcode (0/1 are invalid opcodes)
-    unsigned short size; // 2 bytes: mem ref size or instr length
-    addr_t addr;         // 4/8 bytes: mem ref addr or instr pc
+    memref_tid_t tid;
+
+    // FIXME i#1703: we probably want to add the PC here, but we need to figure
+    // out how we're passing instr fetch entries to the simulator and whether
+    // the simulator should fill in the PC from those.
+
+    unsigned short type; // trace_type_t
+    unsigned short size;
+    addr_t addr;
 } memref_t;
 
 #endif /* _MEMREF_H_ */

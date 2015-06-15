@@ -65,13 +65,13 @@ cache_t::~cache_t()
 }
 
 void
-cache_t::request(addr_t addr, bool write)
+cache_t::request(const memref_t &memref)
 {
     bool hit = false;
     int final_way = 0;
-    int line_idx = addr % lines_per_set;
+    int line_idx = memref.addr % lines_per_set;
     for (int way = 0; way < associativity; ++way) {
-        if (lines[line_idx * way].tag == addr &&
+        if (lines[line_idx * way].tag == memref.addr &&
             lines[line_idx * way].valid) {
             hit = true;
             final_way = way;
@@ -81,19 +81,19 @@ cache_t::request(addr_t addr, bool write)
     if (!hit) {
         // If no parent we assume we get the data from main memory
         if (parent != NULL)
-            parent->request(addr, write);
+            parent->request(memref);
 
         // FIXME i#1703: coherence policy
 
         final_way = replace_which_way(line_idx);
-        lines[line_idx * final_way].tag = addr;
+        lines[line_idx * final_way].tag = memref.addr;
         lines[line_idx * final_way].valid = true;
     }
 
     replace_update(line_idx, final_way);
 
     if (stats != NULL)
-        stats->access(addr, write, hit);
+        stats->access(memref, hit);
 }
 
 void

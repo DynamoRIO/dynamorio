@@ -38,6 +38,7 @@
 
 #include "cache_line.h"
 #include "cache_stats.h"
+#include "memref.h"
 
 // Statistics collection is abstracted out into the cache_stats_t class.
 
@@ -54,7 +55,7 @@ class cache_t
     virtual bool init(int associativity, int line_size, int num_lines,
                       cache_t *parent, cache_stats_t *stats);
     virtual ~cache_t();
-    virtual void request(addr_t addr, bool write);
+    virtual void request(const memref_t &memref);
 
  private:
     virtual void replace_update(int line_idx, int way);
