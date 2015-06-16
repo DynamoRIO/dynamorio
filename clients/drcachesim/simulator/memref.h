@@ -39,9 +39,12 @@
 #include "../common/trace_entry.h"
 
 // On some platforms, like MacOS, a thread id is 64 bits.
+// We just make both 64 bits to cover all our bases.
+typedef int_least64_t memref_pid_t;
 typedef int_least64_t memref_tid_t;
 
 typedef struct _memref_t {
+    memref_pid_t pid;
     memref_tid_t tid;
 
     // FIXME i#1703: we probably want to add the PC here, but we need to figure

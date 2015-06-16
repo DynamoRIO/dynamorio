@@ -70,6 +70,10 @@ typedef enum {
     // next entry of this type) came from the thread whose id is in the addr
     // field:
     TRACE_TYPE_THREAD,
+
+    // These entries indicate which process the current thread belongs to.
+    // The process id is in the addr field.
+    TRACE_TYPE_PID,
 } trace_type_t;
 
 // Each trace entry is a <type, size, addr> tuple representing a memory reference

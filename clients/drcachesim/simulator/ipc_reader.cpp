@@ -31,9 +31,14 @@
  */
 
 #include <assert.h>
+#include <map>
 #include "memref.h"
 #include "ipc_reader.h"
 #include "utils.h"
+
+#ifdef VERBOSE
+# include <iostream>
+#endif
 
 #define BOOLS_MATCH(b1, b2) (!!(b1) == !!(b2))
 
@@ -112,12 +117,17 @@ ipc_reader_t::operator++()
             at_eof = true;
             break;
         } else {
+#ifdef VERBOSE
+            std::cout << "--" << entry.type << " sz=" << entry.size <<
+                " addr=" << entry.addr << std::endl;
+#endif
             bool have_memref = false;
             switch (entry.type) {
             case TRACE_TYPE_READ:
             case TRACE_TYPE_WRITE:
             case TRACE_TYPE_PREFETCH:
                 have_memref = true;
+                cur.pid = tid2pid[cur_tid];
                 cur.tid = cur_tid;
                 cur.type = entry.type;
                 cur.size = entry.size;
@@ -133,6 +143,10 @@ ipc_reader_t::operator++()
                 break;
             case TRACE_TYPE_THREAD:
                 cur_tid = (memref_tid_t) entry.addr;
+                break;
+            case TRACE_TYPE_PID:
+                // We do want to replace, in case of tid reuse.
+                tid2pid[cur_tid] = (memref_pid_t) entry.addr;
                 break;
             default:
                 ERROR("Unknown trace entry type %d\n", entry.type);

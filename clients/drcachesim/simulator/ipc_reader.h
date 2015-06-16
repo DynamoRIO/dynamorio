@@ -40,6 +40,7 @@
 
 #include <list>
 #include <string>
+#include <map>
 #include "memref.h"
 #include "reader.h"
 #include "../common/named_pipe.h"
@@ -64,6 +65,7 @@ class ipc_reader_t : public reader_t
     named_pipe_t pipe;
     memref_t cur;
     memref_tid_t cur_tid;
+    std::map<memref_tid_t, memref_pid_t> tid2pid;
 };
 
 #endif /* _IPC_READER_H_ */

@@ -83,6 +83,7 @@ typedef struct {
     byte *seg_base;
     trace_entry_t *buf_base;
     uint64 num_refs;
+    bool thread_registered;
 } per_thread_t;
 
 /* we write to a single global pipe */
@@ -121,6 +122,21 @@ memtrace(void *drcontext)
     header->type = TRACE_TYPE_THREAD;
     header->size = sizeof(thread_id_t);
     header->addr = (addr_t) dr_get_thread_id(drcontext);
+
+    if (!data->thread_registered) {
+        /* It's not worth keeping a 2nd header slot for a once-per-thread event:
+         * we do a separate write to the pipe.
+         */
+        trace_entry_t pid_info[2];
+        pid_info[0] = *header;
+        pid_info[1].type = TRACE_TYPE_PID;
+        pid_info[1].size = sizeof(process_id_t);
+        pid_info[1].addr = (addr_t) dr_get_process_id();
+        data->thread_registered = true;
+        if (ipc_pipe.write((void *)pid_info, sizeof(pid_info)) <
+            (ssize_t)sizeof(pid_info))
+            DR_ASSERT(false);
+    }
 
     buf_ptr = BUF_PTR(data->seg_base);
     for (mem_ref = (trace_entry_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
@@ -371,6 +387,7 @@ event_thread_init(void *drcontext)
     DR_ASSERT(data->seg_base != NULL && data->buf_base != NULL);
     /* put buf_base to TLS plus header slots as starting buf_ptr */
     BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
+    data->thread_registered = false;
 
     data->num_refs = 0;
 }
@@ -378,8 +395,6 @@ event_thread_init(void *drcontext)
 static void
 event_thread_exit(void *drcontext)
 {
-    // FIXME i#1703: write a special thread-exiting msg to the pipe,
-    // unless we use a thread id scheme that doesn't need it.
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;

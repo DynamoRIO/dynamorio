@@ -82,7 +82,7 @@ main(int argc, const char *argv[])
         cache_L1D.request(memref);
 
         if (verbose > 1) {
-            std::cout << "::" << memref.tid << ":: " <<
+            std::cout << "::" << memref.pid << "." << memref.tid << ":: " <<
                 // FIXME i#1703: should compute PC and print here
                 ((memref.type == TRACE_TYPE_READ) ? "R " :
                  // FIXME i#1703: auto-convert to string
