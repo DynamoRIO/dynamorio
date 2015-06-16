@@ -31,10 +31,10 @@
  * DAMAGE.
  */
 
-/* instrument.cpp: tracing client for feeding data to cache simulator.
+/* tracer.cpp: tracing client for feeding data to cache simulator.
  *
- * Based on the memtrace_simple.c sample.
- * FIXME i#1703: add in optimizations to improve performance.
+ * Based on the memtrace_opt.c sample.
+ * FIXME i#1703: add in more optimizations to improve performance.
  * FIXME i#1703: perhaps refactor and split up to make it more
  * modular.
  */

@@ -48,7 +48,7 @@ if (UNIX)
     )
 
   add_library(drmemtrace SHARED
-    tracer/instrument.cpp
+    tracer/tracer.cpp
     common/named_pipe_${os_name}.cpp
     )
   configure_DynamoRIO_client(drmemtrace)
