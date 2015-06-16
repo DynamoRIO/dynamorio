@@ -46,8 +46,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <iconv.h>
-
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>

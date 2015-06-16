@@ -74,53 +74,56 @@ if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
     VERBATIM)
 endif ()
 
-# add drcov2lcov
-add_executable(drcov2lcov
-  postprocess/main.c
-  # add more here
-  )
-# We do want an rpath, which is on by default for standalone
-configure_DynamoRIO_standalone(drcov2lcov)
-use_DynamoRIO_extension(drcov2lcov drsyms_static)
-use_DynamoRIO_extension(drcov2lcov drcontainers)
-target_link_libraries(drcov2lcov drfrontendlib)
+# FIXME i#1701: drcov2lcov depends on drsym, disable it for now
+if (NOT ANDROID)
+  # add drcov2lcov
+  add_executable(drcov2lcov
+    postprocess/main.c
+    # add more here
+    )
+  # We do want an rpath, which is on by default for standalone
+  configure_DynamoRIO_standalone(drcov2lcov)
+  use_DynamoRIO_extension(drcov2lcov drsyms_static)
+  use_DynamoRIO_extension(drcov2lcov drcontainers)
+  target_link_libraries(drcov2lcov drfrontendlib)
 
-# ensure we rebuild if includes change
-add_dependencies(drcov2lcov api_headers)
+  # ensure we rebuild if includes change
+  add_dependencies(drcov2lcov api_headers)
 
-# Provide a hint for running
-if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-  if (UNIX)
-    set(FIND_MSG "(set LD_LIBRARY_PATH)")
-  else (UNIX)
-    set(FIND_MSG "(set PATH or copy to same directory)")
-  endif (UNIX)
-  add_custom_command(TARGET drcov2lcov
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-    ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
-    VERBATIM)
+  # Provide a hint for running
+  if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
+    if (UNIX)
+      set(FIND_MSG "(set LD_LIBRARY_PATH)")
+    else (UNIX)
+      set(FIND_MSG "(set PATH or copy to same directory)")
+    endif (UNIX)
+    add_custom_command(TARGET drcov2lcov
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
+      VERBATIM)
+  endif ()
+
+  if (WIN32 AND GENERATE_PDBS)
+    # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
+    # In any case we make sure to add it (for release and debug, to get pdb):
+    append_property_string(TARGET drcov LINK_FLAGS "/debug")
+    append_property_string(TARGET drcov2lcov LINK_FLAGS "/debug")
+  endif (WIN32 AND GENERATE_PDBS)
+
+  install_target(drcov ${INSTALL_CLIENTS_LIB})
+  install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
+  # Create a legacy-named copy of the executable
+  get_target_property(exe_path drcov2lcov LOCATION${location_suffix})
+  get_filename_component(legacy_exe "${exe_path}" NAME)
+  string(REGEX REPLACE "drcov" "bbcov" legacy_exe ${legacy_exe})
+  if (DEFINED DR_INSTALL_TARGETS_DEST)
+    set(inst_dst ${DR_INSTALL_TARGETS_DEST})
+  else ()
+    set(inst_dst ${INSTALL_CLIENTS_BIN})
+  endif ()
+  DR_install(FILES ${exe_path} DESTINATION ${inst_dst} RENAME ${legacy_exe})
 endif ()
-
-if (WIN32 AND GENERATE_PDBS)
-  # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
-  # In any case we make sure to add it (for release and debug, to get pdb):
-  append_property_string(TARGET drcov LINK_FLAGS "/debug")
-  append_property_string(TARGET drcov2lcov LINK_FLAGS "/debug")
-endif (WIN32 AND GENERATE_PDBS)
-
-install_target(drcov ${INSTALL_CLIENTS_LIB})
-install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
-# Create a legacy-named copy of the executable
-get_target_property(exe_path drcov2lcov LOCATION${location_suffix})
-get_filename_component(legacy_exe "${exe_path}" NAME)
-string(REGEX REPLACE "drcov" "bbcov" legacy_exe ${legacy_exe})
-if (DEFINED DR_INSTALL_TARGETS_DEST)
-  set(inst_dst ${DR_INSTALL_TARGETS_DEST})
-else ()
-  set(inst_dst ${INSTALL_CLIENTS_BIN})
-endif ()
-DR_install(FILES ${exe_path} DESTINATION ${inst_dst} RENAME ${legacy_exe})
 
 # On Linux we rely on the rpath
 if (WIN32)

@@ -110,7 +110,10 @@ add_subdirectory(drmgr)
 add_subdirectory(drx)
 add_subdirectory(drwrap)
 add_subdirectory(drreg)
-add_subdirectory(drsyms)
+if (NOT ANDROID)
+  # FIXME i#1701: rebuild libelftc.so and libdwarf.so for Android
+  add_subdirectory(drsyms)
+endif ()
 add_subdirectory(drutil)
 add_subdirectory(droption)
 

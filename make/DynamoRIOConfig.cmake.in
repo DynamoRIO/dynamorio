@@ -882,6 +882,9 @@ function (configure_DynamoRIO_standalone target)
     endforeach (var)
   endforeach (config)
 
+  if (ANDROID)
+    set(tgt_cflags ${tgt_cflags} "-fPIE -pie")
+  endif (ANDROID)
   _DR_set_compile_flags(${target} "${tgt_cflags} -DDYNAMORIO_STANDALONE")
   # LINK_FLAGS are appended by the helper routines above
 

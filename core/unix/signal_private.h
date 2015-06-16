@@ -466,7 +466,7 @@ static inline
 bool libc_sigismember(const sigset_t *set, int _sig)
 {
     int sig = _sig - 1; /* go to 0-based */
-#ifdef MACOS
+#if defined(MACOS) || defined(ANDROID)
     /* sigset_t is just a uint32 */
     return TEST(1UL << sig, *set);
 #else

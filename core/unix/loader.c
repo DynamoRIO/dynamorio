@@ -947,20 +947,20 @@ privload_relocate_mod(privmod_t *mod)
     /* special handling on I/O file */
     if (strstr(mod->name, "libc.so") == mod->name) {
         privmod_stdout =
-            (struct _IO_FILE **)get_proc_address_from_os_data(&opd->os_data,
-                                                              opd->load_delta,
-                                                              LIBC_STDOUT_NAME,
-                                                              NULL);
+            (FILE **)get_proc_address_from_os_data(&opd->os_data,
+                                                   opd->load_delta,
+                                                   LIBC_STDOUT_NAME,
+                                                   NULL);
         privmod_stdin =
-            (struct _IO_FILE **)get_proc_address_from_os_data(&opd->os_data,
-                                                              opd->load_delta,
-                                                              LIBC_STDIN_NAME,
-                                                              NULL);
+            (FILE **)get_proc_address_from_os_data(&opd->os_data,
+                                                   opd->load_delta,
+                                                   LIBC_STDIN_NAME,
+                                                   NULL);
         privmod_stderr =
-            (struct _IO_FILE **)get_proc_address_from_os_data(&opd->os_data,
-                                                              opd->load_delta,
-                                                              LIBC_STDERR_NAME,
-                                                              NULL);
+            (FILE **)get_proc_address_from_os_data(&opd->os_data,
+                                                   opd->load_delta,
+                                                   LIBC_STDERR_NAME,
+                                                   NULL);
     }
 #else
     /* XXX i#1285: implement MacOS private loader */

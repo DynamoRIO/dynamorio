@@ -50,13 +50,16 @@
 # define ELF_WORD Elf64_Xword
 # define ELF_HALF Elf64_Half
 # define ELF_SYM_TYPE Elf64_Sym
-# define ELF_ST_TYPE ELF64_ST_TYPE
 # define ELF_WORD_SIZE 64 /* __ELF_NATIVE_CLASS */
-# define ELF_ST_BIND ELF64_ST_BIND
 # define ELF_ST_VISIBILITY ELF64_ST_VISIBILITY
 # define ELF_REL_TYPE Elf64_Rel
 # define ELF_RELA_TYPE Elf64_Rela
 # define ELF_AUXV_TYPE Elf64_auxv_t
+/* system like android has ELF_ST_TYPE and ELF_ST_BIND */
+# ifndef ELF_ST_TYPE
+#  define ELF_ST_TYPE ELF64_ST_TYPE
+#  define ELF_ST_BIND ELF64_ST_BIND
+# endif
 #else
 # define ELF_HEADER_TYPE Elf32_Ehdr
 # define ELF_ALTARCH_HEADER_TYPE Elf64_Ehdr
@@ -67,13 +70,16 @@
 # define ELF_WORD Elf32_Word
 # define ELF_HALF Elf32_Half
 # define ELF_SYM_TYPE Elf32_Sym
-# define ELF_ST_TYPE ELF32_ST_TYPE
 # define ELF_WORD_SIZE 32 /* __ELF_NATIVE_CLASS */
-# define ELF_ST_BIND ELF32_ST_BIND
 # define ELF_ST_VISIBILITY ELF32_ST_VISIBILITY
 # define ELF_REL_TYPE Elf32_Rel
 # define ELF_RELA_TYPE Elf32_Rela
 # define ELF_AUXV_TYPE Elf32_auxv_t
+/* system like android has ELF_ST_TYPE and ELF_ST_BIND */
+# ifndef ELF_ST_TYPE
+#  define ELF_ST_TYPE ELF32_ST_TYPE
+#  define ELF_ST_BIND ELF32_ST_BIND
+# endif
 #endif
 
 #ifdef X86
@@ -154,11 +160,13 @@
 #  define ELF_R_TLS_DTPMOD  R_ARM_TLS_DTPMOD32 /* Module ID */
 #  define ELF_R_TLS_TPOFF   R_ARM_TLS_TPOFF32  /* Negated offsets in static TLS block */
 #  define ELF_R_TLS_DTPOFF  R_ARM_TLS_DTPOFF32 /* Offset in TLS block */
-#  define ELF_R_TLS_DESC    R_ARM_TLS_DESC     /* TLS descriptor containing
+#  ifndef ANDROID
+#   define ELF_R_TLS_DESC    R_ARM_TLS_DESC    /* TLS descriptor containing
                                                 * pointer to code and to
                                                 * argument, returning the TLS
                                                 * offset for the symbol.
                                                 */
+#  endif /* ANDROID */
 # endif /* 64/32 */
 #endif /* X86/ARM */
 

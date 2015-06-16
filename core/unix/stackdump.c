@@ -77,6 +77,11 @@
 #define DEBUGGER_COMMAND "where\npwd\nquit\n"
 #endif
 
+#ifndef WAIT_ANY
+/* WAIT_ANY is not defined in Android system */
+# define WAIT_ANY  (-1)    /* Any process.  */
+#endif
+
 pid_t
 wait_syscall(int *status)
 {

@@ -53,7 +53,7 @@
  */
 
 /* page size is 4K on all DR-supported platforms */
-#ifndef PAGE_SIZE /* defined on Mac */
+#ifndef PAGE_SIZE /* defined on Mac and Android */
 # define PAGE_SIZE (4*1024) /**< Size of a page of memory. */
 #endif
 

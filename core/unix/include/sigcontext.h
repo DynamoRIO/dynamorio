@@ -266,12 +266,13 @@ struct sigcontext {
     unsigned long fault_address;
 };
 
-struct user_vfp {
+/* user_vfp is defined in <sys/user.h> on Android, so we use sys_user_vfp instead */
+struct sys_user_vfp {
     unsigned long long fpregs[32]; /* 16-31 ignored for VFPv2 and below */
     unsigned long fpscr;
 };
 
-struct user_vfp_exc {
+struct sys_user_vfp_exc {
     unsigned long fpexc;
     unsigned long fpinst;
     unsigned long fpinst2;
@@ -282,8 +283,8 @@ struct user_vfp_exc {
 struct vfp_sigframe {
     unsigned long magic;
     unsigned long size;
-    struct user_vfp ufp;
-    struct user_vfp_exc ufp_exc;
+    struct sys_user_vfp ufp;
+    struct sys_user_vfp_exc ufp_exc;
 } __attribute__((__aligned__(8)));
 #endif /* __arm__ */
 

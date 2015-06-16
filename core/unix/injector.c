@@ -133,10 +133,10 @@ typedef struct _dr_inject_info_t {
 #endif
 } dr_inject_info_t;
 
-bool
+#if defined(LINUX) && !defined(ANDROID) /* XXX i#1290/i#1701: NYI on MacOS/Android */
+static bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path);
 
-#ifdef LINUX /* XXX i#1290: implement on MacOS */
 static long
 our_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
 #endif
@@ -649,7 +649,7 @@ dr_inject_process_inject(void *data, bool force_injection,
     case INJECT_LD_PRELOAD:
         return inject_ld_preload(info, library_path);
     case INJECT_PTRACE:
-#ifdef LINUX /* XXX i#1290: implement on MacOS */
+#if defined(LINUX) && !defined(ANDROID) /* XXX i#1290/i#1701: NYI on MacOS/Android */
         return inject_ptrace(info, library_path);
 #else
         return false;
@@ -681,7 +681,7 @@ dr_inject_process_run(void *data)
         return false;  /* if execv returns, there was an error */
     } else {
         if (info->method == INJECT_PTRACE) {
-#ifdef LINUX /* XXX i#1290: implement on MacOS */
+#if defined(LINUX) && !defined(ANDROID) /* XXX i#1290/i#1701: NYI on MacOS/Android */
             our_ptrace(PTRACE_DETACH, info->pid, NULL, NULL);
 #else
             return false;
@@ -771,7 +771,7 @@ dr_inject_process_exit(void *data, bool terminate)
     return status;
 }
 
-#ifdef LINUX /* XXX i#1290: implement on MacOS */
+#if defined(LINUX) && !defined(ANDROID) /* XXX i#1290/i#1701: NYI on MacOS/Android */
 /*******************************************************************************
  * ptrace injection code
  */
@@ -1451,4 +1451,4 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     return true;
 }
 
-#endif /* LINUX */
+#endif /* LINUX && !ANDROID */

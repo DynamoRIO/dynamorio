@@ -42,7 +42,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <syscall.h>
+#include <sys/syscall.h>
 #include <assert.h>
 
 #include "configure.h"

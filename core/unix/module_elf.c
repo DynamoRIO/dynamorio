@@ -47,6 +47,18 @@ typedef union _elf_generic_header_t {
     Elf32_Ehdr elf32;
 } elf_generic_header_t;
 
+#ifdef ANDROID
+/* The entries in the .hash table always have a size of 32 bits.  */
+typedef uint32_t Elf_Symndx;
+#endif
+
+/* STN_UNDEF is defined in Android NDK native API android-19 (Android 4.4)
+ * and earlier but not in android-21 (Android 4.4W and 5.0).
+ */
+#ifndef STN_UNDEF
+# define STN_UNDEF 0
+#endif
+
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef LOG
 # define LOG(...) /* nothing */
@@ -396,10 +408,12 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     out_data->dynstr_size = (size_t) dyn->d_un.d_val;
                 } else if (dyn->d_tag == DT_SYMENT) {
                     out_data->symentry_size = (size_t) dyn->d_un.d_val;
+#ifndef ANDROID
                 } else if (dyn->d_tag == DT_CHECKSUM) {
                     out_data->checksum = (size_t) dyn->d_un.d_val;
                 } else if (dyn->d_tag == DT_GNU_PRELINKED) {
                     out_data->timestamp = (size_t) dyn->d_un.d_val;
+#endif
                 }
             }
             dyn++;
@@ -1620,21 +1634,23 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
         if (sym != NULL)
             *r_addr = sym->st_value + addend;
         break;
+#ifndef ANDROID
     case ELF_R_TLS_DESC:
         /* FIXME: TLS descriptor, not implemented */
         ASSERT_NOT_IMPLEMENTED(false);
         break;
-#ifndef X64
+# ifndef X64
     case R_386_TLS_TPOFF32:
         /* offset is positive, backward from the thread pointer */
         if (sym != NULL)
             *r_addr += pd->tls_offset - sym->st_value;
         break;
-#endif
+# endif
     case ELF_R_IRELATIVE:
         res = (byte *)pd->load_delta + (is_rela ? addend : *r_addr);
         *r_addr =  ((ELF_ADDR (*) (void)) res) ();
         break;
+#endif /* ANDROID */
     default:
         resolved = false;
     }

@@ -39,7 +39,7 @@
 #include "configure.h"
 #include <string.h>
 #include <unistd.h>
-#include "syscall.h"
+#include "include/syscall.h"
 
 #include "globals_shared.h"
 #ifndef NOT_DYNAMORIO_CORE

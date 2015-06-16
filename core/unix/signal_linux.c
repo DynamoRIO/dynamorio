@@ -459,7 +459,11 @@ notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
         towrite.ssi_fd = frame->info.si_fd;
         towrite.ssi_band = frame->info.si_band;
         /* XXX: check older glibc headers */
+#ifdef ANDROID
+        towrite.ssi_tid = frame->info._sifields._timer._tid;
+#else
         towrite.ssi_tid = frame->info._sifields._timer.si_tid;
+#endif
         towrite.ssi_overrun = frame->info.si_overrun;
         towrite.ssi_status = frame->info.si_status;
         towrite.ssi_utime = frame->info.si_utime;

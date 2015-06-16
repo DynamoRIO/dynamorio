@@ -54,7 +54,8 @@ include_directories(BEFORE
 if (WIN32)
   include_directories(BEFORE ${PROJECT_SOURCE_DIR}/core/win32)
 else (WIN32)
-  include_directories(BEFORE ${PROJECT_SOURCE_DIR}/core/unix)
+  include_directories(BEFORE
+    ${PROJECT_SOURCE_DIR}/core/unix)
 endif (WIN32)
 
 set(CORE_SRCS

@@ -70,6 +70,13 @@
 # define close _close
 #endif
 
+/* S_IREAD and others are not defined in Android */
+#ifndef S_IREAD
+# define S_IREAD        S_IRUSR
+# define S_IWRITE       S_IWUSR
+# define S_IEXEC        S_IXUSR
+#endif
+
 int
 usage(const char *us)
 {

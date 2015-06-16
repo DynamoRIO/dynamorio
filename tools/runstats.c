@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
         info("parent waiting for child\n");
         /* need loop since SIGALRM will interrupt us */
         do {
-            result = wait3(&status, 0, &ru);
+            result = wait4(-1/*anyone*/, &status, 0, &ru);
         } while (result != child);
         gettimeofday(&end, (struct timezone *) 0);
         info("child has exited\n");

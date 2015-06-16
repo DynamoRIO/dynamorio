@@ -39,7 +39,6 @@
  * signal.c - dynamorio signal handler
  */
 
-#include <unistd.h>
 #include <errno.h>
 #undef errno
 

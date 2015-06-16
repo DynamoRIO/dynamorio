@@ -33,7 +33,8 @@
 #   https://developer.android.com/tools/sdk/ndk/index.html
 #   https://developer.android.com/ndk/guides/standalone_toolchain.html
 #   $/PATH/TO/ANDROID_NDK/build/tools/make-standalone-toolchain.sh --arch=arm \
-#     --platform=android-21 --install-dir=/TOOLCHAIN/INSTALL/PATH
+#     --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
+#     --install-dir=/TOOLCHAIN/INSTALL/PATH
 # - cross-compiling config with ANDROID_TOOLCHAIN
 #   $cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android.cmake \
 #     -DANDROID_TOOLCHAIN=/TOOLCHAIN/INSTALL/PATH ../dynamorio
@@ -60,7 +61,7 @@ SET(CMAKE_C_COMPILER   ${toolchain_bin_path}${TARGET_ABI}-gcc
   CACHE FILEPATH "cmake_c_compiler")
 SET(CMAKE_CXX_COMPILER ${toolchain_bin_path}${TARGET_ABI}-g++
   CACHE FILEPATH "cmake_cxx_compiler")
-SET(CMAKE_LINKER       ${toolchain_bin_path}${TARGET_ABI}-ld
+SET(CMAKE_LINKER       ${toolchain_bin_path}${TARGET_ABI}-ld.bfd
   CACHE FILEPATH "cmake_linker")
 SET(CMAKE_ASM_COMPILER ${toolchain_bin_path}${TARGET_ABI}-as
   CACHE FILEPATH "cmake_asm_compiler")
