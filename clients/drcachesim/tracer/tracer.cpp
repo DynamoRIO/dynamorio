@@ -41,6 +41,7 @@
 
 #include <stddef.h> /* for offsetof */
 #include <string.h>
+#include <limits.h> /* for INT_MAX/INT_MIN */
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drutil.h"
@@ -201,35 +202,57 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 }
 
 static void
-insert_save_type(void *drcontext, instrlist_t *ilist, instr_t *where,
-                 reg_id_t base, reg_id_t scratch, ushort type, int adjust)
+insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
+                          reg_id_t base, reg_id_t scratch, ushort type, ushort size,
+                          int adjust)
 {
-    int disp = adjust + offsetof(trace_entry_t, type);
-    scratch = reg_resize_to_opsz(scratch, OPSZ_2);
-    MINSERT(ilist, where,
-            XINST_CREATE_load_int(drcontext,
+    int disp;
+    if (offsetof(trace_entry_t, type) + 2 != offsetof(trace_entry_t, size)) {
+        /* there is padding between type and size, so save them separately */
+        disp = adjust + offsetof(trace_entry_t, type);
+        scratch = reg_resize_to_opsz(scratch, OPSZ_2);
+        /* save type */
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext,
+                                      opnd_create_reg(scratch),
+                                      OPND_CREATE_INT16(type)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store_2bytes(drcontext,
+                                          OPND_CREATE_MEM16(base, disp),
+                                          opnd_create_reg(scratch)));
+        /* save size */
+        disp = adjust + offsetof(trace_entry_t, size);
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext,
+                                      opnd_create_reg(scratch),
+                                      OPND_CREATE_INT16(size)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store_2bytes(drcontext,
+                                          OPND_CREATE_MEM16(base, disp),
+                                          opnd_create_reg(scratch)));
+    } else {
+        /* no padding, save type and size together */
+        disp = adjust + offsetof(trace_entry_t, type);
+#ifdef X86
+        MINSERT(ilist, where,
+                INSTR_CREATE_mov_st(drcontext,
+                                    OPND_CREATE_MEM32(base, disp),
+                                    OPND_CREATE_INT32(type | (size << 16))));
+#elif defined(ARM)
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext,
+                                      opnd_create_reg(scratch),
+                                      OPND_CREATE_INT(type)));
+        MINSERT(ilist, where,
+                INSTR_CREATE_movt(drcontext,
                                   opnd_create_reg(scratch),
-                                  OPND_CREATE_INT16(type)));
-    MINSERT(ilist, where,
-            XINST_CREATE_store_2bytes(drcontext,
-                                      OPND_CREATE_MEM16(base, disp),
-                                      opnd_create_reg(scratch)));
-}
-
-static void
-insert_save_size(void *drcontext, instrlist_t *ilist, instr_t *where,
-                 reg_id_t base, reg_id_t scratch, ushort size, int adjust)
-{
-    int disp = adjust + offsetof(trace_entry_t, size);
-    scratch = reg_resize_to_opsz(scratch, OPSZ_2);
-    MINSERT(ilist, where,
-            XINST_CREATE_load_int(drcontext,
-                                  opnd_create_reg(scratch),
-                                  OPND_CREATE_INT16(size)));
-    MINSERT(ilist, where,
-            XINST_CREATE_store_2bytes(drcontext,
-                                      OPND_CREATE_MEM16(base, disp),
-                                      opnd_create_reg(scratch)));
+                                  OPND_CREATE_INT(size)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store(drcontext,
+                                   OPND_CREATE_MEM32(base, disp),
+                                   opnd_create_reg(scratch)));
+#endif
+    }
 }
 
 static void
@@ -237,6 +260,21 @@ insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                reg_id_t base, reg_id_t scratch, app_pc pc, int adjust)
 {
     int disp = adjust + offsetof(trace_entry_t, addr);
+#ifdef X86
+    ptr_int_t val = (ptr_int_t)pc;
+    MINSERT(ilist, where,
+            INSTR_CREATE_mov_st(drcontext,
+                                OPND_CREATE_MEM32(base, disp),
+                                OPND_CREATE_INT32((int)val)));
+# ifdef X64
+    if (val > INT_MAX || val < INT_MIN) {
+        MINSERT(ilist, where,
+                INSTR_CREATE_mov_st(drcontext,
+                                    OPND_CREATE_MEM32(base, disp + 4),
+                                    OPND_CREATE_INT32((int)(val >> 32))));
+    }
+# endif
+#elif defined(ARM)
     instr_t *mov1, *mov2;
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      opnd_create_reg(scratch),
@@ -249,6 +287,7 @@ insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(base, disp),
                                opnd_create_reg(scratch)));
+#endif
 }
 
 static void
@@ -276,10 +315,9 @@ static void
 instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where,
                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
-    insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     TRACE_TYPE_INSTR, adjust);
-    insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     (ushort)instr_length(drcontext, where), adjust);
+    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
+                              TRACE_TYPE_INSTR,
+                              (ushort)instr_length(drcontext, where), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(where), adjust);
 }
@@ -289,10 +327,9 @@ static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
                bool write, reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
-    insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ, adjust);
-    insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     (ushort)drutil_opnd_mem_size_in_bytes(ref, where), adjust);
+    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
+                              write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ,
+                              (ushort)drutil_opnd_mem_size_in_bytes(ref, where), adjust);
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp, adjust);
 }
 
