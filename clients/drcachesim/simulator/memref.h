@@ -46,14 +46,15 @@ typedef int_least64_t memref_tid_t;
 typedef struct _memref_t {
     memref_pid_t pid;
     memref_tid_t tid;
-
-    // FIXME i#1703: we probably want to add the PC here, but we need to figure
-    // out how we're passing instr fetch entries to the simulator and whether
-    // the simulator should fill in the PC from those.
-
     unsigned short type; // trace_type_t
     unsigned short size;
     addr_t addr;
+    // The pc field is only used for read, write, and prefetch entries.
+    // XXX: should we remove it from here and have the simulator compute it
+    // from instr entries?  Though if the user turns off icache simulation
+    // it may be better to keep it as a field here and have the reader
+    // fill it in for us.
+    addr_t pc;
 } memref_t;
 
 #endif /* _MEMREF_H_ */

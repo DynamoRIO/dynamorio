@@ -64,7 +64,8 @@ static int verbose;
 
 #define OPTION_MAX_LENGTH MAXIMUM_PATH
 
-// XXX i#1703: switch to separate options class
+// XXX i#1703: switch to separate options class, or if we get i#1705 use
+// that feature for simpler option parsing.
 typedef struct _options_t {
     char ipc_name[MAXIMUM_PATH];
 } options_t;
@@ -89,6 +90,7 @@ typedef struct {
 /* per bb user data during instrumentation */
 typedef struct {
     bool clean_call_inserted;
+    app_pc last_app_pc;
 } user_data_t;
 
 /* we write to a single global pipe */
@@ -170,7 +172,7 @@ memtrace(void *drcontext, bool delay)
     BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
 }
 
-/* clean_call send the memory reference info to the simulator */
+/* clean_call sends the memory reference info to the simulator */
 static void
 clean_call(void)
 {
@@ -275,7 +277,7 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where,
                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
-                     (ushort)instr_get_opcode(where), adjust);
+                     TRACE_TYPE_INSTR, adjust);
     insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)instr_length(drcontext, where), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
@@ -304,11 +306,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 {
     reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XCX, DR_REG_R1);
     reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XBX, DR_REG_R2);
-    int i, adjust;
+    int i, adjust = 0;
+    user_data_t *ud = (user_data_t *) user_data;
 
-    if (!instr_is_app(instr))
-        return DR_EMIT_DEFAULT;
-    if (!instr_reads_memory(instr) && !instr_writes_memory(instr))
+    if (!instr_is_app(instr) ||
+        /* Skip identical app pc, which happens with rep str expansion.
+         * XXX: the expansion means our instr fetch trace is not perfect,
+         * but we live with having the wrong instr length.
+         */
+        ud->last_app_pc == instr_get_app_pc(instr))
         return DR_EMIT_DEFAULT;
 
     /* opt: save/restore reg per instr instead of per entry */
@@ -318,35 +324,36 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     /* load buf ptr into reg_ptr */
     insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
 
-    adjust = 0;
-
-    /* insert code to add an entry for app instruction */
-    /* FIXME i#1703: I'm disabling this temporarily.  We either want a full
-     * instruction fetch trace for all instructions, or we want to add a PC
-     * field: unless the average # of memrefs is >=2 (certainly not true for
-     * ARM, seems unlikely for x86 as well) having a separate instr field takes
-     * more space, unless we really need the opcode, which is not clear if we
-     * have sideline or offline symbolization of the PC.
+    /* Instruction entry for instr fetch trace.  This does double-duty by
+     * also providing the PC for subsequent data ref entries.
      */
-    if (false) {
-        instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp, adjust);
-        adjust += sizeof(trace_entry_t);
-    }
+    /* XXX i#1703: we may want to put the instr fetch under an option, in
+     * case the user only cares about data references.
+     * Note that in that case we may want to still provide the PC for
+     * memory references, and it may be better to add a PC field to
+     * trace_entry_t than require a separate instr entry for every memref
+     * instr (if average # of memrefs per instr is < 2, PC field is better).
+     */
+    instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp, adjust);
+    adjust += sizeof(trace_entry_t);
+    ud->last_app_pc = instr_get_app_pc(instr);
 
-    /* insert code to add an entry for each memory reference opnd */
-    for (i = 0; i < instr_num_srcs(instr); i++) {
-        if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-            instrument_mem(drcontext, bb, instr, instr_get_src(instr, i),
-                           false, reg_ptr, reg_tmp, adjust);
-            adjust += sizeof(trace_entry_t);
+    if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
+        /* insert code to add an entry for each memory reference opnd */
+        for (i = 0; i < instr_num_srcs(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+                instrument_mem(drcontext, bb, instr, instr_get_src(instr, i),
+                               false, reg_ptr, reg_tmp, adjust);
+                adjust += sizeof(trace_entry_t);
+            }
         }
-    }
 
-    for (i = 0; i < instr_num_dsts(instr); i++) {
-        if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-            instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i),
-                           true, reg_ptr, reg_tmp, adjust);
-            adjust += sizeof(trace_entry_t);
+        for (i = 0; i < instr_num_dsts(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+                instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i),
+                               true, reg_ptr, reg_tmp, adjust);
+                adjust += sizeof(trace_entry_t);
+            }
         }
     }
 
@@ -357,11 +364,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     dr_restore_reg(drcontext, bb, instr, reg_tmp, slot_tmp);
 
     /* insert code to call clean_call for processing the buffer */
-    if (!((user_data_t *)user_data)->clean_call_inserted &&
+    if (!ud->clean_call_inserted
         /* XXX i#1702: it is ok to skip a few clean calls on predicated instructions,
          * since the buffer will be dumped later by other clean calls.
          */
-        IF_X86_ELSE(true, !instr_is_predicated(instr))
+        IF_ARM(&& !instr_is_predicated(instr))
         /* FIXME i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
          * However, there is still a chance that the instrumentation code may clear the
@@ -369,7 +376,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          */
         IF_ARM(&& !instr_is_exclusive_store(instr))) {
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
-        ((user_data_t *)user_data)->clean_call_inserted = true;
+        ud->clean_call_inserted = true;
     }
 
     return DR_EMIT_DEFAULT;
@@ -384,6 +391,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
 {
     user_data_t *data = (user_data_t *) dr_thread_alloc(drcontext, sizeof(user_data_t));
     data->clean_call_inserted = false;
+    data->last_app_pc = NULL;
     *user_data = (void *)data;
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);

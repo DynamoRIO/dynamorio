@@ -60,7 +60,9 @@ typedef enum {
     TRACE_TYPE_WRITE,
     TRACE_TYPE_PREFETCH,
 
-    // These entries describe an instruction fetch memory reference:
+    // These entries describe an instruction fetch memory reference.
+    // The trace stream always has the instr fetch prior to data refs,
+    // which the reader can use to obtain the PC for data references.
     TRACE_TYPE_INSTR,
 
     // A cache flush:

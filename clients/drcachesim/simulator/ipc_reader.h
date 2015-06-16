@@ -66,6 +66,7 @@ class ipc_reader_t : public reader_t
     named_pipe_t pipe;
     memref_t cur_ref;
     memref_tid_t cur_tid;
+    addr_t cur_pc;
     std::map<memref_tid_t, memref_pid_t> tid2pid;
 
     // For efficiency we want to read large chunks at a time.

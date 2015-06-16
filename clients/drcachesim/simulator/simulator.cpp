@@ -45,7 +45,7 @@ main(int argc, const char *argv[])
 {
     const char *ipc_name;
 
-    // FIXME i#1703: proper arg processing
+    // FIXME i#1703: proper arg processing, probably via i#1705
     ipc_name = argv[1];
 
     ipc_reader_t ipc_end;
@@ -58,12 +58,15 @@ main(int argc, const char *argv[])
     // FIXME i#1703: take params from args
     // FIXME i#1703: build a separate L1D per specified core, and use a
     // static assignment of app threads to cores.
+    cache_stats_t stats_L1I;
+    cache_t cache_L1I;
     cache_stats_t stats_L1D;
     cache_t cache_L1D;
     // L2 is our shared level in our simple hierarchy here.
     cache_stats_t stats_L2;
     cache_t cache_L2;
     if (!cache_L2.init(8, 64, 8192/*512KB cache*/, NULL, &stats_L2) ||
+        !cache_L1I.init(4, 64, 512/*32KB cache*/, &cache_L2, &stats_L1I) ||
         !cache_L1D.init(4, 64, 512/*32KB cache*/, &cache_L2, &stats_L1D)) {
         ERROR("failed to initialize caches");
         return 1;
@@ -76,21 +79,23 @@ main(int argc, const char *argv[])
         memref_t memref = *ipc_iter;
         // FIXME i#1703: pass to caches per static core assignment.
 
-        // FIXME i#1703: process instr fetch entries to record PC here, or
-        // in the reader?
-
-        cache_L1D.request(memref);
+        if (memref.type == TRACE_TYPE_INSTR)
+            cache_L1I.request(memref);
+        else
+            cache_L1D.request(memref);
 
         if (verbose > 1) {
             std::cout << "::" << memref.pid << "." << memref.tid << ":: " <<
-                // FIXME i#1703: should compute PC and print here
-                ((memref.type == TRACE_TYPE_READ) ? "R " :
+                " @" << (void *)memref.pc <<
+                ((memref.type == TRACE_TYPE_READ) ? " R " :
                  // FIXME i#1703: auto-convert to string
-                 ((memref.type == TRACE_TYPE_WRITE) ? "W " : "<meta> ")) <<
+                 ((memref.type == TRACE_TYPE_WRITE) ? " W " : " I ")) <<
                 (void *)memref.addr << " x" << memref.size << std::endl;
         }
     }
 
+    std::cout << "L1I stats:" << std::endl;
+    stats_L1I.print_stats();
     std::cout << "L1D stats:" << std::endl;
     stats_L1D.print_stats();
     std::cout << "L2 stats:" << std::endl;

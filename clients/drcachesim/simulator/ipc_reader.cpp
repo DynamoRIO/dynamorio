@@ -135,11 +135,19 @@ ipc_reader_t::operator++()
                 cur_ref.type = cur_buf->type;
                 cur_ref.size = cur_buf->size;
                 cur_ref.addr = cur_buf->addr;
+                // The trace stream always has the instr fetch first, which we
+                // use to obtain the PC for subsequent data references.
+                cur_ref.pc = cur_pc;
                 break;
             case TRACE_TYPE_INSTR:
-                // FIXME i#1703: NYI.
-                // It's also not yet decided how to handle the PC for a mem ref
-                // vs an instr fetch: who will have a PC field?
+                have_memref = true;
+                cur_ref.pid = tid2pid[cur_tid];
+                cur_ref.tid = cur_tid;
+                cur_ref.type = cur_buf->type;
+                cur_ref.size = cur_buf->size;
+                cur_ref.addr = cur_buf->addr;
+                cur_ref.pc = cur_buf->addr;
+                cur_pc = cur_ref.addr;
                 break;
             case TRACE_TYPE_FLUSH:
                 // FIXME i#1703: NYI
