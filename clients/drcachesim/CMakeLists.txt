@@ -56,6 +56,10 @@ if (UNIX)
   use_DynamoRIO_extension(drmemtrace drutil)
   use_DynamoRIO_extension(drmemtrace drx)
 
+  # Restore debug and other flags to our non-client executable
+  set_target_properties(drcachesim PROPERTIES
+    COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
+
   place_shared_lib_in_lib_dir(drmemtrace)
 
   add_dependencies(drmemtrace api_headers)
