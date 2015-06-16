@@ -87,7 +87,7 @@ main(int argc, const char *argv[])
                 ((memref.type == TRACE_TYPE_READ) ? "R " :
                  // FIXME i#1703: auto-convert to string
                  ((memref.type == TRACE_TYPE_WRITE) ? "W " : "<meta> ")) <<
-                memref.addr << " x" << memref.size << std::endl;
+                (void *)memref.addr << " x" << memref.size << std::endl;
         }
     }
 

@@ -63,6 +63,8 @@ ipc_reader_t::init()
         !pipe.open_for_read())
         return false;
     pipe.maximize_buffer();
+    cur_buf = buf;
+    end_buf = buf;
     ++*this;
     return true;
 }
@@ -76,7 +78,7 @@ ipc_reader_t::~ipc_reader_t()
 memref_t&
 ipc_reader_t::operator*()
 {
-    return cur;
+    return cur_ref;
 }
 
 bool
@@ -102,54 +104,55 @@ ipc_reader_t::operator++(int)
 reader_t&
 ipc_reader_t::operator++()
 {
-    // XXX: we probably want to read a big chunk of data here and
-    // parcel it out via an internal array, but we start out simple by
-    // reading one entry at a time.  We'll measure where the
-    // bottlenecks are before optimizing.
-
     // If we ever switch to separate IPC buffers per application thread,
     // we'd do the merging and timestamp ordering here.
 
-    trace_entry_t entry;
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
-        if (pipe.read(&entry, sizeof(entry)) < (ssize_t)sizeof(entry)) { // blocking read
-            at_eof = true;
-            break;
-        } else {
+        if (cur_buf >= end_buf) {
+            ssize_t sz = pipe.read(buf, sizeof(buf)); // blocking read
+            if (sz < 0 || sz % sizeof(*end_buf) != 0) {
+                at_eof = true;
+                break;
+            }
+            cur_buf = buf;
+            end_buf = buf + (sz / sizeof(*end_buf));
+        } else
+            cur_buf++;
+        if (cur_buf < end_buf) {
 #ifdef VERBOSE
-            std::cout << "--" << entry.type << " sz=" << entry.size <<
-                " addr=" << entry.addr << std::endl;
+            std::cout << "RECV: " << cur_buf->type << " sz=" << cur_buf->size <<
+                " addr=" << (void *)cur_buf->addr << std::endl;
 #endif
             bool have_memref = false;
-            switch (entry.type) {
+            switch (cur_buf->type) {
             case TRACE_TYPE_READ:
             case TRACE_TYPE_WRITE:
             case TRACE_TYPE_PREFETCH:
                 have_memref = true;
-                cur.pid = tid2pid[cur_tid];
-                cur.tid = cur_tid;
-                cur.type = entry.type;
-                cur.size = entry.size;
-                cur.addr = entry.addr;
+                cur_ref.pid = tid2pid[cur_tid];
+                cur_ref.tid = cur_tid;
+                cur_ref.type = cur_buf->type;
+                cur_ref.size = cur_buf->size;
+                cur_ref.addr = cur_buf->addr;
                 break;
             case TRACE_TYPE_INSTR:
                 // FIXME i#1703: NYI.
                 // It's also not yet decided how to handle the PC for a mem ref
-                // vs an instr fetch: who we have a PC field?
+                // vs an instr fetch: who will have a PC field?
                 break;
             case TRACE_TYPE_FLUSH:
                 // FIXME i#1703: NYI
                 break;
             case TRACE_TYPE_THREAD:
-                cur_tid = (memref_tid_t) entry.addr;
+                cur_tid = (memref_tid_t) cur_buf->addr;
                 break;
             case TRACE_TYPE_PID:
                 // We do want to replace, in case of tid reuse.
-                tid2pid[cur_tid] = (memref_pid_t) entry.addr;
+                tid2pid[cur_tid] = (memref_pid_t) cur_buf->addr;
                 break;
             default:
-                ERROR("Unknown trace entry type %d\n", entry.type);
+                ERROR("Unknown trace entry type %d\n", cur_buf->type);
                 assert(false);
                 at_eof = true; // bail
                 break;

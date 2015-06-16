@@ -153,6 +153,10 @@ memtrace(void *drcontext, bool delay)
     for (mem_ref = (trace_entry_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
         // FIXME i#1703: convert from virtual to physical if requested and avail
         data->num_refs++;
+#ifdef VERBOSE // XXX: add a runtime option for this?
+        dr_printf("SEND: type=%d, sz=%d, addr=%p\n", mem_ref->type, mem_ref->size,
+                  mem_ref->addr);
+#endif
     }
     towrite = (byte *)buf_ptr - (byte *)data->buf_base;
 

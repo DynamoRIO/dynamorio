@@ -44,6 +44,7 @@
 #include "memref.h"
 #include "reader.h"
 #include "../common/named_pipe.h"
+#include "../common/trace_entry.h"
 
 class ipc_reader_t : public reader_t
 {
@@ -63,9 +64,17 @@ class ipc_reader_t : public reader_t
  private:
     bool at_eof;
     named_pipe_t pipe;
-    memref_t cur;
+    memref_t cur_ref;
     memref_tid_t cur_tid;
     std::map<memref_tid_t, memref_pid_t> tid2pid;
+
+    // For efficiency we want to read large chunks at a time.
+    // The atomic write size for a pipe on Linux is 4096 so we aim
+    // for something close to that.
+    static const int BUF_SIZE = 512;
+    trace_entry_t buf[BUF_SIZE];
+    trace_entry_t *cur_buf;
+    trace_entry_t *end_buf;
 };
 
 #endif /* _IPC_READER_H_ */
