@@ -2362,6 +2362,57 @@ dr_get_options(client_id_t id)
 }
 
 DR_API
+bool
+dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT,
+                    size_t max_token_size)
+{
+    const char **a;
+    int cnt;
+    const char *opstr = dr_get_options(client_id);
+    const char *s;
+    char *token = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, max_token_size,
+                                   ACCT_CLIENT, UNPROTECTED);
+
+    for (cnt = 0, s = dr_get_token(opstr, token, max_token_size);
+         s != NULL;
+         s = dr_get_token(s, token, max_token_size)) {
+        cnt++;
+    }
+    cnt++; /* add 1 so 0 can be "app" */
+
+    a = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, const char *, cnt, ACCT_CLIENT, UNPROTECTED);
+
+    cnt = 0;
+    a[cnt] = dr_strdup(dr_get_client_path(client_id) HEAPACCT(ACCT_CLIENT));
+    cnt++;
+    for (s = dr_get_token(opstr, token, max_token_size);
+         s != NULL;
+         s = dr_get_token(s, token, max_token_size)) {
+        a[cnt] = dr_strdup(token HEAPACCT(ACCT_CLIENT));
+        cnt++;
+    }
+
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, token, char, max_token_size,
+                    ACCT_CLIENT, UNPROTECTED);
+
+    *argc = cnt;
+    *argv = a;
+    return true;
+}
+
+DR_API
+bool
+dr_free_option_array(int argc, const char **argv)
+{
+    int i;
+    for (i = 0; i < argc; i++) {
+        dr_strfree(argv[i] HEAPACCT(ACCT_CLIENT));
+    }
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, argv, char *, argc, ACCT_CLIENT, UNPROTECTED);
+    return true;
+}
+
+DR_API
 /* Returns the path to the client library.  Client must pass its ID */
 const char *
 dr_get_client_path(client_id_t id)
