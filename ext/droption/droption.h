@@ -39,6 +39,8 @@
 #include <vector>
 #include <string.h>
 #include <stdlib.h>
+#include <sstream>
+#include <iomanip>
 
 // XXX: some clients want further distinctions, such as options passed to
 // post-processing components, internal (i.e., undocumented) options, etc.
@@ -133,14 +135,62 @@ class droption_parser_t
         return true;
     }
 
+    /**
+     * Returns a string containing a list of all of the parameters, their
+     * default values, and their short descriptions.
+     */
+    static std::string
+    usage_short(droption_scope_t scope)
+    {
+        std::ostringstream oss;
+        for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
+             opi != allops().end();
+             ++opi) {
+            droption_parser_t *op = *opi;
+            if (op->scope == scope || op->scope == DROPTION_SCOPE_ALL) {
+                oss << " -" << std::setw(20) << std::left << op->name
+                    << "[" << std::setw(6) << std::right
+                    << op->default_as_string() << "]"
+                    << "  " << std::left << op->desc_short << std::endl;
+            }
+        }
+        return oss.str();
+    }
+
+    /**
+     * Returns a string containing a list of all of the parameters, their
+     * default values, and their long descriptions.
+     */
+    static std::string
+    usage_long(droption_scope_t scope)
+    {
+        std::ostringstream oss;
+        for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
+             opi != allops().end();
+             ++opi) {
+            droption_parser_t *op = *opi;
+            // XXX: we should also add the min and max values
+            if (op->scope == scope || op->scope == DROPTION_SCOPE_ALL) {
+                oss << "----------" << std::endl
+                    << "-" << op->name << std::endl
+                    << "default value: "
+                    << op->default_as_string() << std::endl
+                    << op->desc_long << std::endl << std::endl;
+            }
+        }
+        oss << "----------" << std::endl;
+        return oss.str();
+    }
+
     /** Returns whether this option was specified in the argument list. */
     bool specified() { return is_specified; }
 
  protected:
-    virtual bool option_takes_arg() = 0;
+    virtual bool option_takes_arg() const = 0;
     virtual bool name_match(const char *arg) = 0; // also sets value for bools!
     virtual bool convert_from_string(const std::string s) = 0;
     virtual bool clamp_value() = 0;
+    virtual std::string default_as_string() const = 0;
 
     // To avoid static initializer ordering problems we use a function:
     static std::vector<droption_parser_t*>& allops()
@@ -198,9 +248,10 @@ template <typename T> class droption_t : public droption_parser_t
         return true;
     }
 
-    bool option_takes_arg();
+    bool option_takes_arg() const;
     bool name_match(const char *arg);
     bool convert_from_string(const std::string s);
+    std::string default_as_string() const;
 
     T value;
     T defval;
@@ -209,8 +260,8 @@ template <typename T> class droption_t : public droption_parser_t
     T maxval;
 };
 
-template <typename T> inline bool droption_t<T>::option_takes_arg() { return true; }
-template<> inline bool droption_t<bool>::option_takes_arg() { return false; }
+template <typename T> inline bool droption_t<T>::option_takes_arg() const { return true; }
+template<> inline bool droption_t<bool>::option_takes_arg() const { return false; }
 
 template <typename T> inline bool
 droption_t<T>::name_match(const char *arg)
@@ -264,6 +315,29 @@ droption_t<bool>::convert_from_string(const std::string s)
 {
     // We shouldn't get here
     return false;
+}
+
+template<> inline std::string
+droption_t<std::string>::default_as_string() const
+{
+    return defval;
+}
+template<> inline std::string
+droption_t<int>::default_as_string() const
+{
+    return dynamic_cast< std::ostringstream & >
+        ((std::ostringstream() << std::dec << defval)).str();
+}
+template<> inline std::string
+droption_t<unsigned int>::default_as_string() const
+{
+    return dynamic_cast< std::ostringstream & >
+        ((std::ostringstream() << std::dec << defval)).str();
+}
+template<> inline std::string
+droption_t<bool>::default_as_string() const
+{
+    return (defval ? "true" : "false");
 }
 
 // Convenience routine for client use
