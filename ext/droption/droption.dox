@@ -1,0 +1,102 @@
+/* **********************************************************
+ * Copyright (c) 2015 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_droption DynamoRIO Option Parser
+
+The \p droption DynamoRIO Extension provides easy-to-use option
+declaration and parsing for both clients and standalone programs.
+
+ - \ref sec_droption_setup
+ - \ref sec_droption_usage
+
+\section sec_droption_setup Setup
+
+To use \p droption with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname droption) \endcode
+
+That will automatically set up the include path.  Then include the header
+file:
+
+\code
+#include "droption.h"
+\endcode
+
+To use \p droption with a non-client, for example with a tool frontend or
+other standalone application, simply include the droption.h header file.
+
+\section sec_droption_usage Usage
+
+Simply declare a global instance of \p droption_t of the desired option
+value type for each option you wish to support.  For example:
+
+\code
+static droption_t<unsigned int> op_x
+(DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
+ "Longer desc of some param.");
+
+static droption_t<std::string> op_y
+(DROPTION_SCOPE_CLIENT, "y", "", "Another param",
+ "Longer desc of another param.");
+
+static droption_t<int> op_z
+(DROPTION_SCOPE_CLIENT, "foo", 42, "Yet another param",
+ "Longer desc of yet another param.");
+\endcode
+
+Then, ask for the \p droption_t instances to be filled in from the
+passed-in arguments from the user.  In a client, use the \p
+dr_parse_options() function, typically from \p dr_init():
+
+\code
+    std::string parse_err;
+    if (!dr_parse_options(id, &parse_err)) {
+        dr_fprintf(STDERR, "Usage error: %s", parse_err.c_str());
+        dr_abort();
+    }
+\endcode
+
+From a standalone application, invoke parse_argv():
+
+\code
+droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv, &parse_err);
+\endcode
+
+We recommend that Windows standalone applications use UNICODE and call
+drfront_convert_args() to convert to UTF-8 prior to passing to
+parse_argv(), for proper internationalization support.
+
+*/

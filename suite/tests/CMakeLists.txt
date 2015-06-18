@@ -1786,8 +1786,9 @@ if (CLIENT_INTERFACE)
       "" "")
   endif (NOT ARM)
 
-  tobuild_ci(client.option_parse client-interface/option_parse.c
+  tobuild_ci(client.option_parse client-interface/option_parse.cpp
     " -x   4 -y \"quoted string\" -z `single quotes -dash --dashes`" "" "")
+  use_DynamoRIO_extension(client.option_parse.dll droption)
 
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)

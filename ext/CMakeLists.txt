@@ -112,6 +112,7 @@ add_subdirectory(drwrap)
 add_subdirectory(drreg)
 add_subdirectory(drsyms)
 add_subdirectory(drutil)
+add_subdirectory(droption)
 
 # documentation is put into main DR docs/ dir
 

@@ -35,22 +35,54 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
+#include "droption.h"
 #include <string.h>
+
+static droption_t<unsigned int> op_x
+(DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
+ "Longer desc of some param.");
+static droption_t<std::string> op_y
+(DROPTION_SCOPE_CLIENT, "y", "", "Another param",
+ "Longer desc of another param.");
+static droption_t<std::string> op_z
+(DROPTION_SCOPE_CLIENT, "z", "", "Yet another param",
+ "Longer desc of yet another param.");
+static droption_t<int> op_foo
+(DROPTION_SCOPE_CLIENT, "foo", 8, "Missing param",
+ "Longer desc of missing param.");
+static droption_t<std::string> op_bar
+(DROPTION_SCOPE_CLIENT, "bar", "some string with spaces", "Missing string param",
+ "Longer desc of missing string param.");
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
 {
+    // Test dr_get_option_array().
     int argc;
     const char **argv;
     bool ok = dr_get_option_array(client_id, &argc, &argv, MAXIMUM_PATH);
     ASSERT(ok);
-    ASSERT(argc == 6);
-    ASSERT(strcmp(argv[0], "-x") == 0);
-    ASSERT(strcmp(argv[1], "4") == 0);
-    ASSERT(strcmp(argv[2], "-y") == 0);
-    ASSERT(strcmp(argv[3], "quoted string") == 0);
-    ASSERT(strcmp(argv[4], "-z") == 0);
-    ASSERT(strcmp(argv[5], "single quotes -dash --dashes") == 0);
+    ASSERT(argc == 7);
+    ASSERT(strcmp(argv[1], "-x") == 0);
+    ASSERT(strcmp(argv[2], "4") == 0);
+    ASSERT(strcmp(argv[3], "-y") == 0);
+    ASSERT(strcmp(argv[4], "quoted string") == 0);
+    ASSERT(strcmp(argv[5], "-z") == 0);
+    ASSERT(strcmp(argv[6], "single quotes -dash --dashes") == 0);
     ok = dr_free_option_array(argc, argv);
     ASSERT(ok);
+
+    // Test dr_parse_options() and droption_t declarations above.
+    ok = dr_parse_options(client_id, NULL);
+    ASSERT(ok);
+    ASSERT(op_x.specified());
+    ASSERT(op_y.specified());
+    ASSERT(op_z.specified());
+    dr_printf("param x = %d\n", op_x.get_value());
+    dr_printf("param y = |%s|\n", op_y.get_value().c_str());
+    dr_printf("param z = |%s|\n", op_z.get_value().c_str());
+    dr_printf("param foo = %d\n", op_foo.get_value());
+    dr_printf("param bar = |%s|\n", op_bar.get_value().c_str());
+    ASSERT(!op_foo.specified());
+    ASSERT(!op_bar.specified());
 }

@@ -926,6 +926,7 @@ endfunction (get_DynamoRIO_defines)
 # set(DynamoRIO_EXT_${extname}_NOLIB ON)
 # in your ${extname}Config.cmake file
 set(DynamoRIO_EXT_drgui_NOLIB ON)
+set(DynamoRIO_EXT_droption_NOLIB ON)
 
 # DynamoRIO Extensions
 function (use_DynamoRIO_extension target extname)
