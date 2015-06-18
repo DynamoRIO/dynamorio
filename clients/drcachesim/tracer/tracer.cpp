@@ -62,19 +62,25 @@
         dr_fprintf(STDERR, fmt, __VA_ARGS__); \
 } while (0)
 
-/* Max number of mem_ref a buffer can have. It should be big enough
+/* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
  */
-#define MAX_NUM_MEM_REFS 4096
-/* The maximum size of buffer for holding mem_refs. */
-#define MEM_BUF_SIZE (sizeof(trace_entry_t) * MAX_NUM_MEM_REFS)
+// XXX i#1703: use an option instead.
+#define MAX_NUM_ENTRIES 4096
+/* The buffer size for holding trace entries. */
+#define TRACE_BUF_SIZE (sizeof(trace_entry_t) * MAX_NUM_ENTRIES)
+/* The redzone is allocated right after the trace buffer.
+ * We fill the redzone with sentinel value to detect when the redzone
+ * is reached, i.e., when the trace buffer is full.
+ */
+#define REDZONE_SIZE (sizeof(trace_entry_t) * MAX_NUM_ENTRIES)
+#define MAX_BUF_SIZE (TRACE_BUF_SIZE + REDZONE_SIZE)
 
 /* thread private buffer and counter */
 typedef struct {
     byte *seg_base;
     trace_entry_t *buf_base;
     uint64 num_refs;
-    bool thread_registered;
 } per_thread_t;
 
 /* per bb user data during instrumentation */
@@ -108,39 +114,24 @@ static int      tls_idx;
 
 #define MINSERT instrlist_meta_preinsert
 
+static inline void
+init_thread_entry(void *drcontext, trace_entry_t *entry)
+{
+    entry->type = TRACE_TYPE_THREAD;
+    entry->size = sizeof(thread_id_t);
+    entry->addr = (addr_t) dr_get_thread_id(drcontext);
+}
+
 static void
-memtrace(void *drcontext, bool delay)
+memtrace(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    trace_entry_t *header, *mem_ref, *buf_ptr;
+    trace_entry_t *mem_ref, *buf_ptr;
     size_t towrite;
 
     buf_ptr = BUF_PTR(data->seg_base);
-
-    /* delay dumping the buffer until it is half-filled */
-    if (delay && (buf_ptr - data->buf_base) < (MAX_NUM_MEM_REFS / 2))
-        return;
-
     /* The initial slot is left empty for the thread entry, which we add here */
-    header = data->buf_base;
-    header->type = TRACE_TYPE_THREAD;
-    header->size = sizeof(thread_id_t);
-    header->addr = (addr_t) dr_get_thread_id(drcontext);
-
-    if (!data->thread_registered) {
-        /* It's not worth keeping a 2nd header slot for a once-per-thread event:
-         * we do a separate write to the pipe.
-         */
-        trace_entry_t pid_info[2];
-        pid_info[0] = *header;
-        pid_info[1].type = TRACE_TYPE_PID;
-        pid_info[1].size = sizeof(process_id_t);
-        pid_info[1].addr = (addr_t) dr_get_process_id();
-        data->thread_registered = true;
-        if (ipc_pipe.write((void *)pid_info, sizeof(pid_info)) <
-            (ssize_t)sizeof(pid_info))
-            DR_ASSERT(false);
-    }
+    init_thread_entry(drcontext, data->buf_base);
 
     for (mem_ref = (trace_entry_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
         // FIXME i#1703: convert from virtual to physical if requested and avail
@@ -159,6 +150,12 @@ memtrace(void *drcontext, bool delay)
     if (ipc_pipe.write((void *)data->buf_base, towrite) < (ssize_t)towrite)
         DR_ASSERT(false);
 
+    /* clear trace buffer */
+    memset(data->buf_base, 0, REDZONE_SIZE);
+    if (towrite > REDZONE_SIZE) {
+        /* set sentinel (non-zero) value in redzone */
+        memset((byte *)data->buf_base + REDZONE_SIZE, -1, towrite - REDZONE_SIZE);
+    }
     BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
 }
 
@@ -167,7 +164,7 @@ static void
 clean_call(void)
 {
     void *drcontext = dr_get_current_drcontext();
-    memtrace(drcontext, true);
+    memtrace(drcontext);
 }
 
 static void
@@ -322,6 +319,58 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp, adjust);
 }
 
+/* We insert code to read from trace buffer and check whether the redzone
+ * is reached. If redzone is reached, the clean call will be called.
+ */
+static void
+instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
+                      reg_id_t reg_ptr, reg_id_t reg_tmp)
+{
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    MINSERT(ilist, where,
+            XINST_CREATE_load(drcontext,
+                              opnd_create_reg(reg_ptr),
+                              OPND_CREATE_MEMPTR(reg_ptr, 0)));
+#ifdef X86
+    DR_ASSERT(reg_ptr == DR_REG_XCX);
+    MINSERT(ilist, where,
+            INSTR_CREATE_jecxz(drcontext, opnd_create_instr(label)));
+#elif defined(ARM)
+    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
+        instr_t *noskip = INSTR_CREATE_label(drcontext);
+        /* XXX: clean call is too long to use cbz to skip. */
+        MINSERT(ilist, where,
+                INSTR_CREATE_cbnz(drcontext,
+                                 opnd_create_instr(noskip),
+                                 opnd_create_reg(reg_ptr)));
+        MINSERT(ilist, where,
+                XINST_CREATE_jump(drcontext,
+                                  opnd_create_instr(label)));
+        MINSERT(ilist, where, noskip);
+    } else {
+        /* There is no jecxz/cbz like instr on ARM-A32 mode, so we have to
+         * save aflags to reg_tmp before check.
+         * XXX optimization: use drreg to avoid aflags save/restore.
+         */
+        dr_save_arith_flags_to_reg(drcontext, ilist, where, reg_tmp);
+        MINSERT(ilist, where,
+                INSTR_CREATE_cmp(drcontext,
+                                 opnd_create_reg(reg_ptr),
+                                 OPND_CREATE_INT(0)));
+        MINSERT(ilist, where,
+                instr_set_predicate(XINST_CREATE_jump(drcontext,
+                                                      opnd_create_instr(label)),
+                                    DR_PRED_EQ));
+    }
+#endif
+    dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
+    MINSERT(ilist, where, label);
+#ifdef ARM
+    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_A32)
+        dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg_tmp);
+#endif
+}
+
 /* For each memory reference app instr, we insert inline code to fill the buffer
  * with an instruction entry and memory reference entries.
  */
@@ -385,11 +434,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
     /* opt: update buf ptr once per instr instead of per entry */
     insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, adjust);
-    /* restore scratch registers */
-    dr_restore_reg(drcontext, bb, instr, reg_ptr, slot_ptr);
-    dr_restore_reg(drcontext, bb, instr, reg_tmp, slot_tmp);
 
-    /* insert code to call clean_call for processing the buffer */
+    /* Insert code to call clean_call for processing the buffer.
+     * We restore the registers after the clean call, which should be ok
+     * assuming the clean call does not need the two register values.
+     */
     if (!ud->clean_call_inserted
         /* XXX i#1702: it is ok to skip a few clean calls on predicated instructions,
          * since the buffer will be dumped later by other clean calls.
@@ -401,10 +450,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          * exclusive monitor state.
          */
         IF_ARM(&& !instr_is_exclusive_store(instr))) {
-        dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
+        instrument_clean_call(drcontext, bb, instr, reg_ptr, reg_tmp);
         ud->clean_call_inserted = true;
     }
 
+    /* restore scratch registers */
+    dr_restore_reg(drcontext, bb, instr, reg_ptr, slot_ptr);
+    dr_restore_reg(drcontext, bb, instr, reg_tmp, slot_tmp);
     return DR_EMIT_DEFAULT;
 }
 
@@ -446,6 +498,7 @@ event_bb_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
 static void
 event_thread_init(void *drcontext)
 {
+    trace_entry_t pid_info[2];
     per_thread_t *data = (per_thread_t *)
         dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
@@ -456,12 +509,22 @@ event_thread_init(void *drcontext)
      */
     data->seg_base = (byte *) dr_get_dr_segment_base(tls_seg);
     data->buf_base = (trace_entry_t *)
-        dr_raw_mem_alloc(MEM_BUF_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        dr_raw_mem_alloc(MAX_BUF_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     DR_ASSERT(data->seg_base != NULL && data->buf_base != NULL);
+    /* clear trace buffer */
+    memset(data->buf_base, 0, REDZONE_SIZE);
+    /* set sentinel (non-zero) value in redzone */
+    memset((byte *)data->buf_base + REDZONE_SIZE, -1, MAX_BUF_SIZE - REDZONE_SIZE);
     /* put buf_base to TLS plus header slots as starting buf_ptr */
     BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
-    data->thread_registered = false;
 
+    /* pass pid and tid to the simulator to register current thread */
+    init_thread_entry(drcontext, &pid_info[0]);
+    pid_info[1].type = TRACE_TYPE_PID;
+    pid_info[1].size = sizeof(process_id_t);
+    pid_info[1].addr = (addr_t) dr_get_process_id();
+    if (ipc_pipe.write((void *)pid_info, sizeof(pid_info)) < (ssize_t)sizeof(pid_info))
+        DR_ASSERT(false);
     data->num_refs = 0;
 }
 
@@ -469,11 +532,11 @@ static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    memtrace(drcontext, false);
+    memtrace(drcontext);
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    dr_raw_mem_free(data->buf_base, MEM_BUF_SIZE);
+    dr_raw_mem_free(data->buf_base, MAX_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
