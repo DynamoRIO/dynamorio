@@ -1,2 +1,2 @@
-<Application .*client.crashmsg.*.  My Fancy Tool internal crash at PC 0x.*.  Please report this at http:\/\/myfancytool.com/bugtracker.  Program aborted.
+<Application .*simple_app.*.  My Fancy Tool internal crash at PC 0x.*.  Please report this at http:\/\/myfancytool.com/bugtracker.  Program aborted.
 .*

@@ -626,8 +626,13 @@ function(get_client_path client_path_out realclient realexe)
   set(${client_path_out} "${client_path}" PARENT_SCOPE)
 endfunction(get_client_path)
 
-# client interface app with client
-# note that we can't easily have a routine that takes no ops
+# A shared app for use with multiple ci tests
+set(ci_shared_app simple_app)
+add_exe(${ci_shared_app} client-interface/${ci_shared_app}.c)
+
+# A client interface app with client.
+# If ${source} does not exist, ${ci_shared_app} is used as the target app.
+# Note that we can't easily have a routine that takes no ops
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
 # it all the way back then: would need to chain.
 function(tobuild_ci test source client_ops dr_ops exe_ops)
@@ -635,7 +640,14 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
 
   if (NOT "${source}" MATCHES "\\.runall$")
-    add_exe(${test} ${source})
+    # Many client tests don't care about the app that's run.  To save time
+    # and space with a ton of duplicated hello,world apps, we support using
+    # a single one, "simple_app".
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${source})
+      add_exe(${test} ${source})
+    else ()
+      set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
+    endif ()
   elseif (STATIC_LIBRARY)
     return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
   endif ()
