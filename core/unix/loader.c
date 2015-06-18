@@ -1607,19 +1607,27 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     bool success;
     memquery_iter_t iter;
 
-    /* i#1676: try to detect ALSR which happens if we're launched from within
+    /* i#1676: try to detect no-ALSR which happens if we're launched from within
      * gdb w/o 'set disable-randomization off'.  We assume here that our
-     * preferred base does not start with 0x5... and that the ASLR base does:
+     * preferred base does not start with 0x5... and that the non-ASLR base does:
      *   64-bit: 0x555555b323ab
-     *   32-bit: 0x56555000
+     *   32-bit: 0x55555000
+     *
+     * FIXME i#1708: the fixed base is computed from the highest user address
+     * and thus can take several different values, not just 0x5*.
+     * We can also fail in the same way due to a user disabling ASLR on the system
+     * (i.e., not just inside gdb).
+     * Worst of all, a recent kernel change has broken support for exec of ET_DYN
+     * ever being placed at its preferred address.
+     * Thus we need to go back to an ET_EXEC bootstrap.
      */
     if (old_libdr_base == NULL) {
         ptr_uint_t match = (ptr_uint_t)0x5 << IF_X64_ELSE(44, 28);
         ptr_uint_t mask = (ptr_int_t)-1 << IF_X64_ELSE(44, 28);
         if (((ptr_uint_t)privload_early_inject & mask) == match) {
             /* The problem is that we can't call any normal routines here, or
-             * even reference global vars like string literals.  We pay the
-             * cost of a separate single-byte store for each of these chars:
+             * even reference global vars like string literals.  We thus use
+             * a char array:
              */
             const char aslr_msg[] = {
                 'E','R','R','O','R',':',' ','r','u','n',' ',
