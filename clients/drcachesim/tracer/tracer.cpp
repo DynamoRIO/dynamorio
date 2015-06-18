@@ -42,11 +42,14 @@
 #include <stddef.h> /* for offsetof */
 #include <string.h>
 #include <limits.h> /* for INT_MAX/INT_MIN */
+#include <string>
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drutil.h"
+#include "droption.h"
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
+#include "../common/options.h"
 
 // XXX: share these instead of duplicating
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
@@ -54,24 +57,12 @@
 #define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
-#define USAGE_CHECK(x, msg) DR_ASSERT_MSG(x, msg)
-
-static int verbose;
-
 #define NOTIFY(level, fmt, ...) do {          \
-    if (verbose >= (level))                   \
+    if (verbose.get_value() >= (level))           \
         dr_fprintf(STDERR, fmt, __VA_ARGS__); \
 } while (0)
 
 #define OPTION_MAX_LENGTH MAXIMUM_PATH
-
-// XXX i#1703: switch to separate options class, or if we get i#1705 use
-// that feature for simpler option parsing.
-typedef struct _options_t {
-    char ipc_name[MAXIMUM_PATH];
-} options_t;
-
-static options_t options;
 
 /* Max number of mem_ref a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -510,39 +501,25 @@ event_exit(void)
     drmgr_exit();
 }
 
-static void
-options_init(client_id_t id)
-{
-    const char *opstr = dr_get_options(id);
-    const char *s;
-    char token[OPTION_MAX_LENGTH];
-
-    /* default values: none right now */
-
-    for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
-         s != NULL;
-         s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token))) {
-        if (strcmp(token, "-ipc") == 0) {
-            s = dr_get_token(s, options.ipc_name,
-                             BUFFER_SIZE_ELEMENTS(options.ipc_name));
-            USAGE_CHECK(s != NULL, "missing ipc name");
-        } else {
-            NOTIFY(0, "UNRECOGNIZED OPTION: \"%s\"\n", token);
-            USAGE_CHECK(false, "invalid option");
-        }
-    }
-    USAGE_CHECK(options.ipc_name[0] != '\0', "-ipc <name> is required");
-}
-
 DR_EXPORT void
 dr_init(client_id_t id)
 {
     dr_set_client_name("DynamoRIO Cache Simulator Tracer",
                        "http://dynamorio.org/issues");
 
-    options_init(id);
+    std::string parse_err;
+    if (!dr_parse_options(id, &parse_err)) {
+        NOTIFY(0, "Usage error: %s\nUsage:\n%s", parse_err.c_str(),
+               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        dr_abort();
+    }
+    if (ipc_name.get_value().empty()) {
+        NOTIFY(0, "Usage error: ipc name is required\nUsage:\n%s",
+               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        dr_abort();
+    }
 
-    if (!ipc_pipe.set_name(options.ipc_name))
+    if (!ipc_pipe.set_name(ipc_name.get_value().c_str()))
         DR_ASSERT(false);
     /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
     int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);

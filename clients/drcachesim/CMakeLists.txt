@@ -55,6 +55,7 @@ if (UNIX)
   use_DynamoRIO_extension(drmemtrace drmgr)
   use_DynamoRIO_extension(drmemtrace drutil)
   use_DynamoRIO_extension(drmemtrace drx)
+  use_DynamoRIO_extension(drmemtrace droption)
 
   # Restore debug and other flags to our non-client executable
   set_target_properties(drcachesim PROPERTIES

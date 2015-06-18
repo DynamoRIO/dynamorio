@@ -37,21 +37,31 @@
 #include "ipc_reader.h"
 #include "cache_stats.h"
 #include "cache.h"
+#include "droption.h"
+#include "../common/options.h"
 
-int verbose;
+// FIXME i#1703: turn this into a tool frontend and launch the target
+// application here instead of requiring the user to do so.
 
 int
 main(int argc, const char *argv[])
 {
-    const char *ipc_name;
-
-    // FIXME i#1703: proper arg processing, probably via i#1705
-    ipc_name = argv[1];
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv, &parse_err)) {
+        ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
+              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        return 1;
+    }
+    if (ipc_name.get_value().empty()) {
+        ERROR("Usage error: ipc name is required\nUsage:\n%s",
+              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        return 1;
+    }
 
     ipc_reader_t ipc_end;
-    ipc_reader_t ipc_iter(ipc_name);
+    ipc_reader_t ipc_iter(ipc_name.get_value().c_str());
     if (!ipc_iter.init()) {
-        ERROR("failed to initialize %s", ipc_name);
+        ERROR("failed to initialize %s", ipc_name.get_value().c_str());
         return 1;
     }
 
@@ -84,7 +94,7 @@ main(int argc, const char *argv[])
         else
             cache_L1D.request(memref);
 
-        if (verbose > 1) {
+        if (verbose.get_value() > 1) {
             std::cout << "::" << memref.pid << "." << memref.tid << ":: " <<
                 " @" << (void *)memref.pc <<
                 ((memref.type == TRACE_TYPE_READ) ? " R " :
