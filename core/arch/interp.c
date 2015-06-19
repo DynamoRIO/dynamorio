@@ -1772,11 +1772,9 @@ bb_process_shared_syscall(dcontext_t *dcontext, build_bb_t *bb, int sysnum)
 #endif /* WINDOWS */
 
 #ifdef ARM
-/* This routine walks back to find the IT instr for current IT block and
- * the position of instr in current IT block, and returns whether
+/* This routine walks back to find the IT instr for the current IT block
+ * and the position of instr in the current IT block, and returns whether
  * instr is the last instruction in the block.
- * This is called while building the bb ilist and before passing it to any
- * clients, so it is safe to ignore any meta or label instructions.
  */
 static bool
 instr_is_last_in_it_block(instr_t *instr, instr_t **it_out, uint *pos_out)
@@ -1786,11 +1784,16 @@ instr_is_last_in_it_block(instr_t *instr, instr_t **it_out, uint *pos_out)
     ASSERT(instr != NULL &&
            instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
            instr_is_predicated(instr) && instr_is_app(instr));
-    for (it = instr_get_prev_app(instr), num_instrs = 1;
+    /* walk backward to find the IT instruction */
+    for (it = instr_get_prev(instr), num_instrs = 1;
+         /* meta and app instrs are treated identically here */
          it != NULL && num_instrs <= 4 /* max 4 instr in an IT block */;
-         it = instr_get_prev_app(it), num_instrs++) {
+         it = instr_get_prev(it)) {
+        if (instr_is_label(it))
+            continue;
         if (instr_get_opcode(it) == OP_it)
             break;
+        num_instrs++;
     }
     ASSERT(it != NULL && instr_get_opcode(it) == OP_it);
     ASSERT(num_instrs <= instr_it_block_get_count(it));
