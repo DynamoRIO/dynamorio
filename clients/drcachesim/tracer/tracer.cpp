@@ -62,8 +62,6 @@
         dr_fprintf(STDERR, fmt, __VA_ARGS__); \
 } while (0)
 
-#define OPTION_MAX_LENGTH MAXIMUM_PATH
-
 /* Max number of mem_ref a buffer can have. It should be big enough
  * to hold all entries between clean calls.
  */

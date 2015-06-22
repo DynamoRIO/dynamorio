@@ -302,7 +302,7 @@ template<> inline bool
 droption_t<unsigned int>::convert_from_string(const std::string s)
 {
     int input = atoi(s.c_str());
-    if (input > 0)
+    if (input >= 0)
         value = input;
     else {
         value = 0;
