@@ -69,9 +69,10 @@ cache_t::request(const memref_t &memref)
 {
     bool hit = false;
     int final_way = 0;
-    int line_idx = memref.addr % lines_per_set;
+    addr_t tag = memref.addr / line_size;
+    int line_idx = tag % lines_per_set;
     for (int way = 0; way < associativity; ++way) {
-        if (lines[line_idx * way].tag == memref.addr &&
+        if (lines[line_idx * way].tag == tag &&
             lines[line_idx * way].valid) {
             hit = true;
             final_way = way;
@@ -86,7 +87,7 @@ cache_t::request(const memref_t &memref)
         // FIXME i#1703: coherence policy
 
         final_way = replace_which_way(line_idx);
-        lines[line_idx * final_way].tag = memref.addr;
+        lines[line_idx * final_way].tag = tag;
         lines[line_idx * final_way].valid = true;
     }
 
