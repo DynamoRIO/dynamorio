@@ -70,9 +70,10 @@ class ipc_reader_t : public reader_t
     std::map<memref_tid_t, memref_pid_t> tid2pid;
 
     // For efficiency we want to read large chunks at a time.
-    // The atomic write size for a pipe on Linux is 4096 so we aim
-    // for something close to that.
-    static const int BUF_SIZE = 512;
+    // The atomic write size for a pipe on Linux is 4096 bytes but
+    // we want to go ahead and read as much data as we can at one
+    // time.
+    static const int BUF_SIZE = 16*1024;
     trace_entry_t buf[BUF_SIZE];
     trace_entry_t *cur_buf;
     trace_entry_t *end_buf;
