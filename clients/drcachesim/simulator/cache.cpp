@@ -76,7 +76,7 @@ cache_t::request(const memref_t &memref_in)
     // This means that one memref could touch multiple lines.
     // We treat each line separately for statistics purposes.
     addr_t final_addr = memref.addr + memref.size - 1/*avoid overflow*/;
-    addr_t final_tag = final_addr / line_size;
+    addr_t final_tag = compute_tag(final_addr);
     addr_t tag = compute_tag(memref.addr);
 
     // Optimization: remember last tag if single-line
