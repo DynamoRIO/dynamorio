@@ -46,7 +46,11 @@ class cache_line_t
 
     addr_t tag;
     bool valid;
-    int_least64_t counter; // for use by replacement policies
+
+    // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
+    // A 32-bit counter should be sufficient but we may want to revisit.
+    // We already have inttypes.h so we can reinstate int_least64_t easily.
+    int counter; // for use by replacement policies
 };
 
 #endif /* _CACHE_LINE_H_ */
