@@ -569,7 +569,7 @@ dr_init(client_id_t id)
                        "http://dynamorio.org/issues");
 
     std::string parse_err;
-    if (!dr_parse_options(id, &parse_err)) {
+    if (!dr_parse_options(id, &parse_err, NULL)) {
         NOTIFY(0, "Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();

@@ -47,7 +47,8 @@ int
 main(int argc, const char *argv[])
 {
     std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv, &parse_err)) {
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv,
+                                       &parse_err, NULL)) {
         ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         return 1;

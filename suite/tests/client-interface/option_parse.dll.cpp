@@ -81,7 +81,7 @@ dr_init(client_id_t client_id)
     ASSERT(ok);
 
     // Test dr_parse_options() and droption_t declarations above.
-    ok = dr_parse_options(client_id, NULL);
+    ok = dr_parse_options(client_id, NULL, NULL);
     ASSERT(ok);
     ASSERT(op_x.specified());
     ASSERT(op_y.specified());

@@ -111,12 +111,15 @@ class droption_parser_t
      */
     static bool
     parse_argv(droption_scope_t scope, int argc, const char *argv[],
-               std::string *error_msg)
+               std::string *error_msg, int *last_index)
     {
-        for (int i = 1/*skip app*/; i < argc; ++i) {
+        int i;
+        for (i = 1/*skip app*/; i < argc; ++i) {
             // We support the universal "--" as a separator
-            if (strcmp(argv[i], "--") == 0)
+            if (strcmp(argv[i], "--") == 0) {
+                ++i; // for last_index
                 break;
+            }
             bool matched = false;
             for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
                  opi != allops().end();
@@ -148,6 +151,8 @@ class droption_parser_t
                 return false;
             }
         }
+        if (last_index != NULL)
+            *last_index = i;
         return true;
     }
 
@@ -378,19 +383,22 @@ droption_t<bool>::default_as_string() const
 /**
  * Parses the options for client \p client_id and fills in any registered
  * droption_t class fields.
- * On success, returns true.
+ * On success, returns true, with the index of the start of the remaining
+ * unparsed options, if any, returned in \p last_index (typically this
+ * will be options separated by "--").
  * On failure, returns false, and if \p error_msg != NULL, stores a string
  * describing the error there.
  */
 static inline bool
-dr_parse_options(client_id_t client_id, std::string *error_msg)
+dr_parse_options(client_id_t client_id, std::string *error_msg, int *last_index)
 {
     int argc;
     const char **argv;
     bool res = dr_get_option_array(client_id, &argc, &argv, MAXIMUM_PATH);
     if (!res)
         return false;
-    res = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, error_msg);
+    res = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
+                                        error_msg, last_index);
     if (res)
         res = dr_free_option_array(argc, argv);
     return res;
