@@ -45,11 +45,14 @@ class cache_stats_t
     cache_stats_t();
     virtual ~cache_stats_t();
 
+    // Called on each cache access.
+    // A multi-cache-line memory reference invokes this routine
+    // separately for each line touched.
     virtual void access(const memref_t &memref, bool hit);
 
     virtual void print_stats();
 
- private:
+ protected:
     int_least64_t num_hits;
     int_least64_t num_misses;
 };

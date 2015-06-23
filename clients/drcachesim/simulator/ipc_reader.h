@@ -53,7 +53,7 @@ class ipc_reader_t : public reader_t
     explicit ipc_reader_t(const char *ipc_name);
     virtual ~ipc_reader_t();
     bool init();
-    virtual memref_t& operator*();
+    virtual const memref_t& operator*();
     virtual bool operator==(const ipc_reader_t& rhs);
     virtual bool operator!=(const ipc_reader_t& rhs);
     virtual reader_t operator++(int);

@@ -75,7 +75,7 @@ ipc_reader_t::~ipc_reader_t()
     pipe.destroy();
 }
 
-memref_t&
+const memref_t&
 ipc_reader_t::operator*()
 {
     return cur_ref;

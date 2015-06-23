@@ -57,8 +57,8 @@ class cache_t
     virtual ~cache_t();
     virtual void request(const memref_t &memref);
 
- private:
-    virtual void replace_update(int line_idx, int way);
+ protected:
+    virtual void access_update(int line_idx, int way);
     virtual int replace_which_way(int line_idx);
 
     int associativity;

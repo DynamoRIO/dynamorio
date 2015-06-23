@@ -65,40 +65,59 @@ cache_t::~cache_t()
 }
 
 void
-cache_t::request(const memref_t &memref)
+cache_t::request(const memref_t &memref_in)
 {
-    bool hit = false;
-    int final_way = 0;
-    addr_t tag = memref.addr / line_size;
-    int line_idx = tag % lines_per_set;
-    for (int way = 0; way < associativity; ++way) {
-        if (lines[line_idx * way].tag == tag &&
-            lines[line_idx * way].valid) {
-            hit = true;
-            final_way = way;
-            break;
+    // Unfortunately we need to make a copy for our loop so we can pass
+    // the right data struct to the parent and stats collectors.
+    memref_t memref = memref_in;
+    // We support larger sizes to improve the IPC perf.
+    // This means that one memref could touch multiple lines.
+    // We treat each line separately for statistics purposes.
+    addr_t final_addr = memref.addr + memref.size - 1/*avoid overflow*/;
+    addr_t final_tag = final_addr / line_size;
+    for (addr_t tag = memref.addr / line_size; tag <= final_tag; ++tag) {
+        bool hit = false;
+        int final_way = 0;
+        int line_idx = tag % lines_per_set;
+
+        if (tag + 1 <= final_tag)
+            memref.size = ((tag + 1) * line_size) - memref.addr;
+
+        for (int way = 0; way < associativity; ++way) {
+            if (lines[line_idx * way].tag == tag &&
+                lines[line_idx * way].valid) {
+                hit = true;
+                final_way = way;
+                break;
+            }
         }
-    }
-    if (!hit) {
-        // If no parent we assume we get the data from main memory
-        if (parent != NULL)
-            parent->request(memref);
+        if (!hit) {
+            // If no parent we assume we get the data from main memory
+            if (parent != NULL)
+                parent->request(memref);
 
-        // FIXME i#1703: coherence policy
+            // FIXME i#1703: coherence policy
 
-        final_way = replace_which_way(line_idx);
-        lines[line_idx * final_way].tag = tag;
-        lines[line_idx * final_way].valid = true;
-    }
+            final_way = replace_which_way(line_idx);
+            lines[line_idx * final_way].tag = tag;
+            lines[line_idx * final_way].valid = true;
+        }
 
-    replace_update(line_idx, final_way);
+        access_update(line_idx, final_way);
 
-    if (stats != NULL)
-        stats->access(memref, hit);
+        if (stats != NULL)
+            stats->access(memref, hit);
+
+        if (tag + 1 <= final_tag) {
+            addr_t next_addr = (tag + 1) * line_size;
+            memref.addr = next_addr;
+            memref.size = final_addr - next_addr + 1/*undo the -1*/;
+        }
+   }
 }
 
 void
-cache_t::replace_update(int line_idx, int way)
+cache_t::access_update(int line_idx, int way)
 {
     // We just inc the counter for LRU.  We live with any blip on overflow.
     lines[line_idx * way].counter++;
