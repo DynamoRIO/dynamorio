@@ -50,11 +50,14 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     // We could not support postfix at all.
     // Instead we have dummy implementations to make this a non-abstract
     // class and avoid the problem that way.
-    virtual const memref_t& operator*() { assert(false); }
+    virtual const memref_t& operator*() { assert(false); return ignored_memref; }
     virtual bool operator==(const reader_t& rhs) { return false; }
     virtual bool operator!=(const reader_t& rhs) { return false; }
-    virtual reader_t& operator++() { assert(false); }
-    virtual reader_t operator++(int) { assert(false); }
+    virtual reader_t& operator++() { assert(false); return *this; }
+    virtual reader_t operator++(int) { assert(false); return *this; }
+
+ private:
+    memref_t ignored_memref; // Purely for operator*
 };
 
 #endif /* _READER_H_ */

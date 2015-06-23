@@ -60,6 +60,9 @@ if (UNIX)
   # Restore debug and other flags to our non-client executable
   set_target_properties(drcachesim PROPERTIES
     COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
+  if (NOT DEBUG)
+    append_property_list(TARGET drcachesim COMPILE_DEFINITIONS "NDEBUG")
+  endif ()
 
   place_shared_lib_in_lib_dir(drmemtrace)
 
