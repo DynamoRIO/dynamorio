@@ -61,13 +61,21 @@ class cache_t
     virtual void access_update(int line_idx, int way);
     virtual int replace_which_way(int line_idx);
 
+    inline addr_t compute_tag(addr_t addr) { return addr / line_size; }
+    inline int compute_line_idx(addr_t tag) { return tag % lines_per_set; }
+
     int associativity;
     int line_size;
     int num_lines;
     cache_t *parent;
     cache_line_t *lines;
     int lines_per_set;
+
     cache_stats_t *stats;
+
+    // Optimization: remember last tag, for single-line accesses only.
+    addr_t last_tag;
+    int last_way;
 };
 
 #endif /* _CACHE_H_ */

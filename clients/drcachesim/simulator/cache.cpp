@@ -34,6 +34,7 @@
 #include "cache_line.h"
 #include "cache_stats.h"
 #include "utils.h"
+#include <assert.h>
 
 cache_t::cache_t()
 {
@@ -56,6 +57,7 @@ cache_t::init(int associativity_, int line_size_, int num_lines_,
 
     lines = new cache_line_t[num_lines];
     lines_per_set = num_lines / associativity;
+    last_tag = 0; // sentinel
     return true;
 }
 
@@ -75,10 +77,27 @@ cache_t::request(const memref_t &memref_in)
     // We treat each line separately for statistics purposes.
     addr_t final_addr = memref.addr + memref.size - 1/*avoid overflow*/;
     addr_t final_tag = final_addr / line_size;
-    for (addr_t tag = memref.addr / line_size; tag <= final_tag; ++tag) {
+    addr_t tag = compute_tag(memref.addr);
+
+    // Optimization: remember last tag if single-line
+    if (final_tag == tag) {
+        if (tag == last_tag && tag != 0/*safety check for sentinel*/) {
+            int line_idx = compute_line_idx(tag);
+            assert(lines[line_idx * last_way].tag == tag &&
+                   lines[line_idx * last_way].valid);
+            access_update(line_idx, last_way);
+            if (stats != NULL)
+                stats->access(memref, true);
+            return;
+        } else
+            last_tag = tag;
+    } else
+        last_tag = 0; // sentinel
+
+    for (; tag <= final_tag; ++tag) {
         bool hit = false;
         int final_way = 0;
-        int line_idx = tag % lines_per_set;
+        int line_idx = compute_line_idx(tag);
 
         if (tag + 1 <= final_tag)
             memref.size = ((tag + 1) * line_size) - memref.addr;
@@ -101,6 +120,7 @@ cache_t::request(const memref_t &memref_in)
             final_way = replace_which_way(line_idx);
             lines[line_idx * final_way].tag = tag;
             lines[line_idx * final_way].valid = true;
+            last_tag = 0; // sentinel
         }
 
         access_update(line_idx, final_way);
@@ -112,8 +132,9 @@ cache_t::request(const memref_t &memref_in)
             addr_t next_addr = (tag + 1) * line_size;
             memref.addr = next_addr;
             memref.size = final_addr - next_addr + 1/*undo the -1*/;
-        }
-   }
+        } else if (last_tag == tag)
+            last_way = final_way;
+    }
 }
 
 void
@@ -135,6 +156,8 @@ cache_t::replace_which_way(int line_idx)
             min_counter = lines[line_idx * way].counter;
             min_way = way;
         }
+        // FIXME i#1703: shouldn't we clear all counters here for LRU?
+        // Else we have LFU.  LRU results in more misses on fib: look deeper.
     }
     return min_way;
 }
