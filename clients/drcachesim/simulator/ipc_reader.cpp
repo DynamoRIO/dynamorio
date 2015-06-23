@@ -50,7 +50,7 @@ ipc_reader_t::ipc_reader_t()
 }
 
 ipc_reader_t::ipc_reader_t(const char *ipc_name) :
-    pipe(ipc_name)
+    pipe(ipc_name), cur_tid(0), cur_pid(0), cur_pc(0)
 {
     at_eof = true;
 }
@@ -130,7 +130,7 @@ ipc_reader_t::operator++()
             case TRACE_TYPE_WRITE:
             case TRACE_TYPE_PREFETCH:
                 have_memref = true;
-                cur_ref.pid = tid2pid[cur_tid];
+                cur_ref.pid = cur_pid;
                 cur_ref.tid = cur_tid;
                 cur_ref.type = cur_buf->type;
                 cur_ref.size = cur_buf->size;
@@ -141,7 +141,7 @@ ipc_reader_t::operator++()
                 break;
             case TRACE_TYPE_INSTR:
                 have_memref = true;
-                cur_ref.pid = tid2pid[cur_tid];
+                cur_ref.pid = cur_pid;
                 cur_ref.tid = cur_tid;
                 cur_ref.type = cur_buf->type;
                 cur_ref.size = cur_buf->size;
@@ -154,6 +154,7 @@ ipc_reader_t::operator++()
                 break;
             case TRACE_TYPE_THREAD:
                 cur_tid = (memref_tid_t) cur_buf->addr;
+                cur_pid = tid2pid[cur_tid];
                 break;
             case TRACE_TYPE_PID:
                 // We do want to replace, in case of tid reuse.
