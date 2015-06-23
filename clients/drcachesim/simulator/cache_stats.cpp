@@ -31,6 +31,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include "cache_stats.h"
 
 cache_stats_t::cache_stats_t() :
@@ -56,7 +57,12 @@ cache_stats_t::access(const memref_t &memref, bool hit)
 void
 cache_stats_t::print_stats()
 {
-    std::cout << "Hits:      " << num_hits << std::endl;
-    std::cout << "Misses:    " << num_misses << std::endl;
-    std::cout << "Miss rate: " << ((float)num_misses/(num_hits+num_misses)) << std::endl;
+    std::cout.imbue(std::locale("")); // Add commas, at least for my locale
+    std::cout << "  Hits:      " << std::setw(20) << std::right <<
+        num_hits << std::endl;
+    std::cout << "  Misses:    " << std::setw(20) << std::right <<
+        num_misses << std::endl;
+    std::cout << "  Miss rate: " << std::setw(20) << std::fixed <<
+        std::setprecision(2) <<
+        ((float)num_misses*100/(num_hits+num_misses)) << "%" << std::endl;
 }
