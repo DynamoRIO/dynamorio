@@ -1,6 +1,7 @@
 param x = 4
-param y = |quoted string|
+param y = |quoted string accum|
 param z = |single quotes -dash --dashes|
 param foo = 8
 param bar = |some string with spaces|
+param flag = |0|
 Hello, world!

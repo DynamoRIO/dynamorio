@@ -42,6 +42,9 @@
 #include <sstream>
 #include <iomanip>
 
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+
 // XXX: some clients want further distinctions, such as options passed to
 // post-processing components, internal (i.e., undocumented) options, etc.
 /**
@@ -49,13 +52,26 @@
  * frontend, or both.
  */
 typedef enum {
-    DROPTION_SCOPE_CLIENT,
-    DROPTION_SCOPE_FRONTEND,
-    DROPTION_SCOPE_ALL,
+    DROPTION_SCOPE_CLIENT,   /**< This option is acted on by the client only. */
+    DROPTION_SCOPE_FRONTEND, /**< This option is acted on by the frontend only. */
+    DROPTION_SCOPE_ALL,      /**< This option is acted on by both client and frontend. */
 } droption_scope_t;
 
-// XXX; we may want to provide different repeated-arg behavior:
-// accumulate, overwrite, etc.
+/**
+ * These bitfield flags further specify the behavior of an option.
+ */
+typedef enum {
+    /**
+     * By default, if an option is specified multiple times on the
+     * command line, only the last value is honored.  If this flag is
+     * set, repeated options accumulate, appending to the prior value
+     * (separating each appended value with a space).  This is
+     * supported for options of type std::string only.
+     */
+    // XXX: to support other types of accumulation, we should add explicit
+    // support for dr_option_t<std::vector<std::string> >.
+    DROPTION_FLAG_ACCUMULATE  = 0x0001,
+} droption_flags_t;
 
 // XXX: for tools who want to generate html docs from the same option spec,
 // could we provide a solution where at build time some code is run to
@@ -109,7 +125,6 @@ class droption_parser_t
                 if ((op->scope == scope || op->scope == DROPTION_SCOPE_ALL) &&
                     op->name_match(argv[i])) {
                     matched = true;
-                    op->is_specified = true;
                     if (op->option_takes_arg()) {
                         ++i;
                         if (i == argc) {
@@ -124,6 +139,7 @@ class droption_parser_t
                             return false;
                         }
                     }
+                    op->is_specified = true; // *after* convert_from_string() for accum
                 }
             }
             if (!matched) {
@@ -217,7 +233,18 @@ template <typename T> class droption_t : public droption_parser_t
     droption_t(droption_scope_t scope_, std::string name_, T defval_,
                std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_),
-        value(defval_), defval(defval_), has_range(false) {}
+        flags(0), value(defval_),
+        defval(defval_), has_range(false) {}
+
+    /**
+     * Declares a new option of type T with the given scope, behavior flags,
+     * default value, and description in short and long forms.
+     */
+    droption_t(droption_scope_t scope_, unsigned int flags_,
+               std::string name_, T defval_,
+               std::string desc_short_, std::string desc_long_)
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_),
+        flags(flags_), value(defval_), defval(defval_), has_range(false) {}
 
     /**
      * Declares a new option of type T with the given scope, default value,
@@ -253,6 +280,7 @@ template <typename T> class droption_t : public droption_parser_t
     bool convert_from_string(const std::string s);
     std::string default_as_string() const;
 
+    unsigned int flags;
     T value;
     T defval;
     bool has_range;
@@ -289,7 +317,12 @@ droption_t<bool>::name_match(const char *arg)
 template<> inline bool
 droption_t<std::string>::convert_from_string(const std::string s)
 {
-    value = s;
+    if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
+        // We hardcode a space separator for string accumulations.
+        // The user can use a vector of strings for other uses.
+        value += " " + s;
+    } else
+        value = s;
     return true;
 }
 template<> inline bool

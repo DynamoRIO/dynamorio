@@ -42,7 +42,7 @@ static droption_t<unsigned int> op_x
 (DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
  "Longer desc of some param.");
 static droption_t<std::string> op_y
-(DROPTION_SCOPE_CLIENT, "y", "", "Another param",
+(DROPTION_SCOPE_CLIENT, DROPTION_FLAG_ACCUMULATE, "y", "<default>", "Another param",
  "Longer desc of another param.");
 static droption_t<std::string> op_z
 (DROPTION_SCOPE_CLIENT, "z", "", "Yet another param",
@@ -53,6 +53,9 @@ static droption_t<int> op_foo
 static droption_t<std::string> op_bar
 (DROPTION_SCOPE_CLIENT, "bar", "some string with spaces", "Missing string param",
  "Longer desc of missing string param.");
+static droption_t<bool> op_flag
+(DROPTION_SCOPE_CLIENT, "flag", true, "Bool param",
+ "Longer desc of bool param.");
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
@@ -62,13 +65,18 @@ dr_init(client_id_t client_id)
     const char **argv;
     bool ok = dr_get_option_array(client_id, &argc, &argv, MAXIMUM_PATH);
     ASSERT(ok);
-    ASSERT(argc == 7);
+    ASSERT(argc == 12);
     ASSERT(strcmp(argv[1], "-x") == 0);
     ASSERT(strcmp(argv[2], "4") == 0);
     ASSERT(strcmp(argv[3], "-y") == 0);
     ASSERT(strcmp(argv[4], "quoted string") == 0);
     ASSERT(strcmp(argv[5], "-z") == 0);
-    ASSERT(strcmp(argv[6], "single quotes -dash --dashes") == 0);
+    ASSERT(strcmp(argv[6], "first") == 0);
+    ASSERT(strcmp(argv[7], "-z") == 0);
+    ASSERT(strcmp(argv[8], "single quotes -dash --dashes") == 0);
+    ASSERT(strcmp(argv[9], "-y") == 0);
+    ASSERT(strcmp(argv[10], "accum") == 0);
+    ASSERT(strcmp(argv[11], "-no_flag") == 0);
     ok = dr_free_option_array(argc, argv);
     ASSERT(ok);
 
@@ -83,6 +91,7 @@ dr_init(client_id_t client_id)
     dr_printf("param z = |%s|\n", op_z.get_value().c_str());
     dr_printf("param foo = %d\n", op_foo.get_value());
     dr_printf("param bar = |%s|\n", op_bar.get_value().c_str());
+    dr_printf("param flag = |%d|\n", op_flag.get_value());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
 }
