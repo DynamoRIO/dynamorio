@@ -14,6 +14,13 @@ level1 returned -4
 level0 returned 42
   <pre-skipme>
 skipme returned 7 and x=3
+  <pre-repeat#1>
+in repeatme with arg 3
+  <post-repeat#1>
+  <pre-repeat#2>
+in repeatme with arg 2
+  <post-repeat#2>
+repeatme returned 2
 replaceme returned 0 and x=6
 replaceme2 returned 1 and x=999
 replace_callsite returned 2 and x=777
@@ -77,6 +84,13 @@ level1 returned -4
 level0 returned 42
   <pre-skipme>
 skipme returned 7 and x=3
+  <pre-repeat#1>
+in repeatme with arg 3
+  <post-repeat#1>
+  <pre-repeat#2>
+in repeatme with arg 2
+  <post-repeat#2>
+repeatme returned 2
 replaceme returned 0 and x=6
 replaceme2 returned 1 and x=999
 replace_callsite returned 2 and x=777

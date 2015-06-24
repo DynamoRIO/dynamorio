@@ -66,13 +66,13 @@ instruction; none of its actual code will execute.  To avoid changing
 application behavior, ensure that the replacement function mirrors the
 calling convention and other semantics of the original function.
 
-Function wrapping is provided by drwrap_wrap().  A pre-function and
+Function wrapping is provided by drwrap_wrap().  A pre-function and/or
 post-function callback must be provided.  The pre-function callback is
 invoked prior to every execution of the target function.  The callback can
 examine and change function arguments and can skip the call to the target
 function (in which case there will be no post-function callback).
 The post-function callback can examine and change the target function's
-return value.  Information (included copies of the arguments for
+return value.  Information (including copies of the arguments for
 examination in the post-function) can be passed between the pre- and
 post-functions via a user-controlled parameter.
 
@@ -81,6 +81,12 @@ callbacks are called sequentially in the reverse order of registration.  If
 any pre-function callback asks to skip the function, the remaining
 pre-function callbacks will not be called, nor will any post-function
 callback.
+
+The pre-function callback occurs at the beginning of the wrapped function,
+i.e., it executes after the \p call instruction but before any instructions
+within the body of the wrapped function. The post-function callback occurs
+after the wrapped function returns, as if inserted just after the call
+instruction.
 
 \section sec_drwrap_license LGPL 2.1 License
 

@@ -73,6 +73,9 @@ macro(configure_extension target)
   # ensure we rebuild if includes change
   add_dependencies(${target} api_headers)
 
+  # i#1713: extension headers may include a shared header from this directory
+  include_directories(${INSTALL_EXT_LIB})
+
   if (WIN32 AND GENERATE_PDBS)
     # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
     # In any case we make sure to add it (for release and debug, to get pdb):
@@ -123,3 +126,5 @@ install_subdirs(${INSTALL_EXT_LIB} ${INSTALL_EXT_BIN})
 
 # propagate to parent dir
 set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
+
+install_ext_header("drext.h")

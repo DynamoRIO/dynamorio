@@ -58,6 +58,8 @@ static int replacewith2(int *x);
 static int replace_callsite(int *x);
 
 static uint load_count;
+static bool repeated = false;
+static ptr_uint_t repeat_xsp;
 
 static int tls_idx;
 
@@ -70,6 +72,7 @@ static app_pc addr_level1;
 static app_pc addr_level2;
 static app_pc addr_tailcall;
 static app_pc addr_skipme;
+static app_pc addr_repeat;
 static app_pc addr_preonly;
 static app_pc addr_postonly;
 static app_pc addr_runlots;
@@ -183,6 +186,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         wrap_addr(&addr_level2, "level2", mod, true, true);
         wrap_addr(&addr_tailcall, "makes_tailcall", mod, true, true);
         wrap_addr(&addr_skipme, "skipme", mod, true, true);
+        wrap_addr(&addr_repeat, "repeatme", mod, true, true);
         wrap_addr(&addr_preonly, "preonly", mod, true, false);
         wrap_addr(&addr_postonly, "postonly", mod, false, true);
         wrap_addr(&addr_runlots, "runlots", mod, false, true);
@@ -355,6 +359,15 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
     } else if (drwrap_get_func(wrapcxt) == addr_skipme) {
         dr_fprintf(STDERR, "  <pre-skipme>\n");
         drwrap_skip_call(wrapcxt, (void *) 7, 0);
+    } else if (drwrap_get_func(wrapcxt) == addr_repeat) {
+        dr_fprintf(STDERR, "  <pre-repeat#%d>\n", repeated ? 2 : 1);
+        repeat_xsp = drwrap_get_mcontext(wrapcxt)->xsp;
+        if (repeated) /* test changing the arg value on the second pass */
+            drwrap_set_arg(wrapcxt, 0, (void *)2);
+        CHECK(drwrap_redirect_execution(NULL) != DREXT_SUCCESS,
+              "allowed redirect with NULL wrapcxt");
+        CHECK(drwrap_redirect_execution(wrapcxt) != DREXT_SUCCESS,
+              "allowed redirect in pre-wrap");
     } else if (drwrap_get_func(wrapcxt) == addr_preonly) {
         dr_fprintf(STDERR, "  <pre-preonly>\n");
     } else
@@ -381,6 +394,18 @@ wrap_post(void *wrapcxt, void *user_data)
         dr_fprintf(STDERR, "  <post-level2>\n");
     } else if (drwrap_get_func(wrapcxt) == addr_skipme) {
         CHECK(false, "should have skipped!");
+    } else if (drwrap_get_func(wrapcxt) == addr_repeat) {
+        dr_fprintf(STDERR, "  <post-repeat#%d>\n", repeated ? 2 : 1);
+        if (!repeated) {
+            dr_mcontext_t *mc = drwrap_get_mcontext(wrapcxt);
+            mc->pc = addr_repeat;
+            mc->xsp = repeat_xsp;
+            CHECK(drwrap_redirect_execution(wrapcxt) == DREXT_SUCCESS,
+                  "redirect rejected");
+            CHECK(drwrap_redirect_execution(wrapcxt) != DREXT_SUCCESS,
+                  "allowed duplicate redirect");
+        }
+        repeated = !repeated;
     } else if (drwrap_get_func(wrapcxt) == addr_postonly) {
         dr_fprintf(STDERR, "  <post-postonly>\n");
         drwrap_unwrap(addr_skipme, wrap_pre, wrap_post);

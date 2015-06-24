@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+#include "drext.h"
+
 /**
  * \addtogroup drwrap Function Wrapping and Replacing
  */
@@ -502,6 +504,50 @@ DR_EXPORT
  */
 bool
 drwrap_skip_call(void *wrapcxt, void *retval, size_t stdcall_args_size);
+
+DR_EXPORT
+/**
+ * May only be called from a drwrap_wrap() post-function callback.
+ * Redirects execution to the \p pc specified in the #dr_mcontext_t of the
+ * \p wrapcxt after executing all remaining post-function callbacks.
+ * Automatically calls \p drwrap_set_mcontext to make the redirection
+ * to \p pc effective; calls to drwrap_set_mcontext() from subsequent
+ * post-function callbacks will be denied to prevent clobbering the
+ * redirection mcontext. Redirecting execution from nested
+ * invocations of a recursive function is not supported.
+ *
+ * \note It is the client's responsibility to adjust the register
+ * state and/or memory to accommodate the redirection target;
+ * otherwise the application may behave in unexpected ways. If the
+ * client intends to repeat execution of the wrapped function, the
+ * stack pointer must be adjusted accordingly during the
+ * post-function callback so that the correct return address is
+ * in the conventional location before execution enters the wrapped
+ * function. This is necessary because the pre-function callback
+ * occurs at the beginning of the wrapped function (i.e., after the
+ * call instruction has executed), while the post-function callback
+ * occurs after the return instruction has executed (as if inserted
+ * following the call instruction).
+ *
+ * \return DREXT_SUCCESS if the redirect request is accepted;
+ * DREXT_ERROR_STATE_INCOMPATIBLE if this function was called outside
+ * of a post-function callback, or DREXT_ERROR if the redirect could
+ * not be fulfilled for any other reason.
+ */
+drext_status_t
+drwrap_redirect_execution(void *wrapcxt);
+
+DR_EXPORT
+/**
+ * May only be called from a \p drwrap_wrap post-function callback.
+ * This function queries the drwrap state to determine whether a prior
+ * post-function callback has requested redirection to another \p pc
+ * (in which case the #dr_mcontext_t in the \p wrapcxt may no longer be changed).
+ *
+ * \return true if a prior post-function callback has requested a redirect
+ */
+bool
+drwrap_is_redirect_requested(void *wrapcxt);
 
 DR_EXPORT
 /**

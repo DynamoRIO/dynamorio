@@ -227,6 +227,7 @@ Further non-compatibility-affecting changes include:
  - Added easy-to-use option declaration and parsing for C++ clients
    and standalone applications via a new Extension, \p droption,
    and the #droption_t class.
+ - Added drwrap_redirect_execution().
 
 **************************************************
 <hr>

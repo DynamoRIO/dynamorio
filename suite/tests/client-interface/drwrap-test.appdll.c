@@ -111,6 +111,13 @@ skipme(int *x)
 }
 
 int EXPORT
+repeatme(int x)
+{
+    print("in repeatme with arg %d\n", x);
+    return x;
+}
+
+int EXPORT
 level2(int x)
 {
     print("in level2 %d\n", x);
@@ -203,6 +210,8 @@ run_tests(void)
     print("level0 returned %d\n", level0(37));
     res = skipme(&x);
     print("skipme returned %d and x=%d\n", res, x);
+    res = repeatme(x);
+    print("repeatme returned %d\n", res);
     res = replaceme(&x);
     print("replaceme returned %d and x=%d\n", res, x);
     res = replaceme2(&x);

@@ -38,8 +38,10 @@
  */
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+# define DODEBUG(statement) do { statement } while (0)
 #else
 # define ASSERT(x, msg) /* nothing */
+# define DODEBUG(statement)
 #endif
 
 /* check if all bits in mask are set in var */
@@ -179,6 +181,13 @@ static int tls_idx;
 #define DISABLED_COUNT_FLUSH_THRESHOLD 1024
 /* Lazy removal and flushing.  Protected by wrap_lock. */
 static uint disabled_count;
+
+/* i#1713: per-thread state, similar to where_am_i_t */
+typedef enum _drwrap_where_t {
+    DRWRAP_WHERE_OUTSIDE_CALLBACK,
+    DRWRAP_WHERE_PRE_FUNC,
+    DRWRAP_WHERE_POST_FUNC
+} drwrap_where_t;
 
 typedef struct _per_thread_t {
     int wrap_level;
@@ -459,17 +468,22 @@ typedef struct _drwrap_context_t {
     dr_mcontext_t *mc;
     app_pc retaddr;
     bool mc_modified;
+    /* i#1713: client redirection request */
+    bool is_redirect_requested;
+    drwrap_where_t where_am_i;
 } drwrap_context_t;
 
 static void
 drwrap_context_init(void *drcontext, drwrap_context_t *wrapcxt, app_pc func,
-                    dr_mcontext_t *mc, app_pc retaddr)
+                    dr_mcontext_t *mc, drwrap_where_t where, app_pc retaddr)
 {
     wrapcxt->drcontext = drcontext;
     wrapcxt->func = func;
     wrapcxt->mc = mc;
     wrapcxt->retaddr = retaddr;
     wrapcxt->mc_modified = false;
+    wrapcxt->is_redirect_requested = false;
+    wrapcxt->where_am_i = where;
 }
 
 DR_EXPORT
@@ -584,7 +598,7 @@ bool
 drwrap_set_mcontext(void *wrapcxt_opaque)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
-    if (wrapcxt == NULL)
+    if (wrapcxt == NULL || wrapcxt->is_redirect_requested)
         return false;
     wrapcxt->mc_modified = true;
     return true;
@@ -637,6 +651,8 @@ drwrap_get_arg(void *wrapcxt_opaque, int arg)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
     reg_t *addr = drwrap_arg_addr(wrapcxt, arg);
+    if (wrapcxt->where_am_i != DRWRAP_WHERE_PRE_FUNC)
+        return NULL; /* can only get args in pre */
     if (addr == NULL)
         return NULL;
     else if (TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
@@ -654,6 +670,8 @@ drwrap_set_arg(void *wrapcxt_opaque, int arg, void *val)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
     reg_t *addr = drwrap_arg_addr(wrapcxt, arg);
+    if (wrapcxt->where_am_i != DRWRAP_WHERE_PRE_FUNC)
+        return false; /* can only set args in pre */
     if (addr == NULL)
         return false;
     else {
@@ -677,6 +695,8 @@ void *
 drwrap_get_retval(void *wrapcxt_opaque)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+    if (wrapcxt->where_am_i != DRWRAP_WHERE_POST_FUNC)
+        return false; /* can only get retval in post */
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return NULL;
     /* ensure we have the info we need */
@@ -689,9 +709,12 @@ bool
 drwrap_set_retval(void *wrapcxt_opaque, void *val)
 {
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(wrapcxt->drcontext, tls_idx);
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return false;
     /* ensure we have the info we need */
+    if (wrapcxt->where_am_i != DRWRAP_WHERE_POST_FUNC && !pt->skip[pt->wrap_level])
+        return false; /* can only set retval in post, or if skipping */
     drwrap_get_mcontext_internal(wrapcxt_opaque, DR_MC_INTEGER);
     wrapcxt->mc->IF_X86_ELSE(xax, r0) = (reg_t) val;
     wrapcxt->mc_modified = true;
@@ -702,25 +725,71 @@ DR_EXPORT
 bool
 drwrap_skip_call(void *wrapcxt_opaque, void *retval, size_t stdcall_args_size)
 {
-    void *drcontext = dr_get_current_drcontext();
-    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(wrapcxt->drcontext, tls_idx);
+    bool was_skipped = pt->skip[pt->wrap_level];
+    if (wrapcxt->where_am_i != DRWRAP_WHERE_PRE_FUNC)
+        return false; /* must be in pre to skip */
     if (wrapcxt == NULL || wrapcxt->mc == NULL || wrapcxt->retaddr == NULL)
         return false;
     /* ensure we have the info we need */
     drwrap_get_mcontext_internal(wrapcxt_opaque, DR_MC_INTEGER|DR_MC_CONTROL);
-    if (!drwrap_set_retval(wrapcxt_opaque, retval))
+    /* we can't redirect here b/c we need to release locks */
+    pt->skip[pt->wrap_level] = true;
+    if (!drwrap_set_retval(wrapcxt_opaque, retval)) {
+        pt->skip[pt->wrap_level] = was_skipped;
         return false;
+    }
 #ifdef X86
     wrapcxt->mc->xsp += stdcall_args_size + sizeof(void*)/*retaddr*/;
 #endif
     /* be sure to clear LSB */
     wrapcxt->mc->pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
-    /* we can't redirect here b/c we need to release locks */
-    pt->skip[pt->wrap_level] = true;
     return true;
 }
 
+/* i#1713: redirect execution from a post-function callback */
+drext_status_t
+drwrap_redirect_execution(void *wrapcxt_opaque)
+{
+    drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+
+    if (wrapcxt_opaque == NULL) {
+        NOTIFY(2, "%s: rejected redirect: NULL wrapcxt\n", __FUNCTION__);
+        return DREXT_ERROR;
+    }
+
+    if (wrapcxt->where_am_i != DRWRAP_WHERE_POST_FUNC) {
+        NOTIFY(2, "%s: rejected redirect in state %d\n", __FUNCTION__, wrapcxt->where_am_i);
+        return DREXT_ERROR_INCOMPATIBLE_STATE;
+    }
+
+    if (wrapcxt->is_redirect_requested) {
+        NOTIFY(2, "%s: rejected redirect: already redirected\n", __FUNCTION__);
+        return DREXT_ERROR_INCOMPATIBLE_STATE;
+    }
+
+    DODEBUG({
+        per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(wrapcxt->drcontext,
+                                                                tls_idx);
+        ASSERT(pt->wrap_level >= 0, "must be in a post-wrap");
+        NOTIFY(2, "%s: accepted redirect request from the return of "PFX" to "PFX"\n",
+               __FUNCTION__, pt->last_wrap_func[pt->wrap_level], wrapcxt->mc->pc);
+    });
+
+    drwrap_set_mcontext(wrapcxt_opaque);
+    wrapcxt->is_redirect_requested = true;
+    return DREXT_SUCCESS;
+}
+
+bool
+drwrap_is_redirect_requested(void *wrapcxt_opaque)
+{
+    drwrap_context_t *wrapcxt = (drwrap_context_t *) wrapcxt_opaque;
+    if (wrapcxt->where_am_i != DRWRAP_WHERE_POST_FUNC)
+        return false;
+    return wrapcxt->is_redirect_requested;
+}
 
 /***************************************************************************
  * FORWARD DECLS
@@ -1685,7 +1754,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
 
     NOTIFY(2, "%s: level %d function "PFX"\n", __FUNCTION__, pt->wrap_level+1, pc);
 
-    drwrap_context_init(drcontext, &wrapcxt, pc, &mc,
+    drwrap_context_init(drcontext, &wrapcxt, pc, &mc, DRWRAP_WHERE_PRE_FUNC,
                         IF_ARM_ELSE((app_pc)lr, get_retaddr_at_entry(xsp)));
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);
@@ -1718,6 +1787,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
     if (pt->wrap_level >= MAX_WRAP_NESTING) {
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
+        wrapcxt.where_am_i = DRWRAP_WHERE_OUTSIDE_CALLBACK;
         return; /* we'll have to skip stuff */
     }
     pt->last_wrap_func[pt->wrap_level] = decorated_pc;
@@ -1793,6 +1863,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
             drwrap_free_user_data(drcontext, pt, pt->wrap_level);
         pt->wrap_level--;
     }
+    wrapcxt.where_am_i = DRWRAP_WHERE_OUTSIDE_CALLBACK;
 }
 
 /* called via clean call at return address(es) of callee
@@ -1817,7 +1888,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc,
     NOTIFY(2, "%s: level %d function "PFX"%s\n", __FUNCTION__, level, pc,
            unwind ? " abnormal" : "");
 
-    drwrap_context_init(drcontext, &wrapcxt, pc, mc, retaddr);
+    drwrap_context_init(drcontext, &wrapcxt, pc, mc, DRWRAP_WHERE_POST_FUNC, retaddr);
 
     if (level >= MAX_WRAP_NESTING) {
         if (level == pt->wrap_level)
@@ -1965,6 +2036,17 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc,
             pt->last_wrap_func[level] = NULL;
         }
     } /* else, hopefully our unwind detection heuristics will */
+
+    if (wrapcxt.is_redirect_requested) {
+        NOTIFY(2, "%s: redirecting to "PFX"; stack at "PFX"\n", __FUNCTION__, mc->pc,
+               mc->xsp);
+
+        drwrap_get_mcontext_internal((void*) &wrapcxt, DR_MC_ALL);
+        wrapcxt.is_redirect_requested = false;
+        dr_redirect_execution(mc);
+        ASSERT(false, "reached code following a redirect");
+    }
+    wrapcxt.where_am_i = DRWRAP_WHERE_OUTSIDE_CALLBACK;
 }
 
 /* called via clean call at return address(es) of callee */

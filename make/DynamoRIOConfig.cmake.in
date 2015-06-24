@@ -972,17 +972,8 @@ function (use_DynamoRIO_extension target extname)
     elseif (EXISTS "${PROJECT_BINARY_DIR}/../../ext/include")
       # Two up from api/samples/
       include_directories(${PROJECT_BINARY_DIR}/../../ext/include)
-    elseif (EXISTS "${DynamoRIO_SOURCE_DIR}/ext")
-      include_directories(${DynamoRIO_SOURCE_DIR}/ext/${ext_dir})
-    elseif (EXISTS "${PROJECT_SOURCE_DIR}/ext")
-      include_directories(${PROJECT_SOURCE_DIR}/ext/${ext_dir})
-    elseif (EXISTS "${PROJECT_SOURCE_DIR}/../../ext")
-      # A hack to support samples being a separate project: probably it
-      # should NOT be separate inside DR, and the exported CMakeLists.txt
-      # should add a project declaration.  An alternative is to
-      # copy ext headers to <builddir>/ext/include and not even check
-      # DynamoRIO_INTERNAL.
-      include_directories(${PROJECT_SOURCE_DIR}/../../ext/${ext_dir})
+    elseif (EXISTS "${DynamoRIO_BINARY_DIR}") # where DR is a subpackage
+      include_directories(${DynamoRIO_BINARY_DIR}/ext/include)
     endif ()
   endif (NOT DynamoRIO_INTERNAL)
 
