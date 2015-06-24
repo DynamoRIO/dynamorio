@@ -70,7 +70,17 @@ typedef enum {
      */
     // XXX: to support other types of accumulation, we should add explicit
     // support for dr_option_t<std::vector<std::string> >.
-    DROPTION_FLAG_ACCUMULATE  = 0x0001,
+    DROPTION_FLAG_ACCUMULATE     = 0x0001,
+    /**
+     * By default, an option that does not match a known name and the
+     * current scope results in an error.  If a string option exists
+     * with this flag set, however, all unknown options in the current
+     * scope that are known in another scope are passed to the last
+     * option with this flag set (which will typically also set
+     * DROPTION_FLAG_ACCUMULATE).
+     * The scope of an option with this flag is ignored.
+     */
+    DROPTION_FLAG_SWEEP          = 0x0002,
 } droption_flags_t;
 
 // XXX: for tools who want to generate html docs from the same option spec,
@@ -85,13 +95,16 @@ class droption_parser_t
 {
  public:
     droption_parser_t(droption_scope_t scope_, std::string name_,
-                      std::string desc_short_, std::string desc_long_)
+                      std::string desc_short_, std::string desc_long_,
+                      unsigned int flags_)
         : scope(scope_), name(name_), is_specified(false),
-        desc_short(desc_short_), desc_long(desc_long_)
+        desc_short(desc_short_), desc_long(desc_long_), flags(flags_)
     {
         // We assume no synch is needed as this is a static initializer.
         // XXX: any way to check/assert on that?
         allops().push_back(this);
+        if (TESTANY(DROPTION_FLAG_SWEEP, flags))
+            sweeper() = this;
     }
 
     // We do not provide a string-parsing routine as we assume a client will
@@ -101,9 +114,12 @@ class droption_parser_t
     /**
      * Parses the options for client \p client_id and fills in any registered
      * droption_t class fields.
-     * On success, returns true.
+     * On success, returns true, with the index of the start of the remaining
+     * unparsed options, if any, returned in \p last_index (typically this
+     * will be options separated by "--").
      * On failure, returns false, and if \p error_msg != NULL, stores a string
-     * describing the error there.
+     * describing the error there.  On failure, \p last_index is set to the
+     * index of the problematic option or option value.
      *
      * We recommend that Windows standalone applications use UNICODE and
      * call drfront_convert_args() to convert to UTF-8 prior to passing here,
@@ -114,6 +130,7 @@ class droption_parser_t
                std::string *error_msg, int *last_index)
     {
         int i;
+        bool res = true;
         for (i = 1/*skip app*/; i < argc; ++i) {
             // We support the universal "--" as a separator
             if (strcmp(argv[i], "--") == 0) {
@@ -121,39 +138,66 @@ class droption_parser_t
                 break;
             }
             bool matched = false;
+            bool swept = false;
             for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
                  opi != allops().end();
                  ++opi) {
                 droption_parser_t *op = *opi;
-                if ((op->scope == scope || op->scope == DROPTION_SCOPE_ALL) &&
-                    op->name_match(argv[i])) {
-                    matched = true;
+                // We parse other-scope options and their values, for sweeping.
+                if (op->name_match(argv[i])) {
+                    if (op->scope == scope || op->scope == DROPTION_SCOPE_ALL)
+                        matched = true;
+                    else if (sweeper() != NULL &&
+                             sweeper()->convert_from_string(argv[i]) &&
+                             sweeper()->clamp_value()) {
+                        sweeper()->is_specified = true; // *after* convert_from_string()
+                        swept = true;
+                    }
                     if (op->option_takes_arg()) {
                         ++i;
                         if (i == argc) {
                             if (error_msg != NULL)
                                 *error_msg = "Option " + op->name + " missing value";
-                            return false;
+                            res = false;
+                            goto parse_finished;
                         }
-                        if (!op->convert_from_string(argv[i]) ||
-                            !op->clamp_value()) {
-                            if (error_msg != NULL)
-                                *error_msg = "Option " + op->name + " value out of range";
-                            return false;
+                        if (matched) {
+                            if (!op->convert_from_string(argv[i]) ||
+                                !op->clamp_value()) {
+                                if (error_msg != NULL) {
+                                    *error_msg = "Option " + op->name +
+                                        " value out of range";
+                                }
+                                res = false;
+                                goto parse_finished;
+                            }
+                        } else if (swept) {
+                            if (!sweeper()->convert_from_string(argv[i]) ||
+                                !sweeper()->clamp_value()) {
+                                if (error_msg != NULL) {
+                                    *error_msg = "Option " + op->name +
+                                        " value out of range";
+                                }
+                                res = false;
+                                goto parse_finished;
+                            }
                         }
                     }
-                    op->is_specified = true; // *after* convert_from_string() for accum
+                    if (matched)
+                        op->is_specified = true; // *after* convert_from_string()
                 }
             }
-            if (!matched) {
+            if (!matched && !swept) {
                 if (error_msg != NULL)
                     *error_msg = std::string("Unknown option: ") + argv[i];
-                return false;
+                res = false;
+                goto parse_finished;
             }
         }
+    parse_finished:
         if (last_index != NULL)
             *last_index = i;
-        return true;
+        return res;
     }
 
     /**
@@ -219,12 +263,18 @@ class droption_parser_t
         static std::vector<droption_parser_t*> allops_vec;
         return allops_vec;
     }
+    static droption_parser_t *& sweeper()
+    {
+        static droption_parser_t *global_sweeper;
+        return global_sweeper;
+    }
 
     droption_scope_t scope;
     std::string name;
     bool is_specified;
     std::string desc_short;
     std::string desc_long;
+    unsigned int flags;
 };
 
 /** Option class for declaring new options. */
@@ -237,19 +287,17 @@ template <typename T> class droption_t : public droption_parser_t
      */
     droption_t(droption_scope_t scope_, std::string name_, T defval_,
                std::string desc_short_, std::string desc_long_)
-        : droption_parser_t(scope_, name_, desc_short_, desc_long_),
-        flags(0), value(defval_),
-        defval(defval_), has_range(false) {}
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
+        value(defval_), defval(defval_), has_range(false) {}
 
     /**
      * Declares a new option of type T with the given scope, behavior flags,
      * default value, and description in short and long forms.
      */
-    droption_t(droption_scope_t scope_, unsigned int flags_,
-               std::string name_, T defval_,
-               std::string desc_short_, std::string desc_long_)
-        : droption_parser_t(scope_, name_, desc_short_, desc_long_),
-        flags(flags_), value(defval_), defval(defval_), has_range(false) {}
+    droption_t(droption_scope_t scope_, std::string name_, unsigned int flags_,
+               T defval_, std::string desc_short_, std::string desc_long_)
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_),
+        value(defval_), defval(defval_), has_range(false) {}
 
     /**
      * Declares a new option of type T with the given scope, default value,
@@ -258,7 +306,7 @@ template <typename T> class droption_t : public droption_parser_t
     droption_t(droption_scope_t scope_, std::string name_, T defval_,
                T minval_, T maxval_,
                std::string desc_short_, std::string desc_long_)
-        : droption_parser_t(scope_, name_, desc_short_, desc_long_),
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
         value(defval_), defval(defval_), has_range(true),
         minval(minval_), maxval(maxval_) {}
 
@@ -285,7 +333,6 @@ template <typename T> class droption_t : public droption_parser_t
     bool convert_from_string(const std::string s);
     std::string default_as_string() const;
 
-    unsigned int flags;
     T value;
     T defval;
     bool has_range;
@@ -387,7 +434,8 @@ droption_t<bool>::default_as_string() const
  * unparsed options, if any, returned in \p last_index (typically this
  * will be options separated by "--").
  * On failure, returns false, and if \p error_msg != NULL, stores a string
- * describing the error there.
+ * describing the error there.  On failure, \p last_index is set to the
+ * index of the problematic option or option value.
  */
 static inline bool
 dr_parse_options(client_id_t client_id, std::string *error_msg, int *last_index)

@@ -42,7 +42,7 @@ static droption_t<unsigned int> op_x
 (DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
  "Longer desc of some param.");
 static droption_t<std::string> op_y
-(DROPTION_SCOPE_CLIENT, DROPTION_FLAG_ACCUMULATE, "y", "<default>", "Another param",
+(DROPTION_SCOPE_CLIENT, "y", DROPTION_FLAG_ACCUMULATE, "<default>", "Another param",
  "Longer desc of another param.");
 static droption_t<std::string> op_z
 (DROPTION_SCOPE_CLIENT, "z", "", "Yet another param",
@@ -56,6 +56,16 @@ static droption_t<std::string> op_bar
 static droption_t<bool> op_flag
 (DROPTION_SCOPE_CLIENT, "flag", true, "Bool param",
  "Longer desc of bool param.");
+static droption_t<std::string> op_sweep
+(DROPTION_SCOPE_CLIENT, "sweep", DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE,
+ "", "All the unknown params",
+ "Longer desc of unknown param accum.");
+static droption_t<std::string> op_front
+(DROPTION_SCOPE_FRONTEND, "front", "", "Front-end param",
+ "Longer desc of front-end param.");
+static droption_t<std::string> op_front2
+(DROPTION_SCOPE_FRONTEND, "front2", "", "Front-end param2",
+ "Longer desc of front-end param2.");
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
@@ -65,7 +75,7 @@ dr_init(client_id_t client_id)
     const char **argv;
     bool ok = dr_get_option_array(client_id, &argc, &argv, MAXIMUM_PATH);
     ASSERT(ok);
-    ASSERT(argc == 12);
+    ASSERT(argc == 16);
     ASSERT(strcmp(argv[1], "-x") == 0);
     ASSERT(strcmp(argv[2], "4") == 0);
     ASSERT(strcmp(argv[3], "-y") == 0);
@@ -74,9 +84,13 @@ dr_init(client_id_t client_id)
     ASSERT(strcmp(argv[6], "first") == 0);
     ASSERT(strcmp(argv[7], "-z") == 0);
     ASSERT(strcmp(argv[8], "single quotes -dash --dashes") == 0);
-    ASSERT(strcmp(argv[9], "-y") == 0);
-    ASSERT(strcmp(argv[10], "accum") == 0);
-    ASSERT(strcmp(argv[11], "-no_flag") == 0);
+    ASSERT(strcmp(argv[9], "-front") == 0);
+    ASSERT(strcmp(argv[10], "value") == 0);
+    ASSERT(strcmp(argv[11], "-y") == 0);
+    ASSERT(strcmp(argv[12], "accum") == 0);
+    ASSERT(strcmp(argv[13], "-front2") == 0);
+    ASSERT(strcmp(argv[14], "value2") == 0);
+    ASSERT(strcmp(argv[15], "-no_flag") == 0);
     ok = dr_free_option_array(argc, argv);
     ASSERT(ok);
 
@@ -92,6 +106,7 @@ dr_init(client_id_t client_id)
     dr_printf("param foo = %d\n", op_foo.get_value());
     dr_printf("param bar = |%s|\n", op_bar.get_value().c_str());
     dr_printf("param flag = |%d|\n", op_flag.get_value());
+    dr_printf("param sweep = |%s|\n", op_sweep.get_value().c_str());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
 }

@@ -4,4 +4,5 @@ param z = |single quotes -dash --dashes|
 param foo = 8
 param bar = |some string with spaces|
 param flag = |0|
+param sweep = |-front value -front2 value2|
 Hello, world!
