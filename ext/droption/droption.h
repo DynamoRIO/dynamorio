@@ -48,13 +48,14 @@
 // XXX: some clients want further distinctions, such as options passed to
 // post-processing components, internal (i.e., undocumented) options, etc.
 /**
- * Specifies whether an option is intended for use by a client for a tool
- * frontend, or both.
+ * These bitfield values specify whether an option is intended for use
+ * by a client for a tool frontend, or both.
  */
 typedef enum {
-    DROPTION_SCOPE_CLIENT,   /**< This option is acted on by the client only. */
-    DROPTION_SCOPE_FRONTEND, /**< This option is acted on by the frontend only. */
-    DROPTION_SCOPE_ALL,      /**< This option is acted on by both client and frontend. */
+    DROPTION_SCOPE_CLIENT    = 0x0001,   /**< Acted on by the client only. */
+    DROPTION_SCOPE_FRONTEND  = 0x0002, /**< Acted on by the frontend only. */
+    /** Acted on by both client and frontend. */
+    DROPTION_SCOPE_ALL       = (DROPTION_SCOPE_CLIENT|DROPTION_SCOPE_FRONTEND),
 } droption_scope_t;
 
 /**
@@ -94,7 +95,7 @@ typedef enum {
 class droption_parser_t
 {
  public:
-    droption_parser_t(droption_scope_t scope_, std::string name_,
+    droption_parser_t(unsigned int scope_, std::string name_,
                       std::string desc_short_, std::string desc_long_,
                       unsigned int flags_)
         : scope(scope_), name(name_), is_specified(false),
@@ -126,7 +127,7 @@ class droption_parser_t
      * for proper internationalization support.
      */
     static bool
-    parse_argv(droption_scope_t scope, int argc, const char *argv[],
+    parse_argv(unsigned int scope, int argc, const char *argv[],
                std::string *error_msg, int *last_index)
     {
         int i;
@@ -145,7 +146,7 @@ class droption_parser_t
                 droption_parser_t *op = *opi;
                 // We parse other-scope options and their values, for sweeping.
                 if (op->name_match(argv[i])) {
-                    if (op->scope == scope || op->scope == DROPTION_SCOPE_ALL)
+                    if (TESTANY(scope, op->scope))
                         matched = true;
                     else if (sweeper() != NULL &&
                              sweeper()->convert_from_string(argv[i]) &&
@@ -205,14 +206,14 @@ class droption_parser_t
      * default values, and their short descriptions.
      */
     static std::string
-    usage_short(droption_scope_t scope)
+    usage_short(unsigned int scope)
     {
         std::ostringstream oss;
         for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
              opi != allops().end();
              ++opi) {
             droption_parser_t *op = *opi;
-            if (op->scope == scope || op->scope == DROPTION_SCOPE_ALL) {
+            if (TESTANY(scope, op->scope)) {
                 oss << " -" << std::setw(20) << std::left << op->name
                     << "[" << std::setw(6) << std::right
                     << op->default_as_string() << "]"
@@ -227,7 +228,7 @@ class droption_parser_t
      * default values, and their long descriptions.
      */
     static std::string
-    usage_long(droption_scope_t scope)
+    usage_long(unsigned int scope)
     {
         std::ostringstream oss;
         for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
@@ -235,7 +236,7 @@ class droption_parser_t
              ++opi) {
             droption_parser_t *op = *opi;
             // XXX: we should also add the min and max values
-            if (op->scope == scope || op->scope == DROPTION_SCOPE_ALL) {
+            if (TESTANY(scope, op->scope)) {
                 oss << "----------" << std::endl
                     << "-" << op->name << std::endl
                     << "default value: "
@@ -269,7 +270,7 @@ class droption_parser_t
         return global_sweeper;
     }
 
-    droption_scope_t scope;
+    unsigned int scope; // made up of droption_scope_t bitfields
     std::string name;
     bool is_specified;
     std::string desc_short;
@@ -285,7 +286,7 @@ template <typename T> class droption_t : public droption_parser_t
      * Declares a new option of type T with the given scope, default value,
      * and description in short and long forms.
      */
-    droption_t(droption_scope_t scope_, std::string name_, T defval_,
+    droption_t(unsigned int scope_, std::string name_, T defval_,
                std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
         value(defval_), defval(defval_), has_range(false) {}
@@ -294,7 +295,7 @@ template <typename T> class droption_t : public droption_parser_t
      * Declares a new option of type T with the given scope, behavior flags,
      * default value, and description in short and long forms.
      */
-    droption_t(droption_scope_t scope_, std::string name_, unsigned int flags_,
+    droption_t(unsigned int scope_, std::string name_, unsigned int flags_,
                T defval_, std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_),
         value(defval_), defval(defval_), has_range(false) {}
@@ -303,7 +304,7 @@ template <typename T> class droption_t : public droption_parser_t
      * Declares a new option of type T with the given scope, default value,
      * minimum and maximum values, and description in short and long forms.
      */
-    droption_t(droption_scope_t scope_, std::string name_, T defval_,
+    droption_t(unsigned int scope_, std::string name_, T defval_,
                T minval_, T maxval_,
                std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
@@ -312,6 +313,8 @@ template <typename T> class droption_t : public droption_parser_t
 
     /** Returns the value of this option. */
     T get_value() { return value; }
+    /** Returns the name of this option. */
+    std::string get_name() { return name; }
 
  protected:
     bool clamp_value()
@@ -352,7 +355,8 @@ droption_t<T>::name_match(const char *arg)
 template<> inline bool
 droption_t<bool>::name_match(const char *arg)
 {
-    if (name == arg) {
+    if (std::string("-").append(name) == arg ||
+        std::string("--").append(name) == arg) {
         value = true;
         return true;
     }
