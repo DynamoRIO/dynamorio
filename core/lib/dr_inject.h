@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,6 +44,10 @@
  * @brief Injection API.  Use these functions to launch processes under the
  * control of DynamoRIO.
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE /* in VS2008+ */
 /**
@@ -299,6 +303,10 @@ DR_EXPORT
  */
 void
 dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem);
+
+#ifdef __cplusplus
+}
+#endif
 
 /* DR_API EXPORT END */
 

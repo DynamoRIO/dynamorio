@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,6 +52,10 @@
  * the library should ensure that no more then one thread accesses the library
  * at a time.  This limitation will be addressed in future releases.
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Maximum length of a registered process's options string */
 #define DR_MAX_OPTIONS_LENGTH 2048
@@ -1064,6 +1068,10 @@ dr_get_config_dir(bool global,
                   bool alternative_local,
                   char *config_dir /* OUT */,
                   size_t config_dir_sz);
+
+#ifdef __cplusplus
+}
+#endif
 
 /* DR_API EXPORT END */
 

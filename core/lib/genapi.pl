@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -263,7 +263,7 @@ sub keep_define($)
             $def eq "MACOS" || $def eq "X64" ||
             $def eq "X86" || $def eq "ARM" || $def eq "X86_32" ||
             $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
-            $def eq "DR_FAST_IR");
+            $def eq "DR_FAST_IR" || $def eq "__cplusplus");
 }
 
 foreach $file (@headers) {

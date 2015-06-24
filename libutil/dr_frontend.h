@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -62,6 +62,10 @@
  * references to the arguments should use the UTF-8 versions.
  * On Linux or MacOS, _tmain and TCHAR will turn into regular symbols.
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef WINDOWS
 # include <tchar.h>
@@ -451,6 +455,10 @@ drfront_remove_dir(const char *dir);
  */
 drfront_status_t
 drfront_dir_exists(const char *path, OUT bool *is_dir);
+
+#ifdef __cplusplus
+}
+#endif
 
 /* DR_API EXPORT END */
 
