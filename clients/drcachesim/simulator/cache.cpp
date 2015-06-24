@@ -83,8 +83,8 @@ cache_t::request(const memref_t &memref_in)
     if (final_tag == tag) {
         if (tag == last_tag && tag != 0/*safety check for sentinel*/) {
             int line_idx = compute_line_idx(tag);
-            assert(lines[line_idx * last_way].tag == tag &&
-                   lines[line_idx * last_way].valid);
+            assert(get_cache_line(line_idx, last_way).tag == tag &&
+                   get_cache_line(line_idx, last_way).valid);
             access_update(line_idx, last_way);
             if (stats != NULL)
                 stats->access(memref, true);
@@ -103,8 +103,8 @@ cache_t::request(const memref_t &memref_in)
             memref.size = ((tag + 1) * line_size) - memref.addr;
 
         for (int way = 0; way < associativity; ++way) {
-            if (lines[line_idx * way].tag == tag &&
-                lines[line_idx * way].valid) {
+            if (get_cache_line(line_idx, way).tag == tag &&
+                get_cache_line(line_idx, way).valid) {
                 hit = true;
                 final_way = way;
                 break;
@@ -118,8 +118,8 @@ cache_t::request(const memref_t &memref_in)
             // FIXME i#1703: coherence policy
 
             final_way = replace_which_way(line_idx);
-            lines[line_idx * final_way].tag = tag;
-            lines[line_idx * final_way].valid = true;
+            get_cache_line(line_idx, final_way).tag = tag;
+            get_cache_line(line_idx, final_way).valid = true;
             last_tag = 0; // sentinel
         }
 
@@ -141,7 +141,7 @@ void
 cache_t::access_update(int line_idx, int way)
 {
     // We just inc the counter for LRU.  We live with any blip on overflow.
-    lines[line_idx * way].counter++;
+    get_cache_line(line_idx, way).counter++;
 }
 
 int
@@ -152,8 +152,8 @@ cache_t::replace_which_way(int line_idx)
     int_least64_t min_counter = 0;
     int min_way = 0;
     for (int way = 0; way < associativity; ++way) {
-        if (way == 0 || lines[line_idx * way].counter < min_counter) {
-            min_counter = lines[line_idx * way].counter;
+        if (way == 0 || get_cache_line(line_idx, way).counter < min_counter) {
+            min_counter = get_cache_line(line_idx, way).counter;
             min_way = way;
         }
         // FIXME i#1703: shouldn't we clear all counters here for LRU?

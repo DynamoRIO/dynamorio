@@ -62,7 +62,12 @@ class cache_t
     virtual int replace_which_way(int line_idx);
 
     inline addr_t compute_tag(addr_t addr) { return addr / line_size; }
-    inline int compute_line_idx(addr_t tag) { return tag % lines_per_set; }
+    inline int compute_line_idx(addr_t tag) {
+        return (tag % lines_per_set) * associativity;
+    }
+    inline cache_line_t& get_cache_line(int line_idx, int way) {
+        return lines[line_idx + way];
+    }
 
     int associativity;
     int line_size;
