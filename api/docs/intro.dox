@@ -642,8 +642,9 @@ FRONTEND_REL=relative/path/to/front-end/from/DynamoRIO/root
 \endcode
 
 This will cause \p drrun to transfer control to the specified front-end
-executable, passing any tool arguments followed by "--" and the target
-application command line.
+executable, passing any tool arguments (including a client path, if \p
+CLIENT_ABS or \p CLIENT_REL appears after the \p FRONTEND_* command)
+followed by "--" and the target application command line.
 
 The path to the DynamoRIO install base can be included in the front-end
 options via this line

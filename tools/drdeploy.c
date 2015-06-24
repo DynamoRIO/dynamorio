@@ -805,9 +805,17 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
                       line + strlen("CLIENT_REL="));
             client[client_size-1] = '\0';
             found_client = true;
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
+                                 "%s", client);
+            }
         } else if (strstr(line, "CLIENT_ABS=") == line) {
             strncpy(client, line + strlen("CLIENT_ABS="), client_size);
             found_client = true;
+            if (native_path[0] != '\0') {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
+                                 "%s", client);
+            }
         } else if (strstr(line, "DR_OP=") == line) {
             add_extra_option(ops, ops_size, ops_sofar, "%s", line + strlen("DR_OP="));
         } else if (strstr(line, "TOOL_OP=") == line) {
