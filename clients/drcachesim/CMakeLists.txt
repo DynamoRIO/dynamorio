@@ -40,16 +40,20 @@ if (UNIX)
   endif ()
 
   add_executable(drcachesim
+    simulator/launcher.cpp
     simulator/simulator.cpp
     simulator/ipc_reader.cpp
     common/named_pipe_${os_name}.cpp
+    common/options.cpp
     simulator/cache.cpp
     simulator/cache_stats.cpp
     )
+  target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)
 
   add_library(drmemtrace SHARED
     tracer/tracer.cpp
     common/named_pipe_${os_name}.cpp
+    common/options.cpp
     )
   configure_DynamoRIO_client(drmemtrace)
   use_DynamoRIO_extension(drmemtrace drmgr)
@@ -63,10 +67,15 @@ if (UNIX)
   if (NOT DEBUG)
     append_property_list(TARGET drcachesim COMPILE_DEFINITIONS "NDEBUG")
   endif ()
+  # However, we need the target os and arch defines (XXX: better way?) for
+  # the config, inject, and frontend headers:
+  DynamoRIO_extra_cflags(extra_cflags "" ON)
+  append_property_string(TARGET drcachesim COMPILE_FLAGS "${extra_cflags}")
 
   place_shared_lib_in_lib_dir(drmemtrace)
 
   add_dependencies(drmemtrace api_headers)
+  add_dependencies(drcachesim api_headers)
 
   # Provide a hint for how to use the client
   if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
@@ -88,12 +97,6 @@ if (UNIX)
 
   set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
-  if (X64)
-    set(CONFIG ${PROJECT_BINARY_DIR}/drcachesim.drrun64)
-  else (X64)
-    set(CONFIG ${PROJECT_BINARY_DIR}/drcachesim.drrun32)
-  endif (X64)
-
   if (UNIX)
     set(LIB_EXT ".so")
     set(LIB_PFX "lib")
@@ -102,15 +105,34 @@ if (UNIX)
     set(LIB_PFX "")
   endif (UNIX)
 
-  file(WRITE  ${CONFIG} "# drcachesim tool config file\n")
-  file(APPEND ${CONFIG} "# DynamoRIO options: none at this time\n")
-  file(APPEND ${CONFIG} "DR_OP=\n")
-  file(APPEND ${CONFIG} "# client tool path\n")
-  file(APPEND ${CONFIG} "CLIENT_REL=${INSTALL_CLIENTS_LIB}/${LIB_PFX}drmemtrace${LIB_EXT}\n")
-  file(APPEND ${CONFIG} "# client tool options\n")
-  file(APPEND ${CONFIG} "TOOL_OP=\n")
+  function (write_config_file dst bindir libdir)
+    file(WRITE  ${dst} "# drcachesim tool config file\n")
+    file(APPEND ${dst} "FRONTEND_REL=${bindir}/drcachesim\n")
+    file(APPEND ${dst} "TOOL_OP=-dr\n")
+    file(APPEND ${dst} "TOOL_OP_DR_PATH\n")
+    file(APPEND ${dst} "TOOL_OP_DR_BUNDLE=-dr_ops\n")
+    file(APPEND ${dst} "TOOL_OP=-tracer\n")
+    file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n")
+    if (DEBUG)
+      file(APPEND ${dst} "TOOL_OP=-dr_debug\n")
+    endif ()
+  endfunction ()
 
-  DR_install(FILES "${CONFIG}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
+  if (X64)
+    set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcachesim.drrun64)
+    set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcachesim.drrun64)
+  else (X64)
+    set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcachesim.drrun32)
+    set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcachesim.drrun32)
+  endif (X64)
+
+  set(BUILD_CLIENTS_BIN clients/${INSTALL_BIN})
+  set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
+
+  write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
+  write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
+
+  DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
   register_tool_file("drcachesim")
 
 endif (UNIX)

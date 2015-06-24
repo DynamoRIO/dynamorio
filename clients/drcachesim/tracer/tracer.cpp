@@ -58,7 +58,7 @@
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
 #define NOTIFY(level, fmt, ...) do {          \
-    if (verbose.get_value() >= (level))           \
+    if (op_verbose.get_value() >= (level))    \
         dr_fprintf(STDERR, fmt, __VA_ARGS__); \
 } while (0)
 
@@ -574,13 +574,13 @@ dr_init(client_id_t id)
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
     }
-    if (ipc_name.get_value().empty()) {
+    if (op_ipc_name.get_value().empty()) {
         NOTIFY(0, "Usage error: ipc name is required\nUsage:\n%s",
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
     }
 
-    if (!ipc_pipe.set_name(ipc_name.get_value().c_str()))
+    if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
         DR_ASSERT(false);
     /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
     int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);

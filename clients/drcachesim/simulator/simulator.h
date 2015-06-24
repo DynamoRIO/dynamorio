@@ -30,20 +30,36 @@
  * DAMAGE.
  */
 
-/* shared options for both the frontend and the client */
+/* simulator: controls the multi-cache-level simulation.
+ */
 
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+#ifndef _SIMULATOR_H_
+#define _SIMULATOR_H_ 1
 
-#include <string>
-#include "droption.h"
+#include "cache_stats.h"
+#include "cache.h"
+#include "ipc_reader.h"
 
-extern droption_t<std::string> op_ipc_name;
-extern droption_t<unsigned int> op_verbose;
-extern droption_t<std::string> op_dr_root;
-extern droption_t<bool> op_dr_debug;
-extern droption_t<std::string> op_dr_ops;
-extern droption_t<std::string> op_tracer;
-extern droption_t<std::string> op_tracer_ops;
+class simulator_t
+{
+ public:
+    simulator_t() {} // Empty for now
+    bool init();
+    ~simulator_t() {} // Empty for now
+    bool run();
+    bool print_stats();
 
-#endif /* _OPTIONS_H_ */
+ protected:
+    ipc_reader_t ipc_end;
+    ipc_reader_t ipc_iter;
+
+    cache_stats_t stats_L1I;
+    cache_t cache_L1I;
+    cache_stats_t stats_L1D;
+    cache_t cache_L1D;
+    // L2 is our shared level in our simple hierarchy here.
+    cache_stats_t stats_L2;
+    cache_t cache_L2;
+};
+
+#endif /* _SIMULATOR_H_ */

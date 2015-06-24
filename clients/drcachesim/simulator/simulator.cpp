@@ -39,50 +39,38 @@
 #include "cache.h"
 #include "droption.h"
 #include "../common/options.h"
+#include "simulator.h"
 
-// FIXME i#1703: turn this into a tool frontend and launch the target
-// application here instead of requiring the user to do so.
-
-int
-main(int argc, const char *argv[])
+bool
+simulator_t::init()
 {
-    std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv,
-                                       &parse_err, NULL)) {
-        ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
-              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        return 1;
-    }
-    if (ipc_name.get_value().empty()) {
+    // XXX: add a "required" flag to droption to avoid needing this here
+    if (op_ipc_name.get_value().empty()) {
         ERROR("Usage error: ipc name is required\nUsage:\n%s",
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        return 1;
+        return false;
     }
-
-    ipc_reader_t ipc_end;
-    ipc_reader_t ipc_iter(ipc_name.get_value().c_str());
-    if (!ipc_iter.init()) {
-        ERROR("failed to initialize %s", ipc_name.get_value().c_str());
-        return 1;
-    }
+    ipc_iter = ipc_reader_t(op_ipc_name.get_value().c_str());
 
     // FIXME i#1703: take params from args
     // FIXME i#1703: build a separate L1D per specified core, and use a
     // static assignment of app threads to cores.
-    cache_stats_t stats_L1I;
-    cache_t cache_L1I;
-    cache_stats_t stats_L1D;
-    cache_t cache_L1D;
-    // L2 is our shared level in our simple hierarchy here.
-    cache_stats_t stats_L2;
-    cache_t cache_L2;
     if (!cache_L2.init(8, 64, 8192/*512KB cache*/, NULL, &stats_L2) ||
         !cache_L1I.init(4, 64, 512/*32KB cache*/, &cache_L2, &stats_L1I) ||
         !cache_L1D.init(4, 64, 512/*32KB cache*/, &cache_L2, &stats_L1D)) {
         ERROR("failed to initialize caches");
-        return 1;
+        return false;
     }
+    return true;
+}
 
+bool
+simulator_t::run()
+{
+    if (!ipc_iter.init()) {
+        ERROR("failed to read from pipe %s", op_ipc_name.get_value().c_str());
+        return false;
+    }
     // FIXME i#1703: add options to select either ipc_reader_t or
     // a recorded trace file reader, and use a base class reader_t
     // here.
@@ -95,7 +83,7 @@ main(int argc, const char *argv[])
         else
             cache_L1D.request(memref);
 
-        if (verbose.get_value() > 1) {
+        if (op_verbose.get_value() > 2) {
             std::cout << "::" << memref.pid << "." << memref.tid << ":: " <<
                 " @" << (void *)memref.pc <<
                 ((memref.type == TRACE_TYPE_READ) ? " R " :
@@ -104,13 +92,17 @@ main(int argc, const char *argv[])
                 (void *)memref.addr << " x" << memref.size << std::endl;
         }
     }
+    return true;
+}
 
+bool
+simulator_t::print_stats()
+{
     std::cout << "L1I stats:" << std::endl;
     stats_L1I.print_stats();
     std::cout << "L1D stats:" << std::endl;
     stats_L1D.print_stats();
     std::cout << "L2 stats:" << std::endl;
     stats_L2.print_stats();
-
-    return 0;
+    return true;
 }

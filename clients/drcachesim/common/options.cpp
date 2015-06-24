@@ -32,18 +32,36 @@
 
 /* shared options for both the frontend and the client */
 
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
-
 #include <string>
 #include "droption.h"
+#include "options.h"
 
-extern droption_t<std::string> op_ipc_name;
-extern droption_t<unsigned int> op_verbose;
-extern droption_t<std::string> op_dr_root;
-extern droption_t<bool> op_dr_debug;
-extern droption_t<std::string> op_dr_ops;
-extern droption_t<std::string> op_tracer;
-extern droption_t<std::string> op_tracer_ops;
+droption_t<std::string> op_ipc_name
+(DROPTION_SCOPE_ALL, "ipc_name", "", "Base name of named pipe",
+ "Specifies the base name of the named pipe used to communicate between the target "
+ "application processes and the cache simulator.");
 
-#endif /* _OPTIONS_H_ */
+droption_t<unsigned int> op_verbose
+(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
+ "Verbosity level for notifications.");
+
+droption_t<std::string> op_dr_root
+(DROPTION_SCOPE_FRONTEND, "dr", "", "Path to DynamoRIO root directory",
+ "Specifies the path of the DynamoRIO root directory.");
+
+droption_t<bool> op_dr_debug
+(DROPTION_SCOPE_FRONTEND, "dr_debug", false, "Use DynamoRIO debug build",
+ "Requests use of the debug build of DynamoRIO rather than the release build.");
+
+droption_t<std::string> op_dr_ops
+(DROPTION_SCOPE_FRONTEND, "dr_ops", "", "Options to pass to DynamoRIO",
+ "Specifies the options to pass to DynamoRIO.");
+
+droption_t<std::string> op_tracer
+(DROPTION_SCOPE_FRONTEND, "tracer", "", "Path to the tracer",
+ "The full path to the tracer library.");
+
+droption_t<std::string> op_tracer_ops
+(DROPTION_SCOPE_FRONTEND, "tracer_ops", DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE,
+ "", "(For internal use: sweeps up tracer options)",
+ "This is an internal option that sweeps up other options to pass to the tracer.");
