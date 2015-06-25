@@ -66,7 +66,17 @@ typedef enum {
     TRACE_TYPE_INSTR,
 
     // A cache flush:
-    TRACE_TYPE_FLUSH,
+    // On ARM, a flush is requested via a SYS_cacheflush system call,
+    // and the flush size could be larger than USHRT_MAX.
+    // If the size is smaller than USHRT_MAX, we use one entry with non-zero size.
+    // Otherwise, we use two entries, one entry has type TRACE_TYPE_*_FLUSH for
+    // the start address of flush, and one entry has type TRACE_TYPE_*_FLUSH_END
+    // for the end address (exclusive) of flush.
+    // The size field of both entries should be 0.
+    TRACE_TYPE_INSTR_FLUSH,
+    TRACE_TYPE_INSTR_FLUSH_END,
+    TRACE_TYPE_DATA_FLUSH,
+    TRACE_TYPE_DATA_FLUSH_END,
 
     // These entries indicate that all subsequent memory references (until the
     // next entry of this type) came from the thread whose id is in the addr

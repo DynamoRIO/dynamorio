@@ -50,11 +50,14 @@ class cache_stats_t
     // separately for each line touched.
     virtual void access(const memref_t &memref, bool hit);
 
+    virtual void flush(const memref_t &memref);
+
     virtual void print_stats();
 
  protected:
     int_least64_t num_hits;
     int_least64_t num_misses;
+    int num_flushes;
 };
 
 #endif /* _CACHE_STATS_H_ */

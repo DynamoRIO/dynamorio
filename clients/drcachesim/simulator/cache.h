@@ -56,6 +56,7 @@ class cache_t
                       cache_t *parent, cache_stats_t *stats);
     virtual ~cache_t();
     virtual void request(const memref_t &memref);
+    virtual void flush(const memref_t &memref);
 
  protected:
     virtual void access_update(int line_idx, int way);

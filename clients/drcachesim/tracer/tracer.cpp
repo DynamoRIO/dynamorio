@@ -51,6 +51,10 @@
 #include "../common/named_pipe.h"
 #include "../common/options.h"
 
+#ifdef ARM
+# include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
+#endif
+
 // XXX: share these instead of duplicating
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
@@ -413,6 +417,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     adjust += sizeof(trace_entry_t);
     ud->last_app_pc = instr_get_app_pc(instr);
 
+    // FIXME: add OP_clflush handling for cache flush on X86
     if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -495,6 +500,37 @@ event_bb_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
+static bool
+event_pre_syscall(void *drcontext, int sysnum)
+{
+#ifdef ARM
+    // On Linux ARM, cacheflush syscall takes 3 params: start, end, and 0.
+    if (sysnum == SYS_cacheflush) {
+        per_thread_t *data;
+        trace_entry_t *buf_ptr;
+        addr_t start = (addr_t)dr_syscall_get_param(drcontext, 0);
+        addr_t end   = (addr_t)dr_syscall_get_param(drcontext, 1);
+        data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+        if (end > start) {
+            buf_ptr = BUF_PTR(data->seg_base);
+            buf_ptr->type = TRACE_TYPE_INSTR_FLUSH;
+            buf_ptr->addr = start;
+            buf_ptr->size = ((end - start) <= USHRT_MAX) ? (end - start) : 0;
+            // if flush size is too large, we use two entries for start/end
+            if (buf_ptr->size == 0) {
+                ++buf_ptr;
+                buf_ptr->type = TRACE_TYPE_INSTR_FLUSH_END;
+                buf_ptr->addr = end;
+                buf_ptr->size = 0;
+            }
+            BUF_PTR(data->seg_base) = ++buf_ptr;
+        }
+    }
+#endif
+    memtrace(drcontext);
+    return true;
+}
+
 static void
 event_thread_init(void *drcontext)
 {
@@ -551,6 +587,7 @@ event_exit(void)
     if (!drmgr_unregister_tls_field(tls_idx) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        !drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
         !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
                                                       event_bb_analysis,
                                                       event_app_instruction,
@@ -597,6 +634,7 @@ dr_init(client_id_t id)
     dr_register_exit_event(event_exit);
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
+        !drmgr_register_pre_syscall_event(event_pre_syscall) ||
         !drmgr_register_bb_instrumentation_ex_event(event_bb_app2app,
                                                     event_bb_analysis,
                                                     event_app_instruction,

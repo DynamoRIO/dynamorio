@@ -86,6 +86,9 @@ cache_t::request(const memref_t &memref_in)
     addr_t final_tag = compute_tag(final_addr);
     addr_t tag = compute_tag(memref.addr);
 
+    // FIXME i#1703: if the request is a data write, we should check the
+    // instr cache and invalid cache line there if necessary on X86.
+
     // Optimization: remember last tag if single-line
     if (final_tag == tag) {
         if (tag == last_tag) {
@@ -166,4 +169,25 @@ cache_t::replace_which_way(int line_idx)
         // Else we have LFU.  LRU results in more misses on fib: look deeper.
     }
     return min_way;
+}
+
+void
+cache_t::flush(const memref_t &memref)
+{
+    addr_t tag = compute_tag(memref.addr);
+    addr_t final_tag = compute_tag(memref.addr + memref.size - 1/*no overflow*/);
+    last_tag = TAG_INVALID;
+    for (; tag <= final_tag; ++tag) {
+        int line_idx = compute_line_idx(tag);
+        for (int way = 0; way < associativity; ++way) {
+            if (get_cache_line(line_idx, way).tag == tag)
+                get_cache_line(line_idx, way).tag = TAG_INVALID;
+        }
+    }
+    // We flush parent's code cache here.
+    // XXX: should L1 data cache be flushed when L1 instr cache is flushed?
+    if (parent != NULL)
+        parent->flush(memref);
+    if (stats != NULL)
+        stats->flush(memref);
 }

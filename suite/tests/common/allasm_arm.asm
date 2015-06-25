@@ -63,6 +63,9 @@ separate_bb:
         mov      r1, #13           // sizeof(hello)
         bl       _print
 
+// direct call to test cache flush
+        bl       _flush
+
 // indirect direct call and "pop pc" return:
         ldr      r0, =hello
         mov      r1, #13           // sizeof(hello)
@@ -135,6 +138,16 @@ _print_pop_pc:
         mov      r7, #4            // SYS_write
         svc      0
         pop      {r4-r8,pc}
+
+_flush:
+        mov      r0, #0            // start
+        mov      r1, #0
+        movt     r1, #1            // end
+        mov      r2, #0
+        mov      r7, #2
+        movt     r7, #15           // SYS_cacheflush
+        svc      0
+        bx       lr
 
         .data
 hello:

@@ -80,8 +80,19 @@ simulator_t::run()
 
         if (memref.type == TRACE_TYPE_INSTR)
             cache_L1I.request(memref);
-        else
+        else if (memref.type == TRACE_TYPE_READ ||
+                 memref.type == TRACE_TYPE_WRITE ||
+                 // we may potentially handle prefetches differently
+                 memref.type == TRACE_TYPE_PREFETCH)
             cache_L1D.request(memref);
+        else if (memref.type == TRACE_TYPE_INSTR_FLUSH)
+            cache_L1I.flush(memref);
+        else if (memref.type == TRACE_TYPE_DATA_FLUSH)
+            cache_L1D.flush(memref);
+        else {
+            ERROR("unhandled memref type");
+            return false;
+        }
 
         if (op_verbose.get_value() > 2) {
             std::cout << "::" << memref.pid << "." << memref.tid << ":: " <<

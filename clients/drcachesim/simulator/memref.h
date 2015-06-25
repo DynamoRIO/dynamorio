@@ -36,6 +36,7 @@
 #define _MEMREF_H_ 1
 
 #include <stdint.h>
+#include <stddef.h> // for size_t
 #include "../common/trace_entry.h"
 
 // On some platforms, like MacOS, a thread id is 64 bits.
@@ -47,7 +48,7 @@ typedef struct _memref_t {
     memref_pid_t pid;
     memref_tid_t tid;
     unsigned short type; // trace_type_t
-    unsigned short size;
+    size_t size;
     addr_t addr;
     // The pc field is only used for read, write, and prefetch entries.
     // XXX: should we remove it from here and have the simulator compute it

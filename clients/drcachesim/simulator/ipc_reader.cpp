@@ -149,8 +149,20 @@ ipc_reader_t::operator++()
                 cur_ref.pc = cur_buf->addr;
                 cur_pc = cur_ref.addr;
                 break;
-            case TRACE_TYPE_FLUSH:
-                // FIXME i#1703: NYI
+            case TRACE_TYPE_INSTR_FLUSH:
+            case TRACE_TYPE_DATA_FLUSH:
+                cur_ref.pid = cur_pid;
+                cur_ref.tid = cur_tid;
+                cur_ref.type = cur_buf->type;
+                cur_ref.size = cur_buf->size;
+                cur_ref.addr = cur_buf->addr;
+                if (cur_ref.size != 0)
+                    have_memref = true;
+                break;
+            case TRACE_TYPE_INSTR_FLUSH_END:
+            case TRACE_TYPE_DATA_FLUSH_END:
+                cur_ref.size = cur_buf->addr - cur_ref.addr;
+                have_memref = true;
                 break;
             case TRACE_TYPE_THREAD:
                 cur_tid = (memref_tid_t) cur_buf->addr;
