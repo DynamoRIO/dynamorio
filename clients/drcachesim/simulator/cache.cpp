@@ -47,7 +47,9 @@ cache_t::init(int associativity_, int line_size_, int num_lines_,
 {
     if (!IS_POWER_OF_2(associativity_) ||
         !IS_POWER_OF_2(line_size_) ||
-        !IS_POWER_OF_2(num_lines_))
+        !IS_POWER_OF_2(num_lines_) ||
+        // Assuming cache line size is at least 4 bytes
+        line_size_ < 4)
         return false;
     associativity = associativity_;
     line_size = line_size_;
@@ -58,13 +60,11 @@ cache_t::init(int associativity_, int line_size_, int num_lines_,
     lines_per_set_mask = lines_per_set - 1;
     if (assoc_bits == -1 || line_size_bits == -1 || !IS_POWER_OF_2(lines_per_set))
         return false;
-
     parent = parent_;
     stats = stats_;
 
     lines = new cache_line_t[num_lines];
-
-    last_tag = 0; // sentinel
+    last_tag = TAG_INVALID; // sentinel
     return true;
 }
 
@@ -88,10 +88,11 @@ cache_t::request(const memref_t &memref_in)
 
     // Optimization: remember last tag if single-line
     if (final_tag == tag) {
-        if (tag == last_tag && tag != 0/*safety check for sentinel*/) {
+        if (tag == last_tag) {
             int line_idx = compute_line_idx(tag);
+            // Make sure last_tag is properly in sync.
             assert(get_cache_line(line_idx, last_way).tag == tag &&
-                   get_cache_line(line_idx, last_way).valid);
+                   tag != TAG_INVALID);
             access_update(line_idx, last_way);
             if (stats != NULL)
                 stats->access(memref, true);
@@ -99,7 +100,7 @@ cache_t::request(const memref_t &memref_in)
         } else
             last_tag = tag;
     } else
-        last_tag = 0; // sentinel
+        last_tag = TAG_INVALID; // sentinel
 
     for (; tag <= final_tag; ++tag) {
         bool hit = false;
@@ -110,8 +111,7 @@ cache_t::request(const memref_t &memref_in)
             memref.size = ((tag + 1) * line_size) - memref.addr;
 
         for (int way = 0; way < associativity; ++way) {
-            if (get_cache_line(line_idx, way).tag == tag &&
-                get_cache_line(line_idx, way).valid) {
+            if (get_cache_line(line_idx, way).tag == tag) {
                 hit = true;
                 final_way = way;
                 break;
@@ -126,8 +126,7 @@ cache_t::request(const memref_t &memref_in)
 
             final_way = replace_which_way(line_idx);
             get_cache_line(line_idx, final_way).tag = tag;
-            get_cache_line(line_idx, final_way).valid = true;
-            last_tag = 0; // sentinel
+            last_tag = TAG_INVALID; // sentinel
         }
 
         access_update(line_idx, final_way);

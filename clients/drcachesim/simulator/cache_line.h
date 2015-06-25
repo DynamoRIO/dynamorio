@@ -39,13 +39,17 @@
 #include <inttypes.h>
 #include "memref.h"
 
+// Assuming cache line size is at least 4-byte, we can use special value
+// that cannot be computed from valid address as special tag for
+// cache line status.
+static const addr_t TAG_INVALID = (addr_t)-1; // cacheline is invalid
+
 class cache_line_t
 {
  public:
-    cache_line_t() : tag(0), valid(false) {}
+    cache_line_t() : tag(TAG_INVALID) {}
 
     addr_t tag;
-    bool valid;
 
     // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
     // A 32-bit counter should be sufficient but we may want to revisit.
