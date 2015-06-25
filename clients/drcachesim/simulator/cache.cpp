@@ -52,11 +52,18 @@ cache_t::init(int associativity_, int line_size_, int num_lines_,
     associativity = associativity_;
     line_size = line_size_;
     num_lines = num_lines_;
+    lines_per_set = num_lines / associativity;
+    assoc_bits = compute_log2(associativity);
+    line_size_bits = compute_log2(line_size);
+    lines_per_set_mask = lines_per_set - 1;
+    if (assoc_bits == -1 || line_size_bits == -1 || !IS_POWER_OF_2(lines_per_set))
+        return false;
+
     parent = parent_;
     stats = stats_;
 
     lines = new cache_line_t[num_lines];
-    lines_per_set = num_lines / associativity;
+
     last_tag = 0; // sentinel
     return true;
 }

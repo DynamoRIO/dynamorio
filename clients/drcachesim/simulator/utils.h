@@ -48,4 +48,16 @@
 #define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
+static inline int
+compute_log2(int value)
+{
+    int i;
+    for (i = 0; i < 31; i++) {
+        if (value == 1 << i)
+            return i;
+    }
+    // returns -1 if value is not a power of 2.
+    return -1;
+}
+
 #endif /* _UTILS_H_ */

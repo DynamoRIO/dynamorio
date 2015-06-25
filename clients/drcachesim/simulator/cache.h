@@ -61,9 +61,9 @@ class cache_t
     virtual void access_update(int line_idx, int way);
     virtual int replace_which_way(int line_idx);
 
-    inline addr_t compute_tag(addr_t addr) { return addr / line_size; }
+    inline addr_t compute_tag(addr_t addr) { return addr >> line_size_bits; }
     inline int compute_line_idx(addr_t tag) {
-        return (tag % lines_per_set) * associativity;
+        return (tag & lines_per_set_mask) << assoc_bits;
     }
     inline cache_line_t& get_cache_line(int line_idx, int way) {
         return lines[line_idx + way];
@@ -75,6 +75,10 @@ class cache_t
     cache_t *parent;
     cache_line_t *lines;
     int lines_per_set;
+    // Optimization fields for fast bit operations
+    int lines_per_set_mask;
+    int assoc_bits;
+    int line_size_bits;
 
     cache_stats_t *stats;
 
