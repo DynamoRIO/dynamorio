@@ -1750,9 +1750,12 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                           os_set_protection, false/*!reachable*/);
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
-        ASSERT_MESSAGE(CHKLVL_ASSERTS, "The interpreter shouldn't have an "
-                       "interpreter.",
-                       elf_loader_find_pt_interp(&interp_ld) == NULL);
+        /* On Android, the system loader /system/bin/linker sets itself
+         * as the interpreter in the ELF header .interp field.
+        */
+        ASSERT_CURIOSITY_ONCE((strcmp(interp, "/system/bin/linker") == 0 ||
+                               elf_loader_find_pt_interp(&interp_ld) == NULL) &&
+                              "The interpreter shouldn't have an interpreter");
         entry = (app_pc)interp_ld.ehdr->e_entry + interp_ld.load_delta;
         elf_loader_destroy(&interp_ld);
     } else {
