@@ -172,12 +172,14 @@ simulator_t::run()
             last_core = core;
         }
 
-        if (memref.type == TRACE_TYPE_INSTR)
+        if (memref.type == TRACE_TYPE_INSTR ||
+            memref.type == TRACE_TYPE_PREFETCH_INSTR)
             icaches[core].request(memref);
         else if (memref.type == TRACE_TYPE_READ ||
                  memref.type == TRACE_TYPE_WRITE ||
-                 // we may potentially handle prefetches differently
-                 memref.type == TRACE_TYPE_PREFETCH)
+                 // We may potentially handle prefetches differently.
+                 // TRACE_TYPE_PREFETCH_INSTR is handled above.
+                 type_is_prefetch(memref.type))
             dcaches[core].request(memref);
         else if (memref.type == TRACE_TYPE_INSTR_FLUSH)
             icaches[core].flush(memref);

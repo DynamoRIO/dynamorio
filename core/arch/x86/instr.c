@@ -631,7 +631,7 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 
 bool instr_is_prefetch(instr_t *instr)
 {
-    int opcode=instr_get_opcode(instr);
+    int opcode = instr_get_opcode(instr);
 
     if (opcode == OP_prefetchnta ||
         opcode == OP_prefetcht0 ||

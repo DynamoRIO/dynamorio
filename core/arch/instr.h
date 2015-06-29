@@ -2056,9 +2056,7 @@ instr_is_wow64_syscall(instr_t *instr);
 
 DR_API
 /**
- * Returns true iff \p instr is a prefetch instruction: OP_prefetchnta,
- * OP_prefetchnt0, OP_prefetchnt1, OP_prefetchnt2, OP_prefetch, or
- * OP_prefetchw.
+ * Returns true iff \p instr is a prefetch instruction.
  */
 bool
 instr_is_prefetch(instr_t *instr);

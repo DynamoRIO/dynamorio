@@ -62,7 +62,9 @@ class cache_stats_t
     int_least64_t num_hits;
     int_least64_t num_misses;
     int_least64_t num_child_hits;
-    int num_flushes;
+    int_least64_t num_flushes;
+    int_least64_t num_prefetch_hits;
+    int_least64_t num_prefetch_misses;
 };
 
 #endif /* _CACHE_STATS_H_ */

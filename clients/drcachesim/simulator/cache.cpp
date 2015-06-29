@@ -116,7 +116,7 @@ cache_t::request(const memref_t &memref_in)
         if (tag + 1 <= final_tag)
             memref.size = ((tag + 1) * line_size) - memref.addr;
 
-        for (int way = 0; way < associativity; ++way) {
+       for (int way = 0; way < associativity; ++way) {
             if (get_cache_line(line_idx, way).tag == tag) {
                 hit = true;
                 final_way = way;

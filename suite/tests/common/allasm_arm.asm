@@ -49,6 +49,12 @@ _start:
         cmp      r3, #0
         bne      1b
 
+// prefetch
+        .word    0xf4dff080         // pli [pc, #128] miss
+        .word    0xf4dff080         // pli [pc, #128] hit
+        .word    0xf5dff080         // pld [pc, #128] miss
+        .word    0xf5dff080         // pld [pc, #128] hit
+
 // loop with linkable (no syscall -> shared) branches
         mov      r3, #100
 2:

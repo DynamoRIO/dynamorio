@@ -428,8 +428,10 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 
 bool instr_is_prefetch(instr_t *instr)
 {
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
+    int opcode = instr_get_opcode(instr);
+
+    if (opcode == OP_pld || opcode == OP_pldw || opcode == OP_pli)
+        return true;
     return false;
 }
 

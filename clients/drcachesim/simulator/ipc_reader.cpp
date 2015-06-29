@@ -129,6 +129,12 @@ ipc_reader_t::operator++()
             case TRACE_TYPE_READ:
             case TRACE_TYPE_WRITE:
             case TRACE_TYPE_PREFETCH:
+            case TRACE_TYPE_PREFETCHT0:
+            case TRACE_TYPE_PREFETCHT1:
+            case TRACE_TYPE_PREFETCHT2:
+            case TRACE_TYPE_PREFETCHNTA:
+            case TRACE_TYPE_PREFETCH_READ:
+            case TRACE_TYPE_PREFETCH_WRITE:
                 have_memref = true;
                 cur_ref.pid = cur_pid;
                 cur_ref.tid = cur_tid;
@@ -140,6 +146,7 @@ ipc_reader_t::operator++()
                 cur_ref.pc = cur_pc;
                 break;
             case TRACE_TYPE_INSTR:
+            case TRACE_TYPE_PREFETCH_INSTR:
                 have_memref = true;
                 cur_ref.pid = cur_pid;
                 cur_ref.tid = cur_tid;

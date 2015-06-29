@@ -35,7 +35,8 @@
 #include "cache_stats.h"
 
 cache_stats_t::cache_stats_t() :
-    num_hits(0), num_misses(0), num_child_hits(0), num_flushes(0)
+    num_hits(0), num_misses(0), num_child_hits(0), num_flushes(0),
+    num_prefetch_hits(0), num_prefetch_misses(0)
 {
 }
 
@@ -48,10 +49,17 @@ cache_stats_t::access(const memref_t &memref, bool hit)
 {
     // We assume we're single-threaded.
     // We're only computing miss rate so we just inc counters here.
-    if (hit)
-        num_hits++;
-    else
-        num_misses++;
+    if (type_is_prefetch(memref.type)) {
+        if (hit)
+            num_prefetch_hits++;
+        else
+            num_prefetch_misses++;
+    } else {
+        if (hit)
+            num_hits++;
+        else
+            num_misses++;
+    }
 }
 
 void
@@ -79,6 +87,12 @@ cache_stats_t::print_stats(std::string prefix)
     if (num_flushes != 0) {
         std::cout << prefix << std::setw(18) << std::left << "Flushes:" <<
             std::setw(20) << std::right << num_flushes << std::endl;
+    }
+    if (num_prefetch_hits + num_prefetch_misses != 0) {
+        std::cout << prefix << std::setw(18) << std::left << "Prefetch hits:" <<
+            std::setw(20) << std::right << num_prefetch_hits << std::endl;
+        std::cout << prefix << std::setw(18) << std::left << "Prefetch misses:" <<
+            std::setw(20) << std::right << num_prefetch_misses << std::endl;
     }
     if (num_hits + num_misses > 0) {
         std::string miss_label = "Miss rate:";

@@ -58,7 +58,18 @@ typedef enum {
     // These entries describe a memory reference as data:
     TRACE_TYPE_READ,
     TRACE_TYPE_WRITE,
+
+    // General prefetch to L1 data cache
     TRACE_TYPE_PREFETCH,
+    // X86 specific prefetch
+    TRACE_TYPE_PREFETCHT0,
+    TRACE_TYPE_PREFETCHT1,
+    TRACE_TYPE_PREFETCHT2,
+    TRACE_TYPE_PREFETCHNTA,
+    // ARM specific prefetch
+    TRACE_TYPE_PREFETCH_READ,
+    TRACE_TYPE_PREFETCH_WRITE,
+    TRACE_TYPE_PREFETCH_INSTR,
 
     // These entries describe an instruction fetch memory reference.
     // The trace stream always has the instr fetch prior to data refs,
@@ -98,5 +109,11 @@ typedef struct _trace_entry_t {
     unsigned short size; // 2 bytes: mem ref size or instr length
     addr_t addr;         // 4/8 bytes: mem ref addr, instr pc, tid, pid
 } trace_entry_t;
+
+static inline bool
+type_is_prefetch(unsigned short type)
+{
+    return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR);
+}
 
 #endif /* _TRACE_ENTRY_H_ */

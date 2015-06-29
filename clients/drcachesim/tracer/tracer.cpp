@@ -300,6 +300,35 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                                opnd_create_reg(reg_addr)));
 }
 
+static unsigned short
+instr_to_prefetch_type(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr);
+    DR_ASSERT(instr_is_prefetch(instr));
+    switch (opcode) {
+#ifdef X86
+    case OP_prefetcht0:
+        return TRACE_TYPE_PREFETCHT0;
+    case OP_prefetcht1:
+        return TRACE_TYPE_PREFETCHT1;
+    case OP_prefetcht2:
+        return TRACE_TYPE_PREFETCHT2;
+    case OP_prefetchnta:
+        return TRACE_TYPE_PREFETCHNTA;
+#endif
+#ifdef ARM
+    case OP_pld:
+        return TRACE_TYPE_PREFETCH_READ;
+    case OP_pldw:
+        return TRACE_TYPE_PREFETCH_WRITE;
+    case OP_pli:
+        return TRACE_TYPE_PREFETCH_INSTR;
+#endif
+    default:
+        return TRACE_TYPE_PREFETCH;
+    }
+}
+
 /* insert inline code to add an instruction entry into the buffer */
 static void
 instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -317,9 +346,16 @@ static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
                bool write, reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
+    ushort type = write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ;
+    ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
+    // Special handling for prefetch instruction
+    if (instr_is_prefetch(where)) {
+        type = instr_to_prefetch_type(where);
+        // Prefetch instruction may have zero sized mem reference.
+        size = 1;
+    }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ,
-                              (ushort)drutil_opnd_mem_size_in_bytes(ref, where), adjust);
+                              type, size, adjust);
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp, adjust);
 }
 
