@@ -90,6 +90,19 @@ typedef enum {
 // solution is superior to this C++ approach.
 
 /**
+ * The bytesize_t class exists to provide an option type that accepts suffixes
+ * like 'K', 'M', and 'G' when specifying sizes in units of bytes.
+ */
+class bytesize_t
+{
+ public:
+    bytesize_t() : size(0) {}
+    bytesize_t(unsigned int val) : size(val) {}
+    operator unsigned int() const { return size; }
+    unsigned int size;
+};
+
+/**
  * Option parser base class.
  */
 class droption_parser_t
@@ -405,6 +418,32 @@ droption_t<bool>::convert_from_string(const std::string s)
     // We shouldn't get here
     return false;
 }
+template<> inline bool
+droption_t<bytesize_t>::convert_from_string(const std::string s)
+{
+    char suffix = *s.rbegin(); // s.back() only in C++11
+    int scale;
+    switch (suffix) {
+    case 'K':
+    case 'k': scale = 1024; break;
+    case 'M':
+    case 'm': scale = 1024*1024; break;
+    case 'G':
+    case 'g': scale = 1024*1024*1024; break;
+    default: scale = 1;
+    }
+    std::string toparse = s;
+    if (scale > 1)
+        toparse = s.substr(0, s.size()-1); // s.pop_back() only in C++11
+    int input = atoi(toparse.c_str());
+    if (input >= 0)
+        value = input * scale;
+    else {
+        value = 0;
+        return false;
+    }
+    return true;
+}
 
 template<> inline std::string
 droption_t<std::string>::default_as_string() const
@@ -427,6 +466,24 @@ template<> inline std::string
 droption_t<bool>::default_as_string() const
 {
     return (defval ? "true" : "false");
+}
+template<> inline std::string
+droption_t<bytesize_t>::default_as_string() const
+{
+    unsigned int val = defval;
+    std::string suffix = "";
+    if (defval >= 1024*1024*1024 && defval % 1024*1024*1024 == 0) {
+        suffix = "G";
+        val /= 1024*1024*1024;
+    } else if (defval >= 1024*1024 && defval % 1024*1024 == 0) {
+        suffix = "M";
+        val /= 1024*1024;
+    } else if (defval >= 1024 && defval % 1024 == 0) {
+        suffix = "K";
+        val /= 1024;
+    }
+    return dynamic_cast< std::ostringstream & >
+        ((std::ostringstream() << std::dec << val)).str() + suffix;
 }
 
 // Convenience routine for client use
