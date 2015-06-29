@@ -928,12 +928,16 @@ switch_to_native_tool(const char **app_argv, const char *native_tool,
     new_argv[i++] = NULL;
     assert(i == count);
     if (verbose) {
-        char buf[MAXIMUM_PATH];
+        char buf[MAXIMUM_PATH*2];
         char *c = buf;
         for (i = 0; i < count - 1; i++) {
-            c += _snprintf(c, BUFFER_SIZE_ELEMENTS(buf) - (c - buf),
-                           " \"%s\"", new_argv[i]);
+            ssize_t len = _snprintf(c, BUFFER_SIZE_ELEMENTS(buf) - (c - buf),
+                                    " \"%s\"", new_argv[i]);
+            if (len < 0 || (size_t)len >= BUFFER_SIZE_ELEMENTS(buf) - (c - buf))
+                break;
+            c += len;
         }
+        NULL_TERMINATE_BUFFER(buf);
         info("native tool cmdline: %s", buf);
     }
     return new_argv;
