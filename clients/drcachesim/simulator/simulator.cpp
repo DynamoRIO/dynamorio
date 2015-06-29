@@ -32,6 +32,7 @@
 
 #include <iostream>
 #include <iterator>
+#include <string>
 #include "utils.h"
 #include "memref.h"
 #include "ipc_reader.h"
@@ -52,16 +53,47 @@ simulator_t::init()
     }
     ipc_iter = ipc_reader_t(op_ipc_name.get_value().c_str());
 
-    // FIXME i#1703: take params from args
-    // FIXME i#1703: build a separate L1D per specified core, and use a
-    // static assignment of app threads to cores.
-    if (!cache_L2.init(8, 64, 8192/*512KB cache*/, NULL, &stats_L2) ||
-        !cache_L1I.init(4, 64, 512/*32KB cache*/, &cache_L2, &stats_L1I) ||
-        !cache_L1D.init(4, 64, 512/*32KB cache*/, &cache_L2, &stats_L1D)) {
-        ERROR("failed to initialize caches");
+    // XXX i#1703: get defaults from hardware being run on.
+    num_cores = op_num_cores.get_value();
+    if (!IS_POWER_OF_2(num_cores)) { // power of 2 for our mask
+        ERROR("Usage error: %s must be a power of 2\n", op_num_cores.get_name().c_str());
         return false;
     }
+    num_cores_mask = num_cores - 1;
+
+    if (!llcache.init(op_LL_assoc.get_value(), op_line_size.get_value(),
+                      op_LL_size.get_value(), NULL, new cache_stats_t)) {
+        ERROR("Usage error: failed to initialize LL cache.  Ensure sizes and "
+              "associativity are powers of 2 "
+              "and that the total size is a multiple of the line size.\n");
+        return false;
+    }
+    icaches = new cache_t[num_cores];
+    dcaches = new cache_t[num_cores];
+    for (int i = 0; i < num_cores; i++) {
+        if (!icaches[i].init(op_L1I_assoc.get_value(), op_line_size.get_value(),
+                             op_L1I_size.get_value(), &llcache, new cache_stats_t) ||
+            !dcaches[i].init(op_L1D_assoc.get_value(), op_line_size.get_value(),
+                             op_L1D_size.get_value(), &llcache, new cache_stats_t)) {
+            ERROR("Usage error: failed to initialize L1 caches.  Ensure sizes and "
+                  "associativity are powers of 2 "
+                  "and that the total sizes are multiples of the line size.\n");
+            return false;
+        }
+    }
+
     return true;
+}
+
+simulator_t::~simulator_t()
+{
+    delete llcache.get_stats();
+    for (int i = 0; i < num_cores; i++) {
+        delete icaches[i].get_stats();
+        delete dcaches[i].get_stats();
+    }
+    delete [] icaches;
+    delete [] dcaches;
 }
 
 bool
@@ -76,19 +108,24 @@ simulator_t::run()
     // here.
     for (; ipc_iter != ipc_end; ++ipc_iter) {
         memref_t memref = *ipc_iter;
-        // FIXME i#1703: pass to caches per static core assignment.
+
+        // We use a simple static core assignment to map threads to cores,
+        // as it is not practical to measure which core each thread actually
+        // ran on for each memref.
+        // FIXME i#1703: use a fairer round-robin assignment.
+        int core = memref.tid & num_cores_mask;
 
         if (memref.type == TRACE_TYPE_INSTR)
-            cache_L1I.request(memref);
+            icaches[core].request(memref);
         else if (memref.type == TRACE_TYPE_READ ||
                  memref.type == TRACE_TYPE_WRITE ||
                  // we may potentially handle prefetches differently
                  memref.type == TRACE_TYPE_PREFETCH)
-            cache_L1D.request(memref);
+            dcaches[core].request(memref);
         else if (memref.type == TRACE_TYPE_INSTR_FLUSH)
-            cache_L1I.flush(memref);
+            icaches[core].flush(memref);
         else if (memref.type == TRACE_TYPE_DATA_FLUSH)
-            cache_L1D.flush(memref);
+            dcaches[core].flush(memref);
         else {
             ERROR("unhandled memref type");
             return false;
@@ -109,11 +146,13 @@ simulator_t::run()
 bool
 simulator_t::print_stats()
 {
-    std::cout << "L1I stats:" << std::endl;
-    stats_L1I.print_stats();
-    std::cout << "L1D stats:" << std::endl;
-    stats_L1D.print_stats();
-    std::cout << "L2 stats:" << std::endl;
-    stats_L2.print_stats();
+    for (int i = 0; i < num_cores; i++) {
+        std::cout << "Core #" << i << " L1I stats:" << std::endl;
+        icaches[i].get_stats()->print_stats();
+        std::cout << "Core #" << i << " L1D stats:" << std::endl;
+        dcaches[i].get_stats()->print_stats();
+    }
+    std::cout << "LL stats:" << std::endl;
+    llcache.get_stats()->print_stats();
     return true;
 }

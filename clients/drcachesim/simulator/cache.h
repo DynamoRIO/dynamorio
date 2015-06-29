@@ -52,11 +52,14 @@ class cache_t
 {
  public:
     cache_t();
-    virtual bool init(int associativity, int line_size, int num_lines,
+    virtual bool init(int associativity, int line_size, int total_size,
                       cache_t *parent, cache_stats_t *stats);
     virtual ~cache_t();
     virtual void request(const memref_t &memref);
     virtual void flush(const memref_t &memref);
+
+    cache_stats_t *get_stats() const { return stats; }
+    cache_t *get_parent() const { return parent; }
 
  protected:
     virtual void access_update(int line_idx, int way);

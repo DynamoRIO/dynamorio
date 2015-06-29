@@ -43,9 +43,9 @@
 class simulator_t
 {
  public:
-    simulator_t() {} // Empty for now
+    simulator_t() {}
     bool init();
-    ~simulator_t() {} // Empty for now
+    ~simulator_t();
     bool run();
     bool print_stats();
 
@@ -53,13 +53,13 @@ class simulator_t
     ipc_reader_t ipc_end;
     ipc_reader_t ipc_iter;
 
-    cache_stats_t stats_L1I;
-    cache_t cache_L1I;
-    cache_stats_t stats_L1D;
-    cache_t cache_L1D;
-    // L2 is our shared level in our simple hierarchy here.
-    cache_stats_t stats_L2;
-    cache_t cache_L2;
+    // Currently we only support a simple 2-level hierarchy.
+    // XXX i#1715: add support for arbitrary cache layouts.
+    int num_cores;
+    unsigned int num_cores_mask;
+    cache_t *icaches;
+    cache_t *dcaches;
+    cache_t llcache;
 };
 
 #endif /* _SIMULATOR_H_ */

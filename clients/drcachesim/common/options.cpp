@@ -41,6 +41,40 @@ droption_t<std::string> op_ipc_name
  "Specifies the base name of the named pipe used to communicate between the target "
  "application processes and the cache simulator.");
 
+droption_t<unsigned int> op_num_cores
+(DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",
+ "Specifies the number of cores to simulate.  Each core has an L1 instruction cache "
+ "and an L1 data cache.");
+
+droption_t<unsigned int> op_line_size
+(DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
+ "Specifies the cache line size, which is assumed to be identical for L1 and L2 "
+ "caches.");
+
+droption_t<bytesize_t> op_L1I_size
+(DROPTION_SCOPE_FRONTEND, "L1I_size", 32*1024U, "Instruction cache total size",
+ "Specifies the total size of each L1 instruction cache.");
+
+droption_t<bytesize_t> op_L1D_size
+(DROPTION_SCOPE_FRONTEND, "L1D_size", bytesize_t(32*1024), "Data cache total size",
+ "Specifies the total size of each L1 data cache.");
+
+droption_t<unsigned int> op_L1I_assoc
+(DROPTION_SCOPE_FRONTEND, "L1I_assoc", 8, "Instruction cache associativity",
+ "Specifies the associativity of each L1 instruction cache.");
+
+droption_t<unsigned int> op_L1D_assoc
+(DROPTION_SCOPE_FRONTEND, "L1D_assoc", 8, "Data cache associativity",
+ "Specifies the associativity of each L1 data cache.");
+
+droption_t<bytesize_t> op_LL_size
+(DROPTION_SCOPE_FRONTEND, "LL_size", 8*1024*1024, "Last-level cache total size",
+ "Specifies the total size of the unified last-level (L2) cache.");
+
+droption_t<unsigned int> op_LL_assoc
+(DROPTION_SCOPE_FRONTEND, "LL_assoc", 16, "Last-level cache associativity",
+ "Specifies the associativity of the unified last-level (L2) cache.");
+
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
  "Verbosity level for notifications.");

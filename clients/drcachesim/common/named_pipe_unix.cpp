@@ -38,11 +38,6 @@
 #include <errno.h>
 #include "named_pipe.h"
 
-// FIXME i#1703: add support for DR-private fd's by passing in a function for ::open?
-// Need to add O_WRONLY support via DR_FILE_WRITE_ONLY to dr_open_file() first.
-// Xref i#498 where we'd want to add named pipe routines directly to DR.
-// We could try to turn this code into a DR extension, maybe add to drx?
-
 // XXX: should read from /proc/sys/fs/pipe-max-size instead of hardcoding here.
 // This is the max size an unprivileged process can request.
 #define PIPE_BUF_MAX_SIZE 1048576

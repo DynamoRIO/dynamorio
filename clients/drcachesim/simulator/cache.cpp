@@ -42,18 +42,18 @@ cache_t::cache_t()
 }
 
 bool
-cache_t::init(int associativity_, int line_size_, int num_lines_,
+cache_t::init(int associativity_, int line_size_, int total_size,
               cache_t *parent_, cache_stats_t *stats_)
 {
     if (!IS_POWER_OF_2(associativity_) ||
         !IS_POWER_OF_2(line_size_) ||
-        !IS_POWER_OF_2(num_lines_) ||
+        total_size % line_size_ != 0 ||
         // Assuming cache line size is at least 4 bytes
         line_size_ < 4)
         return false;
     associativity = associativity_;
     line_size = line_size_;
-    num_lines = num_lines_;
+    num_lines = total_size / line_size;
     lines_per_set = num_lines / associativity;
     assoc_bits = compute_log2(associativity);
     line_size_bits = compute_log2(line_size);

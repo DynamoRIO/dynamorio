@@ -39,6 +39,14 @@
 #include "droption.h"
 
 extern droption_t<std::string> op_ipc_name;
+extern droption_t<unsigned int> op_num_cores;
+extern droption_t<unsigned int> op_line_size;
+extern droption_t<bytesize_t> op_L1I_size;
+extern droption_t<bytesize_t> op_L1D_size;
+extern droption_t<unsigned int> op_L1I_assoc;
+extern droption_t<unsigned int> op_L1D_assoc;
+extern droption_t<bytesize_t> op_LL_size;
+extern droption_t<unsigned int> op_LL_assoc;
 extern droption_t<unsigned int> op_verbose;
 extern droption_t<std::string> op_dr_root;
 extern droption_t<bool> op_dr_debug;
