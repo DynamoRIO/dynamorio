@@ -33,6 +33,8 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <assert.h>
+#include <limits.h>
 #include "utils.h"
 #include "memref.h"
 #include "ipc_reader.h"
@@ -54,12 +56,8 @@ simulator_t::init()
     ipc_iter = ipc_reader_t(op_ipc_name.get_value().c_str());
 
     // XXX i#1703: get defaults from hardware being run on.
+
     num_cores = op_num_cores.get_value();
-    if (!IS_POWER_OF_2(num_cores)) { // power of 2 for our mask
-        ERROR("Usage error: %s must be a power of 2\n", op_num_cores.get_name().c_str());
-        return false;
-    }
-    num_cores_mask = num_cores - 1;
 
     if (!llcache.init(op_LL_assoc.get_value(), op_line_size.get_value(),
                       op_LL_size.get_value(), NULL, new cache_stats_t)) {
@@ -82,6 +80,11 @@ simulator_t::init()
         }
     }
 
+    thread_counts = new unsigned int[num_cores];
+    memset(thread_counts, 0, sizeof(thread_counts[0])*num_cores);
+    thread_ever_counts = new unsigned int[num_cores];
+    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*num_cores);
+
     return true;
 }
 
@@ -94,6 +97,51 @@ simulator_t::~simulator_t()
     }
     delete [] icaches;
     delete [] dcaches;
+    delete [] thread_counts;
+    delete [] thread_ever_counts;
+}
+
+int
+simulator_t::core_for_thread(memref_tid_t tid)
+{
+    std::map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
+    if (exists != thread2core.end())
+        return exists->second;
+    // A new thread: we want to assign it to the least-loaded core,
+    // measured just by the number of threads.
+    // We assume the # of cores is small and that it's fastest to do a
+    // linear search versus maintaining some kind of sorted data
+    // structure.
+    unsigned int min_count = UINT_MAX;
+    int min_core = 0;
+    for (int i = 0; i < num_cores; i++) {
+        if (thread_counts[i] < min_count) {
+            min_count = thread_counts[i];
+            min_core = i;
+        }
+    }
+    if (op_verbose.get_value() >= 1) {
+        std::cout << "new thread " << tid << " => core " << min_core <<
+            " (count=" << thread_counts[min_core] << ")" << std::endl;
+    }
+    ++thread_counts[min_core];
+    ++thread_ever_counts[min_core];
+    thread2core[tid] = min_core;
+    return min_core;
+}
+
+void
+simulator_t::handle_thread_exit(memref_tid_t tid)
+{
+    std::map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
+    assert(exists != thread2core.end());
+    assert(thread_counts[exists->second] > 0);
+    --thread_counts[exists->second];
+    if (op_verbose.get_value() >= 1) {
+        std::cout << "thread " << tid << " exited from core " << exists->second <<
+            " (count=" << thread_counts[exists->second] << ")" << std::endl;
+    }
+    thread2core.erase(tid);
 }
 
 bool
@@ -103,17 +151,26 @@ simulator_t::run()
         ERROR("failed to read from pipe %s", op_ipc_name.get_value().c_str());
         return false;
     }
-    // FIXME i#1703: add options to select either ipc_reader_t or
+    memref_tid_t last_thread = 0;
+    int last_core = 0;
+
+    // XXX i#1703: add options to select either ipc_reader_t or
     // a recorded trace file reader, and use a base class reader_t
     // here.
     for (; ipc_iter != ipc_end; ++ipc_iter) {
         memref_t memref = *ipc_iter;
 
-        // We use a simple static core assignment to map threads to cores,
-        // as it is not practical to measure which core each thread actually
+        // We use a static scheduling of threads to cores, as it is
+        // not practical to measure which core each thread actually
         // ran on for each memref.
-        // FIXME i#1703: use a fairer round-robin assignment.
-        int core = memref.tid & num_cores_mask;
+        int core;
+        if (memref.tid == last_thread)
+            core = last_core;
+        else {
+            core = core_for_thread(memref.tid);
+            last_thread = memref.tid;
+            last_core = core;
+        }
 
         if (memref.type == TRACE_TYPE_INSTR)
             icaches[core].request(memref);
@@ -126,12 +183,15 @@ simulator_t::run()
             icaches[core].flush(memref);
         else if (memref.type == TRACE_TYPE_DATA_FLUSH)
             dcaches[core].flush(memref);
-        else {
+        else if (memref.type == TRACE_TYPE_THREAD_EXIT) {
+            handle_thread_exit(memref.tid);
+            last_thread = 0;
+        } else {
             ERROR("unhandled memref type");
             return false;
         }
 
-        if (op_verbose.get_value() > 2) {
+        if (op_verbose.get_value() >= 3) {
             std::cout << "::" << memref.pid << "." << memref.tid << ":: " <<
                 " @" << (void *)memref.pc <<
                 ((memref.type == TRACE_TYPE_READ) ? " R " :
@@ -147,12 +207,16 @@ bool
 simulator_t::print_stats()
 {
     for (int i = 0; i < num_cores; i++) {
-        std::cout << "Core #" << i << " L1I stats:" << std::endl;
-        icaches[i].get_stats()->print_stats();
-        std::cout << "Core #" << i << " L1D stats:" << std::endl;
-        dcaches[i].get_stats()->print_stats();
+        unsigned int threads = thread_ever_counts[i];
+        std::cout << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
+        if (threads > 0) {
+            std::cout << "  L1I stats:" << std::endl;
+            icaches[i].get_stats()->print_stats("    ");
+            std::cout << "  L1D stats:" << std::endl;
+            dcaches[i].get_stats()->print_stats("    ");
+        }
     }
     std::cout << "LL stats:" << std::endl;
-    llcache.get_stats()->print_stats();
+    llcache.get_stats()->print_stats("    ");
     return true;
 }

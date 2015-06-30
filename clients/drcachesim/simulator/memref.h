@@ -48,8 +48,12 @@ typedef struct _memref_t {
     memref_pid_t pid;
     memref_tid_t tid;
     unsigned short type; // trace_type_t
+
+    // Fields below are here at not valid for TRACE_TYPE_THREAD_EXIT.
+
     size_t size;
     addr_t addr;
+
     // The pc field is only used for read, write, and prefetch entries.
     // XXX: should we remove it from here and have the simulator compute it
     // from instr entries?  Though if the user turns off icache simulation

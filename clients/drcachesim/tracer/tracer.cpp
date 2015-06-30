@@ -568,7 +568,16 @@ static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+
+    /* let the simulator know this thread has exited */
+    trace_entry_t *buf_ptr = BUF_PTR(data->seg_base);
+    buf_ptr->type = TRACE_TYPE_THREAD_EXIT;
+    buf_ptr->size = sizeof(thread_id_t);
+    buf_ptr->addr = (addr_t) dr_get_thread_id(drcontext);
+    BUF_PTR(data->seg_base) = ++buf_ptr;
+
     memtrace(drcontext);
+
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);

@@ -83,6 +83,9 @@ typedef enum {
     // field:
     TRACE_TYPE_THREAD,
 
+    // This entry indicates that the thread whose id is in the addr field exited:
+    TRACE_TYPE_THREAD_EXIT,
+
     // These entries indicate which process the current thread belongs to.
     // The process id is in the addr field.
     TRACE_TYPE_PID,

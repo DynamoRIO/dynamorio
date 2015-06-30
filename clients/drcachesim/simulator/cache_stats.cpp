@@ -61,18 +61,18 @@ cache_stats_t::flush(const memref_t &memref)
 }
 
 void
-cache_stats_t::print_stats()
+cache_stats_t::print_stats(std::string prefix)
 {
     std::cout.imbue(std::locale("")); // Add commas, at least for my locale
-    std::cout << "  Hits:      " << std::setw(20) << std::right <<
+    std::cout << prefix << "Hits:      " << std::setw(20) << std::right <<
         num_hits << std::endl;
-    std::cout << "  Misses:    " << std::setw(20) << std::right <<
+    std::cout << prefix << "Misses:    " << std::setw(20) << std::right <<
         num_misses << std::endl;
     if (num_flushes != 0) {
-        std::cout << "  Flushes:   " << std::setw(20) << std::right <<
+        std::cout << prefix << "Flushes:   " << std::setw(20) << std::right <<
             num_flushes << std::endl;
     }
-    std::cout << "  Miss rate: " << std::setw(20) << std::fixed <<
+    std::cout << prefix << "Miss rate: " << std::setw(20) << std::fixed <<
         std::setprecision(2) <<
         ((float)num_misses*100/(num_hits+num_misses)) << "%" << std::endl;
 }

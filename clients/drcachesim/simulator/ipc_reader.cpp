@@ -168,6 +168,15 @@ ipc_reader_t::operator++()
                 cur_tid = (memref_tid_t) cur_buf->addr;
                 cur_pid = tid2pid[cur_tid];
                 break;
+            case TRACE_TYPE_THREAD_EXIT:
+                cur_tid = (memref_tid_t) cur_buf->addr;
+                cur_pid = tid2pid[cur_tid];
+                // We do pass this to the caller but only some fields are valid:
+                cur_ref.pid = cur_pid;
+                cur_ref.tid = cur_tid;
+                cur_ref.type = cur_buf->type;
+                have_memref = true;
+                break;
             case TRACE_TYPE_PID:
                 // We do want to replace, in case of tid reuse.
                 tid2pid[cur_tid] = (memref_pid_t) cur_buf->addr;

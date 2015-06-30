@@ -36,6 +36,7 @@
 #ifndef _SIMULATOR_H_
 #define _SIMULATOR_H_ 1
 
+#include <map>
 #include "cache_stats.h"
 #include "cache.h"
 #include "ipc_reader.h"
@@ -50,16 +51,23 @@ class simulator_t
     bool print_stats();
 
  protected:
+    int core_for_thread(memref_tid_t tid);
+    void handle_thread_exit(memref_tid_t tid);
+
     ipc_reader_t ipc_end;
     ipc_reader_t ipc_iter;
 
     // Currently we only support a simple 2-level hierarchy.
     // XXX i#1715: add support for arbitrary cache layouts.
     int num_cores;
-    unsigned int num_cores_mask;
     cache_t *icaches;
     cache_t *dcaches;
     cache_t llcache;
+
+    // For thread mapping to cores:
+    std::map<memref_tid_t, int> thread2core;
+    unsigned int *thread_counts;
+    unsigned int *thread_ever_counts;
 };
 
 #endif /* _SIMULATOR_H_ */

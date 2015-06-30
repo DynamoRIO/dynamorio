@@ -36,6 +36,7 @@
 #ifndef _CACHE_STATS_H_
 #define _CACHE_STATS_H_ 1
 
+#include <string>
 #include <inttypes.h>
 #include "memref.h"
 
@@ -52,7 +53,7 @@ class cache_stats_t
 
     virtual void flush(const memref_t &memref);
 
-    virtual void print_stats();
+    virtual void print_stats(std::string prefix);
 
  protected:
     int_least64_t num_hits;
