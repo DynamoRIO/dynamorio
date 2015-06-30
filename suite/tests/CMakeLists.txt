@@ -628,7 +628,8 @@ endfunction(get_client_path)
 
 # A shared app for use with multiple ci tests
 set(ci_shared_app simple_app)
-add_exe(${ci_shared_app} client-interface/${ci_shared_app}.c)
+set(ci_shared_app_src client-interface/${ci_shared_app}.c)
+add_exe(${ci_shared_app} ${ci_shared_app_src})
 
 # A client interface app with client.
 # If ${source} does not exist, ${ci_shared_app} is used as the target app.
@@ -1173,13 +1174,18 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
   endif (DEFINED ${key}_realtest)
 
   get_filename_component(srcbase ${source} NAME_WE)
-  get_filename_component(srcpath ${source} PATH)
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall")
+  if (DEFINED ${key}_basedir)
+    set(testpath ${${key}_basedir})
+  else ()
+    get_filename_component(srcpath ${source} PATH)
+    set(testpath ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath})
+  endif ()
+  if (EXISTS "${testpath}/${srcbase}.runall")
     set(is_runall ON)
   else ()
     set(is_runall OFF)
   endif ()
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runcmp" OR
+  if (EXISTS "${testpath}/${srcbase}.runcmp" OR
       DEFINED ${key}_runcmp)
     set(is_runcmp ON)
   else ()
@@ -1218,7 +1224,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
 
   if (is_runall)
     # to run the test we use a series of commands in runall.cmake.
-    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall" runall)
+    file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
       # swap from drrun to run_in_bg to run the test in the background
       set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
@@ -1289,12 +1295,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     add_test(${test} ${rundr} ${exepath} ${exe_ops})
   endif (is_runall)
 
-  if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
-    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect expect)
+  if (EXISTS ${testpath}/${expectbase}.expect)
+    file(READ ${testpath}/${expectbase}.expect expect)
     # add dependence so cmake will reconfigure if file changes
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect
+    configure_file(${testpath}/${expectbase}.expect
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
-  elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template)
+  elseif (EXISTS ${testpath}/${expectbase}.template)
     # We convert .template at configure time and use CTest's built-in
     # PASS_REGULAR_EXPRESSION to diff the output.
     #
@@ -1313,29 +1319,34 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # * We could support extra runtime options via env var DYNAMORIO_OPTIONS,
     #   but while that might be useful it could also be confusing.
     template2expect(expect
-      ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
+      ${testpath}/${expectbase}.template
       "${runops}"
       ${key})
     # add dependence so cmake will reconfigure if file changes
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
+    configure_file(${testpath}/${expectbase}.template
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
-  elseif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex)
+  elseif (EXISTS ${testpath}/${expectbase}.templatex)
     # A .templatex is a .template that is treated directly as a regex:
     # so any regex chars inside are not converted to literals.
     # We separate the two so that we don't have to escape everything in
     # regular templates where we want a literal match.
-    template2expect(expect
-      ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex
-      ${runops}
-      ${key})
+    if (DEFINED ${key}_rawtemp)
+      # No preprocessor
+      file(READ ${testpath}/${expectbase}.templatex expect)
+    else ()
+      template2expect(expect
+        ${testpath}/${expectbase}.templatex
+        ${runops}
+        ${key})
+    endif ()
     # add dependence so cmake will reconfigure if file changes
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex
+    configure_file(${testpath}/${expectbase}.templatex
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
     set(ALREADY_REGEX ON)
-  else (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
+  else (EXISTS ${testpath}/${expectbase}.expect)
     message(FATAL_ERROR
-      "no .expect or .template or .templatex for ${srcpath}/${expectbase} for ${key}")
-  endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
+      "no .expect or .template or .templatex for ${testpath}/${expectbase} for ${key}")
+  endif (EXISTS ${testpath}/${expectbase}.expect)
 
   if (NOT ALREADY_REGEX)
     # turn regex chars into literals
@@ -1420,9 +1431,17 @@ function(torun_ci name test ops)
     return()
   endif ()
   # note that we cannot use double quotes as they'll be stripped out
-  torun("${name}" ${test} ${${test}_source} OFF OFF
-    "${${test}_dr_ops};${ops};-c;${${test}_client_path};${cli_ops}"
-    "${${test}_exe_ops}" added)
+  if (DEFINED ${test}_toolname)
+    # end-user tool
+    torun("${name}" ${test} ${${test}_source} OFF OFF
+      "${${test}_dr_ops};${ops};-t;${${test}_toolname};${cli_ops}"
+      "${${test}_exe_ops}" added)
+  else ()
+    # simple client
+    torun("${name}" ${test} ${${test}_source} OFF OFF
+      "${${test}_dr_ops};${ops};-c;${${test}_client_path};${cli_ops}"
+      "${${test}_exe_ops}" added)
+  endif ()
   if (added)
     if (DEFINED ${test}_depends)
       ops2testprefix(prefix "${ops}")
@@ -1642,12 +1661,12 @@ if (CLIENT_INTERFACE)
       "truncate@2" "" "${annotation_test_args}")
 
     if (UNIX)
-      set(annotation_test_args "libclient.annotation-concurrency-opt.appdll.so" "A" "4")
+      set(annotation_opt_args "libclient.annotation-concurrency-opt.appdll.so" "A" "4")
     else (UNIX)
-      set(annotation_test_args "client.annotation-concurrency-opt.appdll.dll" "A" "4")
+      set(annotation_opt_args "client.annotation-concurrency-opt.appdll.dll" "A" "4")
     endif (UNIX)
     tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
-      "" "" "${annotation_test_args}")
+      "" "" "${annotation_opt_args}")
     optimize(client.annotation-concurrency-opt)
     tobuild_appdll(client.annotation-concurrency-opt
       client-interface/annotation-concurrency.c)
@@ -1659,7 +1678,7 @@ if (CLIENT_INTERFACE)
       "annotation-concurrency.full-decode")
     torunonly_ci(client.annotation-concurrency-opt.full-decode
       client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
-      client-interface/annotation-concurrency.c "full-decode" "" "${annotation_test_args}")
+      client-interface/annotation-concurrency.c "full-decode" "" "${annotation_opt_args}")
 
     tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
       "" "" "")
@@ -2066,6 +2085,34 @@ if (CLIENT_INTERFACE)
     set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
     set(tool.drcov.fib_expectbase "tool.drcov.fib")
     get_target_property(tool.drcov.fib_postcmd drcov2lcov LOCATION${location_suffix})
+
+    if (UNIX) # Windows NYI (i#1703)
+      # We have a couple of sanity checks that at least nothing crashes.
+      # FIXME i#1703: add dedicated tests (in suite/tests/clients/) for which
+      # we know the results, and check the output.
+      torunonly_ci(tool.drcachesim.simple ${ci_shared_app} drcachesim
+        "drcachesim-simple.c" # for templatex basename
+        "-ipc_name mypipe" "" "")
+      set(tool.drcachesim.simple_toolname "drcachesim")
+      set(tool.drcachesim.simple_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.simple_rawtemp ON) # no preprocessor
+
+      if (NOT ARM)
+        # Our pthreads tests don't have many threads so we run this annot test,
+        # though it is a little slow under drcachesim.
+        # XXX i#1703: this may be too flaky: we may want to remove this once
+        # we add some dedicated multi-thread (and multi-process) tests with
+        # more deterministic output.
+        torunonly_ci(tool.drcachesim.threads client.annotation-concurrency drcachesim
+          "drcachesim-threads.c" # for templatex basename
+          "-ipc_name mypipe2" "" "${annotation_test_args}")
+        set(tool.drcachesim.threads_toolname "drcachesim")
+        set(tool.drcachesim.threads_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.threads_rawtemp ON) # no preprocessor
+      endif ()
+    endif ()
   endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)
