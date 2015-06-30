@@ -87,7 +87,7 @@ cache_t::request(const memref_t &memref_in)
     addr_t tag = compute_tag(memref.addr);
 
     // FIXME i#1703: if the request is a data write, we should check the
-    // instr cache and invalid cache line there if necessary on X86.
+    // instr cache and invalidate the cache line there if necessary on x86.
 
     // Optimization: remember last tag if single-line
     if (final_tag == tag) {
@@ -97,8 +97,11 @@ cache_t::request(const memref_t &memref_in)
             assert(get_cache_line(line_idx, last_way).tag == tag &&
                    tag != TAG_INVALID);
             access_update(line_idx, last_way);
-            if (stats != NULL)
+            if (stats != NULL) {
                 stats->access(memref, true);
+                if (parent != NULL && parent->stats != NULL)
+                    parent->stats->child_access(memref, true);
+            }
             return;
         } else
             last_tag = tag;
@@ -134,8 +137,11 @@ cache_t::request(const memref_t &memref_in)
 
         access_update(line_idx, final_way);
 
-        if (stats != NULL)
+        if (stats != NULL) {
             stats->access(memref, hit);
+            if (parent != NULL && parent->stats != NULL)
+                parent->stats->child_access(memref, hit);
+        }
 
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) * line_size;

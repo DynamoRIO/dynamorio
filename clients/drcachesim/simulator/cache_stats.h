@@ -51,6 +51,9 @@ class cache_stats_t
     // separately for each line touched.
     virtual void access(const memref_t &memref, bool hit);
 
+    // Called on each cache access by a child cache.
+    virtual void child_access(const memref_t &memref, bool hit);
+
     virtual void flush(const memref_t &memref);
 
     virtual void print_stats(std::string prefix);
@@ -58,6 +61,7 @@ class cache_stats_t
  protected:
     int_least64_t num_hits;
     int_least64_t num_misses;
+    int_least64_t num_child_hits;
     int num_flushes;
 };
 
