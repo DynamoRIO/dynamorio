@@ -115,7 +115,7 @@ static int
 dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
 {
     dl_iterate_data_t *iter_data = (dl_iterate_data_t *) data;
-    /* info->dlpi->addr is offset from preferred so we need to calculate the
+    /* info->dlpi_addr is offset from preferred so we need to calculate the
      * absolute address of the base.
      * we can calculate the absolute address of the first segment, but ELF
      * doesn't seem to guarantee that either the elf header (base of

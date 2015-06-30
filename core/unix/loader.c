@@ -46,6 +46,9 @@
 #ifdef LINUX
 # include "include/syscall.h"
 # include "memquery.h"
+# define _GNU_SOURCE 1
+# define __USE_GNU 1
+# include <link.h> /* struct dl_phdr_info, must be prior to dlfcn.h */
 #else
 # include <sys/syscall.h>
 #endif
@@ -1358,6 +1361,35 @@ redirect____tls_get_addr()
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
+int
+redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info,
+                                         size_t size, void *data),
+                         void *data)
+{
+    int res = 0;
+    struct dl_phdr_info info;
+    privmod_t *mod;
+    acquire_recursive_lock(&privload_lock);
+    for (mod = privload_first_module(); mod != NULL; mod = privload_next_module(mod)) {
+        ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *) mod->base;
+        os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
+        /* We do want to include externally loaded (if any) and clients as
+         * clients can contain C++ exception code, which will call here.
+         */
+        if (mod->base == get_dynamorio_dll_start())
+            continue;
+        info.dlpi_addr = opd->load_delta;
+        info.dlpi_name = mod->name;
+        info.dlpi_phdr = (ELF_PROGRAM_HEADER_TYPE *)(mod->base + elf_hdr->e_phoff);
+        info.dlpi_phnum = elf_hdr->e_phnum;
+        res = callback(&info, sizeof(info), data);
+        if (res != 0)
+            break;
+    }
+    release_recursive_lock(&privload_lock);
+    return res;
+}
+
 typedef struct _redirect_import_t {
     const char *name;
     app_pc func;
@@ -1374,6 +1406,8 @@ static const redirect_import_t redirect_imports[] = {
      */
     {"__tls_get_addr", (app_pc)redirect___tls_get_addr},
     {"___tls_get_addr", (app_pc)redirect____tls_get_addr},
+    /* i#1717: C++ exceptions call this */
+    {"dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr},
 };
 #define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports)/sizeof(redirect_imports[0]))
 

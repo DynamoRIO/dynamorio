@@ -1571,6 +1571,9 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
   endif (NOT ARM)
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
+  if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
+    tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
+  endif ()
 
   if (NOT ARM)
     set(DynamoRIO_USE_LIBC OFF)

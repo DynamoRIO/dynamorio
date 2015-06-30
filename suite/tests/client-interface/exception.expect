@@ -1,0 +1,5 @@
+dl_iterate_phdr returned 0
+about to throw
+caught runtime_error test throw
+all done
+Hello, world!
