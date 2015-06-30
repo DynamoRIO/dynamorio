@@ -75,6 +75,20 @@ droption_t<unsigned int> op_LL_assoc
 (DROPTION_SCOPE_FRONTEND, "LL_assoc", 16, "Last-level cache associativity",
  "Specifies the associativity of the unified last-level (L2) cache.");
 
+droption_t<bool> op_use_physical
+(DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
+ "If available, the default virtual addresses will be translated to physical.  "
+ "This is not possible from user mode on all platforms.");
+
+droption_t<unsigned int> op_virt2phys_freq
+(DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
+ "This option only applies if -use_physical is enabled.  The virtual to physical "
+ "mapping is cached for performance reasons, yet the underlying mapping can change "
+ "without notice.  This option controls the frequency with which the cached value is "
+ "ignored in order to re-access the actual mapping and ensure accurate results.  "
+ "The units are the number of memory accesses per forced access.  A value of 0 "
+ "uses the cached values for the entire application execution.");
+
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
  "Verbosity level for notifications.");

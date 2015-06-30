@@ -52,6 +52,7 @@ if (UNIX)
 
   add_library(drmemtrace SHARED
     tracer/tracer.cpp
+    tracer/physaddr.cpp
     common/named_pipe_${os_name}.cpp
     common/options.cpp
     )

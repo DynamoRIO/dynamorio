@@ -80,6 +80,8 @@ class named_pipe_t
     // On UNIX, rather than calling open_for_{read,write}, The caller
     // can substitute a custom call to SYS_open if desired, using
     // get_pipe_path() and setting the file descriptor in set_fd().
+    // XXX i#1716: this should happen automatically in open_for_* and
+    // we should not need this workaround.
     const std::string & get_pipe_path() const;
     bool set_fd(int fd);
 

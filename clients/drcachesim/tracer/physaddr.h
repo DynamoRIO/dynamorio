@@ -30,30 +30,30 @@
  * DAMAGE.
  */
 
-/* shared options for both the frontend and the client */
+/* physaddr: translates virtual addresses to physical addresses.
+ */
 
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+#ifndef _PHYSADDR_H_
+#define _PHYSADDR_H_ 1
 
-#include <string>
-#include "droption.h"
+#include <fstream>
+#include <map>
+#include "../common/trace_entry.h"
 
-extern droption_t<std::string> op_ipc_name;
-extern droption_t<unsigned int> op_num_cores;
-extern droption_t<unsigned int> op_line_size;
-extern droption_t<bytesize_t> op_L1I_size;
-extern droption_t<bytesize_t> op_L1D_size;
-extern droption_t<unsigned int> op_L1I_assoc;
-extern droption_t<unsigned int> op_L1D_assoc;
-extern droption_t<bytesize_t> op_LL_size;
-extern droption_t<unsigned int> op_LL_assoc;
-extern droption_t<bool> op_use_physical;
-extern droption_t<unsigned int> op_virt2phys_freq;
-extern droption_t<unsigned int> op_verbose;
-extern droption_t<std::string> op_dr_root;
-extern droption_t<bool> op_dr_debug;
-extern droption_t<std::string> op_dr_ops;
-extern droption_t<std::string> op_tracer;
-extern droption_t<std::string> op_tracer_ops;
+class physaddr_t
+{
+ public:
+    physaddr_t();
+    bool init();
+    addr_t virtual2physical(addr_t virt);
 
-#endif /* _OPTIONS_H_ */
+ private:
+    // Assumed to be single-threaded
+    addr_t last_vpage;
+    addr_t last_ppage;
+    int fd;
+    std::map<addr_t,addr_t> v2p;
+    unsigned int count;
+};
+
+#endif /* _PHYSADDR_H_ */

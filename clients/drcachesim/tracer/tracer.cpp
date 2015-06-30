@@ -47,6 +47,7 @@
 #include "drmgr.h"
 #include "drutil.h"
 #include "droption.h"
+#include "physaddr.h"
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
 #include "../common/options.h"
@@ -61,9 +62,9 @@
 #define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
-#define NOTIFY(level, fmt, ...) do {          \
-    if (op_verbose.get_value() >= (level))    \
-        dr_fprintf(STDERR, fmt, __VA_ARGS__); \
+#define NOTIFY(level, ...) do {            \
+    if (op_verbose.get_value() >= (level)) \
+        dr_fprintf(STDERR, __VA_ARGS__);   \
 } while (0)
 
 /* Max number of entries a buffer can have. It should be big enough
@@ -103,6 +104,10 @@ static uint64 num_refs; /* keep a global memory reference count */
 static dr_spill_slot_t slot_ptr = SPILL_SLOT_2; /* TLS slot for reg_ptr */
 static dr_spill_slot_t slot_tmp = SPILL_SLOT_3; /* TLS slot for reg_tmp/reg_addr */
 
+/* virtual to physical translation */
+static bool have_phys;
+static physaddr_t physaddr;
+
 /* Allocated TLS slot offsets */
 enum {
     MEMTRACE_TLS_OFFS_BUF_PTR,
@@ -138,12 +143,22 @@ memtrace(void *drcontext)
     init_thread_entry(drcontext, data->buf_base);
 
     for (mem_ref = (trace_entry_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
-        // FIXME i#1703: convert from virtual to physical if requested and avail
         data->num_refs++;
-#ifdef VERBOSE // XXX: add a runtime option for this?
-        dr_printf("SEND: type=%d, sz=%d, addr=%p\n", mem_ref->type, mem_ref->size,
-                  mem_ref->addr);
-#endif
+        if (have_phys && op_use_physical.get_value()) {
+            if (mem_ref->type != TRACE_TYPE_THREAD &&
+                mem_ref->type != TRACE_TYPE_THREAD_EXIT &&
+                mem_ref->type != TRACE_TYPE_PID) {
+                addr_t phys = physaddr.virtual2physical(mem_ref->addr);
+                // XXX: fail gracefully?  Let's see whether the xl8 ever fails
+                // in practice.
+                DR_ASSERT(phys != 0 || mem_ref->addr == 0);
+                mem_ref->addr = phys;
+            }
+        }
+        if (op_verbose.get_value() >= 2) {
+            dr_printf("SEND: type=%d, sz=%d, addr=%p\n", mem_ref->type, mem_ref->size,
+                      mem_ref->addr);
+        }
     }
     towrite = (byte *)buf_ptr - (byte *)data->buf_base;
 
@@ -701,4 +716,10 @@ dr_init(client_id_t id)
 
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "drcachesim client initializing\n");
+
+    if (op_use_physical.get_value()) {
+        have_phys = physaddr.init();
+        if (!have_phys)
+            NOTIFY(0, "Unable to open pagemap: using virtual addresses.");
+    }
 }
