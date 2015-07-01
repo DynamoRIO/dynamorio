@@ -258,7 +258,7 @@ configure_file("${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in"
 
 # Make a copy of the sources with the public cmakelists
 foreach (src ${srcs})
-  configure_file(${src} ${CMAKE_CURRENT_BINARY_DIR}/${src} COPY_ONLY)
+  configure_file(${src} ${CMAKE_CURRENT_BINARY_DIR}/${src} COPYONLY)
 endforeach ()
 
 foreach (tgt ${tgts})

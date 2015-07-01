@@ -101,7 +101,7 @@ endmacro(configure_extension)
 macro(install_ext_header header)
   DR_install(FILES ${header} DESTINATION ${INSTALL_EXT_INCLUDE})
   # We also need a copy in the build dir for our --build-and-test (i#1586)
-  configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${header} COPY_ONLY)
+  configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${header} COPYONLY)
 endmacro()
 
 add_subdirectory(drcontainers)

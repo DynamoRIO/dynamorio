@@ -70,7 +70,7 @@ foreach (dir ${tool_dirs})
   set(tool_input_dirs "${tool_input_dirs} \"${dir}\"")
 endforeach (dir)
 
-configure_file(${srcdir_orig}/API.doxy ${outfile} COPY_ONLY)
+configure_file(${srcdir_orig}/API.doxy ${outfile} COPYONLY)
 process_doxyfile(${outfile} ${DOXYGEN_EXECUTABLE} ${doxygen_ver})
 
 file(READ "${outfile}" string)
