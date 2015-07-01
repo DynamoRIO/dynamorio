@@ -100,13 +100,13 @@ dr_init(client_id_t client_id)
     ASSERT(op_x.specified());
     ASSERT(op_y.specified());
     ASSERT(op_z.specified());
-    dr_printf("param x = %d\n", op_x.get_value());
-    dr_printf("param y = |%s|\n", op_y.get_value().c_str());
-    dr_printf("param z = |%s|\n", op_z.get_value().c_str());
-    dr_printf("param foo = %d\n", op_foo.get_value());
-    dr_printf("param bar = |%s|\n", op_bar.get_value().c_str());
-    dr_printf("param flag = |%d|\n", op_flag.get_value());
-    dr_printf("param sweep = |%s|\n", op_sweep.get_value().c_str());
+    dr_fprintf(STDERR, "param x = %d\n", op_x.get_value());
+    dr_fprintf(STDERR, "param y = |%s|\n", op_y.get_value().c_str());
+    dr_fprintf(STDERR, "param z = |%s|\n", op_z.get_value().c_str());
+    dr_fprintf(STDERR, "param foo = %d\n", op_foo.get_value());
+    dr_fprintf(STDERR, "param bar = |%s|\n", op_bar.get_value().c_str());
+    dr_fprintf(STDERR, "param flag = |%d|\n", op_flag.get_value());
+    dr_fprintf(STDERR, "param sweep = |%s|\n", op_sweep.get_value().c_str());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
 }
