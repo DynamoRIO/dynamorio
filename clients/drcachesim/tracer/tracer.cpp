@@ -92,6 +92,7 @@ typedef struct {
 typedef struct {
     bool clean_call_inserted;
     app_pc last_app_pc;
+    instr_t *strex;
 } user_data_t;
 
 /* we write to a single global pipe */
@@ -346,14 +347,15 @@ instr_to_prefetch_type(instr_t *instr)
 
 /* insert inline code to add an instruction entry into the buffer */
 static void
-instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where,
+instrument_instr(void *drcontext, instrlist_t *ilist,
+                 instr_t *app, instr_t *where,
                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               TRACE_TYPE_INSTR,
-                              (ushort)instr_length(drcontext, where), adjust);
+                              (ushort)instr_length(drcontext, app), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                   instr_get_app_pc(where), adjust);
+                   instr_get_app_pc(app), adjust);
 }
 
 /* insert inline code to add a memory reference info entry into the buffer */
@@ -447,12 +449,40 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         ud->last_app_pc == instr_get_app_pc(instr))
         return DR_EMIT_DEFAULT;
 
+    // FIXME i#1698: there are constraints for code between ldrex/strex pairs.
+    // However there is no way to completely avoid the instrumentation in between,
+    // so we reduce the instrumentation in between by moving strex instru
+    // from before the strex to after the strex.
+    if (ud->strex == NULL && instr_is_exclusive_store(instr)) {
+        opnd_t dst = instr_get_dst(instr, 0);
+        DR_ASSERT(opnd_is_base_disp(dst));
+        // Assuming there are no consecutive strex instructions, otherwise we
+        // will insert instrumentation code at the second strex instruction.
+        if (!instr_writes_to_reg(instr, opnd_get_base(dst),
+                                 DR_QUERY_INCLUDE_COND_DSTS)) {
+            ud->strex = instr;
+            ud->last_app_pc = instr_get_app_pc(instr);
+        }
+        return DR_EMIT_DEFAULT;
+    }
+
     /* opt: save/restore reg per instr instead of per entry */
     /* We need two scratch registers */
     dr_save_reg(drcontext, bb, instr, reg_ptr, slot_ptr);
     dr_save_reg(drcontext, bb, instr, reg_tmp, slot_tmp);
     /* load buf ptr into reg_ptr */
     insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
+
+    if (ud->strex != NULL) {
+        DR_ASSERT(instr_is_exclusive_store(ud->strex));
+        instrument_instr(drcontext, bb, ud->strex, instr,
+                         reg_ptr, reg_tmp, adjust);
+        adjust += sizeof(trace_entry_t);
+        instrument_mem(drcontext, bb, instr, instr_get_dst(ud->strex, 0),
+                       true, reg_ptr, reg_tmp, adjust);
+        adjust += sizeof(trace_entry_t);
+        ud->strex = NULL;
+    }
 
     /* Instruction entry for instr fetch trace.  This does double-duty by
      * also providing the PC for subsequent data ref entries.
@@ -464,7 +494,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      * trace_entry_t than require a separate instr entry for every memref
      * instr (if average # of memrefs per instr is < 2, PC field is better).
      */
-    instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp, adjust);
+    instrument_instr(drcontext, bb, instr, instr, reg_ptr, reg_tmp, adjust);
     adjust += sizeof(trace_entry_t);
     ud->last_app_pc = instr_get_app_pc(instr);
 
@@ -499,13 +529,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         /* XXX i#1702: it is ok to skip a few clean calls on predicated instructions,
          * since the buffer will be dumped later by other clean calls.
          */
-        IF_ARM(&& !instr_is_predicated(instr))
-        /* FIXME i#1698: there are constraints for code between ldrex/strex pairs,
-         * so we minimize the instrumentation in between by skipping the clean call.
-         * However, there is still a chance that the instrumentation code may clear the
-         * exclusive monitor state.
-         */
-        IF_ARM(&& !instr_is_exclusive_store(instr))) {
+        IF_ARM(&& !instr_is_predicated(instr))) {
         instrument_clean_call(drcontext, bb, instr, reg_ptr, reg_tmp);
         ud->clean_call_inserted = true;
     }
@@ -526,6 +550,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
     user_data_t *data = (user_data_t *) dr_thread_alloc(drcontext, sizeof(user_data_t));
     data->clean_call_inserted = false;
     data->last_app_pc = NULL;
+    data->strex = NULL;
     *user_data = (void *)data;
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);
