@@ -226,9 +226,7 @@ _tmain(int argc, const TCHAR *targv[])
         assert(false); // won't get here
     }
 
-    // We share -ipc_name
-    tracer_ops = op_tracer_ops.get_value() +
-        " -" + op_ipc_name.get_name() + " " + op_ipc_name.get_value();
+    tracer_ops = op_tracer_ops.get_value();
 
     /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
     dr_get_config_dir(false/*local*/, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));

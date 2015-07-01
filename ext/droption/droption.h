@@ -78,7 +78,8 @@ typedef enum {
      * with this flag set, however, all unknown options in the current
      * scope that are known in another scope are passed to the last
      * option with this flag set (which will typically also set
-     * DROPTION_FLAG_ACCUMULATE).
+     * #DROPTION_FLAG_ACCUMULATE).  Additionally, options that are
+     * specified and that have #DROPTION_SCOPE_ALL are swept as well.
      * The scope of an option with this flag is ignored.
      */
     DROPTION_FLAG_SWEEP          = 0x0002,
@@ -161,9 +162,12 @@ class droption_parser_t
                 if (op->name_match(argv[i])) {
                     if (TESTANY(scope, op->scope))
                         matched = true;
-                    else if (sweeper() != NULL &&
-                             sweeper()->convert_from_string(argv[i]) &&
-                             sweeper()->clamp_value()) {
+                    if (sweeper() != NULL &&
+                        (!matched ||
+                         // Sweep up both-scope options as well as ummatched
+                         TESTALL(DROPTION_SCOPE_ALL, op->scope)) &&
+                        sweeper()->convert_from_string(argv[i]) &&
+                        sweeper()->clamp_value()) {
                         sweeper()->is_specified = true; // *after* convert_from_string()
                         swept = true;
                     }
@@ -185,7 +189,8 @@ class droption_parser_t
                                 res = false;
                                 goto parse_finished;
                             }
-                        } else if (swept) {
+                        }
+                        if (swept) {
                             if (!sweeper()->convert_from_string(argv[i]) ||
                                 !sweeper()->clamp_value()) {
                                 if (error_msg != NULL) {
@@ -263,6 +268,8 @@ class droption_parser_t
 
     /** Returns whether this option was specified in the argument list. */
     bool specified() { return is_specified; }
+    /** Returns the name of this option. */
+    std::string get_name() { return name; }
 
  protected:
     virtual bool option_takes_arg() const = 0;
@@ -326,8 +333,6 @@ template <typename T> class droption_t : public droption_parser_t
 
     /** Returns the value of this option. */
     T get_value() { return value; }
-    /** Returns the name of this option. */
-    std::string get_name() { return name; }
 
  protected:
     bool clamp_value()
