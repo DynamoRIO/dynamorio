@@ -121,6 +121,7 @@ static int      tls_idx;
 #define BUF_PTR(tls_base) *(trace_entry_t **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
 /* We leave a slot at the start so we can easily insert a header entry */
 #define BUF_HDR_SLOTS 1
+#define BUF_HDR_SLOTS_SIZE (BUF_HDR_SLOTS * sizeof(trace_entry_t))
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -132,18 +133,35 @@ init_thread_entry(void *drcontext, trace_entry_t *entry)
     entry->addr = (addr_t) dr_get_thread_id(drcontext);
 }
 
+static inline byte *
+atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
+{
+    ssize_t towrite = pipe_end - pipe_start;
+    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() &&
+              towrite > (ssize_t)BUF_HDR_SLOTS_SIZE);
+    if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite)
+        DR_ASSERT(false);
+    // Re-emit thread entry header
+    DR_ASSERT(pipe_end - BUF_HDR_SLOTS_SIZE > pipe_start);
+    pipe_start = pipe_end - BUF_HDR_SLOTS_SIZE;
+    init_thread_entry(drcontext, (trace_entry_t *)pipe_start);
+    return pipe_start;
+}
+
 static void
 memtrace(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     trace_entry_t *mem_ref, *buf_ptr;
-    size_t towrite;
+    byte *pipe_start, *pipe_end, *redzone;
 
     buf_ptr = BUF_PTR(data->seg_base);
     /* The initial slot is left empty for the thread entry, which we add here */
     init_thread_entry(drcontext, data->buf_base);
+    pipe_start = (byte *)data->buf_base;
+    pipe_end = pipe_start;
 
-    for (mem_ref = (trace_entry_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
+    for (mem_ref = data->buf_base + BUF_HDR_SLOTS; mem_ref < buf_ptr; mem_ref++) {
         data->num_refs++;
         if (have_phys && op_use_physical.get_value()) {
             if (mem_ref->type != TRACE_TYPE_THREAD &&
@@ -156,25 +174,29 @@ memtrace(void *drcontext)
                 mem_ref->addr = phys;
             }
         }
-        if (op_verbose.get_value() >= 2) {
-            dr_fprintf(STDERR, "SEND: type=%d, sz=%d, addr=%p\n",
-                       mem_ref->type, mem_ref->size, mem_ref->addr);
+        // Split up the buffer into multiple writes to ensure atomic pipe writes.
+        // We can only split before TRACE_TYPE_INSTR, assuming only a few data
+        // entries in between instr entries.
+        if (mem_ref->type == TRACE_TYPE_INSTR) {
+            if (((byte *)mem_ref - pipe_start) >= ipc_pipe.get_atomic_write_size())
+                pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+            // Advance pipe_end pointer
+            pipe_end = (byte *)mem_ref;
         }
     }
-    towrite = (byte *)buf_ptr - (byte *)data->buf_base;
+    // Write the rest to pipe
+    if (((byte *)buf_ptr - pipe_start) >= ipc_pipe.get_atomic_write_size())
+        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+    atomic_pipe_write(drcontext, pipe_start, (byte *)buf_ptr);
 
-    // FIXME i#1703: split up to ensure atomic if > PIPE_BUF.
-    // When we split, ensure we re-emit any headers (like thread id) after the
-    // split and that we don't split in the middle of an instr fetch-memref
-    // sequence or a thread id-process id sequence.
-    if (ipc_pipe.write((void *)data->buf_base, towrite) < (ssize_t)towrite)
-        DR_ASSERT(false);
-
-    /* clear trace buffer */
-    memset(data->buf_base, 0, REDZONE_SIZE);
-    if (towrite > REDZONE_SIZE) {
-        /* set sentinel (non-zero) value in redzone */
-        memset((byte *)data->buf_base + REDZONE_SIZE, -1, towrite - REDZONE_SIZE);
+    // Our instrumentation reads from buffer and skips the clean call if the
+    // content is 0, so we need set zero in the trace buffer and set non-zero
+    // in redzone.
+    memset(data->buf_base, 0, TRACE_BUF_SIZE);
+    redzone = (byte *)data->buf_base + TRACE_BUF_SIZE;
+    if ((byte *)buf_ptr > redzone) {
+        // Set sentinel (non-zero) value in redzone
+        memset(redzone, -1, (byte *)buf_ptr - redzone);
     }
     BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
 }
@@ -624,9 +646,9 @@ event_thread_init(void *drcontext)
         dr_raw_mem_alloc(MAX_BUF_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     DR_ASSERT(data->seg_base != NULL && data->buf_base != NULL);
     /* clear trace buffer */
-    memset(data->buf_base, 0, REDZONE_SIZE);
+    memset(data->buf_base, 0, TRACE_BUF_SIZE);
     /* set sentinel (non-zero) value in redzone */
-    memset((byte *)data->buf_base + REDZONE_SIZE, -1, MAX_BUF_SIZE - REDZONE_SIZE);
+    memset((byte *)data->buf_base + TRACE_BUF_SIZE, -1, REDZONE_SIZE);
     /* put buf_base to TLS plus header slots as starting buf_ptr */
     BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
 

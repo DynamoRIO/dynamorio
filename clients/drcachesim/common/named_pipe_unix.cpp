@@ -36,11 +36,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h> /* for PIPE_BUF */
 #include "named_pipe.h"
 
 // XXX: should read from /proc/sys/fs/pipe-max-size instead of hardcoding here.
 // This is the max size an unprivileged process can request.
 #define PIPE_BUF_MAX_SIZE 1048576
+
+// Linux atomic pipe write buffer size
+#ifndef PIPE_BUF
+# define PIPE_BUF 4096
+#endif
 
 #define PIPE_PERMS 0666
 
@@ -179,4 +185,10 @@ named_pipe_t::write(const void *buf IN, size_t sz)
         break;
     }
     return res;
+}
+
+const ssize_t
+named_pipe_t::get_atomic_write_size() const
+{
+    return PIPE_BUF;
 }

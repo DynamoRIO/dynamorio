@@ -56,6 +56,13 @@ named_pipe_t::open_for_read()
     // FIXME i#1727: NYI
 }
 
+const ssize_t
+named_pipe_t::get_atomic_write_size() const
+{
+    // FIXME i#1727: what's the atomic pipe write limit?
+    return 512; // POSIX.1-2001 limit
+}
+
 bool
 named_pipe_t::~named_pipe_t()
 {

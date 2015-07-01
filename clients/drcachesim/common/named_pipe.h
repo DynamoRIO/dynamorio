@@ -85,6 +85,8 @@ class named_pipe_t
     const std::string & get_pipe_path() const;
     bool set_fd(int fd);
 
+    const ssize_t get_atomic_write_size() const;
+
  private:
 #ifdef WINDOWS
     HANDLE fd;
