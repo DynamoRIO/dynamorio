@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -707,14 +707,17 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
          * look for the mode
          */
         if (_tcscmp(token, _TEXT("-code_api")) == 0) {
-            if (opt_info->mode != DR_MODE_NONE) {
+            if (opt_info->mode != DR_MODE_NONE &&
+                /* allow dup options (i#1448) */
+                opt_info->mode != DR_MODE_CODE_MANIPULATION) {
                 goto error;
             }
             opt_info->mode = DR_MODE_CODE_MANIPULATION;
         }
 #ifdef MF_API
         else if (_tcscmp(token, _TEXT("-security_api")) == 0) {
-            if (opt_info->mode != DR_MODE_NONE) {
+            if (opt_info->mode != DR_MODE_NONE &&
+                opt_info->mode != DR_MODE_MEMORY_FIREWALL) {
                 goto error;
             }
             opt_info->mode = DR_MODE_MEMORY_FIREWALL;
@@ -730,7 +733,8 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
         }
 #ifdef PROBE_API
         else if (_tcscmp(token, _TEXT("-hotp_only")) == 0) {
-            if (opt_info->mode != DR_MODE_NONE) {
+            if (opt_info->mode != DR_MODE_NONE &&
+                opt_info->mode != DR_MODE_PROBE) {
                 goto error;
             }
             opt_info->mode = DR_MODE_PROBE;
