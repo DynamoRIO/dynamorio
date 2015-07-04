@@ -219,14 +219,27 @@ insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 static void
 insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                      reg_id_t reg_ptr, int adjust)
+                      reg_id_t reg_ptr, dr_pred_type_t pred, int adjust)
 {
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    MINSERT(ilist, where, label);
     MINSERT(ilist, where,
             XINST_CREATE_add(drcontext,
                              opnd_create_reg(reg_ptr),
                              OPND_CREATE_INT16(adjust)));
     dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                             tls_offs + MEMTRACE_TLS_OFFS_BUF_PTR, reg_ptr);
+#ifdef ARM // X86 does not support general predicated execution
+    if (pred != DR_PRED_NONE) {
+        instr_t *instr;
+        for (instr  = instr_get_prev(where);
+             instr != label;
+             instr  = instr_get_prev(instr)) {
+            DR_ASSERT(!instr_is_predicated(instr));
+            instr_set_predicate(instr, pred);
+        }
+    }
+#endif
 }
 
 static void
@@ -331,6 +344,7 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     /* we use reg_ptr as scratch to get addr */
     ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_ptr);
     DR_ASSERT(ok);
+    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need reload reg_ptr
     insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
@@ -368,7 +382,7 @@ instr_to_prefetch_type(instr_t *instr)
 }
 
 /* insert inline code to add an instruction entry into the buffer */
-static void
+static int
 instrument_instr(void *drcontext, instrlist_t *ilist,
                  instr_t *app, instr_t *where,
                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
@@ -378,15 +392,19 @@ instrument_instr(void *drcontext, instrlist_t *ilist,
                               (ushort)instr_length(drcontext, app), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(app), adjust);
+    return sizeof(trace_entry_t);
 }
 
 /* insert inline code to add a memory reference info entry into the buffer */
-static void
+static int
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
-               bool write, reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
+               bool write, reg_id_t reg_ptr, reg_id_t reg_tmp,
+               dr_pred_type_t pred, int adjust)
 {
     ushort type = write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ;
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    MINSERT(ilist, where, label);
     // Special handling for prefetch instruction
     if (instr_is_prefetch(where)) {
         type = instr_to_prefetch_type(where);
@@ -396,6 +414,18 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp, adjust);
+#ifdef ARM // X86 does not support general predicated execution
+    if (pred != DR_PRED_NONE) {
+        instr_t *instr;
+        for (instr  = instr_get_prev(where);
+             instr != label;
+             instr  = instr_get_prev(instr)) {
+            DR_ASSERT(!instr_is_predicated(instr));
+            instr_set_predicate(instr, pred);
+        }
+    }
+#endif
+    return sizeof(trace_entry_t);
 }
 
 /* We insert code to read from trace buffer and check whether the redzone
@@ -462,6 +492,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XBX, DR_REG_R2);
     int i, adjust = 0;
     user_data_t *ud = (user_data_t *) user_data;
+    dr_pred_type_t pred;
 
     if (!instr_is_app(instr) ||
         /* Skip identical app pc, which happens with rep str expansion.
@@ -488,6 +519,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         return DR_EMIT_DEFAULT;
     }
 
+    pred = instr_get_predicate(instr);
     /* opt: save/restore reg per instr instead of per entry */
     /* We need two scratch registers */
     dr_save_reg(drcontext, bb, instr, reg_ptr, slot_ptr);
@@ -497,12 +529,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
     if (ud->strex != NULL) {
         DR_ASSERT(instr_is_exclusive_store(ud->strex));
-        instrument_instr(drcontext, bb, ud->strex, instr,
-                         reg_ptr, reg_tmp, adjust);
-        adjust += sizeof(trace_entry_t);
-        instrument_mem(drcontext, bb, instr, instr_get_dst(ud->strex, 0),
-                       true, reg_ptr, reg_tmp, adjust);
-        adjust += sizeof(trace_entry_t);
+        adjust += instrument_instr(drcontext, bb, ud->strex, instr,
+                                   reg_ptr, reg_tmp, adjust);
+        adjust += instrument_mem(drcontext, bb, instr,
+                                 instr_get_dst(ud->strex, 0),
+                                 true, reg_ptr, reg_tmp,
+                                 instr_get_predicate(ud->strex), adjust);
         ud->strex = NULL;
     }
 
@@ -516,32 +548,40 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      * trace_entry_t than require a separate instr entry for every memref
      * instr (if average # of memrefs per instr is < 2, PC field is better).
      */
-    instrument_instr(drcontext, bb, instr, instr, reg_ptr, reg_tmp, adjust);
-    adjust += sizeof(trace_entry_t);
+    adjust += instrument_instr(drcontext, bb, instr, instr, reg_ptr, reg_tmp, adjust);
     ud->last_app_pc = instr_get_app_pc(instr);
 
     // FIXME i#1703: add OP_clflush handling for cache flush on X86
     if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
+        if (pred != DR_PRED_NONE) {
+            // Update buffer ptr and reset adjust to 0, because
+            // we may not execute the inserted code below.
+            insert_update_buf_ptr(drcontext, bb, instr, reg_ptr,
+                                  DR_PRED_NONE, adjust);
+            adjust = 0;
+        }
+
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
             if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                instrument_mem(drcontext, bb, instr, instr_get_src(instr, i),
-                               false, reg_ptr, reg_tmp, adjust);
-                adjust += sizeof(trace_entry_t);
+                adjust += instrument_mem(drcontext, bb, instr,
+                                         instr_get_src(instr, i),
+                                         false, reg_ptr, reg_tmp,
+                                         pred, adjust);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i),
-                               true, reg_ptr, reg_tmp, adjust);
-                adjust += sizeof(trace_entry_t);
+                adjust += instrument_mem(drcontext, bb, instr,
+                                         instr_get_dst(instr, i),
+                                         true, reg_ptr, reg_tmp,
+                                         pred, adjust);
             }
         }
-    }
-
-    /* opt: update buf ptr once per instr instead of per entry */
-    insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, adjust);
+        insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, pred, adjust);
+    } else
+        insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, DR_PRED_NONE, adjust);
 
     /* Insert code to call clean_call for processing the buffer.
      * We restore the registers after the clean call, which should be ok
