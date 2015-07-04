@@ -304,12 +304,13 @@ DR_EXPORT
  * All instrumentation must follow the guidelines for
  * #dr_register_bb_event().
  *
- * On ARM, when in Thumb mode, for the instrumentation insertion
- * event, drmgr automatically sets the predicate for all meta
- * instructions inserted by each callback to match the predicate of
- * the application instruction being operated on.  At the end of all
- * instrumentation stages, drmgr then adds enough IT instructions to
- * create legal IT blocks.
+ * On ARM, for the instrumentation insertion event, drmgr does not set
+ * the predicate for all meta instructions inserted by each callback
+ * to match the predicate of the corresponding application instruction.
+ * It is the client's responsibility to set proper predicates for
+ * all meta instructions.  At the end of all instrumentation stages,
+ * drmgr automatically adds enough IT instructions to create legal IT
+ * blocks in Thumb mode.
  *
  * \return false if the given priority request cannot be satisfied
  * (e.g., \p priority->before is already ordered after \p

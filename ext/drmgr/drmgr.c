@@ -647,9 +647,6 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     pt->first_app = instrlist_first(bb);
     pt->last_app = instrlist_last(bb);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
-#ifdef ARM
-        instr_t *prev = instr_get_prev(inst);
-#endif
         next_inst = instr_get_next(inst);
         for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num; i++) {
             e = &iter_insert.cbs.bb[i];
@@ -670,21 +667,11 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             }
             /* XXX: add checks that cb followed the rules */
         }
-#ifdef ARM
-        /* We auto-magically predicate instrumentation inserted prior to a
-         * predicated app instr, in Thumb mode.
-         * XXX: we should add a mechanism to avoid this for particular instru!
-         * Add a custom dr_emit_flags_t return value?
+        /* XXX i#1723: in f28be26, we added auto-predication of instrumentation
+         * in Thumb IT blocks here, but it was asymmetric wrt ARM mode.
+         * To re-add the feature, we should have it apply to both Thumb and ARM,
+         * and have it controllable by the client.
          */
-        if (instr_get_isa_mode(inst) == DR_ISA_ARM_THUMB &&
-            instr_is_predicated(inst) && !instr_is_cbr(inst)) {
-            prev = (prev == NULL) ? instrlist_first(bb) : instr_get_next(prev);
-            for (; prev != inst && prev != NULL; prev = instr_get_next(prev)) {
-                if (!instr_is_app(prev))
-                    instr_set_predicate(prev, instr_get_predicate(inst));
-            }
-        }
-#endif
     }
 
     /* Pass 4: final */
