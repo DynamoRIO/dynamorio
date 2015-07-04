@@ -4249,6 +4249,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             instr_set_our_mangling(exit_instr, true);
             instr_exit_branch_set_type(exit_instr, LINK_DIRECT|LINK_JMP);
             instrlist_append(bb->ilist, exit_instr);
+            /* XXX i#1734: instr svc.cc will be deleted later in mangle_syscall,
+             * so we need reset encode state to avoid holding a dangling pointer.
+             */
+            encode_reset_it_block(dcontext);
         }
 #endif
     }

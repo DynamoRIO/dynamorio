@@ -540,11 +540,13 @@ reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
     dr_pred_type_t block_pred[IT_BLOCK_MAX_INSTRS];
     for (instr = start; instr != NULL && instr != end; instr = instr_get_next(instr)) {
         bool instr_predicated = instr_is_predicated(instr) &&
+            /* A label instruction may be used as a cti target, so we stop
+             * the IT block on label instructions.
+             */
+            !instr_is_label(instr) &&
             /* Do not put OP_b exit cti into block: patch_branch can't handle */
             instr_get_opcode(instr) != OP_b &&
             instr_get_opcode(instr) != OP_b_short;
-        if (instr_is_label(instr))
-            continue;
         if (block_start != NULL) {
             bool matches = true;
             ASSERT(block_count < IT_BLOCK_MAX_INSTRS);

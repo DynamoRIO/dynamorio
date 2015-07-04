@@ -2089,4 +2089,9 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 #define CS32_SELECTOR 0x23
 #define CS64_SELECTOR 0x33
 
+#ifdef ARM
+/* reset the encode state stored in dcontext used by A32 Thumb mode */
+void encode_reset_it_block(dcontext_t *dcontext);
+#endif
+
 #endif /* _ARCH_EXPORTS_H_ */

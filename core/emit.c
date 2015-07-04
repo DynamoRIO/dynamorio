@@ -431,6 +431,13 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
      */
     ASSERT(instrlist_first(ilist) != NULL);
     isa_mode = instr_get_isa_mode(instrlist_first(ilist));
+#ifdef ARM
+    /* XXX i#1734: reset encdoe state to avoid any stale encode state
+     * or dangling pointer.
+     */
+    if (isa_mode == DR_ISA_ARM_THUMB)
+        encode_reset_it_block(dcontext);
+#endif
     mode_flags = frag_flags_from_isa_mode(isa_mode);
     if (mode_flags != 0)
         flags |= mode_flags;

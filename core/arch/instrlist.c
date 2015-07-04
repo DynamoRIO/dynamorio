@@ -480,6 +480,13 @@ instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc
 {
     instr_t *inst;
     int len = 0;
+#ifdef ARM
+    /* XXX i#1734: reset encdoe state to avoid any stale encode state
+     * or dangling pointer.
+     */
+    if (instr_get_isa_mode(instrlist_first(ilist)) == DR_ISA_ARM_THUMB)
+        encode_reset_it_block(dcontext);
+#endif
     if (has_instr_jmp_targets || max_pc != NULL) {
         /* must set note fields first with offset, or compute length */
         for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {

@@ -435,6 +435,7 @@ static inline bool
 encode_in_it_block(encode_state_t *state, instr_t *instr)
 {
     if (state->itb_info.num_instrs != 0) {
+        instr_t *prev;
         LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "in IT: cur=%d, in="PFX" %d vs "PFX" %d\n",
             state->itb_info.cur_instr, state->instr, state->instr->opcode,
             instr, instr->opcode);
@@ -449,7 +450,11 @@ encode_in_it_block(encode_state_t *state, instr_t *instr)
             }
             return true;
         }
-        if (instr == instr_get_prev(state->instr)) {
+        for (prev  = instr_get_prev(state->instr);
+             prev != NULL && instr_is_label(prev);
+             prev  = instr_get_prev(prev))
+            ; /* do nothing to skip the label instr */
+        if (instr == prev) {
             if (state->itb_info.cur_instr == 0)
                 return false; /* still on OP_it */
             else {
@@ -488,6 +493,14 @@ encode_track_it_block(dcontext_t *dcontext, instr_t *instr)
     decode_info_t di;
     di.encode_state = *get_encode_state(dcontext);
     encode_track_it_block_di(dcontext, &di, instr);
+}
+
+void
+encode_reset_it_block(dcontext_t *dcontext)
+{
+    encode_state_t state;
+    encode_state_reset(&state);
+    set_encode_state(dcontext, &state);
 }
 
 #ifdef DEBUG
