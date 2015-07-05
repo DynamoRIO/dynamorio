@@ -590,6 +590,7 @@ bool register_client(const char *process_name,
     /* just append to the existing client list */
     priority = dr_num_registered_clients(process_name, pid, global, dr_platform);
 
+    info("registering client with id=%d path=|%s| ops=|%s|\n", client_id, path, options);
     status = dr_register_client(process_name, pid, global, dr_platform, client_id,
                                 priority, path, options);
 

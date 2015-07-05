@@ -917,14 +917,19 @@ endfunction (use_DynamoRIO_test_annotations target target_srcs)
 set(PCACHE_DIR "${PROJECT_BINARY_DIR}/pcache")
 set(PCACHE_SHARED_DIR "${PROJECT_BINARY_DIR}/pcache/shared")
 
-function(template2expect outexpect template runops, key)
+function(template2expect outexpect template runops key)
   # We used to use a custom perl script to match defines and runtime
   # options but we've switched to cpp.  We convert -foo to -Dfoo and
   # -foo value to -Dfoo___value.
-  # First we strip out the single-quoted client_lib arg
+  # First we strip out the client lib and client args
+  # (this was easier when we passed a single single-quoted client_lib arg).
   string(REGEX REPLACE
-    "'.*'"
-    "_xx_" rundefs "${runops}")
+    "-c;.*"
+    "" rundefs "${runops}")
+  # We now pass a list, so convert ; separators to spaces:
+  string(REPLACE
+    ";"
+    " " rundefs "${rundefs}")
   # We replace bad define-name chars in client_lib with _.
   string(REGEX REPLACE
     "[;/\\.!]"
@@ -1065,20 +1070,20 @@ endfunction(template2expect)
 function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
   if (UNIX)
-    set(os_ops "-dumpcore_mask 0")
+    set(os_ops -dumpcore_mask 0)
   else ()
     # Turn on core dumps for most fatal errors.  Don't dump for curiosities or
     # security violations.
-    set(os_ops "-msgbox_mask 0 -dumpcore_mask 0x7d -staged")
+    set(os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
   endif ()
-  set(dr_ops "-stderr_mask 0xC ${os_ops} ${dr_ops_aux} ${TEST_OPTIONS}")
+  set(dr_ops -stderr_mask 0xC ${os_ops} ${dr_ops_aux} ${TEST_OPTIONS})
 
   if (separate_script)
     # eliminate double-spaces, to help w/ passing strings to runall.cmake
     string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
     string(REGEX REPLACE " $" "" dr_ops "${dr_ops}")
-    # ; must be quoted: can't seem to match \; or replace w/ \ so using !
-    string(REGEX REPLACE ".;" "!" dr_ops "${dr_ops}")
+    # We assume there is no ; inside an option: only there as cmake list separtors
+    # (we use -c instead of -client_lib).
   endif (separate_script)
 
   if (WIN32 OR NOT native)
@@ -1117,7 +1122,7 @@ function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_scri
     endif (WIN32)
     if (standalone_dr OR NOT native)
       # add dr_ops last to avoid needing extra \ on ;
-      set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
+      set(${outcmd} ${cmd} ${dr_ops} "--" PARENT_SCOPE)
     else (standalone_dr OR NOT native)
       # the test is pure native, so we rely on ctest for job control
       set(${outcmd} "" PARENT_SCOPE)
@@ -1130,7 +1135,8 @@ function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_scri
     set(cmd ${cmd} -env LD_LIBRARY_PATH
       "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
     # add dr_ops last to avoid needing extra \ on ;
-    set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops}" PARENT_SCOPE)
+    string(REPLACE ";" " " dr_ops_string "${dr_ops}")
+    set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" PARENT_SCOPE)
   else ()
     # clear the caller's `outcmd`
     set(${outcmd} "" PARENT_SCOPE)
@@ -1362,11 +1368,30 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
   set(${added_out} ON PARENT_SCOPE)
 endfunction(torun)
 
+macro (string2list var)
+  string(REPLACE " " ";" ${var} ${${var}})
+endmacro ()
+
+macro(strings2lists test ops_var)
+  # We now use a list instead of a string for ops.  We convert here where we can
+  # assume there are no spaces (from paths) in the options.
+  if (NOT ${${ops_var}} STREQUAL "")
+    string2list(${ops_var})
+  endif ()
+  if (DEFINED ${test}_dr_ops)
+    string2list(${test}_dr_ops)
+  endif ()
+  if (DEFINED ${test}_client_ops)
+    string2list(${test}_client_ops)
+  endif ()
+endmacro()
+
 function(torun_normal name test ops)
+  strings2lists(${test} ops)
   if (STATIC_LIBRARY AND "${ops}" MATCHES "-early_inject")
     return()
   endif ()
-  torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops} ${ops}"
+  torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops};${ops}"
     "${${test}_exe_ops}" added)
   if (DEFINED ${test}_depends)
     ops2testprefix(prefix "${ops}")
@@ -1379,6 +1404,7 @@ function(torun_normal name test ops)
 endfunction(torun_normal)
 
 function(torun_ci name test ops)
+  strings2lists(${test} ops)
   set(cli_ops "${${test}_client_ops}")
   if ("${test}" MATCHES "client\\.flush")
     # See PR 244090 - currently there is no way for a client to see what
@@ -1395,7 +1421,8 @@ function(torun_ci name test ops)
   endif ()
   # note that we cannot use double quotes as they'll be stripped out
   torun("${name}" ${test} ${${test}_source} OFF OFF
-    " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
+    "${${test}_dr_ops};${ops};-c;${${test}_client_path};${cli_ops}"
+    "${${test}_exe_ops}" added)
   if (added)
     if (DEFINED ${test}_depends)
       ops2testprefix(prefix "${ops}")
@@ -1409,17 +1436,20 @@ function(torun_ci name test ops)
 endfunction(torun_ci)
 
 function(torun_api name test ops)
+  strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} ON ${${test}_standalone_dr}
     "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
 endfunction(torun_api)
 
 function(torunonly_native name realexe expect source exe_ops)
+  strings2lists(${name} ops)
   set(${name}_expectbase ${expect})
   set(${name}_realtest ${realexe})
   torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added)
 endfunction(torunonly_native)
 
 function(torun_runall name test ops)
+  strings2lists(${test} ops)
   # FIXME NYI i#120
 endfunction(torun_runall)
 
@@ -1790,7 +1820,7 @@ if (CLIENT_INTERFACE)
   endif (NOT ARM)
 
   tobuild_ci(client.option_parse client-interface/option_parse.cpp
-    " -x   4 -y \"quoted string\" -z first -z `single quotes -dash --dashes` -front value -y accum -front2 value2 -no_flag"
+    " -x   4 -y 'quoted string' -z first -z `single quotes -dash --dashes` -front value -y accum -front2 value2 -no_flag"
     "" "")
   use_DynamoRIO_extension(client.option_parse.dll droption)
 
@@ -1840,7 +1870,7 @@ if (CLIENT_INTERFACE)
   tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
   get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
   tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
-    "-stack_size 36K" "${drsyms_libpath}")
+    "" "${drsyms_libpath}")
   # Disable optimizations for the exe and appdll to allow stack tracing.
   disable_optimizations_for_file(client-interface/drsyms-test.cpp)
   disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
