@@ -49,6 +49,8 @@ if (UNIX)
     simulator/cache_stats.cpp
     )
   target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)
+  add_rel_rpaths(drcachesim drconfiglib)
+  add_rel_rpaths(drcachesim drinjectlib)
 
   add_library(drmemtrace SHARED
     tracer/tracer.cpp
