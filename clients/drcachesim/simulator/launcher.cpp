@@ -276,7 +276,7 @@ _tmain(int argc, const TCHAR *targv[])
 #endif
 
     // XXX: we may want a prefix on our output
-    std::cout << "---- <application exited with code " << errcode <<
+    std::cerr << "---- <application exited with code " << errcode <<
         "> ----" << std::endl;
     simulator.print_stats();
 

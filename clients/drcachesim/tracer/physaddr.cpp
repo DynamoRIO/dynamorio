@@ -133,7 +133,7 @@ physaddr_t::virtual2physical(addr_t virt)
         return 0;
     last_ppage = (addr_t)((entry & PAGEMAP_PFN) << PAGE_BITS);
     if (op_verbose.get_value() >= 2) {
-        std::cout << "virtual " << virt << " => physical " <<
+        std::cerr << "virtual " << virt << " => physical " <<
             (last_ppage + PAGE_OFFS(virt)) << std::endl;
     }
     v2p[vpage] = last_ppage;

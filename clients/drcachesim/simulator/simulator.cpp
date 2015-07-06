@@ -121,7 +121,7 @@ simulator_t::core_for_thread(memref_tid_t tid)
         }
     }
     if (op_verbose.get_value() >= 1) {
-        std::cout << "new thread " << tid << " => core " << min_core <<
+        std::cerr << "new thread " << tid << " => core " << min_core <<
             " (count=" << thread_counts[min_core] << ")" << std::endl;
     }
     ++thread_counts[min_core];
@@ -138,7 +138,7 @@ simulator_t::handle_thread_exit(memref_tid_t tid)
     assert(thread_counts[exists->second] > 0);
     --thread_counts[exists->second];
     if (op_verbose.get_value() >= 1) {
-        std::cout << "thread " << tid << " exited from core " << exists->second <<
+        std::cerr << "thread " << tid << " exited from core " << exists->second <<
             " (count=" << thread_counts[exists->second] << ")" << std::endl;
     }
     thread2core.erase(tid);
@@ -194,7 +194,7 @@ simulator_t::run()
         }
 
         if (op_verbose.get_value() >= 3) {
-            std::cout << "::" << memref.pid << "." << memref.tid << ":: " <<
+            std::cerr << "::" << memref.pid << "." << memref.tid << ":: " <<
                 " @" << (void *)memref.pc <<
                 ((memref.type == TRACE_TYPE_READ) ? " R " :
                  // FIXME i#1703: auto-convert to string
@@ -210,15 +210,15 @@ simulator_t::print_stats()
 {
     for (int i = 0; i < num_cores; i++) {
         unsigned int threads = thread_ever_counts[i];
-        std::cout << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
+        std::cerr << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
         if (threads > 0) {
-            std::cout << "  L1I stats:" << std::endl;
+            std::cerr << "  L1I stats:" << std::endl;
             icaches[i].get_stats()->print_stats("    ");
-            std::cout << "  L1D stats:" << std::endl;
+            std::cerr << "  L1D stats:" << std::endl;
             dcaches[i].get_stats()->print_stats("    ");
         }
     }
-    std::cout << "LL stats:" << std::endl;
+    std::cerr << "LL stats:" << std::endl;
     llcache.get_stats()->print_stats("    ");
     return true;
 }

@@ -79,33 +79,33 @@ cache_stats_t::flush(const memref_t &memref)
 void
 cache_stats_t::print_stats(std::string prefix)
 {
-    std::cout.imbue(std::locale("")); // Add commas, at least for my locale
-    std::cout << prefix << std::setw(18) << std::left << "Hits:" <<
+    std::cerr.imbue(std::locale("")); // Add commas, at least for my locale
+    std::cerr << prefix << std::setw(18) << std::left << "Hits:" <<
         std::setw(20) << std::right << num_hits << std::endl;
-    std::cout << prefix << std::setw(18) << std::left << "Misses:" <<
+    std::cerr << prefix << std::setw(18) << std::left << "Misses:" <<
         std::setw(20) << std::right << num_misses << std::endl;
     if (num_flushes != 0) {
-        std::cout << prefix << std::setw(18) << std::left << "Flushes:" <<
+        std::cerr << prefix << std::setw(18) << std::left << "Flushes:" <<
             std::setw(20) << std::right << num_flushes << std::endl;
     }
     if (num_prefetch_hits + num_prefetch_misses != 0) {
-        std::cout << prefix << std::setw(18) << std::left << "Prefetch hits:" <<
+        std::cerr << prefix << std::setw(18) << std::left << "Prefetch hits:" <<
             std::setw(20) << std::right << num_prefetch_hits << std::endl;
-        std::cout << prefix << std::setw(18) << std::left << "Prefetch misses:" <<
+        std::cerr << prefix << std::setw(18) << std::left << "Prefetch misses:" <<
             std::setw(20) << std::right << num_prefetch_misses << std::endl;
     }
     if (num_hits + num_misses > 0) {
         std::string miss_label = "Miss rate:";
         if (num_child_hits != 0)
             miss_label = "Local miss rate:";
-        std::cout << prefix << std::setw(18) << std::left << miss_label <<
+        std::cerr << prefix << std::setw(18) << std::left << miss_label <<
             std::setw(20) << std::fixed << std::setprecision(2) << std::right <<
             ((float)num_misses*100/(num_hits+num_misses)) << "%" << std::endl;
     }
     if (num_child_hits != 0) {
-        std::cout << prefix << std::setw(18) << std::left << "Child hits:" <<
+        std::cerr << prefix << std::setw(18) << std::left << "Child hits:" <<
             std::setw(20) << std::right << num_child_hits << std::endl;
-        std::cout << prefix << std::setw(18) << std::left << "Total miss rate:" <<
+        std::cerr << prefix << std::setw(18) << std::left << "Total miss rate:" <<
             std::setw(20) << std::fixed << std::setprecision(2) << std::right <<
             ((float)num_misses*100/(num_hits+num_child_hits+num_misses)) << "%" <<
             std::endl;

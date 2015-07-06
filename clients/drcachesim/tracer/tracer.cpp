@@ -157,8 +157,8 @@ memtrace(void *drcontext)
             }
         }
         if (op_verbose.get_value() >= 2) {
-            dr_printf("SEND: type=%d, sz=%d, addr=%p\n", mem_ref->type, mem_ref->size,
-                      mem_ref->addr);
+            dr_fprintf(STDERR, "SEND: type=%d, sz=%d, addr=%p\n",
+                       mem_ref->type, mem_ref->size, mem_ref->addr);
         }
     }
     towrite = (byte *)buf_ptr - (byte *)data->buf_base;

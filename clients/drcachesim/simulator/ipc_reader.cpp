@@ -121,7 +121,7 @@ ipc_reader_t::operator++()
             cur_buf++;
         if (cur_buf < end_buf) {
 #ifdef VERBOSE
-            std::cout << "RECV: " << cur_buf->type << " sz=" << cur_buf->size <<
+            std::cerr << "RECV: " << cur_buf->type << " sz=" << cur_buf->size <<
                 " addr=" << (void *)cur_buf->addr << std::endl;
 #endif
             bool have_memref = false;
