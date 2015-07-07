@@ -33,15 +33,19 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_drcachesim Multi-Process Cache Simulator
+\page page_drcachesim Cache Simulator
 
 \p drcachesim is a DynamoRIO client tool that collects memory access traces
 and feeds them to an online cache simulator.  The tool supports multiple
 processes each with multiple threads.
 
  - \ref sec_drcachesim
+ - \ref sec_drcachesim_run
+ - \ref sec_drcachesim_sim
+ - \ref sec_drcachesim_phys
+ - \ref sec_drcachesim_limit
+ - \ref sec_drcachesim_extend
  - \ref sec_drcachesim_ops
-
 
 \section sec_drcachesim Overview
 
@@ -51,10 +55,99 @@ trace from each thread within each application process and feeds each trace
 to an online cache simulator.
 
 
+\section sec_drcachesim_run Running the Simulator
+
+To launch \p drcachesim, use the \p -t flag to \p drrun and specify a pipe
+name:
+
+\code
+bin64/drrun -t drcachesim -ipc_name mypipe -- /path/to/target/app <args> <for> <app>
+\endcode
+
+The target application will be launched under a DynamoRIO client that
+gathers all of its memory references and passes them to the simulator.  Any
+child processes will be followed into and profiled, with their memory
+references passed to the simulator as well.
+
+
+\section sec_drcachesim_sim Simulator Details
+
+The simulator models a configurable number of cores, each with an L1 data
+cache and an L1 instruction cache.  Currently there is a single shared L2
+unified cache, but we would like to extend support to arbitrary cache
+hierarchies (see \ref sec_drcachesim_limit).  The cache line size and each
+cache's total size and associativity are user-specified (see \ref
+sec_drcachesim_ops).
+
+The simulator has no simple way to know which core any particular thread
+executed on at a given point in time.  Instead it uses a simple static
+scheduling of threads to cores, using a round-robin assignment with load
+balancing to fill in gaps with new threads after threads exit.
+
+The memory access traces contain some optimizations that combine references
+for one basic block together.  This may result in not considering some
+thread interleavings that could occur natively.  There are no other
+disruptions to thread ordering, however, and the application runs with all
+of threads concurrently just like it would natively (although slower).
+
+Once every process has exited, the simulator prints cache miss statistics
+for each cache to stderr.  The simulator is designed to be extensible,
+allowing for different cache studies to be carried out: see \ref
+sec_drcachesim_extend.
+
+For the L2 cache, the L1 caches are considered its _children_.  Two
+separate miss rates are computed, one (the "Local miss rate") considering
+just requests that reach L2 while the other (the "Total miss rate")
+includes the child hits.
+
+For memory requests that cross cache lines, each cache line touched is
+considered separately, resulting in separate hit and miss statistics.  This
+can be changed by implementing a custom statistics gatherer (see \ref
+sec_drcachesim_extend).
+
+
+\section sec_drcachesim_phys Physical Addresses
+
+The memory access tracing client gathers virtual addresses.  On Linux, if
+the kernel allows access to the \p /proc/self/pagemap file, physical
+addresses may be used instead.  This can be requested via the \p
+-use_physical runtime option (see \ref sec_drcachesim_ops).
+
+
+\section sec_drcachesim_limit Current Limitations
+
+The \p drcachesim tool is a work in progress.  We welcome contributions in
+these areas of missing functionality:
+
+- Cache coherence (https://github.com/DynamoRIO/dynamorio/issues/1726)
+- Windows support (https://github.com/DynamoRIO/dynamorio/issues/1727)
+- Arbitrary cache hierarchy support via an input config file
+  (https://github.com/DynamoRIO/dynamorio/issues/1715)
+
+
+\section sec_drcachesim_extend Extending the Simulator
+
+The \p drcachesim tool was designed to be extensible, allowing users to
+easily implement different cache models and gather custom statistics.
+
+To implement a different cache model, subclass the \p cache_t class and
+override the \p request(), \p access_update(), and/or \p
+replace_which_way() method(s).
+
+Statistics gathering is separated out into the \p cache_stats_t class.  To
+implement custom statistics, subclass \p cache_stats_t and override the \p
+access(), \p child_access(), \p flush(), and/or \p print_stats() methods.
+
+
 \section sec_drcachesim_ops Simulator Parameters
 
 \p drcachesim's behavior can be controlled through options passed after the
-\p -c \p drcachesim but prior to the "--" delimiter on the command line.
+\p -c \p drcachesim but prior to the "--" delimiter on the command line:
+
+\code
+bin64/drrun -t drcachesim -ipc_name mypipe <other> <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
+\endcode
+
 Boolean options can be disabled using a "-no_" prefix.
 
 The parameters available are described below:
