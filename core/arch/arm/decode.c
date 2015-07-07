@@ -1832,7 +1832,7 @@ instr_t *
 instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
                       dr_pred_type_t pred2, dr_pred_type_t pred3)
 {
-    byte firstcond, mask;
+    byte firstcond = 0, mask = 0;
     if (!instr_it_block_compute_immediates(pred0, pred1, pred2, pred3,
                                            &firstcond, &mask)) {
         CLIENT_ASSERT(false, "invalid predicates");
