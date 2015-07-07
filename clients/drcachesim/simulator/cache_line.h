@@ -47,7 +47,11 @@ static const addr_t TAG_INVALID = (addr_t)-1; // cacheline is invalid
 class cache_line_t
 {
  public:
-    cache_line_t() : tag(TAG_INVALID) {}
+    // Initializing counter to 0 is just to be safe and to make it easier to write new
+    // replacement algorithms without errors (and we expect negligible perf cost), as
+    // we expect any use of counter to only occur *after* a valid tag is put in place,
+    // where for the current replacement code we also set the counter at that time.
+    cache_line_t() : tag(TAG_INVALID), counter(0) {}
 
     addr_t tag;
 

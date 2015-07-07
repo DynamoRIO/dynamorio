@@ -155,25 +155,30 @@ cache_t::request(const memref_t &memref_in)
 void
 cache_t::access_update(int line_idx, int way)
 {
-    // We just inc the counter for LRU.  We live with any blip on overflow.
+    // We just inc the counter for LFU.  We live with any blip on overflow.
     get_cache_line(line_idx, way).counter++;
 }
 
 int
 cache_t::replace_which_way(int line_idx)
 {
-    // We only implement LRU.  A subclass can override this and replace_update()
-    // to implement some other scheme.
-    int_least64_t min_counter = 0;
+    // The base cache class only implements LFU.
+    // A subclass can override this and access_update() to implement
+    // some other scheme.
+    int min_counter;
     int min_way = 0;
     for (int way = 0; way < associativity; ++way) {
+        if (get_cache_line(line_idx, way).tag == TAG_INVALID) {
+            min_way = way;
+            break;
+        }
         if (way == 0 || get_cache_line(line_idx, way).counter < min_counter) {
             min_counter = get_cache_line(line_idx, way).counter;
             min_way = way;
         }
-        // FIXME i#1703: shouldn't we clear all counters here for LRU?
-        // Else we have LFU.  LRU results in more misses on fib: look deeper.
     }
+    // Clear the counter for LFU.
+    get_cache_line(line_idx, min_way).counter = 0;
     return min_way;
 }
 
@@ -186,8 +191,11 @@ cache_t::flush(const memref_t &memref)
     for (; tag <= final_tag; ++tag) {
         int line_idx = compute_line_idx(tag);
         for (int way = 0; way < associativity; ++way) {
-            if (get_cache_line(line_idx, way).tag == tag)
+            if (get_cache_line(line_idx, way).tag == tag) {
                 get_cache_line(line_idx, way).tag = TAG_INVALID;
+                // Xref cache_line_t constructor about why we set counter to 0.
+                get_cache_line(line_idx, way).counter = 0;
+            }
         }
     }
     // We flush parent's code cache here.

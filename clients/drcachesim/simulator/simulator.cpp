@@ -40,6 +40,7 @@
 #include "ipc_reader.h"
 #include "cache_stats.h"
 #include "cache.h"
+#include "cache_lru.h"
 #include "droption.h"
 #include "../common/options.h"
 #include "simulator.h"
@@ -59,20 +60,30 @@ simulator_t::init()
 
     num_cores = op_num_cores.get_value();
 
-    if (!llcache.init(op_LL_assoc.get_value(), op_line_size.get_value(),
-                      op_LL_size.get_value(), NULL, new cache_stats_t)) {
+    if (op_replace_lru.get_value())
+        llcache = new cache_lru_t;
+    else // default LFU
+        llcache = new cache_t;
+
+    if (!llcache->init(op_LL_assoc.get_value(), op_line_size.get_value(),
+                       op_LL_size.get_value(), NULL, new cache_stats_t)) {
         ERROR("Usage error: failed to initialize LL cache.  Ensure sizes and "
               "associativity are powers of 2 "
               "and that the total size is a multiple of the line size.\n");
         return false;
     }
-    icaches = new cache_t[num_cores];
-    dcaches = new cache_t[num_cores];
+    if (op_replace_lru.get_value()) {
+        icaches = new cache_lru_t[num_cores];
+        dcaches = new cache_lru_t[num_cores];
+    } else {
+        icaches = new cache_t[num_cores];
+        dcaches = new cache_t[num_cores];
+    }
     for (int i = 0; i < num_cores; i++) {
         if (!icaches[i].init(op_L1I_assoc.get_value(), op_line_size.get_value(),
-                             op_L1I_size.get_value(), &llcache, new cache_stats_t) ||
+                             op_L1I_size.get_value(), llcache, new cache_stats_t) ||
             !dcaches[i].init(op_L1D_assoc.get_value(), op_line_size.get_value(),
-                             op_L1D_size.get_value(), &llcache, new cache_stats_t)) {
+                             op_L1D_size.get_value(), llcache, new cache_stats_t)) {
             ERROR("Usage error: failed to initialize L1 caches.  Ensure sizes and "
                   "associativity are powers of 2 "
                   "and that the total sizes are multiples of the line size.\n");
@@ -90,7 +101,7 @@ simulator_t::init()
 
 simulator_t::~simulator_t()
 {
-    delete llcache.get_stats();
+    delete llcache->get_stats();
     for (int i = 0; i < num_cores; i++) {
         delete icaches[i].get_stats();
         delete dcaches[i].get_stats();
@@ -217,6 +228,6 @@ simulator_t::print_stats()
         }
     }
     std::cerr << "LL stats:" << std::endl;
-    llcache.get_stats()->print_stats("    ");
+    llcache->get_stats()->print_stats("    ");
     return true;
 }

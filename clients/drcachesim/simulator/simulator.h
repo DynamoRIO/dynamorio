@@ -62,7 +62,7 @@ class simulator_t
     int num_cores;
     cache_t *icaches;
     cache_t *dcaches;
-    cache_t llcache;
+    cache_t *llcache;
 
     // For thread mapping to cores:
     std::map<memref_tid_t, int> thread2core;

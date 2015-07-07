@@ -30,32 +30,46 @@
  * DAMAGE.
  */
 
-/* shared options for both the frontend and the client */
+#include "cache_lru.h"
 
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+// For LRU implementation, we use the cache line counter to represent
+// how recently a cache line is accessed.
+// The count value 0 means the most recent access, and the cache line with the
+// highest counter value will be picked for replacement in replace_which_way.
 
-#include <string>
-#include "droption.h"
+void
+cache_lru_t::access_update(int line_idx, int way)
+{
+    int cnt = get_cache_line(line_idx, way).counter;
+    // Optimization: return early if it is a repeated access.
+    if (cnt == 0)
+        return;
+    // We inc all the counters that are not larger than cnt for LRU.
+    for (int i = 0; i < associativity; ++i) {
+        if (i != way && get_cache_line(line_idx, i).counter <= cnt)
+            get_cache_line(line_idx, i).counter++;
+    }
+    // Clear the counter for LRU.
+    get_cache_line(line_idx, way).counter = 0;
+}
 
-extern droption_t<std::string> op_ipc_name;
-extern droption_t<unsigned int> op_num_cores;
-extern droption_t<unsigned int> op_line_size;
-extern droption_t<bytesize_t> op_L1I_size;
-extern droption_t<bytesize_t> op_L1D_size;
-extern droption_t<unsigned int> op_L1I_assoc;
-extern droption_t<unsigned int> op_L1D_assoc;
-extern droption_t<bytesize_t> op_LL_size;
-extern droption_t<unsigned int> op_LL_assoc;
-extern droption_t<bool> op_use_physical;
-extern droption_t<bool> op_replace_lru;
-extern droption_t<bool> op_replace_lfu;
-extern droption_t<unsigned int> op_virt2phys_freq;
-extern droption_t<unsigned int> op_verbose;
-extern droption_t<std::string> op_dr_root;
-extern droption_t<bool> op_dr_debug;
-extern droption_t<std::string> op_dr_ops;
-extern droption_t<std::string> op_tracer;
-extern droption_t<std::string> op_tracer_ops;
-
-#endif /* _OPTIONS_H_ */
+int
+cache_lru_t::replace_which_way(int line_idx)
+{
+    // We implement LRU by picking the slot with the largest counter value.
+    int max_counter = 0;
+    int max_way = 0;
+    for (int way = 0; way < associativity; ++way) {
+        if (get_cache_line(line_idx, way).tag == TAG_INVALID) {
+            max_way = way;
+            break;
+        }
+        if (get_cache_line(line_idx, way).counter > max_counter) {
+            max_counter = get_cache_line(line_idx, way).counter;
+            max_way = way;
+        }
+    }
+    // Set to non-zero for later access_update optimization on repeated access
+    get_cache_line(line_idx, max_way).counter = 1;
+    return max_way;
+}

@@ -81,6 +81,16 @@ droption_t<bool> op_use_physical
  "If available, the default virtual addresses will be translated to physical.  "
  "This is not possible from user mode on all platforms.");
 
+droption_t<bool> op_replace_lru
+(DROPTION_SCOPE_FRONTEND, "replace_lru", false, "Use an LRU cache replacement policy",
+ "Use a Least Recently Used (LRU) cache replacement algorithm."
+ "If multiple replacement policies are passed, only one will be used.");
+
+droption_t<bool> op_replace_lfu
+(DROPTION_SCOPE_FRONTEND, "replace_lfu", true, "Use an LFU cache replacement policy",
+ "Use a (default) Least Frequently Used (LFU) cache replacement algorithm."
+ "If multiple replacement policies are passed, only one will be used.");
+
 droption_t<unsigned int> op_virt2phys_freq
 (DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
  "This option only applies if -use_physical is enabled.  The virtual to physical "
