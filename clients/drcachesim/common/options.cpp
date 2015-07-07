@@ -37,9 +37,10 @@
 #include "options.h"
 
 droption_t<std::string> op_ipc_name
-(DROPTION_SCOPE_ALL, "ipc_name", "", "Base name of named pipe",
+(DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Base name of named pipe",
  "Specifies the base name of the named pipe used to communicate between the target "
- "application processes and the cache simulator.");
+ "application processes and the cache simulator.  A unique name must be chosen "
+ "for each instance of the simulator being run at any one time.");
 
 droption_t<unsigned int> op_num_cores
 (DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",

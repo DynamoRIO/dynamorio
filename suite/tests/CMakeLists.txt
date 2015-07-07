@@ -2092,7 +2092,7 @@ if (CLIENT_INTERFACE)
       # we know the results, and check the output.
       torunonly_ci(tool.drcachesim.simple ${ci_shared_app} drcachesim
         "drcachesim-simple.c" # for templatex basename
-        "-ipc_name mypipe" "" "")
+        "-ipc_name drtestpipe1" "" "")
       set(tool.drcachesim.simple_toolname "drcachesim")
       set(tool.drcachesim.simple_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2106,7 +2106,7 @@ if (CLIENT_INTERFACE)
         # more deterministic output.
         torunonly_ci(tool.drcachesim.threads client.annotation-concurrency drcachesim
           "drcachesim-threads.c" # for templatex basename
-          "-ipc_name mypipe2" "" "${annotation_test_args}")
+          "-ipc_name drtestpipe2" "" "${annotation_test_args}")
         set(tool.drcachesim.threads_toolname "drcachesim")
         set(tool.drcachesim.threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")

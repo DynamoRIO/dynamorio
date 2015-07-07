@@ -61,7 +61,7 @@ To launch \p drcachesim, use the \p -t flag to \p drrun and specify a pipe
 name:
 
 \code
-bin64/drrun -t drcachesim -ipc_name mypipe -- /path/to/target/app <args> <for> <app>
+bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>
 \endcode
 
 The target application will be launched under a DynamoRIO client that
@@ -145,7 +145,7 @@ access(), \p child_access(), \p flush(), and/or \p print_stats() methods.
 \p -c \p drcachesim but prior to the "--" delimiter on the command line:
 
 \code
-bin64/drrun -t drcachesim -ipc_name mypipe <other> <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
+bin64/drrun -t drcachesim <other> <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
 \endcode
 
 Boolean options can be disabled using a "-no_" prefix.
