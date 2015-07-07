@@ -32,7 +32,7 @@
 
 /* launcher: the front end for the cache simulator */
 
-// FIXME i#1703: the Windows implementation is not tested (needs
+// FIXME i#1727: the Windows implementation is not tested (needs
 // the named pipe implementation to be finished).
 
 /* For internationalization support we use wide-char versions of all Windows-

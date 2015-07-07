@@ -30,7 +30,7 @@
 
 cmake_minimum_required(VERSION 2.6)
 
-# FIXME i#1703: finish implementing for Windows
+# FIXME i#1727: finish implementing for Windows
 if (UNIX)
 
   if (WIN32)
@@ -45,6 +45,7 @@ if (UNIX)
     simulator/ipc_reader.cpp
     common/named_pipe_${os_name}.cpp
     common/options.cpp
+    common/trace_entry.cpp
     simulator/cache.cpp
     simulator/cache_stats.cpp
     )
@@ -58,6 +59,7 @@ if (UNIX)
     tracer/physaddr.cpp
     common/named_pipe_${os_name}.cpp
     common/options.cpp
+    common/trace_entry.cpp
     )
   configure_DynamoRIO_client(drmemtrace)
   use_DynamoRIO_extension(drmemtrace drmgr)

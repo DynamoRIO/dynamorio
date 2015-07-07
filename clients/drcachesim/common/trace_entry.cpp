@@ -30,37 +30,25 @@
  * DAMAGE.
  */
 
-#include <string>
-#include <windows.h>
-#include "named_pipe.h"
+#include "trace_entry.h"
 
-bool
-named_pipe_t::named_pipe_t(const char *name) :
-    fd(INVALID_HANDLE_VALUE), named_pipe("\\\\.\\pipe\\" + name)
-{
-}
-
-bool
-named_pipe_t::create()
-{
-    // FIXME i#1727: NYI
-    // We should document the 256 char limit on path name.
-    HANDLE pipe = CreateNamedPipeA(named_pipe.c_str(),
-                                   PIPE_ACCESS...);
-}
-
-bool
-named_pipe_t::open_for_read()
-{
-    HANDLE pipe = CreateFileA("\\\\.\\pipe\\" + name, PIPE_ACCESS...);
-    // FIXME i#1727: NYI
-}
-
-bool
-named_pipe_t::~named_pipe_t()
-{
-    if (fd != INVALID_HANDLE_VALUE)
-        close();
-}
-
-// FIXME i#1727: rest NYI
+const char * const trace_type_names[] = {
+    "read",
+    "write",
+    "prefetch",
+    "prefetcht0",
+    "prefetcht1",
+    "prefetcht2",
+    "prefetchnta",
+    "prefetch_read",
+    "prefetch_write",
+    "prefetch_instr",
+    "instr",
+    "instr_flush",
+    "instr_flush_end",
+    "data_flush",
+    "data_flush_end",
+    "thread",
+    "thread_exit",
+    "pid",
+};

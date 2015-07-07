@@ -83,7 +83,7 @@ physaddr_t::init()
     // such as Fedora with recent kernels.  We have no choice but to fail there.
     return (fd != -1);
 #else
-    // FIXME i#1703: NYI, but likely not possible.  If it is we may want to split
+    // FIXME i#1727: NYI, but likely not possible.  If it is we may want to split
     // into physaddr_linux.cpp vs others.
     return false;
 #endif

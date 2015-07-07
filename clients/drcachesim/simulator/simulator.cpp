@@ -196,9 +196,7 @@ simulator_t::run()
         if (op_verbose.get_value() >= 3) {
             std::cerr << "::" << memref.pid << "." << memref.tid << ":: " <<
                 " @" << (void *)memref.pc <<
-                ((memref.type == TRACE_TYPE_READ) ? " R " :
-                 // FIXME i#1703: auto-convert to string
-                 ((memref.type == TRACE_TYPE_WRITE) ? " W " : " I ")) <<
+                " " << trace_type_names[memref.type] << " " <<
                 (void *)memref.addr << " x" << memref.size << std::endl;
         }
     }

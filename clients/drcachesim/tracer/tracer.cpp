@@ -34,8 +34,8 @@
 /* tracer.cpp: tracing client for feeding data to cache simulator.
  *
  * Based on the memtrace_opt.c sample.
- * FIXME i#1703: add in more optimizations to improve performance.
- * FIXME i#1703: perhaps refactor and split up to make it more
+ * XXX i#1703: add in more optimizations to improve performance.
+ * XXX i#1703: perhaps refactor and split up to make it more
  * modular.
  */
 
@@ -498,7 +498,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     adjust += sizeof(trace_entry_t);
     ud->last_app_pc = instr_get_app_pc(instr);
 
-    // FIXME: add OP_clflush handling for cache flush on X86
+    // FIXME i#1703: add OP_clflush handling for cache flush on X86
     if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {

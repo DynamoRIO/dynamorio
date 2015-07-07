@@ -86,7 +86,7 @@ cache_t::request(const memref_t &memref_in)
     addr_t final_tag = compute_tag(final_addr);
     addr_t tag = compute_tag(memref.addr);
 
-    // FIXME i#1703: if the request is a data write, we should check the
+    // FIXME i#1726: if the request is a data write, we should check the
     // instr cache and invalidate the cache line there if necessary on x86.
 
     // Optimization: remember last tag if single-line
@@ -128,7 +128,7 @@ cache_t::request(const memref_t &memref_in)
             if (parent != NULL)
                 parent->request(memref);
 
-            // FIXME i#1703: coherence policy
+            // FIXME i#1726: coherence policy
 
             final_way = replace_which_way(line_idx);
             get_cache_line(line_idx, final_way).tag = tag;

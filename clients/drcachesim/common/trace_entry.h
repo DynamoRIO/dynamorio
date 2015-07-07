@@ -49,6 +49,7 @@ typedef uintptr_t addr_t;
 
 // XXX: if we want to rely on a recent C++ standard we could try to get
 // this enum to be just 2 bytes instead of an int and give it qualified names.
+// N.B.: when adding new values, be sure to update trace_type_names[].
 typedef enum {
     // XXX: if we want to include OP_ opcode values, we should have them occupy
     // the first 1,000 or so values and use OP_AFTER_LAST for the first of the
@@ -101,6 +102,8 @@ typedef enum {
     // The process id is in the addr field.
     TRACE_TYPE_PID,
 } trace_type_t;
+
+extern const char * const trace_type_names[];
 
 // Each trace entry is a <type, size, addr> tuple representing a memory reference
 // or some other data according to the type field.
