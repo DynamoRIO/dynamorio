@@ -1371,6 +1371,79 @@ configure_file(${PROJECT_SOURCE_DIR}/api/docs/CMake_doxyutils.cmake
 
 ###########################################################################
 
+# create CMake configuration files for clients and tests to use
+# we also create cmake/DynamoRIOTarget.cmake in core/CMakeLists.txt
+set(public_config_dir ${PROJECT_BINARY_DIR}/cmake)
+set(public_config_file ${public_config_dir}/DynamoRIOConfig.cmake)
+configure_file(
+  ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
+  ${public_config_file}
+  @ONLY)
+
+# INCLUDEFILE feature
+file(READ ${public_config_file} contents)
+string(REGEX MATCHALL "\nINCLUDEFILE [^ \r\n]*" includes "${contents}")
+foreach (inc ${includes})
+  string(REGEX REPLACE "\nINCLUDEFILE " "" incfile "${inc}")
+  file(READ "${incfile}" subst)
+  # strip out copyright header, which we prefixed with "##"
+  string(REGEX REPLACE "(^|\n)##[^\n]*" "" subst "${subst}")
+  string(REGEX REPLACE "${inc}" "\n${subst}" contents "${contents}")
+endforeach (inc)
+file(WRITE ${public_config_file} "${contents}")
+
+configure_file(
+  ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfigVersion.cmake.in
+  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
+  @ONLY)
+DR_install(FILES
+  ${public_config_file}
+  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
+# export suite scripts even if not building tests
+DR_install(FILES
+  ${PROJECT_SOURCE_DIR}/suite/runsuite_common_pre.cmake
+  ${PROJECT_SOURCE_DIR}/suite/runsuite_common_post.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
+# export visual studio lookup support
+DR_install(FILES ${PROJECT_SOURCE_DIR}/suite/lookup_visualstudio.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
+# export cpp2asm support, with consistent names
+DR_install(FILES ${PROJECT_SOURCE_DIR}/make/cpp2asm_support.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
+DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
+  DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
+)
+# we need to strip out the #include of configure.h
+DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
+  string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
+  file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
+
+# export docs support, with consistent names
+DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_rundoxygen.cmake
+  DESTINATION ${INSTALL_CMAKE} RENAME docs_rundoxygen.cmake
+)
+DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_doxyutils.cmake
+  DESTINATION ${INSTALL_CMAKE} RENAME docs_doxyutils.cmake
+)
+
+###########################################################################
+
+function (register_tool_file name)
+  if (X64)
+    set(listname "list64")
+  else ()
+    set(listname "list32")
+  endif ()
+  if (NOT DEBUG) # avoid duplicates for release + debug
+    DR_install(CODE "file(APPEND \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"${name}\\n\"\n)")
+  endif ()
+endfunction ()
+
 # used by docs, samples, and tests, so here instead of in core/CMakeLists.txt
 if (CLIENT_INTERFACE OR APP_EXPORTS)
   # set VERSION_NUMBER_INTEGER in dr_api.h
@@ -1403,6 +1476,11 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .
     REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
+
+if (BUILD_CLIENTS)
+  # Must be prior to api/docs
+  add_subdirectory(clients)
+endif (BUILD_CLIENTS)
 
 if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
@@ -1581,78 +1659,7 @@ if (NOT_DEBUG)
   DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"\")")
 endif ()
 
-function (register_tool_file name)
-  if (X64)
-    set(listname "list64")
-  else ()
-    set(listname "list32")
-  endif ()
-  if (NOT DEBUG) # avoid duplicates for release + debug
-    DR_install(CODE "file(APPEND \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"${name}\\n\"\n)")
-  endif ()
-endfunction ()
-
 ###########################################################################
-
-# create CMake configuration files for clients and tests to use
-# we also create cmake/DynamoRIOTarget.cmake in core/CMakeLists.txt
-set(public_config_dir ${PROJECT_BINARY_DIR}/cmake)
-set(public_config_file ${public_config_dir}/DynamoRIOConfig.cmake)
-configure_file(
-  ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfig.cmake.in
-  ${public_config_file}
-  @ONLY)
-
-# INCLUDEFILE feature
-file(READ ${public_config_file} contents)
-string(REGEX MATCHALL "\nINCLUDEFILE [^ \r\n]*" includes "${contents}")
-foreach (inc ${includes})
-  string(REGEX REPLACE "\nINCLUDEFILE " "" incfile "${inc}")
-  file(READ "${incfile}" subst)
-  # strip out copyright header, which we prefixed with "##"
-  string(REGEX REPLACE "(^|\n)##[^\n]*" "" subst "${subst}")
-  string(REGEX REPLACE "${inc}" "\n${subst}" contents "${contents}")
-endforeach (inc)
-file(WRITE ${public_config_file} "${contents}")
-
-configure_file(
-  ${PROJECT_SOURCE_DIR}/make/DynamoRIOConfigVersion.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
-  @ONLY)
-DR_install(FILES
-  ${public_config_file}
-  ${PROJECT_BINARY_DIR}/cmake/DynamoRIOConfigVersion.cmake
-  DESTINATION ${INSTALL_CMAKE}
-)
-# export suite scripts even if not building tests
-DR_install(FILES
-  ${PROJECT_SOURCE_DIR}/suite/runsuite_common_pre.cmake
-  ${PROJECT_SOURCE_DIR}/suite/runsuite_common_post.cmake
-  DESTINATION ${INSTALL_CMAKE}
-)
-# export visual studio lookup support
-DR_install(FILES ${PROJECT_SOURCE_DIR}/suite/lookup_visualstudio.cmake
-  DESTINATION ${INSTALL_CMAKE}
-)
-# export cpp2asm support, with consistent names
-DR_install(FILES ${PROJECT_SOURCE_DIR}/make/cpp2asm_support.cmake
-  DESTINATION ${INSTALL_CMAKE}
-)
-DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
-  DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
-)
-# we need to strip out the #include of configure.h
-DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
-  string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
-  file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
-
-# export docs support, with consistent names
-DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_rundoxygen.cmake
-  DESTINATION ${INSTALL_CMAKE} RENAME docs_rundoxygen.cmake
-)
-DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_doxyutils.cmake
-  DESTINATION ${INSTALL_CMAKE} RENAME docs_doxyutils.cmake
-)
 
 # Extensions (i#277/PR 540817)
 if (BUILD_EXT)
@@ -1670,10 +1677,6 @@ endif (BUILD_SAMPLES OR BUILD_TESTS OR BUILD_CLIENTS)
 if (BUILD_SAMPLES)
   add_subdirectory(api/samples)
 endif (BUILD_SAMPLES)
-
-if (BUILD_CLIENTS)
-  add_subdirectory(clients)
-endif (BUILD_CLIENTS)
 
 # This must be after samples and clients, as we use those targets in tests.
 if (BUILD_TESTS)

@@ -51,6 +51,7 @@ if (UNIX)
   target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)
   add_rel_rpaths(drcachesim drconfiglib)
   add_rel_rpaths(drcachesim drinjectlib)
+  use_DynamoRIO_extension(drcachesim droption)
 
   add_library(drmemtrace SHARED
     tracer/tracer.cpp
@@ -139,3 +140,44 @@ if (UNIX)
   register_tool_file("drcachesim")
 
 endif (UNIX)
+
+##################################################
+# Documentation
+
+# We auto-generate the list of options in the html docs via this helper app:
+add_executable(drcachesim_ops
+  optionlist.cpp
+  common/options.cpp)
+if (WIN32)
+  # There was no client yet, so ORIG_ is empty: plus it doesn't have /EHsc.
+  append_property_string(TARGET drcachesim_ops COMPILE_FLAGS "/EHsc")
+else ()
+  set_target_properties(drcachesim_ops PROPERTIES COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
+endif ()
+use_DynamoRIO_extension(drcachesim_ops droption)
+
+get_target_property(ops_path drcachesim_ops LOCATION${location_suffix})
+
+# We then have to insert it into the doxygen files at build time:
+set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcachesim.dox.in)
+set(gendoc ${CMAKE_CURRENT_BINARY_DIR}/drcachesim.dox)
+set(doctgt drcachesim_docs)
+
+get_property(dox_extras GLOBAL PROPERTY DynamoRIO_dox_extras)
+set_property(GLOBAL PROPERTY DynamoRIO_dox_extras ${dox_extras} ${gendoc})
+
+get_property(dox_targets GLOBAL PROPERTY DynamoRIO_dox_targets)
+set_property(GLOBAL PROPERTY DynamoRIO_dox_targets ${dox_targets} ${doctgt})
+
+add_custom_target(${doctgt} DEPENDS ${gendoc})
+add_custom_command(
+  OUTPUT ${gendoc}
+  DEPENDS ${srcdoc}
+  drcachesim_ops
+  common/options.h
+  COMMAND ${CMAKE_COMMAND}
+  ARGS -D src=${srcdoc}
+       -D dst=${gendoc}
+       -D prog=${ops_path}
+       -P ${CMAKE_CURRENT_SOURCE_DIR}/gendocs.cmake
+  VERBATIM)

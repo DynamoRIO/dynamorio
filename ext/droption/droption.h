@@ -243,10 +243,14 @@ class droption_parser_t
 
     /**
      * Returns a string containing a list of all of the parameters, their
-     * default values, and their long descriptions.
+     * default values, and their long descriptions, with the given pre- and
+     * post- values.  This is intended for use in generating documentation.
      */
     static std::string
-    usage_long(unsigned int scope)
+    usage_long(unsigned int scope,
+               std::string pre_name = "----------\n", std::string post_name = "\n",
+               std::string pre_value = "", std::string post_value = "\n",
+               std::string pre_desc = "", std::string post_desc = "\n")
     {
         std::ostringstream oss;
         for (std::vector<droption_parser_t*>::iterator opi = allops().begin();
@@ -255,14 +259,12 @@ class droption_parser_t
             droption_parser_t *op = *opi;
             // XXX: we should also add the min and max values
             if (TESTANY(scope, op->scope)) {
-                oss << "----------" << std::endl
-                    << "-" << op->name << std::endl
-                    << "default value: "
-                    << op->default_as_string() << std::endl
-                    << op->desc_long << std::endl << std::endl;
+                oss << pre_name << "-" << op->name << post_name
+                    << pre_value << "default value: "
+                    << op->default_as_string() << post_value
+                    << pre_desc << op->desc_long << post_desc << std::endl;
             }
         }
-        oss << "----------" << std::endl;
         return oss.str();
     }
 
@@ -453,7 +455,7 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
 template<> inline std::string
 droption_t<std::string>::default_as_string() const
 {
-    return defval;
+    return defval.empty() ? "\"\"" : defval;
 }
 template<> inline std::string
 droption_t<int>::default_as_string() const

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -105,8 +105,9 @@ foreach (fig ${figures_fig})
   set(figures_eps ${figures_eps} ${genimg_dirname}/${base}.eps)
 endforeach (fig)
 
-function (gendox_to_dox gendox_in gendox_out path)
-  file(GLOB dox_files "${path}/*.dox")
+function (gendox_to_dox gendox_in gendox_out path master_list)
+  file(GLOB dox_files "${path}/*.dox" "${path}/*.dox.in")
+  set(${master_list} ${${master_list}};${dox_files} PARENT_SCOPE)
   foreach (dox_file ${dox_files})
     file(READ "${dox_file}" dox_string)
     string(REGEX MATCHALL "\n\\\\page [^ ]+" page "${dox_string}")
@@ -123,18 +124,22 @@ endfunction (gendox_to_dox)
 
 # we want docs for Extensions (i#277/PR 540817) to be subpages but we
 # don't want to edit a top-level page to add new ones so we generate it
-gendox_to_dox("ext" "ext_gendox" "${PROJECT_SOURCE_DIR}/ext/*/")
-gendox_to_dox("tool" "tool_gendox" "${PROJECT_SOURCE_DIR}/clients/*/")
+file(GLOB dox_files *.dox)
+gendox_to_dox("ext" "ext_gendox" "${PROJECT_SOURCE_DIR}/ext/*/" dox_files)
+gendox_to_dox("tool" "tool_gendox" "${PROJECT_SOURCE_DIR}/clients/*/" dox_files)
 
 # determine doxygen version
 include(CMake_doxyutils.cmake)
 check_doxygen_version(${DOXYGEN_EXECUTABLE} "${DOXYGEN_VERSION}" doxygen_ver)
+
+get_property(dox_extras GLOBAL PROPERTY DynamoRIO_dox_extras)
 
 set(doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 add_custom_command(
   OUTPUT ${doxyfile}
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/API.doxy
           ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
+          ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
   COMMAND ${CMAKE_COMMAND}
   # script does not inherit any vars so we must pass them all in
   # to work around i#84 be sure to put a space after -D for 1st arg at least
@@ -143,13 +148,14 @@ add_custom_command(
        -Dheader_dir=${BUILD_INCLUDE} -Dgendox_dir=${CMAKE_CURRENT_BINARY_DIR}
        -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -Ddoxygen_ver=${doxygen_ver}
+       -Ddox_extras="${dox_extras}"
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
   VERBATIM # recommended: p260
   )
 
 set(docsgen ${CMAKE_CURRENT_BINARY_DIR}/html/index.html)
+get_property(dox_tgts GLOBAL PROPERTY DynamoRIO_dox_targets)
 
-file(GLOB dox_files *.dox)
 # we depend on the samples even though we don't copy them,
 # to have them as dependencies for the install rules
 file(GLOB samples_files ../samples/*.c ../samples/Makefile)
@@ -157,8 +163,7 @@ file(GLOB header_files  ${BUILD_INCLUDE}/*.h)
 add_custom_command(
   OUTPUT ${docsgen} # among other files
   DEPENDS ${dox_files}
-          ${ext_dox_files}
-          ${tool_dox_files}
+          ${dox_tgts}
           ${header_files}
           ${doxyfile}
           ${figures_eps}

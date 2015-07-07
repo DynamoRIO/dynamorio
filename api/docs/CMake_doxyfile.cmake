@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -38,6 +38,7 @@
 # * gendox_dir
 # * DOXYGEN_EXECUTABLE
 # * doxygen_ver
+# * dox_extras
 
 set(outdir "${CMAKE_CURRENT_BINARY_DIR}")
 set(srcdir_orig "${srcdir}")
@@ -70,6 +71,11 @@ foreach (dir ${tool_dirs})
   set(tool_input_dirs "${tool_input_dirs} \"${dir}\"")
 endforeach (dir)
 
+foreach (dir ${dox_extras})
+  doxygen_path_xform(${DOXYGEN_EXECUTABLE} dir)
+  set(extra_input_dirs "${extra_input_dirs} \"${dir}\"")
+endforeach (dir)
+
 configure_file(${srcdir_orig}/API.doxy ${outfile} COPYONLY)
 process_doxyfile(${outfile} ${DOXYGEN_EXECUTABLE} ${doxygen_ver})
 
@@ -85,7 +91,7 @@ file(READ "${outfile}" string)
 string(REGEX REPLACE
   "(INPUT[ \t]*=) *\\."
   # We no longer need ${proj_srcdir}/libutil on here, right?
-  "\\1 \"${srcdir}\" \"${header_dir}\" \"${gendox_dir}\" ${ext_input_dirs} ${tool_input_dirs}"
+  "\\1 \"${srcdir}\" \"${header_dir}\" \"${gendox_dir}\" ${ext_input_dirs} ${tool_input_dirs} ${extra_input_dirs}"
   string "${string}")
 string(REGEX REPLACE
   "([^a-z])images"
