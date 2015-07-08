@@ -743,8 +743,7 @@ drwrap_skip_call(void *wrapcxt_opaque, void *retval, size_t stdcall_args_size)
 #ifdef X86
     wrapcxt->mc->xsp += stdcall_args_size + sizeof(void*)/*retaddr*/;
 #endif
-    /* be sure to clear LSB */
-    wrapcxt->mc->pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
+    wrapcxt->mc->pc = wrapcxt->retaddr;
     return true;
 }
 

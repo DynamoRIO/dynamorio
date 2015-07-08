@@ -60,6 +60,9 @@ static int replace_callsite(int *x);
 static uint load_count;
 static bool repeated = false;
 static ptr_uint_t repeat_xsp;
+#ifdef ARM
+static ptr_uint_t repeat_link;
+#endif
 
 static int tls_idx;
 
@@ -360,8 +363,12 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
         dr_fprintf(STDERR, "  <pre-skipme>\n");
         drwrap_skip_call(wrapcxt, (void *) 7, 0);
     } else if (drwrap_get_func(wrapcxt) == addr_repeat) {
+        dr_mcontext_t *mc = drwrap_get_mcontext(wrapcxt);
         dr_fprintf(STDERR, "  <pre-repeat#%d>\n", repeated ? 2 : 1);
-        repeat_xsp = drwrap_get_mcontext(wrapcxt)->xsp;
+        repeat_xsp = mc->xsp;
+#ifdef ARM
+        repeat_link = mc->lr;
+#endif
         if (repeated) /* test changing the arg value on the second pass */
             drwrap_set_arg(wrapcxt, 0, (void *)2);
         CHECK(drwrap_redirect_execution(NULL) != DREXT_SUCCESS,
@@ -400,6 +407,9 @@ wrap_post(void *wrapcxt, void *user_data)
             dr_mcontext_t *mc = drwrap_get_mcontext(wrapcxt);
             mc->pc = addr_repeat;
             mc->xsp = repeat_xsp;
+#ifdef ARM
+            mc->lr = repeat_link;
+#endif
             CHECK(drwrap_redirect_execution(wrapcxt) == DREXT_SUCCESS,
                   "redirect rejected");
             CHECK(drwrap_redirect_execution(wrapcxt) != DREXT_SUCCESS,

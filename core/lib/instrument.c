@@ -6217,7 +6217,7 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
         trace_abort(dcontext);
     }
 
-    dcontext->next_tag = mcontext->pc;
+    dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     dcontext->whereami = WHERE_FCACHE;
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
     transfer_to_dispatch(dcontext, dr_mcontext_as_priv_mcontext(mcontext),

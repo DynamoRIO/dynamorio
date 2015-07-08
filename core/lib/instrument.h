@@ -5427,6 +5427,10 @@ DR_API
  * (dr_register_exception_event()).  From a signal event callback, use the
  * DR_SIGNAL_REDIRECT return value rather than calling this routine.
  *
+ * \note For ARM, to redirect execution to a Thumb target (#DR_ISA_ARM_THUMB),
+ * set the least significant bit of the mcontext pc to 1. Reference
+ * \ref sec_thumb for more information.
+ *
  * \return false if unsuccessful; if successful, does not return.
  */
 bool

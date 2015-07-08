@@ -749,9 +749,10 @@ selection must be special-cased.
 ********************
 \subsection sec_thumb Thumb Mode Addresses
 
-For 32-bit ARM, target addresses passed as event callbacks or as clean call
-targets should have their least significant bit set to 1 if they need to be
-executed in Thumb mode (#DR_ISA_ARM_THUMB).  Addresses obtained via
+For 32-bit ARM, target addresses passed as event callbacks, as clean
+call targets, or as dr_redirect_execution() targets should have
+their least significant bit set to 1 if they need to be executed
+in Thumb mode (#DR_ISA_ARM_THUMB).  Addresses obtained via
 dr_get_proc_address(), or function pointers at the source code level,
 should automatically have this property.  dr_app_pc_as_jump_target() can
 also be used to construct the proper address from an aligned value.
