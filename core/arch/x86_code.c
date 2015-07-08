@@ -452,6 +452,8 @@ check_var(byte *var)
     EXPECT(*var, CONST_BYTE);
 }
 
+static void (*check_var_ptr)(byte *) = check_var;
+
 static void
 test_func(dcontext_t *dcontext)
 {
@@ -461,8 +463,7 @@ test_func(dcontext_t *dcontext)
      * of that function via an indirect call.
      */
     byte var;
-    void (*func)(byte *) = check_var;
-    func(&var);
+    check_var_ptr(&var);
     EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
     return;
 }
