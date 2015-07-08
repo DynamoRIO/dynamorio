@@ -472,7 +472,8 @@ function (set_cflags source)
   # We can't set the target properties COMPILE_FLAGS as that will
   # pass -g3 to cpp which ends up not expanding macros!
   # So we set properties on source files only.
-  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${source} srccode)
+  get_filename_component(abs ${source} ABSOLUTE)
+  file(READ ${abs} srccode)
   set(srccode "${srccode}" PARENT_SCOPE)
   # We support a test either getting defines from configure.h or
   # needing them passed in on cmd line.
@@ -2088,8 +2089,6 @@ if (CLIENT_INTERFACE)
 
     if (UNIX) # Windows NYI (i#1703)
       # We have a couple of sanity checks that at least nothing crashes.
-      # FIXME i#1703: add dedicated tests (in suite/tests/clients/) for which
-      # we know the results, and check the output.
       torunonly_ci(tool.drcachesim.simple ${ci_shared_app} drcachesim
         "drcachesim-simple.c" # for templatex basename
         "-ipc_name drtestpipe1" "" "")
@@ -2112,6 +2111,19 @@ if (CLIENT_INTERFACE)
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.threads_rawtemp ON) # no preprocessor
       endif ()
+
+      # FIXME i#1703: add more dedicated tests (in suite/tests/clients/) for which
+      # we know the results, and check the output.
+      # We have one so far:
+      add_exe(tool.multiproc
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c)
+      torunonly_ci(tool.drcachesim.multiproc tool.multiproc drcachesim
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c
+        "-ipc_name drtestpipe3" "" "")
+      set(tool.drcachesim.multiproc_toolname "drcachesim")
+      set(tool.drcachesim.multiproc_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.multiproc_rawtemp ON) # no preprocessor
     endif ()
   endif (BUILD_CLIENTS)
 
