@@ -1285,6 +1285,7 @@ option(BUILD_CLIENTS "build client tools" ON)
 
 if (ARM)
   # FIXME i#1551: fail to install necessary package on Linux ARM
+  # XXX i#1730: if we enable this we'll need to disable for cross-compilation
   option(BUILD_DOCS "build documentation" OFF)
 else (ARM)
   option(BUILD_DOCS "build documentation" ON)

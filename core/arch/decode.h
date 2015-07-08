@@ -624,7 +624,7 @@ DR_API
  * Given an application program counter value, returns the
  * corresponding value to use as an indirect branch target for the
  * given \p isa_mode.  For ARM's Thumb mode (#DR_ISA_ARM_THUMB), this
- * involves setting the least signifiant bit of the address.
+ * involves setting the least significant bit of the address.
  */
 app_pc
 dr_app_pc_as_jump_target(dr_isa_mode_t isa_mode, app_pc pc);
