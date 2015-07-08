@@ -46,6 +46,7 @@ processes each with multiple threads.
  - \ref sec_drcachesim_limit
  - \ref sec_drcachesim_extend
  - \ref sec_drcachesim_ops
+ - \ref sec_drcachesim_cmp
 
 \section sec_drcachesim Overview
 
@@ -109,9 +110,13 @@ sec_drcachesim_extend).
 \section sec_drcachesim_phys Physical Addresses
 
 The memory access tracing client gathers virtual addresses.  On Linux, if
-the kernel allows access to the \p /proc/self/pagemap file, physical
-addresses may be used instead.  This can be requested via the \p
--use_physical runtime option (see \ref sec_drcachesim_ops).
+the kernel allows user-mode applications access to the \p
+/proc/self/pagemap file, physical addresses may be used instead.  This can
+be requested via the \p -use_physical runtime option (see \ref
+sec_drcachesim_ops).  This works on current kernels but is expected to stop
+working from user mode on future kernels due to recent security changes
+(see
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce).
 
 
 \section sec_drcachesim_limit Current Limitations
@@ -153,5 +158,22 @@ Boolean options can be disabled using a "-no_" prefix.
 The parameters available are described below:
 
 REPLACEME_WITH_OPTION_LIST
+
+
+\section sec_drcachesim_cmp Comparison to Other Simulators
+
+\p drcachesim is one of the few simulators to support multiple processes.
+This feature requires an out-of-process simulator and inter-process
+communication.  A single-process design would incur less overhead.  Thus,
+we expect \p drcachesim to pay for its multi-process support with
+potentially unfavorable performance versus single-process simulators.
+
+When comparing cache hits, misses, and miss rates across simulators, the
+details can vary substantially.  For example, some other simulators (such
+as \p cachegrind) do not split memory references that cross cache lines
+into multiple hits or misses.  Additionally, instructions that reference
+multiple memory words (such as \p ldm on ARM) are considered to be single
+accesses by \p drcachesim, while other simulators (such as \p cachegrind)
+may split the accesses into separate pieces.
 
 */
