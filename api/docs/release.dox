@@ -228,7 +228,6 @@ Further non-compatibility-affecting changes include:
    and standalone applications via a new Extension, \p droption,
    and the #droption_t class.
  - Added drwrap_redirect_execution().
- - Added a new sample client, named ssljack.
 
 **************************************************
 <hr>
