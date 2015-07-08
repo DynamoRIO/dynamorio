@@ -447,12 +447,23 @@ byte test_stack[TEST_STACK_SIZE];
 static dcontext_t *static_dc;
 
 static void
+check_var(byte *var)
+{
+    EXPECT(*var, CONST_BYTE);
+}
+
+static void
 test_func(dcontext_t *dcontext)
 {
+    /* i#1577: we want to read the stack without bothering with a separate
+     * assembly routine and without getting an uninit var warning from the
+     * compiler.  We go through a separate function and avoid compiler analysis
+     * of that function via an indirect call.
+     */
     byte var;
-    memcpy(&var, &var-1, 1); /* avoid uninit warning */
+    void (*func)(byte *) = check_var;
+    func(&var);
     EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
-    EXPECT(var , CONST_BYTE);
     return;
 }
 
