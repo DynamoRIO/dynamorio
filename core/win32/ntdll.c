@@ -442,9 +442,6 @@ syscalls_init()
         return false;
     ASSERT(syscalls != NULL);
 
-    /* FIXME : ref case 5463, we should follow through to actual system call
-     * for sysenter cases to be sure os isn't actually using int because of
-     * old hardware not supporting sysenter */
     /* check 10th and 11th bytes:
      *  int 2e: {2k}
      *    77F97BFA: B8 BA 00 00 00     mov         eax,0BAh
@@ -515,7 +512,8 @@ syscalls_init()
         ASSERT(*(byte *)(int_target - 1) == 0x0f);
 #endif
     } else if (check == 0xff7f) {
-        /* verifiy is call %edx or call [%edx] followed by ret 0 [0xc3] */
+        app_pc vsys;
+        /* verify is call %edx or call [%edx] followed by ret 0 [0xc3] */
         ASSERT(*((ushort *)(int_target+2)) == 0xc3d2 ||
                *((ushort *)(int_target+2)) == 0xc312);
         /* Double check use_ki_syscall_routines() matches type of ind call used */
@@ -524,16 +522,38 @@ syscalls_init()
         /* verify VSYSCALL_BOOTSTRAP_ADDR */
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         ASSERT(*((uint *)(int_target-3)) == (uint)(ptr_uint_t)VSYSCALL_BOOTSTRAP_ADDR);
-        sysenter_ret_address = (app_pc)int_target+3; /* save addr of ret */
-#ifdef CLIENT_INTERFACE
-        /* i#537: we do not support XPSP{0,1} wrt showing the skipped ret,
-         * which requires looking at the vsyscall code.
+        /* DrM i#1724 (and old case 5463): old hardware, or virtualized hardware,
+         * may not suport sysenter.
+         * Thus we need to drill down into the vsyscall code itself:
+         *   0x7ffe0300   8b d4            mov    %esp -> %edx
+         *   0x7ffe0302   0f 34            sysenter
+         * Versus:
+         *   0x7c90e520   8d 54 24 08      lea     edx,[esp+8]
+         *   0x7c90e524   cd 2e            int     2Eh
+         * XXX: I'd like to use safe_read() but that's not set up yet.
          */
-        KiFastSystemCallRet_address = (app_pc)
-            get_proc_address(ntdllh, "KiFastSystemCallRet");
+        if (*((ushort *)(int_target+1)) == 0xd2ff) {
+            vsys = VSYSCALL_BOOTSTRAP_ADDR;
+        } else {
+            vsys = *(app_pc*)VSYSCALL_BOOTSTRAP_ADDR;
+        }
+        if (*((ushort *)(vsys+2)) == 0x340f) {
+            sysenter_ret_address = (app_pc)int_target+3; /* save addr of ret */
+#ifdef CLIENT_INTERFACE
+            /* i#537: we do not support XPSP{0,1} wrt showing the skipped ret,
+             * which requires looking at the vsyscall code.
+             */
+            KiFastSystemCallRet_address = (app_pc)
+                get_proc_address(ntdllh, "KiFastSystemCallRet");
 #endif
-        set_syscall_method(SYSCALL_METHOD_SYSENTER);
-        dr_which_syscall_t = DR_SYSCALL_SYSENTER;
+            set_syscall_method(SYSCALL_METHOD_SYSENTER);
+            dr_which_syscall_t = DR_SYSCALL_SYSENTER;
+        } else {
+            dr_which_syscall_t = DR_SYSCALL_INT2E;
+            set_syscall_method(SYSCALL_METHOD_INT);
+            int_syscall_address = int_target;
+            ASSERT(*(byte *)(vsys + 6) == 0xc3 /* ret 0 */);
+        }
     } else {
         /* win8: call followed by ret */
         ASSERT(check == 0xc300 || check == 0xc200);

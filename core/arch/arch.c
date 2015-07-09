@@ -657,7 +657,7 @@ arch_init(void)
     ASSERT(offsetof(local_state_extended_t, spill_space) == 0);
     ASSERT(offsetof(local_state_extended_t, table_space) == sizeof(spill_state_t));
 #ifdef WINDOWS
-    /* syscall_init() should have already set the syscall_method so go ahead
+    /* syscalls_init() should have already set the syscall_method so go ahead
      * and create the globlal_do_syscall now */
     ASSERT(syscall_method != SYSCALL_METHOD_UNINITIALIZED);
 #endif
