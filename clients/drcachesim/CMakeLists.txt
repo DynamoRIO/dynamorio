@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 # FIXME i#1727: finish implementing for Windows
 if (UNIX)
 
