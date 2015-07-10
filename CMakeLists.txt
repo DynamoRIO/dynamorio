@@ -647,8 +647,8 @@ if (UNIX)
     # i#1551: add necessary flags for ARM build.
     if (X64)
     else (X64)
-      set(BASE_CFLAGS "-march=armv7-a ${BASE_CFLAGS}")
-      set(BASE_CXXFLAGS "-march=armv7-a")
+      set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
+      set(BASE_CXXFLAGS "-mthumb -march=armv7-a")
       set(LD_FLAGS "-marmelf_linux_eabi")
       if (ANDROID)
         # We use eabihf by default for ARM build.
