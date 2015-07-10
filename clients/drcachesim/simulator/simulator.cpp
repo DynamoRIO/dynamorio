@@ -72,12 +72,13 @@ simulator_t::init()
               "and that the total size is a multiple of the line size.\n");
         return false;
     }
-    if (op_replace_lru.get_value()) {
-        icaches = new cache_lru_t[num_cores];
-        dcaches = new cache_lru_t[num_cores];
-    } else {
+    if (op_replace_lfu.get_value()) {
         icaches = new cache_t[num_cores];
         dcaches = new cache_t[num_cores];
+    } else {
+        assert(op_replace_lru.get_value() && "no replacement policy is selected");
+        icaches = new cache_lru_t[num_cores];
+        dcaches = new cache_lru_t[num_cores];
     }
     for (int i = 0; i < num_cores; i++) {
         if (!icaches[i].init(op_L1I_assoc.get_value(), op_line_size.get_value(),
