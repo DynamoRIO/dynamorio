@@ -46,6 +46,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifdef __ARM_ARCH_5T__
 # undef __ARM_ARCH_5T__
 #endif
+#ifdef __ARM_ARCH_5TE__
+# undef __ARM_ARCH_5TE__
+#endif
 /*--------------------------------------------------*/
 
 #ifdef __ARM_EABI__

@@ -108,7 +108,10 @@ macro(install_ext_header header)
 endmacro()
 
 add_subdirectory(drcontainers)
-add_subdirectory(drgui)
+if (NOT ANDROID)
+  # XXX i#1701: fails to build on Android.  May not be worth porting.
+  add_subdirectory(drgui)
+endif ()
 add_subdirectory(drmgr)
 add_subdirectory(drx)
 add_subdirectory(drwrap)
