@@ -1435,7 +1435,8 @@ privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
  * terminating NULL pointer in the envp array.
  */
 static void
-privload_setup_auxv(char **envp, app_pc map, ptr_int_t delta)
+privload_setup_auxv(char **envp, app_pc map, ptr_int_t delta, app_pc interp_map,
+                    const char *exe_path/*must be persistent*/)
 {
     ELF_AUXV_TYPE *auxv;
     ELF_HEADER_TYPE *elf = (ELF_HEADER_TYPE *) map;
@@ -1463,19 +1464,21 @@ privload_setup_auxv(char **envp, app_pc map, ptr_int_t delta)
         case AT_PHNUM:
             auxv->a_un.a_val = (ptr_int_t) elf->e_phnum;
             break;
+        case AT_BASE: /* Android loader reads this */
+            auxv->a_un.a_val = (ptr_int_t) interp_map;
+            LOG(GLOBAL, LOG_LOADER, 2, "AT_BASE: "PFX"\n", auxv->a_un.a_val);
+            break;
+        case AT_EXECFN: /* Android loader references this, unclear what for */
+            auxv->a_un.a_val = (ptr_int_t) exe_path;
+            LOG(GLOBAL, LOG_LOADER, 2, "AT_EXECFN: "PFX" %s\n",
+                       auxv->a_un.a_val, (char*)auxv->a_un.a_val);
+            break;
 
         /* The rest of these AT_* values don't seem to be important to the
          * loader, but we log them.
          */
         case AT_EXECFD:
             LOG(GLOBAL, LOG_LOADER, 2, "AT_EXECFD: %d\n", auxv->a_un.a_val);
-            break;
-        case AT_EXECFN:
-            LOG(GLOBAL, LOG_LOADER, 2, "AT_EXECFN: "PFX" %s\n",
-                       auxv->a_un.a_val, (char*)auxv->a_un.a_val);
-            break;
-        case AT_BASE:
-            LOG(GLOBAL, LOG_LOADER, 2, "AT_BASE: "PFX"\n", auxv->a_un.a_val);
             break;
         }
     }
@@ -1640,6 +1643,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     priv_mcontext_t mc;
     bool success;
     memquery_iter_t iter;
+    app_pc interp_map;
 
     /* i#1676: try to detect no-ALSR which happens if we're launched from within
      * gdb w/o 'set disable-randomization off'.  We assume here that our
@@ -1755,8 +1759,6 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         memquery_iterator_stop(&iter);
     }
 
-    privload_setup_auxv(envp, exe_map, exe_ld.load_delta);
-
     /* Set the process name with prctl PR_SET_NAME.  This makes killall <app>
      * work.
      */
@@ -1776,7 +1778,6 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     if (interp != NULL) {
         /* Load the ELF pointed at by PT_INTERP, usually ld.so. */
         elf_loader_t interp_ld;
-        app_pc interp_map;
         success = elf_loader_read_headers(&interp_ld, interp);
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(&interp_ld, false /* fixed */,
@@ -1794,8 +1795,12 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         elf_loader_destroy(&interp_ld);
     } else {
         /* No PT_INTERP, so this is a static exe. */
+        interp_map = NULL;
         entry = (app_pc)exe_ld.ehdr->e_entry + exe_ld.load_delta;
     }
+
+    privload_setup_auxv(envp, exe_map, exe_ld.load_delta, interp_map, exe_path);
+
     elf_loader_destroy(&exe_ld);
 
     /* Initialize DR *after* we map the app image.  This is consistent with our
