@@ -51,6 +51,8 @@ cache_t::init(int associativity_, int line_size_, int total_size,
         // Assuming cache line size is at least 4 bytes
         line_size_ < 4)
         return false;
+    if (stats_ == NULL)
+        return false; // A stats must be provided for perf: avoid conditional code
     associativity = associativity_;
     line_size = line_size_;
     num_lines = total_size / line_size;
@@ -78,77 +80,71 @@ cache_t::request(const memref_t &memref_in)
 {
     // Unfortunately we need to make a copy for our loop so we can pass
     // the right data struct to the parent and stats collectors.
-    memref_t memref = memref_in;
+    memref_t memref;
     // We support larger sizes to improve the IPC perf.
     // This means that one memref could touch multiple lines.
     // We treat each line separately for statistics purposes.
-    addr_t final_addr = memref.addr + memref.size - 1/*avoid overflow*/;
+    addr_t final_addr = memref_in.addr + memref_in.size - 1/*avoid overflow*/;
     addr_t final_tag = compute_tag(final_addr);
-    addr_t tag = compute_tag(memref.addr);
+    addr_t tag = compute_tag(memref_in.addr);
 
     // FIXME i#1726: if the request is a data write, we should check the
     // instr cache and invalidate the cache line there if necessary on x86.
 
-    // Optimization: remember last tag if single-line
-    if (final_tag == tag) {
-        if (tag == last_tag) {
-            int line_idx = compute_line_idx(tag);
-            // Make sure last_tag is properly in sync.
-            assert(get_cache_line(line_idx, last_way).tag == tag &&
-                   tag != TAG_INVALID);
-            access_update(line_idx, last_way);
-            if (stats != NULL) {
-                stats->access(memref, true);
-                if (parent != NULL && parent->stats != NULL)
-                    parent->stats->child_access(memref, true);
-            }
-            return;
-        } else
-            last_tag = tag;
-    } else
-        last_tag = TAG_INVALID; // sentinel
+    // Optimization: check last tag if single-line
+    if (tag == final_tag && tag == last_tag) {
+        // Make sure last_tag is properly in sync.
+        assert(tag != TAG_INVALID &&
+               tag == get_cache_line(last_line_idx, last_way).tag);
+        stats->access(memref_in, true/*hit*/);
+        if (parent != NULL)
+            parent->stats->child_access(memref_in, true);
+        access_update(last_line_idx, last_way);
+        return;
+    }
 
+    memref = memref_in;
     for (; tag <= final_tag; ++tag) {
-        bool hit = false;
-        int final_way = 0;
+        int way;
         int line_idx = compute_line_idx(tag);
 
         if (tag + 1 <= final_tag)
-            memref.size = ((tag + 1) * line_size) - memref.addr;
+            memref.size = ((tag + 1) << line_size_bits) - memref.addr;
 
-       for (int way = 0; way < associativity; ++way) {
+        for (way = 0; way < associativity; ++way) {
             if (get_cache_line(line_idx, way).tag == tag) {
-                hit = true;
-                final_way = way;
+                stats->access(memref, true/*hit*/);
+                if (parent != NULL)
+                    parent->stats->child_access(memref, true);
                 break;
             }
         }
-        if (!hit) {
+
+        if (way == associativity) {
+            stats->access(memref, false/*miss*/);
             // If no parent we assume we get the data from main memory
-            if (parent != NULL)
+            if (parent != NULL) {
+                parent->stats->child_access(memref, false);
                 parent->request(memref);
+            }
 
             // FIXME i#1726: coherence policy
 
-            final_way = replace_which_way(line_idx);
-            get_cache_line(line_idx, final_way).tag = tag;
-            last_tag = TAG_INVALID; // sentinel
+            way = replace_which_way(line_idx);
+            get_cache_line(line_idx, way).tag = tag;
         }
 
-        access_update(line_idx, final_way);
-
-        if (stats != NULL) {
-            stats->access(memref, hit);
-            if (parent != NULL && parent->stats != NULL)
-                parent->stats->child_access(memref, hit);
-        }
+        access_update(line_idx, way);
 
         if (tag + 1 <= final_tag) {
-            addr_t next_addr = (tag + 1) * line_size;
+            addr_t next_addr = (tag + 1) << line_size_bits;
             memref.addr = next_addr;
             memref.size = final_addr - next_addr + 1/*undo the -1*/;
-        } else if (last_tag == tag)
-            last_way = final_way;
+        }
+        // Optimization: remember last tag
+        last_tag = tag;
+        last_way = way;
+        last_line_idx = line_idx;
     }
 }
 

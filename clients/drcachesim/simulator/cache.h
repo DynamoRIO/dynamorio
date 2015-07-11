@@ -86,9 +86,10 @@ class cache_t
 
     cache_stats_t *stats;
 
-    // Optimization: remember last tag, for single-line accesses only.
+    // Optimization: remember last tag
     addr_t last_tag;
     int last_way;
+    int last_line_idx;
 };
 
 #endif /* _CACHE_H_ */
