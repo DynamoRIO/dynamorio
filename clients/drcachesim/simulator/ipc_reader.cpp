@@ -50,7 +50,7 @@ ipc_reader_t::ipc_reader_t()
 }
 
 ipc_reader_t::ipc_reader_t(const char *ipc_name) :
-    pipe(ipc_name), cur_tid(0), cur_pid(0), cur_pc(0)
+    pipe(ipc_name), cur_tid(0), cur_pid(0), cur_pc(0), bundle_idx(0)
 {
     at_eof = true;
 }
@@ -109,16 +109,18 @@ ipc_reader_t::operator++()
 
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
-        if (cur_buf >= end_buf) {
-            ssize_t sz = pipe.read(buf, sizeof(buf)); // blocking read
-            if (sz < 0 || sz % sizeof(*end_buf) != 0) {
-                at_eof = true;
-                break;
-            }
-            cur_buf = buf;
-            end_buf = buf + (sz / sizeof(*end_buf));
-        } else
-            cur_buf++;
+        if (bundle_idx == 0/*not in instr bundle*/) {
+            if (cur_buf >= end_buf) {
+                ssize_t sz = pipe.read(buf, sizeof(buf)); // blocking read
+                if (sz < 0 || sz % sizeof(*end_buf) != 0) {
+                    at_eof = true;
+                    break;
+                }
+                cur_buf = buf;
+                end_buf = buf + (sz / sizeof(*end_buf));
+            } else
+                cur_buf++;
+        }
         if (cur_buf < end_buf) {
 #ifdef VERBOSE
             std::cerr << "RECV: " << cur_buf->type << " sz=" << cur_buf->size <<
@@ -135,6 +137,7 @@ ipc_reader_t::operator++()
             case TRACE_TYPE_PREFETCHNTA:
             case TRACE_TYPE_PREFETCH_READ:
             case TRACE_TYPE_PREFETCH_WRITE:
+            case TRACE_TYPE_PREFETCH_INSTR:
                 have_memref = true;
                 cur_ref.pid = cur_pid;
                 cur_ref.tid = cur_tid;
@@ -146,15 +149,29 @@ ipc_reader_t::operator++()
                 cur_ref.pc = cur_pc;
                 break;
             case TRACE_TYPE_INSTR:
-            case TRACE_TYPE_PREFETCH_INSTR:
                 have_memref = true;
                 cur_ref.pid = cur_pid;
                 cur_ref.tid = cur_tid;
                 cur_ref.type = cur_buf->type;
                 cur_ref.size = cur_buf->size;
-                cur_ref.addr = cur_buf->addr;
-                cur_ref.pc = cur_buf->addr;
-                cur_pc = cur_ref.addr;
+                cur_pc = cur_buf->addr;
+                cur_ref.addr = cur_pc;
+                cur_ref.pc = cur_pc;
+                next_pc = cur_pc + cur_ref.size;
+                break;
+            case TRACE_TYPE_INSTR_BUNDLE:
+                have_memref = true;
+                // The trace stream always has the instr fetch first, which we
+                // use to compute the starting PC for the subsequent instructions.
+                cur_ref.size = cur_buf->length[bundle_idx++];
+                cur_pc = next_pc;
+                cur_ref.pc = cur_pc;
+                cur_ref.addr = cur_pc;
+                next_pc = cur_pc + cur_ref.size;
+                // cur_buf->size stores the number of instrs in this bundle
+                assert(cur_buf->size <= sizeof(cur_buf->length));
+                if (bundle_idx == cur_buf->size)
+                    bundle_idx = 0;
                 break;
             case TRACE_TYPE_INSTR_FLUSH:
             case TRACE_TYPE_DATA_FLUSH:

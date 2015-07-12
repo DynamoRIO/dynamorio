@@ -88,11 +88,13 @@ typedef struct {
     uint64 num_refs;
 } per_thread_t;
 
+#define MAX_NUM_DELAY_INSTRS 32
 /* per bb user data during instrumentation */
 typedef struct {
-    bool clean_call_inserted;
     app_pc last_app_pc;
     instr_t *strex;
+    int num_delay_instrs;
+    instr_t *delay_instrs[MAX_NUM_DELAY_INSTRS];
 } user_data_t;
 
 /* we write to a single global pipe */
@@ -390,7 +392,47 @@ instrument_instr(void *drcontext, instrlist_t *ilist,
                               (ushort)instr_length(drcontext, app), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(app), adjust);
-    return sizeof(trace_entry_t);
+    return (adjust + sizeof(trace_entry_t));
+}
+
+static int
+instrument_trace_entry(void *drcontext, instrlist_t *ilist,
+                       const trace_entry_t &entry, instr_t *where,
+                       reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
+{
+    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
+                              entry.type, entry.size, adjust);
+    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
+                   (app_pc)entry.addr, adjust);
+    return (adjust + sizeof(trace_entry_t));
+}
+
+static int
+instrument_delay_instrs(void *drcontext, instrlist_t *ilist,
+                        user_data_t *ud, instr_t *where,
+                        reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
+{
+    trace_entry_t entry;
+    int i;
+
+    // Instrument to add an INSTR_TRACE entry
+    adjust = instrument_instr(drcontext, ilist, ud->delay_instrs[0], where,
+                              reg_ptr, reg_tmp, adjust);
+    // Create and instrument for INSTR_BUNDLE
+    entry.type = TRACE_TYPE_INSTR_BUNDLE;
+    entry.size = 0;
+    for (i = 1; i < ud->num_delay_instrs; i++) {
+        // Fill instr size into bundle entry
+        entry.length[entry.size++] = instr_length(drcontext, ud->delay_instrs[i]);
+        // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
+        if (entry.size == sizeof(entry.length) || i == ud->num_delay_instrs - 1) {
+            adjust = instrument_trace_entry(drcontext, ilist, entry, where,
+                                            reg_ptr, reg_tmp, adjust);
+            entry.size = 0;
+        }
+    }
+    ud->num_delay_instrs = 0;
+    return adjust;
 }
 
 static bool
@@ -438,7 +480,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
         }
     }
 #endif
-    return sizeof(trace_entry_t);
+    return (adjust + sizeof(trace_entry_t));
 }
 
 /* We insert code to read from trace buffer and check whether the redzone
@@ -532,6 +574,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         return DR_EMIT_DEFAULT;
     }
 
+    // Optimization: delay the simple instr trace instrumentation if possible
+    if (!(instr_reads_memory(instr) ||instr_writes_memory(instr)) &&
+        // Avoid dropping trailing instrs
+        !drmgr_is_last_instr(drcontext, instr) &&
+        // The delay instr buffer is not full.
+        ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
+        ud->delay_instrs[ud->num_delay_instrs++] = instr;
+        return DR_EMIT_DEFAULT;
+    }
+
     pred = instr_get_predicate(instr);
     /* opt: save/restore reg per instr instead of per entry */
     /* We need two scratch registers */
@@ -540,14 +592,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     /* load buf ptr into reg_ptr */
     insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
 
+    if (ud->num_delay_instrs != 0) {
+        adjust = instrument_delay_instrs(drcontext, bb, ud, instr,
+                                         reg_ptr, reg_tmp, adjust);
+    }
+
     if (ud->strex != NULL) {
         DR_ASSERT(instr_is_exclusive_store(ud->strex));
-        adjust += instrument_instr(drcontext, bb, ud->strex, instr,
-                                   reg_ptr, reg_tmp, adjust);
-        adjust += instrument_mem(drcontext, bb, instr,
-                                 instr_get_dst(ud->strex, 0),
-                                 true, reg_ptr, reg_tmp,
-                                 instr_get_predicate(ud->strex), adjust);
+        adjust = instrument_instr(drcontext, bb, ud->strex, instr,
+                                  reg_ptr, reg_tmp, adjust);
+        adjust = instrument_mem(drcontext, bb, instr,
+                                instr_get_dst(ud->strex, 0),
+                                true, reg_ptr, reg_tmp,
+                                instr_get_predicate(ud->strex), adjust);
         ud->strex = NULL;
     }
 
@@ -561,7 +618,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      * trace_entry_t than require a separate instr entry for every memref
      * instr (if average # of memrefs per instr is < 2, PC field is better).
      */
-    adjust += instrument_instr(drcontext, bb, instr, instr, reg_ptr, reg_tmp, adjust);
+    adjust = instrument_instr(drcontext, bb, instr, instr, reg_ptr, reg_tmp, adjust);
     ud->last_app_pc = instr_get_app_pc(instr);
 
     // FIXME i#1703: add OP_clflush handling for cache flush on X86
@@ -577,19 +634,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
             if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                adjust += instrument_mem(drcontext, bb, instr,
-                                         instr_get_src(instr, i),
-                                         false, reg_ptr, reg_tmp,
-                                         pred, adjust);
+                adjust = instrument_mem(drcontext, bb, instr,
+                                        instr_get_src(instr, i),
+                                        false, reg_ptr, reg_tmp,
+                                        pred, adjust);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                adjust += instrument_mem(drcontext, bb, instr,
-                                         instr_get_dst(instr, i),
-                                         true, reg_ptr, reg_tmp,
-                                         pred, adjust);
+                adjust = instrument_mem(drcontext, bb, instr,
+                                        instr_get_dst(instr, i),
+                                        true, reg_ptr, reg_tmp,
+                                        pred, adjust);
             }
         }
         insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, pred, adjust);
@@ -600,14 +657,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      * We restore the registers after the clean call, which should be ok
      * assuming the clean call does not need the two register values.
      */
-    if (!ud->clean_call_inserted
-        /* XXX i#1702: it is ok to skip a few clean calls on predicated instructions,
-         * since the buffer will be dumped later by other clean calls.
-         */
-        IF_ARM(&& !instr_is_predicated(instr))) {
+    if (drmgr_is_last_instr(drcontext, instr))
         instrument_clean_call(drcontext, bb, instr, reg_ptr, reg_tmp);
-        ud->clean_call_inserted = true;
-    }
 
     /* restore scratch registers */
     dr_restore_reg(drcontext, bb, instr, reg_ptr, slot_ptr);
@@ -623,9 +674,9 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
                  bool for_trace, bool translating, OUT void **user_data)
 {
     user_data_t *data = (user_data_t *) dr_thread_alloc(drcontext, sizeof(user_data_t));
-    data->clean_call_inserted = false;
     data->last_app_pc = NULL;
     data->strex = NULL;
+    data->num_delay_instrs = 0;
     *user_data = (void *)data;
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);

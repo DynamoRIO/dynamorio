@@ -76,6 +76,10 @@ typedef enum {
     // The trace stream always has the instr fetch prior to data refs,
     // which the reader can use to obtain the PC for data references.
     TRACE_TYPE_INSTR,
+    // These entries describe a bundle of consecutive instruction fetch
+    // memory references.  The trace stream always has a single instr fetch
+    // prior to instr bundles which the reader can use to obtain the starting PC.
+    TRACE_TYPE_INSTR_BUNDLE,
 
     // A cache flush:
     // On ARM, a flush is requested via a SYS_cacheflush system call,
@@ -105,12 +109,22 @@ typedef enum {
 
 extern const char * const trace_type_names[];
 
-// Each trace entry is a <type, size, addr> tuple representing a memory reference
-// or some other data according to the type field.
+// Each trace entry is a <type, size, addr> tuple representing:
+// - a memory reference
+// - an instr fetch
+// - a bundle of instrs
+// - a flush request
+// - a prefetch request
+// - a thread/process
 typedef struct _trace_entry_t {
     unsigned short type; // 2 bytes: trace_type_t
-    unsigned short size; // 2 bytes: mem ref size or instr length
-    addr_t addr;         // 4/8 bytes: mem ref addr, instr pc, tid, pid
+    // 2 bytes: mem ref size, instr length, or num of instrs for instr bundle
+    unsigned short size;
+    union {
+        addr_t addr;     // 4/8 bytes: mem ref addr, instr pc, tid, pid
+        // The length of each instr in the instr bundle
+        unsigned char length[sizeof(addr_t)];
+    };
 } trace_entry_t;
 
 static inline bool
