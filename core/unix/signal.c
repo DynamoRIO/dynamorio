@@ -1528,6 +1528,54 @@ handle_post_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *a
     }
 }
 
+#ifdef LINUX
+static void
+convert_old_sigaction_to_kernel(kernel_sigaction_t *ks, const old_sigaction_t *os)
+{
+    ks->handler = os->handler;
+    ks->flags = os->flags;
+    ks->restorer = os->restorer;
+    kernel_sigemptyset(&ks->mask);
+    ks->mask.sig[0] = os->mask;
+}
+
+static void
+convert_kernel_sigaction_to_old(old_sigaction_t *os, const kernel_sigaction_t *ks)
+{
+    os->handler = ks->handler;
+    os->flags = ks->flags;
+    os->restorer = ks->restorer;
+    os->mask = ks->mask.sig[0];
+}
+
+/* Returns false if should NOT issue syscall. */
+bool
+handle_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
+                     old_sigaction_t *oact)
+{
+    kernel_sigaction_t kact;
+    kernel_sigaction_t okact;
+    bool res;
+    convert_old_sigaction_to_kernel(&kact, act);
+    res = handle_sigaction(dcontext, sig, &kact, &okact, sizeof(kernel_sigset_t));
+    if (oact != NULL)
+        convert_kernel_sigaction_to_old(oact, &okact);
+    return res;
+}
+
+void
+handle_post_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
+                          old_sigaction_t *oact)
+{
+    kernel_sigaction_t kact;
+    kernel_sigaction_t okact;
+    convert_old_sigaction_to_kernel(&kact, act);
+    handle_post_sigaction(dcontext, sig, &kact, &okact, sizeof(kernel_sigset_t));
+    if (oact != NULL)
+        convert_kernel_sigaction_to_old(oact, &okact);
+}
+#endif /* LINUX */
+
 /* Returns false if should NOT issue syscall */
 bool
 handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack,

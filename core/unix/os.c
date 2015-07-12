@@ -6387,6 +6387,23 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #if defined(LINUX) && !defined(X64)
+    case SYS_sigaction: {      /* 67 */
+        /* sys_sigaction(int sig, const struct old_sigaction *act,
+         *               struct old_sigaction *oact)
+         */
+        int sig  = (int) sys_param(dcontext, 0);
+        const old_sigaction_t *act = (const old_sigaction_t *) sys_param(dcontext, 1);
+        old_sigaction_t *oact = (old_sigaction_t *) sys_param(dcontext, 2);
+        dcontext->sys_param0 = (reg_t) sig;
+        dcontext->sys_param1 = (reg_t) act;
+        dcontext->sys_param2 = (reg_t) oact;
+        execute_syscall = handle_old_sigaction(dcontext, sig, act, oact);
+        if (!execute_syscall)
+            set_success_return_val(dcontext, 0);
+        break;
+    }
+#endif
+#if defined(LINUX) && !defined(X64)
     case SYS_sigreturn: {      /* 119 */
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int sys_sigreturn(unsigned long __unused)
@@ -6571,14 +6588,6 @@ pre_system_call(dcontext_t *dcontext)
          */
         break;
     }
-    case SYS_sigaction: {      /* 67 */
-        /* in /usr/src/linux/arch/i386/kernel/signal.c:
-           asmlinkage int
-           sys_sigaction(int sig, const struct old_sigaction *act,
-                         struct old_sigaction *oact)
-         */
-        break;
-    }
     case SYS_sigsuspend: {     /* 72 */
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int
@@ -6600,7 +6609,6 @@ pre_system_call(dcontext_t *dcontext)
 #  ifndef ARM
     case SYS_signal:
 #  endif
-    case SYS_sigaction:
     case SYS_sigsuspend:
     case SYS_sigprocmask:
 # endif
@@ -6618,9 +6626,11 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_rt_sigqueueinfo: /* 178 */
 #endif
     case IF_MACOS_ELSE(SYS_sigpending,SYS_rt_sigpending): { /* 176 */
-        /* FIXME: handle all of these syscalls! */
+        /* FIXME i#92: handle all of these syscalls! */
         LOG(THREAD, LOG_ASYNCH|LOG_SYSCALLS, 1,
             "WARNING: unhandled signal system call %d\n", dcontext->sys_num);
+        SYSLOG_INTERNAL_WARNING_ONCE("unhandled signal system call %d",
+                                     dcontext->sys_num);
         break;
     }
 
@@ -7503,6 +7513,17 @@ post_system_call(dcontext_t *dcontext)
         handle_post_sigaction(dcontext, sig, act, oact, sigsetsize);
         break;
     }
+#if defined(LINUX) && !defined(X64)
+    case SYS_sigaction: {      /* 67 */
+        int sig  = (int) dcontext->sys_param0;
+        const old_sigaction_t *act = (const old_sigaction_t *) dcontext->sys_param1;
+        old_sigaction_t *oact = (old_sigaction_t *) dcontext->sys_param2;
+        if (!success)
+            goto exit_post_system_call;
+        handle_post_old_sigaction(dcontext, sig, act, oact);
+        break;
+    }
+#endif
     case IF_MACOS_ELSE(SYS_sigprocmask,SYS_rt_sigprocmask): { /* 175 */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long

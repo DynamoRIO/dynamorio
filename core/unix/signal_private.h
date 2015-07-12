@@ -120,6 +120,15 @@ struct _kernel_sigaction_t {
 #endif
 
 #ifdef LINUX
+typedef unsigned int old_sigset_t;
+
+struct _old_sigaction_t {
+    handler_t handler;
+    old_sigset_t mask;
+    unsigned long flags;
+    void (*restorer)(void);
+}; /* typedef in os_private.h */
+
 /* kernel's notion of ucontext is different from glibc's!
  * this is adapted from asm/ucontext.h:
  */
@@ -129,14 +138,14 @@ typedef struct {
     stack_t           uc_stack;
     sigcontext_t      uc_mcontext;
     kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
-#ifdef ARM
+# ifdef ARM
     int               sigset_ex[32 - (sizeof(kernel_sigset_t)/sizeof(int))];
     /* coprocessor state is here */
     union {
         unsigned long uc_regspace[128] __attribute__((__aligned__(8)));
         struct vfp_sigframe uc_vfp;
     } coproc;
-#endif
+# endif
 } kernel_ucontext_t;
 
 #  define SIGCXT_FROM_UCXT(ucxt) (&((ucxt)->uc_mcontext))

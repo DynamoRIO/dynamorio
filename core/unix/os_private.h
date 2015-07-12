@@ -212,6 +212,8 @@ uint permstr_to_memprot(const char * const perm);
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
+struct _old_sigaction_t;
+typedef struct _old_sigaction_t old_sigaction_t;
 
 void signal_init(void);
 void signal_exit(void);
@@ -225,6 +227,12 @@ void handle_post_sigaction(dcontext_t *dcontext, int sig,
                            const kernel_sigaction_t *act,
                            kernel_sigaction_t *oact, size_t sigsetsize);
 #ifdef LINUX
+bool handle_old_sigaction(dcontext_t *dcontext, int sig,
+                          const old_sigaction_t *act,
+                          old_sigaction_t *oact);
+void handle_post_old_sigaction(dcontext_t *dcontext, int sig,
+                           const old_sigaction_t *act,
+                           old_sigaction_t *oact);
 bool handle_sigreturn(dcontext_t *dcontext, bool rt);
 #else
 bool handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
