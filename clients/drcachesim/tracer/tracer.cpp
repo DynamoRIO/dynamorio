@@ -393,6 +393,17 @@ instrument_instr(void *drcontext, instrlist_t *ilist,
     return sizeof(trace_entry_t);
 }
 
+static bool
+instr_is_flush(instr_t *instr)
+{
+    // Assuming we won't see any privileged instructions.
+#ifdef X86
+    if (instr_get_opcode(instr) == OP_clflush)
+        return true;
+#endif
+    return false;
+}
+
 /* insert inline code to add a memory reference info entry into the buffer */
 static int
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
@@ -408,6 +419,10 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
         type = instr_to_prefetch_type(where);
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
+    } else if (instr_is_flush(where)) {
+        // XXX: OP_clflush invalidates all levels of the processor cache
+        // hierarchy (data and instruction)
+        type = TRACE_TYPE_DATA_FLUSH;
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
