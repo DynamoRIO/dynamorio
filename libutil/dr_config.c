@@ -137,11 +137,12 @@ get_next_token(TCHAR* ptr, TCHAR *token)
     }
 
     /* for quoted options, copy until the closing quote */
-    if (*ptr == L'\"') {
+    if (*ptr == L'\"' || *ptr == L'\'' || *ptr == L'`') {
+        TCHAR quote = *ptr;
         *token++ = *ptr++;
         while (*ptr != L'\0') {
             *token++ = *ptr++;
-            if (ptr[-1] == L'\"' && ptr[-2] != L'\\') {
+            if (ptr[-1] == quote && ptr[-2] != L'\\') {
                 break;
             }
         }
@@ -755,12 +756,13 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
 
             /* handle enclosing quotes */
             path_str = token;
-            if (path_str[0] == L'\"') {
+            if (path_str[0] == L'\"' || path_str[0] == L'\'' || path_str[0] == L'`') {
+                TCHAR quote = path_str[0];
                 size_t last;
 
                 path_str++;
                 last = _tcslen(path_str)-1;
-                if (path_str[last] != L'\"') {
+                if (path_str[last] != quote) {
                     goto error;
                 }
                 path_str[last] = L'\0';
