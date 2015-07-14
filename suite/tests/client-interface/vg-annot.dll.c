@@ -113,11 +113,9 @@ void exit_event(void)
               test_stats.num_define_memory_requests, test_stats.num_bytes_made_defined);
 }
 
-DR_EXPORT
-void dr_init(client_id_t id)
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    const char *options = dr_get_options(id);
-
     memset(&test_stats, 0, sizeof(test_stats_t));
 
     /* This client supports 3 modes via command-line options:
@@ -125,11 +123,12 @@ void dr_init(client_id_t id)
      *   full-decode: registers a bb event to enable full decoding of app instructions
      *   truncate: registers a bb event that truncates basic blocks to max length 2
      */
-    if (strcmp(options, "full-decode") == 0) {
+    /* XXX: should use droption */
+    if (argc > 1 && strcmp(argv[1], "full-decode") == 0) {
         dr_printf("Init vg-annot with full decoding.\n");
         dr_register_bb_event(empty_bb_event);
-    } else if (strlen(options) >= 8 && strncmp(options, "truncate", 8) == 0) {
-        bb_truncation_length = (options[9] - '0'); /* format is "truncate@n" (0<n<10) */
+    } else if (argc > 1 && strlen(argv[1]) >= 8 && strncmp(argv[1], "truncate", 8) == 0) {
+        bb_truncation_length = (argv[1][9] - '0'); /* format is "truncate@n" (0<n<10) */
         ASSERT(bb_truncation_length < 10 && bb_truncation_length > 0);
         dr_printf("Init vg-annot with bb truncation.\n");
         dr_register_bb_event(bb_event_truncate);

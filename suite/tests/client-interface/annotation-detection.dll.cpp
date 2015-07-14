@@ -130,21 +130,20 @@ register_call(const char *annotation, void *target, uint num_args)
 }
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    const char *options = dr_get_options(id);
-
 # ifdef WINDOWS
     dr_enable_console_printing();
 # endif
 
     client_id = id;
 
-    if (strcmp(options, "full-decode") == 0) {
+    /* XXX: should use droption */
+    if (argc > 1 && strcmp(argv[1], "full-decode") == 0) {
         PRINT("Init annotation test client with full decoding");
         dr_register_bb_event(empty_bb_event);
-    } else if (strlen(options) >= 8 && strncmp(options, "truncate", 8) == 0) {
-        bb_truncation_length = (options[9] - '0'); /* format is "truncate@n" (0<n<10) */
+    } else if (argc > 1 && strlen(argv[1]) >= 8 && strncmp(argv[1], "truncate", 8) == 0) {
+        bb_truncation_length = (argv[1][9] - '0'); /* format is "truncate@n" (0<n<10) */
         ASSERT(bb_truncation_length < 10 && bb_truncation_length > 0);
         PRINT("Init annotation test client with bb truncation");
         dr_register_bb_event(bb_event_truncate);
