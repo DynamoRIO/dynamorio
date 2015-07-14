@@ -510,13 +510,13 @@ dr_parse_options(client_id_t client_id, std::string *error_msg, int *last_index)
 {
     int argc;
     const char **argv;
-    bool res = dr_get_option_array(client_id, &argc, &argv, MAXIMUM_PATH);
+    // We use DR_MAX_OPTIONS_LENGTH to avoid limiting any one token.
+    bool res = dr_get_option_array(client_id, &argc, &argv, DR_MAX_OPTIONS_LENGTH);
     if (!res)
         return false;
     res = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
                                         error_msg, last_index);
-    if (res)
-        res = dr_free_option_array(argc, argv);
+    res = dr_free_option_array(argc, argv) && res;
     return res;
 }
 #endif

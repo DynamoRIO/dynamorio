@@ -1672,6 +1672,7 @@ DR_API
  * token length specified in \p max_token_size.
  * The resulting array is allocated in the heap and the caller must free
  * it by calling dr_free_option_array().
+ * Typically, \p max_token_size should be set to DR_MAX_OPTIONS_LENGTH.
  */
 bool
 dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT,
