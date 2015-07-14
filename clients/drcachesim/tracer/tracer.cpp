@@ -169,7 +169,8 @@ memtrace(void *drcontext)
                 mem_ref->type != TRACE_TYPE_PID) {
                 addr_t phys = physaddr.virtual2physical(mem_ref->addr);
                 // XXX: fail gracefully?  Let's see whether the xl8 ever fails
-                // in practice.
+                // in practice.  It can happen with a very large bogus address
+                // (xref i#1735).
                 DR_ASSERT(phys != 0 || mem_ref->addr == 0);
                 mem_ref->addr = phys;
             }
@@ -301,21 +302,18 @@ insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                reg_id_t base, reg_id_t scratch, app_pc pc, int adjust)
 {
     int disp = adjust + offsetof(trace_entry_t, addr);
-#ifdef X86
+#ifdef X86_32
     ptr_int_t val = (ptr_int_t)pc;
     MINSERT(ilist, where,
             INSTR_CREATE_mov_st(drcontext,
                                 OPND_CREATE_MEM32(base, disp),
                                 OPND_CREATE_INT32((int)val)));
-# ifdef X64
-    if (val > INT_MAX || val < INT_MIN) {
-        MINSERT(ilist, where,
-                INSTR_CREATE_mov_st(drcontext,
-                                    OPND_CREATE_MEM32(base, disp + 4),
-                                    OPND_CREATE_INT32((int)(val >> 32))));
-    }
-# endif
-#elif defined(ARM)
+#else
+    // For X86_64, we can't write the PC immed directly to memory and
+    // skip the top half for a <4GB PC b/c if we're in the sentinel
+    // region of the buffer we'll be leaving 0xffffffff in the top
+    // half (i#1735).  Thus we go through a register on x86 (where we
+    // can skip the top half), just like on ARM.
     instr_t *mov1, *mov2;
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      opnd_create_reg(scratch),
@@ -435,7 +433,7 @@ static void
 instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, reg_id_t reg_tmp)
 {
-    instr_t *label = INSTR_CREATE_label(drcontext);
+    instr_t *skip_call = INSTR_CREATE_label(drcontext);
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext,
                               opnd_create_reg(reg_ptr),
@@ -443,7 +441,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 #ifdef X86
     DR_ASSERT(reg_ptr == DR_REG_XCX);
     MINSERT(ilist, where,
-            INSTR_CREATE_jecxz(drcontext, opnd_create_instr(label)));
+            INSTR_CREATE_jecxz(drcontext, opnd_create_instr(skip_call)));
 #elif defined(ARM)
     if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
         instr_t *noskip = INSTR_CREATE_label(drcontext);
@@ -454,7 +452,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  opnd_create_reg(reg_ptr)));
         MINSERT(ilist, where,
                 XINST_CREATE_jump(drcontext,
-                                  opnd_create_instr(label)));
+                                  opnd_create_instr(skip_call)));
         MINSERT(ilist, where, noskip);
     } else {
         /* There is no jecxz/cbz like instr on ARM-A32 mode, so we have to
@@ -468,12 +466,12 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  OPND_CREATE_INT(0)));
         MINSERT(ilist, where,
                 instr_set_predicate(XINST_CREATE_jump(drcontext,
-                                                      opnd_create_instr(label)),
+                                                      opnd_create_instr(skip_call)),
                                     DR_PRED_EQ));
     }
 #endif
     dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
-    MINSERT(ilist, where, label);
+    MINSERT(ilist, where, skip_call);
 #ifdef ARM
     if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_A32)
         dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg_tmp);
@@ -807,6 +805,6 @@ dr_init(client_id_t id)
     if (op_use_physical.get_value()) {
         have_phys = physaddr.init();
         if (!have_phys)
-            NOTIFY(0, "Unable to open pagemap: using virtual addresses.");
+            NOTIFY(0, "Unable to open pagemap: using virtual addresses.\n");
     }
 }

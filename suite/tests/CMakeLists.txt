@@ -2097,6 +2097,14 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.simple_rawtemp ON) # no preprocessor
 
+      torunonly_ci(tool.drcachesim.phys ${ci_shared_app} drcachesim
+        "drcachesim-phys.c" # for templatex basename
+        "-ipc_name drtestpipe4 -use_physical" "" "")
+      set(tool.drcachesim.phys_toolname "drcachesim")
+      set(tool.drcachesim.phys_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.phys_rawtemp ON) # no preprocessor
+
       if (NOT ARM)
         # Our pthreads tests don't have many threads so we run this annot test,
         # though it is a little slow under drcachesim.
