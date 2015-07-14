@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -237,8 +237,8 @@ void dr_init(client_id_t id)
     reg_id_t seg;
     /* PR 216931: client options */
     const char * ops = dr_get_options(id);
-    ASSERT(str_eq(ops, "-paramx -paramy"));
     dr_fprintf(STDERR, "PR 216931: client options are %s\n", ops);
+    ASSERT(str_eq(ops, "-paramx -paramy"));
 
     dr_register_bb_event(bb_event);
     dr_register_exit_event(exit_event);

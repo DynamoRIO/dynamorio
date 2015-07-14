@@ -1655,6 +1655,12 @@ DR_API
 /**
  * Returns the client-specific option string specified at client
  * registration.  \p client_id is the client ID passed to dr_init().
+ *
+ * \deprecated This routine is replaced by dr_get_option_array().
+ * The front-end \p drrun and other utilities now re-quote all tokens,
+ * providing simpler option passing without escaping or extra quote layers.
+ * This routine, for compatibility, strips those quotes off and returns
+ * a flat string without any token-delimiting quotes.
  */
 const char *
 dr_get_options(client_id_t client_id);

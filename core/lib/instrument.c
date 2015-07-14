@@ -243,7 +243,10 @@ typedef struct _client_lib_t {
     shlib_handle_t lib;
     app_pc start;
     app_pc end;
+    /* The raw option string, which after i#1736 contains token-delimiting quotes */
     char options[MAX_OPTION_LENGTH];
+    /* The option string with token-delimiting quotes removed for backward compat */
+    char legacy_options[MAX_OPTION_LENGTH];
     /* We need to associate nudge events with a specific client so we
      * store that list here in the client_lib_t instead of using a
      * single global list.
@@ -2343,12 +2346,8 @@ dr_set_process_exit_behavior(dr_exit_flags_t flags)
     }
 }
 
-DR_API
-/* Returns the option string passed along with a client path via DR's
- * -client_lib option.
- */
-const char *
-dr_get_options(client_id_t id)
+static const char *
+dr_get_raw_options(client_id_t id)
 {
     size_t i;
     for (i=0; i<num_client_libs; i++) {
@@ -2356,7 +2355,51 @@ dr_get_options(client_id_t id)
             return client_libs[i].options;
         }
     }
+    CLIENT_ASSERT(false, "dr_get_options(): invalid client id");
+    return NULL;
+}
 
+DR_API
+/* Returns the option string passed along with a client path via DR's
+ * -client_lib option.
+ */
+/* i#1736: we now token-delimit with quotes, but for backward compat we need to
+ * pass a version w/o quotes for dr_get_options().
+ */
+const char *
+dr_get_options(client_id_t id)
+{
+    size_t i;
+    for (i=0; i<num_client_libs; i++) {
+        if (client_libs[i].id == id) {
+            /* If we already converted, pass the result */
+            if (client_libs[i].legacy_options[0] != '\0' ||
+                client_libs[i].options[0] == '\0')
+                return client_libs[i].legacy_options;
+            /* For backward compatibility, we need to remove the token-delimiting
+             * quotes.  We tokenize, and then re-assemble the flat string.
+             */
+            int j;
+            size_t sofar = 0;
+            int argc;
+            const char **argv;
+            /* XXX i#1736: move this tokenizing up front and pass argv to a new
+             * dr_client_main() routine.
+             */
+            bool res = dr_get_option_array(id, &argc, &argv, MAX_OPTION_LENGTH);
+            if (!res)
+                return client_libs[i].legacy_options;
+            for (j = 1/*skip client lib*/; j < argc; j++) {
+                if (!print_to_buffer(client_libs[i].legacy_options,
+                                     BUFFER_SIZE_ELEMENTS(client_libs[i].legacy_options),
+                                     &sofar, "%s%s", (j == 1) ? "" : " ", argv[j]))
+                    break;
+            }
+            NULL_TERMINATE_BUFFER(client_libs[i].legacy_options);
+            dr_free_option_array(argc, argv);
+            return client_libs[i].legacy_options;
+        }
+    }
     CLIENT_ASSERT(false, "dr_get_options(): invalid client id");
     return NULL;
 }
@@ -2368,7 +2411,7 @@ dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT
 {
     const char **a;
     int cnt;
-    const char *opstr = dr_get_options(client_id);
+    const char *opstr = dr_get_raw_options(client_id);
     const char *s;
     char *token = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, max_token_size,
                                    ACCT_CLIENT, UNPROTECTED);

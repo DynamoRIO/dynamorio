@@ -360,7 +360,7 @@ event_thread_init(void *drcontext)
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
      * the same directory as our library. We could also pass
-     * in a path and retrieve with dr_get_options().
+     * in a path and retrieve with dr_get_option_array().
      */
     data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
                               "memtrace",

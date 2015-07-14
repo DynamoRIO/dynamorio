@@ -1393,7 +1393,7 @@ macro(strings2lists test ops_var)
   if (DEFINED ${test}_dr_ops)
     string2list(${test}_dr_ops)
   endif ()
-  if (DEFINED ${test}_client_ops)
+  if (DEFINED ${test}_client_ops AND NOT DEFINED ${test}_client_ops_islist)
     string2list(${test}_client_ops)
   endif ()
 endmacro()
@@ -1428,7 +1428,7 @@ function(torun_ci name test ops)
       set(cli_ops "use_unlink")
     endif ()
   endif ("${test}" MATCHES "client\\.flush")
-  if (STATIC_LIBRARY AND NOT "${${test}_dr_ops} ${ops}" MATCHES "-no_early_inject")
+  if (STATIC_LIBRARY AND NOT "${${test}_dr_ops};${ops}" MATCHES "-no_early_inject")
     return()
   endif ()
   # note that we cannot use double quotes as they'll be stripped out
@@ -1458,7 +1458,7 @@ endfunction(torun_ci)
 function(torun_api name test ops)
   strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} ON ${${test}_standalone_dr}
-    "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
+    "${${test}_dr_ops};${ops}" "${${test}_exe_ops}" added)
 endfunction(torun_api)
 
 function(torunonly_native name realexe expect source exe_ops)
@@ -1840,9 +1840,10 @@ if (CLIENT_INTERFACE)
   endif (NOT ARM)
 
   tobuild_ci(client.option_parse client-interface/option_parse.cpp
-    " -x   4 -y 'quoted string' -z first -z `single quotes -dash --dashes` -front value -y accum -front2 value2 -no_flag"
+    "-x;4;-y;quoted string;-z;first;-z;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-no_flag"
     "" "")
   use_DynamoRIO_extension(client.option_parse.dll droption)
+  set(client.option_parse_client_ops_islist ON)
 
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)

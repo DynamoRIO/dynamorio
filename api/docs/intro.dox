@@ -531,7 +531,7 @@ bin32/drconfig.exe -reg calc.exe -c myclient.dll -op1 -op2 \"value with spaces\"
 bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"'
 \endcode
 
-The client can call dr_get_options() to retrieve the option string passed
+The client can call dr_get_option_array() to retrieve the options passed
 to it.
 
 Client options are not allowed to contain semicolons.  Additionally, the

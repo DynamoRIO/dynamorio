@@ -92,7 +92,7 @@ extern "C" {
  * for the various events within dr_init.  Note that client paths and
  * options cannot include semicolons. \p client_id is the ID supplied
  * at registration and is used to identify the client for
- * dr_get_options(), dr_get_client_path(), and external nudges.
+ * dr_get_option_array(), dr_get_client_path(), and external nudges.
  */
 DR_EXPORT void dr_init(client_id_t client_id);
 

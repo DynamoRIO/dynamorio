@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -117,7 +117,7 @@ event_thread_init(void *drcontext)
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
      * the same directory as our library. We could also pass
-     * in a path and retrieve with dr_get_options().
+     * in a path and retrieve with dr_get_option_array().
      */
     f = log_file_open(my_id, drcontext, NULL /* client lib path */,
                       "instrcalls",

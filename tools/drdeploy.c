@@ -590,7 +590,7 @@ bool register_client(const char *process_name,
     /* just append to the existing client list */
     priority = dr_num_registered_clients(process_name, pid, global, dr_platform);
 
-    info("registering client with id=%d path=|%s| ops=|%s|\n", client_id, path, options);
+    info("registering client with id=%d path=|%s| ops=|%s|", client_id, path, options);
     status = dr_register_client(process_name, pid, global, dr_platform, client_id,
                                 priority, path, options);
 
@@ -808,20 +808,21 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
             found_client = true;
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
-                                 "%s", client);
+                                 "\"%s\"", client);
             }
         } else if (strstr(line, "CLIENT_ABS=") == line) {
             strncpy(client, line + strlen("CLIENT_ABS="), client_size);
             found_client = true;
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
-                                 "%s", client);
+                                 "\"%s\"", client);
             }
         } else if (strstr(line, "DR_OP=") == line) {
-            add_extra_option(ops, ops_size, ops_sofar, "%s", line + strlen("DR_OP="));
+            add_extra_option(ops, ops_size, ops_sofar, "\"%s\"",
+                             line + strlen("DR_OP="));
         } else if (strstr(line, "TOOL_OP=") == line) {
             add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
-                             "%s", line + strlen("TOOL_OP="));
+                             "\"%s\"", line + strlen("TOOL_OP="));
 # ifdef DRRUN /* native only supported for drrun */
         } else if (strstr(line, "FRONTEND_ABS=") == line) {
             _snprintf(native_path, native_path_size, "%s",
@@ -835,7 +836,7 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
             found_client = true;
         } else if (strstr(line, "TOOL_OP_DR_PATH") == line) {
             add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
-                             "%s", dr_root);
+                             "\"%s\"", dr_root);
         } else if (strstr(line, "TOOL_OP_DR_BUNDLE=") == line) {
             add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
                              "%s `%s`", line + strlen("TOOL_OP_DR_BUNDLE="), ops);
@@ -1350,7 +1351,7 @@ int main(int argc, char *argv[])
                     break;
                 }
                 add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
-                                 &extra_ops_sofar, "%s", argv[i]);
+                                 &extra_ops_sofar, "\"%s\"", argv[i]);
                 i++;
             }
             if (i < argc &&
@@ -1394,7 +1395,7 @@ int main(int argc, char *argv[])
 # endif /* DRCONFIG */
                     add_extra_option(single_client_ops,
                                      BUFFER_SIZE_ELEMENTS(single_client_ops),
-                                     &client_sofar, "%s", argv[i]);
+                                     &client_sofar, "\"%s\"", argv[i]);
                     i++;
                 }
                 append_client(client, 0, single_client_ops, client_paths,

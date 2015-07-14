@@ -579,8 +579,12 @@ option_present(const char *dr_ops, const char *op)
     size_t oplen = strlen(op);
     const char *cur = strstr(dr_ops, op);
     return (cur != NULL &&
-            (cur[oplen] == '\0' || isspace(cur[oplen])) &&
-            (cur == dr_ops || isspace(cur[-1])));
+            /* drrun now re-quotes args so we have to look for ".
+             * This is not perfect: but we don't expect "-no_early_inject" to be
+             * embedded into some longer string w/ literal quotes around it.
+             */
+            (cur[oplen] == '\0' || cur[oplen] == '\"' || isspace(cur[oplen])) &&
+            (cur == dr_ops || cur[-1] == '\"' || isspace(cur[-1])));
 }
 
 DR_EXPORT
