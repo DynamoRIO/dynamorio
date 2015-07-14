@@ -1,0 +1,30 @@
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+All done
+---- <application exited with code 0> ----
+Core #0 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                              635
+    Misses:                             11
+    Miss rate:                        1\.70%
+  L1D stats:
+    Hits:                               3[0-9]
+    Misses:                             *[0-9]*
+    Prefetch hits:                       0
+    Prefetch misses:                     1
+    Miss rate:                       2.\...%
+Core #1 \(0 thread\(s\)\)
+Core #2 \(0 thread\(s\)\)
+Core #3 \(0 thread\(s\)\)
+LL stats:
+    Hits:                                3
+    Misses:                             1[0-9]
+    Prefetch hits:                       0
+    Prefetch misses:                     1
+    Local miss rate:                 8.\...%
+    Child hits:                        6..
+    Total miss rate:                  2\...%

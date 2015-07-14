@@ -2121,6 +2121,25 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.threads_rawtemp ON) # no preprocessor
       endif ()
 
+      if (ARM)
+        # allasm_thumb test
+        torunonly_ci(tool.drcachesim.thumb common.allasm_thumb drcachesim
+          "allasm-thumb.c" # for expect basename
+          "-ipc_name drtestpipe_thumb" "" "")
+        set(tool.drcachesim.thumb_toolname "drcachesim")
+        set(tool.drcachesim.thumb_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.thumb_rawtemp ON) # no preprocessor
+        # allasm_arm test
+        torunonly_ci(tool.drcachesim.arm common.allasm_arm drcachesim
+          "allasm-arm.c" # for expect basename
+          "-ipc_name drtestpipe_arm" "" "")
+        set(tool.drcachesim.arm_toolname "drcachesim")
+        set(tool.drcachesim.arm_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.arm_rawtemp ON) # no preprocessor
+      endif ()
+
       # FIXME i#1703: add more dedicated tests (in suite/tests/clients/) for which
       # we know the results, and check the output.
       # We have one so far:
