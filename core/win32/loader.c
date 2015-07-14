@@ -432,7 +432,7 @@ get_private_peb(void)
 /* For performance reasons we avoid the swap if there's no client.
  * We'd like to do so if there are no private WinAPI libs
  * (we assume libs not in the system dir will not write to PEB or TEB fields we
- * care about (mainly Fls ones)), but kernel32 can be loaded in dr_init()
+ * care about (mainly Fls ones)), but kernel32 can be loaded in dr_client_main()
  * (which is after arch_init()) via dr_enable_console_printing(); plus,
  * a client could load kernel32 via dr_load_aux_library(), or a 3rd-party
  * priv lib could load anything at any time.  Xref i#984.

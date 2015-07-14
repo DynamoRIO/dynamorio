@@ -143,7 +143,7 @@ static void read_table();
 static void free_table();
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'MF_moduledb'",
                        "http://dynamorio.org/issues");

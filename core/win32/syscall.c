@@ -83,7 +83,7 @@ app_pc KiFastSystemCallRet_address = NULL;
  */
 #  define CLIENT_EXTRA_TRAMPOLINE 12
 #  define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
-/* no lock needed since only supported during dr_init */
+/* no lock needed since only supported during dr_client_main */
 static uint syscall_extra_idx;
 #else
 #  define TRAMPOLINE_MAX SYS_MAX
@@ -4279,7 +4279,7 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
     }
     if (get_proc_address(get_ntdll_base(), name) == NULL)
         return false;
-    /* no lock needed since only supported during dr_init */
+    /* no lock needed since only supported during dr_client_main */
     idx = SYS_MAX + syscall_extra_idx;
     syscall_names[idx] = name;
     syscalls[idx] = sysnum;

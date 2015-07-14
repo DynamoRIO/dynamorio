@@ -52,7 +52,7 @@ static void *count_mutex;  /* for multithread support */
 static int prefetches_removed = 0, prefetchws_removed = 0;
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'prefetch'",
                        "http://dynamorio.org/issues");

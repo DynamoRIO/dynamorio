@@ -215,7 +215,7 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
 static client_id_t my_id;
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     uint i;
     dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");

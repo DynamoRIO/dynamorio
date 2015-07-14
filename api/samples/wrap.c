@@ -91,7 +91,7 @@ void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 }
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'wrap'", "http://dynamorio.org/issues");
     /* make it easy to tell, by looking at log file, which client executed */
@@ -100,7 +100,7 @@ dr_init(client_id_t id)
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client wrap is running\n");

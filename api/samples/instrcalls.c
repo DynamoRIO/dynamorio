@@ -66,7 +66,7 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
 static client_id_t my_id;
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'instrcalls'",
                        "http://dynamorio.org/issues");
@@ -77,7 +77,7 @@ dr_init(client_id_t id)
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client instrcalls is running\n");
@@ -117,7 +117,7 @@ event_thread_init(void *drcontext)
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
      * the same directory as our library. We could also pass
-     * in a path and retrieve with dr_get_option_array().
+     * in a path as a client argument.
      */
     f = log_file_open(my_id, drcontext, NULL /* client lib path */,
                       "instrcalls",

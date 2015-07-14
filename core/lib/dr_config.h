@@ -619,7 +619,7 @@ DR_EXPORT
  *
  * \param[in]   client_id       A client_id_t uniquely identifying the client.
  *                              DynamoRIO provides the client ID as a parameter
- *                              to dr_init().  Clients use this ID to retrieve
+ *                              to dr_client_main().  Clients use this ID to retrieve
  *                              client-specific path and option information.
  *                              Outside entities also identify the target of
  *                              a nudge via this ID.
@@ -643,7 +643,8 @@ DR_EXPORT
  *                              three quote characters (', ", `) simultaneously.
  *
  * \param[in]   client_options  A NULL-terminated string specifying options that
- *                              are available to the client via dr_get_option_array().
+ *                              are available to the client as arguments of
+ *                              dr_client_main() or via dr_get_option_array().
  *                              The string length cannot exceed #DR_MAX_OPTIONS_LENGTH.
  *                              The client options may not include any semicolons
  *                              and when combined with \p client_path may not include

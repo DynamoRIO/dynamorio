@@ -337,7 +337,7 @@ extern file_t our_stdin;
 #endif
 /**
  * ID used to uniquely identify a client.  This value is set at
- * client registration and passed to the client in dr_init().
+ * client registration and passed to the client in dr_client_main().
  */
 typedef uint client_id_t;
 

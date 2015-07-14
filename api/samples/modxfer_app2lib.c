@@ -91,7 +91,7 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
                                          bool for_trace, bool translating);
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     module_data_t *appmod;
     dr_set_client_name("DynamoRIO Sample Client 'modxfer_app2lib'",
@@ -112,7 +112,7 @@ dr_init(client_id_t id)
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client modxfer_app2lib is running\n");

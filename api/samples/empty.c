@@ -43,7 +43,7 @@
 static void event_exit(void);
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* empty client */
     dr_set_client_name("DynamoRIO Sample Client 'empty'", "http://dynamorio.org/issues");

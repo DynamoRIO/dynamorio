@@ -133,6 +133,9 @@ clients.
 The changes between version \DR_VERSION and 5.0.0 include the
 following minor compatibility changes:
 
+ - Deprecated dr_init() as a client's entry point, replacing it with
+   dr_client_main() which is passed an argv-style array of client options
+   just like a regular application's main() routine.
  - Changed the default injection method on Linux to use "early injection"
    which begins executing the target application from its very first
    instruction.  Clients on Linux will now see more application code than
@@ -161,7 +164,8 @@ following minor compatibility changes:
    with the new predication API (instr_is_predicated(), etc.) and new
    parameters to read/write query routines (#dr_opnd_query_flags_t).
  - Widened the #reg_id_t type from a byte to a ushort.
- - Deprecated dr_get_options(), replacing it with dr_get_option_array().
+ - Deprecated dr_get_options(), replacing it with direct arguments to
+   dr_client_main() or alternatively with dr_get_option_array().
  - Deprecated set_x86_mode(), replacing it with dr_set_isa_mode().
  - Deprecated get_x86_mode(), replacing it with dr_get_isa_mode().
  - Deprecated instr_set_x86_mode(), replacing it with instr_set_isa_mode().

@@ -119,7 +119,7 @@ static void instrument_mem(void        *drcontext,
                            bool         write);
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* Specify priority relative to other instrumentation operations: */
     drmgr_priority_t priority = {
@@ -155,7 +155,7 @@ dr_init(client_id_t id)
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client memtrace is running\n");
@@ -208,7 +208,7 @@ event_thread_init(void *drcontext)
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
      * the same directory as our library. We could also pass
-     * in a path and retrieve with dr_get_option_array().
+     * in a path as a client argument.
      */
     data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
                               "memtrace",

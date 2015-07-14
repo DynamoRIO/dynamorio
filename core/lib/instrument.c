@@ -80,11 +80,12 @@ extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
-/* PR 200065: User passes us the shared library, we look up "dr_init",
- * and call it.  From there, the client can register which events it
+/* PR 200065: User passes us the shared library, we look up "dr_init"
+ * or "dr_client_main" and call it.  From there, the client can register which events it
  * wishes to receive.
  */
-#define INSTRUMENT_INIT_NAME "dr_init"
+#define INSTRUMENT_INIT_NAME_LEGACY "dr_init"
+#define INSTRUMENT_INIT_NAME "dr_client_main"
 
 /* PR 250952: version check
  * If changing this, don't forget to update:
@@ -247,6 +248,9 @@ typedef struct _client_lib_t {
     char options[MAX_OPTION_LENGTH];
     /* The option string with token-delimiting quotes removed for backward compat */
     char legacy_options[MAX_OPTION_LENGTH];
+    /* The parsed options: */
+    int argc;
+    const char **argv;
     /* We need to associate nudge events with a specific client so we
      * store that list here in the client_lib_t instead of using a
      * single global list.
@@ -494,7 +498,7 @@ add_client_lib(char *path, char *id_str, char *options)
                 NULL_TERMINATE_BUFFER(client_libs[idx].options);
             }
 
-            /* We'll look up dr_init and call it in instrument_init */
+            /* We'll look up dr_client_main and call it in instrument_init */
         }
     }
 }
@@ -567,10 +571,13 @@ instrument_init(void)
         set_exception_strings("Tool", "your tool's issue tracker");
     }
 
-    /* Iterate over the client libs and call each dr_init */
+    /* Iterate over the client libs and call each init routine */
     for (i=0; i<num_client_libs; i++) {
-        void (*init)(client_id_t) = (void (*)(client_id_t))
+        void (*init)(client_id_t, int, const char **) =
+            (void (*)(client_id_t, int, const char **))
             (lookup_library_routine(client_libs[i].lib, INSTRUMENT_INIT_NAME));
+        void (*legacy)(client_id_t) = (void (*)(client_id_t))
+            (lookup_library_routine(client_libs[i].lib, INSTRUMENT_INIT_NAME_LEGACY));
 
         /* we can't do this in instrument_load_client_libs() b/c vmheap
          * is not set up at that point
@@ -586,13 +593,27 @@ instrument_init(void)
                                 MEMPROT_READ, DR_MEMTYPE_IMAGE);
         all_memory_areas_unlock();
 
+        /* i#1736: parse the options up front.
+         * XXX: we could pass option string instead of dr_get_raw_options()
+         * having to loop.
+         */
+        if (!dr_get_option_array(client_libs[i].id, &client_libs[i].argc,
+                                 &client_libs[i].argv, MAX_OPTION_LENGTH)) {
+            CLIENT_ASSERT(false, "failed to parse client options");
+            /* in release build, just try to keep going */
+            client_libs[i].argv = NULL;
+        }
+
         /* Since the user has to register all other events, it
          * doesn't make sense to provide the -client_lib
-         * option for a module that doesn't export dr_init.
+         * option for a module that doesn't export an init routine.
          */
-        CLIENT_ASSERT(init != NULL,
-                      "client library does not export a dr_init routine");
-        (*init)(client_libs[i].id);
+        CLIENT_ASSERT(init != NULL || legacy != NULL,
+                      "client does not export a dr_client_main or dr_init routine");
+        if (init != NULL)
+            (*init)(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
+        else
+            (*legacy)(client_libs[i].id);
     }
 
     /* We now initialize the 1st thread before coming here, so we can
@@ -701,6 +722,8 @@ instrument_exit(void)
     for (i=0; i<num_client_libs; i++) {
         free_callback_list(&client_libs[i].nudge_callbacks);
         unload_shared_library(client_libs[i].lib);
+        if (client_libs[i].argv != NULL)
+            dr_free_option_array(client_libs[i].argc, client_libs[i].argv);
     }
 
     free_all_callback_lists();
@@ -2372,6 +2395,8 @@ dr_get_options(client_id_t id)
     size_t i;
     for (i=0; i<num_client_libs; i++) {
         if (client_libs[i].id == id) {
+            int j;
+            size_t sofar = 0;
             /* If we already converted, pass the result */
             if (client_libs[i].legacy_options[0] != '\0' ||
                 client_libs[i].options[0] == '\0')
@@ -2379,24 +2404,14 @@ dr_get_options(client_id_t id)
             /* For backward compatibility, we need to remove the token-delimiting
              * quotes.  We tokenize, and then re-assemble the flat string.
              */
-            int j;
-            size_t sofar = 0;
-            int argc;
-            const char **argv;
-            /* XXX i#1736: move this tokenizing up front and pass argv to a new
-             * dr_client_main() routine.
-             */
-            bool res = dr_get_option_array(id, &argc, &argv, MAX_OPTION_LENGTH);
-            if (!res)
-                return client_libs[i].legacy_options;
-            for (j = 1/*skip client lib*/; j < argc; j++) {
+            for (j = 1/*skip client lib*/; j < client_libs[i].argc; j++) {
                 if (!print_to_buffer(client_libs[i].legacy_options,
                                      BUFFER_SIZE_ELEMENTS(client_libs[i].legacy_options),
-                                     &sofar, "%s%s", (j == 1) ? "" : " ", argv[j]))
+                                     &sofar, "%s%s", (j == 1) ? "" : " ",
+                                     client_libs[i].argv[j]))
                     break;
             }
             NULL_TERMINATE_BUFFER(client_libs[i].legacy_options);
-            dr_free_option_array(argc, argv);
             return client_libs[i].legacy_options;
         }
     }
@@ -2409,6 +2424,11 @@ bool
 dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT,
                     size_t max_token_size)
 {
+    /* XXX: should we have two versions, one that allocates and needs a corresponding
+     * free and is used up front, and a public-facing one that just returns the
+     * already-stored argv array and needs no free?
+     * For now, leaving it exposed as is.
+     */
     const char **a;
     int cnt;
     const char *opstr = dr_get_raw_options(client_id);
@@ -4235,10 +4255,10 @@ dr_enable_console_printing(void)
 {
     bool success = false;
     /* b/c private loader sets cxt sw code up front based on whether have windows
-     * priv libs or not, this can only be called during dr_init()
+     * priv libs or not, this can only be called during client init()
      */
     if (dynamo_initialized) {
-        CLIENT_ASSERT(false, "dr_enable_console_printing() must be called from dr_init");
+        CLIENT_ASSERT(false, "dr_enable_console_printing() must be called during init");
         return false;
     }
     /* Direct writes to std handles work on win8+ (xref i#911) but we don't need

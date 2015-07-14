@@ -145,7 +145,7 @@ static void
 event_module_unload(void *drcontext, const module_data_t *info);
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'modxfer'",
                        "http://dynamorio.org/issues");
@@ -172,7 +172,7 @@ dr_init(client_id_t id)
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client modxfer is running\n");

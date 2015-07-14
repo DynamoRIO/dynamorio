@@ -81,7 +81,7 @@ DR_API
  * exit event requirements.
  *
  * On Linux, SYS_execve does NOT result in an exit event, but it WILL
- * result in the client library being reloaded and its dr_init()
+ * result in the client library being reloaded and its dr_client_main()
  * routine being called.
  */
 void
@@ -1423,7 +1423,7 @@ DR_API
  * DR calls \p func whenever the current process receives a nudge.
  * On Windows, the nudge event is delivered in a new non-application
  * thread.  Callers must specify the target client by passing the
- * client ID that was provided in dr_init().
+ * client ID that was provided in dr_client_main().
  */
 void
 dr_register_nudge_event(void (*func)(void *drcontext, uint64 argument), client_id_t id);
@@ -1654,9 +1654,10 @@ dr_request_synchronized_exit(void);
 DR_API
 /**
  * Returns the client-specific option string specified at client
- * registration.  \p client_id is the client ID passed to dr_init().
+ * registration.  \p client_id is the client ID passed to dr_client_main().
  *
- * \deprecated This routine is replaced by dr_get_option_array().
+ * \deprecated This routine is replaced by dr_client_main()'s arguments and
+ * by dr_get_option_array().
  * The front-end \p drrun and other utilities now re-quote all tokens,
  * providing simpler option passing without escaping or extra quote layers.
  * This routine, for compatibility, strips those quotes off and returns
@@ -1673,12 +1674,15 @@ DR_API
  * To match standalone application conventions, \p argv[0] is set to
  * the client library path, with the actual parameters starting at
  * index 1.
- * \p client_id is the client ID passed to dr_init().
+ * \p client_id is the client ID passed to dr_client_main().
  * Tokenization is done using dr_get_token() using a maximum single
  * token length specified in \p max_token_size.
  * The resulting array is allocated in the heap and the caller must free
  * it by calling dr_free_option_array().
  * Typically, \p max_token_size should be set to DR_MAX_OPTIONS_LENGTH.
+ *
+ * \note Normally, the direct arguments passed to dr_client_main() are
+ * used and this routine is not necessary.
  */
 bool
 dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT,
@@ -1721,7 +1725,7 @@ DR_API
  * Returns the client library name and path that were originally specified
  * to load the library.  If the resulting string is longer than #MAXIMUM_PATH
  * it will be truncated.  \p client_id is the client ID passed to a client's
- * dr_init() function.
+ * dr_client_main() function.
  */
 const char *
 dr_get_client_path(client_id_t client_id);
@@ -1729,7 +1733,7 @@ dr_get_client_path(client_id_t client_id);
 DR_API
 /**
  * Returns the base address of the client library.  \p client_id is
- * the client ID passed to a client's dr_init() function.
+ * the client ID passed to a client's dr_client_main() function.
  */
 byte *
 dr_get_client_base(client_id_t client_id);
@@ -1932,7 +1936,7 @@ DR_API
  * unhandled signal of that signal number instead of performing a normal
  * exit.
  *
- * \note Calling this from \p dr_init or from the primary thread's
+ * \note Calling this from \p dr_client_main or from the primary thread's
  * initialization event is not guaranteed to always work, as DR may
  * invoke a thread exit event where a thread init event was never
  * called.  We recommend using dr_abort() or waiting for full
@@ -3529,7 +3533,7 @@ dr_syscall_invoke_another(void *drcontext);
 #ifdef WINDOWS
 DR_API
 /**
- * Must be invoked from dr_init().  Requests that the named ntoskrnl
+ * Must be invoked from dr_client_main().  Requests that the named ntoskrnl
  * system call be intercepted even when threads are native (e.g., due
  * to #DR_EMIT_GO_NATIVE).  Only a limited number of system calls
  * being intercepted while native are supported.  This routine will
@@ -4017,7 +4021,7 @@ DR_API
  * already loaded) in order to accomplish this.  To keep the default
  * DR lean and mean, loading kernel32.dll is not performed by default.
  *
- * This routine must be called during client initialization (\p dr_init()).
+ * This routine must be called during client initialization (\p dr_client_main()).
  * If called later, it will fail.
  *
  * Without calling this routine, dr_printf() and dr_fprintf() will not

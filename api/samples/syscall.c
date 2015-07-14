@@ -101,7 +101,7 @@ static bool event_pre_syscall(void *drcontext, int sysnum);
 static void event_post_syscall(void *drcontext, int sysnum);
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'syscall'",
                        "http://dynamorio.org/issues");
@@ -117,7 +117,7 @@ dr_init(client_id_t id)
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client syscall is running\n");

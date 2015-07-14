@@ -1805,7 +1805,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 
     /* Initialize DR *after* we map the app image.  This is consistent with our
      * old behavior, and allows the client to do things like call
-     * dr_get_proc_address() on the app from dr_init().  We let
+     * dr_get_proc_address() on the app from dr_client_main().  We let
      * find_executable_vm_areas re-discover the mappings we made for the app and
      * interp images.
      */

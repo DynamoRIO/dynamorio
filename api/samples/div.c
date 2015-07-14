@@ -54,7 +54,7 @@ static int div_count = 0, div_p2_count = 0;
 static void *count_mutex; /* for multithread support */
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'div'", "http://dynamorio.org/issues");
     dr_register_exit_event(exit_event);

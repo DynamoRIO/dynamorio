@@ -230,8 +230,8 @@ thread_exit_event(void *drcontext)
     }
 }
 
-DR_EXPORT
-void dr_init(client_id_t id)
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     bool success;
     reg_id_t seg;
@@ -239,6 +239,7 @@ void dr_init(client_id_t id)
     const char * ops = dr_get_options(id);
     dr_fprintf(STDERR, "PR 216931: client options are %s\n", ops);
     ASSERT(str_eq(ops, "-paramx -paramy"));
+    ASSERT(argc == 3 && str_eq(argv[1], "-paramx") && str_eq(argv[2], "-paramy"));
 
     dr_register_bb_event(bb_event);
     dr_register_exit_event(exit_event);

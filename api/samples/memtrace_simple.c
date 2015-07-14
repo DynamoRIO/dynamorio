@@ -360,7 +360,7 @@ event_thread_init(void *drcontext)
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
      * the same directory as our library. We could also pass
-     * in a path and retrieve with dr_get_option_array().
+     * in a path as a client argument.
      */
     data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
                               "memtrace",
@@ -403,7 +403,7 @@ event_exit(void)
 }
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");

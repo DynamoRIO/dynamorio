@@ -301,7 +301,7 @@ choose_gdt_slots(os_local_state_t *os_tls)
     int res;
 
     /* using local static b/c dynamo_initialized is not set for a client thread
-     * when created in client's dr_init routine
+     * when created in client's dr_client_main routine
      */
     /* FIXME: Could be racy if we have multiple threads initializing during
      * startup.

@@ -87,14 +87,27 @@ extern "C" {
 /**
  * When registering a process, users must provide a list of paths to
  * client libraries and their associated client-specific options.  DR
- * looks up "dr_init" in each client library and calls that function
+ * looks up "dr_client_main" in each client library and calls that function
  * when the process starts.  Clients can register to receive callbacks
- * for the various events within dr_init.  Note that client paths and
- * options cannot include semicolons. \p client_id is the ID supplied
- * at registration and is used to identify the client for
- * dr_get_option_array(), dr_get_client_path(), and external nudges.
+ * for the various events within dr_client_main().  Note that client paths and
+ * options cannot include semicolons.
+ *
+ * \p client_id is the ID supplied at registration and is used to
+ * identify the client for dr_get_option_array(),
+ * dr_get_client_path(), and external nudges.
+ *
+ * The arguments passed to the client are specified in \p argc and \p
+ * argv.  To match standalone application conventions, \p argv[0] is
+ * set to the client library path, with the actual parameters starting
+ * at index 1.
  */
-DR_EXPORT void dr_init(client_id_t client_id);
+DR_EXPORT void dr_client_main(client_id_t id, int argc, const char *argv[]);
+
+/**
+ * Legacy, deprecated initialization routine.
+ * \deprecated
+ */
+DR_EXPORT void dr_init(client_id_t id);
 
 /* Version checking */
 /* This equals major*100 + minor */

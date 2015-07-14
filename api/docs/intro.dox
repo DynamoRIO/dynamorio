@@ -263,7 +263,7 @@ each process, and which mode to run the clients in (more on this
 below).  DynamoRIO will be initialized in the specified mode for
 registered processes started subsequently.  DynamoRIO will then load
 the corresponding clients into such processes and call each client's
-initialization routine, dr_init().  There are three modes of operation
+initialization routine, dr_client_main().  There are three modes of operation
 for DynamoRIO which map to the three API's provided by DynamoRIO
 (see below).  Depending upon the mode chosen the usage model will
 change.
@@ -531,8 +531,13 @@ bin32/drconfig.exe -reg calc.exe -c myclient.dll -op1 -op2 \"value with spaces\"
 bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"'
 \endcode
 
-The client can call dr_get_option_array() to retrieve the options passed
-to it.
+The client's options are passed directly to its \p dr_client_main()
+initialization routine, in the same manner as arguments are passed to a
+regular application's \p main() routine.  To match standalone application
+conventions, \p argv[0] is set to the client library path, with the actual
+parameters starting at index 1.  The client can also optionally call
+dr_get_option_array() to retrieve the options passed to it.  C++ clients
+can use the convenience of the \ref page_droption.
 
 Client options are not allowed to contain semicolons.  Additionally, the
 client option string combined with the path to the client library cannot
@@ -549,7 +554,7 @@ be aware of such interactions and design accordingly.
 
 Client registration requires users to specify the \em priority of each
 client.  DynamoRIO calls each client's
-dr_init() routine sequentially according to this priority.  Clients
+dr_client_main() routine sequentially according to this priority.  Clients
 with a numerically lower priority value are called first and therefore
 given the first opportunity to register callbacks (the client with
 priority 0 is called first).  Since DynamoRIO delivers event
@@ -765,7 +770,7 @@ set of event callbacks.  These events include the following:
   - Basic block and trace creation or deletion
     (dr_register_bb_event(), dr_register_trace_event(), dr_register_delete_event())
   - Process initialization and exit
-    (dr_init(), dr_register_exit_event())
+    (dr_client_main(), dr_register_exit_event())
   - Thread initialization and exit
     (dr_register_thread_init_event(), dr_register_thread_exit_event())
   - Fork child initialization (Linux-only); meant to be used for
@@ -792,7 +797,7 @@ set of event callbacks.  These events include the following:
     (dr_register_nudge_event())
 
 Typically, a client will register for the desired events at
-initialization in its dr_init() routine.  DynamoRIO then calls the
+initialization in its dr_client_main() routine.  DynamoRIO then calls the
 registered functions at the appropriate times.  Each event has a
 specific registration routine (e.g., dr_register_thread_init_event(): see
 the names in parentheses in the list above)
@@ -807,7 +812,7 @@ event callbacks in reverse order of when they were registered.  In
 other words, the first registered callback receives event notification
 last.  This scheme gives priority to a callback registered earlier,
 since it can override or modify the actions of clients registered
-later.  Note that DynamoRIO calls each client's dr_init() routine
+later.  Note that DynamoRIO calls each client's dr_client_main() routine
 according to the client's priority (see \ref multi_client and
 dr_register_client() in the deployment API).
 
@@ -825,7 +830,7 @@ still calls routines that were registered before the event.
 Unregistration takes effect before the next event.
 
 On Linux, an exec (SYS_execve) does NOT result in an exit event, but it
-WILL result in the client library being reloaded and its dr_init() routine
+WILL result in the client library being reloaded and its dr_client_main() routine
 being called again.  The system call events can be used for notification of
 SYS_execve.
 

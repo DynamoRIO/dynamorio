@@ -5975,7 +5975,7 @@ DR_API
  *  corresponding id field in dr_probe_desc_t is set to NULL.
  *
  * \remarks
- * When a client calls dr_register_probes() from dr_init() (which is the
+ * When a client calls dr_register_probes() from dr_client_main() (which is the
  *  earliest dr_register_probes() can be called), not all valid probes are
  *  guaranteed to be inserted upon retrun from dr_register_probes().  Some
  *  valid probes may not be inserted if the target module has not been loaded,
@@ -5985,8 +5985,8 @@ DR_API
  *  available.
  *
  * \remarks
- * When dr_register_probes() is called after dr_init(), the behavior is
- *  identical to being called from dr_init() with one caveat: even valid probes
+ * When dr_register_probes() is called after dr_client_main(), the behavior is
+ *  identical to being called from dr_client_main() with one caveat: even valid probes
  *  aren't guaranteed to be registered when dr_register_probes() returns.
  *  However, valid probes will be registered within a few milliseconds usually.
  *  To prevent performance and potential deadlock issues, it is recommended
@@ -6316,7 +6316,7 @@ dr_register_probes(
      *      are nop'ed during dr init).
      *  2. dr_register_probes()'s execution at init time can't overlap with
      *      another dr_register_probes() because
-     *      a. a second instance can't be called in dr_init() before the first
+     *      a. a second instance can't be called in dr_client_main() before the first
      *          one returns.
      *      b. if a second one is called via a custom nudge or from a callback
      *          it is nop'ed by this routine (at least for this release - for
@@ -6341,9 +6341,9 @@ dr_register_probes(
     if (GLOBAL_VUL_TABLE != NULL) {
         /* TODO: opt: if it is safe move client_init() between hotp_init() &
          * vm_areas_init() then this loader-list-walk can be eliminated.
-         * UPDATE: no it can't b/c this can be called post-dr_init()!
+         * UPDATE: no it can't b/c this can be called post-dr_client_main()!
          */
-        /* FIXME: to support calling post-dr_init() the actual num_threads needs
+        /* FIXME: to support calling post-dr_client_main() the actual num_threads needs
          * to be passed (and should do a synchall): does PR 225578 cover this?
          */
         hotp_walk_loader_list(NULL, 0, NULL, true /* probe_init */);
