@@ -504,20 +504,20 @@ droption_t<bytesize_t>::default_as_string() const
  * On failure, returns false, and if \p error_msg != NULL, stores a string
  * describing the error there.  On failure, \p last_index is set to the
  * index of the problematic option or option value.
+ *
+ * \deprecated This routine is not needed with the new dr_client_main()
+ * where droption_parser_t::parse_argv() can be invoked directly.
  */
 static inline bool
 dr_parse_options(client_id_t client_id, std::string *error_msg, int *last_index)
 {
     int argc;
     const char **argv;
-    // We use DR_MAX_OPTIONS_LENGTH to avoid limiting any one token.
-    bool res = dr_get_option_array(client_id, &argc, &argv, DR_MAX_OPTIONS_LENGTH);
+    bool res = dr_get_option_array(client_id, &argc, &argv);
     if (!res)
         return false;
-    res = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
-                                        error_msg, last_index);
-    res = dr_free_option_array(argc, argv) && res;
-    return res;
+    return droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
+                                         error_msg, last_index);
 }
 #endif
 

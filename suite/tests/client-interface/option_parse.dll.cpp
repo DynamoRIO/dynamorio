@@ -67,14 +67,9 @@ static droption_t<std::string> op_front2
 (DROPTION_SCOPE_FRONTEND, "front2", "", "Front-end param2",
  "Longer desc of front-end param2.");
 
-DR_EXPORT void
-dr_init(client_id_t client_id)
+static void
+test_argv(int argc, const char *argv[])
 {
-    // Test dr_get_option_array().
-    int argc;
-    const char **argv;
-    bool ok = dr_get_option_array(client_id, &argc, &argv, MAXIMUM_PATH);
-    ASSERT(ok);
     ASSERT(argc == 16);
     ASSERT(strcmp(argv[1], "-x") == 0);
     ASSERT(strcmp(argv[2], "4") == 0);
@@ -91,11 +86,22 @@ dr_init(client_id_t client_id)
     ASSERT(strcmp(argv[13], "-front2") == 0);
     ASSERT(strcmp(argv[14], "value2") == 0);
     ASSERT(strcmp(argv[15], "-no_flag") == 0);
-    ok = dr_free_option_array(argc, argv);
-    ASSERT(ok);
+}
 
-    // Test dr_parse_options() and droption_t declarations above.
-    ok = dr_parse_options(client_id, NULL, NULL);
+DR_EXPORT void
+dr_client_main(client_id_t client_id, int argc, const char *argv[])
+{
+    test_argv(argc, argv);
+
+    // Test dr_get_option_array().
+    int ask_argc;
+    const char **ask_argv;
+    bool ok = dr_get_option_array(client_id, &ask_argc, &ask_argv);
+    ASSERT(ok);
+    test_argv(ask_argc, ask_argv);
+
+    // Test droption parsing and droption_t declarations above.
+    ok = droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL);
     ASSERT(ok);
     ASSERT(op_x.specified());
     ASSERT(op_y.specified());
@@ -109,4 +115,9 @@ dr_init(client_id_t client_id)
     dr_fprintf(STDERR, "param sweep = |%s|\n", op_sweep.get_value().c_str());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
+
+    // Minimal sanity check that dr_parse_options() works, but 2nd parsing is
+    // not really supported by droption.
+    ok = dr_parse_options(client_id, NULL, NULL);
+    ASSERT(ok);
 }

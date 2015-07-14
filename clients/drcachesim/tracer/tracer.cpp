@@ -745,13 +745,14 @@ event_exit(void)
 }
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Cache Simulator Tracer",
                        "http://dynamorio.org/issues");
 
     std::string parse_err;
-    if (!dr_parse_options(id, &parse_err, NULL)) {
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
+                                       &parse_err, NULL)) {
         NOTIFY(0, "Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();

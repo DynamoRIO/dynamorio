@@ -305,6 +305,56 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
 /* INTERNAL ROUTINES */
 
 static void
+parse_option_array(client_id_t client_id, const char *opstr,
+                   int *argc OUT, const char ***argv OUT,
+                   size_t max_token_size)
+{
+    const char **a;
+    int cnt;
+    const char *s;
+    char *token = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, max_token_size,
+                                   ACCT_CLIENT, UNPROTECTED);
+
+    for (cnt = 0, s = dr_get_token(opstr, token, max_token_size);
+         s != NULL;
+         s = dr_get_token(s, token, max_token_size)) {
+        cnt++;
+    }
+    cnt++; /* add 1 so 0 can be "app" */
+
+    a = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, const char *, cnt, ACCT_CLIENT, UNPROTECTED);
+
+    cnt = 0;
+    a[cnt] = dr_strdup(dr_get_client_path(client_id) HEAPACCT(ACCT_CLIENT));
+    cnt++;
+    for (s = dr_get_token(opstr, token, max_token_size);
+         s != NULL;
+         s = dr_get_token(s, token, max_token_size)) {
+        a[cnt] = dr_strdup(token HEAPACCT(ACCT_CLIENT));
+        cnt++;
+    }
+
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, token, char, max_token_size,
+                    ACCT_CLIENT, UNPROTECTED);
+
+    *argc = cnt;
+    *argv = a;
+}
+
+#ifdef DEBUG
+static bool
+free_option_array(int argc, const char **argv)
+{
+    int i;
+    for (i = 0; i < argc; i++) {
+        dr_strfree(argv[i] HEAPACCT(ACCT_CLIENT));
+    }
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, argv, char *, argc, ACCT_CLIENT, UNPROTECTED);
+    return true;
+}
+#endif
+
+static void
 add_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
 {
     if (func == NULL) {
@@ -593,16 +643,10 @@ instrument_init(void)
                                 MEMPROT_READ, DR_MEMTYPE_IMAGE);
         all_memory_areas_unlock();
 
-        /* i#1736: parse the options up front.
-         * XXX: we could pass option string instead of dr_get_raw_options()
-         * having to loop.
-         */
-        if (!dr_get_option_array(client_libs[i].id, &client_libs[i].argc,
-                                 &client_libs[i].argv, MAX_OPTION_LENGTH)) {
-            CLIENT_ASSERT(false, "failed to parse client options");
-            /* in release build, just try to keep going */
-            client_libs[i].argv = NULL;
-        }
+        /* i#1736: parse the options up front */
+        parse_option_array(client_libs[i].id, client_libs[i].options,
+                           &client_libs[i].argc, &client_libs[i].argv,
+                           MAX_OPTION_LENGTH);
 
         /* Since the user has to register all other events, it
          * doesn't make sense to provide the -client_lib
@@ -723,7 +767,7 @@ instrument_exit(void)
         free_callback_list(&client_libs[i].nudge_callbacks);
         unload_shared_library(client_libs[i].lib);
         if (client_libs[i].argv != NULL)
-            dr_free_option_array(client_libs[i].argc, client_libs[i].argv);
+            free_option_array(client_libs[i].argc, client_libs[i].argv);
     }
 
     free_all_callback_lists();
@@ -2369,19 +2413,6 @@ dr_set_process_exit_behavior(dr_exit_flags_t flags)
     }
 }
 
-static const char *
-dr_get_raw_options(client_id_t id)
-{
-    size_t i;
-    for (i=0; i<num_client_libs; i++) {
-        if (client_libs[i].id == id) {
-            return client_libs[i].options;
-        }
-    }
-    CLIENT_ASSERT(false, "dr_get_options(): invalid client id");
-    return NULL;
-}
-
 DR_API
 /* Returns the option string passed along with a client path via DR's
  * -client_lib option.
@@ -2421,58 +2452,18 @@ dr_get_options(client_id_t id)
 
 DR_API
 bool
-dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT,
-                    size_t max_token_size)
+dr_get_option_array(client_id_t id, int *argc OUT, const char ***argv OUT)
 {
-    /* XXX: should we have two versions, one that allocates and needs a corresponding
-     * free and is used up front, and a public-facing one that just returns the
-     * already-stored argv array and needs no free?
-     * For now, leaving it exposed as is.
-     */
-    const char **a;
-    int cnt;
-    const char *opstr = dr_get_raw_options(client_id);
-    const char *s;
-    char *token = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, max_token_size,
-                                   ACCT_CLIENT, UNPROTECTED);
-
-    for (cnt = 0, s = dr_get_token(opstr, token, max_token_size);
-         s != NULL;
-         s = dr_get_token(s, token, max_token_size)) {
-        cnt++;
+    size_t i;
+    for (i=0; i<num_client_libs; i++) {
+        if (client_libs[i].id == id) {
+            *argc = client_libs[i].argc;
+            *argv = client_libs[i].argv;
+            return true;
+        }
     }
-    cnt++; /* add 1 so 0 can be "app" */
-
-    a = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, const char *, cnt, ACCT_CLIENT, UNPROTECTED);
-
-    cnt = 0;
-    a[cnt] = dr_strdup(dr_get_client_path(client_id) HEAPACCT(ACCT_CLIENT));
-    cnt++;
-    for (s = dr_get_token(opstr, token, max_token_size);
-         s != NULL;
-         s = dr_get_token(s, token, max_token_size)) {
-        a[cnt] = dr_strdup(token HEAPACCT(ACCT_CLIENT));
-        cnt++;
-    }
-
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, token, char, max_token_size,
-                    ACCT_CLIENT, UNPROTECTED);
-
-    *argc = cnt;
-    *argv = a;
-    return true;
-}
-
-DR_API
-bool
-dr_free_option_array(int argc, const char **argv)
-{
-    int i;
-    for (i = 0; i < argc; i++) {
-        dr_strfree(argv[i] HEAPACCT(ACCT_CLIENT));
-    }
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, argv, char *, argc, ACCT_CLIENT, UNPROTECTED);
-    return true;
+    CLIENT_ASSERT(false, "dr_get_option_array(): invalid client id");
+    return false;
 }
 
 DR_API

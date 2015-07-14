@@ -1670,30 +1670,11 @@ DR_API
 /**
  * Returns the client-specific option string specified at client
  * registration, parsed into an array of \p argc separate option tokens
- * stored in \p argv.
- * To match standalone application conventions, \p argv[0] is set to
- * the client library path, with the actual parameters starting at
- * index 1.
- * \p client_id is the client ID passed to dr_client_main().
- * Tokenization is done using dr_get_token() using a maximum single
- * token length specified in \p max_token_size.
- * The resulting array is allocated in the heap and the caller must free
- * it by calling dr_free_option_array().
- * Typically, \p max_token_size should be set to DR_MAX_OPTIONS_LENGTH.
- *
- * \note Normally, the direct arguments passed to dr_client_main() are
- * used and this routine is not necessary.
+ * stored in \p argv.  This is the same array of arguments passed
+ * to the dr_client_main() routine.
  */
 bool
-dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT,
-                    size_t max_token_size);
-
-DR_API
-/**
- * Frees an option array allocated by dr_get_option_array().
- */
-bool
-dr_free_option_array(int argc, const char **argv);
+dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT);
 
 DR_API
 /**

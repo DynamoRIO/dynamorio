@@ -78,21 +78,29 @@ static droption_t<int> op_z
 \endcode
 
 Then, ask for the \p droption_t instances to be filled in from the
-passed-in arguments from the user.  In a client, use the \p
-dr_parse_options() function, typically from \p dr_init():
+passed-in arguments from the user.  In a client using \p dr_client_main(),
+or from a standalone application, invoke parse_argv():
 
 \code
-    std::string parse_err;
-    if (!dr_parse_options(id, &parse_err)) {
-        dr_fprintf(STDERR, "Usage error: %s", parse_err.c_str());
-        dr_abort();
-    }
+std::string parse_err;
+if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, &parse_err)) {
+    dr_fprintf(STDERR, "Usage error: %s", parse_err.c_str());
+    dr_abort();
+}
 \endcode
 
-From a standalone application, invoke parse_argv():
+A standalone application should pass \p DROPTION_SCOPE_FRONTEND rather than
+\p DROPTION_SCOPE_CLIENT.
+
+In a client using the legacy \p dr_init(), use the \p dr_parse_options()
+function:
 
 \code
-droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv, &parse_err);
+std::string parse_err;
+if (!dr_parse_options(id, &parse_err)) {
+    dr_fprintf(STDERR, "Usage error: %s", parse_err.c_str());
+    dr_abort();
+}
 \endcode
 
 We recommend that Windows standalone applications use UNICODE and call

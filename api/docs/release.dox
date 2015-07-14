@@ -228,7 +228,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_insert_read_raw_tls() and dr_insert_write_raw_tls().
  - Added instr_is_exclusive_store().
  - Added #DR_FILE_WRITE_ONLY.
- - Added dr_get_option_array() and dr_free_option_array().
+ - Added dr_get_option_array().
  - Added easy-to-use option declaration and parsing for C++ clients
    and standalone applications via a new Extension, \p droption,
    and the #droption_t class.
