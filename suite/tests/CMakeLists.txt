@@ -100,14 +100,14 @@ set(vmap_run_list
   "SHORT::ONLY::client.events$::-code_api -thread_private"
   "SHORT::ONLY::client.events$::-code_api -disable_traces"
   "SHORT::ONLY::client.events$::-code_api -thread_private -disable_traces"
-  "SHORT::LIN::ONLY::client.events$::-code_api -early_inject"
+  "SHORT::LIN::ONLY::client.events$::-code_api -no_early_inject"
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "-code_api -opt_memory"
   "-code_api -opt_speed"
   "-code_api -thread_private"
   "-code_api -disable_traces"
   "-code_api -thread_private -disable_traces"
-  "LIN::-code_api -early_inject"
+  "LIN::-code_api -no_early_inject"
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
   "ONLY::^common::-code_api -stack_size 120k"
   "WIN::ONLY::^(runall|client)::-enable_full_api"
@@ -1158,12 +1158,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
-  if ("${dr_ops}" MATCHES "-early_inject" AND
+  if (NOT "${dr_ops}" MATCHES "-no_early_inject" AND
       "${dr_ops}" MATCHES "-no_private_loader")
     set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
-  if (STATIC_LIBRARY AND "${dr_ops}" MATCHES "-early_inject")
+  if (STATIC_LIBRARY AND NOT "${dr_ops}" MATCHES "-no_early_inject")
     set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
@@ -1400,7 +1400,7 @@ endmacro()
 
 function(torun_normal name test ops)
   strings2lists(${test} ops)
-  if (STATIC_LIBRARY AND "${ops}" MATCHES "-early_inject")
+  if (STATIC_LIBRARY AND NOT "${ops}" MATCHES "-no_early_inject")
     return()
   endif ()
   torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops};${ops}"
@@ -1428,7 +1428,7 @@ function(torun_ci name test ops)
       set(cli_ops "use_unlink")
     endif ()
   endif ("${test}" MATCHES "client\\.flush")
-  if (STATIC_LIBRARY AND "${${test}_dr_ops} ${ops}" MATCHES "-early_inject")
+  if (STATIC_LIBRARY AND NOT "${${test}_dr_ops} ${ops}" MATCHES "-no_early_inject")
     return()
   endif ()
   # note that we cannot use double quotes as they'll be stripped out
