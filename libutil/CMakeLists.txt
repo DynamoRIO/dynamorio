@@ -180,6 +180,9 @@ DR_export_target(drconfiglib)
 # drinject.exe and company need a copy in the bin dir (i#1737 would eliminate this)
 DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 
+# drconfiglib now uses drfront_access()
+target_link_libraries(drconfiglib drfrontendlib)
+
 if (WIN32)
   set(dr_frontend_srcs dr_frontend_win.c)
 else () #UNIX

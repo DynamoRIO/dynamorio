@@ -540,8 +540,8 @@ bool register_proc(const char *process,
 
     if (status != DR_SUCCESS) {
         /* USERPROFILE is not set by default over cygwin ssh */
-#ifdef WINDOWS
         char buf[MAXIMUM_PATH];
+#ifdef WINDOWS
         if (drfront_get_env_var("USERPROFILE", buf,
                                 BUFFER_SIZE_ELEMENTS(buf)) == DRFRONT_ERROR &&
             drfront_get_env_var("DYNAMORIO_CONFIGDIR", buf,
@@ -549,9 +549,19 @@ bool register_proc(const char *process,
             error("process %s registration failed: "
                   "neither USERPROFILE nor DYNAMORIO_CONFIGDIR env var set!",
                   process == NULL ? "<null>" : process);
-        } else
+        } else {
 #endif
-            error("process %s registration failed", process == NULL ? "<null>" : process);
+            if (status == DR_CONFIG_DIR_NOT_FOUND) {
+                dr_get_config_dir(global, true/*tmp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
+                error("process %s registration failed: check config dir %s permissions",
+                      process == NULL ? "<null>" : process, buf);
+            } else {
+                error("process %s registration failed",
+                      process == NULL ? "<null>" : process);
+            }
+#ifdef WINDOWS
+        }
+#endif
         return false;
     }
     return true;

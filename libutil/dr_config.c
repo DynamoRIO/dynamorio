@@ -39,6 +39,7 @@
 #include "utils.h"
 #include "lib/dr_config.h"
 #include "our_tchar.h"
+#include "dr_frontend.h"
 
 #ifdef WINDOWS
 # include <windows.h>
@@ -368,6 +369,18 @@ env_var_exists(const char *name, char *buf, size_t buflen)
     return true;
 }
 
+static bool
+is_config_dir_valid(const char *dir)
+{
+    /* i#1701 Android support: on Android devices (and in some cases ChromeOS),
+     * $HOME is read-only.  Thus we want to check for writability.
+     * This is not a perfect test: better to actually try to write, but we don't
+     * want to go that far on each dir we try.
+     */
+    bool ret = false;
+    return drfront_access(dir, DRFRONT_WRITE, &ret) == DRFRONT_SUCCESS && ret;
+}
+
 /* If find_temp, will use a temp dir; else will fail if no standard config dir. */
 static bool
 get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
@@ -385,15 +398,21 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
         return false;
 #endif
     } else {
-        /* DYNAMORIO_CONFIGDIR takes precedence */
+        /* DYNAMORIO_CONFIGDIR takes precedence, and we do not check for
+         * is_config_dir_valid() b/c the user explicitly asked for it.
+         */
         if (!env_var_exists(DYNAMORIO_VAR_CONFIGDIR, dir, BUFFER_SIZE_ELEMENTS(dir))) {
-            if (!env_var_exists(LOCAL_CONFIG_ENV, dir, BUFFER_SIZE_ELEMENTS(dir))) {
+            if (!env_var_exists(LOCAL_CONFIG_ENV, dir, BUFFER_SIZE_ELEMENTS(dir)) ||
+                !is_config_dir_valid(dir)) {
                 if (!find_temp)
                     return false;
                 /* Attempt to make things work for non-interactive users (i#939) */
-                if (!env_var_exists("TMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
-                    !env_var_exists("TEMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
-                    !env_var_exists("TMPDIR", dir, BUFFER_SIZE_ELEMENTS(dir))) {
+                if ((!env_var_exists("TMP", dir, BUFFER_SIZE_ELEMENTS(dir)) ||
+                     !is_config_dir_valid(dir)) &&
+                    (!env_var_exists("TEMP", dir, BUFFER_SIZE_ELEMENTS(dir)) ||
+                     !is_config_dir_valid(dir)) &&
+                    (!env_var_exists("TMPDIR", dir, BUFFER_SIZE_ELEMENTS(dir)) ||
+                     !is_config_dir_valid(dir))) {
 #ifdef WINDOWS
                     /* There is no straightforward hardcoded fallback for temp dirs
                      * on Windows.  But for that reason even a sandbox will leave
@@ -401,11 +420,23 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
                      */
                     return false;
 #else
-                    /* Prefer /tmp to PWD as the former is more likely writable */
-                    strncpy(dir, "/tmp", BUFFER_SIZE_ELEMENTS(dir));
+# ifdef ANDROID
+                    /* This dir is not always present, but often is.
+                     * We can't easily query the Java layer for the "cache dir".
+                     */
+#  define TMP_DIR "/data/local/tmp"
+# else
+#  define TMP_DIR "/tmp"
+# endif
+                    /* Prefer /tmp to cwd as the former is more likely writable */
+                    strncpy(dir, TMP_DIR, BUFFER_SIZE_ELEMENTS(dir));
                     NULL_TERMINATE_BUFFER(dir);
-                    if (!file_exists(dir) &&
-                        !env_var_exists("PWD", dir, BUFFER_SIZE_ELEMENTS(dir)))
+                    if ((!file_exists(dir) || !is_config_dir_valid(dir)) &&
+                        /* Prefer getcwd over PWD env var which is not always set
+                         * (e.g., on Android, it's in "adb shell" but not child)
+                         */
+                        (getcwd(dir, BUFFER_SIZE_ELEMENTS(dir)) == NULL ||
+                         !is_config_dir_valid(dir)))
                         return false;
 #endif
                 }
@@ -417,7 +448,7 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
             if (!SetEnvironmentVariableA(DYNAMORIO_VAR_CONFIGDIR, dir))
                 return false;
 #else
-            if (setenv(DYNAMORIO_VAR_CONFIGDIR, dir, 0) != 0)
+            if (setenv(DYNAMORIO_VAR_CONFIGDIR, dir, 1/*replace*/) != 0)
                 return false;
 #endif
         }
@@ -446,14 +477,14 @@ get_config_file_name(const char *process_name,
      * the DYNAMORIO_CONFIGDIR env var (child is already created).
      */
     if (!get_config_dir(global, fname, fname_len, false)) {
-        DO_ASSERT(false && "get_config_dir failed");
+        DO_ASSERT(false && "get_config_dir failed: check permissions");
         return false;
     }
 #ifdef WINDOWS
     /* make sure subdir exists*/
     if (!CreateDirectoryA(fname, NULL) &&
         GetLastError() != ERROR_ALREADY_EXISTS) {
-        DO_ASSERT(false && "failed to create subdir");
+        DO_ASSERT(false && "failed to create subdir: check permissions");
         return false;
     }
 #else
@@ -461,7 +492,7 @@ get_config_file_name(const char *process_name,
         struct stat st;
         mkdir(fname, 0770);
         if (stat(fname, &st) != 0 || !S_ISDIR(st.st_mode)) {
-            DO_ASSERT(false && "failed to create subdir");
+            DO_ASSERT(false && "failed to create subdir: check permissions");
             return false;
         }
     }
