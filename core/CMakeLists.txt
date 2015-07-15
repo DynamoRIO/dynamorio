@@ -513,7 +513,11 @@ if (UNIX)
 
   set_target_properties(dynamorio PROPERTIES
     LINK_FLAGS "${dynamorio_link_flags}"
-    # See i#1375 comments
+    # XXX i#1375: if we move to cmake 2.8.12 we can use its built-in
+    # rpath: until then we add @rpath ourselves.  The downside is that
+    # everyone who uses this lib has to have the rpath set and can't
+    # just copy the lib to the local dir (should we document that?
+    # DynamoRIO_RPATH is only on for standalone by default).
     INSTALL_NAME_DIR "@rpath")
 
   # This appends to LINK_FLAGS, so do it after we set them above.
@@ -844,20 +848,25 @@ else (UNIX)
 endif (UNIX)
 
 # drinjectlib
-add_library(drinjectlib SHARED ${INJECTOR_SRCS})
+# i#1737: we used to have drconfiglib as a shared library, but that led to a
+# lot of complexity on UNIX (setting
+# INSTALL_NAME_DIR to "@rpath" for Mac i#1375, calling add_rel_rpaths() for
+# every executable using them, problems on Android where DT_RUNPATH isn't
+# supported, etc.) so we switched to static.
+# It would be nice to be static on Windows to avoid copying the lib into bin dirs,
+# but duplicate symbol problems make that non-trivial: we need i#1409.
+if (WIN32)
+  set(inject_lib_type SHARED)
+else ()
+  set(inject_lib_type STATIC)
+endif ()
+add_library(drinjectlib ${inject_lib_type} ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
 target_link_libraries(drinjectlib drdecode drhelper)
 set_target_properties(drinjectlib PROPERTIES
   # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECTLIB"
-  # XXX i#1375: if we move to cmake 2.8.12 we can use its built-in
-  # rpath: until then we add @rpath ourselves.  The downside is that
-  # everyone who uses this lib has to have the rpath set and can't
-  # just copy the lib to the local dir (should we document that?
-  # DynamoRIO_RPATH is on for standalone, which covers most uses of
-  # drconfiglib and drinjectlib, the only libs we do this for).
-  INSTALL_NAME_DIR "@rpath")
+  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECTLIB")
 if (WIN32)
   set(drinjectlib_link_flags
     # not bothering with map files
@@ -870,7 +879,7 @@ if (WIN32)
   # I'm adding libcmt to attempt to make sure we have multithreaded C lib:
   target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB}.lib ntdll_imports
     kernel32 advapi32 imagehlp)
-  # drinject.exe needs a copy in the bin dir
+  # drinject.exe needs a copy in the bin dir (i#1737 would eliminate this)
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}
     ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drinjectlib.dll"
     "${EXECUTABLE_OUTPUT_DIRECTORY}/" VERBATIM)
@@ -955,7 +964,7 @@ if (UNIX)
   DR_install(TARGETS ${PRELOAD_NAME} DESTINATION ${INSTALL_LIB})
   DR_install(FILES ${COMPAT_SYMLINKS} DESTINATION ${INSTALL_LIB})
 else (UNIX)
-  # we put drinjectlib into bin for use by our tools
+  # we put drinjectlib into bin for use by our tools (i#1737 would eliminate this)
   DR_install(TARGETS drinjectlib DESTINATION ${INSTALL_BIN})
   DR_install(TARGETS ${PRELOAD_NAME} RUNTIME DESTINATION ${INSTALL_LIB_BASE})
   DR_install(TARGETS drearlyhelp1 RUNTIME DESTINATION ${INSTALL_LIB_BASE})

@@ -158,7 +158,7 @@ else (UNIX)
 
   # drdeploy.exe links to libutil/drconfiglib.dll.  When we build drdeploy,
   # we'll copy the DLL to the tools directory so users won't need to
-  # update their path.
+  # update their path.  (i#1737 would eliminate this.)
 
   # We could add a manifest so that we can request elevation on Vista
   # (xref PR 233520).  Works fine for double clicking the app, but
@@ -190,10 +190,8 @@ foreach (deploytgt drconfig drrun drinject)
       policy_static user32 advapi32 pdh imagehlp shell32)
   endif ()
   target_link_libraries(${deploytgt} drconfiglib drfrontendlib)
-  add_rel_rpaths(${deploytgt} drconfiglib)
   if (NOT ${deploytgt} MATCHES "drconfig")
     target_link_libraries(${deploytgt} drinjectlib)
-    add_rel_rpaths(${deploytgt} drinjectlib)
   endif ()
 endforeach ()
 

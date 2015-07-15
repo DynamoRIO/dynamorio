@@ -291,8 +291,8 @@ tools are \c drconfig.exe, \c drrun.exe, and \c drinject.exe.  The
 corresponding libraries (whose APIs are exposed by the tools) are \c
 drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
 \c dr_inject.h.  On Linux, the tools are named \c drconfig, \c drrun, and \c
-drinject, and the libraries are \c libdrconfiglib.so and \c
-libdrinjectlib.so.
+drinject, and the libraries are \c libdrconfiglib.a and \c
+libdrinjectlib.a.
 
 \ifnot vmsafe
 When using DynamoRIO as a third-party disassembly library (see \ref

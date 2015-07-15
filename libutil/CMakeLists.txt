@@ -123,23 +123,33 @@ else () # UNIX
   set(libutil_cflags "")
 endif ()
 
-add_library(drconfiglib SHARED ${DRCONFIG_SRCS})
+# i#1737: we used to have drconfiglib as a shared library, but that led to a
+# lot of complexity on UNIX (setting
+# INSTALL_NAME_DIR to "@rpath" for Mac i#1375, calling add_rel_rpaths() for
+# every executable using them, problems on Android where DT_RUNPATH isn't
+# supported, etc.) so we switched to static.
+# It would be nice to be static on Windows to avoid copying the lib into bin dirs,
+# but duplicate symbol problems make that non-trivial: we need i#1409.
+if (WIN32)
+  set(config_lib_type SHARED)
+else ()
+  set(config_lib_type STATIC)
+endif ()
+add_library(drconfiglib ${config_lib_type} ${DRCONFIG_SRCS})
 set_target_properties(drconfiglib PROPERTIES
   # Set define parameters for resources.rc
   # Since it's hard to pass spaces in defines (I can get a " through using
   # \\\\\\\" but no spaces) we put strings in resources.rc and select
   # using RC_ defines.
   COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB -DNOT_DYNAMORIO_CORE"
-  # put dll in lib dir
-  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
-  # See i#1375 comments
-  INSTALL_NAME_DIR "@rpath")
+  # put in lib dir
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(drconfiglib)
 
 if (WIN32)
   set_target_properties(drconfiglib PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
-  # drinject.exe needs a copy in the bin dir
+  # drinject.exe needs a copy in the bin dir (i#1737 would eliminate this)
   add_custom_command(TARGET drconfiglib POST_BUILD COMMAND ${CMAKE_COMMAND}
     ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drconfiglib.dll"
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/" VERBATIM)
@@ -167,7 +177,7 @@ endif ()
 
 install_exported_target(drconfiglib ${INSTALL_LIB_BASE})
 DR_export_target(drconfiglib)
-# drinject.exe and company need a copy in the bin dir
+# drinject.exe and company need a copy in the bin dir (i#1737 would eliminate this)
 DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 
 if (WIN32)

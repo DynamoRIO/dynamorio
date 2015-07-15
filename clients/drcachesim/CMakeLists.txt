@@ -53,8 +53,6 @@ if (UNIX)
     simulator/cache_stats.cpp
     )
   target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)
-  add_rel_rpaths(drcachesim drconfiglib)
-  add_rel_rpaths(drcachesim drinjectlib)
   use_DynamoRIO_extension(drcachesim droption)
 
   add_library(drmemtrace SHARED
