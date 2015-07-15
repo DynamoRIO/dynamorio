@@ -13,22 +13,22 @@ Core #0 \(1 thread\(s\)\)
     Flushes:                             1
     Prefetch hits:                       1
     Prefetch misses:                     1
-    Miss rate:                        1\.78%
+    Miss rate:                        1[,\.]78%
   L1D stats:
-    Hits:                               14
-    Misses:                              4
+    Hits:                               1[0-9]
+    Misses:                              [1-9]
     Prefetch hits:                       1
     Prefetch misses:                     1
-    Miss rate:                       22\.22%
+    Miss rate:                       [12].[,\.]..%
 Core #1 \(0 thread\(s\)\)
 Core #2 \(0 thread\(s\)\)
 Core #3 \(0 thread\(s\)\)
 LL stats:
     Hits:                                1
-    Misses:                             12
+    Misses:                             1[0-9]
     Flushes:                             1
     Prefetch hits:                       1
     Prefetch misses:                     1
-    Local miss rate:                 92\.31%
-    Child hits:                        513
-    Total miss rate:                  2\.28%
+    Local miss rate:                 9.[,\.]..%
+    Child hits:                        51[0-9]
+    Total miss rate:                  2[,\.]..%
