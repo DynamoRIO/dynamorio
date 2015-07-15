@@ -170,6 +170,7 @@ memtrace(void *drcontext)
                 mem_ref->type != TRACE_TYPE_THREAD_EXIT &&
                 mem_ref->type != TRACE_TYPE_PID) {
                 addr_t phys = physaddr.virtual2physical(mem_ref->addr);
+                DR_ASSERT(mem_ref->type != TRACE_TYPE_INSTR_BUNDLE);
                 // XXX: fail gracefully?  Let's see whether the xl8 ever fails
                 // in practice.  It can happen with a very large bogus address
                 // (xref i#1735).
@@ -181,14 +182,14 @@ memtrace(void *drcontext)
         // We can only split before TRACE_TYPE_INSTR, assuming only a few data
         // entries in between instr entries.
         if (mem_ref->type == TRACE_TYPE_INSTR) {
-            if (((byte *)mem_ref - pipe_start) >= ipc_pipe.get_atomic_write_size())
+            if (((byte *)mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
                 pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
             // Advance pipe_end pointer
             pipe_end = (byte *)mem_ref;
         }
     }
     // Write the rest to pipe
-    if (((byte *)buf_ptr - pipe_start) >= ipc_pipe.get_atomic_write_size())
+    if (((byte *)buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
         pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
     atomic_pipe_write(drcontext, pipe_start, (byte *)buf_ptr);
 
@@ -418,17 +419,26 @@ instrument_delay_instrs(void *drcontext, instrlist_t *ilist,
     // Instrument to add an INSTR_TRACE entry
     adjust = instrument_instr(drcontext, ilist, ud->delay_instrs[0], where,
                               reg_ptr, reg_tmp, adjust);
-    // Create and instrument for INSTR_BUNDLE
-    entry.type = TRACE_TYPE_INSTR_BUNDLE;
-    entry.size = 0;
-    for (i = 1; i < ud->num_delay_instrs; i++) {
-        // Fill instr size into bundle entry
-        entry.length[entry.size++] = instr_length(drcontext, ud->delay_instrs[i]);
-        // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
-        if (entry.size == sizeof(entry.length) || i == ud->num_delay_instrs - 1) {
-            adjust = instrument_trace_entry(drcontext, ilist, entry, where,
-                                            reg_ptr, reg_tmp, adjust);
-            entry.size = 0;
+    if (have_phys && op_use_physical.get_value()) {
+        // No instr bundle if physical-2-virtual since instr bundle may
+        // cross page bundary.
+        for (i = 1; i < ud->num_delay_instrs; i++) {
+            adjust = instrument_instr(drcontext, ilist, ud->delay_instrs[i],
+                                      where, reg_ptr, reg_tmp, adjust);
+        }
+    } else {
+        // Create and instrument for INSTR_BUNDLE
+        entry.type = TRACE_TYPE_INSTR_BUNDLE;
+        entry.size = 0;
+        for (i = 1; i < ud->num_delay_instrs; i++) {
+            // Fill instr size into bundle entry
+            entry.length[entry.size++] = instr_length(drcontext, ud->delay_instrs[i]);
+            // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
+            if (entry.size == sizeof(entry.length) || i == ud->num_delay_instrs - 1) {
+                adjust = instrument_trace_entry(drcontext, ilist, entry, where,
+                                                reg_ptr, reg_tmp, adjust);
+                entry.size = 0;
+            }
         }
     }
     ud->num_delay_instrs = 0;
