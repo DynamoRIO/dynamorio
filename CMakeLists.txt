@@ -696,7 +696,7 @@ if (UNIX)
     set(OPT "${OPT} -fno-omit-frame-pointer")
   endif ()
 
-  if (NOT APPLE)
+  if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
     # Generate the .hash section in addition to .gnu.hash for every target, to
     # avoid SIGFPE when running our binaries on old systems:
     foreach (config ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
