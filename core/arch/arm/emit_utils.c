@@ -910,7 +910,9 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 {
     instrlist_t ilist;
     instr_t *unlinked = INSTR_CREATE_label(dc);
+    instr_t *load_tag = INSTR_CREATE_label(dc);
     instr_t *compare_tag = INSTR_CREATE_label(dc);
+    instr_t *not_hit = INSTR_CREATE_label(dc);
     instr_t *try_next = INSTR_CREATE_label(dc);
     instr_t *miss = INSTR_CREATE_label(dc);
     instr_t *target_delete_entry = INSTR_CREATE_label(dc);
@@ -957,6 +959,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* r1 now holds the fragment_entry_t* in the hashtable */
 
     /* load tag from fragment_entry_t* in the hashtable to r0 */
+    APP(&ilist, load_tag);
     APP(&ilist, INSTR_CREATE_ldr
         (dc, OPREG(DR_REG_R0),
          OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
@@ -966,7 +969,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * XXX: if we add stats, cbz might not reach.
      */
     ASSERT_NOT_IMPLEMENTED(dr_get_isa_mode(dc) == DR_ISA_ARM_THUMB);
-    APP(&ilist, INSTR_CREATE_cbz(dc, opnd_create_instr(miss), OPREG(DR_REG_R0)));
+    APP(&ilist, INSTR_CREATE_cbz(dc, opnd_create_instr(not_hit), OPREG(DR_REG_R0)));
     APP(&ilist, INSTR_CREATE_sub(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R0),
                                  OPREG(DR_REG_R2)));
     APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next), OPREG(DR_REG_R0)));
@@ -980,10 +983,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
     APP(&ilist, INSTR_CREATE_bx(dc, OPREG(DR_REG_R0)));
 
+    APP(&ilist, try_next);
     /* Try next entry, in case of collision.  No wraparound check is needed due to
      * the sentinel at the end.
      */
-    APP(&ilist, try_next);
     ASSERT(offsetof(fragment_entry_t, tag_fragment) == 0);
     /* post-index load with write back */
     APP(&ilist, INSTR_CREATE_ldr_wbimm
@@ -994,11 +997,26 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
          OPND_CREATE_INT(sizeof(fragment_entry_t))));
     APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(compare_tag)));
 
-    /* FIXME i#1551: add INTERNAL_OPTION(ibl_sentinel_check) support (via
-     * initial hash miss going to sentinel check and loop prior to target delete
-     * entry).  Perhaps best to refactor and share w/ x86 ibl code at the
-     * same time?
-     */
+    APP(&ilist, not_hit);
+    if (INTERNAL_OPTION(ibl_sentinel_check)) {
+        /* load start_pc from fragment_entry_t* in the hashtable to r0 */
+        APP(&ilist, INSTR_CREATE_ldr
+            (dc, OPREG(DR_REG_R0),
+             OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t,
+                                                    start_pc_fragment))));
+        /* To compare with an arbitrary constant we'd need a 4th scratch reg.
+         * Instead we rely on the sentinel start PC being 1.
+         */
+        ASSERT(HASHLOOKUP_SENTINEL_START_PC == (cache_pc)PTR_UINT_1);
+        APP(&ilist, INSTR_CREATE_sub(dc, OPREG(DR_REG_R0), OPREG(DR_REG_R0),
+                                     OPND_CREATE_INT8(1)));
+        APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(miss), OPREG(DR_REG_R0)));
+        /* Point at the first table slot and then go load and compare its tag */
+        APP(&ilist,
+            INSTR_CREATE_ldr(dc, OPREG(DR_REG_R1),
+                             OPND_TLS_FIELD(TLS_TABLE_SLOT(ibl_code->branch_type))));
+        APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(load_tag)));
+    }
 
     /* Target delete entry */
     APP(&ilist, target_delete_entry);
