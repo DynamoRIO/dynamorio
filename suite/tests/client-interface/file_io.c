@@ -46,6 +46,16 @@ struct compat_rlimit {
 # include <float.h>
 #endif
 
+#if defined(UNIX) && defined(SYS_prlimit64)
+int
+sys_prlimit(pid_t pid, int resource, const struct rlimit *new_limit,
+            struct rlimit *old_limit)
+{
+    return syscall(SYS_prlimit64, pid, resource, new_limit, old_limit);
+}
+#endif
+
+
 int main()
 {
 #ifdef UNIX
@@ -57,7 +67,7 @@ int main()
     }
 
     /* further tests of i#357 -steal_fds */
-    struct rlimit rlimit;
+    struct rlimit rlimit, new_rlimit;
     if (getrlimit(RLIMIT_NOFILE, &rlimit) != 0) {
         perror("getrlimit failed");
         return 1;
@@ -68,6 +78,30 @@ int main()
     if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
         fprintf(stderr, "RLIMIT_NOFILE max is %ld but shouldn't be power of 2 under DR\n",
                 rlimit.rlim_max);
+        return 1;
+    }
+
+    /* setrlimit with lower value */
+    new_rlimit.rlim_max = rlimit.rlim_max / 2;
+    new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
+    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
+        fprintf(stderr,
+                "Error: fail to set rlimit for RLIMIT_NOFILE with lower value\n");
+        return 1;
+    }
+    /* setrlimit with the same value */
+    new_rlimit = rlimit;
+    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
+        fprintf(stderr,
+                "Error: fail to set rlimit for RLIMIT_NOFILE back to the same value\n");
+        return 1;
+    }
+    /* setrlimit with higher value */
+    new_rlimit.rlim_cur++;
+    new_rlimit.rlim_max++;
+    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0) {
+        fprintf(stderr,
+                "Error: should fail to set rlimit for RLIMIT_NOFILE with higher value\n");
         return 1;
     }
 
@@ -84,6 +118,45 @@ int main()
         return 1;
     }
 # endif
+
+# ifdef SYS_prlimit64
+    /* test sys_prlimit */
+    /* get rlimit */
+    if (sys_prlimit(0, RLIMIT_NOFILE, NULL, &rlimit) != 0) {
+        fprintf(stderr, "Error: fail to get rlimit for RLIMIT_NOFILE\n");
+        return 1;
+    }
+    /* set rlimit */
+    new_rlimit.rlim_max = rlimit.rlim_max / 2;
+    new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, NULL) != 0) {
+        fprintf(stderr,
+                "Error: fail to set rlimit for RLIMIT_NOFILE with lower value\n");
+        return 1;
+    }
+    new_rlimit = rlimit;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, NULL) != 0) {
+        fprintf(stderr,
+                "Error: fail to set rlimit for RLIMIT_NOFILE back to the same value\n");
+        return 1;
+    }
+    new_rlimit.rlim_cur++;
+    new_rlimit.rlim_max++;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, NULL) == 0) {
+        fprintf(stderr,
+                "Error: should fail to set rlimit for RLIMIT_NOFILE with higher value\n");
+        return 1;
+    }
+    new_rlimit = rlimit;
+    rlimit.rlim_cur = 0;
+    rlimit.rlim_max = 0;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, &rlimit) != 0 ||
+        new_rlimit.rlim_cur != rlimit.rlim_cur ||
+        new_rlimit.rlim_max != rlimit.rlim_max) {
+        fprintf(stderr, "Error: fail to set/get rlimit\n");
+    }
+# endif
+
 #endif
     /* Now test any floating-point printing at exit time in DR or a
      * client by unmasking div-by-zero, which our_vsnprintf_float()

@@ -675,6 +675,8 @@
      */
     OPTION_DEFAULT(uint, steal_fds, IF_CLIENT_INTERFACE_ELSE(96, 12),
                    "number of fds to steal from the app outside the app's reach")
+    OPTION_DEFAULT(bool, fail_on_stolen_fds, true,
+                   "return failure on app operations on fds preserved for DR's usage")
 
     /* Xref PR 308654 where calling dlclose on the client lib at exit time can lead
      * to an app crash. */

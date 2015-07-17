@@ -297,7 +297,8 @@ DR_API file_t our_stderr = STDERR_FILENO;
 DR_API file_t our_stdin = STDIN_FILENO;
 
 /* we steal fds from the app */
-static struct rlimit app_rlimit_nofile;
+static struct rlimit app_rlimit_nofile; /* cur rlimit set by app */
+static int min_dr_fd;
 
 /* we store all DR files so we can prevent the app from changing them,
  * and so we can close them in a child of fork.
@@ -867,7 +868,8 @@ os_file_init(void)
          */
         if (rlimit_nofile.rlim_max > DYNAMO_OPTION(steal_fds)) {
             int res;
-            app_rlimit_nofile.rlim_max = rlimit_nofile.rlim_max - DYNAMO_OPTION(steal_fds);
+            min_dr_fd = rlimit_nofile.rlim_max - DYNAMO_OPTION(steal_fds);
+            app_rlimit_nofile.rlim_max = min_dr_fd;
             app_rlimit_nofile.rlim_cur = app_rlimit_nofile.rlim_max;
 
             rlimit_nofile.rlim_cur = rlimit_nofile.rlim_max;
@@ -3625,7 +3627,7 @@ fd_priv_dup(file_t curfd)
         /* XXX: if > linux 2.6.24, can use F_DUPFD_CLOEXEC to avoid later call:
          * so how do we tell if the flag is supported?  try calling once at init?
          */
-        newfd = fcntl_syscall(curfd, F_DUPFD, app_rlimit_nofile.rlim_cur);
+        newfd = fcntl_syscall(curfd, F_DUPFD, min_dr_fd);
         if (newfd < 0) {
             /* We probably ran out of fds, esp if debug build and there are
              * lots of threads.  Should we track how many we've given out to
@@ -3636,7 +3638,7 @@ fd_priv_dup(file_t curfd)
              * to avoid issues like tcsh assuming it can own fds 3-5 for
              * piping std{in,out,err} (xref the old -open_tcsh_fds option).
              */
-            newfd = fcntl_syscall(curfd, F_DUPFD, app_rlimit_nofile.rlim_cur/2);
+            newfd = fcntl_syscall(curfd, F_DUPFD, min_dr_fd/2);
         }
     }
     return newfd;
@@ -3695,9 +3697,7 @@ fd_is_dr_owned(file_t fd)
 static bool
 fd_is_in_private_range(file_t fd)
 {
-    return (DYNAMO_OPTION(steal_fds) > 0 &&
-            app_rlimit_nofile.rlim_cur > 0 &&
-            fd >= app_rlimit_nofile.rlim_cur);
+    return (DYNAMO_OPTION(steal_fds) > 0 && min_dr_fd > 0 && fd >= min_dr_fd);
 }
 
 file_t
@@ -5480,8 +5480,11 @@ handle_close_pre(dcontext_t *dcontext)
         SYSLOG_INTERNAL_WARNING_ONCE("app trying to close DR file(s)");
         LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
             "WARNING: app trying to close DR file %d!  Not allowing it.\n", fd);
-        set_failure_return_val(dcontext, EBADF);
-        DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+        if (DYNAMO_OPTION(fail_on_stolen_fds)) {
+            set_failure_return_val(dcontext, EBADF);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+        } else
+            set_success_return_val(dcontext, 0);
         return false; /* do not execute syscall */
     }
 
@@ -6659,8 +6662,11 @@ pre_system_call(dcontext_t *dcontext)
             SYSLOG_INTERNAL_WARNING_ONCE("app trying to dup-close DR file(s)");
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
                 "WARNING: app trying to dup2/dup3 to %d.  Disallowing.\n", newfd);
-            set_failure_return_val(dcontext, EBADF);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            if (DYNAMO_OPTION(fail_on_stolen_fds)) {
+                set_failure_return_val(dcontext, EBADF);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else
+                set_success_return_val(dcontext, 0);
             execute_syscall = false;
         }
         break;
@@ -6696,20 +6702,75 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_ugetrlimit:
 #endif
         /* save for post */
-        dcontext->sys_param0 = sys_param(dcontext, 0);
-        dcontext->sys_param1 = sys_param(dcontext, 1);
+        dcontext->sys_param0 = sys_param(dcontext, 0); /* resource */
+        dcontext->sys_param1 = sys_param(dcontext, 1); /* rlimit */
         break;
 
     case SYS_setrlimit: {
         int resource = (int) sys_param(dcontext, 0);
         if (resource == RLIMIT_NOFILE && DYNAMO_OPTION(steal_fds) > 0) {
-            /* don't let app change limits as that would mess up our fd space */
-            set_failure_return_val(dcontext, EPERM);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+# if !defined(ARM) && !defined(X64) && !defined(MACOS)
+            struct compat_rlimit rlim;
+# else
+            struct rlimit rlim;
+# endif
+            if (safe_read((void *)sys_param(dcontext, 1), sizeof(rlim), &rlim) &&
+                rlim.rlim_max <= min_dr_fd && rlim.rlim_cur <= rlim.rlim_max) {
+                /* if the new rlimit is lower, pretend succeed */
+                app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
+                app_rlimit_nofile.rlim_max = rlim.rlim_max;
+                set_success_return_val(dcontext, 0);
+            } else {
+                /* don't let app raise limits as that would mess up our fd space */
+                set_failure_return_val(dcontext, EPERM);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            }
             execute_syscall = false;
         }
         break;
     }
+
+#ifdef LINUX
+    case SYS_prlimit64:
+        /* save for post */
+        dcontext->sys_param0 = sys_param(dcontext, 0); /* pid */
+        dcontext->sys_param1 = sys_param(dcontext, 1); /* resource */
+        dcontext->sys_param2 = sys_param(dcontext, 2); /* new rlimit */
+        dcontext->sys_param3 = sys_param(dcontext, 3); /* old rlimit */
+        if (/* XXX: how do we handle the case of setting rlimit.nofile on another
+             * process that is running with DynamoRIO?
+             */
+            /* XXX: CLONE_FILES allows different processes to share the same file
+             * descriptor table, and different threads of the same process have
+             * separate file descriptor tables.  POSIX specifies that rlimits are
+             * per-process, not per-thread, and Linux follows suit, so the threads
+             * with different descriptors will not matter, and the pids sharing
+             * descriptors turns into the hard-to-solve IPC problem.
+             */
+            (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id()) &&
+            dcontext->sys_param1 == RLIMIT_NOFILE &&
+            dcontext->sys_param2 != (reg_t)NULL &&  DYNAMO_OPTION(steal_fds) > 0) {
+            struct rlimit rlim;
+            if (safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim) &&
+                rlim.rlim_max <= min_dr_fd && rlim.rlim_cur <= rlim.rlim_max) {
+                /* if the new rlimit is lower, pretend succeed */
+                app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
+                app_rlimit_nofile.rlim_max = rlim.rlim_max;
+                set_success_return_val(dcontext, 0);
+                /* set old rlimit if necessary */
+                if (dcontext->sys_param3 != (reg_t)NULL) {
+                    safe_write_ex((void *)(dcontext->sys_param3), sizeof(rlim),
+                                  &app_rlimit_nofile, NULL);
+                }
+            } else {
+                /* don't let app raise limits as that would mess up our fd space */
+                set_failure_return_val(dcontext, EPERM);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            }
+            execute_syscall = false;
+        }
+        break;
+#endif
 
 #ifdef LINUX
     case SYS_readlink:
@@ -7622,6 +7683,19 @@ post_system_call(dcontext_t *dcontext)
                           &app_rlimit_nofile.rlim_max, NULL);
         }
         break;
+    }
+#endif
+
+#ifdef LINUX
+    case SYS_prlimit64: {
+         int resource = dcontext->sys_param1;
+         struct rlimit *rlim = (struct rlimit *) dcontext->sys_param3;
+         if (success && resource == RLIMIT_NOFILE && rlim != NULL &&
+             /* XXX: xref pid discussion in pre_system_call SYS_prlimit64 */
+             (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id())) {
+             safe_write_ex(rlim, sizeof(*rlim), &app_rlimit_nofile, NULL);
+         }
+         break;
     }
 #endif
 
