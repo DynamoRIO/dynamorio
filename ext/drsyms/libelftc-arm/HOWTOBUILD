@@ -1,4 +1,4 @@
-How To Build libelftc.a and libdwarf.a for ARM
+How To Build libelf.a, libelftc.a, and libdwarf.a for ARM
 by Qin Zhao
 
 I built on Ubuntu 12.04 (Precise)
@@ -28,5 +28,5 @@ $ CFLAGS="-O2 -g -fPIC" pmake libelftc.a
 
 I have not yet built or tested 64-bit.
 
-Then copy the resulting libelftc.a and libdwarf.a into the DR source tree
+Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the DR source tree
 in ext/drsyms/libelftc-arm/lib32/.

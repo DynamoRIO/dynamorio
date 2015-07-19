@@ -1,0 +1,17 @@
+Index: libelftc/elftc_set_timestamps.c
+===================================================================
+--- libelftc/elftc_set_timestamps.c    (revision 3225)
++++ libelftc/elftc_set_timestamps.c    (working copy)
+@@ -49,6 +49,12 @@
+ #define        LIBELFTC_HAVE_UTIMES    1
+ #endif
+
++// by Qin Zhao: no utimes on Android
++#if LIBELFTC_HAVE_UTIMES
++# undef LIBELFTC_HAVE_UTIMES
++# define LIBELFTC_HAVE_UTIMES 0
++#endif
++
+ #if    LIBELFTC_HAVE_UTIMES
+ #include <sys/time.h>
+ #else

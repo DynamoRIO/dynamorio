@@ -46,7 +46,11 @@ else ()
 endif ()
 
 if (ARM)
-  set(ARCH "-arm")
+  if (ANDROID)
+    set(ARCH "-android")
+  else ()
+    set(ARCH "-arm")
+  endif ()
 endif()
 
 # we need libc b/c our elftoolchain libraries use it
