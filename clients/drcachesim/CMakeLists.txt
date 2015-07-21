@@ -182,5 +182,5 @@ add_custom_command(
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
        -D prog=${ops_path}
-       -P ${CMAKE_CURRENT_SOURCE_DIR}/gendocs.cmake
+       -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)

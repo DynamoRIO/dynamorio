@@ -58,8 +58,7 @@ to an online cache simulator.
 
 \section sec_drcachesim_run Running the Simulator
 
-To launch \p drcachesim, use the \p -t flag to \p drrun and specify a pipe
-name:
+To launch \p drcachesim, use the \p -t flag to \p drrun:
 
 \code
 bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>

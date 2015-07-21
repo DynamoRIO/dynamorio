@@ -1,0 +1,83 @@
+/* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drcpusim CPU Simulator
+
+\p drcpusim is a DynamoRIO client tool for testing that applications will
+run correctly on legacy processors.
+
+ - \ref sec_drcpusim
+ - \ref sec_drcpusim_run
+ - \ref sec_drcpusim_ops
+
+\section sec_drcpusim Overview
+
+The DynamoRIO tool \p drcpusim emulates execution on a specified CPU model
+in order to validate that a target application does not execute any
+instructions that are illegal or not implemented on a legacy processor.
+
+
+\section sec_drcpusim_run Running the Simulator
+
+To launch \p drcpusim, use the \p -t flag to \p drrun and specify a CPU
+model via the \p -cpu parameter:
+
+\code
+bin64/drrun -t drcpusim -cpu PentiumPro -- /path/to/target/app <args> <for> <app>
+\endcode
+
+The target application will be launched under a DynamoRIO client that
+monitors every instruction executed.  If an instruction is attempted to be
+executed that is not supported on the requested CPU model, \p drcpusim will
+abort the execution and report the offending instruction.  Any child
+processes will be followed into and checked as well.
+
+
+\section sec_drcpusim_ops Simulator Parameters
+
+\p drcpusim's behavior can be controlled through options passed after the
+\p -c \p drcpusim but prior to the "--" delimiter on the command line:
+
+\code
+bin64/drrun -t drcpusim <other> <options> <to> <drcpusim> -- /path/to/target/app <args> <for> <app>
+\endcode
+
+Boolean options can be disabled using a "-no_" prefix.
+
+The parameters available are described below:
+
+REPLACEME_WITH_OPTION_LIST
+
+*/

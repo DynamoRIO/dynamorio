@@ -30,32 +30,27 @@
  * DAMAGE.
  */
 
-/* shared options for the frontend, the client, and the documentation */
-
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+/* drcpusim options, separated out for use in docs generation */
 
 #include <string>
 #include "droption.h"
+#include "options.h"
 
-extern droption_t<std::string> op_ipc_name;
-extern droption_t<unsigned int> op_num_cores;
-extern droption_t<unsigned int> op_line_size;
-extern droption_t<bytesize_t> op_L1I_size;
-extern droption_t<bytesize_t> op_L1D_size;
-extern droption_t<unsigned int> op_L1I_assoc;
-extern droption_t<unsigned int> op_L1D_assoc;
-extern droption_t<bytesize_t> op_LL_size;
-extern droption_t<unsigned int> op_LL_assoc;
-extern droption_t<bool> op_use_physical;
-extern droption_t<bool> op_replace_lru;
-extern droption_t<bool> op_replace_lfu;
-extern droption_t<unsigned int> op_virt2phys_freq;
-extern droption_t<unsigned int> op_verbose;
-extern droption_t<std::string> op_dr_root;
-extern droption_t<bool> op_dr_debug;
-extern droption_t<std::string> op_dr_ops;
-extern droption_t<std::string> op_tracer;
-extern droption_t<std::string> op_tracer_ops;
+droption_t<std::string> op_cpu
+(DROPTION_SCOPE_CLIENT, "cpu", "Pentium", "CPU model to simulate",
+ "Specifies the CPU model to simulate.  It can be one of the following values:\n"
+ "<ul>\n"
+ "<li>Pentium</li>\n"
+ "<li>PentiumPro</li>\n"
+ "<li>Pentium2</li>\n"
+ "<li>Pentium3</li>\n"
+ "<li>Pentium4</li>\n"
+ "<li>PentiumD</li>\n"
+ "<li>Core</li>\n"
+ "<li>Core2</li>\n"
+ "<li>Corei7</li>\n"
+ "</ul>");
 
-#endif /* _OPTIONS_H_ */
+droption_t<unsigned int> op_verbose
+(DROPTION_SCOPE_CLIENT, "verbose", 0, 0, 64, "Verbosity level",
+ "Verbosity level for notifications.");

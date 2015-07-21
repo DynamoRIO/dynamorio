@@ -30,32 +30,19 @@
  * DAMAGE.
  */
 
-/* shared options for the frontend, the client, and the documentation */
+/* optionlist: generates usage info for documentation */
+/* XXX: can we have droption provide this to avoid duplicating? */
 
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+#include <iostream>
+#include "options.h"
 
-#include <string>
-#include "droption.h"
-
-extern droption_t<std::string> op_ipc_name;
-extern droption_t<unsigned int> op_num_cores;
-extern droption_t<unsigned int> op_line_size;
-extern droption_t<bytesize_t> op_L1I_size;
-extern droption_t<bytesize_t> op_L1D_size;
-extern droption_t<unsigned int> op_L1I_assoc;
-extern droption_t<unsigned int> op_L1D_assoc;
-extern droption_t<bytesize_t> op_LL_size;
-extern droption_t<unsigned int> op_LL_assoc;
-extern droption_t<bool> op_use_physical;
-extern droption_t<bool> op_replace_lru;
-extern droption_t<bool> op_replace_lfu;
-extern droption_t<unsigned int> op_virt2phys_freq;
-extern droption_t<unsigned int> op_verbose;
-extern droption_t<std::string> op_dr_root;
-extern droption_t<bool> op_dr_debug;
-extern droption_t<std::string> op_dr_ops;
-extern droption_t<std::string> op_tracer;
-extern droption_t<std::string> op_tracer_ops;
-
-#endif /* _OPTIONS_H_ */
+int
+main(int argc, const char *argv[])
+{
+    std::cout << droption_parser_t::usage_long(DROPTION_SCOPE_ALL,
+                                               "- <b>", "</b>\n",
+                                               "  <br><i>", "</i>\n",
+                                               "  <br>", "\n")
+              << std::endl;
+    return 0;
+}
