@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,21 +75,13 @@ get_cache_sizes_amd(uint max_ext_val)
     uint cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
 
     if (max_ext_val >= 0x80000005) {
-#ifdef UNIX
-        our_cpuid((int*)cpuid_res_local, 0x80000005);
-#else
-        __cpuid(cpuid_res_local, 0x80000005);
-#endif
+        our_cpuid((int*)cpuid_res_local, 0x80000005, 0);
         set_cache_size((cpuid_res_local[2]/*ecx*/ >> 24), &cpu_info.L1_icache_size);
         set_cache_size((cpuid_res_local[3]/*edx*/ >> 24), &cpu_info.L1_dcache_size);
     }
 
     if (max_ext_val >= 0x80000006) {
-#ifdef UNIX
-        our_cpuid((int*)cpuid_res_local, 0x80000006);
-#else
-        __cpuid(cpuid_res_local, 0x80000006);
-#endif
+        our_cpuid((int*)cpuid_res_local, 0x80000006, 0);
         set_cache_size((cpuid_res_local[2]/*ecx*/ >> 16), &cpu_info.L2_cache_size);
     }
 }
@@ -104,11 +96,7 @@ get_cache_sizes_intel(uint max_val)
     if (max_val < 2)
         return;
 
-#ifdef UNIX
-    our_cpuid((int*)cache_codes, 2);
-#else
-    __cpuid(cache_codes, 2);
-#endif
+    our_cpuid((int*)cache_codes, 2, 0);
     /* The lower 8 bits of eax specify the number of times cpuid
      * must be executed to obtain a complete picture of the cache
      * characteristics.
@@ -195,11 +183,7 @@ get_processor_specific_info(void)
     }
 
     /* first verify on Intel processor */
-#ifdef UNIX
-    our_cpuid(cpuid_res_local, 0);
-#else
-    __cpuid(cpuid_res_local, 0);
-#endif
+    our_cpuid(cpuid_res_local, 0, 0);
     res_eax = cpuid_res_local[0];
     res_ebx = cpuid_res_local[1];
     res_ecx = cpuid_res_local[2];
@@ -222,32 +206,27 @@ get_processor_specific_info(void)
     }
 
     /* Try to get extended cpuid information */
-#ifdef UNIX
-    our_cpuid(cpuid_res_local, 0x80000000);
-#else
-    __cpuid(cpuid_res_local, 0x80000000);
-#endif
+    our_cpuid(cpuid_res_local, 0x80000000, 0);
     max_ext_val = cpuid_res_local[0]/*eax*/;
 
     /* Extended feature flags */
     if (max_ext_val >= 0x80000001) {
-#ifdef UNIX
-        our_cpuid(cpuid_res_local, 0x80000001);
-#else
-        __cpuid(cpuid_res_local, 0x80000001);
-#endif
+        our_cpuid(cpuid_res_local, 0x80000001, 0);
         res_ecx = cpuid_res_local[2];
         res_edx = cpuid_res_local[3];
         cpu_info.features.ext_flags_edx = res_edx;
         cpu_info.features.ext_flags_ecx = res_ecx;
     }
 
+    /* Get structured extended feature flags */
+    if (max_val >= 0x7) {
+        our_cpuid(cpuid_res_local, 0x7, 0);
+        res_ebx = cpuid_res_local[1];
+        cpu_info.features.sext_flags_ebx = res_ebx;
+    }
+
     /* now get processor info */
-#ifdef UNIX
-    our_cpuid(cpuid_res_local, 1);
-#else
-    __cpuid(cpuid_res_local, 1);
-#endif
+    our_cpuid(cpuid_res_local, 1, 0);
     res_eax = cpuid_res_local[0];
     res_ebx = cpuid_res_local[1];
     res_ecx = cpuid_res_local[2];
@@ -314,15 +293,9 @@ get_processor_specific_info(void)
 
     /* Processor brand string */
     if (max_ext_val >= 0x80000004) {
-#ifdef UNIX
-        our_cpuid((int*)&cpu_info.brand_string[0], 0x80000002);
-        our_cpuid((int*)&cpu_info.brand_string[4], 0x80000003);
-        our_cpuid((int*)&cpu_info.brand_string[8], 0x80000004);
-#else
-        __cpuid(&cpu_info.brand_string[0], 0x80000002);
-        __cpuid(&cpu_info.brand_string[4], 0x80000003);
-        __cpuid(&cpu_info.brand_string[8], 0x80000004);
-#endif
+        our_cpuid((int*)&cpu_info.brand_string[0], 0x80000002, 0);
+        our_cpuid((int*)&cpu_info.brand_string[4], 0x80000003, 0);
+        our_cpuid((int*)&cpu_info.brand_string[8], 0x80000004, 0);
     }
 }
 
@@ -405,6 +378,8 @@ proc_has_feature(feature_bit_t f)
         val = cpu_info.features.ext_flags_edx;
     } else if (f >= 96 && f <= 127) {
         val = cpu_info.features.ext_flags_ecx;
+    } else if (f >= 128 && f <= 159) {
+        val = cpu_info.features.sext_flags_ebx;
     } else {
         CLIENT_ASSERT(false, "proc_has_feature: invalid parameter");
     }

@@ -1871,18 +1871,20 @@ GLOBAL_LABEL(cpuid_supported:)
         ret
         END_FUNC(cpuid_supported)
 
-/* void our_cpuid(int res[4], int eax)
+/* void our_cpuid(int res[4], int eax, int ecx)
  * Executes cpuid instr, which is hard for x64 inline asm b/c clobbers rbx and can't
  * push in middle of func.
  */
         DECLARE_FUNC(our_cpuid)
 GLOBAL_LABEL(our_cpuid:)
-        mov      REG_XDX, ARG1
-        mov      REG_XAX, ARG2
+        mov      REG_XAX, ARG1
+        mov      REG_XDX, ARG2
+        mov      REG_XCX, ARG3
         push     REG_XBX /* callee-saved */
         push     REG_XDI /* callee-saved */
         /* not making a call so don't bother w/ 16-byte stack alignment */
-        mov      REG_XDI, REG_XDX
+        mov      REG_XDI, REG_XAX
+        mov      REG_XAX, REG_XDX
         cpuid
         mov      [ 0 + REG_XDI], eax
         mov      [ 4 + REG_XDI], ebx

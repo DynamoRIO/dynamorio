@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -175,6 +175,7 @@ typedef struct {
     uint flags_ecx;             /**< feature flags stored in ecx */
     uint ext_flags_edx;         /**< extended feature flags stored in edx */
     uint ext_flags_ecx;         /**< extended feature flags stored in ecx */
+    uint sext_flags_ebx;        /**< structured extended feature flags stored in ebx */
 } features_t;
 
 /**
@@ -219,6 +220,7 @@ typedef enum {
     FEATURE_MONITOR =   3 + 32,         /**< MONITOR/MWAIT instructions supported */
     FEATURE_DS_CPL =    4 + 32,         /**< CPL Qualified Debug Store */
     FEATURE_VMX =       5 + 32,         /**< Virtual Machine Extensions */
+    FEATURE_SMX =       6 + 32,         /**< Safer Mode Extensions */
     FEATURE_EST =       7 + 32,         /**< Enhanced Speedstep Technology */
     FEATURE_TM2 =       8 + 32,         /**< Thermal Monitor 2 */
     FEATURE_SSSE3 =     9 + 32,         /**< SSSE3 Extensions supported */
@@ -228,18 +230,33 @@ typedef enum {
     FEATURE_xPTR =      14 + 32,        /**< Send Task Priority Messages */
     FEATURE_SSE41 =     19 + 32,        /**< SSE4.1 Extensions supported */
     FEATURE_SSE42 =     20 + 32,        /**< SSE4.2 Extensions supported */
+    FEATURE_x2APIC =    21 + 32,        /**< x2APIC supported */
     FEATURE_MOVBE =     22 + 32,        /**< OP_movbe supported */
     FEATURE_POPCNT =    23 + 32,        /**< OP_popcnt supported */
     FEATURE_AES =       25 + 32,        /**< AES instructions supported */
     FEATURE_XSAVE =     26 + 32,        /**< OP_xsave* supported */
     FEATURE_OSXSAVE =   27 + 32,        /**< OP_xgetbv supported in user mode */
     FEATURE_AVX =       28 + 32,        /**< AVX instructions supported */
+    FEATURE_F16C =      29 + 32,        /**< 16-bit floating-point conversion supported */
+    FEATURE_RDRAND =    30 + 32,        /**< RDRAND supported */
     /* extended features returned in edx */
     FEATURE_SYSCALL =   11 + 64,        /**< SYSCALL/SYSRET instructions supported */
     FEATURE_XD_Bit =    20 + 64,        /**< Execution Disable bit */
+    FEATURE_RDTSCP =    27 + 64,        /**< RDTSCP supported */
     FEATURE_EM64T =     29 + 64,        /**< Extended Memory 64 Technology */
     /* extended features returned in ecx */
-    FEATURE_LAHF =      0 + 96          /**< LAHF/SAHF available in 64-bit mode */
+    FEATURE_LAHF =      0 + 96,         /**< LAHF/SAHF available in 64-bit mode */
+    FEATURE_LZCNT =     5 + 96,         /**< LZCNT supported */
+    FEATURE_PREFETCHW = 8 + 96,         /**< PREFETCHW supported */
+    /* structured extended features returned in ebx */
+    FEATURE_FSGSBASE =  0 + 128,        /**< RDFSBASE, etc. supported */
+    FEATURE_BMI1 =      3 + 128,        /**< BMI1 instructions supported */
+    FEATURE_HLE =       4 + 128,        /**< Hardware Lock Elision supported */
+    FEATURE_AVX2 =      5 + 128,        /**< AVX2 instructions supported */
+    FEATURE_BMI2 =      8 + 128,        /**< BMI2 instructions supported */
+    FEATURE_ENHREP =    9 + 128,        /**< Enhanced rep movsb/stosb supported */
+    FEATURE_INVPCID =  10 + 128,        /**< INVPCID supported */
+    FEATURE_RTM =      11 + 128,        /**< Restricted Transactional Memory supported */
 } feature_bit_t;
 
 /**

@@ -968,7 +968,7 @@ void cleanup_and_terminate(dcontext_t *dcontext, int sysnum,
                            ptr_uint_t sys_arg3, ptr_uint_t sys_arg4);
 
 bool cpuid_supported(void);
-void our_cpuid(int res[4], int eax);
+void our_cpuid(int res[4], int eax, int ecx);
 #ifdef WINDOWS
 int dynamorio_syscall_int2e(int sysnum, ...);
 int dynamorio_syscall_sysenter(int sysnum, ...);
