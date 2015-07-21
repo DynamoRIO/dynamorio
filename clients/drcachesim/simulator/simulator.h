@@ -60,8 +60,12 @@ class simulator_t
     // Currently we only support a simple 2-level hierarchy.
     // XXX i#1715: add support for arbitrary cache layouts.
     int num_cores;
-    cache_t *icaches;
-    cache_t *dcaches;
+
+    // Implement a set of ICaches and DCaches with pointer arrays.
+    // This is useful for implementing polymorphism correctly.
+    cache_t **icaches;
+    cache_t **dcaches;
+
     cache_t *llcache;
 
     // For thread mapping to cores:

@@ -72,19 +72,22 @@ simulator_t::init()
               "and that the total size is a multiple of the line size.\n");
         return false;
     }
-    if (op_replace_lfu.get_value()) {
-        icaches = new cache_t[num_cores];
-        dcaches = new cache_t[num_cores];
-    } else {
-        assert(op_replace_lru.get_value() && "no replacement policy is selected");
-        icaches = new cache_lru_t[num_cores];
-        dcaches = new cache_lru_t[num_cores];
-    }
+
+    icaches = new cache_t* [num_cores];
+    dcaches = new cache_t* [num_cores];
     for (int i = 0; i < num_cores; i++) {
-        if (!icaches[i].init(op_L1I_assoc.get_value(), op_line_size.get_value(),
-                             op_L1I_size.get_value(), llcache, new cache_stats_t) ||
-            !dcaches[i].init(op_L1D_assoc.get_value(), op_line_size.get_value(),
-                             op_L1D_size.get_value(), llcache, new cache_stats_t)) {
+        if (op_replace_lfu.get_value()) {
+            icaches[i] = new cache_t;
+            dcaches[i] = new cache_t;
+        } else {
+            assert(op_replace_lru.get_value() && "no replacement policy is selected");
+            icaches[i] = new cache_lru_t;
+            dcaches[i] = new cache_lru_t;
+        }
+        if (!icaches[i]->init(op_L1I_assoc.get_value(), op_line_size.get_value(),
+                              op_L1I_size.get_value(), llcache, new cache_stats_t) ||
+            !dcaches[i]->init(op_L1D_assoc.get_value(), op_line_size.get_value(),
+                              op_L1D_size.get_value(), llcache, new cache_stats_t)) {
             ERROR("Usage error: failed to initialize L1 caches.  Ensure sizes and "
                   "associativity are powers of 2 "
                   "and that the total sizes are multiples of the line size.\n");
@@ -104,8 +107,10 @@ simulator_t::~simulator_t()
 {
     delete llcache->get_stats();
     for (int i = 0; i < num_cores; i++) {
-        delete icaches[i].get_stats();
-        delete dcaches[i].get_stats();
+        delete icaches[i]->get_stats();
+        delete dcaches[i]->get_stats();
+        delete icaches[i];
+        delete dcaches[i];
     }
     delete [] icaches;
     delete [] dcaches;
@@ -186,17 +191,17 @@ simulator_t::run()
 
         if (memref.type == TRACE_TYPE_INSTR ||
             memref.type == TRACE_TYPE_PREFETCH_INSTR)
-            icaches[core].request(memref);
+            icaches[core]->request(memref);
         else if (memref.type == TRACE_TYPE_READ ||
                  memref.type == TRACE_TYPE_WRITE ||
                  // We may potentially handle prefetches differently.
                  // TRACE_TYPE_PREFETCH_INSTR is handled above.
                  type_is_prefetch(memref.type))
-            dcaches[core].request(memref);
+            dcaches[core]->request(memref);
         else if (memref.type == TRACE_TYPE_INSTR_FLUSH)
-            icaches[core].flush(memref);
+            icaches[core]->flush(memref);
         else if (memref.type == TRACE_TYPE_DATA_FLUSH)
-            dcaches[core].flush(memref);
+            dcaches[core]->flush(memref);
         else if (memref.type == TRACE_TYPE_THREAD_EXIT) {
             handle_thread_exit(memref.tid);
             last_thread = 0;
@@ -223,9 +228,9 @@ simulator_t::print_stats()
         std::cerr << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
         if (threads > 0) {
             std::cerr << "  L1I stats:" << std::endl;
-            icaches[i].get_stats()->print_stats("    ");
+            icaches[i]->get_stats()->print_stats("    ");
             std::cerr << "  L1D stats:" << std::endl;
-            dcaches[i].get_stats()->print_stats("    ");
+            dcaches[i]->get_stats()->print_stats("    ");
         }
     }
     std::cerr << "LL stats:" << std::endl;
