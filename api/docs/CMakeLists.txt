@@ -133,6 +133,16 @@ include(CMake_doxyutils.cmake)
 check_doxygen_version(${DOXYGEN_EXECUTABLE} "${DOXYGEN_VERSION}" doxygen_ver)
 
 get_property(dox_extras GLOBAL PROPERTY DynamoRIO_dox_extras)
+# It is a pain to try and pass a cmake list as a single cmdline arg as cmake
+# does not seem to let us pass extra quotes or escape spaces.
+# Thus we pass separate args with number prefixes.
+# XXX: does this same cmake limitation mean a path w/ spaces will fail?
+set(doxy_extra_args "")
+set(extra_cnt 0)
+foreach (extra ${dox_extras})
+  math(EXPR extra_cnt "${extra_cnt} + 1")
+  set(doxy_extra_args ${doxy_extra_args} -Ddox_extra${extra_cnt}=${extra})
+endforeach ()
 
 set(doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 add_custom_command(
@@ -148,7 +158,7 @@ add_custom_command(
        -Dheader_dir=${BUILD_INCLUDE} -Dgendox_dir=${CMAKE_CURRENT_BINARY_DIR}
        -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -Ddoxygen_ver=${doxygen_ver}
-       -Ddox_extras="${dox_extras}"
+       ${doxy_extra_args}
        -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
   VERBATIM # recommended: p260
   )

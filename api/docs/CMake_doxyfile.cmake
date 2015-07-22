@@ -38,7 +38,7 @@
 # * gendox_dir
 # * DOXYGEN_EXECUTABLE
 # * doxygen_ver
-# * dox_extras
+# * dox_extraN where N=1,2,3,... (to get around cmake problems passing spaces)
 
 set(outdir "${CMAKE_CURRENT_BINARY_DIR}")
 set(srcdir_orig "${srcdir}")
@@ -71,10 +71,14 @@ foreach (dir ${tool_dirs})
   set(tool_input_dirs "${tool_input_dirs} \"${dir}\"")
 endforeach (dir)
 
-foreach (dir ${dox_extras})
+# Pull out the paths passed as separate dox_extraN vars
+set(extra_cnt 1)
+while (DEFINED dox_extra${extra_cnt})
+  set(dir ${dox_extra${extra_cnt}})
   doxygen_path_xform(${DOXYGEN_EXECUTABLE} dir)
   set(extra_input_dirs "${extra_input_dirs} \"${dir}\"")
-endforeach (dir)
+  math(EXPR extra_cnt "${extra_cnt} + 1")
+endwhile ()
 
 configure_file(${srcdir_orig}/API.doxy ${outfile} COPYONLY)
 process_doxyfile(${outfile} ${DOXYGEN_EXECUTABLE} ${doxygen_ver})
