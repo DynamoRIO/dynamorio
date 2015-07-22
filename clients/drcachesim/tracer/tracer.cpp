@@ -171,11 +171,17 @@ memtrace(void *drcontext)
                 mem_ref->type != TRACE_TYPE_PID) {
                 addr_t phys = physaddr.virtual2physical(mem_ref->addr);
                 DR_ASSERT(mem_ref->type != TRACE_TYPE_INSTR_BUNDLE);
-                // XXX: fail gracefully?  Let's see whether the xl8 ever fails
-                // in practice.  It can happen with a very large bogus address
-                // (xref i#1735).
-                DR_ASSERT(phys != 0 || mem_ref->addr == 0);
-                mem_ref->addr = phys;
+                if (phys != 0)
+                    mem_ref->addr = phys;
+                else {
+                    // XXX i#1735: use virtual address and continue?
+                    // There are cases the xl8 fail, e.g.,:
+                    // - vsyscall/kernel page,
+                    // - wild access (NULL or very large bogus address) by app
+                    NOTIFY(1, "virtual2physical translation failure for "
+                           "<%2d, %2d, "PFX">\n",
+                           mem_ref->type, mem_ref->size, mem_ref->addr);
+                }
             }
         }
         // Split up the buffer into multiple writes to ensure atomic pipe writes.
