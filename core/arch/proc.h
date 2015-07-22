@@ -192,8 +192,8 @@ typedef enum {
     FEATURE_MSR =       5,              /**< Model Specific Registers */
     FEATURE_PAE =       6,              /**< Physical Address Extension */
     FEATURE_MCE =       7,              /**< Machine Check Exception */
-    FEATURE_CX8 =       8,              /**< CMPXCHG8 Instruction Supported */
-    FEATURE_APIC =      9,              /**< On-chip APIC Hardware Supported */
+    FEATURE_CX8 =       8,              /**< #OP_cmpxchg8b supported */
+    FEATURE_APIC =      9,              /**< On-chip APIC Hardware supported */
     FEATURE_SEP =       11,             /**< Fast System Call */
     FEATURE_MTRR =      12,             /**< Memory Type Range Registers */
     FEATURE_PGE =       13,             /**< Page Global Enable */
@@ -202,7 +202,7 @@ typedef enum {
     FEATURE_PAT =       16,             /**< Page Attribute Table */
     FEATURE_PSE_36 =    17,             /**< 36-bit Page Size Extension */
     FEATURE_PSN =       18,             /**< Processor serial # present & enabled */
-    FEATURE_CLFSH =     19,             /**< CLFLUSH Instruction supported */
+    FEATURE_CLFSH =     19,             /**< #OP_clflush supported */
     FEATURE_DS =        21,             /**< Debug Store */
     FEATURE_ACPI =      22,             /**< Thermal monitor & SCC supported */
     FEATURE_MMX =       23,             /**< MMX technology supported */
@@ -216,8 +216,8 @@ typedef enum {
     FEATURE_PBE =       31,             /**< Pending Break Enable */
     /* features returned in ecx */
     FEATURE_SSE3 =      0 + 32,         /**< SSE3 Extensions supported */
-    FEATURE_PCLMULQDQ = 1 + 32,         /**< OP_pclmulqdq supported */
-    FEATURE_MONITOR =   3 + 32,         /**< MONITOR/MWAIT instructions supported */
+    FEATURE_PCLMULQDQ = 1 + 32,         /**< #OP_pclmulqdq supported */
+    FEATURE_MONITOR =   3 + 32,         /**< #OP_monitor/#OP_mwait supported */
     FEATURE_DS_CPL =    4 + 32,         /**< CPL Qualified Debug Store */
     FEATURE_VMX =       5 + 32,         /**< Virtual Machine Extensions */
     FEATURE_SMX =       6 + 32,         /**< Safer Mode Extensions */
@@ -226,36 +226,45 @@ typedef enum {
     FEATURE_SSSE3 =     9 + 32,         /**< SSSE3 Extensions supported */
     FEATURE_CID =       10 + 32,        /**< Context ID */
     FEATURE_FMA =       12 + 32,        /**< FMA instructions supported */
-    FEATURE_CX16 =      13 + 32,        /**< CMPXCHG16B instruction supported */
+    FEATURE_CX16 =      13 + 32,        /**< #OP_cmpxchg16b supported */
     FEATURE_xPTR =      14 + 32,        /**< Send Task Priority Messages */
     FEATURE_SSE41 =     19 + 32,        /**< SSE4.1 Extensions supported */
     FEATURE_SSE42 =     20 + 32,        /**< SSE4.2 Extensions supported */
     FEATURE_x2APIC =    21 + 32,        /**< x2APIC supported */
-    FEATURE_MOVBE =     22 + 32,        /**< OP_movbe supported */
-    FEATURE_POPCNT =    23 + 32,        /**< OP_popcnt supported */
+    FEATURE_MOVBE =     22 + 32,        /**< #OP_movbe supported */
+    FEATURE_POPCNT =    23 + 32,        /**< #OP_popcnt supported */
     FEATURE_AES =       25 + 32,        /**< AES instructions supported */
     FEATURE_XSAVE =     26 + 32,        /**< OP_xsave* supported */
-    FEATURE_OSXSAVE =   27 + 32,        /**< OP_xgetbv supported in user mode */
+    FEATURE_OSXSAVE =   27 + 32,        /**< #OP_xgetbv supported in user mode */
     FEATURE_AVX =       28 + 32,        /**< AVX instructions supported */
     FEATURE_F16C =      29 + 32,        /**< 16-bit floating-point conversion supported */
-    FEATURE_RDRAND =    30 + 32,        /**< RDRAND supported */
+    FEATURE_RDRAND =    30 + 32,        /**< #OP_rdrand supported */
     /* extended features returned in edx */
-    FEATURE_SYSCALL =   11 + 64,        /**< SYSCALL/SYSRET instructions supported */
+    FEATURE_SYSCALL =   11 + 64,        /**< #OP_syscall/#OP_sysret supported */
     FEATURE_XD_Bit =    20 + 64,        /**< Execution Disable bit */
-    FEATURE_RDTSCP =    27 + 64,        /**< RDTSCP supported */
+    FEATURE_MMX_EXT =   22 + 64,        /**< AMD MMX Extensions */
+    FEATURE_RDTSCP =    27 + 64,        /**< #OP_rdtscp supported */
     FEATURE_EM64T =     29 + 64,        /**< Extended Memory 64 Technology */
+    FEATURE_3DNOW_EXT = 30 + 64,        /**< AMD 3DNow! Extensions */
+    FEATURE_3DNOW =     31 + 64,        /**< AMD 3DNow! instructions supported */
     /* extended features returned in ecx */
-    FEATURE_LAHF =      0 + 96,         /**< LAHF/SAHF available in 64-bit mode */
-    FEATURE_LZCNT =     5 + 96,         /**< LZCNT supported */
-    FEATURE_PREFETCHW = 8 + 96,         /**< PREFETCHW supported */
+    FEATURE_LAHF =      0 + 96,         /**< #OP_lahf/#OP_sahf available in 64-bit mode */
+    FEATURE_SVM =       2 + 96,         /**< AMD Secure Virtual Machine */
+    FEATURE_LZCNT =     5 + 96,         /**< #OP_lzcnt supported */
+    FEATURE_SSE4A =     6 + 96,         /**< AMD SSE4A Extensions supported */
+    FEATURE_PREFETCHW = 8 + 96,         /**< #OP_prefetchw supported */
+    FEATURE_XOP =      11 + 96,         /**< AMD XOP supported */
+    FEATURE_SKINIT =   12 + 96,         /**< AMD #OP_skinit/#OP_stgi supported */
+    FEATURE_FMA4 =     16 + 96,         /**< AMD FMA4 supported */
+    FEATURE_TBM =      21 + 96,         /**< AMD Trailing Bit Manipulation supported */
     /* structured extended features returned in ebx */
-    FEATURE_FSGSBASE =  0 + 128,        /**< RDFSBASE, etc. supported */
+    FEATURE_FSGSBASE =  0 + 128,        /**< #OP_rdfsbase, etc. supported */
     FEATURE_BMI1 =      3 + 128,        /**< BMI1 instructions supported */
     FEATURE_HLE =       4 + 128,        /**< Hardware Lock Elision supported */
     FEATURE_AVX2 =      5 + 128,        /**< AVX2 instructions supported */
     FEATURE_BMI2 =      8 + 128,        /**< BMI2 instructions supported */
     FEATURE_ENHREP =    9 + 128,        /**< Enhanced rep movsb/stosb supported */
-    FEATURE_INVPCID =  10 + 128,        /**< INVPCID supported */
+    FEATURE_INVPCID =  10 + 128,        /**< #OP_invpcid supported */
     FEATURE_RTM =      11 + 128,        /**< Restricted Transactional Memory supported */
 } feature_bit_t;
 
