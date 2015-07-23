@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -137,10 +137,12 @@ set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})
 
 # Originally this tool was called "bbcov", so we keep a legacy .drrun for back-compat.
 if (X64)
-  set(CONFIG ${PROJECT_BINARY_DIR}/drcov.drrun64)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcov.drrun64)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcov.drrun64)
   set(CONFIG_LEGACY bbcov.drrun64)
 else (X64)
-  set(CONFIG ${PROJECT_BINARY_DIR}/drcov.drrun32)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcov.drrun32)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcov.drrun32)
   set(CONFIG_LEGACY bbcov.drrun32)
 endif (X64)
 
@@ -152,15 +154,22 @@ else (UNIX)
   set(LIB_PFX "")
 endif (UNIX)
 
-file(WRITE  ${CONFIG} "# drcov tool config file\n")
-file(APPEND ${CONFIG} "# DynamoRIO options\n")
-file(APPEND ${CONFIG} "DR_OP=-nop_initial_bblock\n")
-file(APPEND ${CONFIG} "# client tool path\n")
-file(APPEND ${CONFIG} "CLIENT_REL=${INSTALL_CLIENTS_LIB}/${LIB_PFX}drcov${LIB_EXT}\n")
-file(APPEND ${CONFIG} "# client tool options\n")
-file(APPEND ${CONFIG} "TOOL_OP=\n")
+function (write_config_file dst libdir)
+  file(WRITE  ${dst} "# drcov tool config file\n")
+  file(APPEND ${dst} "# DynamoRIO options\n")
+  file(APPEND ${dst} "DR_OP=-nop_initial_bblock\n")
+  file(APPEND ${dst} "# client tool path\n")
+  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
+  file(APPEND ${dst} "# client tool options\n")
+  file(APPEND ${dst} "TOOL_OP=\n")
+endfunction ()
 
-DR_install(FILES "${CONFIG}" DESTINATION ${INSTALL_DRCOV_CONFIG})
-DR_install(FILES "${CONFIG}" RENAME "${CONFIG_LEGACY}" DESTINATION
+set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
+
+write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_LIB})
+write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_LIB})
+
+DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCOV_CONFIG})
+DR_install(FILES "${CONFIG_INSTALL}" RENAME "${CONFIG_LEGACY}" DESTINATION
   ${INSTALL_DRCOV_CONFIG})
 register_tool_file("drcov")
