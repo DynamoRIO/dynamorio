@@ -31,6 +31,11 @@
  */
 
 /* drcpusim.cpp: client for simulating instruction sets of legacy processors
+ *
+ * XXX i#1732: add more features, such as:
+ * + Add more recent Intel models
+ * + Add AMD models
+ * + Add ARM support
  */
 
 #include "dr_api.h"
@@ -46,14 +51,146 @@
 
 static bool (*opcode_supported)(instr_t *);
 
+/* DR deliberately does not bother to keep model-specific information in its
+ * IR.  Thus we have our own routines here that mostly just check opcodes.
+ */
+
+#ifdef X86
 static bool
 opcode_supported_Pentium(instr_t *instr)
 {
-    // FIXME i#1732: this is not complete and is just here as a placeholder.
-    if (instr_is_sse_or_sse2(instr))
+    /* Pentium CPUID features:
+     *          CMPXCHG8B
+     */
+# ifdef X64
+    return false;
+# else
+    int opc = instr_get_opcode(instr);
+    if (instr_is_mmx(instr) || instr_is_sse(instr) || instr_is_sse2(instr) ||
+        instr_is_3DNow(instr) ||
+        (opc >= OP_cmovo && opc <= OP_cmovnle) ||
+        opc == OP_sysenter || opc == OP_sysexit ||
+        opc == OP_fxsave32 || opc == OP_fxrstor32 ||
+        // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
+        // were appended to the enum.
+        opc >= OP_fisttp)
         return false;
     return true;
+# endif
 }
+
+static bool
+opcode_supported_PentiumMMX(instr_t *instr)
+{
+    /* Pentium with MMX CPUID features:
+     *  MMX     CMPXCHG8B
+     */
+# ifdef X64
+    return false;
+# else
+    int opc = instr_get_opcode(instr);
+    if (instr_is_sse(instr) || instr_is_sse2(instr) ||
+        instr_is_3DNow(instr) ||
+        (opc >= OP_cmovo && opc <= OP_cmovnle) ||
+        opc == OP_sysenter || opc == OP_sysexit ||
+        opc == OP_fxsave32 || opc == OP_fxrstor32 ||
+        // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
+        // were appended to the enum.
+        opc >= OP_fisttp)
+        return false;
+    return true;
+# endif
+}
+
+static bool
+opcode_supported_PentiumPro(instr_t *instr)
+{
+    /* Pentium Pro CPUID features:
+     *          CMOV
+     *          CMPXCHG8B
+     */
+# ifdef X64
+    return false;
+# else
+    int opc = instr_get_opcode(instr);
+    if (instr_is_mmx(instr) || instr_is_sse(instr) || instr_is_sse2(instr) ||
+        instr_is_3DNow(instr) ||
+        opc == OP_sysenter || opc == OP_sysexit ||
+        opc == OP_fxsave32 || opc == OP_fxrstor32 ||
+        // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
+        // were appended to the enum.
+        opc >= OP_fisttp)
+        return false;
+    return true;
+# endif
+}
+
+static bool
+opcode_supported_Klamath(instr_t *instr)
+{
+    /* Klamath Pentium 2 CPUID features:
+     *  MMX     CMOV
+     *          CMPXCHG8B
+     *          SYSENTER/SYSEXIT
+     */
+# ifdef X64
+    return false;
+# else
+    int opc = instr_get_opcode(instr);
+    if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow(instr) ||
+        opc == OP_fxsave32 || opc == OP_fxrstor32 ||
+        // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
+        // were appended to the enum.
+        opc >= OP_fisttp)
+        return false;
+    return true;
+# endif
+}
+
+static bool
+opcode_supported_Deschutes(instr_t *instr)
+{
+    /* Deschutes Pentium 2 CPUID features:
+     *  MMX     CMOV
+     *          CMPXCHG8B
+     *          FXSAVE/FXRSTORE
+     *          SYSENTER/SYSEXIT
+     */
+# ifdef X64
+    return false;
+# else
+    int opc = instr_get_opcode(instr);
+    if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow(instr) ||
+        // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
+        // were appended to the enum.
+        opc >= OP_fisttp)
+        return false;
+    return true;
+# endif
+}
+
+static bool
+opcode_supported_Pentium3(instr_t *instr)
+{
+    /* Pentium 3 CPUID features:
+     *  MMX     CMOV
+     *  SSE     CMPXCHG8B
+     *          FXSAVE/FXRSTORE
+     *          SYSENTER/SYSEXIT
+     */
+# ifdef X64
+    return false;
+# else
+    int opc = instr_get_opcode(instr);
+    if (instr_is_sse2(instr) || instr_is_3DNow(instr) ||
+        // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
+        // were appended to the enum.
+        opc >= OP_fisttp)
+        return false;
+    return true;
+# endif
+}
+#endif
 
 static void
 report_invalid_opcode(int opc, app_pc pc)
@@ -74,6 +211,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     // We check meta instrs too
     if (!opcode_supported(instr))
         report_invalid_opcode(instr_get_opcode(instr), instr_get_app_pc(instr));
+#ifdef X86
+    if (instr_get_opcode(instr) == OP_cpuid) {
+        // XXX i#1732: fool cpuid for target processor
+    }
+#endif
     return DR_EMIT_DEFAULT;
 }
 
@@ -101,8 +243,22 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_abort();
     }
 
+#ifdef X86
     if (op_cpu.get_value() == "Pentium") {
         opcode_supported = opcode_supported_Pentium;
+    } else if (op_cpu.get_value() == "PentiumMMX") {
+        opcode_supported = opcode_supported_PentiumMMX;
+    } else if (op_cpu.get_value() == "PentiumPro") {
+        opcode_supported = opcode_supported_PentiumPro;
+    } else if (op_cpu.get_value() == "Pentium2" ||
+               op_cpu.get_value() == "Klamath") {
+        opcode_supported = opcode_supported_Klamath;
+    } else if (op_cpu.get_value() == "Deschutes") {
+        opcode_supported = opcode_supported_Deschutes;
+    } else if (op_cpu.get_value() == "Pentium3" ||
+               op_cpu.get_value() == "Coppermine" ||
+               op_cpu.get_value() == "Tualatin") {
+        opcode_supported = opcode_supported_Pentium3;
     } else {
         // FIXME i#1732: add the other models.
         // Maybe also add particular features like SSE2.
@@ -110,6 +266,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
     }
+#else
+    // XXX i#1732: no ARM support yet
+    NOTIFY(0, "ARM not supported yet\n");
+    dr_abort();
+#endif
 
     if (!drmgr_init())
         DR_ASSERT(false);

@@ -40,15 +40,15 @@ droption_t<std::string> op_cpu
 (DROPTION_SCOPE_CLIENT, "cpu", "Pentium", "CPU model to simulate",
  "Specifies the CPU model to simulate.  It can be one of the following values:\n"
  "<ul>\n"
- "<li>Pentium</li>\n"
- "<li>PentiumPro</li>\n"
- "<li>Pentium2</li>\n"
- "<li>Pentium3</li>\n"
- "<li>Pentium4</li>\n"
- "<li>PentiumD</li>\n"
- "<li>Core</li>\n"
- "<li>Core2</li>\n"
- "<li>Corei7</li>\n"
+ "<li><b>Pentium</b></li>\n"
+ "<li><b>PentiumMMX</b></li>\n"
+ "<li><b>PentiumPro</b></li>\n"
+ "<li><b>Pentium2</b> (Klamath)</li>\n"
+ "<li><b>Klamath</b> (Pentium2</li>\n"
+ "<li><b>Deschutes</b> (Pentium2)</li>\n"
+ "<li><b>Pentium3</b> (Coppermine)</li>\n"
+ "<li><b>Coppermine</b> (Pentium3)</li>\n"
+ "<li><b>Tualatin</b> (Pentium3)</li>\n"
  "</ul>");
 
 droption_t<unsigned int> op_verbose

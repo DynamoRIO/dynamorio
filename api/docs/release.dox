@@ -180,6 +180,12 @@ following minor compatibility changes:
 Further non-compatibility-affecting changes include:
 
  - Added a new scratch register coordination Extension, \p drreg.
+ - Added easy-to-use option declaration and parsing for C++ clients
+   and standalone applications via a new Extension, \p droption,
+   and the #droption_t class.
+ - Added a new tool: \ref page_drcachesim, a multi-process cache simulator.
+ - Added a new tool: \ref page_drcpusim, a CPU simulator for illegal
+   instructions on legacy processors.
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
  - Added cross-platform instruction creation macros
@@ -234,9 +240,6 @@ Further non-compatibility-affecting changes include:
  - Added instr_is_exclusive_store().
  - Added #DR_FILE_WRITE_ONLY.
  - Added dr_get_option_array().
- - Added easy-to-use option declaration and parsing for C++ clients
-   and standalone applications via a new Extension, \p droption,
-   and the #droption_t class.
  - Added drwrap_redirect_execution().
  - Added a new sample client, named ssljack.
  - Added the -pathmap option to the post-processor for \ref page_drcov.
