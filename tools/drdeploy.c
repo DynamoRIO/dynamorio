@@ -417,7 +417,7 @@ bool unregister_proc(const char *process, process_id_t pid,
  * expect.  Returns whether a fatal problem.
  */
 static bool check_dr_root(const char *dr_root, bool debug,
-                          dr_platform_t dr_platform, bool preinject)
+                          dr_platform_t dr_platform, bool preinject, bool report)
 {
     int i;
     char buf[MAXIMUM_PATH];
@@ -484,8 +484,10 @@ static bool check_dr_root(const char *dr_root, bool debug,
                 /* We don't want to create a .1config file that won't be freed
                  * b/c the core is never injected
                  */
-                error("cannot find required file %s\n"
-                      "Use -root to specify a proper DynamoRIO root directory.", buf);
+                if (report) {
+                    error("cannot find required file %s\n"
+                          "Use -root to specify a proper DynamoRIO root directory.", buf);
+                }
                 return false;
             } else if (!nowarn) {
                 warn("cannot find %s: is this an incomplete installation?", buf);
@@ -525,7 +527,7 @@ bool register_proc(const char *process,
      * in which case don't bother
      */
     if (dr_mode != DR_MODE_DO_NOT_RUN &&
-        !check_dr_root(dr_root, debug, dr_platform, false))
+        !check_dr_root(dr_root, debug, dr_platform, false/*!pre*/, true/*report*/))
         return false;
 
     if (dr_process_is_registered(process, pid, global, dr_platform,
@@ -1499,6 +1501,14 @@ int main(int argc, char *argv[])
     set_dr_platform(dr_platform);
 #endif
 
+    /* support running out of a debug build dir */
+    if (!use_debug &&
+        !check_dr_root(dr_root, false, dr_platform, false/*!pre*/, false/*!report*/) &&
+        check_dr_root(dr_root, true, dr_platform, false/*!pre*/, false/*!report*/)) {
+        info("debug build directory detected: switching to debug build");
+        use_debug = true;
+    }
+
 #ifdef DRCONFIG
     if (action == action_register) {
         if (!register_proc(process, 0, global, dr_root, dr_mode,
@@ -1573,7 +1583,7 @@ int main(int argc, char *argv[])
             error("syswide_on is not yet supported on Windows 8+ non-WOW64");
             die();
         }
-        if (!check_dr_root(dr_root, false, dr_platform, true))
+        if (!check_dr_root(dr_root, false, dr_platform, true/*pre*/, true/*report*/))
             die();
         /* If this is the first setting of AppInit on NT, warn about reboot */
         if (!dr_syswide_is_on(dr_platform, dr_root)) {
