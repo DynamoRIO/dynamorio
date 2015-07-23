@@ -64,6 +64,8 @@
 #include <unistd.h>     /* __environ */
 #include <stddef.h>     /* offsetof */
 
+extern size_t wcslen(const wchar_t *str); /* in string.c */
+
 /* Written during initialization only */
 /* FIXME: i#460, the path lookup itself is a complicated process,
  * so we just list possible common but in-complete paths for now.
@@ -1413,6 +1415,21 @@ static const redirect_import_t redirect_imports[] = {
     {"___tls_get_addr", (app_pc)redirect____tls_get_addr},
     /* i#1717: C++ exceptions call this */
     {"dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr},
+    /* We need these for clients that don't use libc (i#1747) */
+    {"strlen", (app_pc)strlen},
+    {"wcslen", (app_pc)wcslen},
+    {"strchr", (app_pc)strchr},
+    {"strrchr", (app_pc)strrchr},
+    {"strncpy", (app_pc)strncpy},
+    {"memcpy", (app_pc)memcpy},
+    {"memset", (app_pc)memset},
+    {"memmove", (app_pc)memmove},
+    {"strncat", (app_pc)strncat},
+    {"strcmp", (app_pc)strcmp},
+    {"strncmp", (app_pc)strncmp},
+    {"memcmp", (app_pc)memcmp},
+    {"strstr", (app_pc)strstr},
+    {"strcasecmp", (app_pc)strcasecmp},
 };
 #define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports)/sizeof(redirect_imports[0]))
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -128,6 +128,10 @@ strncpy(char *dst, const char *src, size_t n)
         dst[i] = '\0';
     return dst;
 }
+
+/* Private memcpy is in arch/<arch>/<arch>.asm */
+
+/* Private memset is in arch/<arch>/<arch>.asm */
 
 /* Private memmove.  The only difference between memcpy and memmove is that if
  * you need to shift overlapping data forwards in memory, memmove will do what
