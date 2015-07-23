@@ -75,6 +75,9 @@ static const char *system_lib_paths[] = {
     "/usr/lib",
     "/lib",
     "/usr/local/lib",       /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
+#ifdef ANDROID
+    "/system/lib",
+#endif
 #ifndef X64
     "/usr/lib32",
     "/lib32",
@@ -491,6 +494,8 @@ privload_process_imports(privmod_t *mod)
     while (dyn->d_tag != DT_NULL) {
         if (dyn->d_tag == DT_NEEDED) {
             name = strtab + dyn->d_un.d_val;
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n",
+                __FUNCTION__, mod->name, name);
             if (privload_lookup(name) == NULL) {
                 privmod_t *impmod = privload_locate_and_load(name, mod,
                                                              false/*client dir=>true*/);
