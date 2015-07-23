@@ -195,9 +195,12 @@ memtrace(void *drcontext)
         }
     }
     // Write the rest to pipe
+    // The last few entries (e.g., instr + refs) may exceed the atomic write size,
+    // so we may need two writes.
     if (((byte *)buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
         pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-    atomic_pipe_write(drcontext, pipe_start, (byte *)buf_ptr);
+    if (((byte *)buf_ptr - pipe_start) > (ssize_t)BUF_HDR_SLOTS_SIZE)
+        atomic_pipe_write(drcontext, pipe_start, (byte *)buf_ptr);
 
     // Our instrumentation reads from buffer and skips the clean call if the
     // content is 0, so we need set zero in the trace buffer and set non-zero
