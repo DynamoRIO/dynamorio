@@ -35,6 +35,10 @@
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_ 1
 
+#define REPLACE_POLICY_NON_SPECIFIED            ""
+#define REPLACE_POLICY_LRU                      "LRU"
+#define REPLACE_POLICY_LFU                      "LFU"
+
 #include <string>
 #include "droption.h"
 
@@ -48,8 +52,7 @@ extern droption_t<unsigned int> op_L1D_assoc;
 extern droption_t<bytesize_t> op_LL_size;
 extern droption_t<unsigned int> op_LL_assoc;
 extern droption_t<bool> op_use_physical;
-extern droption_t<bool> op_replace_lru;
-extern droption_t<bool> op_replace_lfu;
+extern droption_t<std::string> op_replace_policy;
 extern droption_t<unsigned int> op_virt2phys_freq;
 extern droption_t<unsigned int> op_verbose;
 extern droption_t<std::string> op_dr_root;

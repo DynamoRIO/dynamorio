@@ -54,6 +54,9 @@ class simulator_t
     int core_for_thread(memref_tid_t tid);
     void handle_thread_exit(memref_tid_t tid);
 
+    // Create a cache_t object with a specific replacement policy.
+    cache_t *create_cache(std::string policy);
+
     ipc_reader_t ipc_end;
     ipc_reader_t ipc_iter;
 

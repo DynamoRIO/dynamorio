@@ -60,10 +60,9 @@ simulator_t::init()
 
     num_cores = op_num_cores.get_value();
 
-    if (op_replace_lru.get_value())
-        llcache = new cache_lru_t;
-    else // default LFU
-        llcache = new cache_t;
+    llcache = create_cache(op_replace_policy.get_value());
+    if (llcache == NULL)
+        return false;
 
     if (!llcache->init(op_LL_assoc.get_value(), op_line_size.get_value(),
                        op_LL_size.get_value(), NULL, new cache_stats_t)) {
@@ -76,14 +75,13 @@ simulator_t::init()
     icaches = new cache_t* [num_cores];
     dcaches = new cache_t* [num_cores];
     for (int i = 0; i < num_cores; i++) {
-        if (op_replace_lfu.get_value()) {
-            icaches[i] = new cache_t;
-            dcaches[i] = new cache_t;
-        } else {
-            assert(op_replace_lru.get_value() && "no replacement policy is selected");
-            icaches[i] = new cache_lru_t;
-            dcaches[i] = new cache_lru_t;
-        }
+        icaches[i] = create_cache(op_replace_policy.get_value());
+        if (icaches[i] == NULL)
+            return false;
+        dcaches[i] = create_cache(op_replace_policy.get_value());
+        if (dcaches[i] == NULL)
+            return false;
+
         if (!icaches[i]->init(op_L1I_assoc.get_value(), op_line_size.get_value(),
                               op_L1I_size.get_value(), llcache, new cache_stats_t) ||
             !dcaches[i]->init(op_L1D_assoc.get_value(), op_line_size.get_value(),
@@ -236,4 +234,19 @@ simulator_t::print_stats()
     std::cerr << "LL stats:" << std::endl;
     llcache->get_stats()->print_stats("    ");
     return true;
+}
+
+cache_t*
+simulator_t::create_cache(std::string policy)
+{
+    if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
+        policy == REPLACE_POLICY_LRU) // set to LRU
+        return new cache_lru_t;
+    if (policy == REPLACE_POLICY_LFU) // set to LFU
+        return new cache_t;
+
+    // undefined replacement policy
+    ERROR("Usage error: undefined replacement policy. "
+          "Please choose "REPLACE_POLICY_LRU" or "REPLACE_POLICY_LFU".\n");
+    return NULL;
 }
