@@ -830,11 +830,15 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
                                  "\"%s\"", client);
             }
         } else if (strstr(line, "DR_OP=") == line) {
-            add_extra_option(ops, ops_size, ops_sofar, "\"%s\"",
-                             line + strlen("DR_OP="));
+            if (strcmp(line, "DR_OP=") != 0) {
+                add_extra_option(ops, ops_size, ops_sofar, "\"%s\"",
+                                 line + strlen("DR_OP="));
+            }
         } else if (strstr(line, "TOOL_OP=") == line) {
-            add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
-                             "\"%s\"", line + strlen("TOOL_OP="));
+            if (strcmp(line, "TOOL_OP=") != 0) {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
+                                 "\"%s\"", line + strlen("TOOL_OP="));
+        }
 # ifdef DRRUN /* native only supported for drrun */
         } else if (strstr(line, "FRONTEND_ABS=") == line) {
             _snprintf(native_path, native_path_size, "%s",
@@ -850,8 +854,11 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
             add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
                              "\"%s\"", dr_root);
         } else if (strstr(line, "TOOL_OP_DR_BUNDLE=") == line) {
-            add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
-                             "%s `%s`", line + strlen("TOOL_OP_DR_BUNDLE="), ops);
+            if (strcmp(line, "TOOL_OP_DR_BUNDLE=") != 0) {
+                add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
+                                 "%s `%s`", line + strlen("TOOL_OP_DR_BUNDLE="),
+                                 ops);
+            }
 # else
         } else if (strstr(line, "FRONTEND_ABS=") == line ||
                    strstr(line, "FRONTEND_REL=") == line ||

@@ -267,7 +267,7 @@ getword_common(const char *str, const char **strpos, char *wordbuf, uint wordbuf
             break;
         }
     }
-    if (i == 0)
+    if (i == 0 && quote == '\0'/*not a quoted empty string*/)
         return NULL; /* no more words */
 
     ASSERT(i<wordbuflen);
