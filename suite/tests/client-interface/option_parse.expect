@@ -5,4 +5,5 @@ param foo = 8
 param bar = |some string with spaces|
 param flag = |0|
 param sweep = |-front value -front2 value2|
+param takes2 = |1_of_4 3_of_4|,|2_of_4 4_of_4|
 Hello, world!

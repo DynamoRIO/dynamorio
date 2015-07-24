@@ -98,6 +98,9 @@ class bytesize_t
     unsigned int size;
 };
 
+/** A convenience typedef for options that take in pairs of values. */
+typedef std::pair<std::string, std::string> twostring_t;
+
 /**
  * Option parser base class.
  */
@@ -168,6 +171,8 @@ class droption_parser_t
                     }
                     if (op->option_takes_arg()) {
                         ++i;
+                        if (op->option_takes_2args() && i < argc)
+                            ++i;
                         if (i == argc) {
                             if (error_msg != NULL)
                                 *error_msg = "Option " + op->name + " missing value";
@@ -175,7 +180,10 @@ class droption_parser_t
                             goto parse_finished;
                         }
                         if (matched) {
-                            if (!op->convert_from_string(argv[i]) ||
+                            if ((!op->option_takes_2args() &&
+                                 !op->convert_from_string(argv[i])) ||
+                                (op->option_takes_2args() &&
+                                 !op->convert_from_string(argv[i-1], argv[i])) ||
                                 !op->clamp_value()) {
                                 if (error_msg != NULL) {
                                     *error_msg = "Option " + op->name +
@@ -186,7 +194,10 @@ class droption_parser_t
                             }
                         }
                         if (swept) {
-                            if (!sweeper()->convert_from_string(argv[i]) ||
+                            if ((!op->option_takes_2args() &&
+                                 !sweeper()->convert_from_string(argv[i])) ||
+                                (op->option_takes_2args() &&
+                                 !sweeper()->convert_from_string(argv[i-1], argv[i])) ||
                                 !sweeper()->clamp_value()) {
                                 if (error_msg != NULL) {
                                     *error_msg = "Option " + op->name +
@@ -270,8 +281,10 @@ class droption_parser_t
 
  protected:
     virtual bool option_takes_arg() const = 0;
+    virtual bool option_takes_2args() const = 0;
     virtual bool name_match(const char *arg) = 0; // also sets value for bools!
     virtual bool convert_from_string(const std::string s) = 0;
+    virtual bool convert_from_string(const std::string s1, const std::string s2) = 0;
     virtual bool clamp_value() = 0;
     virtual std::string default_as_string() const = 0;
 
@@ -347,8 +360,10 @@ template <typename T> class droption_t : public droption_parser_t
     }
 
     bool option_takes_arg() const;
+    bool option_takes_2args() const;
     bool name_match(const char *arg);
     bool convert_from_string(const std::string s);
+    bool convert_from_string(const std::string s1, const std::string s2);
     std::string default_as_string() const;
 
     T value;
@@ -360,6 +375,17 @@ template <typename T> class droption_t : public droption_parser_t
 
 template <typename T> inline bool droption_t<T>::option_takes_arg() const { return true; }
 template<> inline bool droption_t<bool>::option_takes_arg() const { return false; }
+
+template <typename T> inline bool
+droption_t<T>::option_takes_2args() const
+{
+    return false;
+}
+template<> inline bool
+droption_t<twostring_t>::option_takes_2args() const
+{
+    return true;
+}
 
 template <typename T> inline bool
 droption_t<T>::name_match(const char *arg)
@@ -446,6 +472,40 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
     }
     return true;
 }
+template<> inline bool
+droption_t<twostring_t>::convert_from_string(const std::string s)
+{
+    return false;
+}
+
+template <typename T> inline bool
+droption_t<T>::convert_from_string(const std::string s1, const std::string s2)
+{
+    return false;
+}
+template<> inline bool
+droption_t<std::string>::convert_from_string(const std::string s1, const std::string s2)
+{
+    // This is for the sweeper
+    if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
+        value += " " + s1 + " " + s2;
+        return true;
+    } else
+        return false;
+}
+template<> inline bool
+droption_t<twostring_t>::convert_from_string(const std::string s1, const std::string s2)
+{
+    if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
+        // Just like for single strings, we hardcode a space separator.
+        value.first += " " + s1;
+        value.second += " " + s2;
+    } else {
+        value.first = s1;
+        value.second = s2;
+    }
+    return true;
+}
 
 template<> inline std::string
 droption_t<std::string>::default_as_string() const
@@ -486,6 +546,12 @@ droption_t<bytesize_t>::default_as_string() const
     }
     return dynamic_cast< std::ostringstream & >
         ((std::ostringstream() << std::dec << val)).str() + suffix;
+}
+template<> inline std::string
+droption_t<twostring_t>::default_as_string() const
+{
+    return (defval.first.empty() ? "\"\"" : defval.first) + " " +
+        (defval.second.empty() ? "\"\"" : defval.second);
 }
 
 // Convenience routine for client use

@@ -40,6 +40,7 @@ declaration and parsing for both clients and standalone programs.
 
  - \ref sec_droption_setup
  - \ref sec_droption_usage
+ - \ref sec_droption_special
  - \ref sec_droption_html
 
 \section sec_droption_setup Setup
@@ -63,7 +64,8 @@ other standalone application, simply include the droption.h header file.
 \section sec_droption_usage Usage
 
 Simply declare a global instance of \p droption_t of the desired option
-value type for each option you wish to support.  For example:
+value type for each option you wish to support.  Typical value types are \p
+bool, integers, or \p std::string.  For example:
 
 \code
 static droption_t<unsigned int> op_x
@@ -104,6 +106,16 @@ if (!dr_parse_options(id, &parse_err)) {
     dr_abort();
 }
 \endcode
+
+
+\section sec_droption_special Special Types
+
+\p droption provides some custom value types for options:
+
+- bytesize_t: this class provides an integer type that accepts suffixes
+  like 'K', 'M', and 'G' when specifying sizes in units of bytes.
+
+- twostring_t: built-in support for a pair of strings as values.
 
 
 \section sec_droption_html Automated HTML
