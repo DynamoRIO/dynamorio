@@ -40,6 +40,7 @@ declaration and parsing for both clients and standalone programs.
 
  - \ref sec_droption_setup
  - \ref sec_droption_usage
+ - \ref sec_droption_html
 
 \section sec_droption_setup Setup
 
@@ -57,6 +58,7 @@ file:
 
 To use \p droption with a non-client, for example with a tool frontend or
 other standalone application, simply include the droption.h header file.
+
 
 \section sec_droption_usage Usage
 
@@ -103,8 +105,31 @@ if (!dr_parse_options(id, &parse_err)) {
 }
 \endcode
 
-We recommend that Windows standalone applications use UNICODE and call
-drfront_convert_args() to convert to UTF-8 prior to passing to
-parse_argv(), for proper internationalization support.
+
+\section sec_droption_html Automated HTML
+
+To produced automated documentation with the long-format descriptions, we
+recommend building a small program that looks something like this:
+
+\code
+#include <iostream>
+#include "droption.h"
+#include "options.h"
+
+int
+main(int argc, const char *argv[])
+{
+    std::cout << droption_parser_t::usage_long(DROPTION_SCOPE_ALL,
+                                               "- <b>", "</b>\n",
+                                               "  <br><i>", "</i>\n",
+                                               "  <br>", "\n")
+              << std::endl;
+    return 0;
+}
+\endcode
+
+This program can be built and run at documentation generation time to
+produce HTML that can then be embedded into Doxygen or other
+documentation.
 
 */

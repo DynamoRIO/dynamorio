@@ -85,11 +85,6 @@ typedef enum {
     DROPTION_FLAG_SWEEP          = 0x0002,
 } droption_flags_t;
 
-// XXX: for tools who want to generate html docs from the same option spec,
-// could we provide a solution where at build time some code is run to
-// produce the docs?  That is one area where an optionsx.h C macro style
-// solution is superior to this C++ approach.
-
 /**
  * The bytesize_t class exists to provide an option type that accepts suffixes
  * like 'K', 'M', and 'G' when specifying sizes in units of bytes.
