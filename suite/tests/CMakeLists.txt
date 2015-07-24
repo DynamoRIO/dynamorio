@@ -1081,7 +1081,7 @@ endfunction(template2expect)
 
 ##################################################
 
-function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_script)
+function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
   if (UNIX)
     set(os_ops -dumpcore_mask 0)
@@ -1100,6 +1100,11 @@ function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_scri
     # (we use -c instead of -client_lib).
   endif (separate_script)
 
+  set(timeout ${TEST_SECONDS})
+  if (DEFINED ${key}_timeout)
+    set(timeout ${${key}_timeout})
+  endif ()
+
   if (WIN32 OR NOT native)
     # Both Windows and non-native Unix tests now use the native drrun frontend.
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
@@ -1109,7 +1114,7 @@ function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_scri
     endif (standalone_dr OR NOT native)
     # CMake 3.x seems to put double slashes in there (xref i#1559)
     string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
-    set(cmd "${drrun_path}" -s ${TEST_SECONDS} -quiet)
+    set(cmd "${drrun_path}" -s ${timeout} -quiet)
     if (DEBUG)
       set(cmd ${cmd} -debug)
     endif ()
@@ -1143,7 +1148,7 @@ function(runtest_cmd outcmd outops native standalone_dr dr_ops_aux separate_scri
     endif (standalone_dr OR NOT native)
 
   elseif (UNIX AND native)
-    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
+    set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${timeout} -killpg -silent)
     # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
     set(cmd ${cmd} -env LD_LIBRARY_PATH
@@ -1212,7 +1217,8 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
 
   set(ALREADY_REGEX OFF)
 
-  runtest_cmd(rundr runops ${native} ${standalone_dr} "${dr_ops}" ${separate_script})
+  runtest_cmd(rundr runops ${key} ${native} ${standalone_dr}
+    "${dr_ops}" ${separate_script})
 
   if (TARGET ${exe})
     get_target_property(exepath ${exe} LOCATION${location_suffix})
@@ -1382,6 +1388,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # match whole output
     set(expect "^${expect}$")
     set_tests_properties(${test} PROPERTIES PASS_REGULAR_EXPRESSION "${expect}")
+  endif ()
+
+  if (DEFINED ${key}_timeout)
+    # Though we mostly use drrun's -s we set this too in case the requested
+    # value is higher than ctest's default.
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
   endif ()
 
   if (WIN32)
@@ -1651,27 +1663,37 @@ if (CLIENT_INTERFACE)
     if (UNIX)
       target_link_libraries(client.annotation-concurrency ${libpthread})
     endif (UNIX)
+    # i#1681: on a many-core machine this test can hit the 1-min timeout
+    set(client.annotation-concurrency_timeout 120)
     set(client.annotation-concurrency.full-decode_expectbase
       "annotation-concurrency.full-decode")
     torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
       client.annotation-concurrency.dll client-interface/annotation-concurrency.c
       "full-decode" "" "${annotation_test_args}")
+    # i#1681: on a many-core machine this test can hit the 1-min timeout
+    set(client.annotation-concurrency.full-decode_timeout 120)
     set(client.annotation-concurrency.full-decode.tiny-bb_expectbase
       "annotation-concurrency.full-decode")
     torunonly_ci(client.annotation-concurrency.full-decode.tiny-bb
       client.annotation-concurrency client.annotation-concurrency.dll
       client-interface/annotation-concurrency.c "full-decode" "-max_bb_instrs 2"
       "${annotation_test_args}")
+    # i#1681: on a many-core machine this test can hit the 1-min timeout
+    set(client.annotation-concurrency.full-decode.tiny-bb_timeout 120)
     set(client.annotation-concurrency.bb-truncate-1_expectbase
       "annotation-concurrency.bb-truncate")
     torunonly_ci(client.annotation-concurrency.bb-truncate-1 client.annotation-concurrency
       client.annotation-concurrency.dll client-interface/annotation-concurrency.c
       "truncate@1" "" "${annotation_test_args}")
+    # i#1681: on a many-core machine this test can hit the 1-min timeout
+    set(client.annotation-concurrency.bb-truncate-1_timeout 120)
     set(client.annotation-concurrency.bb-truncate-2_expectbase
       "annotation-concurrency.bb-truncate")
     torunonly_ci(client.annotation-concurrency.bb-truncate-2 client.annotation-concurrency
       client.annotation-concurrency.dll client-interface/annotation-concurrency.c
       "truncate@2" "" "${annotation_test_args}")
+    # i#1681: on a many-core machine this test can hit the 1-min timeout
+    set(client.annotation-concurrency.bb-truncate-2_timeout 120)
 
     if (UNIX)
       set(annotation_opt_args "libclient.annotation-concurrency-opt.appdll.so" "A" "4")
@@ -1687,11 +1709,15 @@ if (CLIENT_INTERFACE)
     if (UNIX)
       target_link_libraries(client.annotation-concurrency-opt ${libpthread})
     endif (UNIX)
+    # i#1681: on a many-core machine this test can hit the 1-min timeout
+    set(client.annotation-concurrency-opt_timeout 120)
     set(client.annotation-concurrency-opt.full-decode_expectbase
       "annotation-concurrency.full-decode")
     torunonly_ci(client.annotation-concurrency-opt.full-decode
       client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
       client-interface/annotation-concurrency.c "full-decode" "" "${annotation_opt_args}")
+    # i#1681: on a many-core machine this test can hit the 1-min timeout
+    set(client.annotation-concurrency-opt.full-decode_timeout 120)
 
     tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
       "" "" "")
