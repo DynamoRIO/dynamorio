@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -45,6 +45,7 @@
 #include <stddef.h>
 #ifdef _MSC_VER
 # include <intrin.h>
+# pragma warning( disable : 4100) /* disable "unreferenced formal parameter" warning */
 #endif
 
 #ifndef DYNAMORIO_ANNOTATIONS_X64

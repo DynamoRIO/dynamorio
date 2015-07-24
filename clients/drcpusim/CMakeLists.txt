@@ -101,11 +101,10 @@ register_tool_file("drcpusim")
 add_executable(drcpusim_ops
   optionlist.cpp
   options.cpp)
+set_target_properties(drcpusim_ops PROPERTIES COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
 if (WIN32)
   # ORIG_ doesn't have /EHsc so I'm not sure where it comes from for a regular app?
   append_property_string(TARGET drcpusim_ops COMPILE_FLAGS "/EHsc")
-else ()
-  set_target_properties(drcpusim_ops PROPERTIES COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
 endif ()
 use_DynamoRIO_extension(drcpusim_ops droption)
 

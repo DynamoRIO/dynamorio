@@ -647,6 +647,18 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     # a single one, "simple_app".
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${source})
       add_exe(${test} ${source})
+      # Make sure to avoid using the modified flags which can break msbuild (i#1748).
+      # On Linux this results in some build issues which I did not want to track
+      # down, so we do this only on Windows.
+      if (WIN32)
+        get_source_file_property(src_lang ${source} LANGUAGE)
+        if (src_lang MATCHES CXX)
+          set(tst_flags "${ORIG_CMAKE_CXX_FLAGS}")
+        else ()
+          set(tst_flags "${ORIG_CMAKE_C_FLAGS}")
+        endif ()
+        set_target_properties(${test} PROPERTIES COMPILE_FLAGS "${tst_flags}")
+      endif ()
     else ()
       set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
     endif ()

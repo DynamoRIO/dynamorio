@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -43,6 +43,7 @@ DR_DEFINE_ANNOTATION(unsigned int, test_annotation_get_mode, (unsigned int conte
 DR_DEFINE_ANNOTATION(void, test_annotation_set_mode,
                      (unsigned int context_id, unsigned int mode), )
 
-DR_DEFINE_ANNOTATION(const char *, test_annotation_get_client_version, (void), )
+DR_DEFINE_ANNOTATION(const char *, test_annotation_get_client_version, (void),
+                     return NULL)
 
 DR_DEFINE_ANNOTATION(void, test_annotation_rotate_valgrind_handler, (int phase), )
