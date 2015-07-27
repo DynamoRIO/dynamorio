@@ -4213,11 +4213,15 @@ sub write_source_line(*$$$$$$)
                 $result         = $count;
                 $source_format  = '<span class="lineNoCov">';
                 $count_format   = format_count($count, $count_field_width);
-            } elsif ($converted && defined($highlight)) {
-                $result         = "*".$count;
-                $source_format  = '<span class="lineDiffCov">';
+            } else {
+                $result         = $count;
+                $source_format  = '<span class="lineCov">';
                 $count_format   = format_count($count, $count_field_width);
             }
+        } elsif ($converted && defined($highlight)) {
+            $result         = "*".$count;
+            $source_format  = '<span class="lineDiffCov">';
+            $count_format   = format_count($count, $count_field_width);
         } else {
                 $result         = $count;
                 $source_format  = '<span class="lineCov">';
