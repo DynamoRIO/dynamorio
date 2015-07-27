@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,9 +30,9 @@
  * DAMAGE.
  */
 
-/* main.c
+/* drcov2lcov.cpp
  *
- * Covert client drcov binary format to lcov text format.
+ * Convert client drcov binary format to lcov text format.
  */
 /* TODO:
  * - add other coverage: cbr, function, ...
@@ -238,17 +238,19 @@ typedef struct _line_table_t {
 static line_chunk_t *
 line_chunk_alloc(uint num_lines)
 {
-    line_chunk_t *chunk = malloc(sizeof(*chunk));
+    line_chunk_t *chunk = (line_chunk_t *) malloc(sizeof(*chunk));
     void *line_info;
     ASSERT(chunk != NULL, "Failed to create line chunk\n");
     chunk->num_lines = num_lines;
     ASSERT(SOURCE_LINE_STATUS_NONE == 0, "SOURCE_LINE_STATUS_NONE is not 0");
     if (options.test_pattern != NULL) {
          /* init with NULL */
-        chunk->info.test = line_info = calloc(num_lines, sizeof(chunk->info.test[0]));
+        line_info = calloc(num_lines, sizeof(chunk->info.test[0]));
+        chunk->info.test = (const char **) line_info;
     } else {
         /* init with SOURCE_LINE_STATUS_NONE */
-        chunk->info.exec = line_info = calloc(num_lines, sizeof(chunk->info.exec[0]));
+        line_info = calloc(num_lines, sizeof(chunk->info.exec[0]));
+        chunk->info.exec = (byte *) line_info;
     }
     ASSERT(line_info != NULL, "Failed to alloc line info array\n");
     return chunk;
@@ -309,7 +311,7 @@ line_table_print(line_table_t *line_table, char *start)
     int i;
     line_chunk_t **array, *chunk;
 
-    array = malloc(sizeof(*array) * line_table->num_chunks);
+    array = (line_chunk_t **) malloc(sizeof(*array) * line_table->num_chunks);
     /* We need print the chunks in reverse order, i.e., lower line number first,
      * so we put them into an array and then print them to avoid recursive call.
      */
@@ -336,10 +338,10 @@ line_table_print_buf_size(line_table_t *line_table)
             SOURCE_FILE_END_LINE_SIZE);
 }
 
-static void *
+static line_table_t *
 line_table_create(const char *file)
 {
-    line_table_t *table = malloc(sizeof(*table));
+    line_table_t *table = (line_table_t *) malloc(sizeof(*table));
     line_chunk_t *chunk = line_chunk_alloc(LINE_TABLE_INIT_SIZE);
     ASSERT(table != NULL && chunk != NULL, "Failed to alloc line table");
     table->file       = file;
@@ -618,7 +620,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
     module_table_t *table = (module_table_t *)data;
     if (info != NULL && info->name != NULL &&
         strstr(info->name, options.test_pattern) != NULL) {
-        char *name = malloc(strlen(info->name) + 1);
+        char *name = (char *) malloc(strlen(info->name) + 1);
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
         PRINT(5, "function %s: "PFX"-"PFX"\n",
@@ -653,7 +655,7 @@ module_table_search_testcase(const char *module, module_table_t *table)
         WARN(1, "fail to search testcase in module %s\n", module);
 }
 
-static void *
+static module_table_t *
 module_table_create(const char *module, size_t size)
 {
     module_table_t *table;
@@ -671,12 +673,13 @@ module_table_create(const char *module, size_t size)
          * and we are doing this calloc for all modules simultaneously,
          * so we might use a huge amount of memory!
          */
-        table->bb_table.array = calloc(size, sizeof(char *) /* test name */);
+        table->bb_table.array = (const char **)
+            calloc(size, sizeof(char *) /* test name */);
         ASSERT(table->bb_table.array != NULL, "Failed to create module table");
         module_table_search_testcase(module, table);
     } else {
         /* we use bitmap for bb_table */
-        table->bb_table.bitmap = calloc(1, size/BITS_PER_BYTE);
+        table->bb_table.bitmap = (byte *) calloc(1, size/BITS_PER_BYTE);
         ASSERT(table->bb_table.bitmap != NULL, "Failed to create module table");
     }
     return table;
@@ -691,7 +694,7 @@ module_is_from_tool(const char * path)
 }
 
 static char *
-read_module_list(char *buf, void ***tables, uint *num_mods)
+read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
 {
     char  path[MAXIMUM_PATH];
     uint  i;
@@ -707,7 +710,7 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
 
     /* module lists */
     PRINT(4, "Reading Module Lists\n");
-    *tables = calloc(*num_mods, sizeof(*tables));
+    *tables = (module_table_t **) calloc(*num_mods, sizeof(*tables));
     for (i = 0; i < *num_mods; i++) {
         uint   mod_id;
         uint64 mod_size;
@@ -719,7 +722,7 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
             ASSERT(false, "Failed to read module table");
         buf = move_to_next_line(buf);
         PRINT(5, "Module: %u, "PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
-        mod_table = hashtable_lookup(&module_htable, path);
+        mod_table = (module_table_t *) hashtable_lookup(&module_htable, path);
         if (mod_table == NULL) {
             if (mod_size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
@@ -732,7 +735,7 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
                 (options.mod_skip_filter != NULL &&
                  strstr(path, options.mod_skip_filter) != NULL) ||
                 (!options.include_tool_code && module_is_from_tool(path)))
-                mod_table = MODULE_TABLE_IGNORE;
+                mod_table = (module_table_t *) MODULE_TABLE_IGNORE;
             else
                 mod_table = module_table_create(path, (size_t)mod_size);
             PRINT(4, "Create module table "PFX" for module %s\n",
@@ -747,7 +750,7 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
 }
 
 static bool
-read_bb_list(char *buf, void **tables, uint num_mods, uint num_bbs)
+read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
 {
     uint i;
     bb_entry_t *entry;
@@ -832,7 +835,7 @@ open_input_file(const char *fname, char **map_out OUT,
         return INVALID_FILE;
     }
     *map_size = (size_t)file_size;
-    map = dr_map_file(f, map_size, 0, NULL, DR_MEMPROT_READ, 0);
+    map = (char *) dr_map_file(f, map_size, 0, NULL, DR_MEMPROT_READ, 0);
     if (map == NULL || (size_t)file_size > *map_size) {
         WARN(2, "Failed to map file %s\n", fname);
         dr_close_file(f);
@@ -857,7 +860,7 @@ read_drcov_file(char *input)
     file_t log;
     char  *map, *ptr;
     size_t map_size;
-    void **tables;
+    module_table_t **tables;
     uint   num_mods, num_bbs;
     bool   res;
 
@@ -1044,7 +1047,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         (options.src_skip_filter != NULL &&
          strstr(info->file, options.src_skip_filter) != NULL))
         return true;
-    line_table = hashtable_lookup(&line_htable, (void *)info->file);
+    line_table = (line_table_t *) hashtable_lookup(&line_htable, (void *)info->file);
     if (line_table == NULL) {
         num_line_htable_entries++;
         line_table = line_table_create(info->file);
@@ -1087,7 +1090,7 @@ enumerate_line_info(void)
                 continue;
             if (e->payload == MODULE_TABLE_IGNORE)
                 continue;
-            res = drsym_enumerate_lines(e->key, enum_line_cb, e->payload);
+            res = drsym_enumerate_lines((const char *)e->key, enum_line_cb, e->payload);
             if (res != DRSYM_SUCCESS)
                 WARN(1, "Failed to enumerate lines for %s\n", (char *)e->key);
             res = drsym_free_resources((char *)e->key);
@@ -1109,7 +1112,7 @@ compare_source_file(const void *a_in, const void *b_in)
 {
     hash_entry_t *e1 = *(hash_entry_t **)a_in;
     hash_entry_t *e2 = *(hash_entry_t **)b_in;
-    return strcmp(e1->key, e2->key);
+    return strcmp((const char *)e1->key, (const char *)e2->key);
 }
 
 static bool
@@ -1131,7 +1134,7 @@ write_lcov_output(void)
     }
 
     /* sort them before print */
-    src_array = calloc(line_htable.entries, sizeof(src_array[0]));
+    src_array = (hash_entry_t **) calloc(line_htable.entries, sizeof(src_array[0]));
     for (i = 0; i < HASHTABLE_SIZE(line_htable.table_bits); i++) {
         for (e = line_htable.table[i]; e != NULL; e = e->next) {
             src_array[num_entries] = e;
@@ -1145,20 +1148,20 @@ write_lcov_output(void)
 
     /* print */
     buf_sz = LINE_TABLE_INIT_PRINT_BUF_SIZE;
-    buf = malloc(buf_sz);
+    buf = (char *) malloc(buf_sz);
     ASSERT(buf != NULL, "Failed to alloc print buffer\n");
     for (i = 0; i < num_entries; i++) {
         e = src_array[i];
         PRINT(4, "Writing coverage info for %s\n", (char *)e->key);
         if (line_table_print_buf_size((line_table_t *)e->payload) >= buf_sz) {
             free(buf);
-            buf_sz = line_table_print_buf_size(e->payload);
-            buf = malloc(buf_sz);
+            buf_sz = line_table_print_buf_size((line_table_t *)e->payload);
+            buf = (char *) malloc(buf_sz);
             ASSERT(buf != NULL, "Failed to alloc print buffer\n");
         }
         ptr  = buf;
         ptr += dr_snprintf(ptr, SOURCE_FILE_START_LINE_SIZE, "SF:%s\n", e->key);
-        ptr  = line_table_print(e->payload, ptr);
+        ptr  = line_table_print((line_table_t *)e->payload, ptr);
         ptr += dr_snprintf(ptr, SOURCE_FILE_END_LINE_SIZE, "end_of_record\n");
         dr_write_file(log, buf, ptr - buf);
     }

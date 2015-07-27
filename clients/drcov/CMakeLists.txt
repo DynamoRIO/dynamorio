@@ -76,7 +76,7 @@ endif ()
 
 # add drcov2lcov
 add_executable(drcov2lcov
-  postprocess/main.c
+  postprocess/drcov2lcov.cpp
   # add more here
   )
 # We do want an rpath, which is on by default for standalone
