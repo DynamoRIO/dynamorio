@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -75,7 +75,13 @@ execute_process(COMMAND ${postcmd}
   -dir        ./
   -mod_filter ${test_name}
   -src_filter ${test_name}
-  -output     ${cov_file})
+  -output     ${cov_file}
+  RESULT_VARIABLE cmd_result
+  ERROR_VARIABLE cmd_err
+  OUTPUT_VARIABLE cmd_out)
+if (cmd_result)
+  message(FATAL_ERROR "*** ${postcmd} failed (${cmd_result}): ${cmd_err} ${cmd_out}***\n")
+endif (cmd_result)
 
 file(READ ${cov_file} cov_out)
 

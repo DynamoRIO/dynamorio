@@ -40,10 +40,12 @@
  */
 
 #include "dr_api.h"
+#include "droption.h"
 #include "../drcov.h"
 #include "drsyms.h"
 #include "hashtable.h"
 #include "dr_frontend.h"
+#include <iostream>
 
 #include "../../common/utils.h"
 #undef ASSERT /* we're standalone, so no client assert */
@@ -63,14 +65,14 @@
 #endif
 
 #define PRINT(lvl, ...) do {                                \
-    if (options.verbose >= lvl) {                           \
+    if (op_verbose.get_value() >= lvl) {                    \
         fprintf(stdout, "[DRCOV2LCOV] INFO(%d):    ", lvl); \
         fprintf(stdout, __VA_ARGS__);                       \
     }                                                       \
 } while (0)
 
 #define WARN(lvl, ...) do {                                 \
-    if (options.warning >= lvl) {                           \
+    if (op_warning.get_value() >= lvl) {                    \
         fprintf(stderr, "[DRCOV2LCOV] WARNING(%d): ", lvl); \
         fprintf(stderr, __VA_ARGS__);                       \
     }                                                       \
@@ -101,46 +103,90 @@
 # define DRCOV_LIB_NAME "libdrcov."
 #endif
 
-const char *usage_str =
-    "drcov2lcov: covert drcov file format to lcov file format\n"
-    "usage: drcov2lcov [options]\n"
-    "      -help                              Print this message.\n"
-    "      -verbose <int>                     Verbose level.\n"
-    "      -warning <int>                     Warning level.\n"
-    "      -list <input list file>            The file with a list of drcov files to be processed.\n"
-    "      -dir <input directory>             The directory with all drcov.*.log files to be processed.\n"
-    "      -input <input file>                The single drcov file to be processed.\n"
-    "      -output <output file>              The output file.\n"
-    "      -test_pattern <test name pattern>  Include test coverage information. Note that the output with this option is not compatible with lcov.\n"
-    "      -mod_filter <module filter>        Only process the module whose path contains the filter string.  Only one such filter can be specified.\n"
-    "      -mod_skip_filter <module filter>   Skip processing the module whose path contains the filter string.  Only one such filter can be specified.\n"
-    "      -src_filter <source filter>        Only process the source file whose path contains the filter string.  Only one such filter can be specified.\n"
-    "      -src_skip_filter <source filter>   Skip processing the source file whose path contains the filter string.  Only one such filter can be specified.\n"
-    "      -reduce_set <reduce_set file>      Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n"
-    "      -include_tool_code                 Include execution from the drcov tool libraries themselves, which are normally excluded.\n";
+/***************************************************************************
+ * Options
+ */
+
+static droption_t<std::string> op_input
+(DROPTION_SCOPE_FRONTEND, "input", "", "Single drcov log file to process",
+ "Specifies a single drcov output file for processing.");
+
+static droption_t<std::string> op_dir
+(DROPTION_SCOPE_FRONTEND, "dir", "", "Directory with drcov.*.log files to process",
+ "Specifies a directory within which all drcov.*.log files will be processed.");
+
+static droption_t<std::string> op_list
+(DROPTION_SCOPE_FRONTEND, "list", "", "Text file listing log files to process",
+ "Specifies a text file that contains a list of paths of log files for processing.");
+
+static droption_t<std::string> op_output
+(DROPTION_SCOPE_FRONTEND, "output", DEFAULT_OUTPUT_FILE, "Names the output file",
+ "Specifies the name for the output file.");
+
+static droption_t<std::string> op_test_pattern
+(DROPTION_SCOPE_FRONTEND, "test_pattern", "", "Enable test coverage for this function",
+ "Includes test coverage information in the output file (which means that the output "
+ "is no longer compatible with lcov).  The test coverage information is based on "
+ "matching the function specified in the pattern string.");
+
+static droption_t<std::string> op_mod_filter
+(DROPTION_SCOPE_FRONTEND, "mod_filter", "", "Only include coverage for this library",
+ "Requests that coverage information for all libraries and executables whose paths "
+ "do not contain the given filter string be excluded from the output. "
+ "Only one such filter can be specified.");
+
+static droption_t<std::string> op_mod_skip_filter
+(DROPTION_SCOPE_FRONTEND, "mod_skip_filter", "", "Skip coverage for this library",
+ "Requests that coverage information for all libraries and executables whose paths "
+ "contain the given filter string be excluded from the output. "
+ "Only one such filter can be specified.");
+
+static droption_t<std::string> op_src_filter
+(DROPTION_SCOPE_FRONTEND, "src_filter", "", "Only include coverage for this source",
+ "Requests that coverage information for all sources files whose paths do not "
+ "contain the given filter string be excluded from the output. "
+ "Only one such filter can be specified.");
+
+static droption_t<std::string> op_src_skip_filter
+(DROPTION_SCOPE_FRONTEND, "src_skip_filter", "", "Skip coverage for this source",
+ "Requests that coverage information for all sources files whose paths "
+ "contain the given filter string be excluded from the output. "
+ "Only one such filter can be specified.");
+
+static droption_t<std::string> op_reduce_set
+(DROPTION_SCOPE_FRONTEND, "reduce_set", "", "Output minimal inputs with same coverage",
+ "Results in drcov2lcov identifying a smaller set of log files from the inputs that "
+ "have the same code coverage as the full set.  The smaller set's file paths are "
+ "written to the given output file path.");
+
+static droption_t<bool> op_include_tool
+(DROPTION_SCOPE_FRONTEND, "include_tool_code", false, "Include execution of tool itself",
+ "Requests that execution from the drcov tool libraries themselves be included in the "
+ "coverage output.  Normally such execution is excluded and the output focuses on "
+ "the application only.");
+
+static droption_t<bool> op_help
+(DROPTION_SCOPE_FRONTEND, "help", false, "Print this message",
+ "Prints the usage message.");
+
+static droption_t<unsigned int> op_verbose
+(DROPTION_SCOPE_FRONTEND, "verbose", 1, 0, 64, "Verbosity level",
+ "Verbosity level for informational notifications.");
+
+static droption_t<unsigned int> op_warning
+(DROPTION_SCOPE_FRONTEND, "warning", 1, 0, 64, "Warning level",
+ "Level for enabling progressively less serious warning messages.");
+
+static droption_t<bool> op_help_html
+(DROPTION_SCOPE_FRONTEND, "help_html", DROPTION_FLAG_INTERNAL, false,
+ "Print usage in html",
+ "For internal use.  Prints option usage in a longer html format.");
 
 static char input_file_buf[MAXIMUM_PATH];
 static char input_dir_buf[MAXIMUM_PATH];
 static char input_list_buf[MAXIMUM_PATH];
 static char output_file_buf[MAXIMUM_PATH];
 static char set_file_buf[MAXIMUM_PATH];
-
-typedef struct _option_t {
-    int verbose;
-    int warning;
-    char *input_file;
-    char *input_list;
-    char *input_dir;
-    char *output_file;
-    char *src_filter;
-    char *src_skip_filter;
-    char *mod_filter;
-    char *mod_skip_filter;
-    char *set_file;
-    char *test_pattern; /* i#1465: test cov info */
-    bool include_tool_code;
-} option_t;
-static option_t options;
 
 static file_t set_log = INVALID_FILE;
 
@@ -243,7 +289,7 @@ line_chunk_alloc(uint num_lines)
     ASSERT(chunk != NULL, "Failed to create line chunk\n");
     chunk->num_lines = num_lines;
     ASSERT(SOURCE_LINE_STATUS_NONE == 0, "SOURCE_LINE_STATUS_NONE is not 0");
-    if (options.test_pattern != NULL) {
+    if (op_test_pattern.specified()) {
          /* init with NULL */
         line_info = calloc(num_lines, sizeof(chunk->info.test[0]));
         chunk->info.test = (const char **) line_info;
@@ -259,7 +305,7 @@ line_chunk_alloc(uint num_lines)
 static void
 line_chunk_free(line_chunk_t *chunk)
 {
-    if (options.test_pattern != NULL)
+    if (op_test_pattern.specified())
         free((void *)chunk->info.test); /* cast from "const char **" to "void *" */
     else
         free(chunk->info.exec);
@@ -276,7 +322,7 @@ line_chunk_print(line_chunk_t *chunk, char *start)
          i++, line_num++) {
         res = 0;
         /* only print lines that have test/exec info */
-        if (options.test_pattern != NULL) {
+        if (op_test_pattern.specified()) {
             if (chunk->info.test[i] != NULL) {
                 /* The output for per-line test coverage is something like:
                  * for code being executed within a test:
@@ -406,7 +452,7 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
     for (; chunk != NULL; chunk = chunk->next) {
         if (line >= chunk->first_num) {
             ASSERT(line <= chunk->last_num, "Wrong logic");
-            if (options.test_pattern != NULL) {
+            if (op_test_pattern.specified()) {
                 /* i#1465: add unittest case coverage information in drcov.
                  * Step 3: assocate test info with the source line.
                  */
@@ -491,7 +537,7 @@ module_table_delete(void *p)
     PRINT(3, "Delete module table "PFX"\n", (ptr_uint_t)table);
     if (table != MODULE_TABLE_IGNORE) {
         free(table->bb_table.bitmap);
-        if (options.test_pattern != NULL)
+        if (op_test_pattern.specified())
             hashtable_delete(&table->test_htable);
         free(table);
     }
@@ -591,7 +637,7 @@ module_table_bb_lookup(module_table_t *table, uint addr, const char **info)
      */
     if (table->size <= addr)
         return BB_TABLE_ENTRY_INVALID;
-    if (options.test_pattern != NULL)
+    if (op_test_pattern.specified())
         return bb_array_lookup(table, addr, info);
     else
         return bb_bitmap_lookup(table, addr);
@@ -608,7 +654,7 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
              (ptr_uint_t)table->size,  (ptr_uint_t)table);
         return false;
     }
-    if (options.test_pattern != NULL)
+    if (op_test_pattern.specified())
         return bb_array_add(table, entry);
     else
         return bb_bitmap_add(table, entry);
@@ -619,7 +665,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
 {
     module_table_t *table = (module_table_t *)data;
     if (info != NULL && info->name != NULL &&
-        strstr(info->name, options.test_pattern) != NULL) {
+        strstr(info->name, op_test_pattern.get_value().c_str()) != NULL) {
         char *name = (char *) malloc(strlen(info->name) + 1);
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
@@ -637,7 +683,7 @@ module_table_search_testcase(const char *module, module_table_t *table)
     drsym_error_t symres;
     uint flags = DRSYM_DEMANGLE | DRSYM_DEMANGLE_PDB_TEMPLATES;
 
-    ASSERT(options.test_pattern != NULL, "should not be called");
+    ASSERT(op_test_pattern.specified(), "should not be called");
     hashtable_init_ex(&table->test_htable, TEST_HASH_TABLE_BITS, HASH_INTPTR,
                       false /* strdup */, false /* !synch */, free /* free */,
                       NULL /* hash */, NULL /* cmp */);
@@ -645,7 +691,7 @@ module_table_search_testcase(const char *module, module_table_t *table)
     if (symres != DRSYM_SUCCESS)
         WARN(1, "Module %s does not have symbols\n", module);
 #ifdef WINDOWS
-    symres = drsym_search_symbols_ex(module, options.test_pattern, flags,
+    symres = drsym_search_symbols_ex(module, op_test_pattern.get_value().c_str(), flags,
                                      search_cb, sizeof(drsym_info_t), table);
 #else
     symres = drsym_enumerate_symbols_ex(module, search_cb, sizeof(drsym_info_t),
@@ -665,7 +711,7 @@ module_table_create(const char *module, size_t size)
     ASSERT(table != NULL, "Failed to allocate module table");
     table->size = (size_t)size;
     PRINT(3, "module table %p, %u\n", table, (uint)size);
-    if (options.test_pattern != NULL) {
+    if (op_test_pattern.specified()) {
         /* i#1465: add unittest case coverage information in drcov.
          * Step 1: search test case entries in the module
          */
@@ -730,11 +776,11 @@ read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
              * so these should be case-insensitive on Windows.
              */
             if (strstr(path, "<unknown>") != NULL ||
-                (options.mod_filter != NULL &&
-                 strstr(path, options.mod_filter) == NULL) ||
-                (options.mod_skip_filter != NULL &&
-                 strstr(path, options.mod_skip_filter) != NULL) ||
-                (!options.include_tool_code && module_is_from_tool(path)))
+                (op_mod_filter.specified() &&
+                 strstr(path, op_mod_filter.get_value().c_str()) == NULL) ||
+                (op_mod_skip_filter.specified() &&
+                 strstr(path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
+                (!op_include_tool.get_value() && module_is_from_tool(path)))
                 mod_table = (module_table_t *) MODULE_TABLE_IGNORE;
             else
                 mod_table = module_table_create(path, (size_t)mod_size);
@@ -757,7 +803,7 @@ read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
     bool add_new_bb = false;
 
     PRINT(4, "Reading %u basic blocks\n", num_bbs);
-    if (options.test_pattern != NULL) {
+    if (op_test_pattern.specified()) {
         /* i#1465: add unittest case coverage information in drcov:
          * reset the current test name to be none
          */
@@ -919,14 +965,15 @@ read_drcov_dir(void)
     char path[MAXIMUM_PATH];
     bool found_logs = false;
 
-    PRINT(2, "Reading input directory %s\n", options.input_dir);
-    if ((dir = opendir(options.input_dir)) != NULL) {
+    PRINT(2, "Reading input directory %s\n", input_dir_buf);
+    if ((dir = opendir(input_dir_buf)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (is_drcov_log_file(ent->d_name)) {
                 ASSERT(ent->d_name[0] != '/',
                        "ent->d_name: %s should not be an absolute path\n", ent->d_name);
                 if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path),
-                                "%s/%s", options.input_dir, ent->d_name) <= 0) {
+                                "%s/%s", input_dir_buf,
+                                ent->d_name) <= 0) {
                     WARN(1, "Fail to get full path of log file %s\n", ent->d_name);
                 } else {
                     NULL_TERMINATE_BUFFER(path);
@@ -938,11 +985,11 @@ read_drcov_dir(void)
         closedir (dir);
     } else {
         /* could not open directory */
-        WARN(1, "Failed to open directory %s\n", options.input_dir);
+        WARN(1, "Failed to open directory %s\n", input_dir_buf);
         return false;
     }
     if (!found_logs)
-        WARN(1, "Failed to find log files in dir %s\n", options.input_dir);
+        WARN(1, "Failed to find log files in dir %s\n", input_dir_buf);
     return found_logs;
 }
 #else
@@ -956,7 +1003,7 @@ read_drcov_dir(void)
     bool found_logs = false;
 
     /* append \* to the end */
-    strcpy(path, options.input_dir);
+    strcpy(path, input_dir_buf);
     if (path[strlen(path)-1] == '\\') {
         strcat(path, "*");
         has_sep = true;
@@ -973,7 +1020,7 @@ read_drcov_dir(void)
     do {
         if (!TESTANY(ffd.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) &&
             is_drcov_log_file(ffd.cFileName)) {
-            strcpy(path, options.input_dir);
+            strcpy(path, input_dir_buf);
             if (!has_sep)
                 strcat(path, "\\");
             strcat(path, ffd.cFileName);
@@ -982,7 +1029,7 @@ read_drcov_dir(void)
     } while (FindNextFile(hFind, &ffd) != 0);
     FindClose(hFind);
     if (!found_logs)
-        WARN(1, "Failed to find log files in dir %s\n", options.input_dir);
+        WARN(1, "Failed to find log files in dir %s\n", input_dir_buf);
     return found_logs;
 }
 #endif
@@ -997,10 +1044,10 @@ read_drcov_list(void)
     uint64 file_size;
     bool found_logs = false;
 
-    PRINT(2, "Reading list %s\n", options.input_list);
-    list = open_input_file(options.input_list, &map, &map_size, &file_size);
+    PRINT(2, "Reading list %s\n", input_list_buf);
+    list = open_input_file(input_list_buf, &map, &map_size, &file_size);
     if (list == INVALID_FILE) {
-        WARN(1, "Failed to read list %s\n", options.input_list);
+        WARN(1, "Failed to read list %s\n", input_list_buf);
         return false;
     }
     /* process each file in the list */
@@ -1014,7 +1061,7 @@ read_drcov_list(void)
     }
     close_input_file(list, map, map_size);
     if (!found_logs)
-        WARN(1, "Failed to find log files on list %s\n", options.input_list);
+        WARN(1, "Failed to find log files on list %s\n", input_list_buf);
     return found_logs;
 }
 
@@ -1022,11 +1069,11 @@ static bool
 read_drcov_input(void)
 {
     bool res = true;
-    if (options.input_file != NULL)
-        res = read_drcov_file(options.input_file) && res;
-    if (options.input_list != NULL)
+    if (op_input.specified())
+        res = read_drcov_file(input_file_buf) && res;
+    if (op_list.specified())
         res = read_drcov_list() && res;
-    if (options.input_dir  != NULL)
+    if (op_dir.specified())
         res = read_drcov_dir() && res;
     return res;
 }
@@ -1042,10 +1089,10 @@ enum_line_cb(drsym_line_info_t *info, void *data)
      * so these should be case-insensitive on Windows.
      */
     if (info->file == NULL ||
-        (options.src_filter != NULL &&
-         strstr(info->file, options.src_filter) == NULL) ||
-        (options.src_skip_filter != NULL &&
-         strstr(info->file, options.src_skip_filter) != NULL))
+        (op_src_filter.specified() &&
+         strstr(info->file, op_src_filter.get_value().c_str()) == NULL) ||
+        (op_src_skip_filter.specified() &&
+         strstr(info->file, op_src_skip_filter.get_value().c_str()) != NULL))
         return true;
     line_table = (line_table_t *) hashtable_lookup(&line_htable, (void *)info->file);
     if (line_table == NULL) {
@@ -1125,11 +1172,11 @@ write_lcov_output(void)
     char *buf, *ptr;
     size_t buf_sz;
 
-    PRINT(2, "Writing output lcov file: %s\n", options.output_file);
-    log = dr_open_file(options.output_file,
+    PRINT(2, "Writing output lcov file: %s\n", output_file_buf);
+    log = dr_open_file(output_file_buf,
                        DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     if (log == INVALID_FILE) {
-        ASSERT(false, "Failed to open output file %s\n", options.output_file);
+        ASSERT(false, "Failed to open output file %s\n", output_file_buf);
         return false;
     }
 
@@ -1175,134 +1222,86 @@ write_lcov_output(void)
  * Options Handling
  */
 
-static bool
-option_init(int argc, char *argv[])
+static void
+print_usage()
 {
-    int i;
-    if (argc == 1)
+    fprintf(stderr, "drcov2lcov: convert drcov file format to lcov file format\n");
+    fprintf(stderr, "usage: drcov2lcov [options]\n%s",
+             droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+}
+
+static bool
+option_init(int argc, const char *argv[])
+{
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv,
+                                       &parse_err, NULL)) {
+        WARN(0, "Usage error: %s\n", parse_err.c_str());
+        print_usage();
         return false;
-    options.verbose = 1;
-    options.warning = 1;
-    for (i = 1; i < argc; i++) {
-        char *ops = argv[i];
-        PRINT(4, "options: %s\n", ops);
-        if (ops[0] == '-' && ops[1] == '-')
-            ops++;
-        if (strcmp(ops, "-help") == 0)
-            return false;
-        if (strcmp(ops, "-input") == 0) {
-            if (++i >= argc)
-                return false;
-            options.input_file = argv[i];
-        } else if (strcmp(ops, "-list") == 0) {
-            if (++i >= argc)
-                return false;
-            options.input_list = argv[i];
-        } else if (strcmp(ops, "-dir") == 0) {
-            if (++i >= argc)
-                return false;
-            options.input_dir = argv[i];
-        } else if (strcmp(ops, "-output") == 0) {
-            if (++i >= argc)
-                return false;
-            options.output_file = argv[i];
-        } else if (strcmp(ops, "-src_filter") == 0) {
-            if (++i >= argc)
-                return false;
-            options.src_filter = argv[i];
-        } else if (strcmp(ops, "-src_skip_filter") == 0) {
-            if (++i >= argc)
-                return false;
-            options.src_skip_filter = argv[i];
-        } else if (strcmp(ops, "-mod_filter") == 0) {
-            if (++i >= argc)
-                return false;
-            options.mod_filter = argv[i];
-        } else if (strcmp(ops, "-mod_skip_filter") == 0) {
-            if (++i >= argc)
-                return false;
-            options.mod_skip_filter = argv[i];
-        } else if (strcmp(ops, "-reduce_set") == 0) {
-            if (++i >= argc)
-                return false;
-            options.set_file = argv[i];
-        } else if (strcmp(ops, "-include_tool_code") == 0) {
-            options.include_tool_code = true;
-        } else if (strcmp(ops, "-verbose") == 0) {
-            char *end;
-            long int res;
-            if (++i >= argc)
-                return false;
-            res = strtol(argv[i], &end, 10);
-            if (res == LONG_MAX || res < 0)
-                WARN(1, "Wrong verbose level, use %d instead\n", options.verbose);
-            else
-                options.verbose = res;
-        } else if (strcmp(ops,  "-warning") == 0) {
-            char *end;
-            long int res;
-            if (++i >= argc)
-                return false;
-            res = strtol(argv[i], &end, 10);
-            if (res == LONG_MAX || res < 0)
-                WARN(1, "Wrong warning level, use %d instead\n", options.warning);
-            else
-                options.warning = res;
-        } else if (strcmp(ops, "-test_pattern") == 0) {
-            if (++i >= argc)
-                return false;
-            options.test_pattern = argv[i];
-        }
+    }
+    if (op_help_html.specified()) {
+        std::cout << droption_parser_t::usage_long(DROPTION_SCOPE_ALL,
+                                                   "- <b>", "</b>\n",
+                                                   "  <br><i>", "</i>\n",
+                                                   "  <br>", "\n")
+                  << std::endl;
+        exit(0);
+    }
+    if (op_help.specified() ||
+        (!op_input.specified() && !op_dir.specified() && !op_list.specified())) {
+        print_usage();
+        return false;
     }
 
-    if (options.input_file != NULL) {
-        if (drfront_get_absolute_path(options.input_file,
+    if (op_input.specified()) {
+        if (drfront_get_absolute_path(op_input.get_value().c_str(),
                                       input_file_buf,
                                       BUFFER_SIZE_ELEMENTS(input_file_buf)) !=
             DRFRONT_SUCCESS) {
-            WARN(1, "Failed to get full path of input file %s\n", options.input_file);
+            WARN(1, "Failed to get full path of input file %s\n",
+                 op_input.get_value().c_str());
             return false;
         }
         NULL_TERMINATE_BUFFER(input_file_buf);
-        options.input_file = input_file_buf;
-        PRINT(2, "Input file: %s\n", options.input_file);
+        PRINT(2, "Input file: %s\n", input_file_buf);
     }
 
-    if (options.input_list != NULL) {
-        if (drfront_get_absolute_path(options.input_list,
+    if (op_list.specified()) {
+        if (drfront_get_absolute_path(op_list.get_value().c_str(),
                                       input_list_buf,
                                       BUFFER_SIZE_ELEMENTS(input_list_buf)) !=
             DRFRONT_SUCCESS) {
-            WARN(1, "Failed to get full path of input list %s\n", options.input_list);
+            WARN(1, "Failed to get full path of input list %s\n",
+                 op_list.get_value().c_str());
             return false;
         }
         NULL_TERMINATE_BUFFER(input_list_buf);
-        options.input_list = input_list_buf;
-        PRINT(2, "Input list: %s\n", options.input_list);
+        PRINT(2, "Input list: %s\n", input_list_buf);
     }
 
-    if (options.input_dir != NULL ||
-        (options.input_file == NULL && options.input_list == NULL)) {
-        char *input_dir;
-        if (options.input_dir == NULL)
-            WARN(1, "Missing input, use current directory instead\n");
-        input_dir = options.input_dir == NULL ? (char *)"./" : options.input_dir;
-        if (drfront_get_absolute_path(input_dir,
+    if (op_dir.specified() || (!op_input.specified() && !op_list.specified())) {
+        std::string input_dir; /* don't use a local char* as c_str() will evaporate */
+        if (!op_dir.specified()) {
+            WARN(1, "Missing input, using current directory instead\n");
+            input_dir = "./";
+        } else
+            input_dir = op_dir.get_value();
+        if (drfront_get_absolute_path(input_dir.c_str(),
                                       input_dir_buf,
                                       BUFFER_SIZE_ELEMENTS(input_dir_buf)) !=
             DRFRONT_SUCCESS) {
-            WARN(1, "Failed to get full path of input dir %s\n", input_dir);
+            WARN(1, "Failed to get full path of input dir |%s|\n", input_dir.c_str());
             return false;
         }
         NULL_TERMINATE_BUFFER(input_dir_buf);
-        options.input_dir = input_dir_buf;
-        PRINT(2, "Input dir: %s\n", options.input_dir);
+        PRINT(2, "Input dir: %s\n", input_dir_buf);
     }
 
-    if (options.output_file == NULL)
-        WARN(1, "Missing output, use %s instead\n", DEFAULT_OUTPUT_FILE);
-    if (drfront_get_absolute_path(options.output_file == NULL ?
-                                  DEFAULT_OUTPUT_FILE : options.output_file,
+    if (!op_output.specified())
+        WARN(1, "No output file name specified: using default %s\n", DEFAULT_OUTPUT_FILE);
+    if (drfront_get_absolute_path(!op_output.specified() ? DEFAULT_OUTPUT_FILE :
+                                  op_output.get_value().c_str(),
                                   output_file_buf,
                                   BUFFER_SIZE_ELEMENTS(output_file_buf)) !=
         DRFRONT_SUCCESS) {
@@ -1310,11 +1309,10 @@ option_init(int argc, char *argv[])
         return false;
     }
     NULL_TERMINATE_BUFFER(output_file_buf);
-    options.output_file = output_file_buf;
-    PRINT(2, "Output file: %s\n", options.output_file);
+    PRINT(2, "Output file: %s\n", output_file_buf);
 
-    if (options.set_file != NULL) {
-        if (drfront_get_absolute_path(options.set_file,
+    if (op_reduce_set.specified()) {
+        if (drfront_get_absolute_path(op_reduce_set.get_value().c_str(),
                                       set_file_buf,
                                       BUFFER_SIZE_ELEMENTS(set_file_buf)) !=
             DRFRONT_SUCCESS) {
@@ -1322,11 +1320,10 @@ option_init(int argc, char *argv[])
             return false;
         }
         NULL_TERMINATE_BUFFER(set_file_buf);
-        options.set_file = set_file_buf;
-        PRINT(2, "Reduced set file: %s\n", options.set_file);
-        set_log = dr_open_file(options.set_file, DR_FILE_WRITE_REQUIRE_NEW);
+        PRINT(2, "Reduced set file: %s\n", set_file_buf);
+        set_log = dr_open_file(set_file_buf, DR_FILE_WRITE_REQUIRE_NEW);
         if (set_log == INVALID_FILE) {
-            ASSERT(false, "Failed to open reduce set output file %s\n", options.set_file);
+            ASSERT(false, "Failed to open reduce set output file %s\n", set_file_buf);
             return false;
         }
     }
@@ -1338,12 +1335,10 @@ option_init(int argc, char *argv[])
  */
 
 int
-main(int argc, char *argv[])
+main(int argc, const char *argv[])
 {
-    if (!option_init(argc, argv)) {
-        ASSERT(false, "%s\n", usage_str);
+    if (!option_init(argc, argv))
         return 1;
-    }
 
     dr_standalone_init();
     if (drsym_init(IF_WINDOWS_ELSE(NULL, 0)) != DRSYM_SUCCESS) {

@@ -32,8 +32,9 @@
 # * src
 # * dst
 # * prog = the app that spits out the option list
+# * prog_arg = arg to app, if any
 
-execute_process(COMMAND ${prog}
+execute_process(COMMAND ${prog} ${prog_arg}
   RESULT_VARIABLE prog_result
   ERROR_VARIABLE prog_err
   OUTPUT_VARIABLE prog_out

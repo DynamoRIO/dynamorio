@@ -83,6 +83,7 @@ add_executable(drcov2lcov
 configure_DynamoRIO_standalone(drcov2lcov)
 use_DynamoRIO_extension(drcov2lcov drsyms_static)
 use_DynamoRIO_extension(drcov2lcov drcontainers)
+use_DynamoRIO_extension(drcov2lcov droption)
 target_link_libraries(drcov2lcov drfrontendlib)
 
 if (ANDROID)
@@ -138,6 +139,12 @@ if (WIN32)
   if (dbghelp_path)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_CLIENTS_BIN})
   endif ()
+  # for build dir
+  add_custom_command(TARGET drcov2lcov POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
+    VERBATIM)
 endif (WIN32)
 
 set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})
@@ -180,3 +187,35 @@ DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCOV_CONFIG})
 DR_install(FILES "${CONFIG_INSTALL}" RENAME "${CONFIG_LEGACY}" DESTINATION
   ${INSTALL_DRCOV_CONFIG})
 register_tool_file("drcov")
+
+##################################################
+# Documentation
+
+# We auto-generate the list of options in the html docs by running a helper app.
+# To avoid having a separate options.h, our helper here is drcov2locv itself when
+# passed a special flag.
+get_target_property(ops_path drcov2lcov LOCATION${location_suffix})
+
+# We then have to insert it into the doxygen files at build time:
+set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcov.dox.in)
+set(gendoc ${CMAKE_CURRENT_BINARY_DIR}/drcov.dox)
+set(doctgt drcov_docs)
+
+get_property(dox_extras GLOBAL PROPERTY DynamoRIO_dox_extras)
+set_property(GLOBAL PROPERTY DynamoRIO_dox_extras ${dox_extras} ${gendoc})
+
+get_property(dox_targets GLOBAL PROPERTY DynamoRIO_dox_targets)
+set_property(GLOBAL PROPERTY DynamoRIO_dox_targets ${dox_targets} ${doctgt})
+
+add_custom_target(${doctgt} DEPENDS ${gendoc})
+add_custom_command(
+  OUTPUT ${gendoc}
+  DEPENDS ${srcdoc}
+  drcov2lcov
+  COMMAND ${CMAKE_COMMAND}
+  ARGS -D src=${srcdoc}
+       -D dst=${gendoc}
+       -D prog=${ops_path}
+       -D prog_arg=-help_html
+       -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
+  VERBATIM)
