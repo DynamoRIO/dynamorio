@@ -83,6 +83,11 @@ typedef enum {
      * The scope of an option with this flag is ignored.
      */
     DROPTION_FLAG_SWEEP          = 0x0002,
+    /**
+     * Indicates that this is an internal option and should be excluded from
+     * usage messages and documentation.
+     */
+    DROPTION_FLAG_INTERNAL       = 0x0004,
 } droption_flags_t;
 
 /**
@@ -237,7 +242,8 @@ class droption_parser_t
              opi != allops().end();
              ++opi) {
             droption_parser_t *op = *opi;
-            if (TESTANY(scope, op->scope)) {
+            if (!TESTALL(DROPTION_FLAG_INTERNAL, op->flags) &&
+                TESTANY(scope, op->scope)) {
                 oss << " -" << std::setw(20) << std::left << op->name
                     << "[" << std::setw(6) << std::right
                     << op->default_as_string() << "]"
@@ -264,7 +270,8 @@ class droption_parser_t
              ++opi) {
             droption_parser_t *op = *opi;
             // XXX: we should also add the min and max values
-            if (TESTANY(scope, op->scope)) {
+            if (!TESTALL(DROPTION_FLAG_INTERNAL, op->flags) &&
+                TESTANY(scope, op->scope)) {
                 oss << pre_name << "-" << op->name << post_name
                     << pre_value << "default value: "
                     << op->default_as_string() << post_value
@@ -342,7 +349,7 @@ template <typename T> class droption_t : public droption_parser_t
         minval(minval_), maxval(maxval_) {}
 
     /** Returns the value of this option. */
-    T get_value() { return value; }
+    T get_value() const { return value; }
 
  protected:
     bool clamp_value()
