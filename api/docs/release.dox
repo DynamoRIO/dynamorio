@@ -238,6 +238,7 @@ Further non-compatibility-affecting changes include:
    and the #droption_t class.
  - Added drwrap_redirect_execution().
  - Added a new sample client, named ssljack.
+ - Added the -pathmap option to the post-processor for \ref page_drcov.
 
 **************************************************
 <hr>

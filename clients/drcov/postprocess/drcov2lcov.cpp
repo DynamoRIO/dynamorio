@@ -159,6 +159,12 @@ static droption_t<std::string> op_reduce_set
  "have the same code coverage as the full set.  The smaller set's file paths are "
  "written to the given output file path.");
 
+static droption_t<twostring_t> op_pathmap
+(DROPTION_SCOPE_FRONTEND, "pathmap", 0, twostring_t("",""), "Map library to local path",
+ "Takes two values: the first specifies the library path to look for in each drcov "
+ "log file and the second specifies the path to replace it with before looking "
+ "for debug information for that library.  Only one path is currently supported.");
+
 static droption_t<bool> op_include_tool
 (DROPTION_SCOPE_FRONTEND, "include_tool_code", false, "Include execution of tool itself",
  "Requests that execution from the drcov tool libraries themselves be included in the "
@@ -742,8 +748,10 @@ module_is_from_tool(const char * path)
 static char *
 read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
 {
-    char  path[MAXIMUM_PATH];
-    uint  i;
+    char path[MAXIMUM_PATH];
+    const char *modpath = path;
+    char subst[MAXIMUM_PATH];
+    uint i;
 
     PRINT(3, "Reading module table...\n");
     /* module table header */
@@ -782,12 +790,29 @@ read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
                  strstr(path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
                 (!op_include_tool.get_value() && module_is_from_tool(path)))
                 mod_table = (module_table_t *) MODULE_TABLE_IGNORE;
-            else
-                mod_table = module_table_create(path, (size_t)mod_size);
+            else {
+                if (op_pathmap.specified()) {
+                    const char *tofind = op_pathmap.get_value().first.c_str();
+                    const char *match = strstr(path, tofind);
+                    if (match != NULL) {
+                        if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst),
+                                        "%.*s%s%s", match - path, path,
+                                        op_pathmap.get_value().second.c_str(),
+                                        match + strlen(tofind)) <= 0) {
+                            WARN(1, "Failed to replace %s in %s\n", tofind, path);
+                        } else {
+                            NULL_TERMINATE_BUFFER(subst);
+                            PRINT(2, "Substituting |%s| for |%s|\n", subst, path);
+                            modpath = subst;
+                        }
+                    }
+                }
+                mod_table = module_table_create(modpath, (size_t)mod_size);
+            }
             PRINT(4, "Create module table "PFX" for module %s\n",
-                  (ptr_uint_t)mod_table, path);
+                  (ptr_uint_t)mod_table, modpath);
             num_module_htable_entries++;
-            if (!hashtable_add(&module_htable, path, mod_table))
+            if (!hashtable_add(&module_htable, (void *)modpath, mod_table))
                 ASSERT(false, "Failed to add new module");
         }
         (*tables)[i] = mod_table;

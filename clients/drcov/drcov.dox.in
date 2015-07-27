@@ -69,6 +69,13 @@ Here is an example of post-processing a single log file:
 tools/bin64/drcov2lcov -input drcov.myapp.30239.0000.proc.log
 \endcode
 
+When post-processing a log file created on another machine, use the \p
+-pathmap option:
+
+\code
+tools/bin32/drcov2lcov -input drcov.myapp.30239.0000.proc.log -pathmap /data/local/tmp/ /home/derek/android/
+\endcode
+
 The command line options for \p drcov2lcov are as follows:
 
 REPLACEME_WITH_OPTION_LIST
