@@ -3843,6 +3843,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
 #ifdef CHECK_RETURNS_SSE2
+        /* There are SSE and SSE2 instrs that operate on MMX instead of XMM, but
+         * we perform a simple coarse-grain check here.
+         */
         else if (instr_is_sse_or_sse2(bb->instr)) {
             FATAL_USAGE_ERROR(CHECK_RETURNS_SSE2_XMM_USED, 2,
                               get_application_name(), get_application_pid());

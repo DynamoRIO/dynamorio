@@ -2109,7 +2109,20 @@ bool
 instr_is_mmx(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr is part of Intel's SSE or SSE2 instructions. */
+/** Returns true iff \p instr is part of Intel's SSE instructions. */
+bool
+instr_is_sse(instr_t *instr);
+
+DR_API
+/** Returns true iff \p instr is part of Intel's SSE2 instructions. */
+bool
+instr_is_sse2(instr_t *instr);
+
+DR_API
+/**
+ * Returns true iff \p instr is part of Intel's SSE or SSE2 instructions.
+ * \deprecated Use instr_is_sse() combined with instr_is_sse2() instead.
+ */
 bool
 instr_is_sse_or_sse2(instr_t *instr);
 

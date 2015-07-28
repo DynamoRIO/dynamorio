@@ -900,51 +900,251 @@ instr_saves_float_pc(instr_t *instr)
             op == OP_fxsave64 || op == OP_xsave64 || op == OP_xsaveopt64);
 }
 
-bool
+static bool
 opcode_is_mmx(int op)
 {
-    /* WARNING -- assumes things about order of OP_ constants */
-    return ((op >= OP_punpcklbw && op <= OP_packssdw) || /* both */
-            (op >= OP_movd && op <= OP_movq) || /* both */
-            op == OP_pshufw || /* mmx */
-            (op >= OP_pcmpeqb && op <= OP_pcmpeqd) || /* both */
-            op == OP_emms || /* mmx */
-            (op >= OP_pinsrw && op <= OP_pmulhw && op != OP_bswap) || /* both */
-            (op >= OP_psubsb && op <= OP_psadbw) || /* both */
-            (op >= OP_psubb && op <= OP_paddd) || /* both */
-            op == OP_fxsave32 || op == OP_fxrstor32 || /* both */
-            op == OP_fxsave64 || op == OP_fxrstor64); /* both */
-}
-
-bool
-opcode_is_sse_or_sse2(int op)
-{
-    /* WARNING -- assumes things about order of OP_ constants */
-    return (op == OP_movntps || op == OP_movntpd || /* sse */
-            (op >= OP_punpcklbw && op <= OP_packssdw) || /* both */
-            (op >= OP_punpcklqdq && op <= OP_punpckhqdq) || /* sse */
-            (op >= OP_movd && op <= OP_movq) || /* both */
-            (op >= OP_pshufd && op <= OP_pshuflw) || /* sse */
-            (op >= OP_pcmpeqb && op <= OP_pcmpeqd) || /* both */
-            op == OP_movnti || /* sse */
-            (op >= OP_pinsrw && op <= OP_pmulhw && op != OP_bswap) || /* both */
-            op == OP_movntq || op == OP_movntdq || /* sse */
-            (op >= OP_psubsb && op <= OP_psadbw) || /* both */
-            op == OP_maskmovq || /* introduced in sse, operates on mmx */
-            op == OP_maskmovdqu || /* sse */
-            (op >= OP_psubb && op <= OP_paddd) || /* both */
-            (op >= OP_psrldq && op <= OP_pslldq) || /* sse */
-            op == OP_fxsave32 || op == OP_fxrstor32 || /* both */
-            op == OP_fxsave64 || op == OP_fxrstor64 || /* both */
-            (op >= OP_ldmxcsr && op <= OP_prefetcht2) || /* sse */
-            (op >= OP_movups && op <= OP_cvtpd2dq) || /* sse */
-            op == OP_pause); /* sse2 */
+    switch (op) {
+    case OP_emms:
+    case OP_movd:
+    case OP_movq:
+    case OP_packssdw:
+    case OP_packsswb:
+    case OP_packuswb:
+    case OP_paddb:
+    case OP_paddw:
+    case OP_paddd:
+    case OP_paddsb:
+    case OP_paddsw:
+    case OP_paddusb:
+    case OP_paddusw:
+    case OP_pand:
+    case OP_pandn:
+    case OP_por:
+    case OP_pxor:
+    case OP_pcmpeqb:
+    case OP_pcmpeqw:
+    case OP_pcmpeqd:
+    case OP_pcmpgtb:
+    case OP_pcmpgtw:
+    case OP_pcmpgtd:
+    case OP_pmaddwd:
+    case OP_pmulhw:
+    case OP_pmullw:
+    case OP_psllw:
+    case OP_pslld:
+    case OP_psllq:
+    case OP_psrad:
+    case OP_psraw:
+    case OP_psrlw:
+    case OP_psrld:
+    case OP_psrlq:
+    case OP_psubb:
+    case OP_psubw:
+    case OP_psubd:
+    case OP_psubsb:
+    case OP_psubsw:
+    case OP_psubusb:
+    case OP_psubusw:
+    case OP_punpckhbw:
+    case OP_punpckhwd:
+    case OP_punpckhdq:
+    case OP_punpcklbw:
+    case OP_punpckldq:
+    case OP_punpcklwd:
+        return true;
+    default:
+        return false;
+    }
 }
 
 static bool
-type_is_sse(int type)
+opcode_is_sse(int op)
 {
-    return (type == TYPE_V || type == TYPE_W || type == TYPE_V_MODRM);
+    switch (op) {
+    case OP_addps:
+    case OP_addss:
+    case OP_andnps:
+    case OP_andps:
+    case OP_cmpps:
+    case OP_cmpss:
+    case OP_comiss:
+    case OP_cvtpi2ps:
+    case OP_cvtps2pi:
+    case OP_cvtsi2ss:
+    case OP_cvtss2si:
+    case OP_cvttps2pi:
+    case OP_cvttss2si:
+    case OP_divps:
+    case OP_divss:
+    case OP_ldmxcsr:
+    case OP_maskmovq:
+    case OP_maxps:
+    case OP_maxss:
+    case OP_minps:
+    case OP_minss:
+    case OP_movaps:
+    case OP_movhps: /* == OP_movlhps */
+    case OP_movlps: /* == OP_movhlps */
+    case OP_movmskps:
+    case OP_movntps:
+    case OP_movntq:
+    case OP_movss:
+    case OP_movups:
+    case OP_mulps:
+    case OP_mulss:
+    case OP_nop_modrm:
+    case OP_orps:
+    case OP_pavgb:
+    case OP_pavgw:
+    case OP_pextrw:
+    case OP_pinsrw:
+    case OP_pmaxsw:
+    case OP_pmaxub:
+    case OP_pminsw:
+    case OP_pminub:
+    case OP_pmovmskb:
+    case OP_pmulhuw:
+    case OP_prefetchnta:
+    case OP_prefetcht0:
+    case OP_prefetcht1:
+    case OP_prefetcht2:
+    case OP_psadbw:
+    case OP_pshufw:
+    case OP_rcpps:
+    case OP_rcpss:
+    case OP_rsqrtps:
+    case OP_rsqrtss:
+    case OP_sfence:
+    case OP_shufps:
+    case OP_sqrtps:
+    case OP_sqrtss:
+    case OP_stmxcsr:
+    case OP_subps:
+    case OP_subss:
+    case OP_ucomiss:
+    case OP_unpckhps:
+    case OP_unpcklps:
+    case OP_xorps:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool
+opcode_is_new_in_sse2(int op)
+{
+    switch (op) {
+    case OP_addpd:
+    case OP_addsd:
+    case OP_andnpd:
+    case OP_andpd:
+    case OP_clflush: /* has own cpuid bit */
+    case OP_cmppd:
+    case OP_cmpsd:
+    case OP_comisd:
+    case OP_cvtdq2pd:
+    case OP_cvtdq2ps:
+    case OP_cvtpd2dq:
+    case OP_cvtpd2pi:
+    case OP_cvtpd2ps:
+    case OP_cvtpi2pd:
+    case OP_cvtps2dq:
+    case OP_cvtps2pd:
+    case OP_cvtsd2si:
+    case OP_cvtsd2ss:
+    case OP_cvtsi2sd:
+    case OP_cvtss2sd:
+    case OP_cvttpd2dq:
+    case OP_cvttpd2pi:
+    case OP_cvttps2dq:
+    case OP_cvttsd2si:
+    case OP_divpd:
+    case OP_divsd:
+    case OP_maskmovdqu:
+    case OP_maxpd:
+    case OP_maxsd:
+    case OP_minpd:
+    case OP_minsd:
+    case OP_movapd:
+    case OP_movdq2q:
+    case OP_movdqa:
+    case OP_movdqu:
+    case OP_movhpd:
+    case OP_movlpd:
+    case OP_movmskpd:
+    case OP_movntdq:
+    case OP_movntpd:
+    case OP_movnti:
+    case OP_movq2dq:
+    case OP_movsd:
+    case OP_movupd:
+    case OP_mulpd:
+    case OP_mulsd:
+    case OP_orpd:
+    case OP_paddq:
+    case OP_pmuludq:
+    case OP_pshufd:
+    case OP_pshufhw:
+    case OP_pshuflw:
+    case OP_pslldq:
+    case OP_psrldq:
+    case OP_psubq:
+    case OP_punpckhqdq:
+    case OP_punpcklqdq:
+    case OP_shufpd:
+    case OP_sqrtpd:
+    case OP_sqrtsd:
+    case OP_subpd:
+    case OP_subsd:
+    case OP_ucomisd:
+    case OP_unpckhpd:
+    case OP_unpcklpd:
+    case OP_xorpd:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool
+opcode_is_widened_in_sse2(int op)
+{
+    switch (op) {
+    case OP_pavgb:
+    case OP_pavgw:
+    case OP_pextrw:
+    case OP_pinsrw:
+    case OP_pmaxsw:
+    case OP_pmaxub:
+    case OP_pminsw:
+    case OP_pminub:
+    case OP_pmovmskb:
+    case OP_pmulhuw:
+    case OP_psadbw:
+        return true;
+    default:
+        return opcode_is_mmx(op) && op != OP_emms;
+    }
+}
+
+static bool
+instr_has_xmm_opnd(instr_t *instr)
+{
+    int i;
+    opnd_t opnd;
+    CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_16_bits: invalid opnds");
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(opnd) && reg_is_xmm(opnd_get_reg(opnd)))
+            return true;
+    }
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        opnd = instr_get_src(instr, i);
+        if (opnd_is_reg(opnd) && reg_is_xmm(opnd_get_reg(opnd)))
+            return true;
+    }
+    return false;
 }
 
 bool
@@ -952,30 +1152,43 @@ instr_is_mmx(instr_t *instr)
 {
     int op = instr_get_opcode(instr);
     if (opcode_is_mmx(op)) {
-        if (opcode_is_sse_or_sse2(op)) {
-            const instr_info_t * info;
-            CLIENT_ASSERT(instr_operands_valid(instr), "instr_is_mmx: invalid opnds");
-            info = get_encoding_info(instr);
-            if (type_is_sse(info->dst1_type) || type_is_sse(info->dst2_type) ||
-                type_is_sse(info->src1_type) || type_is_sse(info->src2_type) ||
-                type_is_sse(info->src3_type))
-                return false;
-        }
+        /* SSE2 extends SSE and MMX integer opcodes */
+        if (opcode_is_widened_in_sse2(op))
+            return !instr_has_xmm_opnd(instr);
         return true;
     }
     return false;
 }
 
 bool
-instr_is_sse_or_sse2(instr_t *instr)
+instr_is_sse(instr_t *instr)
 {
     int op = instr_get_opcode(instr);
-    if (opcode_is_sse_or_sse2(op)) {
-        if (opcode_is_mmx(op)) {
-        }
+    if (opcode_is_sse(op)) {
+        /* SSE2 extends SSE and MMX integer opcodes */
+        if (opcode_is_widened_in_sse2(op))
+            return !instr_has_xmm_opnd(instr);
         return true;
     }
     return false;
+}
+
+bool
+instr_is_sse2(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    if (opcode_is_new_in_sse2(op))
+        return true;
+    /* SSE2 extends SSE and MMX integer opcodes */
+    if (opcode_is_widened_in_sse2(op))
+        return instr_has_xmm_opnd(instr);
+    return false;
+}
+
+bool
+instr_is_sse_or_sse2(instr_t *instr)
+{
+    return instr_is_sse(instr) || instr_is_sse2(instr);
 }
 
 bool

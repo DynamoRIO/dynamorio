@@ -456,26 +456,26 @@ instr_saves_float_pc(instr_t *instr)
 }
 
 bool
-opcode_is_mmx(int op)
-{
-    /* XXX i#1551: add opcode_is_multimedia() (include packed data in GPR's?) */
-    return false;
-}
-
-bool
-opcode_is_sse_or_sse2(int op)
-{
-    return false;
-}
-
-bool
 instr_is_mmx(instr_t *instr)
 {
+    /* XXX i#1551: add instr_is_multimedia() (include packed data in GPR's?) */
     return false;
 }
 
 bool
 instr_is_sse_or_sse2(instr_t *instr)
+{
+    return false;
+}
+
+bool
+instr_is_sse(instr_t *instr)
+{
+    return false;
+}
+
+bool
+instr_is_sse2(instr_t *instr)
 {
     return false;
 }
