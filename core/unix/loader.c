@@ -498,6 +498,13 @@ privload_process_imports(privmod_t *mod)
             name = strtab + dyn->d_un.d_val;
             LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n",
                 __FUNCTION__, mod->name, name);
+#ifdef ANDROID
+            /* FIXME i#1701: support Android libc, which requires special init
+             * from the loader.
+             */
+            CLIENT_ASSERT(strcmp(name, "libc.so") != 0,
+                          "client using libc not yet supported on Android");
+#endif
             if (privload_lookup(name) == NULL) {
                 privmod_t *impmod = privload_locate_and_load(name, mod,
                                                              false/*client dir=>true*/);
