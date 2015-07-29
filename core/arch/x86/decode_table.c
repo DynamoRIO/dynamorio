@@ -1084,6 +1084,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vfnmsub231ss  */  &vex_W_extensions[29][0],
     /* OP_vfnmsub231sd  */  &vex_W_extensions[29][1],
 
+    /* SSE2 that were omitted before */
     /* OP_movq2dq       */  &prefix_extensions[61][1],
     /* OP_movdq2q       */  &prefix_extensions[61][3],
 

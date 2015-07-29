@@ -53,6 +53,9 @@ static bool (*opcode_supported)(instr_t *);
 
 /* DR deliberately does not bother to keep model-specific information in its
  * IR.  Thus we have our own routines here that mostly just check opcodes.
+ *
+ * We ignore things like undocumented opcodes (e.g., OP_salc), which are later
+ * in the opcode enum.
  */
 
 #ifdef X86
@@ -63,6 +66,9 @@ opcode_supported_Pentium(instr_t *instr)
      *          CMPXCHG8B
      */
 # ifdef X64
+    // XXX: someone could construct x64-only opcodes (e.g., OP_movsxd) or
+    // instrs (by using REX prefixes) in 32-bit -- we ignore that and assume
+    // we only care about instrs in the app binary.
     return false;
 # else
     int opc = instr_get_opcode(instr);
@@ -190,7 +196,85 @@ opcode_supported_Pentium3(instr_t *instr)
     return true;
 # endif
 }
-#endif
+
+static bool
+opcode_supported_Banias(instr_t *instr)
+{
+    /* Banias CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG8B
+     *          FXSAVE/FXRSTORE
+     *          SYSENTER/SYSEXIT
+     */
+# ifdef X64
+    return false;
+# else
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        // We assume that new and only new opcodes from SSE3+ were
+        // appended to the enum, except some SSE2 added late.
+        (opc >= OP_fisttp && !instr_is_sse2(instr)))
+        return false;
+    return true;
+# endif
+}
+
+/* We simplify and assume that all Prescott models support 64-bit,
+ * ignoring the early E-series models.
+ */
+static bool
+opcode_supported_Prescott(instr_t *instr)
+{
+    /* Prescott CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG16B
+     *  SSE3    CMPXCHG8B
+     *          FXSAVE/FXRSTORE
+     *          MONITOR/MWAIT
+     *          SYSENTER/SYSEXIT
+     */
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        // We assume that new and only new opcodes from SSSE3+ were
+        // appended to the enum, except some SSE2 added late.
+        (opc >= OP_pshufb && !instr_is_sse2(instr)
+# ifdef X64
+         // Allow new x64 opcodes
+         && opc != OP_movsxd && opc != OP_swapgs
+# endif
+         ))
+        return false;
+    return true;
+}
+
+static bool
+opcode_supported_Merom(instr_t *instr)
+{
+    /* Merom CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG16B
+     *  SSE3    CMPXCHG8B
+     *  SSSE3   FXSAVE/FXRSTORE
+     *          MONITOR/MWAIT
+     *          SYSENTER/SYSEXIT
+     */
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        // We assume that new and only new opcodes from SSE4+ were
+        // appended to the enum, except some SSE2 added late.
+        (opc >= OP_popcnt && !instr_is_sse2(instr)
+# ifdef X64
+         // Allow new x64 opcodes
+         && opc != OP_movsxd && opc != OP_swapgs
+# endif
+        ))
+        return false;
+    return true;
+}
+#endif /* X86 */
 
 static void
 report_invalid_opcode(int opc, app_pc pc)
@@ -198,7 +282,7 @@ report_invalid_opcode(int opc, app_pc pc)
     // XXX i#1732: add drsyms and provide file + line# (will require locating dbghelp
     // and installing it in the release package).
     // XXX i#1732: ideally, provide a callstack: this is where we'd want DrCallstack.
-    NOTIFY(0, "<Invalid %s opcode \"%s\" @ "PFX".  Aborting.>\n",
+    NOTIFY(0, "<Invalid %s instruction \"%s\" @ "PFX".  Aborting.>\n",
            op_cpu.get_value().c_str(), decode_opcode_name(opc), pc);
     dr_abort();
 }
@@ -259,6 +343,20 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                op_cpu.get_value() == "Coppermine" ||
                op_cpu.get_value() == "Tualatin") {
         opcode_supported = opcode_supported_Pentium3;
+    } else if (op_cpu.get_value() == "PentiumM" ||
+               op_cpu.get_value() == "Banias" ||
+               op_cpu.get_value() == "Dothan" ||
+               // These are early Pentium4 models
+               op_cpu.get_value() == "Willamette" ||
+               op_cpu.get_value() == "Northwood") {
+        opcode_supported = opcode_supported_Banias;
+    } else if (op_cpu.get_value() == "Pentium4" ||
+               op_cpu.get_value() == "Prescott" ||
+               op_cpu.get_value() == "Presler") {
+        opcode_supported = opcode_supported_Prescott;
+    } else if (op_cpu.get_value() == "Core2" ||
+               op_cpu.get_value() == "Merom") {
+        opcode_supported = opcode_supported_Merom;
     } else {
         // FIXME i#1732: add the other models.
         // Maybe also add particular features like SSE2.

@@ -37,7 +37,7 @@
 #include "options.h"
 
 droption_t<std::string> op_cpu
-(DROPTION_SCOPE_CLIENT, "cpu", "Pentium", "CPU model to simulate",
+(DROPTION_SCOPE_CLIENT, "cpu", "Prescott", "CPU model to simulate",
  "Specifies the CPU model to simulate.  It can be one of the following values:\n"
  "<ul>\n"
  "<li><b>Pentium</b></li>\n"
@@ -49,7 +49,19 @@ droption_t<std::string> op_cpu
  "<li><b>Pentium3</b> (Coppermine)</li>\n"
  "<li><b>Coppermine</b> (Pentium3)</li>\n"
  "<li><b>Tualatin</b> (Pentium3)</li>\n"
- "</ul>");
+ "<li><b>PentiumM</b> (Banias)</li>\n"
+ "<li><b>Banias</b> (PentiumM)</li>\n"
+ "<li><b>Dothan</b> (PentiumM)</li>\n"
+ "<li><b>Willamette</b> (early Pentium4)</li>\n"
+ "<li><b>Northwood</b> (early Pentium4)</li>\n"
+ "<li><b>Pentium4</b> (Prescott)</li>\n"
+ "<li><b>Prescott</b> (Pentium4)</li>\n"
+ "<li><b>Presler</b> (Pentium4)</li>\n"
+ "<li><b>Core2</b> (Merom)</li>\n"
+ "<li><b>Merom</b> (Core2)</li>\n"
+ "</ul>\n"
+ "Some simplifications are made: for example, drcpusim assumes that all Prescott "
+ "models support 64-bit, ignoring the early E-series models.");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_CLIENT, "verbose", 0, 0, 64, "Verbosity level",
