@@ -2127,6 +2127,21 @@ bool
 instr_is_sse_or_sse2(instr_t *instr);
 
 DR_API
+/** Returns true iff \p instr is part of AMD's 3D-Now! instructions. */
+bool
+instr_is_3DNow(instr_t *instr);
+
+DR_API
+/** Returns true iff \p instr is part of Intel's SSE3 instructions. */
+bool
+instr_is_sse3(instr_t *instr);
+
+DR_API
+/** Returns true iff \p instr is part of Intel's SSSE3 instructions. */
+bool
+instr_is_ssse3(instr_t *instr);
+
+DR_API
 /** Returns true iff \p instr is a "mov $imm -> (%esp)". */
 bool
 instr_is_mov_imm_to_tos(instr_t *instr);

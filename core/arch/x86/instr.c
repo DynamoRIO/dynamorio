@@ -1192,6 +1192,31 @@ instr_is_sse_or_sse2(instr_t *instr)
 }
 
 bool
+instr_is_sse3(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    /* We rely on the enum order here.  We include OP_monitor and OP_mwait. */
+    return (op >= OP_fisttp && op <= OP_movddup);
+}
+
+bool
+instr_is_3DNow(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    /* We rely on the enum order here. */
+    return (op >= OP_femms && op <= OP_pswapd) ||
+        op == OP_prefetch || op == OP_prefetchw;
+}
+
+bool
+instr_is_ssse3(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    /* We rely on the enum order here. */
+    return (op >= OP_pshufb && op <= OP_palignr);
+}
+
+bool
 instr_is_mov_imm_to_tos(instr_t *instr)
 {
     return instr_opcode_valid(instr) &&

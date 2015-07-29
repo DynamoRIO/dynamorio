@@ -241,6 +241,7 @@ Further non-compatibility-affecting changes include:
  - Added a new sample client, named ssljack.
  - Added the -pathmap option to the post-processor for \ref page_drcov.
  - Added instr_is_sse() and instr_is_sse2().
+ - Added instr_is_3DNow(), instr_is_sse3(), and instr_is_ssse3().
 
 **************************************************
 <hr>
