@@ -1217,6 +1217,32 @@ instr_is_ssse3(instr_t *instr)
 }
 
 bool
+instr_is_sse41(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    /* We rely on the enum order here. */
+    return (op >= OP_pblendvb && op <= OP_mpsadbw &&
+            op != OP_pcmpgtq && op != OP_crc32);
+}
+
+bool
+instr_is_sse42(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    /* We rely on the enum order here. */
+    return (op >= OP_pcmpestrm && op <= OP_pcmpistri) ||
+        op == OP_pcmpgtq || op == OP_crc32 || op == OP_popcnt;
+}
+
+bool
+instr_is_sse4A(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    /* We rely on the enum order here. */
+    return (op >= OP_popcnt && op <= OP_lzcnt);
+}
+
+bool
 instr_is_mov_imm_to_tos(instr_t *instr)
 {
     return instr_opcode_valid(instr) &&

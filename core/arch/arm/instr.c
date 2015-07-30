@@ -499,6 +499,24 @@ instr_is_ssse3(instr_t *instr)
 }
 
 bool
+instr_is_sse41(instr_t *instr)
+{
+    return false;
+}
+
+bool
+instr_is_sse42(instr_t *instr)
+{
+    return false;
+}
+
+bool
+instr_is_sse4A(instr_t *instr)
+{
+    return false;
+}
+
+bool
 instr_is_mov_imm_to_tos(instr_t *instr)
 {
     /* FIXME i#1551: NYI */

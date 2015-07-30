@@ -245,6 +245,7 @@ Further non-compatibility-affecting changes include:
  - Added the -pathmap option to the post-processor for \ref page_drcov.
  - Added instr_is_sse() and instr_is_sse2().
  - Added instr_is_3DNow(), instr_is_sse3(), and instr_is_ssse3().
+ - Added instr_is_sse41(), instr_is_sse42(), and instr_is_sse4A().
 
 **************************************************
 <hr>

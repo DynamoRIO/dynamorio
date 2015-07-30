@@ -2142,6 +2142,21 @@ bool
 instr_is_ssse3(instr_t *instr);
 
 DR_API
+/** Returns true iff \p instr is part of Intel's SSE4.1 instructions. */
+bool
+instr_is_sse41(instr_t *instr);
+
+DR_API
+/** Returns true iff \p instr is part of Intel's SSE4.2 instructions. */
+bool
+instr_is_sse42(instr_t *instr);
+
+DR_API
+/** Returns true iff \p instr is part of AMD's SSE4A instructions. */
+bool
+instr_is_sse4A(instr_t *instr);
+
+DR_API
 /** Returns true iff \p instr is a "mov $imm -> (%esp)". */
 bool
 instr_is_mov_imm_to_tos(instr_t *instr);
