@@ -71,6 +71,12 @@ droption_t<std::string> op_cpu
  "Some simplifications are made: for example, drcpusim assumes that all Prescott "
  "models support 64-bit, ignoring the early E-series models.");
 
+droption_t<bool> op_allow_prefetchw
+(DROPTION_SCOPE_CLIENT, "allow_prefetchw", true, "Consider PREFETCHW to be harmless.",
+ "The PREFETCHW instruction is only fully supported by AMD processors, yet most Intel "
+ "processors, while they do not officially support it, will turn it into a NOP. "
+ "As it is commonly seen on Windows, by default drcpusim does not complain about it.");
+
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_CLIENT, "verbose", 0, 0, 64, "Verbosity level",
  "Verbosity level for notifications.");

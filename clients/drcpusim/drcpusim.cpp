@@ -62,6 +62,19 @@ static bool (*opcode_supported)(instr_t *);
 
 #ifdef X86
 static bool
+instr_is_3DNow_no_Intel(instr_t *instr)
+{
+    /* OP_prefetchw is not officially supported on Intel processors
+     * prior to Broadwell (cpuid feature bit is not set) yet it won't fault (except
+     * maybe on pretty old processors) and will just be a nop.  Windows likes to
+     * use it, so we do not complain about it by default.
+     */
+    return (instr_is_3DNow(instr) &&
+            (instr_get_opcode(instr) != OP_prefetchw ||
+             !op_allow_prefetchw.get_value()));
+}
+
+static bool
 opcode_supported_Pentium(instr_t *instr)
 {
     /* Pentium CPUID features:
@@ -75,7 +88,7 @@ opcode_supported_Pentium(instr_t *instr)
 # else
     int opc = instr_get_opcode(instr);
     if (instr_is_mmx(instr) || instr_is_sse(instr) || instr_is_sse2(instr) ||
-        instr_is_3DNow(instr) ||
+        instr_is_3DNow_no_Intel(instr) ||
         (opc >= OP_cmovo && opc <= OP_cmovnle) ||
         opc == OP_sysenter || opc == OP_sysexit ||
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
@@ -98,7 +111,7 @@ opcode_supported_PentiumMMX(instr_t *instr)
 # else
     int opc = instr_get_opcode(instr);
     if (instr_is_sse(instr) || instr_is_sse2(instr) ||
-        instr_is_3DNow(instr) ||
+        instr_is_3DNow_no_Intel(instr) ||
         (opc >= OP_cmovo && opc <= OP_cmovnle) ||
         opc == OP_sysenter || opc == OP_sysexit ||
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
@@ -122,7 +135,7 @@ opcode_supported_PentiumPro(instr_t *instr)
 # else
     int opc = instr_get_opcode(instr);
     if (instr_is_mmx(instr) || instr_is_sse(instr) || instr_is_sse2(instr) ||
-        instr_is_3DNow(instr) ||
+        instr_is_3DNow_no_Intel(instr) ||
         opc == OP_sysenter || opc == OP_sysexit ||
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
@@ -145,7 +158,7 @@ opcode_supported_Klamath(instr_t *instr)
     return false;
 # else
     int opc = instr_get_opcode(instr);
-    if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow(instr) ||
+    if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
@@ -168,7 +181,7 @@ opcode_supported_Deschutes(instr_t *instr)
     return false;
 # else
     int opc = instr_get_opcode(instr);
-    if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow(instr) ||
+    if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
         opc >= OP_fisttp)
@@ -190,7 +203,7 @@ opcode_supported_Pentium3(instr_t *instr)
     return false;
 # else
     int opc = instr_get_opcode(instr);
-    if (instr_is_sse2(instr) || instr_is_3DNow(instr) ||
+    if (instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
         opc >= OP_fisttp)
@@ -213,7 +226,7 @@ opcode_supported_Banias(instr_t *instr)
     return false;
 # else
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE3+ were
         // appended to the enum, except some SSE2 added late.
         (opc >= OP_fisttp && !instr_is_sse2(instr)))
@@ -238,7 +251,7 @@ opcode_supported_Prescott(instr_t *instr)
      *          SYSENTER/SYSEXIT
      */
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSSE3+ were
         // appended to the enum, except some SSE2 added late.
         (opc >= OP_pshufb && !instr_is_sse2(instr)
@@ -264,7 +277,7 @@ opcode_supported_Merom(instr_t *instr)
      *          SYSENTER/SYSEXIT
      */
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
         (opc >= OP_popcnt && !instr_is_sse2(instr)
@@ -280,6 +293,9 @@ opcode_supported_Merom(instr_t *instr)
 // XXX i#1732: Penryn stepping 10 added XSAVE: yet otherwise it seems to be a
 // Sandybridge addition.  My gcc 4.8.3 generates OP_xgetbv which makes it seem
 // like it should be present on older processors?  Something's not right.
+//
+// XXX i#1732: there are other details we could check for: OP_lahf availability
+// in 64-bit mode, e.g.
 static bool
 opcode_supported_Penryn(instr_t *instr)
 {
@@ -293,7 +309,7 @@ opcode_supported_Penryn(instr_t *instr)
      *          SYSENTER/SYSEXIT
      */
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
         (opc >= OP_popcnt && !instr_is_sse2(instr) && !instr_is_sse41(instr)
@@ -321,7 +337,7 @@ opcode_supported_Nehalem(instr_t *instr)
      *          SYSENTER/SYSEXIT
      */
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
@@ -346,7 +362,7 @@ opcode_supported_Westmere(instr_t *instr)
      *          SYSENTER/SYSEXIT
      */
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         // We assume that new and only new opcodes were appended to
         // the enum, except some SSE2 added late.
@@ -374,7 +390,7 @@ opcode_supported_Sandybridge(instr_t *instr)
      *          XSETBV/XGETBV are enabled
      */
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         opc == OP_movbe ||
         // We assume that new and only new opcodes were appended to
@@ -406,7 +422,7 @@ opcode_supported_Ivybridge(instr_t *instr)
      *          XSETBV/XGETBV are enabled
      */
     int opc = instr_get_opcode(instr);
-    if (instr_is_3DNow(instr) ||
+    if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         opc == OP_movbe ||
         // FMA
