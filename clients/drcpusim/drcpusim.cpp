@@ -33,7 +33,9 @@
 /* drcpusim.cpp: client for simulating instruction sets of legacy processors
  *
  * XXX i#1732: add more features, such as:
+ * + Whitelist/blacklist to ignore system libraries
  * + Add more recent Intel models
+ * + Add Atom models
  * + Add AMD models
  * + Add ARM support
  */
@@ -274,6 +276,147 @@ opcode_supported_Merom(instr_t *instr)
         return false;
     return true;
 }
+
+// XXX i#1732: Penryn stepping 10 added XSAVE: yet otherwise it seems to be a
+// Sandybridge addition.  My gcc 4.8.3 generates OP_xgetbv which makes it seem
+// like it should be present on older processors?  Something's not right.
+static bool
+opcode_supported_Penryn(instr_t *instr)
+{
+    /* Penryn CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG16B
+     *  SSE3    CMPXCHG8B
+     *  SSSE3   FXSAVE/FXRSTORE
+     *  SSE4.1  MONITOR/MWAIT
+     *          SYSENTER/SYSEXIT
+     */
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        // We assume that new and only new opcodes from SSE4+ were
+        // appended to the enum, except some SSE2 added late.
+        (opc >= OP_popcnt && !instr_is_sse2(instr) && !instr_is_sse41(instr)
+# ifdef X64
+         // Allow new x64 opcodes
+         && opc != OP_movsxd && opc != OP_swapgs
+# endif
+        ))
+        return false;
+    return true;
+}
+
+static bool
+opcode_supported_Nehalem(instr_t *instr)
+{
+    /* Nehalem CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG16B
+     *  SSE3    CMPXCHG8B
+     *  SSSE3   FXSAVE/FXRSTORE
+     *  SSE4.1  MONITOR/MWAIT
+     *  SSE4.2  POPCNT
+     *          RDTSCP
+     *          SYSENTER/SYSEXIT
+     */
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+        // We assume that new and only new opcodes from SSE4+ were
+        // appended to the enum, except some SSE2 added late.
+        (opc >= OP_vmcall && !instr_is_sse2(instr) && opc != OP_rdtscp))
+        return false;
+    return true;
+}
+
+static bool
+opcode_supported_Westmere(instr_t *instr)
+{
+    /* Westmere CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG16B
+     *  SSE3    CMPXCHG8B
+     *  SSSE3   FXSAVE/FXRSTORE
+     *  SSE4.1  MONITOR/MWAIT
+     *  SSE4.2  PCLMULDQ
+     *  AES     POPCNT
+     *          RDTSCP
+     *          SYSENTER/SYSEXIT
+     */
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+        // We assume that new and only new opcodes were appended to
+        // the enum, except some SSE2 added late.
+        // We assume we don't care about AMD SVM or Intel VMX (user-mode only).
+        (opc >= OP_movbe && !instr_is_sse2(instr)))
+        return false;
+    return true;
+}
+
+static bool
+opcode_supported_Sandybridge(instr_t *instr)
+{
+    /* Sandybridge CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG16B
+     *  SSE3    CMPXCHG8B
+     *  SSSE3   FXSAVE/FXRSTORE
+     *  SSE4.1  MONITOR/MWAIT
+     *  SSE4.2  PCLMULDQ
+     *  AES     POPCNT
+     *  AVX     RDTSCP
+     *          SYSENTER/SYSEXIT
+     *          XSAVE/XRESTORE states
+     *          XSETBV/XGETBV are enabled
+     */
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+        opc == OP_movbe ||
+        // We assume that new and only new opcodes were appended to
+        // the enum, except some SSE2 and split *xsave64 added late.
+        // We assume we don't care about AMD SVM.
+        (opc >= OP_vcvtph2ps && !(opc >= OP_movq2dq && opc <= OP_xsaveopt64)))
+        return false;
+    return true;
+}
+
+static bool
+opcode_supported_Ivybridge(instr_t *instr)
+{
+    /* Ivybridge CPUID features:
+     *  MMX     CLFLUSH
+     *  SSE     CMOV
+     *  SSE2    CMPXCHG16B
+     *  SSE3    CMPXCHG8B
+     *  SSSE3   Enhanced REP MOVSB/STOSB
+     *  SSE4.1  FXSAVE/FXRSTORE
+     *  SSE4.2  MONITOR/MWAIT
+     *  AES     PCLMULDQ
+     *  AVX     POPCNT
+     *  F16C    RD/WR FSGSBASE instructions
+     *          RDRAND
+     *          RDTSCP
+     *          SYSENTER/SYSEXIT
+     *          XSAVE/XRESTORE states
+     *          XSETBV/XGETBV are enabled
+     */
+    int opc = instr_get_opcode(instr);
+    if (instr_is_3DNow(instr) ||
+        (instr_is_sse4A(instr) && opc != OP_popcnt) ||
+        opc == OP_movbe ||
+        // FMA
+        (opc >= OP_vfmadd132ps && opc <= OP_vfnmsub231sd) ||
+        // We assume that new and only new opcodes were appended to the enum.
+        // We assume we don't care about AMD SVM.
+        opc >= OP_rdseed)
+        return false;
+    return true;
+}
 #endif /* X86 */
 
 static void
@@ -357,8 +500,18 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     } else if (op_cpu.get_value() == "Core2" ||
                op_cpu.get_value() == "Merom") {
         opcode_supported = opcode_supported_Merom;
+    } else if (op_cpu.get_value() == "Penryn") {
+        opcode_supported = opcode_supported_Penryn;
+    } else if (op_cpu.get_value() == "Nehalem") {
+        opcode_supported = opcode_supported_Nehalem;
+    } else if (op_cpu.get_value() == "Westmere") {
+        opcode_supported = opcode_supported_Westmere;
+    } else if (op_cpu.get_value() == "Sandybridge") {
+        opcode_supported = opcode_supported_Sandybridge;
+    } else if (op_cpu.get_value() == "Ivybridge") {
+        opcode_supported = opcode_supported_Ivybridge;
     } else {
-        // FIXME i#1732: add the other models.
+        // XXX i#1732: add Atom and AMD models.
         // Maybe also add particular features like SSE2.
         NOTIFY(0, "Usage error: invalid cpu %s\nUsage:\n%s", op_cpu.get_value().c_str(),
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());

@@ -71,7 +71,7 @@ processes will be followed into and checked as well.
 \p -c \p drcpusim but prior to the "--" delimiter on the command line:
 
 \code
-bin64/drrun -t drcpusim <other> <options> <to> <drcpusim> -- /path/to/target/app <args> <for> <app>
+bin64/drrun -t drcpusim <options> <to> <drcpusim> -- /path/to/target/app <args> <for> <app>
 \endcode
 
 Boolean options can be disabled using a "-no_" prefix.

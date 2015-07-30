@@ -37,7 +37,10 @@
 #include "options.h"
 
 droption_t<std::string> op_cpu
-(DROPTION_SCOPE_CLIENT, "cpu", "Prescott", "CPU model to simulate",
+(DROPTION_SCOPE_CLIENT, "cpu", "Merom", "CPU model to simulate.  Typical values:\n"
+ "                                Pentium,PentiumMMX,PentiumPro,Klamath,Deschutes,\n"
+ "                                Pentium3,Banias,Dothan,Prescott,Presler,Merom,\n"
+ "                                Pehryn,Westmere,Sandybridge,Ivybridge.",
  "Specifies the CPU model to simulate.  It can be one of the following values:\n"
  "<ul>\n"
  "<li><b>Pentium</b></li>\n"
@@ -59,6 +62,11 @@ droption_t<std::string> op_cpu
  "<li><b>Presler</b> (Pentium4)</li>\n"
  "<li><b>Core2</b> (Merom)</li>\n"
  "<li><b>Merom</b> (Core2)</li>\n"
+ "<li><b>Penryn</b> (Core2)</li>\n"
+ "<li><b>Nehalem</b></li>\n"
+ "<li><b>Westmere</b></li>\n"
+ "<li><b>Sandybridge</b></li>\n"
+ "<li><b>Ivybridge</b></li>\n"
  "</ul>\n"
  "Some simplifications are made: for example, drcpusim assumes that all Prescott "
  "models support 64-bit, ignoring the early E-series models.");
