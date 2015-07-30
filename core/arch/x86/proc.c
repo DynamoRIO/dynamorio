@@ -320,6 +320,12 @@ proc_init_arch(void)
      * through a const array of feature names.
     */
     if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) {
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n\tedx = 0x%08x\n\tecx = 0x%08x\n",
+            cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
+        LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
+            cpu_info.features.ext_flags_edx, cpu_info.features.ext_flags_ecx);
+        LOG(GLOBAL, LOG_TOP, 1, "\tsext_ebx = 0x%08x\n",
+            cpu_info.features.sext_flags_ebx);
         if (proc_has_feature(FEATURE_XD_Bit))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has XD Bit\n");
         if (proc_has_feature(FEATURE_MMX))

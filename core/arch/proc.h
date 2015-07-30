@@ -148,8 +148,9 @@ enum {
 /* We do not enumerate all models; just relevant ones needed to distinguish
  * major processors in the same family.
  */
-#define MODEL_IVYBRIDGE       54 /**< proc_get_model(): Ivybridge */
-#define MODEL_I7_WESTMERE_EX  47 /**< proc_get_model(): Nehalem Westmere Ex */
+#define MODEL_HASWELL         60 /**< proc_get_model(): Haswell */
+#define MODEL_IVYBRIDGE       58 /**< proc_get_model(): Ivybridge */
+#define MODEL_I7_WESTMERE_EX  47 /**< proc_get_model(): Sandybridge Westmere Ex */
 #define MODEL_SANDYBRIDGE_E   45 /**< proc_get_model(): Sandybridge-E, -EN, -EP */
 #define MODEL_I7_WESTMERE     44 /**< proc_get_model(): Westmere */
 #define MODEL_SANDYBRIDGE     42 /**< proc_get_model(): Sandybridge */
@@ -159,7 +160,7 @@ enum {
 #define MODEL_ATOM_CEDARVIEW  54 /**< proc_get_model(): Atom Cedarview */
 #define MODEL_ATOM_LINCROFT   38 /**< proc_get_model(): Atom Lincroft */
 #define MODEL_ATOM            28 /**< proc_get_model(): Atom */
-#define MODEL_I7_GAINESTOWN   26 /**< proc_get_model(): Core i7 Gainestown */
+#define MODEL_I7_GAINESTOWN   26 /**< proc_get_model(): Core i7 Gainestown (Nehalem) */
 #define MODEL_CORE_PENRYN     23 /**< proc_get_model(): Core 2 Penryn */
 #define MODEL_CORE_2          15 /**< proc_get_model(): Core 2 Merom/Conroe */
 #define MODEL_CORE            14 /**< proc_get_model(): Core Yonah */
@@ -252,7 +253,7 @@ typedef enum {
     FEATURE_SVM =       2 + 96,         /**< AMD Secure Virtual Machine */
     FEATURE_LZCNT =     5 + 96,         /**< #OP_lzcnt supported */
     FEATURE_SSE4A =     6 + 96,         /**< AMD SSE4A Extensions supported */
-    FEATURE_PREFETCHW = 8 + 96,         /**< #OP_prefetchw supported */
+    FEATURE_PRFCHW =    8 + 96,         /**< #OP_prefetchw supported */
     FEATURE_XOP =      11 + 96,         /**< AMD XOP supported */
     FEATURE_SKINIT =   12 + 96,         /**< AMD #OP_skinit/#OP_stgi supported */
     FEATURE_FMA4 =     16 + 96,         /**< AMD FMA4 supported */
@@ -263,7 +264,7 @@ typedef enum {
     FEATURE_HLE =       4 + 128,        /**< Hardware Lock Elision supported */
     FEATURE_AVX2 =      5 + 128,        /**< AVX2 instructions supported */
     FEATURE_BMI2 =      8 + 128,        /**< BMI2 instructions supported */
-    FEATURE_ENHREP =    9 + 128,        /**< Enhanced rep movsb/stosb supported */
+    FEATURE_ERMSB =     9 + 128,        /**< Enhanced rep movsb/stosb supported */
     FEATURE_INVPCID =  10 + 128,        /**< #OP_invpcid supported */
     FEATURE_RTM =      11 + 128,        /**< Restricted Transactional Memory supported */
 } feature_bit_t;
