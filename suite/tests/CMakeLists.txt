@@ -2308,6 +2308,9 @@ if (UNIX)
   tobuild(linux.sigsuspend linux/sigsuspend.c)
   target_link_libraries(linux.sigsuspend ${libpthread})
 
+  tobuild(linux.signest linux/signest.c)
+  target_link_libraries(linux.signest ${libpthread})
+
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
