@@ -2191,6 +2191,41 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.multiproc_rawtemp ON) # no preprocessor
     endif ()
+
+    if (NOT ARM) # i#1732: no ARM support for drcpusim yet
+      torunonly_ci(tool.drcpusim.simple ${ci_shared_app} drcpusim
+        client-interface/${ci_shared_app} # for .expect
+        "-cpu Sandybridge" "" "")
+      set(tool.drcpusim.simple_toolname "drcpusim")
+
+      if (UNIX AND NOT APPLE)
+        # For more targeted tests, we need whole-asm, which is much easier
+        # on Linux where we can make a static app that executes just a few insrs.
+        macro (add_cpusim_asm_test name model)
+          add_exe(tool.${name} ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/${name}.asm)
+          set_target_properties(tool.${name} PROPERTIES LINKER_LANGUAGE C)
+          append_link_flags(tool.${name} "-nostartfiles -nodefaultlibs -Wl,-static")
+          torunonly_ci(tool.drcpusim.${name} tool.${name} drcpusim
+            ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/${name}.asm
+            "-cpu ${model}" "" "")
+          set(tool.drcpusim.${name}_toolname "drcpusim")
+          set(tool.drcpusim.${name}_basedir
+            "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
+        endmacro ()
+
+        if (NOT X64)
+          add_cpusim_asm_test(mmx Pentium)
+          add_cpusim_asm_test(sse PentiumMMX)
+          add_cpusim_asm_test(sse2 Pentium3)
+          add_cpusim_asm_test(sse3 Banias)
+        endif ()
+        add_cpusim_asm_test(ssse3 Prescott)
+        add_cpusim_asm_test(sse41 Merom)
+        add_cpusim_asm_test(sse42 Penryn)
+        # XXX i#1732: add more tests.  However, we don't want the suite to fail
+        # b/c our tests have too-new instrs for older machines.
+      endif ()
+    endif (NOT ARM)
   endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)

@@ -62,6 +62,8 @@
 # endif
 #endif
 
+#undef WEAK /* avoid conflict with C define */
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
