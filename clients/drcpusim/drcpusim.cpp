@@ -473,6 +473,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO CPU Simulator", "http://dynamorio.org/issues");
 
+#ifdef WINDOWS
+    dr_enable_console_printing();
+#endif
+
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
                                        &parse_err, NULL)) {
