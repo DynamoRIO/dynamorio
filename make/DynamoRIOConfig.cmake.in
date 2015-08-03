@@ -678,6 +678,10 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
 
     if (NOT DynamoRIO_USE_LIBC AND NOT tgt_cxx AND is_client)
       set(tgt_cflags "${tgt_cflags} -nostdlib")
+      if (APPLE)
+        # Avoid errors about missing the _chk versions of memcpy, etc.
+        set(tgt_link_flags "${tgt_link_flags} -undefined dynamic_lookup")
+      endif (APPLE)
     endif ()
 
     # gcc is invoked for the link step so we have to repeat cflags as well
