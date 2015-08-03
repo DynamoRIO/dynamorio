@@ -43,9 +43,15 @@
 // This is the max size an unprivileged process can request.
 #define PIPE_BUF_MAX_SIZE 1048576
 
-// Linux atomic pipe write buffer size
+// Atomic pipe write buffer size
 #ifndef PIPE_BUF
-# define PIPE_BUF 4096
+# ifdef LINUX
+#  define PIPE_BUF 4096
+# else
+// XXX: on Mac, we should use fpathconf(_PC_PIPE_BUF) to find out the value.
+// It is always 512 as far as we know.
+#  define PIPE_BUF 512
+# endif
 #endif
 
 #define PIPE_PERMS 0666
@@ -135,7 +141,13 @@ named_pipe_t::close()
 bool
 named_pipe_t::maximize_buffer()
 {
+#ifdef LINUX
     return fcntl(fd, F_SETPIPE_SZ, PIPE_BUF_MAX_SIZE) == PIPE_BUF_MAX_SIZE;
+#else
+    // MacOS does not have F_SETPIPE_SZ and there is no way to change the buffer
+    // size.  The kernel will automatically increase it up to 64K AFAIK.
+    return true;
+#endif
 }
 
 const std::string &

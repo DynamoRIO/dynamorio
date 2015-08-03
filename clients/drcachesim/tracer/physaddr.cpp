@@ -61,8 +61,10 @@
 static const addr_t PAGE_INVALID = (addr_t)-1;
 #endif
 
-physaddr_t::physaddr_t() :
-    last_vpage(PAGE_INVALID), last_ppage(PAGE_INVALID), fd(-1), count(0)
+physaddr_t::physaddr_t()
+#ifdef LINUX
+    : last_vpage(PAGE_INVALID), last_ppage(PAGE_INVALID), fd(-1), count(0)
+#endif
 {
     // Nothing else.
     // No destructor needed either: ifstream closes when destroyed.
