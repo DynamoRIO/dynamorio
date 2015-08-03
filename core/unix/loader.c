@@ -56,7 +56,7 @@
 
 #include <dlfcn.h>      /* dlsym */
 #ifdef LINUX
-#  include <sys/prctl.h>  /* PR_SET_NAME */
+# include <sys/prctl.h>  /* PR_SET_NAME */
 #endif
 #include <string.h>     /* strcmp */
 #include <stdlib.h>     /* getenv */
@@ -1375,6 +1375,7 @@ redirect____tls_get_addr()
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
+#ifdef LINUX
 int
 redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info,
                                          size_t size, void *data),
@@ -1403,6 +1404,7 @@ redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info,
     release_recursive_lock(&privload_lock);
     return res;
 }
+#endif
 
 typedef struct _redirect_import_t {
     const char *name;
@@ -1420,8 +1422,10 @@ static const redirect_import_t redirect_imports[] = {
      */
     {"__tls_get_addr", (app_pc)redirect___tls_get_addr},
     {"___tls_get_addr", (app_pc)redirect____tls_get_addr},
+#ifdef LINUX
     /* i#1717: C++ exceptions call this */
     {"dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr},
+#endif
     /* We need these for clients that don't use libc (i#1747) */
     {"strlen", (app_pc)strlen},
     {"wcslen", (app_pc)wcslen},
