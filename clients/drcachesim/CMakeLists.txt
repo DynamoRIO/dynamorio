@@ -50,6 +50,7 @@ if (UNIX)
     common/trace_entry.cpp
     simulator/cache.cpp
     simulator/cache_lru.cpp
+    simulator/cache_fifo.cpp
     simulator/cache_stats.cpp
     )
   target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)

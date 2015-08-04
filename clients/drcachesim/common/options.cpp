@@ -84,7 +84,8 @@ droption_t<bool> op_use_physical
 droption_t<std::string> op_replace_policy
 (DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
  "Cache replacement policy", "Specifies the replacement policy for caches. "
- "Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used).");
+ "Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used), "
+ "FIFO (First-In-First-Out).");
 
 droption_t<unsigned int> op_virt2phys_freq
 (DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",

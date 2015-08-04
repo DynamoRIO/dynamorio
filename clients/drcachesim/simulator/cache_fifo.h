@@ -30,38 +30,23 @@
  * DAMAGE.
  */
 
-/* shared options for the frontend, the client, and the documentation */
+/* cache_fifo: represents a single hardware cache with FIFO algo.
+ */
 
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+#ifndef _CACHE_FIFO_H_
+#define _CACHE_FIFO_H_ 1
 
-#define REPLACE_POLICY_NON_SPECIFIED            ""
-#define REPLACE_POLICY_LRU                      "LRU"
-#define REPLACE_POLICY_LFU                      "LFU"
-#define REPLACE_POLICY_FIFO                     "FIFO"
+#include "cache.h"
 
-#include <string>
-#include "droption.h"
+class cache_fifo_t : public cache_t
+{
+ public:
+    virtual bool init(int associativity, int line_size, int total_size,
+                      cache_t *parent, cache_stats_t *stats);
 
-extern droption_t<std::string> op_ipc_name;
-extern droption_t<unsigned int> op_num_cores;
-extern droption_t<unsigned int> op_line_size;
-extern droption_t<bytesize_t> op_L1I_size;
-extern droption_t<bytesize_t> op_L1D_size;
-extern droption_t<unsigned int> op_L1I_assoc;
-extern droption_t<unsigned int> op_L1D_assoc;
-extern droption_t<bytesize_t> op_LL_size;
-extern droption_t<unsigned int> op_LL_assoc;
-extern droption_t<bool> op_use_physical;
-extern droption_t<std::string> op_replace_policy;
-extern droption_t<unsigned int> op_virt2phys_freq;
-extern droption_t<unsigned int> op_verbose;
-extern droption_t<std::string> op_dr_root;
-extern droption_t<bool> op_dr_debug;
-extern droption_t<std::string> op_dr_ops;
-extern droption_t<std::string> op_tracer;
-extern droption_t<std::string> op_tracer_ops;
-extern droption_t<bytesize_t> op_skip_refs;
-extern droption_t<bytesize_t> op_sim_refs;
+ protected:
+    virtual void access_update(int line_idx, int way);
+    virtual int replace_which_way(int line_idx);
+};
 
-#endif /* _OPTIONS_H_ */
+#endif /* _CACHE_FIFO_H_ */

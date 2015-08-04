@@ -42,6 +42,7 @@
 #include "cache_stats.h"
 #include "cache.h"
 #include "cache_lru.h"
+#include "cache_fifo.h"
 #include "droption.h"
 #include "../common/options.h"
 #include "simulator.h"
@@ -255,6 +256,8 @@ simulator_t::create_cache(std::string policy)
         return new cache_lru_t;
     if (policy == REPLACE_POLICY_LFU) // set to LFU
         return new cache_t;
+    if (policy == REPLACE_POLICY_FIFO) // set to FIFO
+        return new cache_fifo_t;
 
     // undefined replacement policy
     ERROR("Usage error: undefined replacement policy. "
