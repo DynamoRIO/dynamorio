@@ -40,7 +40,7 @@ droption_t<std::string> op_cpu
 (DROPTION_SCOPE_CLIENT, "cpu", "Merom", "CPU model to simulate.  Typical values:\n"
  "                                Pentium,PentiumMMX,PentiumPro,Klamath,Deschutes,\n"
  "                                Pentium3,Banias,Dothan,Prescott,Presler,Merom,\n"
- "                                Pehryn,Westmere,Sandybridge,Ivybridge.",
+ "                                Penryn,Westmere,Sandybridge,Ivybridge.",
  "Specifies the CPU model to simulate.  It can be one of the following values:\n"
  "<ul>\n"
  "<li><b>Pentium</b></li>\n"
@@ -70,6 +70,13 @@ droption_t<std::string> op_cpu
  "</ul>\n"
  "Some simplifications are made: for example, drcpusim assumes that all Prescott "
  "models support 64-bit, ignoring the early E-series models.");
+
+droption_t<bool> op_continue
+(DROPTION_SCOPE_CLIENT, "continue", false, "Continue (don't abort) on bad instr.",
+ "By default, drcpusim aborts when it encounters an invalid instruction.  This option "
+ "requests that the tool continue, simply printing each invalid instruction it "
+ "encounters.  It may print the same instruction twice, depending on whether the "
+ "underlying tool engine needs to re-translate that code again.");
 
 droption_t<bool> op_allow_prefetchw
 (DROPTION_SCOPE_CLIENT, "allow_prefetchw", true, "Consider PREFETCHW to be harmless.",

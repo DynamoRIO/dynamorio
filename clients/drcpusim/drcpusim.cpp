@@ -441,9 +441,11 @@ report_invalid_opcode(int opc, app_pc pc)
     // XXX i#1732: add drsyms and provide file + line# (will require locating dbghelp
     // and installing it in the release package).
     // XXX i#1732: ideally, provide a callstack: this is where we'd want DrCallstack.
-    NOTIFY(0, "<Invalid %s instruction \"%s\" @ "PFX".  Aborting.>\n",
-           op_cpu.get_value().c_str(), decode_opcode_name(opc), pc);
-    dr_abort();
+    NOTIFY(0, "<Invalid %s instruction \"%s\" @ "PFX".  %s.>\n",
+           op_cpu.get_value().c_str(), decode_opcode_name(opc), pc,
+           op_continue.get_value() ? "Continuing" : "Aborting");
+    if (!op_continue.get_value())
+        dr_abort();
 }
 
 static dr_emit_flags_t

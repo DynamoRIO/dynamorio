@@ -39,6 +39,7 @@
 #include "droption.h"
 
 extern droption_t<std::string> op_cpu;
+extern droption_t<bool> op_continue;
 extern droption_t<bool> op_allow_prefetchw;
 extern droption_t<unsigned int> op_verbose;
 
