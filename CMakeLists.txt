@@ -914,7 +914,17 @@ if (UNIX)
             "${DSYMUTIL_PROGRAM} <TARGET>")
         endif ()
       endif ()
+      if (ANDROID)
+        # For code simplicity (to avoid -fPIE rules here) we just don't support this
+        message(FATAL_ERROR "${CMAKE_OBJCOPY} required flag --only-keep-debug missing")
+      endif ()
     else (NOT flag_present)
+      if (ANDROID)
+        # Android requires PIE
+        set(exe_link_extra "-fPIE -pie")
+      else ()
+        set(exe_link_extra "")
+      endif ()
       set(CMAKE_C_CREATE_SHARED_LIBRARY
         # standard rule
         "<CMAKE_C_COMPILER> <CMAKE_SHARED_LIBRARY_C_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS> <CMAKE_SHARED_LIBRARY_SONAME_C_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>"
@@ -929,7 +939,7 @@ if (UNIX)
         "${CMAKE_STRIP} -g ${strip_local} <TARGET>"
         )
       SET(CMAKE_C_LINK_EXECUTABLE
-        "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
+        "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> ${exe_link_extra} <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
         "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
         "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
         "${CMAKE_STRIP} -g ${strip_local} <TARGET>"
@@ -948,12 +958,17 @@ if (UNIX)
         "${CMAKE_STRIP} -g ${strip_local} <TARGET>"
         )
       SET(CMAKE_CXX_LINK_EXECUTABLE
-        "<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
+        "<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> ${exe_link_extra} <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>"
         "${CMAKE_OBJCOPY} --only-keep-debug <TARGET> <TARGET>.debug"
         "${CMAKE_OBJCOPY} --add-gnu-debuglink=<TARGET>.debug <TARGET>"
         "${CMAKE_STRIP} -g ${strip_local} <TARGET>"
         )
     endif (NOT flag_present)
+  else (SPLIT_SYMBOLS AND EXISTS ${CMAKE_OBJCOPY} AND EXISTS ${CMAKE_STRIP})
+    if (ANDROID)
+      # For code simplicity (to avoid -fPIE rules here) we just don't support this
+      message(FATAL_ERROR "SPLIT_SYMBOLS required for Android")
+    endif ()
   endif (SPLIT_SYMBOLS AND EXISTS ${CMAKE_OBJCOPY} AND EXISTS ${CMAKE_STRIP})
 
 endif (UNIX)

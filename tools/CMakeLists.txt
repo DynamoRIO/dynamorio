@@ -90,10 +90,6 @@ if (UNIX)
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
   set(tool_cflags "")
-  if (ANDROID)
-    # Android requires PIE
-    set(tool_cflags "-fPIE -pie" ${tool_cflags})
-  endif ()
   set(RESOURCES "")
 
   if (NOT APPLE) # FIXME i#1286: add MacOS nudge support
@@ -175,10 +171,6 @@ set_target_properties(drconfig PROPERTIES
 add_executable(drrun drdeploy.c ${RESOURCES})
 set_target_properties(drrun PROPERTIES
   COMPILE_FLAGS "${tool_cflags} -DRC_IS_drrun -DDRRUN")
-if (ANDROID)
-  # Android requires PIE
-  set_target_properties(drrun PROPERTIES LINK_FLAGS "-fPIE -pie")
-endif (ANDROID)
 add_executable(drinject drdeploy.c ${RESOURCES})
 set_target_properties(drinject PROPERTIES
   COMPILE_FLAGS "${tool_cflags} -DRC_IS_drinject -DDRINJECT")

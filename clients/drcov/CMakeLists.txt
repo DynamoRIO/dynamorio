@@ -87,7 +87,6 @@ use_DynamoRIO_extension(drcov2lcov droption)
 target_link_libraries(drcov2lcov drfrontendlib)
 
 if (ANDROID)
-  append_property_string(TARGET drcov2lcov LINK_FLAGS "-fPIE -pie")
   # XXX i#1749: the Android linker doesn't support rpath, and even when setting
   # LD_LIBRARY_PATH we get a crash.  However, we expect most users to pull
   # the logs and process on a desktop machine.
