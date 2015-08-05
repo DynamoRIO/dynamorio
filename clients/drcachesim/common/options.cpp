@@ -120,3 +120,16 @@ droption_t<std::string> op_tracer_ops
  DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE | DROPTION_FLAG_INTERNAL,
  "", "(For internal use: sweeps up tracer options)",
  "This is an internal option that sweeps up other options to pass to the tracer.");
+
+droption_t<bytesize_t> op_skip_refs
+(DROPTION_SCOPE_FRONTEND, "skip_refs", 0, "Number of memory references to skip",
+ "Specifies the number of references to skip "
+ "in the beginning of the application execution. "
+ "These memory references are dropped instead of being simulated.");
+
+droption_t<bytesize_t> op_sim_refs
+(DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
+ "Number of memory references simulated",
+ "Specifies the number of memory references simulated. "
+ "The simulated references come after the skipped references, "
+ "and the references following the simulated ones are dropped, too.");

@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <iomanip>
+#include <stdint.h> /* for supporting 64-bit integers*/
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
@@ -98,9 +99,10 @@ class bytesize_t
 {
  public:
     bytesize_t() : size(0) {}
-    bytesize_t(unsigned int val) : size(val) {}
-    operator unsigned int() const { return size; }
-    unsigned int size;
+    // The bytesize_t class is backed by a 64-bit unsigned integer.
+    bytesize_t(uint64_t val) : size(val) {}
+    operator uint64_t() const { return size; }
+    uint64_t size;
 };
 
 /** A convenience typedef for options that take in pairs of values. */
@@ -470,9 +472,11 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
     std::string toparse = s;
     if (scale > 1)
         toparse = s.substr(0, s.size()-1); // s.pop_back() only in C++11
+    // While the overall size is likely too large to be represented
+    // by a 32-bit integer, the prefix number is usually not.
     int input = atoi(toparse.c_str());
     if (input >= 0)
-        value = input * scale;
+        value = (uint64_t)input * scale;
     else {
         value = 0;
         return false;
@@ -539,7 +543,7 @@ droption_t<bool>::default_as_string() const
 template<> inline std::string
 droption_t<bytesize_t>::default_as_string() const
 {
-    unsigned int val = defval;
+    uint64_t val = defval;
     std::string suffix = "";
     if (defval >= 1024*1024*1024 && defval % 1024*1024*1024 == 0) {
         suffix = "G";

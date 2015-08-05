@@ -35,6 +35,7 @@
 #include <string>
 #include <assert.h>
 #include <limits.h>
+#include <stdint.h> /* for supporting 64-bit integers*/
 #include "utils.h"
 #include "memref.h"
 #include "ipc_reader.h"
@@ -169,11 +170,21 @@ simulator_t::run()
     memref_tid_t last_thread = 0;
     int last_core = 0;
 
+    uint64_t skip_refs = op_skip_refs.get_value();
+    uint64_t sim_refs = op_sim_refs.get_value();
+
     // XXX i#1703: add options to select either ipc_reader_t or
     // a recorded trace file reader, and use a base class reader_t
     // here.
     for (; ipc_iter != ipc_end; ++ipc_iter) {
         memref_t memref = *ipc_iter;
+        if (skip_refs > 0) {
+            skip_refs--;
+            continue;
+        }
+        if (sim_refs == 0)
+            continue;
+        sim_refs--;
 
         // We use a static scheduling of threads to cores, as it is
         // not practical to measure which core each thread actually
