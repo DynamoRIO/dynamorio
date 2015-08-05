@@ -163,6 +163,7 @@ enum {
 #define MODEL_I7_GAINESTOWN   26 /**< proc_get_model(): Core i7 Gainestown (Nehalem) */
 #define MODEL_CORE_PENRYN     23 /**< proc_get_model(): Core 2 Penryn */
 #define MODEL_CORE_2          15 /**< proc_get_model(): Core 2 Merom/Conroe */
+#define MODEL_CORE_MEROM      15 /**< proc_get_model(): Core 2 Merom */
 #define MODEL_CORE            14 /**< proc_get_model(): Core Yonah */
 #define MODEL_PENTIUM_M       13 /**< proc_get_model(): Pentium M 2MB L2 */
 #define MODEL_PENTIUM_M_1MB    9 /**< proc_get_model(): Pentium M 1MB L2 */
@@ -218,6 +219,7 @@ typedef enum {
     /* features returned in ecx */
     FEATURE_SSE3 =      0 + 32,         /**< SSE3 Extensions supported */
     FEATURE_PCLMULQDQ = 1 + 32,         /**< #OP_pclmulqdq supported */
+    FEATURE_DTES64 =    2 + 32,         /**< 64-bit debug store supported */
     FEATURE_MONITOR =   3 + 32,         /**< #OP_monitor/#OP_mwait supported */
     FEATURE_DS_CPL =    4 + 32,         /**< CPL Qualified Debug Store */
     FEATURE_VMX =       5 + 32,         /**< Virtual Machine Extensions */
@@ -228,7 +230,10 @@ typedef enum {
     FEATURE_CID =       10 + 32,        /**< Context ID */
     FEATURE_FMA =       12 + 32,        /**< FMA instructions supported */
     FEATURE_CX16 =      13 + 32,        /**< #OP_cmpxchg16b supported */
-    FEATURE_xPTR =      14 + 32,        /**< Send Task Priority Messages */
+    FEATURE_xTPR =      14 + 32,        /**< Send Task Priority Messages */
+    FEATURE_PDCM =      15 + 32,        /**< Perfmon and Debug Capability */
+    FEATURE_PCID =      17 + 32,        /**< Process-context identifiers */
+    FEATURE_DCA =       18 + 32,        /**< Prefetch from memory-mapped devices */
     FEATURE_SSE41 =     19 + 32,        /**< SSE4.1 Extensions supported */
     FEATURE_SSE42 =     20 + 32,        /**< SSE4.2 Extensions supported */
     FEATURE_x2APIC =    21 + 32,        /**< x2APIC supported */
@@ -244,6 +249,7 @@ typedef enum {
     FEATURE_SYSCALL =   11 + 64,        /**< #OP_syscall/#OP_sysret supported */
     FEATURE_XD_Bit =    20 + 64,        /**< Execution Disable bit */
     FEATURE_MMX_EXT =   22 + 64,        /**< AMD MMX Extensions */
+    FEATURE_PDPE1GB =   26 + 64,        /**< Gigabyte pages */
     FEATURE_RDTSCP =    27 + 64,        /**< #OP_rdtscp supported */
     FEATURE_EM64T =     29 + 64,        /**< Extended Memory 64 Technology */
     FEATURE_3DNOW_EXT = 30 + 64,        /**< AMD 3DNow! Extensions */
