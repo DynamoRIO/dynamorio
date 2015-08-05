@@ -61,6 +61,58 @@ static bool (*opcode_supported)(instr_t *);
  */
 
 #ifdef X86
+/***************************************************************************
+ * Intel
+ */
+
+# define CPUID_INTEL_EBX /* Genu */ 0x756e6547
+# define CPUID_INTEL_EDX /* ineI */ 0x49656e69
+# define CPUID_INTEL_ECX /* ntel */ 0x6c65746e
+
+# define FEAT(DR_proc_val) (1U << ((FEATURE_##DR_proc_val) % 32))
+
+// Family encoding:
+//   ext family | ext model | type  | family | model | stepping
+//      27:20   |   19:16   | 13:12 |  11:8  |  7:4  |   3:0
+static inline unsigned int
+cpuid_encode_family(unsigned int family, unsigned int model, unsigned int stepping)
+{
+    unsigned int ext_family = 0;
+    unsigned int ext_model = 0;
+    if (family == 6 || family == 15) {
+        ext_model = model >> 4;
+        model = model & 0xf;
+    }
+    if (family >= 15) {
+        ext_family = family - 15;
+        family -= 15;
+    }
+    DR_ASSERT((stepping & ~0xf) == 0);
+    DR_ASSERT((model & ~0xf) == 0);
+    DR_ASSERT((family & ~0xf) == 0);
+    DR_ASSERT((ext_model & ~0xf) == 0);
+    return
+        (ext_family << 20) |
+        (ext_model << 16) |
+        // type is 0 == Original OEM
+        (family << 8) |
+        (model << 4) |
+        stepping;
+}
+
+typedef struct _cpuid_model_t {
+    unsigned int max_input;
+    unsigned int max_ext_input;
+    unsigned int encoded_family;
+    unsigned int features_edx;
+    unsigned int features_ecx;
+    unsigned int features_ext_edx;
+    unsigned int features_ext_ecx;
+    unsigned int features_sext_ebx;
+} cpuid_model_t;
+
+static cpuid_model_t *model_info;
+
 static bool
 instr_is_3DNow_no_Intel(instr_t *instr)
 {
@@ -74,12 +126,30 @@ instr_is_3DNow_no_Intel(instr_t *instr)
              !op_allow_prefetchw.get_value()));
 }
 
+/***************************************************
+ * Pentium
+ */
+static cpuid_model_t model_Pentium = {
+    1,
+    // XXX i#1732: manual is confusing: supposed to return real info as though
+    // eax was set to the highest supported val?  Just returning 0 for now.
+    0,
+    // These are values observed on real processors.
+    // XXX: DR should add some MODEL_PENTIUM, etc. values.
+    cpuid_encode_family(FAMILY_PENTIUM, 2, 11),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) |
+      // ISA-affecting:
+      FEAT(CX8),
+    0,
+    0,
+    0,
+    0
+};
+
 static bool
 opcode_supported_Pentium(instr_t *instr)
 {
-    /* Pentium CPUID features:
-     *          CMPXCHG8B
-     */
 # ifdef X64
     // XXX: someone could construct x64-only opcodes (e.g., OP_movsxd) or
     // instrs (by using REX prefixes) in 32-bit -- we ignore that and assume
@@ -100,12 +170,26 @@ opcode_supported_Pentium(instr_t *instr)
 # endif
 }
 
+/***************************************************
+ * Pentium with MMX
+ */
+static cpuid_model_t model_PentiumMMX = {
+    2,
+    0, // see Pentium comment
+    cpuid_encode_family(FAMILY_PENTIUM, 4, 3),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(MMX),
+    0,
+    0,
+    0,
+    0
+};
+
 static bool
 opcode_supported_PentiumMMX(instr_t *instr)
 {
-    /* Pentium with MMX CPUID features:
-     *  MMX     CMPXCHG8B
-     */
 # ifdef X64
     return false;
 # else
@@ -123,13 +207,26 @@ opcode_supported_PentiumMMX(instr_t *instr)
 # endif
 }
 
+/***************************************************
+ * Pentium Pro
+ */
+static cpuid_model_t model_PentiumPro = {
+    2,
+    0, // see Pentium comment
+    cpuid_encode_family(FAMILY_PENTIUM_PRO, 1, 7),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV),
+    0,
+    0,
+    0,
+    0
+};
+
 static bool
 opcode_supported_PentiumPro(instr_t *instr)
 {
-    /* Pentium Pro CPUID features:
-     *          CMOV
-     *          CMPXCHG8B
-     */
 # ifdef X64
     return false;
 # else
@@ -146,14 +243,26 @@ opcode_supported_PentiumPro(instr_t *instr)
 # endif
 }
 
+/***************************************************
+ * Klamath Pentium 2
+ */
+static cpuid_model_t model_Klamath = {
+    2,
+    0, // see Pentium comment
+    cpuid_encode_family(FAMILY_PENTIUM_2, 3, 4),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP),
+    0,
+    0,
+    0,
+    0
+};
+
 static bool
 opcode_supported_Klamath(instr_t *instr)
 {
-    /* Klamath Pentium 2 CPUID features:
-     *  MMX     CMOV
-     *          CMPXCHG8B
-     *          SYSENTER/SYSEXIT
-     */
 # ifdef X64
     return false;
 # else
@@ -168,15 +277,27 @@ opcode_supported_Klamath(instr_t *instr)
 # endif
 }
 
+/***************************************************
+ * Deschutes Pentium 2
+ */
+static cpuid_model_t model_Deschutes = {
+    2,
+    0, // see Pentium comment
+    cpuid_encode_family(FAMILY_PENTIUM_2, 5, 2),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR),
+    0,
+    0,
+    0,
+    0
+};
+
 static bool
 opcode_supported_Deschutes(instr_t *instr)
 {
-    /* Deschutes Pentium 2 CPUID features:
-     *  MMX     CMOV
-     *          CMPXCHG8B
-     *          FXSAVE/FXRSTORE
-     *          SYSENTER/SYSEXIT
-     */
 # ifdef X64
     return false;
 # else
@@ -190,15 +311,28 @@ opcode_supported_Deschutes(instr_t *instr)
 # endif
 }
 
+/***************************************************
+ * Pentium 3
+ */
+static cpuid_model_t model_Pentium3 = {
+    3,
+    0, // see Pentium comment
+    cpuid_encode_family(FAMILY_PENTIUM_3, 7, 2),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE),
+    0,
+    0,
+    0,
+    0
+};
+
 static bool
 opcode_supported_Pentium3(instr_t *instr)
 {
-    /* Pentium 3 CPUID features:
-     *  MMX     CMOV
-     *  SSE     CMPXCHG8B
-     *          FXSAVE/FXRSTORE
-     *          SYSENTER/SYSEXIT
-     */
 # ifdef X64
     return false;
 # else
@@ -212,16 +346,29 @@ opcode_supported_Pentium3(instr_t *instr)
 # endif
 }
 
+/***************************************************
+ * Banias
+ */
+static cpuid_model_t model_Banias = {
+    2,
+    0x80000004,
+    cpuid_encode_family(FAMILY_PENTIUM_4, 2, 4),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    0,
+    0,
+    0,
+    0
+};
+
 static bool
 opcode_supported_Banias(instr_t *instr)
 {
-    /* Banias CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG8B
-     *          FXSAVE/FXRSTORE
-     *          SYSENTER/SYSEXIT
-     */
 # ifdef X64
     return false;
 # else
@@ -235,21 +382,35 @@ opcode_supported_Banias(instr_t *instr)
 # endif
 }
 
+/***************************************************
+ * Prescott
+ */
 /* We simplify and assume that all Prescott models support 64-bit,
  * ignoring the early E-series models.
  */
+static cpuid_model_t model_Prescott = {
+    5, // XXX: maybe 2, maybe 6?
+    0x80000008,
+    cpuid_encode_family(FAMILY_PENTIUM_4, 4, 10),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
+      FEAT(TM2) |
+      // ISA-affecting:
+      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16),
+    FEAT(EM64T) | FEAT(XD_Bit),
+    FEAT(LAHF),
+    0
+};
+
 static bool
 opcode_supported_Prescott(instr_t *instr)
 {
-    /* Prescott CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG16B
-     *  SSE3    CMPXCHG8B
-     *          FXSAVE/FXRSTORE
-     *          MONITOR/MWAIT
-     *          SYSENTER/SYSEXIT
-     */
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSSE3+ were
@@ -264,18 +425,33 @@ opcode_supported_Prescott(instr_t *instr)
     return true;
 }
 
+/***************************************************
+ * Merom
+ */
+// XXX: I'm ignoring the eax=6 table (digital thermal sensors)
+static cpuid_model_t model_Merom = {
+    10,
+    0x80000008,
+    cpuid_encode_family(FAMILY_CORE_2, MODEL_CORE_MEROM, 11),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) /* no HTT */ | FEAT(PBE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
+      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
+      // ISA-affecting:
+      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3),
+    FEAT(EM64T) | FEAT(XD_Bit),
+    FEAT(LAHF),
+    0
+};
+
 static bool
 opcode_supported_Merom(instr_t *instr)
 {
-    /* Merom CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG16B
-     *  SSE3    CMPXCHG8B
-     *  SSSE3   FXSAVE/FXRSTORE
-     *          MONITOR/MWAIT
-     *          SYSENTER/SYSEXIT
-     */
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
@@ -290,24 +466,35 @@ opcode_supported_Merom(instr_t *instr)
     return true;
 }
 
+/***************************************************
+ * Penryn
+ */
 // XXX i#1732: Penryn stepping 10 added XSAVE: yet otherwise it seems to be a
 // Sandybridge addition.  My gcc 4.8.3 generates OP_xgetbv which makes it seem
 // like it should be present on older processors?  Something's not right.
-//
-// XXX i#1732: there are other details we could check for: OP_lahf availability
-// in 64-bit mode, e.g.
+static cpuid_model_t model_Penryn = {
+    10,
+    0x80000008,
+    cpuid_encode_family(FAMILY_CORE_2, MODEL_CORE_PENRYN, 6),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) /* no HTT */ | FEAT(PBE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
+      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
+      // ISA-affecting:
+      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41),
+    FEAT(EM64T) | FEAT(XD_Bit),
+    FEAT(LAHF),
+    0
+};
+
 static bool
 opcode_supported_Penryn(instr_t *instr)
 {
-    /* Penryn CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG16B
-     *  SSE3    CMPXCHG8B
-     *  SSSE3   FXSAVE/FXRSTORE
-     *  SSE4.1  MONITOR/MWAIT
-     *          SYSENTER/SYSEXIT
-     */
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
@@ -322,20 +509,34 @@ opcode_supported_Penryn(instr_t *instr)
     return true;
 }
 
+/***************************************************
+ * Nehalem
+ */
+// XXX: I'm ignoring the eax=6 table (Turbo Boost)
+static cpuid_model_t model_Nehalem = {
+    10,
+    0x80000008,
+    cpuid_encode_family(FAMILY_CORE_2, MODEL_I7_GAINESTOWN, 5),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
+      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) |
+      // ISA-affecting:
+      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+      FEAT(SSE42) | FEAT(POPCNT),
+    FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP),
+    FEAT(LAHF),
+    0
+};
+
 static bool
 opcode_supported_Nehalem(instr_t *instr)
 {
-    /* Nehalem CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG16B
-     *  SSE3    CMPXCHG8B
-     *  SSSE3   FXSAVE/FXRSTORE
-     *  SSE4.1  MONITOR/MWAIT
-     *  SSE4.2  POPCNT
-     *          RDTSCP
-     *          SYSENTER/SYSEXIT
-     */
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
@@ -346,21 +547,33 @@ opcode_supported_Nehalem(instr_t *instr)
     return true;
 }
 
+/***************************************************
+ * Westmere
+ */
+static cpuid_model_t model_Westmere = {
+    10,
+    0x80000008,
+    cpuid_encode_family(FAMILY_CORE_2, MODEL_I7_WESTMERE, 2),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
+      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) |
+      // ISA-affecting:
+      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+      FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ),
+    FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP) | FEAT(PDPE1GB),
+    FEAT(LAHF),
+    0
+};
+
 static bool
 opcode_supported_Westmere(instr_t *instr)
 {
-    /* Westmere CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG16B
-     *  SSE3    CMPXCHG8B
-     *  SSSE3   FXSAVE/FXRSTORE
-     *  SSE4.1  MONITOR/MWAIT
-     *  SSE4.2  PCLMULDQ
-     *  AES     POPCNT
-     *          RDTSCP
-     *          SYSENTER/SYSEXIT
-     */
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
@@ -372,23 +585,35 @@ opcode_supported_Westmere(instr_t *instr)
     return true;
 }
 
+/***************************************************
+ * Sandybridge
+ */
+static cpuid_model_t model_Sandybridge = {
+    11,
+    0x80000008,
+    cpuid_encode_family(FAMILY_CORE_2, MODEL_SANDYBRIDGE, 7),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
+      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) |
+      FEAT(x2APIC) |
+      // ISA-affecting:
+      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+      FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ) | FEAT(AVX) |
+      FEAT(XSAVE) | FEAT(OSXSAVE),
+    FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP), /*no PDPE1GB */
+    FEAT(LAHF),
+    0
+};
+
 static bool
 opcode_supported_Sandybridge(instr_t *instr)
 {
-    /* Sandybridge CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG16B
-     *  SSE3    CMPXCHG8B
-     *  SSSE3   FXSAVE/FXRSTORE
-     *  SSE4.1  MONITOR/MWAIT
-     *  SSE4.2  PCLMULDQ
-     *  AES     POPCNT
-     *  AVX     RDTSCP
-     *          SYSENTER/SYSEXIT
-     *          XSAVE/XRESTORE states
-     *          XSETBV/XGETBV are enabled
-     */
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
@@ -401,26 +626,35 @@ opcode_supported_Sandybridge(instr_t *instr)
     return true;
 }
 
+/***************************************************
+ * Ivybridge
+ */
+static cpuid_model_t model_Ivybridge = {
+    11,
+    0x80000008,
+    cpuid_encode_family(FAMILY_CORE_2, MODEL_IVYBRIDGE, 9),
+    FEAT(FPU) | FEAT(VME) | FEAT(DE) | FEAT(PSE) | FEAT(TSC) | FEAT(MSR) |
+      FEAT(MCE) | FEAT(MTRR) | FEAT(MCA) | FEAT(PGE) | FEAT(PAE) |
+      FEAT(PSE_36) | FEAT(PAT) | FEAT(APIC) | FEAT(DS) | FEAT(SS) |
+      FEAT(TM) | FEAT(ACPI) | FEAT(HTT) | FEAT(PBE) |
+      // ISA-affecting:
+      FEAT(CX8) | FEAT(CMOV) | FEAT(MMX) | FEAT(SEP) | FEAT(FXSR) |
+      FEAT(SSE) | FEAT(SSE2) | FEAT(CLFSH),
+    FEAT(DTES64) | FEAT(DS_CPL) | FEAT(CID) | FEAT(xTPR) | FEAT(EST) |
+      FEAT(TM2) | FEAT(VMX) | FEAT(SMX) | FEAT(PDCM) | FEAT(PCID) |
+      FEAT(x2APIC) |
+      // ISA-affecting:
+      FEAT(SSE3) | FEAT(MONITOR) | FEAT(CX16) | FEAT(SSSE3) | FEAT(SSE41) |
+      FEAT(SSE42) | FEAT(POPCNT) | FEAT(AES) | FEAT(PCLMULQDQ) | FEAT(AVX) |
+      FEAT(XSAVE) | FEAT(OSXSAVE) | FEAT(F16C) | FEAT(RDRAND),
+    FEAT(EM64T) | FEAT(XD_Bit) | FEAT(RDTSCP), /*no PDPE1GB */
+    FEAT(LAHF),
+    FEAT(FSGSBASE) | FEAT(ERMSB)
+};
+
 static bool
 opcode_supported_Ivybridge(instr_t *instr)
 {
-    /* Ivybridge CPUID features:
-     *  MMX     CLFLUSH
-     *  SSE     CMOV
-     *  SSE2    CMPXCHG16B
-     *  SSE3    CMPXCHG8B
-     *  SSSE3   Enhanced REP MOVSB/STOSB
-     *  SSE4.1  FXSAVE/FXRSTORE
-     *  SSE4.2  MONITOR/MWAIT
-     *  AES     PCLMULDQ
-     *  AVX     POPCNT
-     *  F16C    RD/WR FSGSBASE instructions
-     *          RDRAND
-     *          RDTSCP
-     *          SYSENTER/SYSEXIT
-     *          XSAVE/XRESTORE states
-     *          XSETBV/XGETBV are enabled
-     */
     int opc = instr_get_opcode(instr);
     if (instr_is_3DNow_no_Intel(instr) ||
         (instr_is_sse4A(instr) && opc != OP_popcnt) ||
@@ -432,6 +666,53 @@ opcode_supported_Ivybridge(instr_t *instr)
         opc >= OP_rdseed)
         return false;
     return true;
+}
+
+// Called via clean call after the cpuid instr, with spill slots 1 and 2 holding
+// the input eax and ecx.
+static void
+fake_cpuid(void)
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mc; // memset to zero is expensive so no full init
+    reg_t input_eax = dr_read_saved_reg(drcontext, SPILL_SLOT_1);
+    reg_t input_ecx = dr_read_saved_reg(drcontext, SPILL_SLOT_2);
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_INTEGER;
+    dr_get_mcontext(drcontext, &mc);
+
+    if (input_eax == 0) {
+        // Pretend Intel
+        mc.xax = model_info->max_input;
+        mc.xbx = CPUID_INTEL_EBX;
+        mc.xdx = CPUID_INTEL_EDX;
+        mc.xcx = CPUID_INTEL_ECX;
+        dr_set_mcontext(drcontext, &mc);
+    } else if (input_eax == 1) {
+        mc.xax = model_info->encoded_family;
+        mc.xdx = model_info->features_edx;
+        mc.xcx = model_info->features_ecx;
+        dr_set_mcontext(drcontext, &mc);
+    } else if (input_eax == 0x80000000) {
+        mc.xax = model_info->max_ext_input;
+        dr_set_mcontext(drcontext, &mc);
+    } else if (input_eax == 0x80000001) {
+        if (model_info->max_ext_input >= 0x80000001) {
+            mc.xdx = model_info->features_ext_edx;
+            mc.xcx = model_info->features_ext_ecx;
+        } else {
+            mc.xdx = 0;
+            mc.xcx = 0;
+        }
+        dr_set_mcontext(drcontext, &mc);
+    } else if (input_eax == 7 && input_ecx == 0) {
+        if (model_info->max_input >= 7) {
+            mc.xbx = model_info->features_sext_ebx;
+        } else {
+            mc.xbx = 0;
+        }
+        dr_set_mcontext(drcontext, &mc);
+    }
 }
 #endif /* X86 */
 
@@ -457,8 +738,23 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if (!opcode_supported(instr))
         report_invalid_opcode(instr_get_opcode(instr), instr_get_app_pc(instr));
 #ifdef X86
-    if (instr_get_opcode(instr) == OP_cpuid) {
-        // XXX i#1732: fool cpuid for target processor
+    if (op_fool_cpuid.get_value() && instr_get_opcode(instr) == OP_cpuid) {
+        // It's non-trivial to fully emulate cpuid, or even to emulate the cases
+        // we care about (e.g., we don't want to be filling in the brand index
+        // or APIC ID or anything).  Thus we save the inputs and correct the
+        // output after we let the cpuid instr execute as normal.
+        //
+        // XXX: technically DR doesn't promise to preserve these across the
+        // cpuid but we're willing to risk that (we know DR won't do any
+        // selfmod or other intensive mangling for cpuid).
+        // We could work around by indirecting through a drmgr slot or using
+        // raw DR slots.
+        dr_save_reg(drcontext, bb, instr, DR_REG_XAX, SPILL_SLOT_1);
+        dr_save_reg(drcontext, bb, instr, DR_REG_XCX, SPILL_SLOT_2);
+        // XXX: technically drmgr doesn't want us inserting instrs *after* the
+        // app instr but this is the simplest way to go.
+        dr_insert_clean_call(drcontext, bb, instr_get_next(instr), (void *)fake_cpuid,
+                             false, 0);
     }
 #endif
     return DR_EMIT_DEFAULT;
@@ -495,19 +791,25 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef X86
     if (op_cpu.get_value() == "Pentium") {
         opcode_supported = opcode_supported_Pentium;
+        model_info = &model_Pentium;
     } else if (op_cpu.get_value() == "PentiumMMX") {
         opcode_supported = opcode_supported_PentiumMMX;
+        model_info = &model_PentiumMMX;
     } else if (op_cpu.get_value() == "PentiumPro") {
         opcode_supported = opcode_supported_PentiumPro;
+        model_info = &model_PentiumPro;
     } else if (op_cpu.get_value() == "Pentium2" ||
                op_cpu.get_value() == "Klamath") {
         opcode_supported = opcode_supported_Klamath;
+        model_info = &model_Klamath;
     } else if (op_cpu.get_value() == "Deschutes") {
         opcode_supported = opcode_supported_Deschutes;
+        model_info = &model_Deschutes;
     } else if (op_cpu.get_value() == "Pentium3" ||
                op_cpu.get_value() == "Coppermine" ||
                op_cpu.get_value() == "Tualatin") {
         opcode_supported = opcode_supported_Pentium3;
+        model_info = &model_Pentium3;
     } else if (op_cpu.get_value() == "PentiumM" ||
                op_cpu.get_value() == "Banias" ||
                op_cpu.get_value() == "Dothan" ||
@@ -515,23 +817,31 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                op_cpu.get_value() == "Willamette" ||
                op_cpu.get_value() == "Northwood") {
         opcode_supported = opcode_supported_Banias;
+        model_info = &model_Banias;
     } else if (op_cpu.get_value() == "Pentium4" ||
                op_cpu.get_value() == "Prescott" ||
                op_cpu.get_value() == "Presler") {
         opcode_supported = opcode_supported_Prescott;
+        model_info = &model_Prescott;
     } else if (op_cpu.get_value() == "Core2" ||
                op_cpu.get_value() == "Merom") {
         opcode_supported = opcode_supported_Merom;
+        model_info = &model_Merom;
     } else if (op_cpu.get_value() == "Penryn") {
         opcode_supported = opcode_supported_Penryn;
+        model_info = &model_Penryn;
     } else if (op_cpu.get_value() == "Nehalem") {
         opcode_supported = opcode_supported_Nehalem;
+        model_info = &model_Nehalem;
     } else if (op_cpu.get_value() == "Westmere") {
         opcode_supported = opcode_supported_Westmere;
+        model_info = &model_Westmere;
     } else if (op_cpu.get_value() == "Sandybridge") {
         opcode_supported = opcode_supported_Sandybridge;
+        model_info = &model_Sandybridge;
     } else if (op_cpu.get_value() == "Ivybridge") {
         opcode_supported = opcode_supported_Ivybridge;
+        model_info = &model_Ivybridge;
     } else {
         // XXX i#1732: add Atom and AMD models.
         // Maybe also add particular features like SSE2.

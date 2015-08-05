@@ -2222,9 +2222,34 @@ if (CLIENT_INTERFACE)
         add_cpusim_asm_test(ssse3 Prescott)
         add_cpusim_asm_test(sse41 Merom)
         add_cpusim_asm_test(sse42 Penryn)
-        # XXX i#1732: add more tests.  However, we don't want the suite to fail
-        # b/c our tests have too-new instrs for older machines.
       endif ()
+
+      add_exe(tool.cpuid ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
+      macro (add_cpusim_cpuid_test model)
+        torunonly_ci(tool.drcpusim.cpuid-${model} tool.cpuid drcpusim
+          ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid-${model}.c
+          "-cpu ${model}" "" "")
+        set(tool.drcpusim.cpuid-${model}_toolname "drcpusim")
+        set(tool.drcpusim.cpuid-${model}_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
+      endmacro ()
+      # Not running earlier than Klamath b/c the app likely will have bad opcodes
+      if (NOT X64)
+        add_cpusim_cpuid_test(Klamath)
+        add_cpusim_cpuid_test(Deschutes)
+        add_cpusim_cpuid_test(Pentium3)
+        add_cpusim_cpuid_test(Banias)
+      endif ()
+      add_cpusim_cpuid_test(Prescott)
+      add_cpusim_cpuid_test(Presler)
+      add_cpusim_cpuid_test(Merom)
+      add_cpusim_cpuid_test(Penryn)
+      add_cpusim_cpuid_test(Westmere)
+      add_cpusim_cpuid_test(Sandybridge)
+      add_cpusim_cpuid_test(Ivybridge)
+
+      # XXX i#1732: add more tests.  However, we don't want the suite to fail
+      # b/c our tests have too-new instrs for older machines.
     endif (NOT ARM)
   endif (BUILD_CLIENTS)
 

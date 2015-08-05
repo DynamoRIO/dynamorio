@@ -78,6 +78,11 @@ droption_t<bool> op_continue
  "encounters.  It may print the same instruction twice, depending on whether the "
  "underlying tool engine needs to re-translate that code again.");
 
+droption_t<bool> op_fool_cpuid
+(DROPTION_SCOPE_CLIENT, "fool_cpuid", true, "Fake CPUID to match CPU model.",
+ "When the application executes the CPUID instruction, when this option is enabled, "
+ "drcpusim will supply CPUID results that match the CPU model being simulated.");
+
 droption_t<bool> op_allow_prefetchw
 (DROPTION_SCOPE_CLIENT, "allow_prefetchw", true, "Consider PREFETCHW to be harmless.",
  "The PREFETCHW instruction is only fully supported by AMD processors, yet most Intel "
