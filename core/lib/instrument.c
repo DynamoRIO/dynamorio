@@ -304,6 +304,12 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
 /****************************************************************************/
 /* INTERNAL ROUTINES */
 
+static bool
+char_is_quote(char c)
+{
+    return c == '"' || c == '\'' || c == '`';
+}
+
 static void
 parse_option_array(client_id_t client_id, const char *opstr,
                    int *argc OUT, const char ***argv OUT,
@@ -2426,21 +2432,39 @@ dr_get_options(client_id_t id)
     size_t i;
     for (i=0; i<num_client_libs; i++) {
         if (client_libs[i].id == id) {
-            int j;
-            size_t sofar = 0;
             /* If we already converted, pass the result */
             if (client_libs[i].legacy_options[0] != '\0' ||
                 client_libs[i].options[0] == '\0')
                 return client_libs[i].legacy_options;
             /* For backward compatibility, we need to remove the token-delimiting
              * quotes.  We tokenize, and then re-assemble the flat string.
+             * i#1755: however, for legacy custom frontends that are not re-quoting
+             * like drrun now is, we need to avoid removing any quotes from the
+             * original strings.  We try to detect this by assuming a frontend will
+             * either re-quote everything or nothing.  Ideally we would check all
+             * args, but that would require plumbing info from getword() or
+             * duplicating its functionality: so instead our heuristic is just checking
+             * the first and last chars.
              */
-            for (j = 1/*skip client lib*/; j < client_libs[i].argc; j++) {
-                if (!print_to_buffer(client_libs[i].legacy_options,
-                                     BUFFER_SIZE_ELEMENTS(client_libs[i].legacy_options),
-                                     &sofar, "%s%s", (j == 1) ? "" : " ",
-                                     client_libs[i].argv[j]))
-                    break;
+            if (!char_is_quote(client_libs[i].options[0]) ||
+                /* Emptry string already detected above */
+                !char_is_quote(client_libs[i].options[strlen(client_libs[i].
+                                                             options)-1])) {
+                /* At least one arg is not quoted => better use original */
+                snprintf(client_libs[i].legacy_options,
+                         BUFFER_SIZE_ELEMENTS(client_libs[i].legacy_options),
+                         "%s", client_libs[i].options);
+            } else {
+                int j;
+                size_t sofar = 0;
+                for (j = 1/*skip client lib*/; j < client_libs[i].argc; j++) {
+                    if (!print_to_buffer(client_libs[i].legacy_options,
+                                         BUFFER_SIZE_ELEMENTS(client_libs[i].
+                                                              legacy_options),
+                                         &sofar, "%s%s", (j == 1) ? "" : " ",
+                                         client_libs[i].argv[j]))
+                        break;
+                }
             }
             NULL_TERMINATE_BUFFER(client_libs[i].legacy_options);
             return client_libs[i].legacy_options;
