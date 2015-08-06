@@ -415,7 +415,8 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
  */
         DECLARE_FUNC(memcpy)
 GLOBAL_LABEL(memcpy:)
-        cmp      ARG3,   #0
+        cmp      ARG3, #0
+        mov      REG_R12/*scratch reg*/, ARG1
 1:      beq      2f
         ldrb     REG_R3, [ARG2]
         strb     REG_R3, [ARG1]
@@ -423,7 +424,7 @@ GLOBAL_LABEL(memcpy:)
         add      ARG2, ARG2, #1
         add      ARG1, ARG1, #1
         b        1b
-2:      mov      REG_R0, ARG1
+2:      mov      REG_R0, REG_R12
         bx       lr
         END_FUNC(memcpy)
 
@@ -432,13 +433,14 @@ GLOBAL_LABEL(memcpy:)
  */
         DECLARE_FUNC(memset)
 GLOBAL_LABEL(memset:)
-        cmp      ARG3,   #0
+        cmp      ARG3, #0
+        mov      REG_R12/*scratch reg*/, ARG1
 1:      beq      2f
         strb     ARG2, [ARG1]
         subs     ARG3, ARG3, #1
         add      ARG1, ARG1, #1
         b        1b
-2:      mov      REG_R0, ARG1
+2:      mov      REG_R0, REG_R12
         bx       lr
         END_FUNC(memset)
 
