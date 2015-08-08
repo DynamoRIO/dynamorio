@@ -1,5 +1,5 @@
 Running on an Intel processor
-Type = 0, family = 0, model = 2, stepping = 4
+Type = 0, family = 15, model = 2, stepping = 4
 Raw features:
   edx = 0x2febfbff
   ecx = 0x00000000

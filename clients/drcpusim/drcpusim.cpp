@@ -85,7 +85,7 @@ cpuid_encode_family(unsigned int family, unsigned int model, unsigned int steppi
     }
     if (family >= 15) {
         ext_family = family - 15;
-        family -= 15;
+        family = 15;
     }
     DR_ASSERT((stepping & ~0xf) == 0);
     DR_ASSERT((model & ~0xf) == 0);
