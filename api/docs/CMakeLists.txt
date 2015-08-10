@@ -174,6 +174,7 @@ add_custom_command(
   OUTPUT ${docsgen} # among other files
   DEPENDS ${dox_files}
           ${dox_tgts}
+          ${dox_extras}
           ${header_files}
           ${doxyfile}
           ${figures_eps}
