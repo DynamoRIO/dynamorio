@@ -2245,9 +2245,12 @@ if (CLIENT_INTERFACE)
       add_cpusim_cpuid_test(Merom)
       add_cpusim_cpuid_test(Penryn)
       add_cpusim_cpuid_test(Westmere)
-      add_cpusim_cpuid_test(Sandybridge)
-      add_cpusim_cpuid_test(Ivybridge)
-
+      add_cpusim_cpuid_test(Nehalem)
+      # XXX i#1761: we should selectively enable these.  Disabling for now.
+      if (OFF)
+        add_cpusim_cpuid_test(Sandybridge)
+        add_cpusim_cpuid_test(Ivybridge)
+      endif ()
       # XXX i#1732: add more tests.  However, we don't want the suite to fail
       # b/c our tests have too-new instrs for older machines.
     endif (NOT ARM)

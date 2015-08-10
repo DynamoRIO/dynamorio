@@ -1,0 +1,16 @@
+Running on an Intel processor
+Type = 0, family = 6, model = 26, stepping = 5
+Raw features:
+  edx = 0xbfebfbff
+  ecx = 0x0098e7fd
+  ext_edx = 0x28100000
+  ext_ecx = 0x00000001
+  sext_ebx = 0x00000000
+Major ISA features:
+  MMX
+  SSE
+  SSE2
+  SSE3
+  SSSE3
+  SSE41
+  SSE42
