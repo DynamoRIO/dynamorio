@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5859,7 +5859,14 @@ aslr_get_known_dll_path(wchar_t *known_dll_path_buffer, /* OUT */
                                 &link_target_name,
                                 &bytes_length);
     ASSERT(NT_SUCCESS(res));
-    ASSERT(bytes_length == (uint)(link_target_name.Length + sizeof(wchar_t) /* final NULL */ ));
+    /* sometimes the final null is not included */
+    if (bytes_length == (uint)link_target_name.Length) {
+        ASSERT(link_target_name.MaximumLength > link_target_name.Length);
+        link_target_name.Buffer[bytes_length/sizeof(wchar_t)] = '\0';
+    } else {
+        ASSERT(bytes_length == (uint)
+               (link_target_name.Length + sizeof(wchar_t) /* final NULL */ ));
+    }
 
     if (!NT_SUCCESS(res)) {
         ASSERT_NOT_TESTED();
