@@ -582,26 +582,63 @@ DR_API
 bool
 instr_is_wow64_syscall(instr_t *instr)
 {
-    opnd_t tgt;
 # ifdef STANDALONE_DECODER
-    if (instr_get_opcode(instr) != OP_call_ind)
-        return false;
+    /* We don't have get_os_version(), etc., and we assume this routine is not needed */
+    return false;
 # else
     /* For x64 DR we assume we're controlling the wow64 code too and thus
      * a wow64 "syscall" is just an indirect call (xref i#821, i#49)
      */
-    if (IF_X64_ELSE(true, !is_wow64_process(NT_CURRENT_PROCESS)) ||
-        instr_get_opcode(instr) != OP_call_ind)
+    if (IF_X64_ELSE(true, !is_wow64_process(NT_CURRENT_PROCESS)))
         return false;
     CLIENT_ASSERT(get_syscall_method() == SYSCALL_METHOD_WOW64,
                   "wow64 system call inconsistency");
-# endif
-    tgt = instr_get_target(instr);
-    return (opnd_is_far_base_disp(tgt) &&
-            opnd_get_segment(tgt) == SEG_FS &&
-            opnd_get_base(tgt) == REG_NULL &&
-            opnd_get_index(tgt) == REG_NULL &&
-            opnd_get_disp(tgt) == WOW64_TIB_OFFSET);
+    if (get_os_version() < WINDOWS_VERSION_10) {
+        opnd_t tgt;
+        if (instr_get_opcode(instr) != OP_call_ind)
+            return false;
+        tgt = instr_get_target(instr);
+        return (opnd_is_far_base_disp(tgt) &&
+                opnd_get_segment(tgt) == SEG_FS &&
+                opnd_get_base(tgt) == REG_NULL &&
+                opnd_get_index(tgt) == REG_NULL &&
+                opnd_get_disp(tgt) == WOW64_TIB_OFFSET);
+    } else {
+        /* It's much simpler to have a syscall gateway instruction where
+         * does_syscall_ret_to_callsite() is true: so we require that the
+         * instr passed here has its translation set.  This also gets the
+         * syscall # into the same bb to help static analysis.
+         */
+        opnd_t tgt;
+        app_pc xl8;
+        uint imm;
+        /* We can't just compare to wow64_syscall_call_tgt b/c there are copies
+         * in {ntdll,kernelbase,kernel32,user32,gdi32}!Wow64SystemServiceCall.
+         * They are all identical and we perform a hardcoded pattern match.
+         * XXX: should we instead consider treating the far jmp as the syscall, and
+         * putting in hooks on the return paths in wow64cpu!RunSimulatedCode()
+         * (might be tricky b/c we'd have to decode 64-bit code), or changing
+         * the return addr?
+         */
+        static const byte WOW64_SYSSVC[] = {
+            0x64,0x8b,0x15,0x30,0x00,0x00,0x00,  /* mov edx,dword ptr fs:[30h] */
+            0x8b,0x92,0x54,0x02,0x00,0x00        /* mov edx,dword ptr [edx+254h] */
+        };
+        byte tgt_code[sizeof(WOW64_SYSSVC)];
+        if (instr_get_opcode(instr) != OP_call_ind)
+            return false;
+        tgt = instr_get_target(instr);
+        if (!opnd_is_reg(tgt) ||
+            opnd_get_reg(tgt) != DR_REG_EDX)
+            return false;
+        xl8 = get_app_instr_xl8(instr);
+        if (xl8 == NULL)
+            return false;
+        return (safe_read(xl8 - sizeof(imm), sizeof(imm), &imm) &&
+                safe_read((app_pc)(ptr_uint_t)imm, sizeof(tgt_code), tgt_code) &&
+                memcmp(tgt_code, WOW64_SYSSVC, sizeof(tgt_code)) == 0);
+    }
+# endif /* STANDALONE_DECODER */
 }
 #endif
 

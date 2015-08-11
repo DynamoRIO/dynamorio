@@ -1940,6 +1940,11 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
      *   777311bc b844000100      mov     eax,10044h
      *   777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
      *   777311c8 c3              ret
+     * Win10 WOW64:
+     *   77cda610 b8a3010200      mov     eax,201A3h
+     *   77cda615 bab0d5ce77      mov     edx,offset ntdll!Wow64SystemServiceCall
+     *   77cda61a ffd2            call    edx
+     *   77cda61c c3              ret
      *
      * For win8 sysenter we have a co-located "inlined" callee:
      *   77d7422c b801000000      mov     eax,1
@@ -1993,7 +1998,13 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
                 INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XDX),
                                  opnd_create_base_disp(REG_XSP, REG_NULL, 0, 4, OPSZ_0)));
         }
-        APP(ilist, create_syscall_instr(dcontext));
+        if (get_os_version() >= WINDOWS_VERSION_10) {
+            /* create_syscall_instr() won't match the real wrappers */
+            APP(ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDX),
+                                            OPND_CREATE_INT32(wow64_syscall_call_tgt)));
+            APP(ilist, INSTR_CREATE_call_ind(dcontext, opnd_create_reg(REG_XDX)));
+        } else
+            APP(ilist, create_syscall_instr(dcontext));
     } else { /* XP or greater */
         if (get_os_version() >= WINDOWS_VERSION_8) {
             /* Win8 does not use ind calls: it calls to a local copy of KiFastSystemCall.
@@ -2338,7 +2349,8 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
     instr_destroy(dcontext, instr);
 #else
     if (get_syscall_method() == SYSCALL_METHOD_WOW64 &&
-        get_os_version() >= WINDOWS_VERSION_8) {
+        get_os_version() >= WINDOWS_VERSION_8 &&
+        get_os_version() <= WINDOWS_VERSION_8_1) {
         ASSERT(!syscall_uses_wow64_index());
         /* second instr is a call*, what we consider the system call instr */
         after_hook_target = pc;
@@ -2391,6 +2403,16 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
     }
     if (after_hook_target != NULL) {
         /* all set */
+    } else if (get_syscall_method() == SYSCALL_METHOD_WOW64 &&
+               get_os_version() >= WINDOWS_VERSION_10) {
+        ASSERT(!syscall_uses_wow64_index());
+        ASSERT(opcode == OP_mov_imm);
+        /* third instr is a call*, what we consider the system call instr */
+        after_hook_target = pc;
+        instr = instr_create(dcontext);
+        *ret_pc = decode(dcontext, pc, instr); /* skip call* to skip syscall */
+        ASSERT(instr_get_opcode(instr) == OP_call_ind);
+        instr_destroy(dcontext, instr);
     } else if (get_syscall_method() == SYSCALL_METHOD_WOW64) {
         ASSERT(opcode == OP_xor || opcode == OP_mov_imm);
         /* third instr is a lea */

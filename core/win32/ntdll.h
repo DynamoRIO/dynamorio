@@ -370,6 +370,12 @@ typedef struct _PEB {                                     /* offset: 32bit / 64b
         };
     };
     ULONG64                      CsrServerReadOnlySharedMemoryBase;/*0x248 / 0x380 */
+    /* The Wow64SyscallFlags is not present in the symbols from MS but
+     * ntdll!Wow64SystemServiceCall tests bit 0x2 to decide whether to go into
+     * the WOW64 layer.
+     */
+    DWORD                        Unknown;                          /*0x250 / 0x388 */
+    DWORD                        Wow64SyscallFlags;                /*0x254 / 0x38c */
 } PEB, *PPEB;
 
 #ifndef _W64

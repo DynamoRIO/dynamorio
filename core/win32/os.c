@@ -121,6 +121,9 @@ app_pc vsyscall_syscall_end_pc = NULL;
 /* atomic variable to prevent multiple threads from trying to detach at the same time */
 DECLARE_CXTSWPROT_VAR(static volatile int dynamo_detaching_flag, LOCK_FREE_STATE);
 
+/* For Win10 this is what the call* in the syscall wrapper targets */
+app_pc wow64_syscall_call_tgt;
+
 #ifdef PROFILE_RDTSC
 uint kilo_hertz; /* cpu clock speed */
 #endif

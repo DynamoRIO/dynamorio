@@ -3671,12 +3671,19 @@ create_syscall_instr(dcontext_t *dcontext)
 
 # ifdef WINDOWS
     else if (method == SYSCALL_METHOD_WOW64) {
-        /* call *fs:0xc0 */
-        return INSTR_CREATE_call_ind(dcontext,
-                                     opnd_create_far_base_disp(SEG_FS, REG_NULL,
-                                                               REG_NULL, 0,
-                                                               WOW64_TIB_OFFSET,
-                                                               OPSZ_4_short2));
+        if (get_os_version() < WINDOWS_VERSION_10) {
+            /* call *fs:0xc0 */
+            return INSTR_CREATE_call_ind(dcontext,
+                                         opnd_create_far_base_disp(SEG_FS, REG_NULL,
+                                                                   REG_NULL, 0,
+                                                                   WOW64_TIB_OFFSET,
+                                                                   OPSZ_4_short2));
+        } else {
+            /* For Win10 we treat the call* to ntdll!Wow64SystemServiceCall
+             * (stored in wow64_syscall_call_tgt) as the syscall.
+             */
+            return INSTR_CREATE_call(dcontext, opnd_create_pc(wow64_syscall_call_tgt));
+        }
     }
 # endif
 #endif /* ARM/X86 */

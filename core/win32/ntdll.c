@@ -469,17 +469,31 @@ syscalls_init()
      *    00000000`78ef16c3 b843000000      mov     eax,43h
      *    00000000`78ef16c8 0f05            syscall
      *    00000000`78ef16ca c3              ret
-     *  win8 sysenter w/ co-located "inlined" callee:
+     *  win8+ sysenter w/ co-located "inlined" callee:
      *    77d7422c b801000000      mov     eax,1
      *    77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
      *    77d74236 c3              ret
      *    77d74237 8bd4            mov     edx,esp
      *    77d74239 0f34            sysenter
      *    77d7423b c3              ret
-     *  win8 wow64 syscall (has no ecx):
+     *  win8 and win8.1 wow64 syscall (has no ecx):
      *    777311bc b844000100      mov     eax,10044h
      *    777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
      *    777311c8 c3              ret
+     *  win10 wow64 syscall:
+     *    77cd9040 b846000100      mov     eax,10046h
+     *    77cd9045 bab0d5ce77      mov     edx,offset ntdll!Wow64SystemServiceCall
+     *    77cd904a ffd2            call    edx
+     *    77cd904c c3              ret
+     *   ntdll!Wow64SystemServiceCall:
+     *    77ced5b0 648b1530000000  mov     edx,dword ptr fs:[30h]
+     *    77ced5b7 8b9254020000    mov     edx,dword ptr [edx+254h]
+     *    77ced5bd f7c202000000    test    edx,2
+     *    77ced5c3 7403            je      ntdll!Wow64SystemServiceCall+0x18 (77ced5c8)
+     *    77ced5c5 cd2e            int     2Eh
+     *    77ced5c7 c3              ret
+     *    77ced5c8 eacfd5ce773300  jmp     0033:77CED5CF
+     *    77ced5cf 41              inc     ecx
      */
     if (check == 0x2ecd) {
         dr_which_syscall_t = DR_SYSCALL_INT2E;
@@ -511,7 +525,9 @@ syscalls_init()
         /* ASSERT is syscall */
         ASSERT(*(byte *)(int_target - 1) == 0x0f);
 #endif
-    } else if (check == 0xff7f) {
+    } else if (check == 0xff7f &&
+               /* rule out win10 wow64 */
+               *(app_pc *)(pc + 6) == VSYSCALL_BOOTSTRAP_ADDR) {
         app_pc vsys;
         /* verify is call %edx or call [%edx] followed by ret 0 [0xc3] */
         ASSERT(*((ushort *)(int_target+2)) == 0xc3d2 ||
@@ -554,9 +570,8 @@ syscalls_init()
             int_syscall_address = int_target;
             ASSERT(*(byte *)(vsys + 6) == 0xc3 /* ret 0 */);
         }
-    } else {
+    } else if (check == 0xc300 || check == 0xc200) {
         /* win8: call followed by ret */
-        ASSERT(check == 0xc300 || check == 0xc200);
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         /* kernel returns control to KiFastSystemCallRet, not local sysenter, of course */
         sysenter_ret_address = (app_pc) get_proc_address(ntdllh, "KiFastSystemCallRet");
@@ -567,6 +582,16 @@ syscalls_init()
 #endif
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
+    } else {
+        /* win10 wow64 */
+        app_pc tgt;
+        ASSERT(*(ushort *)(pc + 10) == 0xd2ff);
+        ASSERT(is_wow64_process(NT_CURRENT_PROCESS));
+        tgt = *(app_pc *)(pc + 6);
+        ASSERT(*(tgt + 0x18) == 0xea);
+        dr_which_syscall_t = DR_SYSCALL_WOW64;
+        set_syscall_method(SYSCALL_METHOD_WOW64);
+        wow64_syscall_call_tgt = tgt;
     }
 
     /* Prime use_ki_syscall_routines() */

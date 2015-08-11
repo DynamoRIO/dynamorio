@@ -292,6 +292,12 @@ extern app_pc sysenter_ret_address;
 extern app_pc KiFastSystemCallRet_address;
 #endif
 
+/* For Win10 this is ntdll!Wow64SystemServiceCall, which the call* in
+ * each ntdll syscall wrappers targets.  There are also copies in
+ * kernelbase, kernel32, user32, and gdi32.
+ */
+extern app_pc wow64_syscall_call_tgt;
+
 bool ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live);
 bool optimizable_system_call(int num);
 #ifdef DEBUG
