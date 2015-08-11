@@ -2195,7 +2195,7 @@ if (CLIENT_INTERFACE)
     if (NOT ARM) # i#1732: no ARM support for drcpusim yet
       torunonly_ci(tool.drcpusim.simple ${ci_shared_app} drcpusim
         client-interface/${ci_shared_app} # for .expect
-        "-cpu Sandybridge" "" "")
+        "" "" "")
       set(tool.drcpusim.simple_toolname "drcpusim")
 
       if (UNIX AND NOT APPLE)
