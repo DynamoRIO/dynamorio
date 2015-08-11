@@ -565,6 +565,7 @@ signal_handler(int sig)
 #  define INIT() set_global_filter()
 
 /* XXX: when updating here, update core/os_exports.h too */
+# define WINDOWS_VERSION_10    100
 # define WINDOWS_VERSION_8_1    63
 # define WINDOWS_VERSION_8      62
 # define WINDOWS_VERSION_7      61

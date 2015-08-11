@@ -570,7 +570,19 @@ windows_version_init()
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
-        if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 3) {
+        if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
+            if (module_is_64bit(get_ntdll_base())) {
+                syscalls = (int *) windows_10_x64_syscalls;
+                os_name = "Microsoft Windows 10 x64";
+            } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                syscalls = (int *) windows_10_wow64_syscalls;
+                os_name = "Microsoft Windows 10 x64";
+            } else {
+                syscalls = (int *) windows_10_x86_syscalls;
+                os_name = "Microsoft Windows 10";
+            }
+            os_version = WINDOWS_VERSION_10;
+        } else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 3) {
             if (module_is_64bit(get_ntdll_base())) {
                 syscalls = (int *) windows_81_x64_syscalls;
                 os_name = "Microsoft Windows 8.1 x64";
@@ -582,8 +594,7 @@ windows_version_init()
                 os_name = "Microsoft Windows 8.1";
             }
             os_version = WINDOWS_VERSION_8_1;
-        }
-        else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 2) {
+        } else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 2) {
             if (module_is_64bit(get_ntdll_base())) {
                 syscalls = (int *) windows_8_x64_syscalls;
                 os_name = "Microsoft Windows 8 x64";
@@ -710,13 +721,16 @@ windows_version_init()
                 os_name = "Microsoft Windows NT SP4, 5, 6, or 6a";
             }
         } else {
-            SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: major=%d, minor=%d\n",
+            SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: major=%d, minor=%d",
                                   peb->OSMajorVersion, peb->OSMinorVersion);
             if (standalone_library)
                 return false; /* let app handle it */
             os_name = "Unrecognized Windows NT-family version";
-            FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
-                              get_application_pid(), PRODUCT_NAME, os_name);
+            if (dynamo_options.max_supported_os_version <
+                peb->OSMajorVersion * 10 + peb->OSMinorVersion) {
+                FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
+                                  get_application_pid(), PRODUCT_NAME, os_name);
+            }
         }
     } else if (peb->OSPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
         /* Win95 or Win98 */

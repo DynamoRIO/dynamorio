@@ -675,6 +675,9 @@ typedef struct _TEB {                               /* offset: 32bit / 64bit */
     ULONG                     SpareUlong0;                  /* 0xfdc / 0x180c */
     PVOID                     ResourceRetValue;             /* 0xfe0 / 0x1810 */
     PVOID                     ReservedForWdf;               /* 0xfe4 / 0x1818 */
+    /* Added in Win10 */
+    PVOID                     ReservedForCrt;               /* 0xfe8 / 0x1820 */
+    PVOID /* GUID */          EffectiveContainerId;         /* 0xff0 / 0x1828 */
 #else /* pre-Vista: */
     byte                      SafeThunkCall;                /* 0xfb8 / 0x17d0 */
     byte                      BooleanSpare[3];              /* 0xfb9 / 0x17d1 */

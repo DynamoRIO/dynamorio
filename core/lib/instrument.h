@@ -1764,6 +1764,8 @@ dr_get_parent_id(void);
 /** Windows versions */
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx */
 typedef enum {
+    /** Windows 10 */
+    DR_WINDOWS_VERSION_10      = 100,
     /** Windows 8.1 */
     DR_WINDOWS_VERSION_8_1     = 63,
     /** Windows Server 2012 R2 */
