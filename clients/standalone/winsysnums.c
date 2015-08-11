@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,6 +52,7 @@
  *   % cd !$
  *   % cmake -DDynamoRIO_DIR=e:/src/dr/git/exports/cmake ../src/clients/standalone
  *   % cmake --build .
+ * A copy is now built as part of a regular DR build.
  *
  * To run, you need to put dynamorio.dll, drsyms.dll, and dbghelp.dll into the
  * same directory as winsysnums.exe.  (If you build drsyms statically you don't
@@ -132,11 +133,26 @@ typedef struct {
     int fixup_index; /* WOW dlls only */
 } syscall_info_t;
 
+static byte *
+get_preferred_base(LOADED_IMAGE *img)
+{
+    IMAGE_NT_HEADERS *nt;
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) img->MappedAddress;
+    nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
+    if (nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+        return (byte *)(ptr_uint_t)
+            ((IMAGE_OPTIONAL_HEADER32 *)&nt->OptionalHeader)->ImageBase;
+    } else {
+        return (byte *)(ptr_uint_t)
+            ((IMAGE_OPTIONAL_HEADER64 *)&nt->OptionalHeader)->ImageBase;
+    }
+}
+
 /* returns false on failure */
 static bool
 decode_function(void *dcontext, byte *entry)
 {
-    byte *pc;
+    byte *pc, *pre_pc;
     int num_instr = 0;
     bool found_ret = false;
     instr_t *instr;
@@ -146,7 +162,9 @@ decode_function(void *dcontext, byte *entry)
     pc = entry;
     while (true) {
         instr_reset(dcontext, instr);
+        pre_pc = pc;
         pc = decode(dcontext, pc, instr);
+        instr_set_translation(instr, pre_pc);
         dr_print_instr(dcontext, STDOUT, instr, "");
         if (instr_is_return(instr)) {
             found_ret = true;
@@ -242,10 +260,12 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
          */
         (expect_wow && found_eax &&
          instr_is_call_indirect(instr) &&
-         opnd_is_far_base_disp(instr_get_target(instr)) &&
-         opnd_get_base(instr_get_target(instr)) == REG_NULL &&
-         opnd_get_index(instr_get_target(instr)) == REG_NULL &&
-         opnd_get_segment(instr_get_target(instr)) == SEG_FS))
+         ((opnd_is_far_base_disp(instr_get_target(instr)) &&
+           opnd_get_base(instr_get_target(instr)) == REG_NULL &&
+           opnd_get_index(instr_get_target(instr)) == REG_NULL &&
+           opnd_get_segment(instr_get_target(instr)) == SEG_FS) ||
+          /* win10 has imm in edx and a near call */
+          found_edx)))
         return true;
     return false;
 }
@@ -320,16 +340,17 @@ process_syscall_call(void *dcontext, byte *next_pc, instr_t *call,
 
 /* returns false on failure */
 static bool
-decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
+decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMAGE *img)
 {
     /* FIXME: would like to fail gracefully rather than have a DR assertion
      * on non-code! => use DEBUG=0 INTERNAL=1 DR build!
      */
     bool found_syscall = false, found_eax = false, found_edx = false, found_ecx = false;
     bool found_ret = false;
-    byte *pc;
+    byte *pc, *pre_pc;
     int num_instr = 0;
     instr_t *instr;
+    byte *preferred = get_preferred_base(img);
     if (entry == NULL)
         return false;
     info->num_args = -1; /* if find sysnum but not args */
@@ -345,9 +366,12 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
         pc += 3;
     while (true) {
         instr_reset(dcontext, instr);
+        pre_pc = pc;
         pc = decode(dcontext, pc, instr);
-        if (verbose)
+        if (verbose) {
+            instr_set_translation(instr, pre_pc);
             dr_print_instr(dcontext, STDOUT, instr, "");
+        }
         if (pc == NULL || !instr_valid(instr))
             break;
         if (instr_is_syscall(instr) || instr_is_call_indirect(instr)) {
@@ -394,8 +418,11 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
                 info->sysnum = (int) opnd_get_immed_int(instr_get_src(instr, 0));
                 found_eax = true;
             } else if (!found_edx && opnd_get_reg(instr_get_dst(instr, 0)) == REG_EDX) {
-                int imm = (int) opnd_get_immed_int(instr_get_src(instr, 0));
-                if (imm == 0x7ffe0300)
+                uint imm = (uint) opnd_get_immed_int(instr_get_src(instr, 0));
+                if (imm == 0x7ffe0300 ||
+                    /* On Win10 the immed is ntdll!Wow64SystemServiceCall */
+                    (expect_wow && imm > (ptr_uint_t)preferred &&
+                     imm < (ptr_uint_t)preferred + img->SizeOfImage))
                     found_edx = true;
             } else if (!found_ecx && opnd_get_reg(instr_get_dst(instr, 0)) == REG_ECX) {
                 found_ecx = true;
@@ -420,12 +447,12 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
 
 static void
 process_syscall_wrapper(void *dcontext, byte *addr, const char *string,
-                        const char *type)
+                        const char *type, LOADED_IMAGE *img)
 {
     syscall_info_t sysinfo;
     if (ignore_Zw && string[0] == 'Z' && string[1] == 'w')
         return;
-    if (decode_syscall_num(dcontext, addr, &sysinfo)) {
+    if (decode_syscall_num(dcontext, addr, &sysinfo, img)) {
         if (sysinfo.sysnum == -1) {
             /* we expect this sometimes */
             if (strcmp(string, "KiFastSystemCall") != 0 &&
@@ -466,7 +493,7 @@ search_syms_cb(const char *name, size_t modoffs, void *data)
     byte *addr = ImageRvaToVa(sd->img->FileHeader, sd->img->MappedAddress,
                               (ULONG) modoffs, NULL);
     verbose_print("Found symbol \"%s\" at offs "PIFX" => "PFX"\n", name, modoffs, addr);
-    process_syscall_wrapper(sd->dcontext, addr, name, "pdb");
+    process_syscall_wrapper(sd->dcontext, addr, name, "pdb", sd->img);
     return true; /* keep iterating */
 }
 
@@ -546,8 +573,8 @@ process_exports(void *dcontext, char *dllname)
     dir = (IMAGE_EXPORT_DIRECTORY *)
         ImageDirectoryEntryToData(img.MappedAddress, FALSE,
                                   IMAGE_DIRECTORY_ENTRY_EXPORT, &size);
-    verbose_print("mapped at 0x%08x, exports is at 0x%08x, size is 0x%x\n",
-                  img.MappedAddress, dir, size);
+    verbose_print("mapped at "PFX" (preferred "PFX"), exports 0x%08x, size 0x%x\n",
+                  img.MappedAddress, get_preferred_base(&img), dir, size);
     start_exports = (byte *) dir;
     end_exports = start_exports + size;
     verbose_print("name=%s, ord base=0x%08x, names=%d 0x%08x\n",
@@ -565,8 +592,8 @@ process_exports(void *dcontext, char *dllname)
                       i, sec->Name, sec->VirtualAddress, sec->SizeOfRawData,
                       ImageRvaToVa(img.FileHeader, img.MappedAddress,
                                    sec->VirtualAddress, NULL),
-                      (uint) ImageRvaToVa(img.FileHeader, img.MappedAddress,
-                                          sec->VirtualAddress, NULL) +
+                      (ptr_uint_t) ImageRvaToVa(img.FileHeader, img.MappedAddress,
+                                                sec->VirtualAddress, NULL) +
                       sec->SizeOfRawData);
         sec++;
     }
@@ -616,7 +643,7 @@ process_exports(void *dcontext, char *dllname)
                     print("ERROR identifying forwarded entry for %s\n", string);
             }
         } else if (list_syscalls) {
-            process_syscall_wrapper(dcontext, addr, string, "export");
+            process_syscall_wrapper(dcontext, addr, string, "export", &img);
         }
     }
 
@@ -642,7 +669,7 @@ main(int argc, char *argv[])
     char *dll;
     bool forced = false;
 
-    set_isa_mode(dcontext, DR_ISA_IA32);
+    dr_set_isa_mode(dcontext, DR_ISA_IA32, NULL);
 
     for (res=1; res < argc; res++) {
         if (strcmp(argv[res], "-sysenter") == 0) {
@@ -657,7 +684,7 @@ main(int argc, char *argv[])
         } else if (strcmp(argv[res], "-x64") == 0) {
             expect_x64 = true;
 #ifdef X64
-            set_isa_mode(dcontext, DR_ISA_AMD64);
+            dr_set_isa_mode(dcontext, DR_ISA_AMD64, NULL);
 #else
             /* For 32-bit builds we hack a fix for -syscalls (see
              * decode_syscall_num()) but -Ki won't work.
@@ -679,7 +706,6 @@ main(int argc, char *argv[])
             ignore_Zw = true;
         } else if (argv[res][0] == '-') {
             usage(argv[0]);
-            assert(false); /* not reached */
         } else {
             break;
         }
@@ -687,13 +713,11 @@ main(int argc, char *argv[])
     if (res >= argc ||
         (!list_syscalls && !list_Ki && !list_forwards && !verbose)) {
         usage(argv[0]);
-        assert(false); /* not reached */
     }
     dll = argv[res];
 
     if (!forced && list_syscalls) {
         usage(argv[0]);
-        assert(false); /* not reached */
     }
 
     process_exports(dcontext, dll);

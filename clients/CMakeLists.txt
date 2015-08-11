@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -62,13 +62,10 @@ add_dr_defines()
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
   get_filename_component(dir ${dir} PATH)
-  # exclude standalone/
-  if (NOT ${dir} MATCHES "standalone")
-    # FIXME i#1360: add symbol export iterator to Mac and then
-    # enable drltrace for Mac.
-    if (NOT APPLE OR NOT ${dir} MATCHES "drltrace")
-      add_subdirectory(${dir})
-    endif ()
+  # FIXME i#1360: add symbol export iterator to Mac and then
+  # enable drltrace for Mac.
+  if (NOT APPLE OR NOT ${dir} MATCHES "drltrace")
+    add_subdirectory(${dir})
   endif ()
 endforeach (dir)
 

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -31,18 +31,11 @@
 
 cmake_minimum_required(VERSION 2.6)
 
-project(DynamoRIO_samples)
+project(DynamoRIO_standalone)
 
 set(LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 set(ARCHIVE_OUTPUT_DIRECTORY "${LIBRARY_OUTPUT_DIRECTORY}")
 set(RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
-
-option(SHOW_RESULTS
-  "Display client results in pop-up (Windows) or console message (Linux)"
-  ON)
-if (SHOW_RESULTS)
-  add_definitions(-DSHOW_RESULTS)
-endif (SHOW_RESULTS)
 
 if (WIN32)
   if (NOT DEFINED GENERATE_PDBS)
@@ -72,7 +65,11 @@ if (WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif (WIN32)
 
-file(GLOB srcs winsysnums.c) # only supporting one for now
+if (WIN32)
+  file(GLOB srcs winsysnums.c) # only supporting one for now
+else ()
+  set(srcs ) # empty list
+endif ()
 # Not all clients are supported on all plaforms
 string(REGEX REPLACE "[^;]*MF_moduledb.c" "" srcs "${srcs}")
 if (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
@@ -80,8 +77,6 @@ if (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 endif (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
 set(DynamoRIO_REG_COMPATIBILITY ON)
-
-option(DEBUG "build debug" ON)
 
 foreach (src ${srcs})
   get_filename_component(tgt ${src} NAME_WE)
