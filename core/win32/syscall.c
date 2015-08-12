@@ -1763,11 +1763,11 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
             my_cxt = global_heap_alloc(CONTEXT_HEAP_SIZE(*my_cxt) HEAPACCT(ACCT_OTHER));
 #ifdef X64
             cxt_alloc = (byte *) cxt;
-            if (!ALIGNED(cxt, 16)) {
-                ASSERT(ALIGNED(cxt, 8));
-                cxt = (CONTEXT *) ( ((app_pc)cxt)+8 );
+            if (!ALIGNED(my_cxt, 16)) {
+                ASSERT(ALIGNED(my_cxt, 8));
+                my_cxt = (CONTEXT *) ( ((app_pc)my_cxt)+8 );
             }
-            ASSERT(ALIGNED(cxt, 16));
+            ASSERT(ALIGNED(my_cxt, 16));
 #endif
             *my_cxt = *cxt;
             /* my_cxt is freed by set_synched_thread_context() or target thread */
