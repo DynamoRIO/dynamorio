@@ -852,12 +852,36 @@ get_own_x64_peb(void)
     return (uint64) peb64;
 }
 
+#ifdef NOT_DYNAMORIO_CORE
+/* This is not in the headers exported to libutil */
+process_id_t get_process_id(void);
+#endif
+
 static bool
 read64(uint64 addr, size_t sz, void *buf)
 {
     size_t got;
-    NTSTATUS res = nt_wow64_read_virtual_memory64
-        (NT_CURRENT_PROCESS, addr, buf, sz, &got);
+    HANDLE proc = NT_CURRENT_PROCESS;
+    NTSTATUS res;
+    /* On Win10, passing NT_CURRENT_PROCESS results in STATUS_INVALID_HANDLE
+     * (pretty strange).
+     */
+#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+    if (get_os_version() >= WINDOWS_VERSION_10)
+        proc = process_handle_from_id(get_process_id());
+#else
+    /* We don't have easy access to version info or PEB so we always use a real handle */
+    proc = OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION, FALSE,
+                       GetCurrentProcessId());
+#endif
+    res = nt_wow64_read_virtual_memory64(proc, addr, buf, sz, &got);
+    if (proc != NT_CURRENT_PROCESS) {
+#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+        close_handle(proc);
+#else
+        CloseHandle(proc);
+#endif
+    }
     return (NT_SUCCESS(res) && got == sz);
 }
 
