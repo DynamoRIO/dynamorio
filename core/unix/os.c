@@ -6969,6 +6969,129 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
     return ma != NULL;
 }
 
+static void
+os_add_new_app_module(dcontext_t *dcontext, bool at_map,
+                      app_pc base, size_t size, uint memprot)
+{
+    memquery_iter_t iter;
+    bool found_map = false;
+    uint64 inode = 0;
+    const char *filename = "";
+    size_t mod_size = size;
+
+    if (!at_map) {
+        /* the size is the first seg size, get the whole module size instead */
+        app_pc first_seg_base = NULL;
+        app_pc first_seg_end = NULL;
+        app_pc last_seg_end = NULL;
+        if (module_walk_program_headers(base, size, at_map, false,
+                                        &first_seg_base,
+                                        &first_seg_end,
+                                        &last_seg_end,
+                                        NULL, NULL)) {
+            ASSERT_CURIOSITY(size == (ALIGN_FORWARD(first_seg_end, PAGE_SIZE) -
+                                      (ptr_uint_t)first_seg_base));
+            mod_size = ALIGN_FORWARD(last_seg_end, PAGE_SIZE) -
+                (ptr_uint_t)first_seg_base;
+        }
+    }
+    LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2, "dlopen "PFX"-"PFX"%s\n",
+        base, base+mod_size, TEST(MEMPROT_EXEC, memprot) ? " +x": "");
+
+    /* Mapping in a new module.  From what we've observed of the loader's
+     * behavior, it first maps the file in with size equal to the final
+     * memory image size (I'm not sure how it gets that size without reading
+     * in the elf header and then walking through all the program headers to
+     * get the largest virtual offset).  This is necessary to reserve all the
+     * space that will be needed.  It then walks through the program headers
+     * mapping over the the previously mapped space with the appropriate
+     * permissions and offsets.  Note that the .bss portion is mapped over
+     * as anonymous.  It may also, depending on the program headers, make some
+     * areas read-only after fixing up their relocations etc. NOTE - at
+     * no point are the section headers guaranteed to be mapped in so we can't
+     * reliably walk sections (only segments) without looking to disk.
+     */
+    /* FIXME - when should we add the module to our list?  At the first map
+     * seems to be the best choice as we know the bounds and it's difficult to
+     * tell when the loader is finished.  The downside is that at the initial map
+     * the memory layout isn't finalized (memory beyond the first segment will
+     * be shifted for page alignment reasons), so we have to be careful and
+     * make adjustments to read anything beyond the first segment until the
+     * loader finishes. This goes for the client too as it gets notified when we
+     * add to the list.  FIXME we could try to track the expected segment overmaps
+     * and only notify the client after the last one (though that's still before
+     * linking and relocation, but that's true on Windows too). */
+    /* Get filename & inode for the list. */
+    memquery_iterator_start(&iter, base, true /* plan to alloc a module_area_t */);
+    while (memquery_iterator_next(&iter)) {
+        if (iter.vm_start == base) {
+            if (iter.vm_start == vsyscall_page_start) {
+                ASSERT_CURIOSITY(!at_map);
+            } else {
+                ASSERT_CURIOSITY(iter.inode != 0);
+                ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
+                /* XREF 307599 on rounding module end to the next PAGE boundary */
+                ASSERT_CURIOSITY((iter.vm_end - iter.vm_start ==
+                                  ALIGN_FORWARD(size, PAGE_SIZE)));
+                inode = iter.inode;
+                filename = dr_strdup(iter.comment HEAPACCT(ACCT_OTHER));
+                found_map = true;
+            }
+            break;
+        }
+    }
+    memquery_iterator_stop(&iter);
+#ifdef HAVE_MEMINFO
+    /* barring weird races we should find this map except [vdso] */
+    ASSERT_CURIOSITY(found_map || base == vsyscall_page_start);
+#else /* HAVE_MEMINFO */
+    /* Without /proc/maps or other memory querying interface available at
+     * library map time, there is no way to find out the name of the file
+     * that was mapped, thus its inode isn't available either.
+     *
+     * Just module_list_add with no filename will still result in
+     * library name being extracted from the .dynamic section and added
+     * to the module list.  However, this name may not always exist, thus
+     * we might have a library with no file name available at all!
+     *
+     * Note: visor implements vsi mem maps that give file info, but, no
+     *       path, should be ok.  xref PR 401580.
+     *
+     * Once PR 235433 is implemented in visor then fix memquery_iterator*() to
+     * use vsi to find out page protection info, file name & inode.
+     */
+#endif /* HAVE_MEMINFO */
+    /* XREF 307599 on rounding module end to the next PAGE boundary */
+    if (found_map) {
+        module_list_add(base, ALIGN_FORWARD(mod_size, PAGE_SIZE),
+                        at_map, filename, inode);
+        dr_strfree(filename HEAPACCT(ACCT_OTHER));
+    }
+}
+
+void
+os_check_new_app_module(dcontext_t *dcontext, app_pc pc)
+{
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(pc);
+    /* ma might be NULL due to dynamic generated code or custom loaded modules */
+    if (ma == NULL) {
+        dr_mem_info_t info;
+        /* i#1760: an app module loaded by custom loader (e.g., bionic libc)
+         * might not be detected by DynamoRIO in process_mmap.
+         */
+        if (query_memory_ex_from_os(pc, &info) && info.type == DR_MEMTYPE_IMAGE) {
+            /* add the missing module */
+            os_get_module_info_unlock();
+            os_add_new_app_module(get_thread_private_dcontext(), false/*!at_map*/,
+                                  info.base_pc, info.size, info.prot);
+            os_get_module_info_lock();
+        }
+    }
+    os_get_module_info_unlock();
+}
+
 /* All processing for mmap and mmap2. */
 static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
@@ -7024,76 +7147,9 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                 * read, so pass size=0 to use a safe_read.
                 */
                module_is_header(base, 0)) {
-        memquery_iter_t iter;
-        bool found_map = false;;
-        uint64 inode = 0;
-        const char *filename = "";
-        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2, "dlopen "PFX"-"PFX"%s\n",
-            base, base+size, TEST(MEMPROT_EXEC, memprot) ? " +x": "");
         image = true;
         DODEBUG({ map_type = "ELF SO"; });
-        /* Mapping in a new module.  From what we've observed of the loader's
-         * behavior, it first maps the file in with size equal to the final
-         * memory image size (I'm not sure how it gets that size without reading
-         * in the elf header and then walking through all the program headers to
-         * get the largest virtual offset).  This is necessary to reserve all the
-         * space that will be needed.  It then walks through the program headers
-         * mapping over the the previously mapped space with the appropriate
-         * permissions and offsets.  Note that the .bss portion is mapped over
-         * as anonymous.  It may also, depending on the program headers, make some
-         * areas read-only after fixing up their relocations etc. NOTE - at
-         * no point are the section headers guaranteed to be mapped in so we can't
-         * reliably walk sections (only segments) without looking to disk.
-         */
-        /* FIXME - when should we add the module to our list?  At the first map
-         * seems to be the best choice as we know the bounds and it's difficult to
-         * tell when the loader is finished.  The downside is that at the initial map
-         * the memory layout isn't finalized (memory beyond the first segment will
-         * be shifted for page alignment reasons), so we have to be careful and
-         * make adjustments to read anything beyond the first segment until the
-         * loader finishes. This goes for the client too as it gets notified when we
-         * add to the list.  FIXME we could try to track the expected segment overmaps
-         * and only notify the client after the last one (though that's still before
-         * linking and relocation, but that's true on Windows too). */
-        /* Get filename & inode for the list. */
-        memquery_iterator_start(&iter, base, true /* plan to alloc a module_area_t */);
-        while (memquery_iterator_next(&iter)) {
-            if (iter.vm_start == base) {
-                ASSERT_CURIOSITY(iter.inode != 0);
-                ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
-                /* XREF 307599 on rounding module end to the next PAGE boundary */
-                ASSERT_CURIOSITY(iter.vm_end - iter.vm_start ==
-                                 ALIGN_FORWARD(size, PAGE_SIZE));
-                inode = iter.inode;
-                filename = dr_strdup(iter.comment HEAPACCT(ACCT_OTHER));
-                found_map = true;
-                break;
-            }
-        }
-        memquery_iterator_stop(&iter);
-#ifdef HAVE_MEMINFO
-        ASSERT_CURIOSITY(found_map); /* barring weird races we should find this map */
-#else /* HAVE_MEMINFO */
-        /* Without /proc/maps or other memory querying interface available at
-         * library map time, there is no way to find out the name of the file
-         * that was mapped, thus its inode isn't available either.
-         *
-         * Just module_list_add with no filename will still result in
-         * library name being extracted from the .dynamic section and added
-         * to the module list.  However, this name may not always exist, thus
-         * we might have a library with no file name available at all!
-         *
-         * Note: visor implements vsi mem maps that give file info, but, no
-         *       path, should be ok.  xref PR 401580.
-         *
-         * Once PR 235433 is implemented in visor then fix memquery_iterator*() to
-         * use vsi to find out page protection info, file name & inode.
-         */
-#endif /* HAVE_MEMINFO */
-        /* XREF 307599 on rounding module end to the next PAGE boundary */
-        module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, filename, inode);
-        if (found_map)
-            dr_strfree(filename HEAPACCT(ACCT_OTHER));
+        os_add_new_app_module(dcontext, true/*at_map*/, base, size, memprot);
     }
 
     IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, prot, image));

@@ -486,6 +486,7 @@ bool query_memory_cur_base(const byte *pc, OUT dr_mem_info_t *info);
 #ifdef UNIX
 bool get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info);
+void os_check_new_app_module(dcontext_t *dcontext, app_pc pc);
 #endif
 
 bool get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);

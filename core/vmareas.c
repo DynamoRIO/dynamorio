@@ -7304,6 +7304,13 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         /* not in this thread's current executable list
          * try the global executable area list
          */
+#ifdef LINUX
+        /* i#1760: an app module loaded by custom loader (e.g., bionic libc)
+         * might not be detected by DynamoRIO in process_mmap, so we check
+         * whether it is an unsee module here.
+         */
+        os_check_new_app_module(dcontext, pc);
+#endif
 #ifdef CLIENT_INTERFACE
         /* i#884: module load event is now on first execution */
         instrument_module_load_trigger(pc);

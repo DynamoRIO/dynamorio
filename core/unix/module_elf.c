@@ -860,7 +860,7 @@ get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code 
          * If is_indirect_code is NULL, we will call the ifunc for caller.
          */
         if (is_indirect_code != NULL) {
-            *is_indirect_code = is_ifunc;
+            *is_indirect_code = (res == NULL) ? false : is_ifunc;
         } else if (res != NULL) {
             if (is_ifunc) {
                 TRY_EXCEPT_ALLOW_NO_DCONTEXT(get_thread_private_dcontext(), {
