@@ -30,24 +30,36 @@
  * DAMAGE.
  */
 
-/* cache_line: represents a cache line.
+/* caching_device_block: represents a unit block of a caching device.
  */
 
-#ifndef _CACHE_LINE_H_
-#define _CACHE_LINE_H_ 1
+#ifndef _CACHING_DEVICE_BLOCK_H_
+#define _CACHING_DEVICE_BLOCK_H_ 1
 
-#include "caching_device_block.h"
+#include <inttypes.h>
+#include "memref.h"
 
-class cache_line_t : public caching_device_block_t
+// Assuming a block of a caching device represents a memory space of at least 4-byte,
+// e.g., a CPU cache line or a virtual/physical page, we can use special value
+// that cannot be computed from valid address as special tag for
+// block status.
+static const addr_t TAG_INVALID = (addr_t)-1; // block is invalid
+
+class caching_device_block_t
 {
+ public:
+    // Initializing counter to 0 is just to be safe and to make it easier to write new
+    // replacement algorithms without errors (and we expect negligible perf cost), as
+    // we expect any use of counter to only occur *after* a valid tag is put in place,
+    // where for the current replacement code we also set the counter at that time.
+    caching_device_block_t() : tag(TAG_INVALID), counter(0) {}
 
-    // Currently, "cache_line_t" is identical to caching_device_block_t; however,
-    // cache_line_t is probably to be extended to have distinct member variables
-    // and functions, e.g., coherency-related ones. Therefore, it is
-    // reasonable to keep two identical classes now rather than use one instead.
+    addr_t tag;
 
-    // FIXME i#1726: implement cache coherency protocols
-
+    // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
+    // A 32-bit counter should be sufficient but we may want to revisit.
+    // We already have inttypes.h so we can reinstate int_least64_t easily.
+    int counter; // for use by replacement policies
 };
 
-#endif /* _CACHE_LINE_H_ */
+#endif /* _CACHING_DEVICE_BLOCK_H_ */
