@@ -51,6 +51,7 @@ if (UNIX)
     simulator/cache.cpp
     simulator/cache_lru.cpp
     simulator/cache_fifo.cpp
+    simulator/caching_device_stats.cpp
     simulator/cache_stats.cpp
     )
   target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)

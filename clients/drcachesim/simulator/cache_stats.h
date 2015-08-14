@@ -30,38 +30,34 @@
  * DAMAGE.
  */
 
-/* cache_stats: represents a single hardware cache.
+/* cache_stats: represents a CPU cache.
  */
 
 #ifndef _CACHE_STATS_H_
 #define _CACHE_STATS_H_ 1
 
-#include <string>
-#include <inttypes.h>
-#include "memref.h"
+#include "caching_device_stats.h"
 
-class cache_stats_t
+class cache_stats_t : public caching_device_stats_t
 {
  public:
     cache_stats_t();
-    virtual ~cache_stats_t();
 
-    // Called on each cache access.
-    // A multi-cache-line memory reference invokes this routine
-    // separately for each line touched.
+    // In addition to caching_device_stats_t::access,
+    // cache_stats_t::access processes prefetching requests.
     virtual void access(const memref_t &memref, bool hit);
 
-    // Called on each cache access by a child cache.
-    virtual void child_access(const memref_t &memref, bool hit);
-
+    // process CPU cache flushes
     virtual void flush(const memref_t &memref);
 
-    virtual void print_stats(std::string prefix);
-
  protected:
-    int_least64_t num_hits;
-    int_least64_t num_misses;
-    int_least64_t num_child_hits;
+    // In addition to caching_device_stats_t::print_counts,
+    // cache_stats_t::print_counts prints stats for flushes and
+    // prefetching requests.
+    virtual void print_counts(std::string prefix);
+
+    // A CPU cache handles flushes and prefetching requests
+    // as well as regular memory accesses.
     int_least64_t num_flushes;
     int_least64_t num_prefetch_hits;
     int_least64_t num_prefetch_misses;

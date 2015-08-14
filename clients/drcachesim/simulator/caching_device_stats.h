@@ -30,47 +30,41 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iomanip>
-#include "cache_stats.h"
+/* caching_device_stats: represents a hardware caching device.
+ */
 
-cache_stats_t::cache_stats_t() :
-    num_flushes(0), num_prefetch_hits(0), num_prefetch_misses(0)
-{
-}
+#ifndef _CACHING_DEVICE_STATS_H_
+#define _CACHING_DEVICE_STATS_H_ 1
 
-void
-cache_stats_t::access(const memref_t &memref, bool hit)
-{
-    // handle prefetching requests
-    if (type_is_prefetch(memref.type)) {
-        if (hit)
-            num_prefetch_hits++;
-        else
-            num_prefetch_misses++;
-    } else { // handle regular memory accesses
-        caching_device_stats_t::access(memref, hit);
-    }
-}
+#include <string>
+#include <inttypes.h>
+#include "memref.h"
 
-void
-cache_stats_t::flush(const memref_t &memref)
+class caching_device_stats_t
 {
-    num_flushes++;
-}
+ public:
+    caching_device_stats_t();
+    virtual ~caching_device_stats_t();
 
-void
-cache_stats_t::print_counts(std::string prefix)
-{
-    caching_device_stats_t::print_counts(prefix);
-    if (num_flushes != 0) {
-        std::cerr << prefix << std::setw(18) << std::left << "Flushes:" <<
-            std::setw(20) << std::right << num_flushes << std::endl;
-    }
-    if (num_prefetch_hits + num_prefetch_misses != 0) {
-        std::cerr << prefix << std::setw(18) << std::left << "Prefetch hits:" <<
-            std::setw(20) << std::right << num_prefetch_hits << std::endl;
-        std::cerr << prefix << std::setw(18) << std::left << "Prefetch misses:" <<
-            std::setw(20) << std::right << num_prefetch_misses << std::endl;
-    }
-}
+    // Called on each access.
+    // A multi-block memory reference invokes this routine
+    // separately for each block touched.
+    virtual void access(const memref_t &memref, bool hit);
+
+    // Called on each access by a child caching device.
+    virtual void child_access(const memref_t &memref, bool hit);
+
+    virtual void print_stats(std::string prefix);
+
+ protected:
+    // print different groups of information, beneficial for code reuse
+    virtual void print_counts(std::string prefix); // hit/miss numbers
+    virtual void print_rates(std::string prefix); // hit/miss rates
+    virtual void print_child_stats(std::string prefix); // child/total info
+
+    int_least64_t num_hits;
+    int_least64_t num_misses;
+    int_least64_t num_child_hits;
+};
+
+#endif /* _CACHING_DEVICE_STATS_H_ */
