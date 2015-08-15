@@ -201,6 +201,9 @@ const char *options_list_str =
     "                           A tool is a client with a configuration file\n"
     "                           that sets the client options and path, providing a\n"
     "                           convenient launching command via this -t parameter.\n"
+# ifdef DRRUN
+    "                           Available tools include: %s.\n"
+# endif
     "\n"
     "        -c <path> <options>*\n"
     "                           Registers one client to run alongside DR.  Assigns\n"
@@ -389,7 +392,7 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
     fprintf(stderr, "%s", usage_str);                           \
     print_tool_list();                                          \
     if (list_ops) {                                             \
-        fprintf(stderr, "%s", options_list_str);                \
+        fprintf(stderr, options_list_str, tool_list);           \
     } else {                                                    \
         fprintf(stderr, "Run with -help to see "TOOLNAME" option list\n"); \
     }                                                           \

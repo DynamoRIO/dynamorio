@@ -52,16 +52,23 @@ Quickstart instructions for running DynamoRIO:
 --------------------------------------------------
 On Linux:
 
+To run the application with a DynamoRIO sample client:
 32-bit:
   % bin32/drrun -c samples/bin32/libbbsize.so -- ls
 64-bit:
   % bin64/drrun -c samples/bin64/libbbsize.so -- ls
 
+To run the application with a DynamoRIO-based tool:
+32-bit:
+  % bin32/drrun -t drcachesim -- ls
+64-bit
+  % bin64/drrun -t drcachesim -- ls
+
 To run the Dr. Memory tool which is included in release packages:
   % bin32/drrun -t drmemory -- <my-32-bit-app> <args-to-app>
 
 For additional options and to list available tools for -t:
-  % bin32/drrun
+  % bin32/drrun -help
 
 For full control over child processes use a two-step process:
 first configure with bin32/drconfig and then invoke the parent
@@ -72,28 +79,35 @@ On Windows, with examples run from a cygwin shell (for cmd shell replace
 the first slash with a backward slash: e.g., bin32\drrun.exe):
 
 Method 1: directly invoke an application:
-32-bit:
-  % bin32/drrun.exe -c samples/bin32/bbsize.dll -- calc
-64-bit:
-  % bin64/drrun.exe -c samples/bin64/bbsize.dll -- calc
+To run the application with a DynamoRIO sample client:
+32-bit
+  % bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
+64-bit
+  % bin64/drrun.exe -c samples/bin64/bbsize.dll -- notepad
+
+To run the application with a DynamoRIO-based tool:
+32-bit
+  % bin32/drrun.exe -t drstrace -- notepad
+64-bit
+  % bin64/drrun.exe -t drstrace -- notepad
 
 To run the Dr. Memory tool which is included in release packages:
   % bin32/drrun.exe -t drmemory -- <my-32-bit-app> <args-to-app>
 
 For additional options and to list available tools for -t:
-  % bin32/drrun.exe
+  % bin32/drrun.exe -help
 
 Method 2: configure an application and launch it separately.
 This requires administrative privileges:
 32-bit:
-  % bin32/drconfig.exe -reg calc.exe -syswide_on -c samples/bin32/bbsize.dll
+  % bin32/drconfig.exe -reg notepad.exe -syswide_on -c samples/bin32/bbsize.dll
 64-bit:
-  % bin64/drconfig.exe -reg calc.exe -syswide_on -c samples/bin64/bbsize.dll
+  % bin64/drconfig.exe -reg notepad.exe -syswide_on -c samples/bin64/bbsize.dll
 Now run the application however you normally would, with the mouse or from
-the command line.  From a cygwin shell this will run 32-bit calc:
-  % cmd /c start calc
+the command line.  From a cygwin shell this will run 32-bit notepad:
+  % cmd /c start notepad
 
-Now close calc and a messagebox should pop up produced by the bbsize client.
+Now close notepad and a messagebox should pop up produced by the bbsize client.
 
 Note that if you use cygwin unzip to extract files from the release package
 .zip file, you'll need to mark all the .dll and .exe files as ugo+rx in
