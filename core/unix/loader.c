@@ -1404,7 +1404,60 @@ redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info,
     release_recursive_lock(&privload_lock);
     return res;
 }
-#endif
+
+# ifdef ARM
+typedef struct _unwind_callback_data_t {
+    void *pc;
+    void *base;
+    int   size;
+} unwind_callback_data_t;
+
+/* Find the exception unwind table (exidx) of the image that contains the
+ * exception pc.
+ */
+int
+exidx_lookup_callback(struct dl_phdr_info *info, size_t size, void *data)
+{
+    int i;
+    int res = 0;
+    unwind_callback_data_t *ucd;
+    if (data == NULL || size != sizeof(*info))
+        return res;
+    ucd = (unwind_callback_data_t *)data;
+    for (i = 0; i < info->dlpi_phnum; i++) {
+        /* look for the table */
+        if (info->dlpi_phdr[i].p_type == PT_ARM_EXIDX) {
+            /* the location and size of the table for the image */
+            ucd->base = (void *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
+            ucd->size = info->dlpi_phdr[i].p_memsz;
+        }
+        /* look for the segment */
+        if (res == 0 && info->dlpi_phdr[i].p_type == PT_LOAD) {
+            if (ucd->pc >= (void *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr) &&
+                ucd->pc <  (void *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr +
+                                    info->dlpi_phdr[i].p_memsz)) {
+                res = 1;
+            }
+        }
+    }
+    return res;
+}
+
+/* find the exception unwind table that contains the PC during an exception */
+void *
+redirect___gnu_Unwind_Find_exidx(void *pc, int *count)
+{
+    unwind_callback_data_t ucd;
+    memset(&ucd, 0, sizeof(ucd));
+    ucd.pc = pc;
+    if (redirect_dl_iterate_phdr(exidx_lookup_callback, &ucd) <= 0)
+        return NULL;
+    if (count != NULL)
+        *count = ucd.size / 8 /* exidx table entry size */;
+    return ucd.base;
+}
+# endif /* ARM */
+#endif /* LINUX */
 
 typedef struct _redirect_import_t {
     const char *name;
@@ -1425,6 +1478,10 @@ static const redirect_import_t redirect_imports[] = {
 #ifdef LINUX
     /* i#1717: C++ exceptions call this */
     {"dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr},
+# ifdef ARM
+    /* i#1717: C++ exceptions call this on ARM Linux */
+    {"__gnu_Unwind_Find_exidx", (app_pc)redirect___gnu_Unwind_Find_exidx},
+# endif
 #endif
     /* We need these for clients that don't use libc (i#1747) */
     {"strlen", (app_pc)strlen},
