@@ -814,20 +814,16 @@ event_init(void)
 }
 
 static void
-options_init(client_id_t id)
+options_init(client_id_t id, int argc, const char *argv[])
 {
-    const char *opstr = dr_get_options(id);
-    const char *s;
-
-    char token[OPTION_MAX_LENGTH];
-
+    int i;
+    const char *token;
     /* default values */
     options.nudge_kills = true;
     dr_snprintf(options.logdir, BUFFER_SIZE_ELEMENTS(options.logdir), ".");
 
-    for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
-         s != NULL;
-         s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token))) {
+    for (i = 1/*skip client*/; i < argc; i++) {
+        token = argv[i];
         if (strcmp(token, "-dump_text") == 0)
             options.dump_text = true;
         else if (strcmp(token, "-dump_binary") == 0)
@@ -837,29 +833,25 @@ options_init(client_id_t id)
         else if (strcmp(token, "-nudge_kills") == 0)
             options.nudge_kills = true;
         else if (strcmp(token, "-logdir") == 0) {
-            s = dr_get_token(s, options.logdir,
-                             BUFFER_SIZE_ELEMENTS(options.logdir));
-            USAGE_CHECK(s != NULL, "missing logdir path");
+            USAGE_CHECK((i + 1) < argc, "missing logdir path");
+            strncpy(options.logdir, argv[++i], BUFFER_SIZE_ELEMENTS(options.logdir));
         }
         else if (strcmp(token, "-native_until_thread") == 0) {
-            s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token));
-            USAGE_CHECK(s != NULL, "missing -native_until_thread number");
-            if (s != NULL) {
-                int res = dr_sscanf(token, "%d", &options.native_until_thread);
-                if (res == 1 && options.native_until_thread > 0)
-                    go_native = true;
-                else {
-                    options.native_until_thread = 0;
-                    USAGE_CHECK(false, "invalid -native_until_thread number");
-                }
+            USAGE_CHECK((i + 1) < argc, "missing -native_until_thread number");
+            token = argv[++i];
+            if (dr_sscanf(token, "%d", &options.native_until_thread) == 1 &&
+                options.native_until_thread > 0) {
+                go_native = true;
+            } else {
+                options.native_until_thread = 0;
+                USAGE_CHECK(false, "invalid -native_until_thread number");
             }
         }
         else if (strcmp(token, "-verbose") == 0) {
-            s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token));
-            USAGE_CHECK(s != NULL, "missing -verbose number");
-            if (s != NULL) {
-                int res = dr_sscanf(token, "%u", &verbose);
-                USAGE_CHECK(res == 1, "invalid -verbose number");
+            USAGE_CHECK((i + 1) < argc, "missing -verbose number");
+            token = argv[++i];
+            if (dr_sscanf(token, "%u", &verbose) != 1) {
+                USAGE_CHECK(false, "invalid -verbose number");
             }
         }
 #ifdef CBR_COVERAGE
@@ -885,7 +877,7 @@ options_init(client_id_t id)
 }
 
 DR_EXPORT void
-dr_init(client_id_t id)
+dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DrCov", "http://dynamorio.org/issues");
 
@@ -911,7 +903,7 @@ dr_init(client_id_t id)
     client_id = id;
     if (dr_using_all_private_caches())
         drcov_per_thread = true;
-    options_init(id);
+    options_init(id, argc, argv);
 
     if (options.nudge_kills)
         drx_register_soft_kills(event_soft_kill);
