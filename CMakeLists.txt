@@ -1669,8 +1669,7 @@ DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty d
 # This is fragile: we rely on package.cmake building release first, so we
 # can clear out the list file, and then append to it in debug builds.
 # A solution that searches at install time also has problems (with ordering
-# of subdirs).  Long-term we should add a dir iterator to drrun: but we want
-# to skip the legacy bbcov?  Add a marker to it "DEPRECATED"?
+# of subdirs).  Long-term we should add a dir iterator to drrun.
 if (NOT_DEBUG)
   DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"\")")
 endif ()

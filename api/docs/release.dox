@@ -176,6 +176,8 @@ following minor compatibility changes:
  - Deprecated instr_get_x86_mode(), replacing it with instr_get_isa_mode().
  - Added a third parameter to drfront_is_64bit_app().
  - Deprecated instr_is_sse_or_sse2().
+ - Removed legacy executable bbcov2lcov.
+ - Removed legacy "-t bbcov" support.
 
 Further non-compatibility-affecting changes include:
 

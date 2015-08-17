@@ -118,16 +118,6 @@ endif (WIN32 AND GENERATE_PDBS)
 
 install_target(drcov ${INSTALL_CLIENTS_LIB})
 install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
-# Create a legacy-named copy of the executable
-get_target_property(exe_path drcov2lcov LOCATION${location_suffix})
-get_filename_component(legacy_exe "${exe_path}" NAME)
-string(REGEX REPLACE "drcov" "bbcov" legacy_exe ${legacy_exe})
-if (DEFINED DR_INSTALL_TARGETS_DEST)
-  set(inst_dst ${DR_INSTALL_TARGETS_DEST})
-else ()
-  set(inst_dst ${INSTALL_CLIENTS_BIN})
-endif ()
-DR_install(FILES ${exe_path} DESTINATION ${inst_dst} RENAME ${legacy_exe})
 
 # On Linux we rely on the rpath
 if (WIN32)
@@ -148,15 +138,12 @@ endif (WIN32)
 
 set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})
 
-# Originally this tool was called "bbcov", so we keep a legacy .drrun for back-compat.
 if (X64)
   set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcov.drrun64)
   set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcov.drrun64)
-  set(CONFIG_LEGACY bbcov.drrun64)
 else (X64)
   set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcov.drrun32)
   set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcov.drrun32)
-  set(CONFIG_LEGACY bbcov.drrun32)
 endif (X64)
 
 if (UNIX)
@@ -183,8 +170,6 @@ write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_LIB})
 write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCOV_CONFIG})
-DR_install(FILES "${CONFIG_INSTALL}" RENAME "${CONFIG_LEGACY}" DESTINATION
-  ${INSTALL_DRCOV_CONFIG})
 register_tool_file("drcov")
 
 ##################################################
