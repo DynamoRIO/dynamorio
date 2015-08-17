@@ -40,6 +40,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -56,8 +57,9 @@ static double ave_size;
 static int max_size;
 
 static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                                         bool for_trace, bool translating,
+                                         OUT void **user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -67,8 +69,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     num_bb = 0;
     ave_size = 0.;
     max_size = 0;
+
+    drmgr_init();
     stats_mutex = dr_mutex_create();
-    dr_register_bb_event(event_basic_block);
+    drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
     dr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
@@ -100,11 +104,12 @@ event_exit(void)
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     dr_mutex_destroy(stats_mutex);
+    drmgr_exit();
 }
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating, OUT void **user_data)
 {
     instr_t *instr;
     int cur_size = 0;
