@@ -598,6 +598,16 @@ the code cache.  Such information may be needed if the client
 maintains its own data structures about emitted fragment code that
 must be consistent across fragment deletions.
 
+********************
+\subsection sec_events_wow64 Special System Calls
+
+For 32-bit applications on a 64-bit Windows kernel ("Windows-on-Windows-64"
+or "WOW64"), DynamoRIO treats the indirect call from 32-bit system
+libraries that transitions to WOW64 marshalling code as a system call, even
+though there are a few 32-bit instructions executed afterward on some
+versions of Windows.  Tools monitoring calls and returns will need to also
+check for instructions being considered system calls.
+
 
 ***************************************************************************
 \htmlonly
