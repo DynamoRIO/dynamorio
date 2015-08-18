@@ -1428,6 +1428,15 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-WIN-SECURITY-LSAPOLICY-L1"))
         return "advapi32.dll";
+    /**************************************************/
+    /* Added in Win10 */
+    else if (str_case_prefix(name, "API-MS-Win-Eventing-Provider-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Heap-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-LibraryLoader-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Fibers-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1"))
+        return "kernelbase.dll";
     else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
