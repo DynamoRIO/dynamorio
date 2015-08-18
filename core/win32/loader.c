@@ -525,6 +525,30 @@ is_using_app_peb(dcontext_t *dcontext)
     }
 }
 
+#ifdef DEBUG
+static void
+print_teb_fields(dcontext_t *dcontext, const char *reason)
+{
+    void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
+    byte *cur_stack_base = (byte *) get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
+    void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
+    void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
+    void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+    LOG(THREAD, LOG_LOADER, 1, "%s\n", reason);
+    LOG(THREAD, LOG_LOADER, 3, "  cur stack_limit="PFX", app stack_limit="PFX"\n",
+        cur_stack_limit, dcontext->app_stack_limit);
+    LOG(THREAD, LOG_LOADER, 3, "  cur stack_base="PFX", app stack_base="PFX"\n",
+        cur_stack_base, dcontext->app_stack_base);
+    LOG(THREAD, LOG_LOADER, 3,
+        "  cur nls_cache="PFX", app nls_cache="PFX", priv nls_cache="PFX"\n",
+        cur_nls_cache, dcontext->app_nls_cache, dcontext->priv_nls_cache);
+    LOG(THREAD, LOG_LOADER, 3, "  cur fls="PFX", app fls="PFX", priv fls="PFX"\n",
+        cur_fls, dcontext->app_fls_data, dcontext->priv_fls_data);
+    LOG(THREAD, LOG_LOADER, 3, "  cur rpc="PFX", app rpc="PFX", priv rpc="PFX"\n",
+        cur_rpc, dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
+}
+#endif
+
 static void
 swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
 {
@@ -545,6 +569,9 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
         void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+        DOLOG(3, LOG_LOADER, {
+            print_teb_fields(dcontext, to_priv ? "pre swap to priv" : "pre swap to app");
+        });
         if (to_priv) {
             if (TEST(DR_STATE_STACK_BOUNDS, flags) &&
                 dynamo_initialized /* on app stack until init finished */) {
@@ -621,17 +648,10 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
          * that priv_fls_data is either NULL or a DR address: but on
          * notepad w/ drinject it's neither: need to investigate.
          */
-        LOG(THREAD, LOG_LOADER, 3, "cur stack_limit="PFX", app stack_limit="PFX"\n",
-            cur_stack_limit, dcontext->app_stack_limit);
-        LOG(THREAD, LOG_LOADER, 3, "cur stack_base="PFX", app stack_base="PFX"\n",
-            cur_stack_base, dcontext->app_stack_base);
-        LOG(THREAD, LOG_LOADER, 3,
-            "cur nls_cache="PFX", app nls_cache="PFX", priv nls_cache="PFX"\n",
-            cur_nls_cache, dcontext->app_nls_cache, dcontext->priv_nls_cache);
-        LOG(THREAD, LOG_LOADER, 3, "cur fls="PFX", app fls="PFX", priv fls="PFX"\n",
-            cur_fls, dcontext->app_fls_data, dcontext->priv_fls_data);
-        LOG(THREAD, LOG_LOADER, 3, "cur rpc="PFX", app rpc="PFX", priv rpc="PFX"\n",
-            cur_rpc, dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
+        DOLOG(3, LOG_LOADER, {
+            print_teb_fields(dcontext, to_priv ? "post swap to priv" :
+                             "post swap to app");
+        });
     }
 }
 

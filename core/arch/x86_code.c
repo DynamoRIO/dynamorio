@@ -214,6 +214,10 @@ auto_setup(ptr_uint_t appstack)
         dump_mcontext(mcontext, THREAD, DUMP_NOT_XML);
     });
 
+    /* We didn't swap the stack ptr at loader init b/c we were on the app stack
+     * then.  We do so now.
+     */
+    IF_WINDOWS(os_swap_context(dcontext, false/*to priv*/, DR_STATE_STACK_BOUNDS));
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
