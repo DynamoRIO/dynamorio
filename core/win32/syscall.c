@@ -2734,10 +2734,12 @@ pre_system_call(dcontext_t *dcontext)
         }
     }
     else if (sysnum == syscalls[SYS_SetInformationVirtualMemory]) {
-        /* FIXME i#899: new Win8 syscall NYI.
-         * We want to know when we see it so we have some code to study.
+        /* XXX i#899: new Win8 syscall.  So far we've observed calls from
+         * KERNELBASE!PrefetchVirtualMemory and we see that
+         * KERNELBASE!SetProcessValidCallTargets calls the syscall for CFG security
+         * feature purposes, neither of which should concern us, so we ignore it for
+         * now.
          */
-        ASSERT_NOT_IMPLEMENTED(false);
     }
     else if (sysnum == syscalls[SYS_RaiseException]) {
         IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
