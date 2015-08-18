@@ -391,6 +391,9 @@ void
 context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt);
 
 void
+context_to_mcontext_new_thread(priv_mcontext_t *mcontext, CONTEXT *cxt);
+
+void
 mcontext_to_context(CONTEXT* cxt, priv_mcontext_t *mcontext, bool set_cur_seg);
 
 #ifdef DEBUG

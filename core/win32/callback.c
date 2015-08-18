@@ -3070,7 +3070,7 @@ intercept_new_thread(CONTEXT *cxt)
         dstack = (byte *) ALIGN_FORWARD(dstack, PAGE_SIZE);
     }
 #endif
-    context_to_mcontext(&mc, cxt);
+    context_to_mcontext_new_thread(&mc, cxt);
     if (dynamo_thread_init(dstack, &mc _IF_CLIENT_INTERFACE(is_client)) != -1) {
         app_pc thunk_xip = (app_pc)cxt->CXT_XIP;
         dcontext_t *dcontext = get_thread_private_dcontext();

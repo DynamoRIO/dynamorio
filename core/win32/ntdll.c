@@ -1084,17 +1084,10 @@ context_ymmh_saved_area(CONTEXT *cxt)
 /* all we need is CONTEXT_INTEGER and non-segment CONTEXT_CONTROL,
  * and for PR 264138 we need the XMM registers
  */
-void
-context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
+static void
+context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
 {
-    /* i#437: cxt might come from kernel where XSTATE is not set */
-    /* FIXME: This opens us up to a bug in DR where DR requests a CONTEXT but
-     * forgets to set XSTATE even though app has used it and we then mess up
-     * the app's ymm state. Any way we can detect that?
-     * One way is to pass a flag to indicate if the context is from kernel or
-     * set by DR, but it requires update a chain of calls.
-     */
-    ASSERT(TESTALL(CONTEXT_DR_STATE_NO_YMM, cxt->ContextFlags));
+    ASSERT(TESTALL(CONTEXT_INTEGER | CONTEXT_CONTROL, cxt->ContextFlags));
     /* CONTEXT_INTEGER */
     mcontext->xax    = cxt->CXT_XAX;
     mcontext->xbx    = cxt->CXT_XBX;
@@ -1112,7 +1105,8 @@ context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
     mcontext->r14    = cxt->R14;
     mcontext->r15    = cxt->R15;
 #endif
-    if (CONTEXT_PRESERVE_XMM) { /* no harm done if no sse support */
+    if (CONTEXT_PRESERVE_XMM && TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags)) {
+        /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
         int i;
         for (i = 0; i < NUM_XMM_SLOTS; i++)
@@ -1138,6 +1132,30 @@ context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
     mcontext->xsp    = cxt->CXT_XSP;
     mcontext->xflags = cxt->CXT_XFLAGS;
     mcontext->pc     = (app_pc) cxt->CXT_XIP; /* including XIP */
+}
+
+void
+context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT *cxt)
+{
+    /* i#437: cxt might come from kernel where XSTATE is not set */
+    /* FIXME: This opens us up to a bug in DR where DR requests a CONTEXT but
+     * forgets to set XSTATE even though app has used it and we then mess up
+     * the app's ymm state. Any way we can detect that?
+     * One way is to pass a flag to indicate if the context is from kernel or
+     * set by DR, but it requires update a chain of calls.
+     */
+    ASSERT(TESTALL(CONTEXT_DR_STATE_NO_YMM, cxt->ContextFlags));
+    context_to_mcontext_internal(mcontext, cxt);
+}
+
+void
+context_to_mcontext_new_thread(priv_mcontext_t *mcontext, CONTEXT *cxt)
+{
+    /* i#1714: new threads on win10 don't have CONTEXT_EXTENDED_REGISTERS,
+     * which is not a big deal as it doesn't matter if DR clobbers xmm/fp state.
+     */
+    ASSERT(TESTALL(CONTEXT_INTEGER | CONTEXT_CONTROL, cxt->ContextFlags));
+    context_to_mcontext_internal(mcontext, cxt);
 }
 
 /* If set_cur_seg is true, cs and ss (part of CONTEXT_CONTROL) are set to
@@ -1172,7 +1190,8 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
     cxt->R14        = mcontext->r14;
     cxt->R15        = mcontext->r15;
 #endif
-    if (CONTEXT_PRESERVE_XMM) { /* no harm done if no sse support */
+    if (CONTEXT_PRESERVE_XMM && TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags)) {
+        /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
         int i;
         /* We can't set just xmm and not the rest of the fp state
