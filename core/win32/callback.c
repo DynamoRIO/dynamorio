@@ -7334,9 +7334,12 @@ callback_interception_init_start(void)
      * see them. */
     DODEBUG({
         /* case 9423 - just SYSLOG, we can somewhat handle these */
-        /* XXX i#1305: suspend all other threads for duration of DR init */
+        /* XXX i#1305: while we now take over other threads at init time, we do
+         * not yet suspend all other threads for duration of DR init to avoid
+         * races.
+         */
         if (!check_sole_thread()) {
-            SYSLOG_INTERNAL_WARNING("!check_sole_thread() case 9423");
+            SYSLOG_INTERNAL_WARNING("Early threads found");
         }
     });
 

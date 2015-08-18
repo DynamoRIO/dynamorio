@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1828,21 +1828,18 @@ HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
         ave_len_threshold = 10;
     DOLOG(1, LOG_HTABLE|LOG_STATS, {
         /* This happens enough that it's good to get some info on it */
-        if (!((total_len <= ave_len_threshold * num
-               || (TEST(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
-                   table->capacity <= 513))
-              && "hash table high average collision length")) {
+        if (!(total_len <= ave_len_threshold * num
+              || (TEST(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
+                  table->capacity <= 513))) {
+            /* Hash table high average collision length */
             LOG(THREAD, LOG_HTABLE|LOG_STATS, 1,
-                "htable %s ave len: tot=%d <= %d, cap=%d entr=%d fac=%d\n",
+                "WARNING: high average collision length for htable %s\n"
+                "  ave len: tot=%d <= %d, cap=%d entr=%d fac=%d\n",
                 name, total_len, ave_len_threshold*num, table->capacity, table->entries,
                 table->load_factor_percent);
             HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext, table);
         }
     });
-    ASSERT_CURIOSITY((total_len <= ave_len_threshold * num
-                      || (TEST(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
-                          table->capacity <= 513))
-                     && "hash table high average collision length");
     DOLOG(3, LOG_HTABLE, {
         HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext, table);
     });
