@@ -3794,7 +3794,7 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 }
 
 
-/* NtUnmapViewOfSection */
+/* NtUnmapViewOfSection{,Ex} */
 static void
 postsys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
@@ -3999,7 +3999,8 @@ void post_system_call(dcontext_t *dcontext)
     else if (sysnum == syscalls[SYS_CreateUserProcess]) {
         postsys_CreateUserProcess(dcontext, param_base, success);
     }
-    else if (sysnum == syscalls[SYS_UnmapViewOfSection]) {
+    else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||
+             sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
         postsys_UnmapViewOfSection(dcontext, param_base, success);
     }
     else if (sysnum == syscalls[SYS_DuplicateObject]) {
