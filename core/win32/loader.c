@@ -135,8 +135,6 @@ static void *pre_fls_data;
 static void *pre_nt_rpc;
 /* Isolate TEB->NlsCache: for first thread we need to copy before have dcontext */
 static void *pre_nls_cache;
-/* Used to handle loading windows lib later during init */
-static bool swapped_to_app_peb;
 /* FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
 #endif
 
@@ -222,24 +220,27 @@ os_loader_init_prologue(void)
         LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
         LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
 
-        pre_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
-        pre_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
-        pre_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
-        /* Clear state to separate priv from app.
-         * XXX: if we attach or something it seems possible that ntdll or user32
-         * or some other shared resource might set these and we want to share
-         * the value between app and priv.  In that case we should not clear here
-         * and should relax the asserts in dispatch and is_using_app_peb to
-         * allow app==priv if both ==pre.
-         */
-        set_tls(NLS_CACHE_TIB_OFFSET, NULL);
-        set_tls(FLS_DATA_TIB_OFFSET, NULL);
-        set_tls(NT_RPC_TIB_OFFSET, NULL);
-        LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache="PFX"\n",
-            pre_nls_cache);
-        LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData="PFX"\n", pre_fls_data);
-        LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->ReservedForNtRpc="PFX"\n",
-            pre_nt_rpc);
+        if (should_swap_teb_nonstack_fields()) {
+            pre_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
+            pre_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
+            pre_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+            /* Clear state to separate priv from app.
+             * XXX: if we attach or something it seems possible that ntdll or user32
+             * or some other shared resource might set these and we want to share
+             * the value between app and priv.  In that case we should not clear here
+             * and should relax the asserts in dispatch and is_using_app_peb to
+             * allow app==priv if both ==pre.
+             */
+            set_tls(NLS_CACHE_TIB_OFFSET, NULL);
+            set_tls(FLS_DATA_TIB_OFFSET, NULL);
+            set_tls(NT_RPC_TIB_OFFSET, NULL);
+            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache="PFX"\n",
+                pre_nls_cache);
+            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData="PFX"\n",
+                pre_fls_data);
+            LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->ReservedForNtRpc="PFX"\n",
+                pre_nt_rpc);
+        }
     }
 #endif
 
@@ -300,13 +301,6 @@ os_loader_init_prologue(void)
 void
 os_loader_init_epilogue(void)
 {
-#ifdef CLIENT_INTERFACE
-    if (INTERNAL_OPTION(private_peb) && !should_swap_peb_pointer()) {
-        /* Not going to be swapping so restore permanently to app */
-        swap_peb_pointer(NULL, false/*to app*/);
-        swapped_to_app_peb = true;
-    }
-#endif
 #ifndef STANDALONE_UNIT_TEST
     /* drmarker and the privlist are set up, so fill in the windbg commands (i#522) */
     privload_add_windbg_cmds();
@@ -320,12 +314,10 @@ os_loader_exit(void)
 
 #ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb)) {
-        if (should_swap_peb_pointer()) {
-            /* Swap back so any further peb queries (e.g., reading env var
-             * while reporting a leak) use a non-freed peb
-             */
-            swap_peb_pointer(NULL, false/*to app*/);
-        }
+        /* Swap back so any further peb queries (e.g., reading env var
+         * while reporting a leak) use a non-freed peb
+         */
+        swap_peb_pointer(NULL, false/*to app*/);
         /* we do have a dcontext */
         ASSERT(get_thread_private_dcontext != NULL);
         TRY_EXCEPT(get_thread_private_dcontext(), {
@@ -353,42 +345,48 @@ void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
 #ifdef CLIENT_INTERFACE
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+    if (INTERNAL_OPTION(private_peb)) {
         if (!dynamo_initialized) {
             /* For first thread use cached pre-priv-lib value for app and
              * whatever value priv libs have set for priv
              */
-            dcontext->priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
-            dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
-            dcontext->priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
             dcontext->app_stack_limit = get_tls(BASE_STACK_TIB_OFFSET);
             dcontext->app_stack_base = get_tls(TOP_STACK_TIB_OFFSET);
-            dcontext->app_nls_cache = pre_nls_cache;
-            dcontext->app_fls_data = pre_fls_data;
-            dcontext->app_nt_rpc = pre_nt_rpc;
-            set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
-            set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
-            set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
+            if (should_swap_teb_nonstack_fields()) {
+                dcontext->priv_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
+                dcontext->priv_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
+                dcontext->priv_nt_rpc = get_tls(NT_RPC_TIB_OFFSET);
+                dcontext->app_nls_cache = pre_nls_cache;
+                dcontext->app_fls_data = pre_fls_data;
+                dcontext->app_nt_rpc = pre_nt_rpc;
+                set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+                set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
+                set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
+            }
         } else {
             /* The real value will be set by swap_peb_pointer */
             dcontext->app_stack_limit = NULL;
             dcontext->app_stack_base = NULL;
-            dcontext->app_nls_cache = NULL;
-            dcontext->app_fls_data = NULL;
-            dcontext->app_nt_rpc = NULL;
-            /* We assume clearing out any non-NULL value for priv is safe */
-            dcontext->priv_nls_cache = NULL;
-            dcontext->priv_fls_data = NULL;
-            dcontext->priv_nt_rpc = NULL;
+            if (should_swap_teb_nonstack_fields()) {
+                dcontext->app_nls_cache = NULL;
+                dcontext->app_fls_data = NULL;
+                dcontext->app_nt_rpc = NULL;
+                /* We assume clearing out any non-NULL value for priv is safe */
+                dcontext->priv_nls_cache = NULL;
+                dcontext->priv_fls_data = NULL;
+                dcontext->priv_nt_rpc = NULL;
+            }
         }
         LOG(THREAD, LOG_LOADER, 2, "app stack limit="PFX"\n", dcontext->app_stack_limit);
         LOG(THREAD, LOG_LOADER, 2, "app stack base="PFX"\n", dcontext->app_stack_base);
-        LOG(THREAD, LOG_LOADER, 2, "app nls_cache="PFX", priv nls_cache="PFX"\n",
-            dcontext->app_nls_cache, dcontext->priv_nls_cache);
-        LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
-            dcontext->app_fls_data, dcontext->priv_fls_data);
-        LOG(THREAD, LOG_LOADER, 2, "app rpc="PFX", priv rpc="PFX"\n",
-            dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
+        if (should_swap_teb_nonstack_fields()) {
+            LOG(THREAD, LOG_LOADER, 2, "app nls_cache="PFX", priv nls_cache="PFX"\n",
+                dcontext->app_nls_cache, dcontext->priv_nls_cache);
+            LOG(THREAD, LOG_LOADER, 2, "app fls="PFX", priv fls="PFX"\n",
+                dcontext->app_fls_data, dcontext->priv_fls_data);
+            LOG(THREAD, LOG_LOADER, 2, "app rpc="PFX", priv rpc="PFX"\n",
+                dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
+        }
         /* For swapping teb fields (detach, reset i#25) we'll need to
          * know the teb base from another thread
          */
@@ -402,14 +400,12 @@ void
 os_loader_thread_init_epilogue(dcontext_t *dcontext)
 {
 #ifdef CLIENT_INTERFACE
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        /* For subsequent app threads, peb ptr will be swapped to priv
-         * by transfer_to_dispatch(), and w/ FlsData swap we have to
-         * properly nest.
-         */
-        if (dynamo_initialized/*later thread*/ && !IS_CLIENT_THREAD(dcontext))
-            swap_peb_pointer(dcontext, false/*to app*/);
-    }
+    /* For subsequent app threads, peb ptr will be swapped to priv
+     * by transfer_to_dispatch(), and w/ FlsData swap we have to
+     * properly nest.
+     */
+    if (dynamo_initialized/*later thread*/ && !IS_CLIENT_THREAD(dcontext))
+        swap_peb_pointer(dcontext, false/*to app*/);
 #endif
 }
 
@@ -429,24 +425,30 @@ get_private_peb(void)
     return private_peb;
 }
 
-/* For performance reasons we avoid the swap if there's no client.
+/* For performance reasons we avoid the swap of PEB if there's no client.
  * We'd like to do so if there are no private WinAPI libs
  * (we assume libs not in the system dir will not write to PEB or TEB fields we
  * care about (mainly Fls ones)), but kernel32 can be loaded in dr_client_main()
  * (which is after arch_init()) via dr_enable_console_printing(); plus,
  * a client could load kernel32 via dr_load_aux_library(), or a 3rd-party
  * priv lib could load anything at any time.  Xref i#984.
+ * This does not indicate whether TEB fields should be swapped: we need
+ * to swap TEB stack fields even with no client (DrM#1626, DrM#1723, i#1692).
+ * That's covered by SWAP_TEB_STACK{LIMIT,BASE}.
  */
 bool
 should_swap_peb_pointer(void)
 {
-    /* FIXME i#1692: now that we need to swap TEB stack fields even with no
-     * client, we need to split the PEB and non-stack TEB swapping from the
-     * TEB swapping.  Right now they're all intertwined under "swap PEB".
-     */
     return (INTERNAL_OPTION(private_peb) &&
             !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib));
 }
+
+bool
+should_swap_teb_nonstack_fields(void)
+{
+    return should_swap_peb_pointer();
+}
+#endif /* CLIENT_INTERFACE */
 
 static void *
 get_teb_field(dcontext_t *dcontext, ushort offs)
@@ -480,17 +482,27 @@ is_using_app_peb(dcontext_t *dcontext)
     PEB *cur_peb = get_teb_field(dcontext, PEB_TIB_OFFSET);
     void *cur_stack_limit;
     void *cur_stack_base;
+#ifdef CLIENT_INTERFACE
     void *cur_nls_cache;
     void *cur_fls;
     void *cur_rpc;
-    ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
     if (!INTERNAL_OPTION(private_peb) ||
-        !private_peb_initialized ||
-        !should_swap_peb_pointer())
+        !private_peb_initialized)
         return true;
+#endif
+    ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
     ASSERT(cur_peb != NULL);
     cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
     cur_stack_base = get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
+    if (IF_CLIENT_INTERFACE_ELSE(!should_swap_peb_pointer() ||
+                                 !should_swap_teb_nonstack_fields(), true)) {
+        if (SWAP_TEB_STACKLIMIT())
+            return cur_stack_limit != dcontext->dstack - DYNAMORIO_STACK_SIZE;
+        if (SWAP_TEB_STACKBASE())
+            return cur_stack_base != dcontext->dstack;
+        return true;
+    }
+#ifdef CLIENT_INTERFACE
     cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
     cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
     cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
@@ -523,6 +535,7 @@ is_using_app_peb(dcontext_t *dcontext)
                cur_rpc != dcontext->priv_nt_rpc);
         return true;
     }
+#endif
 }
 
 #ifdef DEBUG
@@ -531,14 +544,17 @@ print_teb_fields(dcontext_t *dcontext, const char *reason)
 {
     void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
     byte *cur_stack_base = (byte *) get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
+# ifdef CLIENT_INTERFACE
     void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
     void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
     void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+# endif
     LOG(THREAD, LOG_LOADER, 1, "%s\n", reason);
     LOG(THREAD, LOG_LOADER, 3, "  cur stack_limit="PFX", app stack_limit="PFX"\n",
         cur_stack_limit, dcontext->app_stack_limit);
     LOG(THREAD, LOG_LOADER, 3, "  cur stack_base="PFX", app stack_base="PFX"\n",
         cur_stack_base, dcontext->app_stack_base);
+# ifdef CLIENT_INTERFACE
     LOG(THREAD, LOG_LOADER, 3,
         "  cur nls_cache="PFX", app nls_cache="PFX", priv nls_cache="PFX"\n",
         cur_nls_cache, dcontext->app_nls_cache, dcontext->priv_nls_cache);
@@ -546,29 +562,39 @@ print_teb_fields(dcontext_t *dcontext, const char *reason)
         cur_fls, dcontext->app_fls_data, dcontext->priv_fls_data);
     LOG(THREAD, LOG_LOADER, 3, "  cur rpc="PFX", app rpc="PFX", priv rpc="PFX"\n",
         cur_rpc, dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
+# endif
 }
 #endif
 
 static void
 swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
 {
+#ifdef CLIENT_INTERFACE
     PEB *tgt_peb = to_priv ? get_private_peb() : get_own_peb();
     ASSERT(INTERNAL_OPTION(private_peb));
-    ASSERT(private_peb_initialized || should_swap_peb_pointer());
+    ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
-    if (TEST(DR_STATE_PEB, flags)) {
+    if (TEST(DR_STATE_PEB, flags) && should_swap_peb_pointer()) {
         set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
         LOG(THREAD, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
     }
+#endif
     if (dcontext != NULL && dcontext != GLOBAL_DCONTEXT) {
         /* We preserve TEB->LastErrorValue and we swap TEB->FlsData,
          * TEB->ReservedForNtRpc, and TEB->NlsCache.
          */
         void *cur_stack_limit = get_teb_field(dcontext, BASE_STACK_TIB_OFFSET);
         byte *cur_stack_base = (byte *) get_teb_field(dcontext, TOP_STACK_TIB_OFFSET);
-        void *cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
-        void *cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
-        void *cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+#ifdef CLIENT_INTERFACE
+        void *cur_nls_cache = NULL;
+        void *cur_fls = NULL;
+        void *cur_rpc = NULL;
+        if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
+            cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
+            cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
+            cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
+        }
+#endif
         DOLOG(3, LOG_LOADER, {
             print_teb_fields(dcontext, to_priv ? "pre swap to priv" : "pre swap to app");
         });
@@ -587,7 +613,8 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags)) {
+#ifdef CLIENT_INTERFACE
+            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* note: two calls in a row will clobber app_errno w/ wrong value! */
                 dcontext->app_errno = (int)(ptr_int_t)
                     get_teb_field(dcontext, ERRNO_TIB_OFFSET);
@@ -605,6 +632,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->priv_nt_rpc);
                 }
             }
+#endif
         } else {
             if (TEST(DR_STATE_STACK_BOUNDS, flags)) {
                 if (SWAP_TEB_STACKLIMIT() &&
@@ -618,7 +646,8 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_stack_base);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags)) {
+#ifdef CLIENT_INTERFACE
+            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* two calls in a row should be fine */
                 set_teb_field(dcontext, ERRNO_TIB_OFFSET,
                               (void *)(ptr_int_t)dcontext->app_errno);
@@ -636,14 +665,19 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
                 }
             }
+#endif
         }
+#ifdef CLIENT_INTERFACE
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
                IS_CLIENT_THREAD(dcontext));
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
                IS_CLIENT_THREAD(dcontext));
-        ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
-        ASSERT(!is_dynamo_address(dcontext->app_fls_data));
-        ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
+        if (should_swap_teb_nonstack_fields()) {
+            ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
+            ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+            ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
+        }
+#endif
         /* Once we have earier injection we should be able to assert
          * that priv_fls_data is either NULL or a DR address: but on
          * notepad w/ drinject it's neither: need to investigate.
@@ -668,26 +702,33 @@ swap_peb_pointer(dcontext_t *dcontext, bool to_priv)
 void
 restore_peb_pointer_for_thread(dcontext_t *dcontext)
 {
+#ifdef CLIENT_INTERFACE
     PEB *tgt_peb = get_own_peb();
     ASSERT_NOT_TESTED();
     ASSERT(INTERNAL_OPTION(private_peb));
-    ASSERT(private_peb_initialized || should_swap_peb_pointer());
+    ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
     ASSERT(dcontext != NULL && dcontext->teb_base != NULL);
-    set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
-    LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
-    set_teb_field(dcontext, ERRNO_TIB_OFFSET, (void *)(ptr_int_t) dcontext->app_errno);
-    LOG(THREAD, LOG_LOADER, 3, "restored app errno to "PIFX"\n", dcontext->app_errno);
-    /* We also swap TEB->FlsData and TEB->ReservedForNtRpc */
-    set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
-    LOG(THREAD, LOG_LOADER, 3, "restored app nls_cache to "PFX"\n",
-        dcontext->app_nls_cache);
-    set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
-    LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
-    set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
-    LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_nt_rpc);
+    if (should_swap_peb_pointer()) {
+        set_teb_field(dcontext, PEB_TIB_OFFSET, (void *) tgt_peb);
+        LOG(GLOBAL, LOG_LOADER, 2, "set teb->peb to "PFX"\n", tgt_peb);
+    }
+    if (should_swap_teb_nonstack_fields()) {
+        set_teb_field(dcontext, ERRNO_TIB_OFFSET, (void *)(ptr_int_t)dcontext->app_errno);
+        LOG(THREAD, LOG_LOADER, 3, "restored app errno to "PIFX"\n", dcontext->app_errno);
+        /* We also swap TEB->FlsData and TEB->ReservedForNtRpc */
+        set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+        LOG(THREAD, LOG_LOADER, 3, "restored app nls_cache to "PFX"\n",
+            dcontext->app_nls_cache);
+        set_teb_field(dcontext, FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
+        LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_fls_data);
+        set_teb_field(dcontext, NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
+        LOG(THREAD, LOG_LOADER, 3, "restored app fls to "PFX"\n", dcontext->app_nt_rpc);
+    }
+#endif
 }
 
+#ifdef CLIENT_INTERFACE
 void
 loader_pre_client_thread_exit(dcontext_t *dcontext)
 {
@@ -696,11 +737,12 @@ loader_pre_client_thread_exit(dcontext_t *dcontext)
      * remove references to the app stack, which could be freed now (if at
      * process exit or some other synchall from another thread).
      */
-    if (should_swap_peb_pointer()) {
+    if (SWAP_TEB_STACKLIMIT()) {
         set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
                       dcontext->dstack - DYNAMORIO_STACK_SIZE);
     }
 }
+#endif /* CLIENT_INTERFACE */
 
 void
 check_app_stack_limit(dcontext_t *dcontext)
@@ -713,7 +755,7 @@ check_app_stack_limit(dcontext_t *dcontext)
     MEMORY_BASIC_INFORMATION mbi;
     byte *start_pc, *check_pc;
     size_t res;
-    if (!should_swap_peb_pointer())
+    if (!SWAP_TEB_STACKLIMIT() && !SWAP_TEB_STACKBASE())
         return;
     if (SWAP_TEB_STACKLIMIT())
         start_pc = (byte *)dcontext->app_stack_limit;
@@ -737,20 +779,20 @@ check_app_stack_limit(dcontext_t *dcontext)
             set_teb_field(dcontext, BASE_STACK_TIB_OFFSET, check_pc + PAGE_SIZE);
     }
 }
-#endif /* CLIENT_INTERFACE */
 
 bool
 os_should_swap_state(void)
 {
-    return IF_CLIENT_INTERFACE_ELSE(should_swap_peb_pointer(), false);
+    return SWAP_TEB_STACKLIMIT() || SWAP_TEB_STACKBASE()
+        IF_CLIENT_INTERFACE(|| should_swap_peb_pointer()
+                            || should_swap_teb_nonstack_fields());
 }
 
 bool
 os_using_app_state(dcontext_t *dcontext)
 {
 #ifdef CLIENT_INTERFACE
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        return is_using_app_peb(dcontext);
+    return is_using_app_peb(dcontext);
 #endif
     return true;
 }
@@ -760,9 +802,7 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 {
 #ifdef CLIENT_INTERFACE
     /* i#249: swap PEB pointers */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        swap_peb_pointer_ex(dcontext, !to_app/*to priv*/, flags);
-    }
+    swap_peb_pointer_ex(dcontext, !to_app/*to priv*/, flags);
 #endif
 }
 

@@ -561,7 +561,11 @@ bool private_lib_handle_cb(dcontext_t *dcontext, app_pc pc);
 #ifdef CLIENT_INTERFACE
 /* our copy of the PEB for isolation (i#249) */
 PEB *get_private_peb(void);
+/* these 2 do not cover SWAP_TEB_STACK{LIMIT,BASE}() which are separate */
 bool should_swap_peb_pointer(void);
+bool should_swap_teb_nonstack_fields(void);
+void loader_pre_client_thread_exit(dcontext_t *dcontext);
+#endif
 bool is_using_app_peb(dcontext_t *dcontext);
 void swap_peb_pointer(dcontext_t *dcontext, bool to_priv);
 /* Meant for use on detach only: restore app values and does not update
@@ -569,8 +573,6 @@ void swap_peb_pointer(dcontext_t *dcontext, bool to_priv);
  */
 void restore_peb_pointer_for_thread(dcontext_t *dcontext);
 void check_app_stack_limit(dcontext_t *dcontext);
-void loader_pre_client_thread_exit(dcontext_t *dcontext);
-#endif
 
 
 #endif /* _OS_EXPORTS_H_ */

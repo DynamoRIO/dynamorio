@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -144,8 +144,8 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
          * before dr exited (i.e. before drmarker was freed) but didn't end up getting
          * scheduled till after dr exited. */
         ASSERT(!exit_process); /* shouldn't happen */
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-        if (dcontext != NULL && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+#ifdef WINDOWS
+        if (dcontext != NULL)
             swap_peb_pointer(dcontext, false/*to app*/);
 #endif
 
@@ -154,12 +154,11 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
         /* Nudge threads should exit without holding any locks. */
         ASSERT_OWN_NO_LOCKS();
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
         /* if exiting the process, os_loader_exit will swap to app, and we want to
-         * remain private during client exit
+         * remain private during exit (esp client exit)
          */
-        if (!exit_process && dcontext != NULL &&
-            INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+        if (!exit_process && dcontext != NULL)
             swap_peb_pointer(dcontext, false/*to app*/);
 #endif
 
@@ -199,11 +198,11 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     nudge_arg_t safe_arg = {0};
     uint nudge_action_mask = 0;
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
     /* this routine is run natively via must_not_be_inlined() so there's no
      * cxt switch that swapped for us
      */
-    if (dcontext != NULL && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+    if (dcontext != NULL)
         swap_peb_pointer(dcontext, true/*to priv*/);
 #endif
 

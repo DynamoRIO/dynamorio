@@ -8042,11 +8042,8 @@ detach_helper(int detach_type)
              */
             res = thread_set_context(threads[i], cxt);
             ASSERT(res);
-#ifdef CLIENT_INTERFACE
-            /* i#249: restore app's PEB pointer */
-            if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-                restore_peb_pointer_for_thread(threads[i]->dcontext);
-#endif
+            /* i#249: restore app's PEB/TEB fields */
+            restore_peb_pointer_for_thread(threads[i]->dcontext);
         }
 
 #ifdef CLIENT_INTERFACE

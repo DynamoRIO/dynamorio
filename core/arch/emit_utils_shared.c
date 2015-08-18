@@ -1823,8 +1823,6 @@ build_profile_call_buffer()
 #endif /* PROFILE_RDTSC */
 
 #ifdef WINDOWS
-# ifdef CLIENT_INTERFACE
-
 /* Leaving in place old notes on LastError preservation: */
     /* inlined versions of save/restore last error by reading of TIB */
     /* If our inlined version fails on a later version of windows
@@ -1866,44 +1864,27 @@ void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                    bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv)
 {
+# ifdef CLIENT_INTERFACE
     /* We assume PEB is globally constant and we don't need per-thread pointers
      * and can use use absolute pointers known at init time
      */
     PEB *tgt_peb = to_priv ? get_private_peb() : get_own_peb();
     reg_id_t scratch32 = IF_X64_ELSE(reg_64_to_32(reg_scratch), reg_scratch);
-    ASSERT(INTERNAL_OPTION(private_peb) && should_swap_peb_pointer());
+    ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(reg_dr != REG_NULL && reg_scratch != REG_NULL);
-    /* can't store 64-bit immed, so we use scratch reg, for 32-bit too since
-     * long 32-bit-immed-store instr to fs:offs is slow to decode
-     */
-    PRE(ilist, next, INSTR_CREATE_mov_imm
-        (dcontext, opnd_create_reg(reg_scratch), OPND_CREATE_INTPTR((ptr_int_t)tgt_peb)));
-    PRE(ilist, next, XINST_CREATE_store
-        (dcontext, opnd_create_far_base_disp
-         (SEG_TLS, REG_NULL, REG_NULL, 0, PEB_TIB_OFFSET, OPSZ_PTR),
-         opnd_create_reg(reg_scratch)));
-
-    /* Preserve app's TEB->LastErrorValue.  We used to do this separately b/c
-     * DR at one point long ago made some win32 API calls: now we only have to
-     * do this when loading private libraries.  We assume no private library
-     * code needs to preserve LastErrorCode across app execution.
-     */
-    if (to_priv) {
-        /* yes errno is 32 bits even on x64 */
-        PRE(ilist, next, XINST_CREATE_load
-            (dcontext, opnd_create_reg(scratch32), opnd_create_far_base_disp
-             (SEG_TLS, REG_NULL, REG_NULL, 0, ERRNO_TIB_OFFSET, OPSZ_4)));
-        PRE(ilist, next, SAVE_TO_DC_VIA_REG
-            (absolute, dcontext, reg_dr, scratch32, APP_ERRNO_OFFSET));
-    } else {
-        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
-            (absolute, dcontext, reg_dr, scratch32, APP_ERRNO_OFFSET));
+    if (should_swap_peb_pointer()) {
+        /* can't store 64-bit immed, so we use scratch reg, for 32-bit too since
+         * long 32-bit-immed-store instr to fs:offs is slow to decode
+         */
+        PRE(ilist, next, INSTR_CREATE_mov_imm
+            (dcontext, opnd_create_reg(reg_scratch),
+             OPND_CREATE_INTPTR((ptr_int_t)tgt_peb)));
         PRE(ilist, next, XINST_CREATE_store
             (dcontext, opnd_create_far_base_disp
-             (SEG_TLS, REG_NULL, REG_NULL, 0, ERRNO_TIB_OFFSET, OPSZ_4),
-             opnd_create_reg(scratch32)));
+             (SEG_TLS, REG_NULL, REG_NULL, 0, PEB_TIB_OFFSET, OPSZ_PTR),
+             opnd_create_reg(reg_scratch)));
     }
-
+# endif
     /* See the comment at the definition of SWAP_TEB_STACKLIMIT() for full
      * discussion of which stack fields we swap.
      */
@@ -1955,60 +1936,81 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                  opnd_create_reg(reg_scratch)));
         }
     }
-
-    /* We also swap TEB->NlsCache.  Unlike TEB->ProcessEnvironmentBlock, which is
-     * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
-     * both values and swap between them which is expensive.
-     */
-    PRE(ilist, next, XINST_CREATE_load
-        (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
-         (SEG_TLS, REG_NULL, REG_NULL, 0, NLS_CACHE_TIB_OFFSET, OPSZ_PTR)));
-    PRE(ilist, next, SAVE_TO_DC_VIA_REG
-        (absolute, dcontext, reg_dr, reg_scratch,
-         to_priv ? APP_NLS_CACHE_OFFSET : PRIV_NLS_CACHE_OFFSET));
-    PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
-        (absolute, dcontext, reg_dr, reg_scratch,
-         to_priv ? PRIV_NLS_CACHE_OFFSET : APP_NLS_CACHE_OFFSET));
-    PRE(ilist, next, XINST_CREATE_store
-        (dcontext, opnd_create_far_base_disp
-         (SEG_TLS, REG_NULL, REG_NULL, 0, NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
-         opnd_create_reg(reg_scratch)));
-    /* We also swap TEB->FlsData.  Unlike TEB->ProcessEnvironmentBlock, which is
-     * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
-     * both values and swap between them which is expensive.
-     */
-    PRE(ilist, next, XINST_CREATE_load
-        (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
-         (SEG_TLS, REG_NULL, REG_NULL, 0, FLS_DATA_TIB_OFFSET, OPSZ_PTR)));
-    PRE(ilist, next, SAVE_TO_DC_VIA_REG
-        (absolute, dcontext, reg_dr, reg_scratch,
-         to_priv ? APP_FLS_OFFSET : PRIV_FLS_OFFSET));
-    PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
-        (absolute, dcontext, reg_dr, reg_scratch,
-         to_priv ? PRIV_FLS_OFFSET : APP_FLS_OFFSET));
-    PRE(ilist, next, XINST_CREATE_store
-        (dcontext, opnd_create_far_base_disp
-         (SEG_TLS, REG_NULL, REG_NULL, 0, FLS_DATA_TIB_OFFSET, OPSZ_PTR),
-         opnd_create_reg(reg_scratch)));
-    /* We swap TEB->ReservedForNtRpc as well.  Hopefully there won't be many
-     * more we'll have to swap.
-     */
-    PRE(ilist, next, XINST_CREATE_load
-        (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
-         (SEG_TLS, REG_NULL, REG_NULL, 0, NT_RPC_TIB_OFFSET, OPSZ_PTR)));
-    PRE(ilist, next, SAVE_TO_DC_VIA_REG
-        (absolute, dcontext, reg_dr, reg_scratch,
-         to_priv ? APP_RPC_OFFSET : PRIV_RPC_OFFSET));
-    PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
-        (absolute, dcontext, reg_dr, reg_scratch,
-         to_priv ? PRIV_RPC_OFFSET : APP_RPC_OFFSET));
-    PRE(ilist, next, XINST_CREATE_store
-        (dcontext, opnd_create_far_base_disp
-         (SEG_TLS, REG_NULL, REG_NULL, 0, NT_RPC_TIB_OFFSET, OPSZ_PTR),
-         opnd_create_reg(reg_scratch)));
-}
+# ifdef CLIENT_INTERFACE
+    if (should_swap_teb_nonstack_fields()) {
+        /* Preserve app's TEB->LastErrorValue.  We used to do this separately b/c
+         * DR at one point long ago made some win32 API calls: now we only have to
+         * do this when loading private libraries.  We assume no private library
+         * code needs to preserve LastErrorCode across app execution.
+         */
+        if (to_priv) {
+            /* yes errno is 32 bits even on x64 */
+            PRE(ilist, next, XINST_CREATE_load
+                (dcontext, opnd_create_reg(scratch32), opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, ERRNO_TIB_OFFSET, OPSZ_4)));
+            PRE(ilist, next, SAVE_TO_DC_VIA_REG
+                (absolute, dcontext, reg_dr, scratch32, APP_ERRNO_OFFSET));
+        } else {
+            PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+                (absolute, dcontext, reg_dr, scratch32, APP_ERRNO_OFFSET));
+            PRE(ilist, next, XINST_CREATE_store
+                (dcontext, opnd_create_far_base_disp
+                 (SEG_TLS, REG_NULL, REG_NULL, 0, ERRNO_TIB_OFFSET, OPSZ_4),
+                 opnd_create_reg(scratch32)));
+        }
+        /* We also swap TEB->NlsCache.  Unlike TEB->ProcessEnvironmentBlock, which is
+         * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
+         * both values and swap between them which is expensive.
+         */
+        PRE(ilist, next, XINST_CREATE_load
+            (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, NLS_CACHE_TIB_OFFSET, OPSZ_PTR)));
+        PRE(ilist, next, SAVE_TO_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch,
+             to_priv ? APP_NLS_CACHE_OFFSET : PRIV_NLS_CACHE_OFFSET));
+        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch,
+             to_priv ? PRIV_NLS_CACHE_OFFSET : APP_NLS_CACHE_OFFSET));
+        PRE(ilist, next, XINST_CREATE_store
+            (dcontext, opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
+             opnd_create_reg(reg_scratch)));
+        /* We also swap TEB->FlsData.  Unlike TEB->ProcessEnvironmentBlock, which is
+         * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
+         * both values and swap between them which is expensive.
+         */
+        PRE(ilist, next, XINST_CREATE_load
+            (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, FLS_DATA_TIB_OFFSET, OPSZ_PTR)));
+        PRE(ilist, next, SAVE_TO_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch,
+             to_priv ? APP_FLS_OFFSET : PRIV_FLS_OFFSET));
+        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch,
+             to_priv ? PRIV_FLS_OFFSET : APP_FLS_OFFSET));
+        PRE(ilist, next, XINST_CREATE_store
+            (dcontext, opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, FLS_DATA_TIB_OFFSET, OPSZ_PTR),
+             opnd_create_reg(reg_scratch)));
+        /* We swap TEB->ReservedForNtRpc as well.  Hopefully there won't be many
+         * more we'll have to swap.
+         */
+        PRE(ilist, next, XINST_CREATE_load
+            (dcontext, opnd_create_reg(reg_scratch), opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, NT_RPC_TIB_OFFSET, OPSZ_PTR)));
+        PRE(ilist, next, SAVE_TO_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch,
+             to_priv ? APP_RPC_OFFSET : PRIV_RPC_OFFSET));
+        PRE(ilist, next, RESTORE_FROM_DC_VIA_REG
+            (absolute, dcontext, reg_dr, reg_scratch,
+             to_priv ? PRIV_RPC_OFFSET : APP_RPC_OFFSET));
+        PRE(ilist, next, XINST_CREATE_store
+            (dcontext, opnd_create_far_base_disp
+             (SEG_TLS, REG_NULL, REG_NULL, 0, NT_RPC_TIB_OFFSET, OPSZ_PTR),
+             opnd_create_reg(reg_scratch)));
+    }
 # endif /* CLIENT_INTERFACE */
-
+}
 #endif /* WINDOWS */
 
 /***************************************************************************/
@@ -2287,12 +2289,10 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code,
     append_setup_fcache_target(dcontext, &ilist, absolute, shared);
     append_call_exit_dr_hook(dcontext, &ilist, absolute, shared);
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* i#249: isolate the PEB */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        preinsert_swap_peb(dcontext, &ilist, NULL, absolute, SCRATCH_REG5,
-                           SCRATCH_REG0/*scratch*/, false/*to app*/);
-    }
+#ifdef WINDOWS
+    /* i#249: isolate the PEB and TEB */
+    preinsert_swap_peb(dcontext, &ilist, NULL, absolute, SCRATCH_REG5,
+                       SCRATCH_REG0/*scratch*/, false/*to app*/);
 #endif
 
     /* restore the original register state */
@@ -2675,13 +2675,11 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     /* save last_exit, currently in scratch_reg0 into dcontext->last_exit */
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG0, LAST_EXIT_OFFSET));
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* i#249: isolate the PEB */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        preinsert_swap_peb(dcontext, ilist, NULL, absolute, SCRATCH_REG5,
-                           SCRATCH_REG0/*scratch*/, true/*to priv*/);
-    }
-#endif /* WINDOWS && CLIENT_INTERFACE */
+#ifdef WINDOWS
+    /* i#249: isolate the PEB and TEB */
+    preinsert_swap_peb(dcontext, ilist, NULL, absolute, SCRATCH_REG5,
+                       SCRATCH_REG0/*scratch*/, true/*to priv*/);
+#endif
 
 #ifdef SIDELINE
     if (dynamo_options.sideline) {
@@ -5557,27 +5555,25 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* i#249: isolate the PEB */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        /* We pay the cost of this extra load of dcontext in order to get
-         * this code shared (when not shared we place this where we already
-         * have the dcontext in a register: see prepare_for_clean_call()).
-         */
-        if (SCRATCH_ALWAYS_TLS())
-            insert_get_mcontext_base(dcontext, &ilist, NULL, SCRATCH_REG0);
-        preinsert_swap_peb(dcontext, &ilist, NULL, !SCRATCH_ALWAYS_TLS(),
-                           SCRATCH_REG0/*dc*/, SCRATCH_REG2/*scratch*/, true/*to priv*/);
-        /* We also need 2 extra loads to restore the 2 regs, in case the
-         * clean call passes them as args.
-         */
-        APP(&ilist, XINST_CREATE_load
-            (dcontext, opnd_create_reg(SCRATCH_REG0),
-             OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xax))));
-        APP(&ilist, XINST_CREATE_load
-            (dcontext, opnd_create_reg(SCRATCH_REG2),
-             OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xcx))));
-    }
+#ifdef WINDOWS
+    /* i#249: isolate the PEB and TEB */
+    /* We pay the cost of this extra load of dcontext in order to get
+     * this code shared (when not shared we place this where we already
+     * have the dcontext in a register: see prepare_for_clean_call()).
+     */
+    if (SCRATCH_ALWAYS_TLS())
+        insert_get_mcontext_base(dcontext, &ilist, NULL, SCRATCH_REG0);
+    preinsert_swap_peb(dcontext, &ilist, NULL, !SCRATCH_ALWAYS_TLS(),
+                       SCRATCH_REG0/*dc*/, SCRATCH_REG2/*scratch*/, true/*to priv*/);
+    /* We also need 2 extra loads to restore the 2 regs, in case the
+     * clean call passes them as args.
+     */
+    APP(&ilist, XINST_CREATE_load
+        (dcontext, opnd_create_reg(SCRATCH_REG0),
+         OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xax))));
+    APP(&ilist, XINST_CREATE_load
+        (dcontext, opnd_create_reg(SCRATCH_REG2),
+         OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xcx))));
 #endif
 
     /* clear eflags */
@@ -5615,19 +5611,17 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 
     instrlist_init(&ilist);
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* i#249: isolate the PEB */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        /* We pay the cost of this extra load of dcontext in order to get
-         * this code shared (when not shared we place this where we already
-         * have the dcontext in a register: see cleanup_after_clean_call()).
-         * The 2 regs are dead as the popa will restore.
-         */
-        if (SCRATCH_ALWAYS_TLS())
-            insert_get_mcontext_base(dcontext, &ilist, NULL, SCRATCH_REG0);
-        preinsert_swap_peb(dcontext, &ilist, NULL, !SCRATCH_ALWAYS_TLS(),
-                           SCRATCH_REG0/*dc*/, SCRATCH_REG2/*scratch*/, false/*to app*/);
-    }
+#ifdef WINDOWS
+    /* i#249: isolate the PEB and TEB */
+    /* We pay the cost of this extra load of dcontext in order to get
+     * this code shared (when not shared we place this where we already
+     * have the dcontext in a register: see cleanup_after_clean_call()).
+     * The 2 regs are dead as the popa will restore.
+     */
+    if (SCRATCH_ALWAYS_TLS())
+        insert_get_mcontext_base(dcontext, &ilist, NULL, SCRATCH_REG0);
+    preinsert_swap_peb(dcontext, &ilist, NULL, !SCRATCH_ALWAYS_TLS(),
+                       SCRATCH_REG0/*dc*/, SCRATCH_REG2/*scratch*/, false/*to app*/);
 #endif
 
 #ifdef X86

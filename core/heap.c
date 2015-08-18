@@ -1999,14 +1999,15 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
     /* memory alloc/dealloc and updating DR list must be atomic */
     dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* DrMi#1723: if we swap TEB stack fields, a client can trigger an app guard
+#ifdef WINDOWS
+    /* DrMi#1723: if we swap TEB stack fields, a client (or a DR app mem touch)
+     * can trigger an app guard
      * page.  We have to ensure that the kernel will update TEB.StackLimit in that
      * case, which requires our dstack to be higher than the app stack.
      * This results in more fragmentation and larger dynamo_areas so we avoid
      * if we can.  We could consider a 2nd vm_reserve region just for stacks.
      */
-    if (should_swap_peb_pointer() && SWAP_TEB_STACKBASE() &&
+    if (SWAP_TEB_STACKBASE() &&
         (!DYNAMO_OPTION(vm_reserve) && min_addr > NULL) ||
         (DYNAMO_OPTION(vm_reserve) && min_addr > heapmgt->vmheap.start_addr)) {
         try_vmm = false;

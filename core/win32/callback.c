@@ -4864,12 +4864,10 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt,
      * the PEB swapped, as our hook code does not swap like fcache enter/return
      * and clean calls do.  We do swap when recreating app state.
      */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        swap_peb_pointer(dcontext, true/*to priv*/);
+    swap_peb_pointer(dcontext, true/*to priv*/);
     /* We allow client to change context */
     pass_to_app = instrument_exception(dcontext, &einfo);
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-        swap_peb_pointer(dcontext, false/*to app*/);
+    swap_peb_pointer(dcontext, false/*to app*/);
 
     if (pass_to_app) {
         CLIENT_ASSERT(einfo.mcontext->flags == DR_MC_ALL,
@@ -6252,14 +6250,10 @@ callback_setup(app_pc next_pc)
                       DUMP_NOT_XML);
     });
 
-# ifdef CLIENT_INTERFACE
     /* i#985: save TEB fields into old context via double swap */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        ASSERT(os_using_app_state(old_dcontext));
-        swap_peb_pointer(old_dcontext, true/*to priv*/);
-        swap_peb_pointer(old_dcontext, false/*to app*/);
-    }
-# endif
+    ASSERT(os_using_app_state(old_dcontext));
+    swap_peb_pointer(old_dcontext, true/*to priv*/);
+    swap_peb_pointer(old_dcontext, false/*to app*/);
 
     /* now swap new and old */
     swap_dcontexts(new_dcontext, old_dcontext);

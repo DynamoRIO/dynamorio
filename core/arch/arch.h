@@ -179,9 +179,9 @@ mixed_mode_enabled(void)
 #  define PRIV_RPC_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_nt_rpc))
 #  define APP_NLS_CACHE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_nls_cache))
 #  define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, priv_nls_cache))
-#  define APP_STACK_LIMIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, app_stack_limit))
-#  define APP_STACK_BASE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_stack_base))
 # endif
+# define APP_STACK_LIMIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, app_stack_limit))
+# define APP_STACK_BASE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_stack_base))
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
 #endif
 
@@ -1009,12 +1009,10 @@ emit_shared_syscall_dispatch(dcontext_t *dcontext, byte *pc);
 byte *
 emit_unlinked_shared_syscall_dispatch(dcontext_t *dcontext, byte *pc);
 
-# ifdef CLIENT_INTERFACE
 /* i#249: isolate app's PEB by keeping our own copy and swapping on cxt switch */
 void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                    bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv);
-# endif
 
 void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mode));
 #endif /* WINDOWS */

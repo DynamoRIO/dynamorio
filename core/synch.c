@@ -1685,13 +1685,12 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             "\tsent to reset exit stub "PFX"\n", mc->pc);
         /* make dispatch happy */
         dcontext->whereami = WHERE_FCACHE;
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app
          * now, just in case.  DR routine can handle swapping when already app.
          */
-        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
-            swap_peb_pointer(dcontext, false/*to app*/);
+        swap_peb_pointer(dcontext, false/*to app*/);
 #endif
         /* exit stub and subsequent fcache_return will save rest of state */
         res = set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,

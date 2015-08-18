@@ -176,7 +176,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
          * vs. no shared support, separate context vs. no separate context support etc. */
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
         /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
          * death" by using xsp as scratch but don't have simple alternative.
          * We don't support non-SCRATCH_ALWAYS_TLS.
@@ -184,8 +184,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         /* XXX: should use clean callee analysis to remove pieces of this
          * such as errno preservation
          */
-        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
-            !cci->out_of_line_swap) {
+        if (!cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
                                REG_XAX/*dc*/, REG_XSP/*scratch*/, true/*to priv*/);
         }
@@ -199,9 +198,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     }
     else {
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
-            !cci->out_of_line_swap) {
+#ifdef WINDOWS
+        if (!cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
                                REG_XAX/*unused*/, REG_XSP/*scratch*/, true/*to priv*/);
         }
@@ -307,13 +305,12 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
         insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
         /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
          * death" by using xsp as scratch but don't have simple alternative.
          * We don't support non-SCRATCH_ALWAYS_TLS.
          */
-        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
-            !cci->out_of_line_swap) {
+        if (!cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
                                REG_XAX/*dc*/, REG_XSP/*scratch*/, false/*to app*/);
         }
@@ -326,9 +323,8 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
             (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     }
     else {
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
-            !cci->out_of_line_swap) {
+#ifdef WINDOWS
+        if (!cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
                                REG_XAX/*unused*/, REG_XSP/*scratch*/, false/*to app*/);
         }

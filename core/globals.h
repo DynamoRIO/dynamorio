@@ -760,11 +760,11 @@ struct _dcontext_t {
     void *         priv_nt_rpc;
     void *         app_nls_cache;
     void *         priv_nls_cache;
+# endif
     void *         app_stack_limit;
     void *         app_stack_base;
     /* we need this to restore ptrs for other threads on detach */
     byte *         teb_base;
-# endif
     /* storage for an extra app value around sysenter system calls for the
      * case 5441 Sygate interoperability hack */
     /* FIXME - this needs to be moved into the upcontext as is written to

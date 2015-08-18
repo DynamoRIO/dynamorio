@@ -1261,8 +1261,7 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
     /* i#996: we might be in app's state.
      * It is simpler to check and swap here than earlier on thread init paths.
      */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
-        dr_using_app_state(dcontext)) {
+    if (dr_using_app_state(dcontext)) {
         swap_peb_pointer(dcontext, true/*to priv*/);
         swap_peb = true;
     }

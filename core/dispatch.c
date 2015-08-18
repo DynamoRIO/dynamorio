@@ -903,7 +903,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
     ASSERT(RUNNING_WITHOUT_CODE_CACHE() || is_couldbelinking(dcontext));
 
 #if defined(WINDOWS) && defined (CLIENT_INTERFACE) && defined(DEBUG)
-    if (should_swap_peb_pointer()) {
+    if (should_swap_teb_nonstack_fields()) {
         ASSERT(!is_dynamo_address(dcontext->app_fls_data));
         ASSERT(dcontext->app_fls_data == NULL ||
                dcontext->app_fls_data != dcontext->priv_fls_data);
@@ -2135,9 +2135,9 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
     GET_STACK_PTR(cur_xsp);
     if (is_on_initstack(cur_xsp))
         using_initstack = true;
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
     /* i#249: swap PEB pointers unless already in DR state */
-    if (!full_DR_state && INTERNAL_OPTION(private_peb) && should_swap_peb_pointer())
+    if (!full_DR_state)
         swap_peb_pointer(dcontext, true/*to priv*/);
 #endif
     LOG(THREAD, LOG_ASYNCH, 2,

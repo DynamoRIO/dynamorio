@@ -1698,10 +1698,10 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->priv_nt_rpc = old_dcontext->priv_nt_rpc;
     new_dcontext->app_nls_cache = old_dcontext->app_nls_cache;
     new_dcontext->priv_nls_cache = old_dcontext->priv_nls_cache;
+#endif
     new_dcontext->app_stack_limit = old_dcontext->app_stack_limit;
     new_dcontext->app_stack_base = old_dcontext->app_stack_base;
     new_dcontext->teb_base = old_dcontext->teb_base;
-#endif
 #ifdef UNIX
     new_dcontext->signal_field = old_dcontext->signal_field;
     new_dcontext->pcprofile_field = old_dcontext->pcprofile_field;
