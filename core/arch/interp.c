@@ -3733,18 +3733,18 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
                 /* If the indirect call can be converted into a direct one,
                  * bypass normal indirect call processing.
+                 * First, check for a call* that we treat as a syscall.
                  */
-                if (DYNAMO_OPTION(indcall2direct)
-                    && bb_process_convertible_indcall(dcontext, bb)) {
+                if (bb_process_indcall_syscall(dcontext, bb,
+                                               &elide_and_continue_if_converted)) {
+                    normal_indirect_processing = false;
+                } else if (DYNAMO_OPTION(indcall2direct)
+                           && bb_process_convertible_indcall(dcontext, bb)) {
                     normal_indirect_processing = false;
                     elide_and_continue_if_converted = true;
                 } else if (DYNAMO_OPTION(IAT_convert)
                            && bb_process_IAT_convertible_indcall(dcontext, bb,
                                                                  &elide_and_continue_if_converted)) {
-                    normal_indirect_processing = false;
-                }
-                else if (bb_process_indcall_syscall(dcontext, bb,
-                                                    &elide_and_continue_if_converted)) {
                     normal_indirect_processing = false;
                 }
                 else
