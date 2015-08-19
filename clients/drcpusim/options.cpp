@@ -36,6 +36,12 @@
 #include "droption.h"
 #include "options.h"
 
+#ifdef WINDOWS
+# define IF_WINDOWS_ELSE(x,y) x
+#else
+# define IF_WINDOWS_ELSE(x,y) y
+#endif
+
 droption_t<std::string> op_cpu
 (DROPTION_SCOPE_CLIENT, "cpu", "Merom", "CPU model to simulate.  Typical values:\n"
  "                                Pentium,PentiumMMX,PentiumPro,Klamath,Deschutes,\n"
@@ -119,6 +125,12 @@ droption_t<bool> op_allow_prefetchw
  "The PREFETCHW instruction is only fully supported by AMD processors, yet most Intel "
  "processors, while they do not officially support it, will turn it into a NOP. "
  "As it is commonly seen on Windows, by default drcpusim does not complain about it.");
+
+droption_t<std::string> op_blacklist
+(DROPTION_SCOPE_CLIENT, "blacklist", IF_WINDOWS_ELSE("ntdll.dll",""),
+ ":-separated list of libs to ignore.",
+ "The blacklist is a :-separated list of library names for which violations "
+ "should not be reported.");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_CLIENT, "verbose", 0, 0, 64, "Verbosity level",

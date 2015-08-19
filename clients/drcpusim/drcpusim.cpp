@@ -44,6 +44,9 @@
 #include "drmgr.h"
 #include "droption.h"
 #include "options.h"
+#include <vector>
+#include <string>
+#include <sstream>
 
 // XXX i#1732: make a msgbox on Windows (controlled by option for batch runs)
 #define NOTIFY(level, ...) do {            \
@@ -52,6 +55,8 @@
 } while (0)
 
 static bool (*opcode_supported)(instr_t *);
+
+static std::vector<std::string> blacklist;
 
 /* DR deliberately does not bother to keep model-specific information in its
  * IR.  Thus we have our own routines here that mostly just check opcodes.
@@ -722,9 +727,32 @@ report_invalid_opcode(int opc, app_pc pc)
     // XXX i#1732: add drsyms and provide file + line# (will require locating dbghelp
     // and installing it in the release package).
     // XXX i#1732: ideally, provide a callstack: this is where we'd want DrCallstack.
-    NOTIFY(0, "<Invalid %s instruction \"%s\" @ "PFX".  %s.>\n",
-           op_cpu.get_value().c_str(), decode_opcode_name(opc), pc,
-           op_continue.get_value() ? "Continuing" : "Aborting");
+    module_data_t *mod = dr_lookup_module(pc);
+    const char *modname = NULL;
+    if (mod != NULL)
+        modname = dr_module_preferred_name(mod);
+    if (modname != NULL) {
+        for (std::vector<std::string>::iterator i = blacklist.begin();
+             i != blacklist.end();
+             ++i) {
+            if (*i == modname) {
+                dr_free_module_data(mod);
+                return;
+            }
+        }
+        // It would be nice to share pieces of the msg but we'd want to
+        // build up a buffer to ensure a single atomic print.
+        NOTIFY(0, "<Invalid %s instruction \"%s\" @ %s+"PIFX".  %s.>\n",
+               op_cpu.get_value().c_str(), decode_opcode_name(opc),
+               modname, pc - mod->start,
+               op_continue.get_value() ? "Continuing" : "Aborting");
+    } else {
+        NOTIFY(0, "<Invalid %s instruction \"%s\" @ "PFX".  %s.>\n",
+               op_cpu.get_value().c_str(), decode_opcode_name(opc), pc,
+               op_continue.get_value() ? "Continuing" : "Aborting");
+    }
+    if (mod != NULL)
+        dr_free_module_data(mod);
     if (!op_continue.get_value())
         dr_abort();
 }
@@ -854,6 +882,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     NOTIFY(0, "ARM not supported yet\n");
     dr_abort();
 #endif
+
+    if (!op_blacklist.get_value().empty()) {
+        std::stringstream stream(op_blacklist.get_value());
+        std::string entry;
+        while (std::getline(stream, entry, ':'))
+            blacklist.push_back(entry);
+    }
 
     if (!drmgr_init())
         DR_ASSERT(false);
