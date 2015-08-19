@@ -52,6 +52,7 @@
 #
 # extra_ctest_args can also be defined to pass extra args to ctest_test(),
 # such as INCLUDE_LABEL.
+# ARCH_IS_X86 is defined for running x86 specific tests.
 
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
@@ -273,6 +274,15 @@ set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
 # build failures (i#1137):
 set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_ERRORS 200)
 set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_WARNINGS 200)
+
+# Detect if the arch is x86
+if (NOT DEFINED ARCH_IS_X86)
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+    set(ARCH_IS_X86 OFF)
+  else ()
+    set(ARCH_IS_X86 ON)
+  endif ()
+endif ()
 
 # Detect if the kernel is ia32 or x64.  If the kernel is ia32, there's no sense
 # in trying to run any x64 code.  On Windows, the x64 toolchain is built as x64
@@ -516,13 +526,15 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         endif ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
       endif (is64)
     else (WIN32)
-      if (is64)
-        set(ENV{CFLAGS} "-m64")
-        set(ENV{CXXFLAGS} "-m64")
-      else (is64)
-        set(ENV{CFLAGS} "-m32")
-        set(ENV{CXXFLAGS} "-m32")
-      endif (is64)
+      if (ARCH_IS_X86)
+        if (is64)
+          set(ENV{CFLAGS} "-m64")
+          set(ENV{CXXFLAGS} "-m64")
+        else (is64)
+          set(ENV{CFLAGS} "-m32")
+          set(ENV{CXXFLAGS} "-m32")
+        endif (is64)
+      endif (ARCH_IS_X86)
     endif (WIN32)
   else (NOT arg_already_built)
     # remove the Last* files from the prior run

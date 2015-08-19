@@ -208,66 +208,69 @@ endif (DO_ALL_BUILDS)
 # non-official-API builds but not all are in pre-commit suite on Windows
 # where building is slow: we'll rely on bots to catch breakage in most of these
 # builds on Windows
-if (UNIX OR DO_ALL_BUILDS)
-  testbuild("vmsafe-debug-internal-32" OFF "
-    VMAP:BOOL=OFF
-    VMSAFE:BOOL=ON
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    ")
-endif ()
-if (DO_ALL_BUILDS)
-  testbuild("vmsafe-release-external-32" OFF "
-    VMAP:BOOL=OFF
-    VMSAFE:BOOL=ON
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ")
-endif (DO_ALL_BUILDS)
-testbuild("vps-debug-internal-32" OFF "
-  VMAP:BOOL=OFF
-  VPS:BOOL=ON
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  ")
-if (DO_ALL_BUILDS)
-  testbuild("vps-release-external-32" OFF "
-    VMAP:BOOL=OFF
-    VPS:BOOL=ON
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ")
-  # Builds we'll keep from breaking but not worth running many tests
-  testbuild("callprof-32" OFF "
-    CALLPROF:BOOL=ON
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ")
-  testbuild("linkcount-32" OFF "
-    LINKCOUNT:BOOL=ON
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    ")
-  testbuild("nodefs-debug-internal-32" OFF "
-    VMAP:BOOL=OFF
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    ")
-  if (UNIX)
-    # i#975: revived support for STATIC_LIBRARY.
-    # FIXME: we need to implement takeover on Windows with .CRT$XCU.
-    testbuild("static-debug-internal-64" ON "
-      STATIC_LIBRARY:BOOL=ON
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=ON
-      ")
-    testbuild("static-debug-internal-32" OFF "
-      STATIC_LIBRARY:BOOL=ON
+if (ARCH_IS_X86)
+  # we do not bother to support these on ARM
+  if (UNIX OR DO_ALL_BUILDS)
+    testbuild("vmsafe-debug-internal-32" OFF "
+      VMAP:BOOL=OFF
+      VMSAFE:BOOL=ON
       DEBUG:BOOL=ON
       INTERNAL:BOOL=ON
       ")
   endif ()
-endif (DO_ALL_BUILDS)
+  if (DO_ALL_BUILDS)
+    testbuild("vmsafe-release-external-32" OFF "
+      VMAP:BOOL=OFF
+      VMSAFE:BOOL=ON
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=OFF
+      ")
+  endif (DO_ALL_BUILDS)
+  testbuild("vps-debug-internal-32" OFF "
+    VMAP:BOOL=OFF
+    VPS:BOOL=ON
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    ")
+  if (DO_ALL_BUILDS)
+    testbuild("vps-release-external-32" OFF "
+      VMAP:BOOL=OFF
+      VPS:BOOL=ON
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=OFF
+      ")
+    # Builds we'll keep from breaking but not worth running many tests
+    testbuild("callprof-32" OFF "
+      CALLPROF:BOOL=ON
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=OFF
+      ")
+    testbuild("linkcount-32" OFF "
+      LINKCOUNT:BOOL=ON
+      DEBUG:BOOL=ON
+      INTERNAL:BOOL=ON
+      ")
+    testbuild("nodefs-debug-internal-32" OFF "
+      VMAP:BOOL=OFF
+      DEBUG:BOOL=ON
+      INTERNAL:BOOL=ON
+      ")
+    if (UNIX)
+      # i#975: revived support for STATIC_LIBRARY.
+      # FIXME: we need to implement takeover on Windows with .CRT$XCU.
+      testbuild("static-debug-internal-64" ON "
+        STATIC_LIBRARY:BOOL=ON
+        DEBUG:BOOL=ON
+        INTERNAL:BOOL=ON
+        ")
+      testbuild("static-debug-internal-32" OFF "
+        STATIC_LIBRARY:BOOL=ON
+        DEBUG:BOOL=ON
+        INTERNAL:BOOL=ON
+        ")
+    endif ()
+  endif (DO_ALL_BUILDS)
+endif (ARCH_IS_X86)
 
 # FIXME: what about these builds?
 ## defines we don't want to break -- no runs though since we don't currently use these
