@@ -89,8 +89,9 @@ typedef DWORD cxt_seg_t;
 
 /* you can rely on these increasing with later versions */
 /* XXX: when updating, also update DR_WINDOWS_VERSION_* in instrument.h,
- * get_windows_version() in suite/tests/tools.h, and
- * get_platform() in libutil/utils.c.
+ * dr_get_os_version() in instrument.c, defines in suite/tests/tools.h,
+ * get_windows_version() in suite/tests/tools.c, defines in libutil/mfapi.h,
+ * and get_platform() in libutil/utils.c.
  */
 #define WINDOWS_VERSION_10    100
 #define WINDOWS_VERSION_8_1    63

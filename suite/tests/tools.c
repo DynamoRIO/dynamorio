@@ -62,7 +62,9 @@ get_windows_version(void)
     assert(NT_SUCCESS(res));
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
-        if (version.dwMajorVersion == 6 && version.dwMinorVersion == 3) {
+        if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
+            return WINDOWS_VERSION_10;
+        } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 3) {
             return WINDOWS_VERSION_8_1;
         } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 2) {
             return WINDOWS_VERSION_8;
