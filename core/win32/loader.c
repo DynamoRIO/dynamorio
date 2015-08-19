@@ -1544,8 +1544,12 @@ privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachab
      * (i#277/PR 540817, added to search_paths in privload_init_search_paths()).
      */
 
-    /* We may be passed a full path. */
-    if (os_file_exists(impname, false/*!is_dir*/)) {
+    /* We may be passed a full path.  We check for a separator to avoid finding
+     * the library w/ just a basename (i#1768) which results in us not having
+     * the path in our data structures.
+     */
+    if (double_strrchr(impname, DIRSEP, ALT_DIRSEP) != NULL &&
+        os_file_exists(impname, false/*!is_dir*/)) {
         mod = privload_load(impname, dependent, reachable);
         return mod; /* if fails to load, don't keep searching */
     }
