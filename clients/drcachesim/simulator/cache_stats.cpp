@@ -74,3 +74,12 @@ cache_stats_t::print_counts(std::string prefix)
             std::setw(20) << std::right << num_prefetch_misses << std::endl;
     }
 }
+
+void
+cache_stats_t::reset()
+{
+    caching_device_stats_t::reset();
+    num_flushes = 0;
+    num_prefetch_hits = 0;
+    num_prefetch_misses = 0;
+}

@@ -105,3 +105,11 @@ caching_device_stats_t::print_stats(std::string prefix)
     print_rates(prefix);
     print_child_stats(prefix);
 }
+
+void
+caching_device_stats_t::reset()
+{
+    num_hits = 0;
+    num_misses = 0;
+    num_child_hits = 0;
+}

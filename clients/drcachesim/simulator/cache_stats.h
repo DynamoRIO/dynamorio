@@ -50,6 +50,8 @@ class cache_stats_t : public caching_device_stats_t
     // process CPU cache flushes
     virtual void flush(const memref_t &memref);
 
+    virtual void reset();
+
  protected:
     // In addition to caching_device_stats_t::print_counts,
     // cache_stats_t::print_counts prints stats for flushes and

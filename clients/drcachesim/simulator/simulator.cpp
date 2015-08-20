@@ -172,6 +172,7 @@ simulator_t::run()
     int last_core = 0;
 
     uint64_t skip_refs = op_skip_refs.get_value();
+    uint64_t warmup_refs = op_warmup_refs.get_value();
     uint64_t sim_refs = op_sim_refs.get_value();
 
     // XXX i#1703: add options to select either ipc_reader_t or
@@ -183,9 +184,12 @@ simulator_t::run()
             skip_refs--;
             continue;
         }
-        if (sim_refs == 0)
+
+        // the references after warmup and simulated ones are dropped
+        if (warmup_refs == 0 && sim_refs == 0)
             continue;
-        sim_refs--;
+
+        // both warmup and simulated references are simulated
 
         // We use a static scheduling of threads to cores, as it is
         // not practical to measure which core each thread actually
@@ -225,6 +229,22 @@ simulator_t::run()
                 " @" << (void *)memref.pc <<
                 " " << trace_type_names[memref.type] << " " <<
                 (void *)memref.addr << " x" << memref.size << std::endl;
+        }
+
+        // process counters for warmup and simulated references
+        if (warmup_refs > 0) { // warm caches up
+            warmup_refs--;
+            // reset cache stats when warming up is completed
+            if (warmup_refs == 0) {
+                for (int i = 0; i < num_cores; i++) {
+                    icaches[i]->get_stats()->reset();
+                    dcaches[i]->get_stats()->reset();
+                }
+                llcache->get_stats()->reset();
+            }
+        }
+        else {
+            sim_refs--;
         }
     }
     return true;

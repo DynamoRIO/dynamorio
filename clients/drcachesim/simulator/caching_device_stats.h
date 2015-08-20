@@ -56,6 +56,8 @@ class caching_device_stats_t
 
     virtual void print_stats(std::string prefix);
 
+    virtual void reset();
+
  protected:
     // print different groups of information, beneficial for code reuse
     virtual void print_counts(std::string prefix); // hit/miss numbers
