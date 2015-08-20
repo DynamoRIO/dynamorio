@@ -88,8 +88,9 @@ typedef DWORD cxt_seg_t;
 #include "aslr.h"               /* for aslr_context */
 
 /* you can rely on these increasing with later versions */
-/* XXX: when updating, also update DR_WINDOWS_VERSION_* in instrument.h
- * and get_windows_version() in suite/tests/tools.h
+/* XXX: when updating, also update DR_WINDOWS_VERSION_* in instrument.h,
+ * get_windows_version() in suite/tests/tools.h, and
+ * get_platform() in libutil/utils.c.
  */
 #define WINDOWS_VERSION_10    100
 #define WINDOWS_VERSION_8_1    63

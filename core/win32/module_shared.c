@@ -749,7 +749,8 @@ ldr_module_statically_linked(LDR_MODULE *mod)
     bool win8plus = false;
 # if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
     PEB *peb = get_own_peb();
-    win8plus = (peb->OSMajorVersion >= 6 && peb->OSMinorVersion >= 2);
+    win8plus = ((peb->OSMajorVersion == 6 && peb->OSMinorVersion >= 2) ||
+                peb->OSMajorVersion > 6);
 # else
     win8plus = (get_os_version() >= WINDOWS_VERSION_8);
 # endif
