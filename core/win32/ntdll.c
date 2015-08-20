@@ -597,6 +597,20 @@ syscalls_init()
     /* Prime use_ki_syscall_routines() */
     use_ki_syscall_routines();
 
+    if (syscalls == windows_unknown_syscalls) {
+        /* i#1598: try to work on new, unsupported Windows versions */
+        int i;
+        app_pc wrapper;
+        ASSERT(ntdllh != NULL);
+        for (i = 0; i < SYS_MAX; i++) {
+            if (syscalls[i] == SYSCALL_NOT_PRESENT) /* presumably matches known ver */
+                continue;
+            wrapper = (app_pc) get_proc_address(ntdllh, syscall_names[i]);
+            if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
+                syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));
+            /* We ignore TestAlert complications: we don't call it anyway */
+        }
+    }
     /* quick sanity check that the syscall numbers we care about are what's
      * in our static array.  we still do our later full-decode sanity checks.
      */

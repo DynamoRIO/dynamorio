@@ -559,6 +559,11 @@ get_platform(DWORD *platform)
     RtlGetVersion_t RtlGetVersion;
     NTSTATUS res = -1;
     HANDLE ntdll_handle = GetModuleHandle(_T("ntdll.dll"));
+    /* i#1598: on any error or on unknown ver, best to assume it's a new ver
+     * and will look most like the most recent known ver.  We'll still return error
+     * return val below, but many callers don't check that (!).
+     */
+    *platform = PLATFORM_WIN_10;
     if (ntdll_handle == NULL)
         return GetLastError();
     RtlGetVersion = (RtlGetVersion_t)

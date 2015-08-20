@@ -165,6 +165,7 @@ extern int *wow64_index;
 #else
 #  define SYS_CONST const
 #endif
+extern int windows_unknown_syscalls[];
 extern SYS_CONST int windows_10_x64_syscalls[];
 extern SYS_CONST int windows_10_wow64_syscalls[];
 extern SYS_CONST int windows_10_x86_syscalls[];

@@ -573,6 +573,9 @@ windows_version_init()
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
+        /* N.B.: when adding new versions here, update the i#1598 unknown version
+         * handling code below to use the most recent enum and arrays.
+         */
         if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
             if (module_is_64bit(get_ntdll_base())) {
                 syscalls = (int *) windows_10_x64_syscalls;
@@ -726,14 +729,28 @@ windows_version_init()
         } else {
             SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: major=%d, minor=%d",
                                   peb->OSMajorVersion, peb->OSMinorVersion);
-            if (standalone_library)
-                return false; /* let app handle it */
             os_name = "Unrecognized Windows NT-family version";
             if (dynamo_options.max_supported_os_version <
                 peb->OSMajorVersion * 10 + peb->OSMinorVersion) {
+                if (standalone_library)
+                    return false; /* let app handle it */
                 FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
                                   get_application_pid(), PRODUCT_NAME, os_name);
             }
+            /* i#1598: try to make progress.  Who knows, everything might just work.
+             * First, we copy the latest numbers (mostly for SYSCALL_NOT_PRESENT).
+             * Then in syscalls_init() we try to update with real numbers from
+             * the wrappers (best-effort, modulo hooks).
+             */
+            syscalls = windows_unknown_syscalls;
+            if (module_is_64bit(get_ntdll_base()))
+                memcpy(syscalls, windows_10_x64_syscalls, SYS_MAX*sizeof(syscalls[0]));
+            else if (is_wow64_process(NT_CURRENT_PROCESS))
+                memcpy(syscalls, windows_10_wow64_syscalls, SYS_MAX*sizeof(syscalls[0]));
+            else
+                memcpy(syscalls, windows_10_x86_syscalls, SYS_MAX*sizeof(syscalls[0]));
+            os_name = "Unknown Windows NT-family version";
+            os_version = WINDOWS_VERSION_10; /* just use latest */
         }
     } else if (peb->OSPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
         /* Win95 or Win98 */

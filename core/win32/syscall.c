@@ -97,6 +97,10 @@ const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
+
+/* i#1598: we try to make progress on unknown versions */
+int windows_unknown_syscalls[TRAMPOLINE_MAX];
+
 SYS_CONST int windows_10_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
