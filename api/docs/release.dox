@@ -1202,7 +1202,8 @@ not supported.
   - DynamoRIO currently supports the following NT-based 32-bit
     Windows systems: XP (32-bit, service packs 0-3), 2003 (32-bit, service
     packs 0-2), Vista (32-bit, service packs 0-1),
-    Windows 7 (32-bit, service packs 0-1), Windows 8, and Windows 8.1.
+    Windows 7 (32-bit, service packs 0-1), Windows 8, Windows 8.1, and
+    Windows 10.
     It does not support Windows 95, 98, or ME.
     It no longer officially supports NT (all service packs) or 2000 (all service
     packs), although the core DynamoRIO library should still work there: it
@@ -1213,7 +1214,8 @@ not supported.
     Windows applications on the following 64-bit Windows operating
     systems: Windows XP Professional x64 (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), Windows 7
-    (service packs 0-1), Windows Server 2008, Windows 8, and Windows 8.1.
+    (service packs 0-1), Windows Server 2008, Windows 8, Windows 8.1, and
+    Windows 10.
     Only the 32-bit
     code will be seen, and child processes created will not be injected
     into.  On 64-bit Windows 32-bit applications are automatically run
@@ -1226,7 +1228,7 @@ not supported.
     the following 64-bit Windows systems: Windows XP Professional x64
     (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), Windows 7 x64
-    (service packs 0-1), Windows 8, and Windows 8.1.
+    (service packs 0-1), Windows 8, Windows 8.1, and Windows 10.
     Windows Server 2008 is expected to work but has not
     been tested.
   - DynamoRIO does not support any Itanium based Windows systems.
