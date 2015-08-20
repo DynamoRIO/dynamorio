@@ -1355,7 +1355,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     else ()
       template2expect(expect
         ${testpath}/${expectbase}.templatex
-        ${runops}
+        "${runops}"
         ${key})
     endif ()
     # add dependence so cmake will reconfigure if file changes

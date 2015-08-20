@@ -1,0 +1,85 @@
+#ifdef WINDOWS
+appdll initialized
+exception event redirect
+Redirect success!
+exit event 2
+exit event 1
+module load event 1 is called 1 time\(s\)
+module load event 2 is called 1 time\(s\)
+thread init event 1 is called 1 time\(s\)
+thread init event 2 is called 1 time\(s\)
+bb event 1 is called 1 time\(s\)
+bb event 2 is called 1 time\(s\)
+# if !defined(disable_traces)
+end trace event 1 is called 1 time\(s\)
+end trace event 2 is called 1 time\(s\)
+trace event 1 is called 1 time\(s\)
+trace event 2 is called 1 time\(s\)
+# endif
+delete event 1 is called 1 time\(s\)
+delete event 2 is called 1 time\(s\)
+/* no filter event on xp sp2+ 32-bit kernel, so optional */
+(filter syscall event 1 is called 1 time\(s\)
+)?(filter syscall event 2 is called 1 time\(s\)
+)?pre syscall event 1 is called 1 time\(s\)
+pre syscall event 2 is called 1 time\(s\)
+post syscall event 1 is called 1 time\(s\)
+post syscall event 2 is called 1 time\(s\)
+module unload event 1 is called 1 time\(s\)
+module unload event 2 is called 1 time\(s\)
+thread exit event 1 is called 1 time\(s\)
+thread exit event 2 is called 1 time\(s\)
+exception event 1 is called 1 time\(s\)
+exception event 2 is called 1 time\(s\)
+restore state event 1 is called 1 time\(s\)
+restore state event 2 is called 1 time\(s\)
+restore state ex event 1 is called 1 time\(s\)
+restore state ex event 2 is called 1 time\(s\)
+#else
+appdll initialized
+Sending SIGUSR1
+Got SIGUSR1
+Sending SIGUSR2
+Sending SIGURG
+Done
+exit event 2
+exit event 1
+thread exit event 1 is called 1 time\(s\)
+thread exit event 2 is called 1 time\(s\)
+fork init event 1 is called 1 time\(s\)
+fork init event 2 is called 1 time\(s\)
+signal event redirect
+Redirect success!
+exit event 2
+exit event 1
+module load event 1 is called 1 time\(s\)
+module load event 2 is called 1 time\(s\)
+thread init event 1 is called 1 time\(s\)
+thread init event 2 is called 1 time\(s\)
+bb event 1 is called 1 time\(s\)
+bb event 2 is called 1 time\(s\)
+# if !defined(disable_traces)
+end trace event 1 is called 1 time\(s\)
+end trace event 2 is called 1 time\(s\)
+trace event 1 is called 1 time\(s\)
+trace event 2 is called 1 time\(s\)
+# endif
+delete event 1 is called 1 time\(s\)
+delete event 2 is called 1 time\(s\)
+filter syscall event 1 is called 1 time\(s\)
+filter syscall event 2 is called 1 time\(s\)
+pre syscall event 1 is called 1 time\(s\)
+pre syscall event 2 is called 1 time\(s\)
+post syscall event 1 is called 1 time\(s\)
+post syscall event 2 is called 1 time\(s\)
+module unload event 1 is called 1 time\(s\)
+module unload event 2 is called 1 time\(s\)
+thread exit event 1 is called 1 time\(s\)
+thread exit event 2 is called 1 time\(s\)
+signal event 1 is called 3 time\(s\)
+signal event 2 is called 1 time\(s\)
+restore state event 1 is called 1 time\(s\)
+restore state event 2 is called 1 time\(s\)
+restore state ex event 1 is called 1 time\(s\)
+restore state ex event 2 is called 1 time\(s\)
+#endif
