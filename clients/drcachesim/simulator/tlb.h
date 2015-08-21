@@ -30,22 +30,25 @@
  * DAMAGE.
  */
 
-/* tlb_entry: represents a TLB entry.
+/* tlb: represents a single hardware TLB.
  */
 
-#ifndef _TLB_ENTRY_H_
-#define _TLB_ENTRY_H_ 1
+#ifndef _TLB_H_
+#define _TLB_H_ 1
 
-#include "caching_device_block.h"
+#include "caching_device.h"
+#include "tlb_entry.h"
+#include "tlb_stats.h"
 
-class tlb_entry_t : public caching_device_block_t
+class tlb_t : public caching_device_t
 {
  public:
-    // process ID to differentiate virtual pages
-    // that have the same VPN but belong to different processes.
-    memref_pid_t pid;
+    virtual void request(const memref_t &memref);
+ protected:
+    virtual void init_blocks();
 
-    //XXX: support page privilege and MMU-related exceptions
+    // Optimization: remember last pid in addition to last tag
+    memref_pid_t last_pid;
 };
 
-#endif /* _TLB_ENTRY_H_ */
+#endif /* _TLB_H_ */
