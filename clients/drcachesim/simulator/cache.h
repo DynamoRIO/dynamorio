@@ -36,60 +36,21 @@
 #ifndef _CACHE_H_
 #define _CACHE_H_ 1
 
+#include "caching_device.h"
 #include "cache_line.h"
 #include "cache_stats.h"
-#include "memref.h"
 
-// Statistics collection is abstracted out into the cache_stats_t class.
-
-// Different replacement policies are expected to be implemented by
-// subclassing cache_t.
-
-// We assume we're only invoked from a single thread of control and do
-// not need to synchronize data access.
-
-class cache_t
+class cache_t : public caching_device_t
 {
  public:
-    cache_t();
+    // Size, line size and associativity are generally used
+    // to describe a CPU cache.
     virtual bool init(int associativity, int line_size, int total_size,
                       cache_t *parent, cache_stats_t *stats);
-    virtual ~cache_t();
     virtual void request(const memref_t &memref);
     virtual void flush(const memref_t &memref);
-
-    cache_stats_t *get_stats() const { return stats; }
-    cache_t *get_parent() const { return parent; }
-
  protected:
-    virtual void access_update(int line_idx, int way);
-    virtual int replace_which_way(int line_idx);
-
-    inline addr_t compute_tag(addr_t addr) { return addr >> line_size_bits; }
-    inline int compute_line_idx(addr_t tag) {
-        return (tag & lines_per_set_mask) << assoc_bits;
-    }
-    inline cache_line_t& get_cache_line(int line_idx, int way) {
-        return lines[line_idx + way];
-    }
-
-    int associativity;
-    int line_size;
-    int num_lines;
-    cache_t *parent;
-    cache_line_t *lines;
-    int lines_per_set;
-    // Optimization fields for fast bit operations
-    int lines_per_set_mask;
-    int assoc_bits;
-    int line_size_bits;
-
-    cache_stats_t *stats;
-
-    // Optimization: remember last tag
-    addr_t last_tag;
-    int last_way;
-    int last_line_idx;
+    virtual void init_blocks();
 };
 
 #endif /* _CACHE_H_ */

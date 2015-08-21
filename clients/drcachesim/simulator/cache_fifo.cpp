@@ -39,27 +39,27 @@
 // be cleared. The counter of the next block will be set to 1.
 
 bool
-cache_fifo_t::init(int associativity_, int line_size_, int total_size,
+cache_fifo_t::init(int associativity_, int block_size_, int total_size,
                    cache_t *parent_, cache_stats_t *stats_)
 {
     // Works in the same way as the base class,
     // except that the counters are initialized in a different way.
 
-    bool ret_val = cache_t::init(associativity_, line_size_, total_size,
+    bool ret_val = cache_t::init(associativity_, block_size_, total_size,
                                  parent_, stats_);
     if (ret_val == false)
         return false;
 
     // Create a replacement pointer for each set, and
     // initialize it to point to the first block.
-    for (int i = 0; i < lines_per_set; i++) {
-        get_cache_line(i << assoc_bits, 0).counter = 1;
+    for (int i = 0; i < blocks_per_set; i++) {
+        get_caching_device_block(i << assoc_bits, 0).counter = 1;
     }
     return true;
 }
 
 void
-cache_fifo_t::access_update(int line_idx, int way)
+cache_fifo_t::access_update(int block_idx, int way)
 {
     // Since the FIFO replacement policy is independent of cache hit,
     // we do not need to do anything here.
@@ -67,15 +67,15 @@ cache_fifo_t::access_update(int line_idx, int way)
 }
 
 int
-cache_fifo_t::replace_which_way(int line_idx)
+cache_fifo_t::replace_which_way(int block_idx)
 {
     // We replace the block whose counter is 1.
     for (int i = 0; i < associativity; i++) {
-        if (get_cache_line(line_idx, i).counter == 1) {
-            // clear the counter of the victim line
-            get_cache_line(line_idx, i).counter = 0;
-            // set the next line as victim
-            get_cache_line(line_idx, (i + 1) & (associativity - 1)).counter = 1;
+        if (get_caching_device_block(block_idx, i).counter == 1) {
+            // clear the counter of the victim block
+            get_caching_device_block(block_idx, i).counter = 0;
+            // set the next block as victim
+            get_caching_device_block(block_idx, (i + 1) & (associativity - 1)).counter = 1;
             return i;
         }
     }
