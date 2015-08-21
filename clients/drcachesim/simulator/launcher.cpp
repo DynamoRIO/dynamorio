@@ -55,7 +55,7 @@
 #include "dr_frontend.h"
 #include "droption.h"
 #include "../common/options.h"
-#include "simulator.h"
+#include "cache_simulator.h"
 #include "utils.h"
 
 #define FATAL_ERROR(msg, ...) do { \
@@ -154,7 +154,8 @@ _tmain(int argc, const TCHAR *targv[])
     char buf[MAXIMUM_PATH];
     drfront_status_t sc;
     bool is64, is32;
-    simulator_t simulator;
+    // FIXME i#1763: add a CLI argument to specify the type of the simulator
+    cache_simulator_t simulator;
     std::string tracer_ops;
 
 #if defined(WINDOWS) && !defined(_UNICODE)

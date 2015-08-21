@@ -30,39 +30,39 @@
  * DAMAGE.
  */
 
-/* simulator: represent a simulator of a set of caching devices.
+/* cache_simulator: controls the multi-cache-level simulation.
  */
 
-#ifndef _SIMULATOR_H_
-#define _SIMULATOR_H_ 1
+#ifndef _CACHE_SIMULATOR_H_
+#define _CACHE_SIMULATOR_H_ 1
 
 #include <map>
-#include "caching_device_stats.h"
-#include "caching_device.h"
+#include "simulator.h"
+#include "cache_stats.h"
+#include "cache.h"
 #include "ipc_reader.h"
 
-class simulator_t
+class cache_simulator_t : public simulator_t
 {
  public:
-    simulator_t() {}
-    virtual bool init() = 0;
-    virtual ~simulator_t() = 0;
-    virtual bool run() = 0;
-    virtual bool print_stats() = 0;
+    virtual bool init();
+    virtual ~cache_simulator_t();
+    virtual bool run();
+    virtual bool print_stats();
 
  protected:
-    virtual int core_for_thread(memref_tid_t tid);
-    virtual void handle_thread_exit(memref_tid_t tid);
+    // Create a cache_t object with a specific replacement policy.
+    virtual cache_t *create_cache(std::string policy);
 
-    int num_cores;
+    // Currently we only support a simple 2-level hierarchy.
+    // XXX i#1715: add support for arbitrary cache layouts.
 
-    ipc_reader_t ipc_end;
-    ipc_reader_t ipc_iter;
+    // Implement a set of ICaches and DCaches with pointer arrays.
+    // This is useful for implementing polymorphism correctly.
+    cache_t **icaches;
+    cache_t **dcaches;
 
-    // For thread mapping to cores:
-    std::map<memref_tid_t, int> thread2core;
-    unsigned int *thread_counts;
-    unsigned int *thread_ever_counts;
+    cache_t *llcache;
 };
 
-#endif /* _SIMULATOR_H_ */
+#endif /* _CACHE_SIMULATOR_H_ */
