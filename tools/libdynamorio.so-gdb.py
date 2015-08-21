@@ -1,11 +1,22 @@
 #!/usr/bin/env python
 
+# XXX #1767: Python3 introduces a print function instead of the print
+# statement in python2. This import allows us to access the print
+# function in python2+.
+from __future__ import print_function
+
 import gdb
 import os
 import traceback
 import re
 
-print 'Loading gdb scripts for debugging DynamoRIO...'
+# XXX #1767: Python3 unified the int and long types. To maintain
+# compatibility with python2, we will use long and alias it to int
+# for python3.
+if sys.version_info > (3,):
+    long = int
+
+print('Loading gdb scripts for debugging DynamoRIO...')
 
 # FIXME i#531: Support loading symbols after attaching.
 
@@ -79,26 +90,26 @@ class RunDR(gdb.Command):
         build_mode = parts[-1]
         arch = parts[-2][-2:]
         if build_mode not in ('debug', 'release'):
-            print "Unrecognized build_mode %s." % build_mode
+            print("Unrecognized build_mode {0}.".format(build_mode))
             return
         if arch not in ('32', '64'):
-            print ("Unable to find drrun using libdir %r, unrecognized arch %s."
-                   % (DR_LIBDIR, arch))
+            print("Unable to find drrun using libdir {0}, unrecognized arch {1}.".format(
+                DR_LIBDIR, arch))
             return
         drrun_path = os.sep.join(parts[:-2])
-        drrun_path = os.path.join(drrun_path, 'bin%s/drrun' % arch)
-        gdb.execute("set exec-wrapper %r -%s" % (drrun_path, build_mode))
+        drrun_path = os.path.join(drrun_path, 'bin{0}/drrun'.format(arch))
+        gdb.execute("set exec-wrapper {0} -{1}".format(drrun_path, build_mode))
 
         # Build options string.
         # FIXME: The escaping is most likely wrong here.  It's tricky because
         # the command is parsed by gdb and DynamoRIO.
         env_opts = os.environ.get('DYNAMORIO_OPTIONS', '')
-        param_opts = ' '.join("-%s %s" % (p.dr_option, p.value)
+        param_opts = ' '.join("-{0} {1}".format(p.dr_option, p.value)
                               for p in dr_options)
         client_opts = ''
         if dr_client.value:
-            client_opts = ('-code_api -client_lib %s;0;%s' %
-                           (dr_client.value, dr_client_args.value))
+            client_opts = ('-code_api -client_lib {0};0;{1}'.format(
+                           dr_client.value, dr_client_args.value))
         dr_opts = ' '.join([env_opts, param_opts, client_opts])
 
         gdb.execute("set env DYNAMORIO_OPTIONS " + dr_opts)
@@ -113,7 +124,7 @@ def gdb_has_breakpoints():
         # Some version strings are like this: "Fedora 7.7.1-21.fc20"
         match = re.match(r'.*\s+(\d+)\.(\d+)', gdb.VERSION)
         if not match:
-            print "Error parsing gdb version (%s)" % gdb.VERSION
+            print("Error parsing gdb version ({0})".format(gdb.VERSION))
             return False
     major = int(match.group(1))
     minor = int(match.group(2))
@@ -144,8 +155,8 @@ if gdb_has_breakpoints():
                 frame = gdb.newest_frame()
                 filename = frame.read_var("filename").string()
                 textaddr = long(frame.read_var("textaddr"))
-                cmd = "add-symbol-file '%s' %s" % (filename, hex(textaddr))
-                print "Executing gdb command:", cmd
+                cmd = "add-symbol-file '{0}' {1}".format(filename, hex(textaddr))
+                print("Executing gdb command:", cmd)
                 # We suppress output to the screen with to_string unless we're
                 # debugging.
                 gdb.execute(cmd, to_string=not self.DEBUG)
@@ -174,6 +185,6 @@ if gdb_has_breakpoints():
     PrivloadBP()
 
 else:
-    print ("This version of gdb does not support breakpoints from Python.  "
-           "Libraries loaded by DynamoRIO will not be automatically "
-           "registered with gdb.")
+    print("This version of gdb does not support breakpoints from Python.  "
+          "Libraries loaded by DynamoRIO will not be automatically "
+          "registered with gdb.")
