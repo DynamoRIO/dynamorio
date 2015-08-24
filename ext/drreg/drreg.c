@@ -118,7 +118,9 @@ static uint
 find_free_slot(per_thread_t *pt)
 {
     uint i;
-    for (i = 0; i < MAX_SPILLS; i++) {
+    /* 0 is always reserved for AFLAGS_SLOT */
+    ASSERT(AFLAGS_SLOT == 0, "AFLAGS_SLOT is not 0");
+    for (i = AFLAGS_SLOT+1; i < MAX_SPILLS; i++) {
         if (pt->slot_use[i] == DR_REG_NULL)
             return i;
     }
@@ -243,7 +245,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
         if (xfer)
             aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
         else {
-            uint aflags_cur, aflags_read, aflags_w2r;
+            uint aflags_read, aflags_w2r;
             if (index == 0)
                 aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
             else {
@@ -518,7 +520,7 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
            "must be called from drmgr insertion phase");
     pt->aflags.in_use = false;
     if (!TESTANY(EFLAGS_READ_ARITH, aflags))
-        return true;
+        return DRREG_SUCCESS;
 #ifdef X86
     if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use) {
         /* FIXME i#511: pick an unreserved reg, spill it, and put xax there

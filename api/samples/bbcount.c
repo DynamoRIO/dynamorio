@@ -41,6 +41,8 @@
 
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
+#include "drmgr.h"
+#include "drreg.h"
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -56,45 +58,11 @@
 /* we only have a global count */
 static int global_count;
 
-/* If being off a little bit is not important, or the target
- * application is single-threaded or spends most of its time in one
- * thread, performing a racy inc (i.e., not synchronized among threads)
- * is three times faster than synchronizing.
- */
-#define RACY_INC 1
-
 #ifdef SHOW_RESULTS
 /* some meta-stats: static (not per-execution) */
 static int bbs_eflags_saved;
 static int bbs_no_eflags_saved;
 #endif
-
-static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
-
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    dr_set_client_name("DynamoRIO Sample Client 'bbcount'",
-                       "http://dynamorio.org/issues");
-    /* register events */
-    dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
-
-    /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'bbcount' initializing\n");
-#ifdef SHOW_RESULTS
-    /* also give notification to stderr */
-    if (dr_is_notify_on()) {
-# ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called at init. */
-        dr_enable_console_printing();
-# endif
-        dr_fprintf(STDERR, "Client bbcount is running\n");
-    }
-#endif
-}
 
 static void
 event_exit(void)
@@ -112,14 +80,20 @@ event_exit(void)
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
+    drreg_exit();
+    drmgr_exit();
 }
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *instr, *first = instrlist_first_app(bb);
-    uint flags;
+#ifdef SHOW_RESULTS
+    bool aflags_dead;
+#endif
+
+    if (!drmgr_is_first_instr(drcontext, inst))
+        return DR_EMIT_DEFAULT;
 
 #ifdef VERBOSE
     dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
@@ -128,47 +102,59 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 # endif
 #endif
 
-    /* Our inc can go anywhere, so find a spot where flags are dead. */
-    for (instr = first; instr != NULL; instr = instr_get_next_app(instr)) {
-        flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-        /* OP_inc doesn't write CF but not worth distinguishing */
-        if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags))
-            break;
-    }
-
-    if (instr == NULL) {
-        dr_save_reg(drcontext, bb, first, DR_REG_XAX, SPILL_SLOT_1);
-        dr_save_arith_flags_to_xax(drcontext, bb, first);
-    }
-    /* Increment the global counter using the lock prefix to make it atomic
-     * across threads.
-     */
-#ifdef RACY_INC
-    instrlist_meta_preinsert
-        (bb, (instr == NULL) ? first : instr,
-         INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
-                          ((byte *)&global_count, OPSZ_4)));
-#else
-    instrlist_meta_preinsert
-        (bb, (instr == NULL) ? first : instr,
-         LOCK(INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
-                               ((byte *)&global_count, OPSZ_4))));
-#endif
-    if (instr == NULL) {
-        dr_restore_arith_flags_from_xax(drcontext, bb, first);
-        dr_restore_reg(drcontext, bb, first, DR_REG_XAX, SPILL_SLOT_1);
-    }
-
 #ifdef SHOW_RESULTS
-    if (instr == NULL)
+    if (drreg_are_aflags_dead(drcontext, inst, &aflags_dead) == DRREG_SUCCESS &&
+        !aflags_dead)
         bbs_eflags_saved++;
     else
         bbs_no_eflags_saved++;
 #endif
+
+    /* We demonstrate how to use drreg for aflags save/restore here.
+     * We could use drx_insert_counter_update instead of drreg.
+     * Xref sample opcodes.c as an example of using drx_insert_counter_update.
+     */
+    if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
+        DR_ASSERT(false && "fail to reserve aflags!");
+    /* racy update on the counter for better performance */
+    instrlist_meta_preinsert
+        (bb, inst,
+         INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
+                          ((byte *)&global_count, OPSZ_4)));
+    if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
+        DR_ASSERT(false && "fail to unreserve aflags!");
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
     dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 #endif
     return DR_EMIT_DEFAULT;
+}
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    drreg_options_t ops = {sizeof(ops), 1 /*max slots needed: aflags*/, false};
+    dr_set_client_name("DynamoRIO Sample Client 'bbcount'",
+                       "http://dynamorio.org/issues");
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
+    /* register events */
+    dr_register_exit_event(event_exit);
+    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        DR_ASSERT(false);
+
+    /* make it easy to tell, by looking at log file, which client executed */
+    dr_log(NULL, LOG_ALL, 1, "Client 'bbcount' initializing\n");
+#ifdef SHOW_RESULTS
+    /* also give notification to stderr */
+    if (dr_is_notify_on()) {
+# ifdef WINDOWS
+        /* ask for best-effort printing to cmd window.  must be called at init. */
+        dr_enable_console_printing();
+# endif
+        dr_fprintf(STDERR, "Client bbcount is running\n");
+    }
+#endif
 }
