@@ -216,7 +216,7 @@ add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drutil;drx")
 if (NOT ARM) # FIXME i#1551: port to ARM
   add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg")
-  add_sample_client(cbr         "cbr.c"           "")
+  add_sample_client(cbr         "cbr.c"           "drmgr")
   add_sample_client(countcalls  "countcalls.c"    "")
   add_sample_client(div         "div.c"           "")
   add_sample_client(inc2add     "inc2add.c"       "")

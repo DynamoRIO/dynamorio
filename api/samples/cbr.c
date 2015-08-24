@@ -59,6 +59,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -281,111 +282,109 @@ static void at_not_taken(app_pc src, app_pc fall)
 
 
 static dr_emit_flags_t
-bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *instr, *next_instr;
+    cbr_state_t state;
+    bool insert_taken, insert_not_taken;
+    app_pc src;
+    elem_t *elem;
 
-    for (instr = instrlist_first_app(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next_app(instr);
+    /* conditional branch only */
+    if (!instr_is_cbr(instr))
+        return DR_EMIT_DEFAULT;
 
-        if (instr_is_cbr(instr)) {
-            /* Conditional branch.  We can determine the target and
-             * fallthrough addresses here, but we want to note the
-             * edge if and when it actually executes at runtime.
-             * Instead of using dr_insert_cbr_instrumentation(), we'll
-             * insert separate instrumentation for the taken and not
-             * taken cases and remove the instrumentation for an edge
-             * after it executes.
+    /* We can determine the target and fallthrough addresses here, but we
+     * want to note the edge if and when it actually executes at runtime.
+     * Instead of using dr_insert_cbr_instrumentation(), we'll insert
+     * separate instrumentation for the taken and not taken cases and
+     * remove the instrumentation for an edge after it executes.
+     */
+
+    /* First look up the state of this branch so we
+     * know what instrumentation to insert, if any.
+     */
+    src = instr_get_app_pc(instr);
+    elem = lookup(table, src);
+
+    if (elem == NULL) {
+        state = CBR_NEITHER;
+        insert(table, src, CBR_NEITHER);
+    }
+    else {
+        state = elem->state;
+    }
+
+    insert_taken = (state & CBR_TAKEN) == 0;
+    insert_not_taken = (state & CBR_NOT_TAKEN) == 0;
+
+    if (insert_taken || insert_not_taken) {
+        app_pc fall = (app_pc)decode_next_pc(drcontext, (byte *)src);
+        app_pc targ = instr_get_branch_target_pc(instr);
+
+        /* Redirect the existing cbr to jump to a callout for
+         * the 'taken' case.  We'll insert a 'not-taken'
+         * callout at the fallthrough address.
+         */
+        instr_t *label = INSTR_CREATE_label(drcontext);
+        /* should be meta, and meta-instrs shouldn't have translations */
+        instr_set_meta_no_translation(instr);
+        /* it may not reach (in particular for x64) w/ our added clean call */
+        if (instr_is_cti_short(instr)) {
+            /* if jecxz/loop we want to set the target of the long-taken
+             * so set instr to the return value
              */
-            cbr_state_t state;
-            bool insert_taken, insert_not_taken;
-            app_pc src = instr_get_app_pc(instr);
-
-            /* First look up the state of this branch so we
-             * know what instrumentation to insert, if any.
-             */
-            elem_t *elem = lookup(table, src);
-
-            if (elem == NULL) {
-                state = CBR_NEITHER;
-                insert(table, src, CBR_NEITHER);
-            }
-            else {
-                state = elem->state;
-            }
-
-            insert_taken = (state & CBR_TAKEN) == 0;
-            insert_not_taken = (state & CBR_NOT_TAKEN) == 0;
-
-            if (insert_taken || insert_not_taken) {
-                app_pc fall = (app_pc)decode_next_pc(drcontext, (byte *)src);
-                app_pc targ = instr_get_branch_target_pc(instr);
-
-                /* Redirect the existing cbr to jump to a callout for
-                 * the 'taken' case.  We'll insert a 'not-taken'
-                 * callout at the fallthrough address.
-                 */
-                instr_t *label = INSTR_CREATE_label(drcontext);
-                /* should be meta, and meta-instrs shouldn't have translations */
-                instr_set_meta_no_translation(instr);
-                /* it may not reach (in particular for x64) w/ our added clean call */
-                if (instr_is_cti_short(instr)) {
-                    /* if jecxz/loop we want to set the target of the long-taken
-                     * so set instr to the return value
-                     */
-                    instr = instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
-                }
-                instr_set_target(instr, opnd_create_instr(label));
-
-                if (insert_not_taken) {
-                    /* Callout for the not-taken case.  Insert after
-                     * the cbr (i.e., 3rd argument is NULL).
-                     */
-                    dr_insert_clean_call(drcontext, bb, NULL,
-                                         (void*)at_not_taken,
-                                         false /* don't save fp state */,
-                                         2 /* 2 args for at_not_taken */,
-                                         OPND_CREATE_INTPTR(src),
-                                         OPND_CREATE_INTPTR(fall));
-                }
-
-                /* After the callout, jump to the original fallthrough
-                 * address.  Note that this is an exit cti, and should
-                 * not be a meta-instruction.  Therefore, we use
-                 * preinsert instead of meta_preinsert, and we must
-                 * set the translation field.  On Windows, this jump
-                 * and the final jump below never execute since the
-                 * at_taken and at_not_taken callouts redirect
-                 * execution and never return.  However, since the API
-                 * expects clients to produced well-formed code, we
-                 * insert explicit exits from the block for Windows as
-                 * well as Linux.
-                 */
-                instrlist_preinsert(bb, NULL,
-                                    INSTR_XL8(INSTR_CREATE_jmp
-                                              (drcontext, opnd_create_pc(fall)), fall));
-
-                /* label goes before the 'taken' callout */
-                MINSERT(bb, NULL, label);
-
-                if (insert_taken) {
-                    /* Callout for the taken case */
-                    dr_insert_clean_call(drcontext, bb, NULL,
-                                         (void*)at_taken,
-                                         false /* don't save fp state */,
-                                         2 /* 2 args for at_taken */,
-                                         OPND_CREATE_INTPTR(src),
-                                         OPND_CREATE_INTPTR(targ));
-                }
-
-                /* After the callout, jump to the original target
-                 * block (this should not be a meta-instruction).
-                 */
-                instrlist_preinsert(bb, NULL,
-                                    INSTR_XL8(INSTR_CREATE_jmp
-                                              (drcontext, opnd_create_pc(targ)), targ));
-            }
+            instr = instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
         }
+        instr_set_target(instr, opnd_create_instr(label));
+
+        if (insert_not_taken) {
+            /* Callout for the not-taken case.  Insert after
+             * the cbr (i.e., 3rd argument is NULL).
+             */
+            dr_insert_clean_call(drcontext, bb, NULL,
+                                 (void*)at_not_taken,
+                                 false /* don't save fp state */,
+                                 2 /* 2 args for at_not_taken */,
+                                 OPND_CREATE_INTPTR(src),
+                                 OPND_CREATE_INTPTR(fall));
+        }
+
+        /* After the callout, jump to the original fallthrough
+         * address.  Note that this is an exit cti, and should
+         * not be a meta-instruction.  Therefore, we use
+         * preinsert instead of meta_preinsert, and we must
+         * set the translation field.  On Windows, this jump
+         * and the final jump below never execute since the
+         * at_taken and at_not_taken callouts redirect
+         * execution and never return.  However, since the API
+         * expects clients to produced well-formed code, we
+         * insert explicit exits from the block for Windows as
+         * well as Linux.
+         */
+        instrlist_preinsert(bb, NULL,
+                            INSTR_XL8(INSTR_CREATE_jmp
+                                      (drcontext, opnd_create_pc(fall)), fall));
+
+        /* label goes before the 'taken' callout */
+        MINSERT(bb, NULL, label);
+
+        if (insert_taken) {
+            /* Callout for the taken case */
+            dr_insert_clean_call(drcontext, bb, NULL,
+                                 (void*)at_taken,
+                                 false /* don't save fp state */,
+                                 2 /* 2 args for at_taken */,
+                                 OPND_CREATE_INTPTR(src),
+                                 OPND_CREATE_INTPTR(targ));
+        }
+
+        /* After the callout, jump to the original target
+         * block (this should not be a meta-instruction).
+         */
+        instrlist_preinsert(bb, NULL,
+                            INSTR_XL8(INSTR_CREATE_jmp
+                                      (drcontext, opnd_create_pc(targ)), targ));
     }
     /* since our added instrumentation is not constant, we ask to store
      * translations now
@@ -423,6 +422,7 @@ void dr_exit(void)
 #endif
 
     delete_table(table);
+    drmgr_exit();
 }
 
 
@@ -431,7 +431,11 @@ void dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'cbr'",
                        "http://dynamorio.org/issues");
+    if (!drmgr_init())
+        DR_ASSERT_MSG(false, "drmgr_init failed!");
+
     table = new_table();
-    dr_register_bb_event(bb_event);
+    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        DR_ASSERT_MSG(false, "fail to register event_app_instruction!");
     dr_register_exit_event(dr_exit);
 }
