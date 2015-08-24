@@ -1756,7 +1756,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      */
     if (old_libdr_base == NULL) {
         ptr_uint_t match = (ptr_uint_t)0x5 << IF_X64_ELSE(44, 28);
-        ptr_uint_t mask = (ptr_int_t)-1 << IF_X64_ELSE(44, 28);
+        ptr_uint_t mask  = (ptr_uint_t)-1  << IF_X64_ELSE(44, 28);
         if (((ptr_uint_t)privload_early_inject & mask) == match) {
             /* The problem is that we can't call any normal routines here, or
              * even reference global vars like string literals.  We thus use
