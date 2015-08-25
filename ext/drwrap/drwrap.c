@@ -51,6 +51,9 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
+#define EXCLUDE_CALLCONV(flags) ((flags) & ~(DRWRAP_CALLCONV_MASK))
+#define EXTRACT_CALLCONV(flags) ((drwrap_callconv_t) ((flags) & (DRWRAP_CALLCONV_MASK)))
+
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
 #else
@@ -142,6 +145,11 @@ typedef struct _wrap_entry_t {
      */
     bool enabled;
     drwrap_wrap_flags_t flags;
+    /* While it would probably be incorrect for the user to wrap the same function
+     * multiple times using differing calling conventions, it is possible. Therefore
+     * we propagate the callconv to the wrapcxt prior to each pre/post wrap callback.
+     */
+    drwrap_callconv_t callconv;
     void *user_data;
     struct _wrap_entry_t *next;
 } wrap_entry_t;
@@ -470,6 +478,7 @@ typedef struct _drwrap_context_t {
     bool mc_modified;
     /* i#1713: client redirection request */
     bool is_redirect_requested;
+    drwrap_callconv_t callconv;
     drwrap_where_t where_am_i;
 } drwrap_context_t;
 
@@ -483,6 +492,7 @@ drwrap_context_init(void *drcontext, drwrap_context_t *wrapcxt, app_pc func,
     wrapcxt->retaddr = retaddr;
     wrapcxt->mc_modified = false;
     wrapcxt->is_redirect_requested = false;
+    wrapcxt->callconv = 0; /* must be set per wrap_entry_t for each pre/post callback */
     wrapcxt->where_am_i = where;
 }
 
@@ -605,44 +615,71 @@ drwrap_set_mcontext(void *wrapcxt_opaque)
 }
 
 static inline reg_t *
+drwrap_stack_arg_addr(drwrap_context_t *wrapcxt, uint arg, uint reg_arg_count,
+                      uint stack_arg_offset)
+{
+    return (reg_t *) (wrapcxt->mc->xsp +
+                      (arg - reg_arg_count + stack_arg_offset) * sizeof(reg_t));
+}
+
+static inline reg_t *
 drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
 {
     if (wrapcxt == NULL || wrapcxt->mc == NULL)
         return NULL;
-#ifdef ARM
-    drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER); /* already have xsp */
-    switch (arg) {
-    case 0: return &wrapcxt->mc->r0;
-    case 1: return &wrapcxt->mc->r1;
-    case 2: return &wrapcxt->mc->r2;
-    case 3: return &wrapcxt->mc->r3;
-    default: return (reg_t *)(wrapcxt->mc->xsp + (arg - 4)*sizeof(reg_t));
-    }
-#elif defined(X64)
-    /* ensure we have the info we need. note that we always have xsp. */
-    drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER);
-# ifdef UNIX
-    switch (arg) {
-    case 0: return &wrapcxt->mc->rdi;
-    case 1: return &wrapcxt->mc->rsi;
-    case 2: return &wrapcxt->mc->rdx;
-    case 3: return &wrapcxt->mc->rcx;
-    case 4: return &wrapcxt->mc->r8;
-    case 5: return &wrapcxt->mc->r9;
-    default: return (reg_t *)(wrapcxt->mc->xsp + (arg - 6 + 1/*retaddr*/)*sizeof(reg_t));
-    }
-# else
-    switch (arg) {
-    case 0: return &wrapcxt->mc->rcx;
-    case 1: return &wrapcxt->mc->rdx;
-    case 2: return &wrapcxt->mc->r8;
-    case 3: return &wrapcxt->mc->r9;
-    default: return (reg_t *)(wrapcxt->mc->xsp + (arg + 1/*retaddr*/)*sizeof(reg_t));
-    }
-# endif
-#else
-    return (reg_t *)(wrapcxt->mc->xsp + (arg + 1/*retaddr*/)*sizeof(reg_t));
+    if (wrapcxt->callconv != DRWRAP_CALLCONV_CDECL)
+        drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER); /* already have xsp */
+
+    switch (wrapcxt->callconv) {
+#ifdef ARM /* registers are platform-exclusive */
+    case DRWRAP_CALLCONV_ARM:
+        switch (arg) {
+        case 0: return &wrapcxt->mc->r0;
+        case 1: return &wrapcxt->mc->r1;
+        case 2: return &wrapcxt->mc->r2;
+        case 3: return &wrapcxt->mc->r3;
+        default: return drwrap_stack_arg_addr(wrapcxt, arg, 4, 0);
+        }
+#else /* Intel x86 or x64 */
+# ifdef X64 /* registers are platform-exclusive */
+    case DRWRAP_CALLCONV_AMD64:
+        switch (arg) {
+        case 0: return &wrapcxt->mc->rdi;
+        case 1: return &wrapcxt->mc->rsi;
+        case 2: return &wrapcxt->mc->rdx;
+        case 3: return &wrapcxt->mc->rcx;
+        case 4: return &wrapcxt->mc->r8;
+        case 5: return &wrapcxt->mc->r9;
+        default: return drwrap_stack_arg_addr(wrapcxt, arg, 6, 1/*retaddr*/);
+        }
+    case DRWRAP_CALLCONV_MICROSOFT_X64:
+        switch (arg) {
+        case 0: return &wrapcxt->mc->rcx;
+        case 1: return &wrapcxt->mc->rdx;
+        case 2: return &wrapcxt->mc->r8;
+        case 3: return &wrapcxt->mc->r9;
+        default: return drwrap_stack_arg_addr(wrapcxt, arg, 4,
+                                              1/*retaddr*/ + 4/*reserved*/);
+        }
 #endif
+    case DRWRAP_CALLCONV_CDECL:
+        return drwrap_stack_arg_addr(wrapcxt, arg, 0, 1/*retaddr*/);
+    case DRWRAP_CALLCONV_FASTCALL:
+        switch (arg) {
+        case 0: return &wrapcxt->mc->xcx;
+        case 1: return &wrapcxt->mc->xdx;
+        default: return drwrap_stack_arg_addr(wrapcxt, arg, 2, 1/*retaddr*/);
+        }
+    case DRWRAP_CALLCONV_THISCALL:
+        if (arg == 0)
+            return &wrapcxt->mc->xcx;
+        else
+            return drwrap_stack_arg_addr(wrapcxt, arg, 1, 1/*retaddr*/);
+#endif
+    default:
+        ASSERT(false, "unknown or unsupported calling convention");
+        return NULL;
+    }
 }
 
 DR_EXPORT
@@ -1810,6 +1847,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
             dr_recurlock_unlock(wrap_lock);
         } else if (wrap->pre_cb != NULL) {
             pt->user_data_nofrills[pt->wrap_level] = wrap->user_data;
+            wrapcxt.callconv = wrap->callconv;
             (*wrap->pre_cb)(&wrapcxt, &pt->user_data_nofrills[pt->wrap_level]);
         }
     } else {
@@ -1838,6 +1876,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
             }
             if (wrap->pre_cb != NULL) {
                 pt->user_data[pt->wrap_level][idx] = wrap->user_data;
+                wrapcxt.callconv = wrap->callconv;
                 (*wrap->pre_cb)(&wrapcxt, &pt->user_data[pt->wrap_level][idx]);
             }
             /* was there a request to skip? */
@@ -1945,6 +1984,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc,
             idx = tmp; /* reset */
         } else if (wrap->post_cb != NULL) {
             if (!unwind) {
+                wrapcxt.callconv = wrap->callconv;
                 (*wrap->post_cb)(&wrapcxt, user_data);
             } else if (!only_requested_unwind ||
                        TEST(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
@@ -2184,7 +2224,7 @@ bool
 drwrap_wrap_ex(app_pc func,
                void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
                void (*post_func_cb)(void *wrapcxt, void *user_data),
-               void *user_data, drwrap_wrap_flags_t flags)
+               void *user_data, uint flags)
 {
     wrap_entry_t *wrap_cur, *wrap_new;
 
@@ -2202,7 +2242,10 @@ drwrap_wrap_ex(app_pc func,
     wrap_new->post_cb = post_func_cb;
     wrap_new->enabled = true;
     wrap_new->user_data = user_data;
-    wrap_new->flags = flags;
+    wrap_new->flags = EXCLUDE_CALLCONV(flags);
+    wrap_new->callconv = EXTRACT_CALLCONV(flags);
+    if (wrap_new->callconv == 0)
+        wrap_new->callconv = DRWRAP_CALLCONV_DEFAULT;
 
     dr_recurlock_lock(wrap_lock);
     wrap_cur = hashtable_lookup(&wrap_table, (void *)func);
@@ -2257,7 +2300,7 @@ drwrap_wrap(app_pc func,
             void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
             void (*post_func_cb)(void *wrapcxt, void *user_data))
 {
-    return drwrap_wrap_ex(func, pre_func_cb, post_func_cb, NULL, 0);
+    return drwrap_wrap_ex(func, pre_func_cb, post_func_cb, NULL, DRWRAP_CALLCONV_DEFAULT);
 }
 
 DR_EXPORT

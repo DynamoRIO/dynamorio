@@ -279,7 +279,9 @@ DR_EXPORT
  * Wraps the application function that starts at the address \p original
  * by calling \p pre_func_cb prior to every invocation of \p original
  * and calling \p post_func_cb after every invocation of \p original.
- * One of the callbacks can be NULL, but not both.
+ * One of the callbacks can be NULL, but not both. Uses the default
+ * calling convention for the platform (see DRWRAP_CALLCONV_DEFAULT
+ * in #drwrap_callconv_t).
  *
  * Wrap requests should normally be made up front during process
  * initialization or module load (see
@@ -323,8 +325,13 @@ drwrap_wrap(app_pc func,
             void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
             void (*post_func_cb)(void *wrapcxt, void *user_data));
 
-/** Values for the flags parameter to drwrap_wrap_ex() */
+/**
+ * Values for the flags parameter to drwrap_wrap_ex(), which may also be
+ * combined with at most one value from #drwrap_callconv_t (using bitwise OR).
+ */
 typedef enum {
+    /** Provided for convenience when calling drwrap_wrap_ex() with no flags. */
+    DRWRAP_FLAGS_NONE             = 0x00,
     /**
      * If this flag is set, then when a Windows exception occurs, all
      * post-call callbacks for all live wrapped functions on the wrap
@@ -337,17 +344,75 @@ typedef enum {
     DRWRAP_UNWIND_ON_EXCEPTION    = 0x01,
 } drwrap_wrap_flags_t;
 
+/**
+ * Values to specify the calling convention of the wrapped function. Pass one of
+ * these values to drwrap_wrap_ex() in the flags parameter using bitwise OR, e.g.:
+ * DRWRAP_UNWIND_ON_EXCEPTION | DRWRAP_CALLCONV_DEFAULT (see #drwrap_wrap_flags_t).
+ */
+typedef enum {
+    /** The AMD64 ABI calling convention. */
+    DRWRAP_CALLCONV_AMD64          = 0x01000000,
+    /** The Microsoft x64 calling convention. */
+    DRWRAP_CALLCONV_MICROSOFT_X64  = 0x02000000,
+    /** The ARM calling convention. */
+    DRWRAP_CALLCONV_ARM            = 0x03000000,
+    /** The IA-32 cdecl calling convention. */
+    DRWRAP_CALLCONV_CDECL          = 0x04000000,
+    /* For the purposes of drwrap, stdcall is an alias to cdecl, since the
+     * only difference is whether the caller or callee cleans up the stack.
+     */
+    /** The Microsoft IA-32 stdcall calling convention. */
+    DRWRAP_CALLCONV_STDCALL        = DRWRAP_CALLCONV_CDECL,
+    /** The IA-32 fastcall calling convention. */
+    DRWRAP_CALLCONV_FASTCALL       = 0x05000000,
+    /** The Microsoft IA-32 thiscall calling convention. */
+    DRWRAP_CALLCONV_THISCALL       = 0x06000000,
+#ifdef X64
+# ifdef ARM
+#  error NYI ARM X64
+# elif defined(UNIX) /* x64 */
+    /** Default calling convention for the platform. */
+    DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AMD64,
+# else /* WINDOWS x64 */
+    /** Default calling convention for the platform. */
+    DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_MICROSOFT_X64,
+# endif
+#else /* 32-bit */
+# ifdef ARM
+    /** Default calling convention for the platform. */
+    DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_ARM,
+# else /* x86: UNIX or WINDOWS */
+    /** Default calling convention for the platform. */
+    DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_CDECL,
+# endif
+#endif
+    /** The platform-specific calling convention for a vararg function. */
+    DRWRAP_CALLCONV_VARARG = DRWRAP_CALLCONV_DEFAULT,
+    /* Mask for isolating the calling convention from other flags. */
+    DRWRAP_CALLCONV_MASK           = 0xff000000
+} drwrap_callconv_t;
+
 DR_EXPORT
 /**
  * Identical to drwrap_wrap() except for two additional parameters: \p
  * user_data, which is passed as the initial value of *user_data to \p
- * pre_func_cb, and \p flags.
+ * pre_func_cb, and \p flags, which are the bitwise combination of the
+ * #drwrap_wrap_flags_t and at most one #drwrap_callconv_t.
+ *
+ * Specify the calling convention by combining one of the DRWRAP_CALLCONV_*
+ * values (of #drwrap_callconv_t) with the flags. It is not allowed to specify
+ * multiple calling conventions. If the specified calling convention is
+ * incorrect for \p func, the wrap will succeed, but calls to drwrap_set_arg()
+ * and drwrap_get_arg() for \p func will either access the wrong argument
+ * value, or will access a register or stack slot that does not contain
+ * any argument value. If no calling convention is specified, defaults
+ * to DRWRAP_CALLCONV_DEFAULT.
  */
 bool
 drwrap_wrap_ex(app_pc func,
                void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
                void (*post_func_cb)(void *wrapcxt, void *user_data),
-               void *user_data, drwrap_wrap_flags_t flags);
+               void *user_data, uint flags);
 
 DR_EXPORT
 /**

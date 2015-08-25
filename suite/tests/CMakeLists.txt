@@ -1908,6 +1908,9 @@ if (CLIENT_INTERFACE)
     # export from asm code
     append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
   endif (WIN32)
+  tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
+    "" "" "")
+  use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
