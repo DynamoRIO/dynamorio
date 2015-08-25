@@ -39,6 +39,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drwrap.h"
 
 #ifdef WINDOWS
@@ -65,25 +66,28 @@ static uint malloc_oom;
 #endif
 static void *max_lock; /* to synch writes to max_malloc */
 
+#define MALLOC_ROUTINE_NAME IF_WINDOWS_ELSE("HeapAlloc", "malloc")
+
 static
 void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
     app_pc towrap = (app_pc)
-        dr_get_proc_address(mod->handle, IF_WINDOWS_ELSE("HeapAlloc", "malloc"));
+        dr_get_proc_address(mod->handle, MALLOC_ROUTINE_NAME);
     if (towrap != NULL) {
 #ifdef SHOW_RESULTS
         bool ok =
 #endif
             drwrap_wrap(towrap, wrap_pre, wrap_post);
 #ifdef SHOW_RESULTS
-        if (ok)
-            dr_fprintf(STDERR, "<wrapped HeapAlloc @"PFX"\n", towrap);
-        else {
+        if (ok) {
+            dr_fprintf(STDERR, "<wrapped "MALLOC_ROUTINE_NAME" @"PFX"\n", towrap);
+        } else {
             /* We expect this w/ forwarded exports (e.g., on win7 both
              * kernel32!HeapAlloc and kernelbase!HeapAlloc forward to
              * the same routine in ntdll.dll)
              */
-            dr_fprintf(STDERR, "<FAILED to wrap HeapAlloc @"PFX": already wrapped?\n",
+            dr_fprintf(STDERR, "<FAILED to wrap "MALLOC_ROUTINE_NAME
+                       " @"PFX": already wrapped?\n",
                        towrap);
         }
 #endif
@@ -106,9 +110,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_fprintf(STDERR, "Client wrap is running\n");
     }
 #endif
+    drmgr_init();
     drwrap_init();
     dr_register_exit_event(event_exit);
-    dr_register_module_load_event(module_load_event);
+    drmgr_register_module_load_event(module_load_event);
     max_lock = dr_mutex_create();
 }
 
@@ -119,7 +124,8 @@ event_exit(void)
     char msg[256];
     int len;
     len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                      "<Largest malloc request: %d>\n<OOM simulations: %d>\n",
+                      "<Largest "MALLOC_ROUTINE_NAME
+                      " request: %d>\n<OOM simulations: %d>\n",
                       max_malloc, malloc_oom);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
@@ -128,6 +134,7 @@ event_exit(void)
 
     dr_mutex_destroy(max_lock);
     drwrap_exit();
+    drmgr_exit();
 }
 
 static void

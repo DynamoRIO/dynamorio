@@ -38,14 +38,13 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include <signal.h>
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
-# define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)(&(var)))
 #else
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
-# define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")
 #endif
 
 static int num_signals;
@@ -60,8 +59,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'signal'",
                        "http://dynamorio.org/issues");
+    drmgr_init();
 #ifdef UNIX
-    dr_register_signal_event(event_signal);
+    drmgr_register_signal_event(event_signal);
 #endif
     dr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
@@ -90,14 +90,14 @@ event_exit(void)
     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
+    drmgr_exit();
 }
 
 #ifdef UNIX
 static
 dr_signal_action_t event_signal(void *drcontext, dr_siginfo_t *info)
 {
-    ATOMIC_INC(num_signals);
-
+    dr_atomic_add32_return_sum(&num_signals, 1);
     if (info->sig == SIGTERM) {
         /* Ignore TERM */
         return DR_SIGNAL_SUPPRESS;

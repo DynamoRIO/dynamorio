@@ -57,10 +57,8 @@
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
-# define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)(&(var)))
 #else
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
-# define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")
 #endif
 
 /* Some syscalls have more args, but this is the max we need for SYS_write/NtWriteFile */
@@ -193,7 +191,7 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     bool modify_write = (sysnum == write_sysnum);
-    ATOMIC_INC(num_syscalls);
+    dr_atomic_add32_return_sum(&num_syscalls, 1);
 #ifdef UNIX
     if (sysnum == SYS_execve) {
         /* our stats will be re-set post-execve so display now */
