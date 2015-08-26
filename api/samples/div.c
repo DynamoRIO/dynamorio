@@ -37,6 +37,7 @@
  * based profiling with live operand values. */
 
 #include "dr_api.h"
+#include "drmgr.h"
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -46,8 +47,10 @@
 
 #define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
 
-static dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
-                                bool for_trace, bool translating);
+static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag,
+                                             instrlist_t *bb, instr_t *instr,
+                                             bool for_trace, bool translating,
+                                             void *user_data);
 static void exit_event(void);
 
 static int div_count = 0, div_p2_count = 0;
@@ -57,8 +60,11 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'div'", "http://dynamorio.org/issues");
+    if (!drmgr_init())
+        DR_ASSERT(false);
     dr_register_exit_event(exit_event);
-    dr_register_bb_event(bb_event);
+    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        DR_ASSERT(false);
     count_mutex = dr_mutex_create();
 }
 
@@ -79,6 +85,7 @@ exit_event(void)
 #endif /* SHOW_RESULTS */
 
     dr_mutex_destroy(count_mutex);
+    drmgr_exit();
 }
 
 static void
@@ -98,22 +105,15 @@ callback(app_pc addr, uint divisor)
 }
 
 static dr_emit_flags_t
-bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+event_app_instruction(void* drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *instr, *next_instr;
-    int opcode;
-
-    for (instr = instrlist_first_app(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next_app(instr);
-        opcode = instr_get_opcode(instr);
-
-        /* if find div, insert a clean call to our instrumentation routine */
-        if (opcode == OP_div) {
-            dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
-                                 false /*no fp save*/, 2,
-                                 OPND_CREATE_INTPTR(instr_get_app_pc(instr)),
-                                 instr_get_src(instr, 0) /*divisor is 1st src*/);
-        }
+    /* if find div, insert a clean call to our instrumentation routine */
+    if (instr_get_opcode(instr) == OP_div) {
+        dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
+                             false /*no fp save*/, 2,
+                             OPND_CREATE_INTPTR(instr_get_app_pc(instr)),
+                             instr_get_src(instr, 0) /*divisor is 1st src*/);
     }
     return DR_EMIT_DEFAULT;
 }

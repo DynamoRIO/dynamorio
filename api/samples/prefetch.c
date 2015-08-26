@@ -43,10 +43,11 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 
 static void event_exit(void);
-static dr_emit_flags_t event_bb(void *drcontext, void *tag, instrlist_t *bb,
-                                bool for_trace, bool translating);
+static dr_emit_flags_t event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
+                                        bool for_trace, bool translating);
 
 static void *count_mutex;  /* for multithread support */
 static int prefetches_removed = 0, prefetchws_removed = 0;
@@ -56,10 +57,16 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'prefetch'",
                        "http://dynamorio.org/issues");
+    if (!drmgr_init())
+        DR_ASSERT(false);
     dr_register_exit_event(event_exit);
     /* Only need to remove prefetches for Intel processors. */
     if (proc_get_vendor() == VENDOR_INTEL) {
-        dr_register_bb_event(event_bb);
+        /* We may remove app instructions, so we should register app2app event
+         * instead of instrumentation event.
+         */
+        if (!drmgr_register_bb_app2app_event(event_bb_app2app, NULL))
+            DR_ASSERT(false);
     }
 
     /* make it easy to tell, by looking at log file, which client executed */
@@ -75,10 +82,12 @@ event_exit(void)
     dr_log(NULL, LOG_ALL, 1, "Removed %d prefetches and %d prefetchws.\n",
            prefetches_removed, prefetchws_removed);
     dr_mutex_destroy(count_mutex);
+    drmgr_exit();
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
     int opcode;

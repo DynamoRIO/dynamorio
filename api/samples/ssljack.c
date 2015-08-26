@@ -45,6 +45,7 @@
 #include "dr_api.h"
 #include "utils.h"
 #include "drwrap.h"
+#include "drmgr.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -102,6 +103,7 @@ static void
 event_exit(void)
 {
     drwrap_exit();
+    drmgr_exit();
 }
 
 DR_EXPORT void
@@ -116,9 +118,10 @@ dr_init(client_id_t id)
     }
 #endif
 
+    drmgr_init();
     drwrap_init();
     dr_register_exit_event(event_exit);
-    dr_register_module_load_event(module_load_event);
+    drmgr_register_module_load_event(module_load_event);
 }
 
 static void

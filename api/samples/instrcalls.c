@@ -52,6 +52,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #ifdef SHOW_SYMBOLS
 # include "drsyms.h"
 #endif
@@ -60,8 +61,11 @@
 static void event_exit(void);
 static void event_thread_init(void *drcontext);
 static void event_thread_exit(void *drcontext);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag,
+                                             instrlist_t *bb, instr_t *instr,
+                                             bool for_trace, bool translating,
+                                             void *user_data);
+static int tls_idx;
 
 static client_id_t my_id;
 
@@ -70,6 +74,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'instrcalls'",
                        "http://dynamorio.org/issues");
+    drmgr_init();
     my_id = id;
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'instrcalls' initializing\n");
@@ -84,14 +89,16 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
 #endif
     dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
-    dr_register_thread_init_event(event_thread_init);
-    dr_register_thread_exit_event(event_thread_exit);
+    drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL);
+    drmgr_register_thread_init_event(event_thread_init);
+    drmgr_register_thread_exit_event(event_thread_exit);
 #ifdef SHOW_SYMBOLS
     if (drsym_init(0) != DRSYM_SUCCESS) {
         dr_log(NULL, LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
     }
 #endif
+    tls_idx = drmgr_register_tls_field();
+    DR_ASSERT(tls_idx > -1);
 }
 
 static void
@@ -102,6 +109,8 @@ event_exit(void)
         dr_log(NULL, LOG_ALL, 1, "WARNING: error cleaning up symbol library\n");
     }
 #endif
+    drmgr_unregister_tls_field(tls_idx);
+    drmgr_exit();
 }
 
 #ifdef WINDOWS
@@ -128,13 +137,13 @@ event_thread_init(void *drcontext)
     DR_ASSERT(f != INVALID_FILE);
 
     /* store it in the slot provided in the drcontext */
-    dr_set_tls_field(drcontext, (void *)(ptr_uint_t)f);
+    drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)f);
 }
 
 static void
 event_thread_exit(void *drcontext)
 {
-    log_file_close((file_t)(ptr_uint_t) dr_get_tls_field(drcontext));
+    log_file_close((file_t)(ptr_uint_t) drmgr_get_tls_field(drcontext, tls_idx));
 }
 
 #ifdef SHOW_SYMBOLS
@@ -180,7 +189,8 @@ print_address(file_t f, app_pc addr, const char *prefix)
 static void
 at_call(app_pc instr_addr, app_pc target_addr)
 {
-    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+    file_t f = (file_t)(ptr_uint_t)
+        drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     dr_mcontext_t mc = {sizeof(mc),DR_MC_CONTROL/*only need xsp*/};
     dr_get_mcontext(dr_get_current_drcontext(), &mc);
 #ifdef SHOW_SYMBOLS
@@ -196,7 +206,8 @@ at_call(app_pc instr_addr, app_pc target_addr)
 static void
 at_call_ind(app_pc instr_addr, app_pc target_addr)
 {
-    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+    file_t f = (file_t)(ptr_uint_t)
+        drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
 #ifdef SHOW_SYMBOLS
     print_address(f, instr_addr, "CALL INDIRECT @ ");
     print_address(f, target_addr, "\t to ");
@@ -208,7 +219,8 @@ at_call_ind(app_pc instr_addr, app_pc target_addr)
 static void
 at_return(app_pc instr_addr, app_pc target_addr)
 {
-    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(dr_get_current_drcontext());
+    file_t f = (file_t)(ptr_uint_t)
+        drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
 #ifdef SHOW_SYMBOLS
     print_address(f, instr_addr, "RETURN @ ");
     print_address(f, target_addr, "\t to ");
@@ -218,30 +230,26 @@ at_return(app_pc instr_addr, app_pc target_addr)
 }
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *instr, *next_instr;
 #ifdef VERBOSE
-    dr_printf("in dr_basic_block(tag="PFX")\n", tag);
+    if (drmgr_is_first_instr(drcontext, instr)) {
+        dr_printf("in dr_basic_block(tag="PFX")\n", tag);
 # if VERBOSE_VERBOSE
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
+        instrlist_disassemble(drcontext, tag, bb, STDOUT);
 # endif
+    }
 #endif
-    for (instr = instrlist_first_app(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next_app(instr);
-        if (!instr_opcode_valid(instr))
-            continue;
-        /* instrument calls and returns -- ignore far calls/rets */
-        if (instr_is_call_direct(instr)) {
-            dr_insert_call_instrumentation(drcontext, bb, instr, (app_pc)at_call);
-        } else if (instr_is_call_indirect(instr)) {
-            dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_call_ind,
-                                          SPILL_SLOT_1);
-        } else if (instr_is_return(instr)) {
-            dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_return,
-                                          SPILL_SLOT_1);
-        }
+    /* instrument calls and returns -- ignore far calls/rets */
+    if (instr_is_call_direct(instr)) {
+        dr_insert_call_instrumentation(drcontext, bb, instr, (app_pc)at_call);
+    } else if (instr_is_call_indirect(instr)) {
+        dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_call_ind,
+                                      SPILL_SLOT_1);
+    } else if (instr_is_return(instr)) {
+        dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_return,
+                                      SPILL_SLOT_1);
     }
     return DR_EMIT_DEFAULT;
 }
