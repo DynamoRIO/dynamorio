@@ -352,8 +352,7 @@ if (UNIX)
 else (UNIX)
   set(ARCH_CFLAGS "")
   # we don't add /debug here (=> SHARED_LINKER flags) since can't remove
-  # XXX i#893: VS2012 won't build any tools_asm test w/ safeseh
-  set(ARCH_LDFLAGS "/safeseh:no")
+  set(ARCH_LDFLAGS "")
   if (RUNNING_OVER_SSH)
     set(ARCH_DEBUG "")
   else (RUNNING_OVER_SSH)

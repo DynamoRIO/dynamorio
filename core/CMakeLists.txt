@@ -733,8 +733,6 @@ else (UNIX)
   else (DEBUG)
     set(LD_FLAGS "${LINK_DBG} /release /opt:ref /opt:icf")
   endif (DEBUG)
-  # XXX i#893: VS2012 won't build any target using x86.asm w/ safeseh
-  set(LD_FLAGS "${LD_FLAGS} /safeseh:no")
   if (SET_PREFERRED_BASE)
     set(dynamorio_link_flags "${dynamorio_link_flags} /base:${preferred_base}")
   endif (SET_PREFERRED_BASE)

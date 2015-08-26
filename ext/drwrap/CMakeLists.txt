@@ -93,12 +93,6 @@ macro(configure_drwrap_target target)
     # ensure race-free parallel builds
     add_dependencies(${target} ${drwrap_asm_tgt})
   endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-
-  if (WIN32)
-    # XXX i#893: our asm isn't SEH compliant.
-    # We do this for clients in DynamoRIOConfig.cmake.
-    append_property_string(TARGET ${target} LINK_FLAGS "/safeseh:no")
-  endif (WIN32)
 endmacro()
 
 configure_drwrap_target(drwrap)

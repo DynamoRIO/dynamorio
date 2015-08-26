@@ -94,7 +94,13 @@
 #
 ###########################################################################
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio 10")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  string(REPLACE "Visual Studio " "" vsgen_ver "${CMAKE_GENERATOR}")
+else ()
+  set(vsgen_ver "0.0")
+endif ()
+
+if (${vsgen_ver} VERSION_GREATER 9)
   # For i#801 workaround
   cmake_minimum_required(VERSION 2.8.8)
 else ()
@@ -229,6 +235,10 @@ else ()
     set(ASM_DBG "")
   endif ()
   set(ASM_FLAGS "/nologo ${ASM_DBG}")
+  if (${vsgen_ver} VERSION_GREATER 11)
+    # i#893: VS2012 adds default /safeseh for C files and we must match for asm
+    set(ASM_FLAGS "${ASM_FLAGS} /safeseh")
+  endif ()
 endif ()
 string(REPLACE " " ";" ASM_FLAGS_LIST "${ASM_FLAGS}")
 

@@ -44,7 +44,13 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio 10")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  string(REPLACE "Visual Studio " "" vsgen_ver "${CMAKE_GENERATOR}")
+else ()
+  set(vsgen_ver "0.0")
+endif ()
+
+if (${vsgen_ver} VERSION_GREATER 9)
   # for i#801 workaround
   cmake_minimum_required(VERSION 2.8.8)
 elseif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
