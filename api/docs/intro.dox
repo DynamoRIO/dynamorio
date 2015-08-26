@@ -333,20 +333,20 @@ Also note that by default \c USERPROFILE is not set over cygwin ssh and
 must be explicitly set in the shell startup files.
 
 Configurations are per-process, with the basename of the process used for
-identification (e.g., \c calc.exe).  One-time configuration also uses the
+identification (e.g., \c notepad.exe).  One-time configuration also uses the
 process id to specify that the configuration is for that process instance
 only.
 
 As an example, assume you have unpacked the DynamoRIO distribution and
-your current directory is its base directory.  Run \c calc.exe with the
+your current directory is its base directory.  Run \c notepad.exe with the
 bbsize sample client using the following configure-and-run command:
 \if vmsafe
 \code
-bin32/drrun.exe -mode code -c samples/bin32/bbsize.dll -- calc
+bin32/drrun.exe -mode code -c samples/bin32/bbsize.dll -- notepad
 \endcode
 \else
 \code
-bin32/drrun.exe -c samples/bin32/bbsize.dll -- calc
+bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 \endcode
 \endif
 
@@ -355,20 +355,20 @@ under DynamoRIO regardless of how it is invoked, configure the application
 first (-syswide_on requires administrative privileges):
 \if vmsafe
 \code
-bin32/drconfig.exe -reg calc.exe -syswide_on -mode code -c samples/bin32/bbsize.dll
+bin32/drconfig.exe -reg notepad.exe -syswide_on -mode code -c samples/bin32/bbsize.dll
 \endcode
 \else
 \code
-bin32/drconfig.exe -reg calc.exe -syswide_on -c samples/bin32/bbsize.dll
+bin32/drconfig.exe -reg notepad.exe -syswide_on -c samples/bin32/bbsize.dll
 \endcode
 \endif
 
-The next time \c calc.exe is started by the current user, it will run under
+The next time \c notepad.exe is started by the current user, it will run under
 DynamoRIO with the bbsize client.
 
-To unregister \c calc.exe, issue the following command:
+To unregister \c notepad.exe, issue the following command:
 \code
-bin32/drconfig.exe -unreg calc.exe
+bin32/drconfig.exe -unreg notepad.exe
 \endcode
 
 Invoke any of the \c drconfig.exe, \c drrun.exe, or \c drinject.exe tools
@@ -380,14 +380,14 @@ of time for the child application.  To instead only
 follow children that are configured (via \c drconfig.exe), use the
 \ref op_children "-no_follow_children" runtime option.
 
-To \ref sec_comm "nudge" all instances of \c calc.exe running under
+To \ref sec_comm "nudge" all instances of \c notepad.exe running under
 DynamoRIO with argument "5", use:
 \code
-bin32/drconfig.exe -nudge calc.exe 0 5
+bin32/drconfig.exe -nudge notepad.exe 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
 client callback registered with dr_register_nudge_event() in all
-\c calc.exe processes running under DynamoRIO.  The third argument,
+\c notepad.exe processes running under DynamoRIO.  The third argument,
 0, is an ID supplied at registration which uniquely identifies the
 target client (see dr_deploy.h for details).
 
@@ -513,8 +513,8 @@ the client.  For example, all these invocations of drrun pass '-op1
 -op2 "value with spaces"' to the client:
 
 \code
-bin32/drrun.exe -c libmyclient.dll -op1 -op2 \"value with spaces\" -- calc
-bin32/drrun.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"' -- calc
+bin32/drrun.exe -c libmyclient.dll -op1 -op2 \"value with spaces\" -- notepad
+bin32/drrun.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"' -- notepad
 \endcode
 
 On Linux:
@@ -527,8 +527,8 @@ bin32/drrun -client libmyclient.so 0 '-op1 -op2 "value with spaces"' -- ls
 When using a two-step model, the options are passed to \p drconfig:
 
 \code
-bin32/drconfig.exe -reg calc.exe -c myclient.dll -op1 -op2 \"value with spaces\"
-bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"'
+bin32/drconfig.exe -reg notepad.exe -c myclient.dll -op1 -op2 \"value with spaces\"
+bin32/drconfig.exe -reg notepad.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"'
 \endcode
 
 The client's options are passed directly to its \p dr_client_main()
