@@ -48,7 +48,7 @@
 #include <string.h> /* memset */
 
 #ifdef UNIX
-# ifdef MACOS
+# if defined(MACOS) || defined(ANDROID)
 #  include <sys/syscall.h>
 # else
 #  include <syscall.h>
