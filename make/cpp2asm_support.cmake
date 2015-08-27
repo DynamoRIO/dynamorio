@@ -235,8 +235,9 @@ else ()
     set(ASM_DBG "")
   endif ()
   set(ASM_FLAGS "/nologo ${ASM_DBG}")
-  if (${vsgen_ver} VERSION_GREATER 11)
+  if (${vsgen_ver} VERSION_GREATER 10 AND NOT X64)
     # i#893: VS2012 adds default /safeseh for C files and we must match for asm
+    # (needed for 32-bit only, and in fact /safeseh flag is not supported by ml64).
     set(ASM_FLAGS "${ASM_FLAGS} /safeseh")
   endif ()
 endif ()
