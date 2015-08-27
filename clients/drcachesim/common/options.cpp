@@ -39,13 +39,12 @@
 droption_t<std::string> op_ipc_name
 (DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Base name of named pipe",
  "Specifies the base name of the named pipe used to communicate between the target "
- "application processes and the cache simulator.  A unique name must be chosen "
+ "application processes and the caching device simulator.  A unique name must be chosen "
  "for each instance of the simulator being run at any one time.");
 
 droption_t<unsigned int> op_num_cores
 (DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",
- "Specifies the number of cores to simulate.  Each core has an L1 instruction cache "
- "and an L1 data cache.");
+ "Specifies the number of cores to simulate.");
 
 droption_t<unsigned int> op_line_size
 (DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
@@ -81,12 +80,6 @@ droption_t<bool> op_use_physical
  "If available, the default virtual addresses will be translated to physical.  "
  "This is not possible from user mode on all platforms.");
 
-droption_t<std::string> op_replace_policy
-(DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
- "Cache replacement policy", "Specifies the replacement policy for caches. "
- "Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used), "
- "FIFO (First-In-First-Out).");
-
 droption_t<unsigned int> op_virt2phys_freq
 (DROPTION_SCOPE_CLIENT, "virt2phys_freq", 0, "Frequency of physical mapping refresh",
  "This option only applies if -use_physical is enabled.  The virtual to physical "
@@ -95,6 +88,50 @@ droption_t<unsigned int> op_virt2phys_freq
  "ignored in order to re-access the actual mapping and ensure accurate results.  "
  "The units are the number of memory accesses per forced access.  A value of 0 "
  "uses the cached values for the entire application execution.");
+
+droption_t<std::string> op_replace_policy
+(DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
+ "Cache replacement policy", "Specifies the replacement policy for caches. "
+ "Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used), "
+ "FIFO (First-In-First-Out).");
+
+droption_t<bytesize_t> op_page_size
+(DROPTION_SCOPE_FRONTEND, "page_size", bytesize_t(4*1024), "Virtual/physical page size",
+ "Specifies the virtual/physical page size.");
+
+droption_t<unsigned int> op_TLB_L1I_entries
+(DROPTION_SCOPE_FRONTEND, "TLB_L1I_entries", 32, "Number of entries in instruction TLB",
+ "Specifies the number of entries in each L1 instruction TLB.");
+
+droption_t<unsigned int> op_TLB_L1D_entries
+(DROPTION_SCOPE_FRONTEND, "TLB_L1D_entries", 32, "Number of entries in data TLB",
+ "Specifies the number of entries in each L1 data TLB.");
+
+droption_t<unsigned int> op_TLB_L1I_assoc
+(DROPTION_SCOPE_FRONTEND, "TLB_L1I_assoc", 32, "Instruction TLB associativity",
+ "Specifies the associativity of each L1 instruction TLB.");
+
+droption_t<unsigned int> op_TLB_L1D_assoc
+(DROPTION_SCOPE_FRONTEND, "TLB_L1D_assoc", 32, "Data TLB associativity",
+ "Specifies the associativity of each L1 data TLB.");
+
+droption_t<unsigned int> op_TLB_L2_entries
+(DROPTION_SCOPE_FRONTEND, "TLB_L2_entries", 1024, "Number of entries in L2 TLB",
+ "Specifies the number of entries in each unified L2 TLB.");
+
+droption_t<unsigned int> op_TLB_L2_assoc
+(DROPTION_SCOPE_FRONTEND, "TLB_L2_assoc", 4, "L2 TLB associativity",
+ "Specifies the associativity of each unified L2 TLB.");
+
+droption_t<std::string> op_TLB_replace_policy
+(DROPTION_SCOPE_FRONTEND, "TLB_replace_policy", REPLACE_POLICY_LFU,
+ "TLB replacement policy", "Specifies the replacement policy for TLBs. "
+ "Supported policies: LFU (Least Frequently Used).");
+
+droption_t<std::string> op_simulator_type
+(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
+ "Simulator type", "Specifies the type of the simulator. "
+ "Supported types: "CPU_CACHE", "TLB".");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",

@@ -56,6 +56,7 @@
 #include "droption.h"
 #include "../common/options.h"
 #include "cache_simulator.h"
+#include "tlb_simulator.h"
 #include "utils.h"
 
 #define FATAL_ERROR(msg, ...) do { \
@@ -154,8 +155,7 @@ _tmain(int argc, const TCHAR *targv[])
     char buf[MAXIMUM_PATH];
     drfront_status_t sc;
     bool is64, is32;
-    // FIXME i#1763: add a CLI argument to specify the type of the simulator
-    cache_simulator_t simulator;
+    simulator_t *simulator = NULL;
     std::string tracer_ops;
 
 #if defined(WINDOWS) && !defined(_UNICODE)
@@ -222,7 +222,18 @@ _tmain(int argc, const TCHAR *targv[])
         assert(false); // won't get here
     }
 
-    if (!simulator.init()) {
+    // declare the simulator based on its type
+    if (op_simulator_type.get_value() == CPU_CACHE)
+        simulator = new cache_simulator_t;
+    else if (op_simulator_type.get_value() == TLB)
+        simulator = new tlb_simulator_t;
+    else {
+        ERROR("Usage error: unsupported simulator type. "
+              "Please choose "CPU_CACHE" or "TLB".\n");
+        return false;
+    }
+
+    if (!simulator->init()) {
         FATAL_ERROR("failed to initialize simulator");
         assert(false); // won't get here
     }
@@ -257,7 +268,7 @@ _tmain(int argc, const TCHAR *targv[])
     dr_inject_process_run(inject_data);
 #endif
 
-    if (!simulator.run()) {
+    if (!simulator->run()) {
         FATAL_ERROR("failed to run simulator");
         assert(false); // won't get here
     }
@@ -279,7 +290,10 @@ _tmain(int argc, const TCHAR *targv[])
     // XXX: we may want a prefix on our output
     std::cerr << "---- <application exited with code " << errcode <<
         "> ----" << std::endl;
-    simulator.print_stats();
+    simulator->print_stats();
+
+    // release simulator's space
+    delete simulator;
 
     sc = drfront_cleanup_args(argv, argc);
     if (sc != DRFRONT_SUCCESS)

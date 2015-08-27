@@ -56,6 +56,7 @@ if (UNIX)
     simulator/cache_stats.cpp
     simulator/cache_simulator.cpp
     simulator/tlb.cpp
+    simulator/tlb_simulator.cpp
     )
   target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)
   use_DynamoRIO_extension(drcachesim droption)
