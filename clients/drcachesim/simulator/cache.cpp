@@ -36,7 +36,7 @@
 
 bool
 cache_t::init(int associativity_, int line_size_, int total_size,
-              cache_t *parent_, cache_stats_t *stats_)
+              caching_device_t *parent_, caching_device_stats_t *stats_)
 {
     // convert total_size to num_blocks to fit for caching_device_t::init
     int num_lines = total_size / line_size_;

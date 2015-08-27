@@ -40,7 +40,7 @@
 
 bool
 cache_fifo_t::init(int associativity_, int block_size_, int total_size,
-                   cache_t *parent_, cache_stats_t *stats_)
+                   caching_device_t *parent_, caching_device_stats_t *stats_)
 {
     // Works in the same way as the base class,
     // except that the counters are initialized in a different way.

@@ -46,7 +46,7 @@ class cache_t : public caching_device_t
     // Size, line size and associativity are generally used
     // to describe a CPU cache.
     virtual bool init(int associativity, int line_size, int total_size,
-                      cache_t *parent, cache_stats_t *stats);
+                      caching_device_t *parent, caching_device_stats_t *stats);
     virtual void request(const memref_t &memref);
     virtual void flush(const memref_t &memref);
  protected:
