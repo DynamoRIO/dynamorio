@@ -232,7 +232,7 @@ add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(inline      "inline.c"        "")
-add_sample_client(inscount    "inscount.c"      "")
+add_sample_client(inscount    "inscount.c"      "drmgr")
 add_sample_client(opcodes     "opcodes.c"       "drx")
 add_sample_client(cbrtrace    "cbrtrace.c;utils.c"      "drx")
 # add utils.h for installation  # NON-PUBLIC

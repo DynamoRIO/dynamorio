@@ -42,6 +42,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -59,17 +60,26 @@ static uint64 global_count;
  */
 static void inscount(uint num_instrs) { global_count += num_instrs; }
 static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag,
+                                         instrlist_t *bb,
+                                         bool for_trace, bool translating,
+                                         void **user_data);
+static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag,
+                                             instrlist_t *bb, instr_t *inst,
+                                             bool for_trace, bool translating,
+                                             void *user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'inscount'",
                        "http://dynamorio.org/issues");
+    drmgr_init();
     /* register events */
     dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
+    drmgr_register_bb_instrumentation_event(event_bb_analysis,
+                                            event_app_instruction,
+                                            NULL);
 
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'inscount' initializing\n");
@@ -98,11 +108,12 @@ event_exit(void)
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
+    drmgr_exit();
 }
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating, void **user_data)
 {
     instr_t *instr;
     uint num_instrs;
@@ -119,14 +130,25 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
          instr = instr_get_next_app(instr)) {
         num_instrs++;
     }
+    *user_data = (void *)(ptr_uint_t)num_instrs;
 
+#if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
+    dr_printf("Finished counting for dynamorio_basic_block(tag="PFX")\n", tag);
+    instrlist_disassemble(drcontext, tag, bb, STDOUT);
+#endif
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
+{
+    uint num_instrs;
+    if (!drmgr_is_first_instr(drcontext, instr))
+        return DR_EMIT_DEFAULT;
+    num_instrs = (uint)(ptr_uint_t)user_data;
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb),
                          (void *)inscount, false /* save fpstate */, 1,
                          OPND_CREATE_INT32(num_instrs));
-
-#if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-#endif
     return DR_EMIT_DEFAULT;
 }
