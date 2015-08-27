@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -70,14 +70,6 @@ if (X64)
 else (X64)
   set(CONFIG ${PROJECT_BINARY_DIR}/drltrace.drrun32)
 endif (X64)
-
-if (UNIX)
-  set(LIB_EXT ".so")
-  set(LIB_PFX "lib")
-else (UNIX)
-  set(LIB_EXT ".dll")
-  set(LIB_PFX "")
-endif (UNIX)
 
 file(WRITE  ${CONFIG} "# drltrace tool config file\n")
 file(APPEND ${CONFIG} "# DynamoRIO options: may as well optimize the bb lock\n")

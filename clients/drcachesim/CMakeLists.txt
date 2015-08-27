@@ -109,14 +109,6 @@ if (UNIX)
 
   set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
-  if (UNIX)
-    set(LIB_EXT ".so")
-    set(LIB_PFX "lib")
-  else (UNIX)
-    set(LIB_EXT ".dll")
-    set(LIB_PFX "")
-  endif (UNIX)
-
   function (write_config_file dst bindir libdir)
     file(WRITE  ${dst} "# drcachesim tool config file\n")
     file(APPEND ${dst} "FRONTEND_REL=${bindir}/drcachesim\n")

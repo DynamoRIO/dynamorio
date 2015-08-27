@@ -64,14 +64,6 @@ install_target(drcpusim ${INSTALL_CLIENTS_LIB})
 
 set(INSTALL_DRCPUSIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
-if (UNIX)
-  set(LIB_EXT ".so")
-  set(LIB_PFX "lib")
-else (UNIX)
-  set(LIB_EXT ".dll")
-  set(LIB_PFX "")
-endif (UNIX)
-
 function (write_config_file dst bindir libdir)
   file(WRITE  ${dst} "# drcpusim tool config file\n")
   file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcpusim${LIB_EXT}\n")
