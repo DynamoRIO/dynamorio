@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -57,7 +57,7 @@
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
 
-cmake_minimum_required (VERSION 2.2)
+cmake_minimum_required (VERSION 2.4)
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 if (COMMAND cmake_policy)

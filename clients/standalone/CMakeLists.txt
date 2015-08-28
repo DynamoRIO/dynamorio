@@ -31,6 +31,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 project(DynamoRIO_standalone)
 
 set(LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")

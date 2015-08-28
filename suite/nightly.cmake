@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 Derek Bruening.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required (VERSION 2.2)
+cmake_minimum_required (VERSION 2.4)
 
 # Instructions to set up a machine to run nightly regression tests:
 #

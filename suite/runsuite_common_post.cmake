@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -32,7 +32,7 @@
 # Test suite post-processing
 # See instructions in runsuite_common_pre.cmake
 
-cmake_minimum_required (VERSION 2.2)
+cmake_minimum_required (VERSION 2.4)
 if (COMMAND cmake_policy)
   # avoid warnings on include()
   cmake_policy(VERSION 2.8)
