@@ -2103,19 +2103,18 @@ if (CLIENT_INTERFACE)
     # cmake < 3.x our build-dir IMPORTED_LINK_INTERFACE_LIBRARIES does not
     # list the transitive closure of the dependents, so we end up with link errors
     # if we make a client link drx_static.
-    # XXX i#1721: this fails on 32-bit Linux on a 64-bit distro as CFLAGS does not
-    # have -m32.  I can't find any way to set an env var when running this test.
-    # Thus we just disable unless in the full suite on Linux.
-    if (WIN32 OR TEST_SUITE)
-      get_property(sample_proj_dir GLOBAL PROPERTY DynamoRIO_sample_proj_dir)
-      add_test(samples_proj ${CMAKE_CTEST_COMMAND}
-        --build-and-test "${sample_proj_dir}" "${sample_proj_dir}/build_and_test"
-        --build-generator ${CMAKE_GENERATOR}
-        --build-project DynamoRIO_samples # needed for VS generators
-        --build-makeprogram ${CMAKE_MAKE_PROGRAM}
-        # If we don't set Debug, we only have RelWithDebInfo available (b/c we
-        # collapse configs) but --build-and-test still tries to build Debug:
-        --build-options -DDEBUG=ON -DDynamoRIO_DIR:PATH=${public_config_dir})
+    get_property(sample_proj_dir GLOBAL PROPERTY DynamoRIO_sample_proj_dir)
+    add_test(samples_proj ${CMAKE_CTEST_COMMAND}
+      --build-and-test "${sample_proj_dir}" "${sample_proj_dir}/build_and_test"
+      --build-generator ${CMAKE_GENERATOR}
+      --build-project DynamoRIO_samples # needed for VS generators
+      --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+      # If we don't set Debug, we only have RelWithDebInfo available (b/c we
+      # collapse configs) but --build-and-test still tries to build Debug:
+      --build-options -DDEBUG=ON -DDynamoRIO_DIR:PATH=${public_config_dir})
+    if (UNIX AND NOT X64)
+      set_tests_properties(samples_proj PROPERTIES ENVIRONMENT
+        "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
   endif (BUILD_SAMPLES)
 
