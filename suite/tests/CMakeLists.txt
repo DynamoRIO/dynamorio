@@ -2137,6 +2137,15 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.simple_rawtemp ON) # no preprocessor
 
+      # TLB simulator's single-thread sanity check
+      torunonly_ci(tool.drcachesim.TLB-simple ${ci_shared_app} drcachesim
+        "drcachesim-TLB-simple.c" # for templatex basename
+        "-ipc_name drtesttlbpipe1 -simulator_type TLB" "" "")
+        set(tool.drcachesim.TLB-simple_toolname "drcachesim")
+        set(tool.drcachesim.TLB-simple_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.TLB-simple_rawtemp ON) # no preprocessor
+
       torunonly_ci(tool.drcachesim.phys ${ci_shared_app} drcachesim
         "drcachesim-phys.c" # for templatex basename
         "-ipc_name drtestpipe4 -use_physical" "" "")
@@ -2158,6 +2167,15 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.threads_rawtemp ON) # no preprocessor
+
+        # TLB simulator's multi-thread sanity check
+        torunonly_ci(tool.drcachesim.TLB-threads client.annotation-concurrency drcachesim
+          "drcachesim-TLB-threads.c" # for templatex basename
+          "-ipc_name drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
+        set(tool.drcachesim.TLB-threads_toolname "drcachesim")
+        set(tool.drcachesim.TLB-threads_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.TLB-threads_rawtemp ON) # no preprocessor
       endif ()
 
       if (ARM)
