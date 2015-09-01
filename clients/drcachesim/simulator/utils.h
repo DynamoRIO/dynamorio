@@ -41,7 +41,7 @@
 #define ERROR(msg, ...) fprintf(stderr, msg, ## __VA_ARGS__)
 
 // XXX: can we share w/ core DR?
-#define IS_POWER_OF_2(x) ((x) == 0 || ((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
 
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
