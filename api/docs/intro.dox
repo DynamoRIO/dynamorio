@@ -1898,10 +1898,6 @@ can launch drrun under gdb as you would normally:
 gdb --args path/to/drrun <options> -- path/to/app
 \endcode
 
-Before executing the "run" command, you must execute the gdb command "set
-disable-randomization off" in order to avoid strange ASLR behavior by the
-kernel.
-
 Because the executable changes from drrun to the app, the app cannot be
 re-run from gdb's prompt.
 

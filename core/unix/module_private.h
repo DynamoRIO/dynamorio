@@ -106,4 +106,9 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
 bool
 privload_redirect_sym(ptr_uint_t *r_addr, const char *name);
 
+void
+module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd,
+                                     ELF_DYNAMIC_ENTRY_TYPE *dyn,
+                                     ptr_int_t load_delta);
+
 #endif /* MODULE_PRIVATE_H */

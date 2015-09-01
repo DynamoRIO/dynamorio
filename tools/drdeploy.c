@@ -1633,14 +1633,6 @@ int main(int argc, char *argv[])
             buf[i] = '\0';
         else
             NULL_TERMINATE_BUFFER(buf);
-        if (strstr(buf, "gdb") != NULL) {
-            /* We can't tell whether the user already ran this, so just a
-             * warning.  We have a check in the child which should also catch
-             * this if the ASLR base hasn't change.
-             */
-            warn("To successfully launch DynamoRIO from gdb, be sure to run "
-                 "'set disable-randomization off' first.");
-        }
     }
     /* On Linux, we use exec by default to create the app process.  This matches
      * our drrun shell script and makes scripting easier for the user.

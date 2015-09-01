@@ -920,6 +920,120 @@ get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
 }
 
 #ifdef LINUX
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* If we fail to relocate dynamorio, print the error msg and abort. */
+static void
+privload_report_relocate_error()
+{
+    /* The problem is that we can't call any normal routines here, or
+     * even reference global vars like string literals.  We thus use
+     * a char array:
+     */
+    const char aslr_msg[] = {
+        'E','R','R','O','R',':',' ','f','a','i','l',' ','t','o',' ',
+        'r','e','l','o','c','a','t','e',' ','d','y','n','a','m','o','r','i','o','!',
+        '\n',
+        'P','l','e','a','s','e',' ','f','i','l','e',' ','a','n',' ','i','s','s','u','e',
+        ' ','a','t',' ','h','t','t','p',':','/','/','d','y','n','a','m','o','r','i','o',
+        '.','o','r','g','/','i','s','s','u','e','s','.','\n'
+    };
+#   define STDERR_FD 2
+    os_write(STDERR_FD, aslr_msg, sizeof(aslr_msg));
+    dynamorio_syscall(SYS_exit_group, 1, -1);
+}
+
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is duplicated from module_relocate_symbol and simplified
+ * for only relocating dynamorio symbols.
+ */
+static void
+privload_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *opd, bool is_rela)
+{
+    ELF_ADDR *r_addr;
+    uint r_type;
+    reg_t addend;
+
+    /* XXX: we assume ELF_REL_TYPE and ELF_RELA_TYPE only differ at the end,
+     * i.e. with or without r_addend.
+     */
+    if (is_rela)
+        addend = ((ELF_RELA_TYPE *)rel)->r_addend;
+    else
+        addend = 0;
+
+    /* assume everything is read/writable */
+    r_addr = (ELF_ADDR *)(rel->r_offset + opd->load_delta);
+    r_type = (uint)ELF_R_TYPE(rel->r_info);
+
+    /* handle the most common case, i.e. ELF_R_RELATIVE */
+    if (r_type == ELF_R_RELATIVE) {
+        if (is_rela)
+            *r_addr = addend + opd->load_delta;
+        else
+            *r_addr += opd->load_delta;
+        return;
+    } else if (r_type == ELF_R_NONE)
+        return;
+
+    /* XXX i#1708: support more relocation types in bootstrap stage */
+    privload_report_relocate_error();
+}
+
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is duplicated from module_relocate_rel for relocating dynamorio. */
+static void
+privload_relocate_rel(os_privmod_data_t *opd, ELF_REL_TYPE *start, ELF_REL_TYPE *end)
+{
+    ELF_REL_TYPE *rel;
+    for (rel = start; rel < end; rel++)
+        privload_relocate_symbol(rel, opd, false);
+}
+
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is duplicated from module_relocate_rela for relocating dynamorio. */
+static void
+privload_relocate_rela(os_privmod_data_t *opd, ELF_RELA_TYPE *start, ELF_RELA_TYPE *end)
+{
+    ELF_RELA_TYPE *rela;
+    for (rela = start; rela < end; rela++)
+        privload_relocate_symbol((ELF_REL_TYPE *)rela, opd, true);
+}
+
+/* XXX: This routine may be called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is duplicated from privload_relocate_os_privmod_data */
+static void
+privload_early_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
+{
+    if (opd->rel != NULL)
+        privload_relocate_rel(opd, opd->rel, opd->rel + opd->relsz / opd->relent);
+
+    if (opd->rela != NULL)
+        privload_relocate_rela(opd, opd->rela, opd->rela + opd->relasz / opd->relaent);
+
+    if (opd->jmprel != NULL) {
+        if (opd->pltrel == DT_REL) {
+            privload_relocate_rel(opd, (ELF_REL_TYPE *)opd->jmprel,
+                                  (ELF_REL_TYPE *)(opd->jmprel + opd->pltrelsz));
+        } else if (opd->pltrel == DT_RELA) {
+            privload_relocate_rela(opd, (ELF_RELA_TYPE *)opd->jmprel,
+                                   (ELF_RELA_TYPE *)(opd->jmprel + opd->pltrelsz));
+        } else {
+            privload_report_relocate_error();
+        }
+    }
+}
+
+/*  This routine is duplicated at privload_early_relocate_os_privmod_data. */
 static void
 privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
 {
@@ -940,6 +1054,8 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
         } else if (opd->pltrel == DT_RELA) {
             module_relocate_rela(mod_base, opd, (ELF_RELA_TYPE *)opd->jmprel,
                                  (ELF_RELA_TYPE *)(opd->jmprel + opd->pltrelsz));
+        } else {
+            ASSERT(false);
         }
     }
 }
@@ -1650,6 +1766,104 @@ reserve_brk(app_pc post_app)
     }
 }
 
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is partially duplicated from module_get_os_privmod_data.
+ * It paritially fills the os_privmod_data for dynamorio relocation.
+ * Return true if relocation is required.
+ */
+static bool
+privload_get_os_privmod_data(app_pc base, OUT os_privmod_data_t *opd)
+{
+    app_pc mod_base, mod_end;
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
+    ELF_PROGRAM_HEADER_TYPE *prog_hdr;
+    uint i;
+
+    /* walk program headers to get mod_base mod_end and delta */
+    mod_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
+                                             elf_hdr->e_phnum, NULL, &mod_end);
+    /* delta from preferred address, used for calcuate real address */
+    opd->load_delta = base - mod_base;
+    if (opd->load_delta == 0)
+        return false;
+
+    /* walk program headers to get dynamic section pointer */
+    prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)(base + elf_hdr->e_phoff);
+    for (i = 0; i < elf_hdr->e_phnum; i++) {
+        if (prog_hdr->p_type == PT_DYNAMIC) {
+            opd->dyn = (ELF_DYNAMIC_ENTRY_TYPE *)(prog_hdr->p_vaddr + opd->load_delta);
+            opd->dynsz = prog_hdr->p_memsz;
+# ifdef DEBUG
+        } else if (prog_hdr->p_type == PT_TLS && prog_hdr->p_memsz > 0) {
+            /* XXX: we assume libdynamorio has no tls block b/c we're not calling
+             * privload_relocate_mod().
+             */
+            privload_report_relocate_error();
+# endif /* DEBUG */
+        }
+        ++prog_hdr;
+    }
+    if (opd->dyn == NULL)
+        return false;
+
+    module_init_os_privmod_data_from_dyn(opd, opd->dyn, opd->load_delta);
+    return true;
+}
+
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+/* This routine is duplicated from is_elf_so_header_common. */
+static bool
+privload_mem_is_elf_so_header(byte *mem)
+{
+    /* assume we can directly read from mem */
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)mem;
+
+    /* ELF magic number */
+    if (elf_hdr->e_ident[EI_MAG0] != ELFMAG0 ||
+        elf_hdr->e_ident[EI_MAG1] != ELFMAG1 ||
+        elf_hdr->e_ident[EI_MAG2] != ELFMAG2 ||
+        elf_hdr->e_ident[EI_MAG3] != ELFMAG3)
+        return false;
+    /* libdynamorio should be ET_DYN */
+    if (elf_hdr->e_type != ET_DYN)
+        return false;
+    /* ARM or X86 */
+    if (elf_hdr->e_machine != IF_ARM_ELSE(EM_ARM,
+                                          IF_X64_ELSE(EM_X86_64,
+                                                      EM_386)))
+        return false;
+    if (elf_hdr->e_ehsize != sizeof(ELF_HEADER_TYPE))
+        return false;
+    return true;
+}
+
+/* XXX: This routine is called before dynamorio relocation when we are in a
+ * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+static void
+relocate_dynamorio(byte *dr_map, size_t dr_size)
+{
+    os_privmod_data_t opd = { {0}};
+
+    if (dr_map == NULL) {
+        /* we do not know where dynamorio is, so check backward page by page */
+        dr_map = (app_pc)ALIGN_BACKWARD((ptr_uint_t)relocate_dynamorio, PAGE_SIZE);
+        while (dr_map != NULL && !privload_mem_is_elf_so_header(dr_map)) {
+            dr_map -= PAGE_SIZE;
+        }
+    }
+    if (dr_map == NULL)
+        privload_report_relocate_error();
+
+    /* Relocate it */
+    if (privload_get_os_privmod_data(dr_map, &opd))
+        privload_early_relocate_os_privmod_data(&opd, dr_map);
+}
+
 /* i#1227: on a conflict with the app we reload ourselves.
  * Does not return.
  */
@@ -1693,6 +1907,7 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
+    /* Relocate it */
     /* Relocate it */
     memset(&opd, 0, sizeof(opd));
     module_get_os_privmod_data(dr_map, dr_size, false/*!relocated*/, &opd);
@@ -1740,39 +1955,9 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     memquery_iter_t iter;
     app_pc interp_map;
 
-    /* i#1676: try to detect no-ALSR which happens if we're launched from within
-     * gdb w/o 'set disable-randomization off'.  We assume here that our
-     * preferred base does not start with 0x5... and that the non-ASLR base does:
-     *   64-bit: 0x555555b323ab
-     *   32-bit: 0x55555000
-     *
-     * FIXME i#1708: the fixed base is computed from the highest user address
-     * and thus can take several different values, not just 0x5*.
-     * We can also fail in the same way due to a user disabling ASLR on the system
-     * (i.e., not just inside gdb).
-     * Worst of all, a recent kernel change has broken support for exec of ET_DYN
-     * ever being placed at its preferred address.
-     * Thus we need to go back to an ET_EXEC bootstrap.
-     */
-    if (old_libdr_base == NULL) {
-        ptr_uint_t match = (ptr_uint_t)0x5 << IF_X64_ELSE(44, 28);
-        ptr_uint_t mask  = (ptr_uint_t)-1  << IF_X64_ELSE(44, 28);
-        if (((ptr_uint_t)privload_early_inject & mask) == match) {
-            /* The problem is that we can't call any normal routines here, or
-             * even reference global vars like string literals.  We thus use
-             * a char array:
-             */
-            const char aslr_msg[] = {
-                'E','R','R','O','R',':',' ','r','u','n',' ',
-                '\'','s','e','t',' ','d','i','s','a','b','l','e','-','r','a','n','d',
-                'o','m','i','z','a','t','i','o','n',' ','o','f','f','\'',' ','t','o',
-                ' ','r','u','n',' ','f','r','o','m',' ','g','d','b','\n'
-            };
-#           define STDERR_FD 2
-            os_write(STDERR_FD, aslr_msg, sizeof(aslr_msg));
-            dynamorio_syscall(SYS_exit_group, 1, -1);
-        }
-    }
+    /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address */
+    if (old_libdr_base == NULL)
+        relocate_dynamorio(NULL, 0);
 
     /* XXX i#47: for Linux, we can't easily have this option on by default as
      * code like get_application_short_name() called from drpreload before

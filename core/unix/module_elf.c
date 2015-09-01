@@ -155,9 +155,13 @@ module_hashtab_init(os_module_data_t *os_data);
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
+/* This routine is duplicated in privload_mem_is_elf_so_header. Any update here
+ * should be updated in privload_mem_is_elf_so_header.
+ */
 /* Is there an ELF header for a shared object at address 'base'?
  * If size == 0 then checks for header readability else assumes that size bytes from
- * base are readable (unmap races are then callers responsibility). */
+ * base are readable (unmap races are then callers responsibility).
+ */
 static bool
 is_elf_so_header_common(app_pc base, size_t size, bool memory)
 {
@@ -539,6 +543,10 @@ module_num_program_headers(app_pc base)
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
+
+/* XXX: This routine may be called before dynamorio relocation when we are
+ * in a fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
 /* Returns the minimum p_vaddr field, aligned to page boundaries, in
  * the loadable segments in the prog_header array, or POINTER_MAX if
  * there are no loadable segments.
@@ -1055,6 +1063,101 @@ get_shared_lib_name(app_pc map)
     return soname;
 }
 
+
+
+/* XXX: This routine may be called before dynamorio relocation when we are
+ * in a fragile state and thus no globals access or use of ASSERT/LOG/STATS!
+ */
+void
+module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd,
+                                     ELF_DYNAMIC_ENTRY_TYPE *dyn,
+                                     ptr_int_t load_delta)
+{
+    /* XXX: this is a big switch table. There are other ways to parse it
+     * with better performance, but I feel switch table is clear to read,
+     * and it should not be called often.
+     */
+    opd->textrel = false;
+    while (dyn->d_tag != DT_NULL) {
+        switch (dyn->d_tag) {
+        case DT_PLTGOT:
+            opd->pltgot = (ELF_ADDR)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_PLTRELSZ:
+            opd->pltrelsz = (size_t)dyn->d_un.d_val;
+            break;
+        case DT_PLTREL:
+            opd->pltrel = dyn->d_un.d_val;
+            break;
+        case DT_TEXTREL:
+            opd->textrel = true;
+            break;
+        case DT_FLAGS:
+            if (TEST(DF_TEXTREL, dyn->d_un.d_val))
+                opd->textrel = true;
+            break;
+        case DT_JMPREL:
+            opd->jmprel = (app_pc)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_REL:
+            opd->rel = (ELF_REL_TYPE *)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_RELSZ:
+            opd->relsz = (size_t)dyn->d_un.d_val;
+            break;
+        case DT_RELENT:
+            opd->relent = (size_t)dyn->d_un.d_val;
+            break;
+        case DT_RELA:
+            opd->rela = (ELF_RELA_TYPE *)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_RELASZ:
+            opd->relasz = (size_t)dyn->d_un.d_val;
+            break;
+        case DT_RELAENT:
+            opd->relaent = (size_t)dyn->d_un.d_val;
+            break;
+        case DT_VERNEED:
+            opd->verneed = (app_pc)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_VERNEEDNUM:
+            opd->verneednum = dyn->d_un.d_val;
+            break;
+        case DT_VERSYM:
+            opd->versym = (ELF_HALF *)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_RELCOUNT:
+            opd->relcount = dyn->d_un.d_val;
+            break;
+        case DT_INIT:
+            opd->init = (fp_t)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_FINI:
+            opd->fini = (fp_t)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_INIT_ARRAY:
+            opd->init_array = (fp_t *)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_INIT_ARRAYSZ:
+            opd->init_arraysz = dyn->d_un.d_val;
+            break;
+        case DT_FINI_ARRAY:
+            opd->fini_array = (fp_t *)(dyn->d_un.d_ptr + load_delta);
+            break;
+        case DT_FINI_ARRAYSZ:
+            opd->fini_arraysz = dyn->d_un.d_val;
+            break;
+        default:
+            break;
+        }
+        ++dyn;
+    }
+}
+
+/* This routine is duplicated in privload_get_os_privmod_data for relocating
+ * dynamorio symbols in a bootstrap stage. Any update here should be also
+ * updated in privload_get_os_privmod_data.
+ */
 /* Get module information from the loaded module.
  * We assume the segments are mapped into memory, not mapped file.
  */
@@ -1107,11 +1210,6 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
         ++prog_hdr;
     }
     ASSERT(dyn != NULL);
-    /* XXX: this is a big switch table. There are other ways to parse it
-     * with better performance, but I feel switch table is clear to read,
-     * and it should not be called often.
-     */
-    pd->textrel = false;
     /* We assume the segments are mapped into memory, so the actual address
      * is calculated by adding d_ptr and load_delta, unless the loader already
      * relocated the .dynamic section.
@@ -1119,80 +1217,7 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
     if (dyn_reloc) {
         load_delta = 0;
     }
-    while (dyn->d_tag != DT_NULL) {
-        switch (dyn->d_tag) {
-        case DT_PLTGOT:
-            pd->pltgot = (ELF_ADDR)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_PLTRELSZ:
-            pd->pltrelsz = (size_t)dyn->d_un.d_val;
-            break;
-        case DT_PLTREL:
-            pd->pltrel = dyn->d_un.d_val;
-            break;
-        case DT_TEXTREL:
-            pd->textrel = true;
-            break;
-        case DT_FLAGS:
-            if (TEST(DF_TEXTREL, dyn->d_un.d_val))
-                pd->textrel = true;
-            break;
-        case DT_JMPREL:
-            pd->jmprel = (app_pc)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_REL:
-            pd->rel = (ELF_REL_TYPE *)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_RELSZ:
-            pd->relsz = (size_t)dyn->d_un.d_val;
-            break;
-        case DT_RELENT:
-            pd->relent = (size_t)dyn->d_un.d_val;
-            break;
-        case DT_RELA:
-            pd->rela = (ELF_RELA_TYPE *)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_RELASZ:
-            pd->relasz = (size_t)dyn->d_un.d_val;
-            break;
-        case DT_RELAENT:
-            pd->relaent = (size_t)dyn->d_un.d_val;
-            break;
-        case DT_VERNEED:
-            pd->verneed = (app_pc)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_VERNEEDNUM:
-            pd->verneednum = dyn->d_un.d_val;
-            break;
-        case DT_VERSYM:
-            pd->versym = (ELF_HALF *)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_RELCOUNT:
-            pd->relcount = dyn->d_un.d_val;
-            break;
-        case DT_INIT:
-            pd->init = (fp_t)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_FINI:
-            pd->fini = (fp_t)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_INIT_ARRAY:
-            pd->init_array = (fp_t *)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_INIT_ARRAYSZ:
-            pd->init_arraysz = dyn->d_un.d_val;
-            break;
-        case DT_FINI_ARRAY:
-            pd->fini_array = (fp_t *)(dyn->d_un.d_ptr + load_delta);
-            break;
-        case DT_FINI_ARRAYSZ:
-            pd->fini_arraysz = dyn->d_un.d_val;
-            break;
-        default:
-            break;
-        }
-        ++dyn;
-    }
+    module_init_os_privmod_data_from_dyn(pd, dyn, load_delta);
 }
 
 /* Returns a pointer to the phdr of the given type.
@@ -1562,6 +1587,10 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 
 #endif /* CLIENT_INTERFACE */
 
+/* This routine is duplicated in privload_relocate_symbol for relocating
+ * dynamorio symbols in a bootstrap stage. Any update here should be also
+ * updated in privload_relocate_symbol.
+ */
 static void
 module_relocate_symbol(ELF_REL_TYPE *rel,
                        os_privmod_data_t *pd,
@@ -1708,6 +1737,10 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
     }
 }
 
+/* This routine is duplicated in privload_relocate_rel for relocating
+ * dynamorio symbols in a bootstrap stage. Any update here should be also
+ * updated in privload_relocate_rel.
+ */
 void
 module_relocate_rel(app_pc modbase,
                     os_privmod_data_t *pd,
@@ -1721,6 +1754,10 @@ module_relocate_rel(app_pc modbase,
 }
 
 void
+/* This routine is duplicated in privload_relocate_rela for relocating
+ * dynamorio symbols in a bootstrap stage. Any update here should be also
+ * updated in privload_relocate_rela.
+ */
 module_relocate_rela(app_pc modbase,
                      os_privmod_data_t *pd,
                      ELF_RELA_TYPE *start,
