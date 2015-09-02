@@ -631,6 +631,14 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
         set(tgt_link_flags "${tgt_link_flags}")
       endif (tgt_cxx)
 
+      # Do non-lazy runtime binding
+      if (APPLE)
+        # Especially important on Mac where we do not yet have a private loader
+        set(tgt_link_flags "${tgt_link_flags} -Xlinker -bind_at_load")
+      else (APPLE)
+        set(tgt_link_flags "${tgt_link_flags} -Xlinker -z -Xlinker now")
+      endif (APPLE)
+
       # avoid SElinux text relocation security violations by explicitly requesting PIC
       # i#157, when enable private loader, symbols from default libraries and startfiles
       # are required, so -nostartfiles and -nodefaultlibs should be removed
