@@ -447,6 +447,77 @@ GLOBAL_LABEL(get_stack_ptr:)
 #endif /* WINDOWS */
 
 
+#ifdef UNIX
+/* i#46: Implement private memcpy and memset for libc isolation.  If we import
+ * memcpy and memset from libc in the normal way, the application can override
+ * those definitions and intercept them.  In particular, this occurs when
+ * running an app that links in the Address Sanitizer runtime.  Since we already
+ * need a reasonably efficient assembly memcpy implementation for safe_read, we
+ * go ahead and reuse the code for private memcpy and memset.
+ *
+ * XXX: See comment on REP_STRING_OP about maybe using SSE instrs.  It's more
+ * viable for memcpy and memset than for safe_read_asm.
+ */
+
+/* Private memcpy.
+ */
+        DECLARE_FUNC(memcpy)
+GLOBAL_LABEL(memcpy:)
+        ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, src=xsi, n=xdx */
+        mov    REG_XAX, REG_XDI         /* Save dst for return. */
+        /* Copy xdx bytes, align on src. */
+        REP_STRING_OP(memcpy, REG_XSI, movs)
+        RESTORE_XDI_XSI()
+        ret                             /* Return original dst. */
+        END_FUNC(memcpy)
+
+/* Private memset.
+ */
+        DECLARE_FUNC(memset)
+GLOBAL_LABEL(memset:)
+        ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, val=xsi, n=xdx */
+        push    REG_XDI                 /* Save dst for return. */
+        test    esi, esi                /* Usually val is zero. */
+        jnz     make_val_word_size
+        xor     eax, eax
+do_memset:
+        /* Set xdx bytes, align on dst. */
+        REP_STRING_OP(memset, REG_XDI, stos)
+        pop     REG_XAX                 /* Return original dst. */
+        RESTORE_XDI_XSI()
+        ret
+
+        /* Create pointer-sized value in XAX using multiply. */
+make_val_word_size:
+        and     esi, HEX(ff)
+# ifdef X64
+        mov     rax, HEX(0101010101010101)
+# else
+        mov     eax, HEX(01010101)
+# endif
+        /* Use two-operand imul to avoid clobbering XDX. */
+        imul    REG_XAX, REG_XSI
+        jmp     do_memset
+        END_FUNC(memset)
+
+
+# ifndef MACOS /* XXX: attribute alias issue, plus using nasm */
+/* gcc emits calls to these *_chk variants in release builds when the size of
+ * dst is known at compile time.  In C, the caller is responsible for cleaning
+ * up arguments on the stack, so we alias these *_chk routines to the non-chk
+ * routines and rely on the caller to clean up the extra dst_len arg.
+ */
+.global __memcpy_chk
+.hidden __memcpy_chk
+.set __memcpy_chk,memcpy
+
+.global __memset_chk
+.hidden __memset_chk
+.set __memset_chk,memset
+# endif
+#endif /* UNIX */
+
+
 /***************************************************************************/
 #if defined(WINDOWS) && !defined(X64)
 

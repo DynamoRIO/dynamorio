@@ -185,6 +185,19 @@ foreach (deploytgt drconfig drrun drinject)
   if (NOT ${deploytgt} MATCHES "drconfig")
     target_link_libraries(${deploytgt} drinjectlib)
   endif ()
+  if (LINUX) # No checks for MacOS
+    get_target_property(check_path ${deploytgt} LOCATION)
+    add_custom_command(TARGET ${deploytgt}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -D lib=${check_path}
+           -D check_deps=OFF
+           -D check_libc=ON
+           -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+           -P ${PROJECT_SOURCE_DIR}/core/CMake_readelf.cmake
+      VERBATIM # recommended: p260
+      )
+  endif ()
 endforeach ()
 
 if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)

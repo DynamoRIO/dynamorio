@@ -2288,80 +2288,6 @@ GLOBAL_LABEL(hashlookup_null_handler:)
 #endif
         END_FUNC(hashlookup_null_handler)
 
-#ifdef X64
-# define PTRSZ_SHIFT_BITS 3
-# define PTRSZ_SUFFIXED(string_op) string_op##q
-# ifdef UNIX
-#  define ARGS_TO_XDI_XSI_XDX()         /* ABI handles this. */
-#  define RESTORE_XDI_XSI()             /* Not needed. */
-# else /* WINDOWS */
-/* Get args 1, 2, 3 into rdi, rsi, and rdx. */
-#  define ARGS_TO_XDI_XSI_XDX() \
-        push     rdi                            @N@\
-        push     rsi                            @N@\
-        mov      rdi, ARG1                      @N@\
-        mov      rsi, ARG2                      @N@\
-        mov      rdx, ARG3
-#  define RESTORE_XDI_XSI() \
-        pop      rsi                            @N@\
-        pop      rdi
-# endif /* WINDOWS */
-#else
-# define PTRSZ_SHIFT_BITS 2
-# define PTRSZ_SUFFIXED(string_op) string_op##d
-
-/* Get args 1, 2, 3 into edi, esi, and edx to match Linux x64 ABI.  Need to save
- * edi and esi since they are callee-saved.  The ARGN macros can't handle
- * stack adjustments, so use the scratch regs eax and ecx to hold the args
- * before the pushes.
- */
-# define ARGS_TO_XDI_XSI_XDX() \
-        mov     eax, ARG1                       @N@\
-        mov     ecx, ARG2                       @N@\
-        mov     edx, ARG3                       @N@\
-        push    edi                             @N@\
-        push    esi                             @N@\
-        mov     edi, eax                        @N@\
-        mov     esi, ecx
-# define RESTORE_XDI_XSI() \
-        pop esi                                 @N@\
-        pop edi
-#endif
-
-/* Repeats string_op for XDX bytes using aligned pointer-sized operations when
- * possible.  Assumes that string_op works by counting down until XCX reaches
- * zero.  The pointer-sized string ops are aligned based on ptr_to_align.
- * For string ops that have both a src and dst, aligning based on src is
- * preferred, subject to micro-architectural differences.
- *
- * XXX: glibc memcpy uses SSE instructions to copy, which is 10% faster on x64
- * and ~2x faster for 20kb copies on plain x86.  Using SSE is quite complicated,
- * because it means doing cpuid checks and loop unrolling.  Many of our string
- * operations are short anyway.  For safe_read, it also increases the number of
- * potentially faulting PCs.
- */
-#define REP_STRING_OP(funcname, ptr_to_align, string_op) \
-        mov     REG_XCX, ptr_to_align                           @N@\
-        and     REG_XCX, (ARG_SZ - 1)                           @N@\
-        jz      funcname##_aligned                              @N@\
-        neg     REG_XCX                                         @N@\
-        add     REG_XCX, ARG_SZ                                 @N@\
-        cmp     REG_XDX, REG_XCX  /* if (n < xcx) */            @N@\
-        cmovb   REG_XCX, REG_XDX  /*     xcx = n; */            @N@\
-        sub     REG_XDX, REG_XCX                                @N@\
-ADDRTAKEN_LABEL(funcname##_pre:)                                @N@\
-        rep string_op##b                                        @N@\
-funcname##_aligned:                                             @N@\
-        /* Aligned word-size ops. */                            @N@\
-        mov     REG_XCX, REG_XDX                                @N@\
-        shr     REG_XCX, PTRSZ_SHIFT_BITS                       @N@\
-ADDRTAKEN_LABEL(funcname##_mid:)                                @N@\
-        rep PTRSZ_SUFFIXED(string_op)                           @N@\
-        /* Handle trailing bytes. */                            @N@\
-        mov     REG_XCX, REG_XDX                                @N@\
-        and     REG_XCX, (ARG_SZ - 1)                           @N@\
-ADDRTAKEN_LABEL(funcname##_post:)                               @N@\
-        rep string_op##b
 
 /* Declare these labels global so we can take their addresses in C.  pre, mid,
  * and post are defined by REP_STRING_OP().
@@ -2394,76 +2320,8 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         ret
         END_FUNC(safe_read_asm)
 
+
 #ifdef UNIX
-/* i#46: Implement private memcpy and memset for libc isolation.  If we import
- * memcpy and memset from libc in the normal way, the application can override
- * those definitions and intercept them.  In particular, this occurs when
- * running an app that links in the Address Sanitizer runtime.  Since we already
- * need a reasonably efficient assembly memcpy implementation for safe_read, we
- * go ahead and reuse the code for private memcpy and memset.
- *
- * XXX: See comment on REP_STRING_OP about maybe using SSE instrs.  It's more
- * viable for memcpy and memset than for safe_read_asm.
- */
-
-/* Private memcpy.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, src=xsi, n=xdx */
-        mov    REG_XAX, REG_XDI         /* Save dst for return. */
-        /* Copy xdx bytes, align on src. */
-        REP_STRING_OP(memcpy, REG_XSI, movs)
-        RESTORE_XDI_XSI()
-        ret                             /* Return original dst. */
-        END_FUNC(memcpy)
-
-/* Private memset.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, val=xsi, n=xdx */
-        push    REG_XDI                 /* Save dst for return. */
-        test    esi, esi                /* Usually val is zero. */
-        jnz     make_val_word_size
-        xor     eax, eax
-do_memset:
-        /* Set xdx bytes, align on dst. */
-        REP_STRING_OP(memset, REG_XDI, stos)
-        pop     REG_XAX                 /* Return original dst. */
-        RESTORE_XDI_XSI()
-        ret
-
-        /* Create pointer-sized value in XAX using multiply. */
-make_val_word_size:
-        and     esi, HEX(ff)
-# ifdef X64
-        mov     rax, HEX(0101010101010101)
-# else
-        mov     eax, HEX(01010101)
-# endif
-        /* Use two-operand imul to avoid clobbering XDX. */
-        imul    REG_XAX, REG_XSI
-        jmp     do_memset
-        END_FUNC(memset)
-
-
-# ifndef MACOS /* XXX: attribute alias issue, plus using nasm */
-/* gcc emits calls to these *_chk variants in release builds when the size of
- * dst is known at compile time.  In C, the caller is responsible for cleaning
- * up arguments on the stack, so we alias these *_chk routines to the non-chk
- * routines and rely on the caller to clean up the extra dst_len arg.
- */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-# endif
-
-
 /* Replacement for _dl_runtime_resolve() used for catching module transitions
  * out of native modules.
  */

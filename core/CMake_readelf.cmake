@@ -32,7 +32,8 @@
 # Caller must set:
 # + READELF_EXECUTABLE so it can be a cache variable
 # + "lib" to point to target library
-# + "check_deps" to ON or OFF
+# + "check_deps" to ON or OFF to check for zero deps
+# + "check_libc" to ON or OFF to check for too-recent libc imports
 
 # PR 212290: ensure no text relocations (they violate selinux execmod policies)
 # looking for dynamic section tag:
@@ -103,5 +104,24 @@ if (check_deps)
   if (has_needed)
     string(REGEX MATCH "NEEDED[^\n]*\n" libname "${string}")
     message(FATAL_ERROR "*** Error: ${lib} depends on: ${libname}")
+  endif ()
+endif ()
+
+if (check_libc)
+  execute_process(COMMAND
+    ${READELF_EXECUTABLE} -s ${lib}
+    RESULT_VARIABLE readelf_result
+    ERROR_VARIABLE readelf_error
+    OUTPUT_VARIABLE string
+    )
+  if (readelf_result OR readelf_error)
+    message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+  endif (readelf_result OR readelf_error)
+  string(REGEX MATCH " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_2\\.([4-9]|1[0-9])"
+    has_recent "${string}")
+  if (has_recent)
+    string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_2\\.([4-9]|1[0-9])[^\n]*\n"
+      symname "${string}")
+    message(FATAL_ERROR "*** Error: ${lib} has too-recent import: ${symname}")
   endif ()
 endif ()

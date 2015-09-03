@@ -644,6 +644,7 @@ if (UNIX)
         # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib=${lib_to_check}
              -D check_deps=${check_deps}
+             -D check_libc=OFF
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260
@@ -655,6 +656,7 @@ if (UNIX)
         # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib=${lib_to_check}
              -D check_deps=OFF
+             -D check_libc=ON
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260
