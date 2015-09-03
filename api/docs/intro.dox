@@ -75,8 +75,8 @@ interface for building dynamic tools for a wide variety of uses: program
 analysis and understanding, profiling, instrumentation, optimization,
 translation, etc. DynamoRIO provides efficient, transparent, and
 comprehensive manipulation of an unmodified application running on a stock
-operating system (Windows or Linux) and commodity IA-32 and
-AMD64 hardware.  See \ref sec_limit_platforms for supported platforms.
+operating system (Windows or Linux) and commodity IA-32, AMD64, and ARM
+hardware.  See \ref sec_limit_platforms for supported platforms.
 
 This document describes the DynamoRIO system and the various API's that it
 exports for building custom tools.  It is divided into the following
@@ -102,7 +102,7 @@ sections:
 
 \ifnot vmsafe
 - \subpage page_standalone
-  <br>DynamoRIO can be used as a standalone library for IA-32/AMD64
+  <br>DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM
   disassembly, decoding, encoding, and general instruction manipulation.
   A separate static library is provided for this purpose.
 \endif
@@ -872,8 +872,8 @@ DynamoRIO's API provides:
 See dr_tools.h and dr_proc.h for specifics of each routine.
 
 Another class of utilities provided by DynamoRIO are structures and
-routines for decoding, encoding, and manipulating IA-32 and
-AMD64 instructions. These are described in \ref sec_IR.
+routines for decoding, encoding, and manipulating IA-32, AMD64, and ARM
+instructions. These are described in \ref sec_IR.
 
 \anchor subsec_forwards
 In addition, on Windows, DynamoRIO provides a number
@@ -1100,7 +1100,7 @@ DynamoRIO header files.  The appropriate library must then be linked
 with.  The define choices are:
 
 -# \p WINDOWS, \p LINUX, or (coming soon) \p MACOS
--# \p X86_32, \p X86_64, or (coming soon) \p ARM_32 or \p ARM_64
+-# \p X86_32, \p X86_64, \p ARM_32, or (coming soon) \p ARM_64
 
 Currently we provide a private loader for both Windows and Linux.
 With private loading, clients use a separate copy of each library
@@ -1934,9 +1934,9 @@ https://github.com/DynamoRIO/dynamorio/wiki/Debugging
 ***************************************************************************
 ***************************************************************************
 \ifnot vmsafe
-\page page_standalone IA-32/AMD64 Disassembly Library
+\page page_standalone IA-32/AMD64/ARM Disassembly Library
 
-DynamoRIO can be used as a standalone library for IA-32/AMD64
+DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM
 disassembly, decoding, encoding, and general instruction manipulation,
 independently of controlling a target application.  When used in this way,
 all aspects of DynamoRIO's API routines that apply to instrumentation or

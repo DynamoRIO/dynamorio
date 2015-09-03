@@ -66,11 +66,12 @@ The following are part of the DynamoRIO release distribution:
 \endif
 
  - Four different DynamoRIO libraries: debug and release for each of
-   32-bit and 64-bit.
+   32-bit and 64-bit (for ARM builds, currently only 32-bit is supported
+   and included).
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
- - Four different IA-32/AMD64 decoding static libraries: debug and release
-   for each of 32-bit and 64-bit.
+ - Four different IA-32/AMD64/ARM decoding static libraries: debug and release
+   for each of 32-bit and 64-bit (only 32-bit for ARM).
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
  - A variety of DynamoRIO Extension libraries that augment the core
@@ -101,7 +102,9 @@ The following are part of the DynamoRIO release distribution:
    sec_standalone).
 \endif
  - A number of end-user tools including a code coverage tool (see \ref
-   page_drcov) and a library tracing tool (see \ref page_drltrace).
+   page_drcov), a library tracing tool (see \ref page_drltrace),
+   a multi-process cache simulator (see \ref page_drcachesim),
+   and a legacy CPU testing tool (see \ref page_drcpusim).
    If this is a DynamoRIO public release, it also includes the
    Dr. Memory memory debugging tool (see \ref page_drmemory), a system call
    tracer for Windows (see \ref page_drstrace), and a symbol querying tool
@@ -181,6 +184,9 @@ following minor compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - Added AArch32 ARMv7 and ARMv8 support.
+ - Added experimental Android support.  C clients are supported, but C++
+   clients are not yet supported.
  - Added Windows 10 support.
  - Added a new scratch register coordination Extension, \p drreg.
  - Added easy-to-use option declaration and parsing for C++ clients
@@ -253,11 +259,11 @@ Further non-compatibility-affecting changes include:
 **************************************************
 <hr>
 
-Version \DR_VERSION includes Dr. Memory and the Dr. Memory Framework (DRMF)
+Version 5.0.0 includes Dr. Memory and the Dr. Memory Framework (DRMF)
 in the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
 drsymcache Extensions for use by clients.
 
-The changes between version \DR_VERSION and 4.2.0 also include the
+The changes between version 5.0.0 and 4.2.0 also include the
 following minor compatibility changes:
 
  - Dropped official support for Windows 2000.  The core DynamoRIO engine
@@ -1195,9 +1201,9 @@ not supported.
 \endif
 
 \subsection sec_limit_platforms Platform Limitations
-  - This version of DynamoRIO supports Windows 8 and 8.1.
+  - This version of DynamoRIO supports Windows 8, 8.1, and 10.
     However, systemwide injection (-syswide_on) is not yet supported on
-    Windows 8 or 8.1 except for WOW64 (i.e., 32-bit applications on
+    Windows 8 or higher except for WOW64 (i.e., 32-bit applications on
     a 64-bit kernel).
   - DynamoRIO currently supports the following NT-based 32-bit
     Windows systems: XP (32-bit, service packs 0-3), 2003 (32-bit, service
@@ -1244,6 +1250,11 @@ not supported.
     64-bit Linux
     distributions running on Intel-compatible hardware, including
     Ubuntu and Fedora.
+  - This release of DynamoRIO supports 32-bit applications running on
+    32-bit Linux operating systems on AArch32 ARMv7 and ARMv8 hardware.
+  - This release of DynamoRIO has experimental support for 32-bit Android
+    applications running on AArch32 ARMv7 and ARMv8 hardware with C
+    clients (but not yet C++ clients).
   - This release of DynamoRIO has support for running 32-bit
     Linux applications on 64-bit Linux operating systems on
     AMD64-compatible hardware.
