@@ -446,7 +446,8 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
     if (os_data->exports == NULL || name[0] == '0')
         return NULL;
 
-    LOG(GLOBAL, LOG_SYMBOLS, 4, "%s: trie "PFX"-"PFX"\n", __FUNCTION__, ptr, max);
+    LOG(GLOBAL, LOG_SYMBOLS, 4, "%s %s: trie "PFX"-"PFX"\n", __FUNCTION__, name,
+        ptr, max);
     while (ptr < max) {
         bool match = false;
         node_sz = read_uleb128(ptr, max, &ptr);
@@ -500,6 +501,8 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
     /* We have a match */
     if (node_sz > 0) {
         uint flags = read_uleb128(ptr, max, &ptr);
+        if (is_indirect_code != NULL)
+            *is_indirect_code = false;
         if (TEST(EXPORT_SYMBOL_FLAGS_REEXPORT, flags)) {
             /* Forwarder */
             read_uleb128(ptr, max, &ptr); /* ordinal */
@@ -510,10 +513,13 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
             /* FIXME i#1360: handle forwards */
         } else if (TEST(EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER, flags)) {
             /* Lazy or non-lazy pointer */
-            read_uleb128(ptr, max, &ptr); /* stub offset */
-            read_uleb128(ptr, max, &ptr); /* resolver offset */
-            /* FIXME i#1360: call resolver for non-lazy; what for lazy? */
-            return NULL;
+            size_t stub_offs = read_uleb128(ptr, max, &ptr);
+            size_t resolver_offs = read_uleb128(ptr, max, &ptr);
+            res = (app_pc)(resolver_offs + load_delta);
+            if (is_indirect_code != NULL)
+                *is_indirect_code = true;
+            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tstub="PFX", resolver="PFX"\n",
+                (app_pc)(stub_offs + load_delta), res);
         } else {
             size_t sym_offs = read_uleb128(ptr, max, &ptr);
             res = (app_pc)(sym_offs + load_delta);
@@ -521,8 +527,6 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
                 sym_offs, res);
         }
     }
-    if (is_indirect_code != NULL)
-        *is_indirect_code = false;
     return res;
 }
 
