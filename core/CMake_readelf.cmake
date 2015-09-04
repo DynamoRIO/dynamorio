@@ -117,10 +117,12 @@ if (check_libc)
   if (readelf_result OR readelf_error)
     message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
   endif (readelf_result OR readelf_error)
-  string(REGEX MATCH " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_2\\.([4-9]|1[0-9])"
+  # We want to avoid dependences beyond glibc 2.4 for maximum backward
+  # portability without going to extremes with a fixed toolchain (xref i#1504):
+  string(REGEX MATCH " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_2\\.([5-9]|1[0-9])"
     has_recent "${string}")
   if (has_recent)
-    string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_2\\.([4-9]|1[0-9])[^\n]*\n"
+    string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_2\\.([5-9]|1[0-9])[^\n]*\n"
       symname "${string}")
     message(FATAL_ERROR "*** Error: ${lib} has too-recent import: ${symname}")
   endif ()
