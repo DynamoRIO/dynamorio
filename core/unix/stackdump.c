@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,10 +49,10 @@
 #include <sys/file.h>
 #include <sys/wait.h>
 #include <string.h>
-#include <sys/syscall.h>
 
 #include "../globals.h"
 #include "os_private.h"
+#include "include/syscall.h"
 
 #define DEBUGGER "gdb"
 /* add -q to suppress gdb copyright notice */
