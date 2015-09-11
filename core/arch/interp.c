@@ -2750,8 +2750,10 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     }
 
     /* Call the bb creation callback(s) */
-    if (!instrument_basic_block(dcontext, (app_pc) bb->start_pc, bb->ilist,
-                                bb->for_trace, !bb->app_interp, &emitflags)) {
+    if (!instrument_basic_block(dcontext,
+                                /* DrMem#1735: pass app pc, not selfmod copy pc */
+                                (bb->pretend_pc == NULL ? bb->start_pc : bb->pretend_pc),
+                                bb->ilist, bb->for_trace, !bb->app_interp, &emitflags)) {
         /* although no callback was called we must process syscalls/ints (PR 307284) */
     }
     if (bb->for_cache && TEST(DR_EMIT_GO_NATIVE, emitflags)) {
