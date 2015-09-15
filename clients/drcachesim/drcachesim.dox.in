@@ -36,7 +36,8 @@
 \page page_drcachesim Cache Simulator
 
 \p drcachesim is a DynamoRIO client tool that collects memory access traces
-and feeds them to an online cache simulator.  The tool supports multiple
+and feeds them to an online simulator which simulates a set of specific caching
+devices, e.g., CPU caches and TLBs.  The tool supports multiple
 processes each with multiple threads.
 
  - \ref sec_drcachesim
@@ -50,10 +51,12 @@ processes each with multiple threads.
 
 \section sec_drcachesim Overview
 
-The DynamoRIO tool \p drcachesim analyzes the cache behavior of a target
-application (or multiple applications).  The tool collects a memory access
-trace from each thread within each application process and feeds each trace
-to an online cache simulator.
+The DynamoRIO tool \p drcachesim analyzes the architectural behavior of caching
+devices for a target application (or multiple applications).  The tool collects
+a memory access trace from each thread within each application process and feeds
+each trace to an online simulator.  The simulator is designed to be extensible,
+allowing users to easily implement different devices, such as CPU caches, TLBs,
+page caches, etc. (see \ref sec_drcachesim_extend).
 
 
 \section sec_drcachesim_run Running the Simulator
@@ -72,14 +75,24 @@ references passed to the simulator as well.
 
 \section sec_drcachesim_sim Simulator Details
 
-The simulator models a configurable number of cores, each with an L1 data
-cache and an L1 instruction cache.  Currently there is a single shared L2
-unified cache, but we would like to extend support to arbitrary cache
-hierarchies (see \ref sec_drcachesim_limit).  The cache line size and each
-cache's total size and associativity are user-specified (see \ref
-sec_drcachesim_ops).
+Generally, the simulator is able to be extended to model a variety of
+caching devices.  Currently, CPU caches and TLBs are implemented.  The type of
+device to simulate can be specified by the parameter
+"-simulator_type" (see \ref sec_drcachesim_ops).
 
-The simulator has no simple way to know which core any particular thread
+The CPU cache simulator models a configurable number of cores,
+each with an L1 data cache and an L1 instruction cache.
+Currently there is a single shared L2 unified cache, but we would like to
+extend support to arbitrary cache hierarchies (see \ref sec_drcachesim_limit).
+The cache line size and each cache's total size and associativity are
+user-specified (see \ref sec_drcachesim_ops).
+
+The TLB simulator models a configurable number of cores, each with an
+L1 instruction TLB, an L1 data TLB, and an L2 unified TLB.  Each TLB's
+entry number and associativity, and the virtual/physical page size,
+are user-specified (see \ref sec_drcachesim_ops).
+
+Neither simulator has a simple way to know which core any particular thread
 executed on at a given point in time.  Instead it uses a simple static
 scheduling of threads to cores, using a round-robin assignment with load
 balancing to fill in gaps with new threads after threads exit.
@@ -95,12 +108,12 @@ for each cache to stderr.  The simulator is designed to be extensible,
 allowing for different cache studies to be carried out: see \ref
 sec_drcachesim_extend.
 
-For the L2 cache, the L1 caches are considered its _children_.  Two
-separate miss rates are computed, one (the "Local miss rate") considering
+For L2 caching devices, the L1 caching devices are considered its _children_.
+Two separate miss rates are computed, one (the "Local miss rate") considering
 just requests that reach L2 while the other (the "Total miss rate")
 includes the child hits.
 
-For memory requests that cross cache lines, each cache line touched is
+For memory requests that cross blocks, each block touched is
 considered separately, resulting in separate hit and miss statistics.  This
 can be changed by implementing a custom statistics gatherer (see \ref
 sec_drcachesim_extend).
@@ -132,15 +145,20 @@ these areas of missing functionality:
 \section sec_drcachesim_extend Extending the Simulator
 
 The \p drcachesim tool was designed to be extensible, allowing users to
-easily implement different cache models and gather custom statistics.
+easily model different caching devices, implement different models, and
+gather custom statistics.
+
+To model different caching devices, subclass the \p simulator_t,
+caching_device_t, caching_device_block_t, caching_device_stats_t classes.
 
 To implement a different cache model, subclass the \p cache_t class and
 override the \p request(), \p access_update(), and/or \p
 replace_which_way() method(s).
 
-Statistics gathering is separated out into the \p cache_stats_t class.  To
-implement custom statistics, subclass \p cache_stats_t and override the \p
-access(), \p child_access(), \p flush(), and/or \p print_stats() methods.
+Statistics gathering is separated out into the \p caching_device_stats_t
+class.  To implement custom statistics, subclass \p caching_device_stats_t
+and override the \p access(), \p child_access(), \p flush(), and/or
+\p print_stats() methods.
 
 
 \section sec_drcachesim_ops Simulator Parameters
