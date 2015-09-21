@@ -49,6 +49,16 @@ extern "C" {
  */
 /*@{*/ /* begin doxygen group */
 
+/* i#1531: drx uses drmgr internally, so a client using drx cannot use
+ * DR's TLS field routines directly.
+ */
+#ifndef dr_set_tls_field
+# define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+# define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+# define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+# define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#endif
+
 /***************************************************************************
  * INIT
  */
