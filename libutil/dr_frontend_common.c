@@ -216,18 +216,32 @@ drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_
 drfront_status_t
 drfront_create_dir(const char *dir)
 {
-    uint res;
+    drfront_status_t status = DRFRONT_ERROR;
+    TCHAR wdir[MAXIMUM_PATH];
     if (dir == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
-    /* FIXME i#1530: we should not use libc on Windows,
-     * which breaks the internationalization support
-     */
+    /* i#1530: use WinAPI W versions directly to avoid using libc on Windows */
+    status = drfront_char_to_tchar(dir, wdir, BUFFER_SIZE_ELEMENTS(wdir));
+    if (status != DRFRONT_SUCCESS)
+        return status;
 #ifdef WINDOWS
-    res = _mkdir(dir);
+    if (CreateDirectoryW(wdir, NULL) == 0) {
+        DWORD errcode = GetLastError();
+        if (errcode == ERROR_ALREADY_EXISTS) {
+            return DRFRONT_ERROR_FILE_EXISTS;
+        } else if (errcode == ERROR_PATH_NOT_FOUND) {
+            return DRFRONT_ERROR_INVALID_PATH;
+        } else if (errcode == ERROR_ACCESS_DENIED) {
+            return DRFRONT_ERROR_ACCESS_DENIED;
+        } else {
+            DO_DEBUG(DL_WARN,
+                     printf("CreateDirectoryW failed %d", errcode);
+                     );
+            return DRFRONT_ERROR;
+        }
+    }
 #else
-    res = mkdir(dir, 0777);
-#endif
-    if (res != 0) {
+    if (mkdir(wdir, 0777) != 0) {
         if(errno == EEXIST) {
             return DRFRONT_ERROR_FILE_EXISTS;
         } else if(errno == EACCES) {
@@ -239,24 +253,37 @@ drfront_create_dir(const char *dir)
             return DRFRONT_ERROR;
         }
     }
+#endif
     return DRFRONT_SUCCESS;
 }
 
 drfront_status_t
 drfront_remove_dir(const char *dir)
 {
-    uint res;
+    drfront_status_t status = DRFRONT_ERROR;
+    TCHAR wdir[MAXIMUM_PATH];
     if (dir == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
-    /* FIXME i#1530: we should not use libc on Windows,
-     * which breaks the internationalization support
-     */
+    /* i#1530: use WinAPI W versions directly to avoid using libc on Windows */
+    status = drfront_char_to_tchar(dir, wdir, BUFFER_SIZE_ELEMENTS(wdir));
+    if (status != DRFRONT_SUCCESS)
+        return status;
 #ifdef WINDOWS
-    res = _rmdir(dir);
+    if (RemoveDirectoryW(wdir) == 0) {
+        DWORD errcode = GetLastError();
+        if (errcode == ERROR_PATH_NOT_FOUND) {
+            return DRFRONT_ERROR_INVALID_PATH;
+        } else if (errcode == ERROR_ACCESS_DENIED) {
+            return DRFRONT_ERROR_ACCESS_DENIED;
+        } else {
+            DO_DEBUG(DL_WARN,
+                     printf("RemoveDirectoryW failed %d", errcode);
+                     );
+            return DRFRONT_ERROR;
+        }
+    }
 #else
-    res = rmdir(dir);
-#endif
-    if (res != 0) {
+    if (rmdir(dir) != 0) {
         if(errno == ENOENT) {
             return DRFRONT_ERROR_INVALID_PATH;
         } else if(errno == EACCES) {
@@ -268,5 +295,6 @@ drfront_remove_dir(const char *dir)
             return DRFRONT_ERROR;
         }
     }
+#endif
     return DRFRONT_SUCCESS;
 }
