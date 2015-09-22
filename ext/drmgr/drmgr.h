@@ -173,9 +173,11 @@ typedef struct _drmgr_priority_t {
      */
     const char *after;
     /**
-     * A numeric priority to resolve identical ordering after the \p before
-     * and \p after requests are resolved.  Lower numbers are placed earlier
-     * in the callback invocation order.
+     * The numeric priority of the callback.  This is the primary field for
+     * determining callback order, with lower numbers placed earlier in the
+     * callback invocation order.  The \p before and \p after requests must have
+     * numeric priorities that are smaller than and greater than, respectively,
+     * the requesting callback.  Numeric ties are invoked in unspecified order.
      */
     int priority;
 } drmgr_priority_t;

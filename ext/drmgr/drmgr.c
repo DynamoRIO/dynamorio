@@ -728,6 +728,7 @@ priority_event_add(cb_list_t *list,
 {
     int i;
     bool past_after; /* are we past the "after" constraint */
+    bool found_before; /* did we find the "before" constraint */
     priority_event_entry_t *pri;
 
     if (new_pri == NULL)
@@ -751,27 +752,47 @@ priority_event_add(cb_list_t *list,
         }
     }
 
-    /* keep the list sorted */
+    /* Keep the list sorted by numeric priority.
+     * Callback priorities are not re-sorted dynamically as callbacks are registered,
+     * so callbacks intending to be named in before or after requests should
+     * use non-zero numeric priorities to ensure proper ordering.
+     * Xref the dynamic proposal in i#1762.
+     */
     past_after = (new_pri->after == NULL);
+    found_before = (new_pri->before == NULL);
     for (i = 0; i < (int)list->num; i++) {
         pri = cblist_get_pri(list, i);
         if (!pri->valid)
             continue;
-        /* Priority 1: must be before "before" */
-        if (new_pri->before != NULL && strcmp(new_pri->before, pri->name) == 0)
+        /* Primary sort: numeric priority.  Tie goes to 1st to register. */
+        if (pri->priority > new_pri->priority)
             break;
-        /* Priority 2: must be after "after" */
+        /* Secondary constraint #1: must be before "before" */
+        if (new_pri->before != NULL && strcmp(new_pri->before, pri->name) == 0) {
+            found_before = true;
+            if (pri->priority < new_pri->priority) {
+                /* cannot satisfy both before and numeric */
+                return -1;
+            }
+            break;
+        }
+        /* Secondary constraint #2: must be after "after" */
         else if (!past_after) {
             ASSERT(new_pri->after != NULL, "past_after should be true");
             if (strcmp(new_pri->after, pri->name) == 0)
                 past_after = true;
         }
-        /* Priority 3: numeric priority.  Tie goes to 1st to register. */
-        else if (pri->priority > new_pri->priority)
-            break;
     }
     if (!past_after) {
-        /* cannot satisfy both the before and after requests */
+        /* Cannot satisfy both the before and after requests, or both
+         * the after and numeric requests.
+         */
+        return -1;
+    }
+    if (!found_before) {
+        /* We require the before to already be registered (i#1762 covers
+         * switching to a dynamic model).
+         */
         return -1;
     }
     /* insert at index i */
