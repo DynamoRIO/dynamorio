@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -81,6 +81,11 @@ typedef enum _dr_valgrind_request_id_t {
      * Return true if running in DynamoRIO with Valgrind annotation support. No args.
      */
     DR_VG_ID__RUNNING_ON_VALGRIND,
+    /**
+     * Request an immediate memory scan to look for leaks.
+     * Not currently implemented in core DR.
+     */
+    DR_VG_ID__DO_LEAK_CHECK,
     /**
      * Indicate that the specified range of addresses should be considered defined if
      * it is addressable. Not currently implemented in core DR.

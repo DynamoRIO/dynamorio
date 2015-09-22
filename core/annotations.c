@@ -752,6 +752,8 @@ lookup_valgrind_request(ptr_uint_t request)
     switch (request) {
     case VG_USERREQ__RUNNING_ON_VALGRIND:
         return DR_VG_ID__RUNNING_ON_VALGRIND;
+    case VG_USERREQ__DO_LEAK_CHECK:
+        return DR_VG_ID__DO_LEAK_CHECK;
     case VG_USERREQ__MAKE_MEM_DEFINED_IF_ADDRESSABLE:
         return DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE;
     case VG_USERREQ__DISCARD_TRANSLATIONS:
