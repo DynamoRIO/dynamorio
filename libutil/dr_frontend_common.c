@@ -106,15 +106,18 @@ drfront_cleanup_args(char **argv, int argc)
     return DRFRONT_SUCCESS;
 }
 
+#ifdef WINDOWS
 static bool
 drfront_is_system_install_dir(const char *dir)
 {
-#ifdef WINDOWS
-    return (strstr(dir, "Program Files") != NULL);
-#else
-    return (strstr(dir, "/usr/") == dir);
-#endif
+    /* FIXME DrM-i#1730: there could be 8.3 name path or junction or other way
+     * to get to the system install dir, so we cannot just rely on path name to
+     * check if dir is the system install dir.
+     */
+    return (_strnicmp(dir+strlen("c:\\"), "progra~", strlen("progra~")) != 0 ||
+            _strnicmp(dir+strlen("c:\\"), "Program Files", strlen("Program Files")) != 0);
 }
+#endif
 
 drfront_status_t
 drfront_appdata_logdir(const char *root, const char *subdir,
@@ -128,8 +131,11 @@ drfront_appdata_logdir(const char *root, const char *subdir,
         return DRFRONT_ERROR_INVALID_PARAMETER;
     /* On Vista+ we can't write to Program Files; plus better to not store
      * logs there on 2K or XP either.
+     * DrM-i#1730: trying to write to Program Files has complexities:
+     * modifications to files "pretend" to succeed and are redirected to
+     * VirtualStore.
      */
-    if (drfront_is_system_install_dir(root) ||
+    if (IF_WINDOWS(drfront_is_system_install_dir(root) ||)
         drfront_access(root, DRFRONT_WRITE, &writable) != DRFRONT_SUCCESS ||
         !writable) {
         bool have_env = false;
