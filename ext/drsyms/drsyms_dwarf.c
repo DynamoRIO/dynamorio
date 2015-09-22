@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -86,7 +86,7 @@ next_die_matching_tag(Dwarf_Debug dbg, Dwarf_Tag search_tag)
 {
     Dwarf_Half tag = 0;
     Dwarf_Die die = NULL;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
 
     while (dwarf_siblingof(dbg, die, &die, &de) == DW_DLV_OK) {
         if (dwarf_tag(die, &tag, &de) != DW_DLV_OK) {
@@ -108,7 +108,7 @@ find_cu_die_via_iter(Dwarf_Debug dbg, Dwarf_Addr pc)
 {
     Dwarf_Die die = NULL;
     Dwarf_Unsigned cu_offset = 0;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     Dwarf_Die cu_die = NULL;
 
     while (dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL,
@@ -143,7 +143,7 @@ find_cu_die_via_iter(Dwarf_Debug dbg, Dwarf_Addr pc)
 static Dwarf_Die
 find_cu_die(Dwarf_Debug dbg, Dwarf_Addr pc)
 {
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     Dwarf_Die cu_die = NULL;
     Dwarf_Arange *arlist;
     Dwarf_Signed arcnt;
@@ -170,7 +170,7 @@ compare_lines(const void *a_in, const void *b_in)
     const Dwarf_Line a = *(const Dwarf_Line *)a_in;
     const Dwarf_Line b = *(const Dwarf_Line *)b_in;
     Dwarf_Addr addr_a, addr_b;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     if (dwarf_lineaddr(a, &addr_a, &de) != DW_DLV_OK ||
         dwarf_lineaddr(b, &addr_b, &de) != DW_DLV_OK)
         return 0;
@@ -187,7 +187,7 @@ bool
 drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT)
 {
     dwarf_module_t *mod = (dwarf_module_t *) mod_in;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     Dwarf_Die cu_die;
     Dwarf_Unsigned cu_offset = 0;
     bool success = false;
@@ -251,7 +251,7 @@ get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
     if (mod->lines_cu != cu_die) {
         Dwarf_Line *lines;
         Dwarf_Signed num_lines;
-        Dwarf_Error de = {0};
+        Dwarf_Error de; /* expensive to init (DrM#1770) */
         if (dwarf_srclines(cu_die, &lines, &num_lines, &de) != DW_DLV_OK) {
             NOTIFY_DWARF(de);
             return -1;
@@ -279,7 +279,7 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
     int i;
     Dwarf_Addr lineaddr, next_lineaddr = 0;
     Dwarf_Line dw_line;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     search_result_t res = SEARCH_NOT_FOUND;
 
     num_lines = get_lines_from_cu(mod, cu_die, &lines);
@@ -357,7 +357,7 @@ enumerate_lines_in_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
     Dwarf_Line *lines;
     Dwarf_Signed num_lines;
     int i;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     drsym_line_info_t info;
 
     if (dwarf_diename(cu_die, (char **) &info.cu_name, &de) != DW_DLV_OK) {
@@ -414,7 +414,7 @@ drsym_dwarf_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, voi
 {
     drsym_error_t success = DRSYM_SUCCESS;
     dwarf_module_t *mod = (dwarf_module_t *) mod_in;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     Dwarf_Die cu_die;
     Dwarf_Unsigned cu_offset = 0;
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -259,7 +259,7 @@ bool
 drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
 {
     elf_info_t *mod = (elf_info_t *) mod_in;
-    Dwarf_Error de = {0};
+    Dwarf_Error de; /* expensive to init (DrM#1770) */
     if (mod == NULL)
         return false;
     if (dwarf_elf_init(mod->elf, DW_DLC_READ, NULL, NULL, dbg, &de) != DW_DLV_OK) {
