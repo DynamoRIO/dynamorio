@@ -36,6 +36,7 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "client_tools.h"
+#include "drreg-test-shared.h"
 #include <string.h> /* memset */
 
 #define CHECK(x, msg) do {               \
@@ -45,7 +46,37 @@
     }                                    \
 } while (0);
 
-#define TEST_REG IF_X86_ELSE(DR_REG_XDI, DR_REG_R4)
+#define MAGIC_VAL 0xabcdef
+
+static dr_emit_flags_t
+event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                   bool for_trace, bool translating, OUT void **user_data)
+{
+    instr_t *inst;
+    bool prev_was_mov_const = false;
+    ptr_int_t val1, val2;
+    *user_data = NULL;
+    /* Look for duplicate mov immediates telling us which subtest we're in */
+    for (inst = instrlist_first_app(bb); inst != NULL; inst = instr_get_next_app(inst)) {
+        if (instr_is_mov_constant(inst, prev_was_mov_const ? &val2 : &val1)) {
+            if (prev_was_mov_const && val1 == val2 &&
+                opnd_is_reg(instr_get_dst(inst, 0)) &&
+                opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
+                *user_data = (void *) val1;
+                instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
+            } else
+                prev_was_mov_const = true;
+        } else
+            prev_was_mov_const = false;
+    }
+    return DR_EMIT_DEFAULT;
+}
+
+static void
+check_const(ptr_int_t reg, ptr_int_t val)
+{
+    CHECK(reg == val, "register value not preserved");
+}
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
@@ -54,36 +85,58 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     reg_id_t reg, random = IF_X86_ELSE(DR_REG_XDI, DR_REG_R5);
     drreg_status_t res;
     drvector_t allowed;
-
-    res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
-    CHECK(res == DRREG_SUCCESS, "default reserve should always work");
-    /* test restore app value back to reg */
-    res = drreg_get_app_value(drcontext, bb, inst, reg, reg);
-    CHECK(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE,
-          "restore app value could only fail on dead reg");
-    /* test get stolen reg to reg */
-    if (dr_get_stolen_reg() != REG_NULL) {
-        res = drreg_get_app_value(drcontext, bb, inst, dr_get_stolen_reg(), reg);
-        CHECK(res == DRREG_SUCCESS, "get stolen reg app value should always work");
-    }
-    /* test get random reg to reg */
-    res = drreg_get_app_value(drcontext, bb, inst, random, reg);
-    CHECK(res == DRREG_SUCCESS ||
-          (res == DRREG_ERROR_NO_APP_VALUE && reg == random),
-          "get random reg app value should always work");
-    res = drreg_unreserve_register(drcontext, bb, inst, reg);
-    CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+    ptr_int_t subtest = (ptr_int_t) user_data;
 
     drvector_init(&allowed, DR_NUM_GPR_REGS, false/*!synch*/, NULL);
     for (reg = 0; reg < DR_NUM_GPR_REGS; reg++)
         drvector_set_entry(&allowed, reg, NULL);
     drvector_set_entry(&allowed, TEST_REG-DR_REG_START_GPR, (void *)(ptr_uint_t)1);
-    res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
-    CHECK(res == DRREG_SUCCESS && reg == TEST_REG, "only 1 choice");
-    res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
-    CHECK(res == DRREG_ERROR_REG_CONFLICT, "still reserved");
-    res = drreg_unreserve_register(drcontext, bb, inst, reg);
-    CHECK(res == DRREG_SUCCESS, "unreserve should work");
+
+    if (subtest == 0) {
+        /* Local tests */
+        res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
+        CHECK(res == DRREG_SUCCESS, "default reserve should always work");
+        /* test restore app value back to reg */
+        res = drreg_get_app_value(drcontext, bb, inst, reg, reg);
+        CHECK(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE,
+              "restore app value could only fail on dead reg");
+        /* test get stolen reg to reg */
+        if (dr_get_stolen_reg() != REG_NULL) {
+            res = drreg_get_app_value(drcontext, bb, inst, dr_get_stolen_reg(), reg);
+            CHECK(res == DRREG_SUCCESS, "get stolen reg app value should always work");
+        }
+        /* test get random reg to reg */
+        res = drreg_get_app_value(drcontext, bb, inst, random, reg);
+        CHECK(res == DRREG_SUCCESS ||
+              (res == DRREG_ERROR_NO_APP_VALUE && reg == random),
+              "get random reg app value should always work");
+        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+
+        res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
+        CHECK(res == DRREG_SUCCESS && reg == TEST_REG, "only 1 choice");
+        res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
+        CHECK(res == DRREG_ERROR_REG_CONFLICT, "still reserved");
+        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        CHECK(res == DRREG_SUCCESS, "unreserve should work");
+    } else if (subtest == DRREG_TEST_1_C || subtest == DRREG_TEST_2_C) {
+        /* Cross-app-instr test */
+        dr_log(drcontext, LOG_ALL, 1, "drreg test #1/2\n");
+        if (instr_is_label(inst)) {
+            res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
+            CHECK(res == DRREG_SUCCESS, "reserve of test reg should work");
+            instrlist_meta_preinsert(bb, inst, XINST_CREATE_load_int
+                                     (drcontext, opnd_create_reg(reg),
+                                      OPND_CREATE_INT32(MAGIC_VAL)));
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            dr_insert_clean_call(drcontext, bb, inst, check_const, false, 2,
+                                 opnd_create_reg(TEST_REG),
+                                 OPND_CREATE_INT32(MAGIC_VAL));
+            res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
+            CHECK(res == DRREG_SUCCESS, "unreserve should work");
+        }
+    }
+
     drvector_delete(&allowed);
 
     /* XXX i#511: add more tests */
@@ -111,6 +164,7 @@ dr_init(client_id_t id)
 
     /* register events */
     dr_register_exit_event(event_exit);
-    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+    if (!drmgr_register_bb_instrumentation_event(event_app_analysis,
+                                                 event_app_instruction, NULL))
         CHECK(false, "init failed");
 }

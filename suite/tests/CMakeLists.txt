@@ -45,8 +45,8 @@
 # * We'll use ctest -S to build each target build config and run tests for each,
 #   and optionally submit to dashboard.  Use w/o submit as "make runregression".
 
-# Cmake version should be >= 2.6.4 b/c we use parentheses in conditionals.
-cmake_minimum_required(VERSION 2.6.4)
+# We use target_include_directories() which was added in 2.8.10.2
+cmake_minimum_required(VERSION 2.8.10.2)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -1894,6 +1894,8 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
+  target_include_directories(client.drreg-test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
   tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
   use_DynamoRIO_extension(client.drx-test.dll drx)

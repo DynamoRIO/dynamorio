@@ -115,8 +115,14 @@ typedef struct _drreg_options_t {
     /**
      * The number of TLS spill slots to use.  This many slots will be
      * requested from DR via dr_raw_tls_calloc().  Any slots needed beyond
-     * this number will use DR's base slots (which beyond the first few
-     * are more expensive to access).
+     * this number will use DR's base slots, which are not allowed to be
+     * used across application instructions.  DR's slots are also more
+     * expensive to access (beyond the first few).
+     *
+     * For each simultaneous value that will be held in a register
+     * across application instructions, an additional slot must be
+     * requested for adjusting the saved application value with
+     * respect to application reads and writes.
      */
     uint num_spill_slots;
     /**
@@ -157,7 +163,7 @@ drreg_exit(void);
 
 DR_EXPORT
 /**
- * In debug build, drreg tracks the maximum simultanous number of spill
+ * In debug build, drreg tracks the maximum simultaneous number of spill
  * slots in use.  This can help a user to tune drreg_options_t.num_spill_slots.
  *
  * @param[out] max  The maximum number of spill slots used is written here.
