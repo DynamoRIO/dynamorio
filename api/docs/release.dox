@@ -1301,6 +1301,10 @@ not supported.
     \c \\HKLM\\SOFTWARE\\Microsoft\\Windows\\WindowsNT\\CurrentVersion\\AppInit_DLLs
     registry key (only very rarely an issue), which is used for
     the -syswide_on feature.
+  - On Windows, the Enhanced Mitigation Experience Toolkit (EMET) may prevent
+    applications from running under DynamoRIO
+    (<a href="https://github.com/dynamorio/dynamorio/issues/1546">issue 1546</a>).
+    Please disable EMET for the application if necessary.
   - On Windows 7 and Windows Server 2008 R2, the digital signature
     requirement for AppInit_DLLs libraries is disabled when systemwide
     injection is requested (-syswide_on).  This can be a security concern.
@@ -1327,6 +1331,7 @@ not supported.
   - This release does not support running some Windows services under
     control of DynamoRIO: the "System" process, smss.exe, csrss.exe, and protected
     processes on Windows Vista.
+
 \anchor limits_vista_service_messagebox
   - On Windows Vista most services are run in a separate session as a
     security feature.  This means that neither DynamoRIO nor its
