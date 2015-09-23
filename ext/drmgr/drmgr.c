@@ -793,7 +793,17 @@ priority_event_add(cb_list_t *list,
         /* We require the before to already be registered (i#1762 covers
          * switching to a dynamic model).
          */
-        return -1;
+        int j;
+        ASSERT(new_pri->before != NULL, "found_before should be true");
+        for (j = i; j < (int)list->num; j++) {
+            pri = cblist_get_pri(list, j);
+            if (pri->valid && strcmp(new_pri->before, pri->name) == 0) {
+                found_before = true;
+                break;
+            }
+        }
+        if (!found_before)
+            return -1;
     }
     /* insert at index i */
     i = cblist_shift_and_resize(list, i);

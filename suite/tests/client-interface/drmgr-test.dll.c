@@ -108,9 +108,10 @@ dr_init(client_id_t id)
 {
     drmgr_priority_t priority = {sizeof(priority), "drmgr-test", NULL, NULL, 0};
     drmgr_priority_t priority4 = {sizeof(priority), "drmgr-test4", NULL, NULL, 0};
-    drmgr_priority_t sys_pri_A = {sizeof(priority), "drmgr-test-A", NULL, NULL, 0};
+    drmgr_priority_t sys_pri_A = {sizeof(priority), "drmgr-test-A",
+                                  NULL, NULL, 10};
     drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
-                                  "drmgr-test-A", NULL, 0};
+                                  "drmgr-test-A", NULL, 5};
     bool ok;
 
     drmgr_init();
