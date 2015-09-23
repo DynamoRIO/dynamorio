@@ -457,9 +457,19 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
                        : "0" (newval), "m" (var))
 
 #  define SPINLOCK_PAUSE()   __asm__ __volatile__("pause")
-#  define RDTSC_LL(llval)                        \
-     __asm__ __volatile__                        \
-     ("rdtsc" : "=A" (llval))
+#  ifdef X64
+#   define RDTSC_LL(llval) do {                   \
+      uint low, high;                             \
+      __asm__ __volatile__                        \
+      ("rdtsc" : "=a"(low),"=d"(high));           \
+      (llval) = ((uint64)high << 32) | low;       \
+    } while (0)
+#  else
+    /* We define RDTSC_LL differently on 32-bit for better performance */
+#   define RDTSC_LL(llval)                        \
+      __asm__ __volatile__                        \
+      ("rdtsc" : "=A" (llval))
+#  endif /* 64/32 */
 #  define SERIALIZE_INSTRUCTIONS()                                       \
      __asm__ __volatile__                                                \
      ("xor %%eax, %%eax; cpuid" : : : "eax", "ebx", "ecx", "edx");
