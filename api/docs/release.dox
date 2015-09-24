@@ -189,6 +189,8 @@ Further non-compatibility-affecting changes include:
    clients are not yet supported.
  - Added Windows 10 support.
  - Added a new scratch register coordination Extension, \p drreg.
+   The \p drreg Extension is still considered experimental and its
+   interface is subject to change in the next release.
  - Added easy-to-use option declaration and parsing for C++ clients
    and standalone applications via a new Extension, \p droption,
    and the #droption_t class.
