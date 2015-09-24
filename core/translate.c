@@ -257,7 +257,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             for (r = 0; r < REG_SPILL_NUM; r++)
                 walk->reg_spilled[r] = false;
         }
-        if (instr_is_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg)) {
+        if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg)) {
             r = reg - REG_START_SPILL;
             ASSERT(r < REG_SPILL_NUM);
             IF_ARM({
@@ -1637,7 +1637,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
              */
             ASSERT(success_so_far /* ok to fail */ ||
                    (!res &&
-                    (instr_is_reg_spill_or_restore(dcontext, in, NULL, NULL, NULL) ||
+                    (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, NULL, NULL) ||
                      (!instr_reads_memory(in) && !instr_writes_memory(in)))));
 
             /* check that xsp and xcx are adjusted properly */
@@ -1651,7 +1651,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             instr_check_xsp_mangling(dcontext, in, &xsp_adjust);
             if (xsp_adjust != 0)
                 LOG(THREAD, LOG_INTERP, 3, "  xsp_adjust=%d\n", xsp_adjust);
-            if (instr_is_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg) &&
+            if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg) &&
                 reg == REG_XCX)
                 spill_xcx_outstanding = spill;
         }

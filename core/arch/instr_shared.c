@@ -3240,20 +3240,24 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
 #endif
 }
 
-bool
-instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
-                              bool *tls, bool *spill, reg_id_t *reg)
+static bool
+instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only,
+                                 bool *tls, bool *spill, reg_id_t *reg, uint *offs_out)
 {
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
     int check_disp = 0; /* init to satisfy some compilers */
     reg_id_t myreg;
-    CLIENT_ASSERT(instr != NULL, "internal error: NULL argument");
+    CLIENT_ASSERT(instr != NULL, "invalid NULL argument");
     if (reg == NULL)
         reg = &myreg;
     if (instr_check_tls_spill_restore(instr, spill, reg, &check_disp)) {
         int offs = reg_spill_tls_offs(*reg);
-        if (offs != -1 && check_disp == os_tls_offset((ushort)offs)) {
+        if (!DR_only ||
+            (offs != -1 && check_disp == os_tls_offset((ushort)offs))) {
             if (tls != NULL)
                 *tls = true;
+            if (offs_out != NULL)
+                *offs_out = check_disp;
             return true;
         }
 #ifdef ARM
@@ -3271,6 +3275,8 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
             });
             if (tls != NULL)
                 *tls = true;
+            if (offs_out != NULL)
+                *offs_out = check_disp;
             return true;
         }
 #endif
@@ -3279,13 +3285,33 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
         instr_check_mcontext_spill_restore(dcontext, instr, spill,
                                            reg, &check_disp)) {
         int offs = opnd_get_reg_dcontext_offs(dr_reg_fixer[*reg]);
-        if (offs != -1 && check_disp == offs) {
+        if (!DR_only ||
+            (offs != -1 && check_disp == offs)) {
             if (tls != NULL)
                 *tls = false;
+            if (offs_out != NULL)
+                *offs_out = check_disp;
             return true;
         }
     }
     return false;
+}
+
+DR_API
+bool
+instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr,
+                              bool *tls, bool *spill, reg_id_t *reg, uint *offs)
+{
+    return instr_is_reg_spill_or_restore_ex(drcontext, instr, false,
+                                            tls, spill, reg, offs);
+}
+
+bool
+instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr,
+                                 bool *tls, bool *spill, reg_id_t *reg)
+{
+    return instr_is_reg_spill_or_restore_ex(drcontext, instr, true,
+                                            tls, spill, reg, NULL);
 }
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other

@@ -2691,9 +2691,26 @@ bool instr_is_tls_xcx_spill(instr_t *instr);
 /* Pass REG_NULL to not care about the reg */
 bool
 instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs);
+
+DR_API
+/**
+ * Returns whether \p instr is a register spill or restore, whether it was
+ * created by dr_save_reg(), dr_restore_reg(), dr_insert_read_raw_tls(),
+ * dr_insert_write_raw_tls(), routines that call the aforementioned routines
+ * (e.g., dr_save_arith_flags()), or DR's own internal spills and restores.
+ * Returns information about the spill/restore in the OUT parameters.
+ * The returned \p offs is the raw offset in bytes from the TLS segment base,
+ * the stolen register base, or the thread-private context area.
+ */
 bool
-instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
-                              bool *tls, bool *spill, reg_id_t *reg);
+instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr,
+                              bool *tls OUT, bool *spill OUT, reg_id_t *reg OUT,
+                              uint *offs OUT);
+
+bool
+instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr,
+                                 bool *tls OUT, bool *spill OUT, reg_id_t *reg OUT);
+
 #ifdef ARM
 bool instr_reads_thread_register(instr_t *instr);
 bool instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);

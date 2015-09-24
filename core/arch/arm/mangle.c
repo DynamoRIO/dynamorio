@@ -438,7 +438,7 @@ find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *p
            instr_is_label(prev) && instr_is_our_mangling(prev))
         prev = instr_get_prev(prev);
     if (prev != NULL &&
-        instr_is_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg)) {
+        instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg)) {
         if (tls && !spill &&
             *prior_reg >= SCRATCH_REG0 && *prior_reg <= SCRATCH_REG3)
             return prev;
@@ -461,8 +461,8 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
     STATS_INC(non_mbr_spills);
     prev = find_prior_scratch_reg_restore(dcontext, where, &prior_reg);
     if (INTERNAL_OPTION(opt_mangle) > 0 && prev != NULL && prior_reg == reg) {
-        ASSERT(instr_is_reg_spill_or_restore(dcontext, prev, &tls,
-                                             &spill, &prior_reg) &&
+        ASSERT(instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls,
+                                                &spill, &prior_reg) &&
                tls && !spill && prior_reg == reg);
         /* remove the redundant restore-spill pair */
         instrlist_remove(ilist, prev);
@@ -710,7 +710,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      * For now we assume that the kernel honors the calling convention
      * and won't clobber callee-saved regs.
      */
-    /* The instructions inserted here are checked in instr_is_reg_spill_or_restore
+    /* The instructions inserted here are checked in instr_is_DR_reg_spill_or_restore
      * and translate_walk_restore, so any update here must be sync-ed there too.
      */
     if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
@@ -809,7 +809,7 @@ mangle_add_predicated_fall_through(dcontext_t *dcontext, instrlist_t *ilist,
         instr_t *prev = instr_get_next(mangle_start);
         for (; prev != next_instr; prev = instr_get_next(prev)) {
             if (instr_is_app(prev) ||
-                !instr_is_reg_spill_or_restore(dcontext, prev, NULL, NULL, NULL))
+                !instr_is_DR_reg_spill_or_restore(dcontext, prev, NULL, NULL, NULL))
                 instr_set_predicate(prev, pred);
         }
     }
