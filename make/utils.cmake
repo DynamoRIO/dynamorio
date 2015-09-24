@@ -78,7 +78,7 @@ function (disable_compiler_warnings)
 endfunction (disable_compiler_warnings)
 
 # clients/extensions don't include configure.h so they don't get DR defines
-function (add_dr_defines)
+macro (add_dr_defines)
   foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
     if ("${config}" STREQUAL "")
       set(config_upper "")
@@ -87,15 +87,15 @@ function (add_dr_defines)
     endif ("${config}" STREQUAL "")
     foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
       if (DEBUG)
-        set(${var} "${${var}} -DDEBUG" PARENT_SCOPE)
+        set(${var} "${${var}} -DDEBUG")
       endif (DEBUG)
       # we're used to X64 instead of X86_64
       if (X64)
-        set(${var} "${${var}} -DX64" PARENT_SCOPE)
+        set(${var} "${${var}} -DX64")
       endif (X64)
     endforeach (var)
   endforeach (config)
-endfunction (add_dr_defines)
+endmacro (add_dr_defines)
 
 function (install_subdirs tgt_lib tgt_bin)
   # These cover all subdirs.
