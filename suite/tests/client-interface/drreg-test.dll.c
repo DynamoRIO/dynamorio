@@ -46,7 +46,7 @@
     }                                    \
 } while (0);
 
-#define MAGIC_VAL 0xabcdef
+#define MAGIC_VAL 0xabcd
 
 static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
@@ -121,9 +121,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_ERROR_REG_CONFLICT, "still reserved");
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve should work");
-    } else if (subtest == DRREG_TEST_1_C || subtest == DRREG_TEST_2_C) {
-        /* Cross-app-instr test */
-        dr_log(drcontext, LOG_ALL, 1, "drreg test #1/2\n");
+    } else if (subtest == DRREG_TEST_1_C ||
+               subtest == DRREG_TEST_2_C ||
+               subtest == DRREG_TEST_3_C) {
+        /* Cross-app-instr tests */
+        dr_log(drcontext, LOG_ALL, 1, "drreg test #1/2/3\n");
         if (instr_is_label(inst)) {
             res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
             CHECK(res == DRREG_SUCCESS, "reserve of test reg should work");

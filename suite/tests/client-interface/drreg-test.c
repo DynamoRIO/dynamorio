@@ -32,19 +32,67 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 #include "tools.h"
+#include "drreg-test-shared.h"
+#include <setjmp.h>
 
 /* asm routines */
 void test_asm();
+void test_asm_fault();
+
+static SIGJMP_BUF mark;
+
+#if defined(UNIX)
+# include <signal.h>
+static void
+handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        if (sc->TEST_REG_SIG != DRREG_TEST_3_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+#elif defined(WINDOWS)
+# include <windows.h>
+static LONG WINAPI
+handle_exception(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+#endif
 
 int
 main(int argc, const char *argv[])
 {
+#if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal, false);
+#elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception);
+#endif
+
     print("drreg-test running\n");
 
     test_asm();
 
-    /* XXX i#511: add fault tests and other tricky corner cases */
+    /* Test a simple fault */
+    if (SIGSETJMP(mark) == 0) {
+        *(volatile int *)(long)argc = argc;
+    }
 
+    /* Test fault reg restore */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault();
+    }
+
+    /* XXX i#511: add more fault tests and other tricky corner cases */
+
+    print("drreg-test finished\n");
     return 0;
 }
 
@@ -96,7 +144,68 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBX
         ret
 #elif defined(ARM)
-        /* XXX i#511: add more tests */
+        b        test1
+        /* Test 1: separate write and read of reserved reg */
+     test1:
+        movw     TEST_REG_ASM, DRREG_TEST_1_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_1_ASM
+        mov      TEST_REG_ASM, sp
+        ldr      r0, PTRSZ [TEST_REG_ASM]
+
+        b        test2
+        /* Test 2: same instr writes and reads reserved reg */
+     test2:
+        movw     TEST_REG_ASM, DRREG_TEST_2_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_2_ASM
+        mov      TEST_REG_ASM, sp
+        ldr      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
+
+        b        epilog
+    epilog:
+        bx       lr
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_asm_fault
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        /* push callee-saved registers */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test3
+        /* Test 3: fault reg restore */
+     test3:
+        mov      TEST_REG_ASM, DRREG_TEST_3_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_3_ASM
+        nop
+        ud2
+
+        jmp      epilog2
+     epilog2:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
+        ret
+#elif defined(ARM)
+        b        test3
+        /* Test 3: fault reg restore */
+     test3:
+        movw     TEST_REG_ASM, DRREG_TEST_3_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_3_ASM
+        nop
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog2
+    epilog2:
         bx       lr
 #endif
         END_FUNC(FUNCNAME)
