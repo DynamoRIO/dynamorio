@@ -1895,19 +1895,22 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
         if (pred == DR_PRED_OP) {
             di->errmsg = "DR_PRED_OP is an illegal predicate request";
             return false;
-        } else if (TEST(DECODE_PREDICATE_28_AL, ii->flags) && pred != DR_PRED_AL &&
-                   pred != DR_PRED_NONE) {
-            di->errmsg = "DR_PRED_AL is the only valid predicate";
-            return false;
-        } else if (TESTANY(DECODE_PREDICATE_22|DECODE_PREDICATE_8, ii->flags) &&
-                   (pred == DR_PRED_AL || pred == DR_PRED_OP || pred == DR_PRED_NONE)) {
-            di->errmsg = "A predicate is required";
-            return false;
+        } else if (TEST(DECODE_PREDICATE_28_AL, ii->flags)) {
+            if (pred != DR_PRED_AL && pred != DR_PRED_NONE) {
+                di->errmsg = "DR_PRED_AL is the only valid predicate";
+                return false;
+            }
+        } else if (TESTANY(DECODE_PREDICATE_22|DECODE_PREDICATE_8, ii->flags)) {
+            if (pred == DR_PRED_AL || pred == DR_PRED_OP || pred == DR_PRED_NONE) {
+                di->errmsg = "A predicate is required";
+                return false;
+            }
         } else if (!TESTANY(DECODE_PREDICATE_28|DECODE_PREDICATE_22|DECODE_PREDICATE_8,
-                            ii->flags) &&
-                   pred != DR_PRED_NONE) {
-            di->errmsg = "No predicate is supported";
-            return false;
+                            ii->flags)) {
+            if (pred != DR_PRED_NONE) {
+                di->errmsg = "No predicate is supported";
+                return false;
+            }
         } else if (pred != DR_PRED_NONE && in->opcode == OP_bkpt) {
             di->errmsg = "No predicate is allowed for bkpt instr";
             return false;
