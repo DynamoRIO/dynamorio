@@ -81,6 +81,11 @@ typedef struct _reg_info_t {
     drvector_t live;
     bool in_use;
     uint app_uses; /* # of uses in this bb by app */
+    /* With lazy restore, and b/c we must set native to false, we need to record
+     * whether we spilled or not (we could instead record live_idx at time of
+     * reservation).
+     */
+    bool ever_spilled;
 
     /* Where is the app value for this reg? */
     bool native;   /* app value is in original app reg */
@@ -98,6 +103,7 @@ typedef struct _per_thread_t {
     reg_info_t aflags;
     uint app_uses_min, app_uses_max;
     reg_id_t slot_use[MAX_SPILLS]; /* holds the reg_id_t of which reg is inside */
+    int pending_unreserved; /* count of to-be-lazily-restored unreserved regs */
 } per_thread_t;
 
 static drreg_options_t ops;
@@ -127,7 +133,9 @@ find_free_slot(per_thread_t *pt)
     return MAX_SPILLS;
 }
 
-/* Up to caller to update pt->reg.  This routine updates pt->slot_use. */
+/* Up to caller to update pt->reg other than .ever_spilled.
+ * This routine updates pt->slot_use.
+ */
 static void
 spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
           instrlist_t *ilist, instr_t *where)
@@ -135,6 +143,7 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     ASSERT(pt->slot_use[slot] == DR_REG_NULL ||
            pt->slot_use[slot] == reg, "internal tracking error");
     pt->slot_use[slot] = reg;
+    pt->reg[reg-DR_REG_START_GPR].ever_spilled = true;
     if (slot < ops.num_spill_slots) {
         dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                                 tls_slot_offs + slot*sizeof(ptr_uint_t), reg);
@@ -316,7 +325,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         restored_for_read[reg-DR_REG_START_GPR] = false;
         if (!pt->reg[reg-DR_REG_START_GPR].native) {
-            ASSERT(pt->reg[reg-DR_REG_START_GPR].in_use, "no lazy restore yet");
             if (drmgr_is_last_instr(drcontext, inst) ||
                 instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
                 /* Treat a partial write as a read, to restore rest of reg */
@@ -327,29 +335,44 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_reg(inst, reg, DR_QUERY_DEFAULT))) {
-                /* We need to move the tool's value somewhere else.
-                 * We use a separate slot for that (and we document that
-                 * tools should request an extra slot for each cross-app-instr
-                 * register).
-                 * XXX: optimize via xchg w/ a dead reg.
-                 */
-                uint tmp_slot = find_free_slot(pt);
-                if (tmp_slot == MAX_SPILLS)
-                    ASSERT(false, "NYI"); /* XXX: need better way to fail */
-                /* The approach:
-                 * + spill reg (tool val) to new slot
-                 * + restore to reg (app val) from app slot
-                 * + <app instr>
-                 * + restore to reg (too val) from new slot
-                 */
-                spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
-                restore_reg(drcontext, pt, reg,
-                            pt->reg[reg-DR_REG_START_GPR].slot,
-                            bb, inst, false/*keep slot*/);
-                restore_reg(drcontext, pt, reg, tmp_slot, bb, next, true);
-                /* Share the tool val spill if this inst writes too */
-                restored_for_read[reg-DR_REG_START_GPR] = true;
-                /* We keep .native==false */
+                if (!pt->reg[reg-DR_REG_START_GPR].in_use) {
+                    if (pt->reg[reg-DR_REG_START_GPR].ever_spilled) {
+                        if (pt->reg[reg-DR_REG_START_GPR].xchg != DR_REG_NULL) {
+                            /* XXX i#511: NYI */
+                            ASSERT(false, "NYI");
+                        }
+                        restore_reg(drcontext, pt, reg,
+                                    pt->reg[reg-DR_REG_START_GPR].slot, bb, inst, true);
+                    } else /* still need to release slot */
+                        pt->slot_use[pt->reg[reg-DR_REG_START_GPR].slot] = DR_REG_NULL;
+                    pt->reg[reg-DR_REG_START_GPR].native = true;
+                    ASSERT(pt->pending_unreserved > 0, "should not go negative");
+                    pt->pending_unreserved--;
+                } else {
+                    /* We need to move the tool's value somewhere else.
+                     * We use a separate slot for that (and we document that
+                     * tools should request an extra slot for each cross-app-instr
+                     * register).
+                     * XXX: optimize via xchg w/ a dead reg.
+                     */
+                    uint tmp_slot = find_free_slot(pt);
+                    if (tmp_slot == MAX_SPILLS)
+                        ASSERT(false, "NYI"); /* XXX: need better way to fail */
+                    /* The approach:
+                     * + spill reg (tool val) to new slot
+                     * + restore to reg (app val) from app slot
+                     * + <app instr>
+                     * + restore to reg (too val) from new slot
+                     */
+                    spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
+                    restore_reg(drcontext, pt, reg,
+                                pt->reg[reg-DR_REG_START_GPR].slot,
+                                bb, inst, false/*keep slot*/);
+                    restore_reg(drcontext, pt, reg, tmp_slot, bb, next, true);
+                    /* Share the tool val spill if this inst writes too */
+                    restored_for_read[reg-DR_REG_START_GPR] = true;
+                    /* We keep .native==false */
+                }
             }
        }
     }
@@ -401,50 +424,75 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                         drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    uint slot = find_free_slot(pt);
+    uint slot = MAX_SPILLS;
     uint min_uses = UINT_MAX;
-    reg_id_t reg, best_reg = DR_REG_NULL;
+    reg_id_t reg = DR_REG_STOP_GPR + 1, best_reg = DR_REG_NULL;
+    bool already_spilled = false;
     ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
            "must be called from drmgr insertion phase");
     if (reg_out == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
-    if (slot == MAX_SPILLS)
-        return DRREG_ERROR_OUT_OF_SLOTS;
 
-    /* Pick a register */
-    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        uint idx = reg - DR_REG_START_GPR;
-        if (pt->reg[idx].in_use)
-            continue;
-        if (reg == dr_get_stolen_reg() IF_ARM(|| reg == DR_REG_PC))
-            continue;
-        if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
-            continue;
-        /* If we had a hint as to local vs whole-bb we could downgrade being
-         * dead right now as a priority
-         */
-        if (drvector_get_entry(&pt->reg[idx].live, pt->live_idx) == REG_DEAD)
-            break;
-        if (pt->reg[idx].app_uses == pt->app_uses_min)
-            break;
-        if (pt->reg[idx].app_uses < min_uses) {
-            best_reg = reg;
-            min_uses = pt->reg[idx].app_uses;
+    if (pt->pending_unreserved > 0) {
+        /* Try to use a previously unreserved but not yet lazily restored reg */
+        for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+            uint idx = reg - DR_REG_START_GPR;
+            if (!pt->reg[idx].native && !pt->reg[idx].in_use &&
+                (reg_allowed == NULL || drvector_get_entry(reg_allowed, idx) != NULL)) {
+                slot = pt->reg[idx].slot;
+                pt->pending_unreserved--;
+                already_spilled = pt->reg[reg-DR_REG_START_GPR].ever_spilled;
+                break;
+            }
         }
     }
+
     if (reg > DR_REG_STOP_GPR) {
-        if (best_reg != DR_REG_NULL)
-            reg = best_reg;
-        else
-            return DRREG_ERROR_REG_CONFLICT;
+        slot = find_free_slot(pt);
+        if (slot == MAX_SPILLS)
+            return DRREG_ERROR_OUT_OF_SLOTS;
+
+        /* Pick a register */
+        for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+            uint idx = reg - DR_REG_START_GPR;
+            if (pt->reg[idx].in_use)
+                continue;
+            if (reg == dr_get_stolen_reg() IF_ARM(|| reg == DR_REG_PC))
+                continue;
+            if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
+                continue;
+            /* If we had a hint as to local vs whole-bb we could downgrade being
+             * dead right now as a priority
+             */
+            if (drvector_get_entry(&pt->reg[idx].live, pt->live_idx) == REG_DEAD)
+                break;
+            if (pt->reg[idx].app_uses == pt->app_uses_min)
+                break;
+            if (pt->reg[idx].app_uses < min_uses) {
+                best_reg = reg;
+                min_uses = pt->reg[idx].app_uses;
+            }
+        }
+        if (reg > DR_REG_STOP_GPR) {
+            if (best_reg != DR_REG_NULL)
+                reg = best_reg;
+            else
+                return DRREG_ERROR_REG_CONFLICT;
+        }
     }
 
+    ASSERT(!pt->reg[reg-DR_REG_START_GPR].in_use, "overlapping uses");
     pt->reg[reg-DR_REG_START_GPR].in_use = true;
-    /* Even if dead now, we need to own a slot for it in case reserved past dead point */
-    if (drvector_get_entry(&pt->reg[reg-DR_REG_START_GPR].live, pt->live_idx) == REG_LIVE)
-        spill_reg(drcontext, pt, reg, slot, ilist, where);
-    else
-        pt->slot_use[slot] = reg;
+    if (!already_spilled) {
+        /* Even if dead now, we need to own a slot in case reserved past dead point */
+        if (drvector_get_entry(&pt->reg[reg-DR_REG_START_GPR].live, pt->live_idx) ==
+            REG_LIVE) {
+            spill_reg(drcontext, pt, reg, slot, ilist, where);
+        } else {
+            pt->slot_use[slot] = reg;
+            pt->reg[reg-DR_REG_START_GPR].ever_spilled = false;
+        }
+    }
     pt->reg[reg-DR_REG_START_GPR].native = false;
     pt->reg[reg-DR_REG_START_GPR].xchg = DR_REG_NULL;
     pt->reg[reg-DR_REG_START_GPR].slot = slot;
@@ -476,8 +524,7 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 
     /* we may have lost the app value for a dead reg */
-    if (drvector_get_entry(&pt->reg[app_reg-DR_REG_START_GPR].live,
-                           pt->live_idx) != REG_LIVE)
+    if (!pt->reg[app_reg-DR_REG_START_GPR].ever_spilled)
         return DRREG_ERROR_NO_APP_VALUE;
     /* restore app value back to app_reg */
     if (pt->reg[app_reg-DR_REG_START_GPR].xchg != DR_REG_NULL) {
@@ -494,26 +541,14 @@ drreg_status_t
 drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                          reg_id_t reg)
 {
-    /* FIXME i#511: lazily restore: wait in case someone else wants a local scratch.
-     * Wait for next app instr or even until next app read/write (==
-     * drreg_event_bb_insert_late).
-     */
-
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     if (!pt->reg[reg-DR_REG_START_GPR].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
-    if (drvector_get_entry(&pt->reg[reg-DR_REG_START_GPR].live, pt->live_idx) ==
-        REG_LIVE) {
-        if (pt->reg[reg-DR_REG_START_GPR].xchg != DR_REG_NULL) {
-            /* FIXME i#511: NYI */
-            return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
-        }
-        restore_reg(drcontext, pt, reg, pt->reg[reg-DR_REG_START_GPR].slot,
-                    ilist, where, true);
-    } else /* still need to release slot */
-        pt->slot_use[pt->reg[reg-DR_REG_START_GPR].slot] = DR_REG_NULL;
+    /* We lazily restore in drreg_event_bb_insert_late(), in case
+     * someone else wants a local scratch.
+     */
     pt->reg[reg-DR_REG_START_GPR].in_use = false;
-    pt->reg[reg-DR_REG_START_GPR].native = true;
+    pt->pending_unreserved++;
     return DRREG_SUCCESS;
 }
 

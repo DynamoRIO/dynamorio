@@ -96,6 +96,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* Local tests */
         res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
         CHECK(res == DRREG_SUCCESS, "default reserve should always work");
+        dr_log(drcontext, LOG_ALL, 3, "drreg at "PFX" scratch=%s\n",
+               instr_get_app_pc(inst), get_register_name(reg));
         /* test restore app value back to reg */
         res = drreg_get_app_value(drcontext, bb, inst, reg, reg);
         CHECK(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE,
