@@ -1,0 +1,14 @@
+executing from illegal addresses
+#ifdef WINDOWS
+dr handler got exception c0000005 with addr 0x0*000002a
+app handler got exception c0000005 with addr 0x0*000002a
+dr handler got exception c0000005 with addr 0x0*000004d
+app handler got exception c0000005 with addr 0x0*000004d
+#else
+dr handler got signal 11 with addr 0x0*000002a
+app handler got signal 11 with addr 0x0*000002a
+dr handler got signal 11 with addr 0x0*000004d
+app handler got signal 11 with addr 0x0*000004d
+#endif
+all done
+dr exit handler

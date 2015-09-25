@@ -1759,6 +1759,7 @@ if (CLIENT_INTERFACE)
   endif ()
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
+    tobuild_ci(client.execfault client-interface/execfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
     get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
   endif (NOT ARM)
