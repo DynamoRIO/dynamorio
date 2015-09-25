@@ -415,6 +415,7 @@ set(asm_deps
   "${PROJECT_BINARY_DIR}/configure.h")
 set(asm_defs
   -I "${CMAKE_CURRENT_SOURCE_DIR}" # tools.h
+  -I "${CMAKE_CURRENT_SOURCE_DIR}/client-interface" # for drreg-test-shared.h
   -I "${PROJECT_SOURCE_DIR}/core/arch") # asm_defines.asm
 
 # some tests need to link with tools.c and its embedded asm code
