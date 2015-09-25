@@ -261,6 +261,7 @@ Further non-compatibility-affecting changes include:
  - Added #DR_FILE_WRITE_ONLY.
  - Added dr_get_option_array().
  - Added drwrap_redirect_execution().
+ - Added support for common calling conventions in drwrap.
  - Added a new sample client, named ssljack.
  - Added the -pathmap option to the post-processor for \ref page_drcov.
  - Added instr_is_sse() and instr_is_sse2().

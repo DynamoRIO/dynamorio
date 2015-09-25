@@ -344,6 +344,9 @@ typedef enum {
     DRWRAP_UNWIND_ON_EXCEPTION    = 0x01,
 } drwrap_wrap_flags_t;
 
+/* offset of drwrap_callconv_t in drwrap_wrap_flags_t */
+#define DRWRAP_CALLCONV_FLAG_SHIFT 0x18
+
 /**
  * Values to specify the calling convention of the wrapped function. Pass one of
  * these values to drwrap_wrap_ex() in the flags parameter using bitwise OR, e.g.:
