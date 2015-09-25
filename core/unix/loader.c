@@ -91,6 +91,8 @@ static const char *system_lib_paths[] = {
 # elif defined(ARM)
     "/lib/arm-linux-gnueabihf",
     "/usr/lib/arm-linux-gnueabihf",
+    "/lib/arm-linux-gnueabi",
+    "/usr/lib/arm-linux-gnueabi",
 # endif
 #else
     "/lib64/tls/i686/cmov",

@@ -668,16 +668,17 @@ if (UNIX)
       set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
       set(BASE_CXXFLAGS "-mthumb -march=armv7-a")
       set(LD_FLAGS "-marmelf_linux_eabi")
-      if (ANDROID)
+      if (ANDROID OR CMAKE_C_LIBRARY_ARCHITECTURE MATCHES "gnueabi$")
         # We use eabihf by default for ARM build.
         # According to https://developer.android.com/ndk/guides/abis.html#v7a,
         # we need extra flags to use eabihf for Android build, i.e.,:
         # TARGET_CFLAGS += -mhard-float -D_NDK_MATH_NO_SOFTFP=1
         # TARGET_LDFLAGS += -Wl,--no-warn-mismatch -lm_hard
         # so we use softfp for Android build instead.
+        # We also need to add softfp for the gnueabi target.
         set(BASE_CFLAGS "-mfloat-abi=softfp ${BASE_CFLAGS}")
         set(BASE_CXXFLAGS "-mfloat-abi=softfp ${BASE_CXXFLAGS}")
-      endif (ANDROID)
+      endif ()
     endif (X64)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)

@@ -36,7 +36,9 @@
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 # If using a different target, set -DTARGET_ABI=<abi> on the command line.
-# However, some of our pre-built libraries (such as libelftc) assume gnueabihf.
+# Some of our pre-built libraries (such as libelftc) assume gnueabihf.
+# We will automatically switch to the Android libelftc libraries, which are gnueabi,
+# if TARGET_ABI is linux-gnueabi.
 if (NOT DEFINED TARGET_ABI)
   set(TARGET_ABI "linux-gnueabihf")
 endif ()
