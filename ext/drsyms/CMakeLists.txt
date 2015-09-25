@@ -214,6 +214,11 @@ if (UNIX)
   # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake
   # < 2.8.0 where demangle.cc is not propagated through libdrsyms.a)
   append_property_string(TARGET ${static_tgt} COMPILE_FLAGS "-fno-exceptions")
+  if (NOT STATIC_LIBRARY)
+    # On ARM cross-compilation I'm seeing the same __gxx_personality_v0 and
+    # __cxa_end_cleanup errors, so we pass this for the .so as well:
+    append_property_string(TARGET drsyms COMPILE_FLAGS "-fno-exceptions")
+  endif ()
 endif (UNIX)
 
 if (WIN32)
