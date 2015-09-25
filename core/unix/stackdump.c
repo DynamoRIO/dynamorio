@@ -52,7 +52,11 @@
 
 #include "../globals.h"
 #include "os_private.h"
-#include "include/syscall.h"
+#ifdef LINUX
+# include "include/syscall.h"
+#else
+# include <sys/syscall.h>
+#endif
 
 #define DEBUGGER "gdb"
 /* add -q to suppress gdb copyright notice */

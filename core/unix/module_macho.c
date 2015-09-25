@@ -513,7 +513,8 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
             /* FIXME i#1360: handle forwards */
         } else if (TEST(EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER, flags)) {
             /* Lazy or non-lazy pointer */
-            size_t stub_offs = read_uleb128(ptr, max, &ptr);
+            DEBUG_DECLARE(size_t stub_offs =)
+                read_uleb128(ptr, max, &ptr);
             size_t resolver_offs = read_uleb128(ptr, max, &ptr);
             res = (app_pc)(resolver_offs + load_delta);
             if (is_indirect_code != NULL)
