@@ -231,6 +231,11 @@ count_app_uses(per_thread_t *pt, opnd_t opnd)
     }
 }
 
+/* This even has to go last, to handle labels inserted by other components:
+ * else our indices get off, and we can't simply skip labels in the
+ * per-instr event b/c we need the liveness to advance at the label
+ * but not after the label.
+ */
 static dr_emit_flags_t
 drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
                         bool for_trace, bool translating, OUT void **user_data)
@@ -360,6 +365,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                             /* XXX i#511: NYI */
                             ASSERT(false, "NYI");
                         }
+                        LOG(drcontext, LOG_ALL, 3, "%s @"PFX": lazily restoring %s\n",
+                            __FUNCTION__, instr_get_app_pc(inst), get_register_name(reg));
                         restore_reg(drcontext, pt, reg,
                                     pt->reg[GPR_IDX(reg)].slot, bb, inst, true);
                     } else /* still need to release slot */
@@ -385,6 +392,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                      * XXX: if we change this, we need to update
                      * drreg_event_restore_state().
                      */
+                    LOG(drcontext, LOG_ALL, 3, "%s @"PFX": restoring %s for app read\n",
+                        __FUNCTION__, instr_get_app_pc(inst), get_register_name(reg));
                     spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
                     restore_reg(drcontext, pt, reg,
                                 pt->reg[GPR_IDX(reg)].slot,
@@ -420,6 +429,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  * XXX: if we change this, we need to update
                  * drreg_event_restore_state().
                  */
+                LOG(drcontext, LOG_ALL, 3, "%s @"PFX": re-spilling %s after app write\n",
+                    __FUNCTION__, instr_get_app_pc(inst), get_register_name(reg));
                 if (!restored_for_read[GPR_IDX(reg)]) {
                     tmp_slot = find_free_slot(pt);
                     if (tmp_slot == MAX_SPILLS)
@@ -465,6 +476,8 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                 slot = pt->reg[idx].slot;
                 pt->pending_unreserved--;
                 already_spilled = pt->reg[GPR_IDX(reg)].ever_spilled;
+                LOG(drcontext, LOG_ALL, 3, "%s @"PFX": using un-restored %s\n",
+                    __FUNCTION__, instr_get_app_pc(where), get_register_name(reg));
                 break;
             }
         }
@@ -511,11 +524,18 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (ops.conservative ||
             drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) ==
             REG_LIVE) {
+            LOG(drcontext, LOG_ALL, 3, "%s @"PFX": spilling %s\n",
+                __FUNCTION__, instr_get_app_pc(where), get_register_name(reg));
             spill_reg(drcontext, pt, reg, slot, ilist, where);
         } else {
+            LOG(drcontext, LOG_ALL, 3, "%s @"PFX": no need to spill %s\n",
+                __FUNCTION__, instr_get_app_pc(where), get_register_name(reg));
             pt->slot_use[slot] = reg;
             pt->reg[GPR_IDX(reg)].ever_spilled = false;
         }
+    } else {
+        LOG(drcontext, LOG_ALL, 3, "%s @"PFX": %s already spilled\n",
+            __FUNCTION__, instr_get_app_pc(where), get_register_name(reg));
     }
     pt->reg[GPR_IDX(reg)].native = false;
     pt->reg[GPR_IDX(reg)].xchg = DR_REG_NULL;
@@ -555,6 +575,8 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* XXX i#511: NYI */
         return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
     }
+    LOG(drcontext, LOG_ALL, 3, "%s @"PFX": getting app value for %s\n",
+        __FUNCTION__, instr_get_app_pc(where), get_register_name(app_reg));
     restore_reg(drcontext, pt, app_reg,
                 pt->reg[GPR_IDX(app_reg)].slot,
                 ilist, where, false);
@@ -785,7 +807,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 }
                 slot += ops.num_spill_slots;
             }
-            LOG(drcontext, LOG_ALL, 3, "%s: @"PFX" found %s to %s offs=0x%x => slot %d\n",
+            LOG(drcontext, LOG_ALL, 3, "%s @"PFX" found %s to %s offs=0x%x => slot %d\n",
                 __FUNCTION__, prev_pc, spill ? "spill" : "restore",
                 get_register_name(reg), offs, slot);
             if (spill) {
@@ -795,7 +817,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                     /* This reg is already spilled: we assume that this new spill
                      * is to a tmp slot for preserving the tool's value.
                      */
-                    LOG(drcontext, LOG_ALL, 3, "%s: @"PFX": ignoring tool spill\n",
+                    LOG(drcontext, LOG_ALL, 3, "%s @"PFX": ignoring tool spill\n",
                         __FUNCTION__, pc);
                 } else {
                     spilled_to[GPR_IDX(reg)] = slot;
@@ -804,7 +826,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 if (spilled_to[GPR_IDX(reg)] == slot)
                     spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
                 else {
-                    LOG(drcontext, LOG_ALL, 3, "%s: @"PFX": ignoring restore\n",
+                    LOG(drcontext, LOG_ALL, 3, "%s @"PFX": ignoring restore\n",
                         __FUNCTION__, pc);
                 }
             }
@@ -902,9 +924,9 @@ drreg_init(drreg_options_t *ops_in)
         return DRREG_ERROR;
 
     if (!drmgr_register_bb_instrumentation_event
-        (drreg_event_bb_analysis, drreg_event_bb_insert_early, &high_priority) ||
+        (NULL, drreg_event_bb_insert_early, &high_priority) ||
         !drmgr_register_bb_instrumentation_event
-        (NULL, drreg_event_bb_insert_late, &low_priority) ||
+        (drreg_event_bb_analysis, drreg_event_bb_insert_late, &low_priority) ||
         !drmgr_register_restore_state_ex_event_ex
         (drreg_event_restore_state, &fault_priority))
         return DRREG_ERROR;
@@ -928,8 +950,8 @@ drreg_exit(void)
         return DRREG_ERROR;
 
     drmgr_unregister_tls_field(tls_idx);
-    if (!drmgr_unregister_bb_instrumentation_event(drreg_event_bb_analysis) ||
-        !drmgr_unregister_bb_insertion_event(drreg_event_bb_insert_late) ||
+    if (!drmgr_unregister_bb_insertion_event(drreg_event_bb_insert_early) ||
+        !drmgr_unregister_bb_instrumentation_event(drreg_event_bb_analysis) ||
         !drmgr_unregister_restore_state_ex_event(drreg_event_restore_state))
         return DRREG_ERROR;
 

@@ -60,6 +60,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
     for (inst = instrlist_first_app(bb); inst != NULL; inst = instr_get_next_app(inst)) {
         if (instr_is_mov_constant(inst, prev_was_mov_const ? &val2 : &val1)) {
             if (prev_was_mov_const && val1 == val2 &&
+                val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(inst, 0)) &&
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
                 *user_data = (void *) val1;
