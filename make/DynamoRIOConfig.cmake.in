@@ -472,7 +472,7 @@ function (configure_DynamoRIO_global is_cxx change_flags)
             string(REGEX REPLACE "/RTC." "" local_${var} "${local_${var}}")
           endif (WIN32)
           set(CLIENT_${var} "${CLIENT_${var}} ${local_${var}}" PARENT_SCOPE)
-          if (UNIX AND ${var} MATCHES "-m32")
+          if (UNIX AND X86 AND ${var} MATCHES "-m32")
             set(base_var_value "-m32")
           else ()
             # If we set to "", the default values come back

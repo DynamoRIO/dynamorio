@@ -2114,7 +2114,7 @@ if (CLIENT_INTERFACE)
       # If we don't set Debug, we only have RelWithDebInfo available (b/c we
       # collapse configs) but --build-and-test still tries to build Debug:
       --build-options -DDEBUG=ON -DDynamoRIO_DIR:PATH=${public_config_dir})
-    if (UNIX AND NOT X64)
+    if (UNIX AND X86 AND NOT X64)
       set_tests_properties(samples_proj PROPERTIES ENVIRONMENT
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
