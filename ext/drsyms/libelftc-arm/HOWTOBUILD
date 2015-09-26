@@ -1,32 +1,59 @@
 How To Build libelf.a, libelftc.a, and libdwarf.a for ARM
 by Qin Zhao
 
-I built on Ubuntu 12.04 (Precise)
+I built on Ubuntu 14.04 (Trusty)
 
-I have gcc 4.6.3:
-$ gcc --version
-gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3
+I have cross compiler arm-linux-gnueabi-gcc and arm-linux-gnueabihf-gcc
+$ arm-linux-gnueabi-gcc --version
+arm-linux-gnueabi-gcc (Ubuntu/Linaro 4.7.3-12ubuntu1) 4.7.3
+$ arm-linux-gnueabihf-gcc --version
+arm-linux-gnueabihf-gcc (Ubuntu/Linaro 4.8.2-16ubuntu4) 4.8.2
 
 Install required packages:
 $ sudo apt-get install bison build-essential flex libarchive-dev m4 pmake zlib1g-dev
 
 Check out the sources:
 $ svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
-I have r3194.
+I have r3248.
 
-Apply the libelftc-arm.patch.
-
-Now build 32-bit:
+Now build 32-bit with soft-float calling convention (softfp)
+$ export CC=arm-linux-gnueabi-gcc
+$ export LD=arm-linux-gnueabi-ld
+$ export AR=arm-linux-gnueabi-ar
+$ export RANLIB=arm-linux-gnueabi-ranlib
 $ cd common
-$ pmake
+$ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-arm/native-elf-format.h native-elf-format.h
 $ cd ../libelf
-$ CFLAGS="-O2 -g -fPIC" pmake libelf.a
+$ pmake clean
+$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC" pmake libelf.a
 $ cd ../libdwarf
-$ CFLAGS="-O2 -g -fPIC" pmake libdwarf.a
+$ pmake clean
+$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC" pmake libdwarf.a
 $ cd ../libelftc
-$ CFLAGS="-O2 -g -fPIC" pmake libelftc.a
-
-I have not yet built or tested 64-bit.
+$ pmake clean
+$ CFLAGS="-mfloat-abi=softfp -O2 -g -fPIC" pmake libelftc.a
 
 Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the DR source tree
-in ext/drsyms/libelftc-arm/lib32/.
+in ext/drsyms/libelftc-arm/lib32-eabi/.
+
+Now build 32-bit with FPU-specific calling conventions (hard)
+$ export CC=arm-linux-gnueabihf-gcc
+$ export LD=arm-linux-gnueabihf-ld
+$ export AR=arm-linux-gnueabihf-ar
+$ export RANLIB=arm-linux-gnueabihf-ranlib
+$ cd common
+$ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-arm/native-elf-format.h native-elf-format.h
+$ cd ../libelf
+$ pmake clean
+$ CFLAGS="-O2 -g -fPIC" pmake libelf.a
+$ cd ../libdwarf
+$ pmake clean
+$ CFLAGS="-O2 -g -fPIC" pmake libdwarf.a
+$ cd ../libelftc
+$ pmake clean
+$ CFLAGS="-O2 -g -fPIC" pmake libelftc.a
+
+Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the DR source tree
+in ext/drsyms/libelftc-arm/lib32-eabihf/.
+
+I have not yet built or tested 64-bit.

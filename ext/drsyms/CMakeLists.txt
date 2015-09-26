@@ -48,14 +48,17 @@ endif ()
 if (ARM)
   if (ANDROID)
     set(ARCH "-android")
-  elseif (CMAKE_C_LIBRARY_ARCHITECTURE MATCHES "gnueabi$")
-    # To support arm-linux-gnueabi we use the Android build of libelftc.
-    # TARGET_ABI is only set for cross-compilation, so we rely on
-    # CMAKE_C_LIBRARY_ARCHITECTURE which seems to usually be set.
-    set(ARCH "-android")
-    message(STATUS "For gnueabi non-hf target ABI, using Android libelftc binaries")
   else ()
     set(ARCH "-arm")
+    # XXX i#1501: to support both arm-linux-gnueabi and arm-linux-gnueabi,
+    # we rely on CMAKE_C_LIBRARY_ARCHITECTURE for libelftc libraries selection.
+    # If it is not set by some system, users need manually set it to gnueabi
+    # for using gnueabi build of libelftc libraries.
+    if (CMAKE_C_LIBRARY_ARCHITECTURE MATCHES "gnueabi$")
+      set(BITS "${BITS}-eabi")
+    else ()
+      set(BITS "${BITS}-eabihf")
+    endif ()
   endif ()
 endif()
 

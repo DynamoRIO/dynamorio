@@ -45,8 +45,8 @@
 # * We'll use ctest -S to build each target build config and run tests for each,
 #   and optionally submit to dashboard.  Use w/o submit as "make runregression".
 
-# We use target_include_directories() which was added in 2.8.10.2
-cmake_minimum_required(VERSION 2.8.10.2)
+# We use target_include_directories() which was added in 2.8.11
+cmake_minimum_required(VERSION 2.8.11)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 

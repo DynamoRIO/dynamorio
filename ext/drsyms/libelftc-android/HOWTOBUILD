@@ -4,7 +4,6 @@ by Qin Zhao
 I built on Ubuntu 14.04 (Trusty)
 
 I have Android NDK cross compiler arm-linux-androideabi-gcc 4.9 20140827
-$ gcc --version
 $ ./toolchain-4.9/bin/arm-linux-androideabi-gcc --version
 arm-linux-androideabi-gcc (GCC) 4.9 20140827 (prerelease)
 
