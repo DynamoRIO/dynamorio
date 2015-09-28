@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+# Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 
 # Requires pmake and 32 bit dev libraries to run.
 # On Fedora requires bmake and several patches.
+# Tested on libelftc r3248.
 
 set -e
 
@@ -82,6 +83,7 @@ function build_for_bits() {
   ld_mode="$2"
   # ${make_cmd} does not notice if you rebuild with a different configuration, so we
   # just make clean.  It builds quickly enough.
+  # XXX: pmake does not seem to clean properly, but bmake is working fine.
   ${make_cmd} clean
   (cd common   && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes all)
   (cd libelf   && ${make_cmd} COPTS="-m${bits} -O2 -g" LD="ld -m${ld_mode}" MKPIC=yes libelf_pic.a)
@@ -103,3 +105,7 @@ cp \
   libelf/libelf.h \
   libelftc/libelftc.h \
   "${dr_libelftc_dir}/include"
+
+# Remove tabs and trailing spaces
+perl -pi -e 's|\t|        |g' "${dr_libelftc_dir}"/include/*.h
+perl -pi -e 's| +$||' "${dr_libelftc_dir}"/include/*.h

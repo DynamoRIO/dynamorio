@@ -1,43 +1,10 @@
-Index: libelftc/libelftc.h
-===================================================================
---- libelftc/libelftc.h (revision 2517)
-+++ libelftc/libelftc.h (working copy)
-@@ -30,7 +30,17 @@
- #ifndef        _LIBELFTC_H_
- #define        _LIBELFTC_H_
- 
--#include <sys/stat.h>
-+#ifdef _WIN32
-+# ifdef __cplusplus
-+#  define __BEGIN_DECLS extern "C" {
-+#  define __END_DECLS }
-+# else
-+#  define __BEGIN_DECLS /* nothing */
-+#  define __END_DECLS /* nothing */
-+# endif
-+#else
-+# include <sys/stat.h>
-+#endif
- 
- typedef struct _Elftc_Bfd_Target Elftc_Bfd_Target;
- 
-@@ -65,7 +75,9 @@
- int            elftc_copyfile(int _srcfd,  int _dstfd);
- int            elftc_demangle(const char *_mangledname, char *_buffer,
-     size_t _bufsize, unsigned int _flags);
-+#ifndef _WIN32
- int            elftc_set_timestamps(const char *_filename, struct stat *_sb);
-+#endif
- const char     *elftc_version(void);
- __END_DECLS
- 
 Index: libdwarf/libdwarf.h
 ===================================================================
---- libdwarf/libdwarf.h (revision 2517)
-+++ libdwarf/libdwarf.h (working copy)
+--- libdwarf/libdwarf.h	(revision 3248)
++++ libdwarf/libdwarf.h	(working copy)
 @@ -30,7 +30,27 @@
- #ifndef        _LIBDWARF_H_
- #define        _LIBDWARF_H_
+ #ifndef	_LIBDWARF_H_
+ #define	_LIBDWARF_H_
  
 -#include <libelf.h>
 +#ifdef _WIN32
@@ -62,29 +29,72 @@ Index: libdwarf/libdwarf.h
 +# include <libelf.h>
 +#endif
  
- typedef int            Dwarf_Bool;
- typedef off_t          Dwarf_Off;
-@@ -543,8 +563,13 @@
-                    Dwarf_P_Die, Dwarf_P_Die, Dwarf_Error *);
- int            dwarf_diename(Dwarf_Die, char **, Dwarf_Error *);
- int            dwarf_dieoffset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
+ typedef int		Dwarf_Bool;
+ typedef off_t		Dwarf_Off;
+@@ -544,8 +564,13 @@
+ 		    Dwarf_P_Die, Dwarf_P_Die, Dwarf_Error *);
+ int		dwarf_diename(Dwarf_Die, char **, Dwarf_Error *);
+ int		dwarf_dieoffset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
 +#ifndef _WIN32
- int            dwarf_elf_init(Elf *, int, Dwarf_Handler, Dwarf_Ptr,
-                    Dwarf_Debug *, Dwarf_Error *);
+ int		dwarf_elf_init(Elf *, int, Dwarf_Handler, Dwarf_Ptr,
+ 		    Dwarf_Debug *, Dwarf_Error *);
 +#else
 +int            dwarf_pecoff_init(Dwarf_Ptr, int, Dwarf_Handler, Dwarf_Ptr,
 +                   Dwarf_Debug *, Dwarf_Error *);
 +#endif
- int            dwarf_end_macro_file(Dwarf_P_Debug, Dwarf_Error *);
- int            dwarf_expand_frame_instructions(Dwarf_Cie, Dwarf_Ptr,
-                    Dwarf_Unsigned, Dwarf_Frame_Op **, Dwarf_Signed *,
-@@ -626,7 +651,9 @@
-                    Dwarf_Error *);
- int            dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug,
-                    Dwarf_Off, Dwarf_Off *, Dwarf_Error *);
+ int		dwarf_end_macro_file(Dwarf_P_Debug, Dwarf_Error *);
+ const char	*dwarf_errmsg_(Dwarf_Error *);
+ int		dwarf_expand_frame_instructions(Dwarf_Cie, Dwarf_Ptr,
+@@ -631,7 +656,9 @@
+ int		dwarf_get_cu_die_offset_given_cu_header_offset_b(Dwarf_Debug,
+ 		    Dwarf_Off, Dwarf_Bool, Dwarf_Off *, Dwarf_Error *);
+ Dwarf_Bool	dwarf_get_die_infotypes_flag(Dwarf_Die);
 +#ifndef _WIN32
- int            dwarf_get_elf(Dwarf_Debug, Elf **, Dwarf_Error *);
+ int		dwarf_get_elf(Dwarf_Debug, Elf **, Dwarf_Error *);
 +#endif
- int            dwarf_get_fde_at_pc(Dwarf_Fde *, Dwarf_Addr, Dwarf_Fde *,
-                    Dwarf_Addr *, Dwarf_Addr *, Dwarf_Error *);
- int            dwarf_get_fde_info_for_all_regs(Dwarf_Fde, Dwarf_Addr,
+ int		dwarf_get_fde_at_pc(Dwarf_Fde *, Dwarf_Addr, Dwarf_Fde *,
+ 		    Dwarf_Addr *, Dwarf_Addr *, Dwarf_Error *);
+ int		dwarf_get_fde_info_for_all_regs(Dwarf_Fde, Dwarf_Addr,
+Index: libelftc/libelftc.h
+===================================================================
+--- libelftc/libelftc.h	(revision 3248)
++++ libelftc/libelftc.h	(working copy)
+@@ -30,10 +30,19 @@
+ #ifndef	_LIBELFTC_H_
+ #define	_LIBELFTC_H_
+ 
+-#include <sys/stat.h>
++#ifdef _WIN32
++# ifdef __cplusplus
++#  define __BEGIN_DECLS extern "C" {
++#  define __END_DECLS }
++# else
++#  define __BEGIN_DECLS /* nothing */
++#  define __END_DECLS /* nothing */
++# endif
++#else
++# include <sys/stat.h>
++# include <libelf.h>
++#endif
+ 
+-#include <libelf.h>
+-
+ /*
+  * Types meant to be opaque to the consumers of these APIs.
+  */
+@@ -73,11 +82,15 @@
+ int		elftc_copyfile(int _srcfd,  int _dstfd);
+ int		elftc_demangle(const char *_mangledname, char *_buffer,
+     size_t _bufsize, unsigned int _flags);
++#ifndef _WIN32
+ int		elftc_set_timestamps(const char *_filename, struct stat *_sb);
++#endif
+ Elftc_String_Table	*elftc_string_table_create(int _hint);
+ void		elftc_string_table_destroy(Elftc_String_Table *_table);
++#ifndef _WIN32
+ Elftc_String_Table	*elftc_string_table_from_section(Elf_Scn *_scn,
+     int _hint);
++#endif
+ const char	*elftc_string_table_image(Elftc_String_Table *_table,
+     size_t *_sz);
+ size_t		elftc_string_table_insert(Elftc_String_Table *_table,

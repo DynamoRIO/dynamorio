@@ -1,0 +1,13 @@
+Index: mk/elftoolchain.inc.mk
+===================================================================
+--- mk/elftoolchain.inc.mk	(revision 3248)
++++ mk/elftoolchain.inc.mk	(working copy)
+@@ -12,7 +12,7 @@
+ .include <bsd.own.mk>
+ 
+ .if ${OS_HOST} == "Darwin" || ${OS_HOST} == "DragonFly" || \
+-	${OS_HOST} == "FreeBSD" || ${OS_HOST} == "OpenBSD"
++	${OS_HOST} == "FreeBSD" || ${OS_HOST} == "OpenBSD" || ${OS_HOST} == "Linux"
+ # Simulate <bsd.inc.mk>.
+ 
+ NOBINMODE?=	444		# Missing in OpenBSD's rule set.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -972,7 +972,7 @@ static cpp_name_t symbols_unix[] = {
      "kint8min",
      "kint8min"},
     {"_ZZN7WebCore19SVGAnimatedProperty20LookupOrCreateHelperINS_32SVGAnimatedStaticPropertyTearOffIbEEbLb1EE21lookupOrCreateWrapperEPNS_10SVGElementEPKNS_15SVGPropertyInfoERbE19__PRETTY_FUNCTION__",
-     "WebCore::SVGAnimatedProperty::LookupOrCreateHelper<WebCore::SVGAnimatedStaticPropertyTearOff<bool>, bool, true, E>::lookupOrCreateWrapper(WebCore::SVGElement*, WebCore::SVGPropertyInfo const*, bool&)::__PRETTY_FUNCTION__",
+     "WebCore::SVGAnimatedProperty::LookupOrCreateHelper<WebCore::SVGAnimatedStaticPropertyTearOff<bool>, bool, true>::lookupOrCreateWrapper(WebCore::SVGElement*, WebCore::SVGPropertyInfo const*, bool&)::__PRETTY_FUNCTION__",
      "WebCore::SVGAnimatedProperty::LookupOrCreateHelper<>::lookupOrCreateWrapper::__PRETTY_FUNCTION__"},
     {"_ZL26GrNextArrayAllocationCounti",
      "GrNextArrayAllocationCount(int)",
