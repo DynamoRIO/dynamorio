@@ -12,8 +12,7 @@ I never did set up the Makefile properly or set up CMake.
 My build commands are for a Cygwin shell (I'm using bash syntax) with its
 environment set up for invoking "cl" and "lib" directly.
 
-1) Check out the subversion sources.  My patch was tested on r2311.
-Later I updated the patch for r2396.
+1) Check out the subversion sources.  My patch was tested on r3248.
 
 svn checkout http://elftoolchain.svn.sourceforge.net/svnroot/elftoolchain/trunk
 
