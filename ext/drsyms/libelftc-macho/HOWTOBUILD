@@ -14,7 +14,7 @@ Install bsdmake:
 
 Check out the sources:
 % svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
-I have r2981.
+I have r3248.
 
 Apply the libelftc-macho.patch.
 
