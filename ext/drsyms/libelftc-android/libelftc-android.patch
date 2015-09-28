@@ -1,6 +1,6 @@
 Index: libelftc/elftc_set_timestamps.c
 ===================================================================
---- libelftc/elftc_set_timestamps.c    (revision 3225)
+--- libelftc/elftc_set_timestamps.c    (revision 3248)
 +++ libelftc/elftc_set_timestamps.c    (working copy)
 @@ -49,6 +49,12 @@
  #define        LIBELFTC_HAVE_UTIMES    1
