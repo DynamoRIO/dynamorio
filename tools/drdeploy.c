@@ -425,7 +425,8 @@ static bool check_dr_root(const char *dr_root, bool debug,
     int i;
     char buf[MAXIMUM_PATH];
     bool ok = true;
-    bool nowarn = false;
+    /* FIXME i#1569: port DynamoRIO to AArch64 so we can enable the check warning */
+    bool nowarn = IF_X86_ELSE(false, true);
 
     const char *checked_files[] = {
 #ifdef WINDOWS
