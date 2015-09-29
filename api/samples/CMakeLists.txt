@@ -237,10 +237,13 @@ add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(inline      "inline.c"        "")
 add_sample_client(inscount    "inscount.c"      "drmgr")
-add_sample_client(opcodes     "opcodes.c"       "drx")
+if (NOT ANDROID)
+  # FIXME i#1701: no C or C++ library support yet for clients
+  add_sample_client(opcodes     "opcodes.c"       "drx")
+  add_sample_client(stl_test    "stl_test.cpp"    "")
+endif ()
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
-add_sample_client(stl_test    "stl_test.cpp"    "")
 
 if (WIN32)
   # This client is Windows-only.

@@ -65,7 +65,13 @@ foreach (dir ${dirs})
   # FIXME i#1360: add symbol export iterator to Mac and then
   # enable drltrace for Mac.
   if (NOT APPLE OR NOT ${dir} MATCHES "drltrace")
-    add_subdirectory(${dir})
+    # FIXME i#1701: C++ clients not supported on Android.
+    if (NOT ANDROID OR NOT ${dir} MATCHES "drcachesim")
+      # FIXME i#1732: drcpusim has no ARM support yet
+      if (NOT ANDROID OR NOT ${dir} MATCHES "drcpusim")
+        add_subdirectory(${dir})
+      endif ()
+    endif ()
   endif ()
 endforeach (dir)
 
