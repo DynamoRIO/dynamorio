@@ -1521,6 +1521,7 @@ dr_symbol_export_iterator_start(module_handle_t handle)
         iter->dynstr = (const char *) ma->os_data.dynstr;
         iter->dynstr_size = ma->os_data.dynstr_size;
         iter->cur_sym = iter->dynsym;
+        iter->load_delta = ma->start - ma->os_data.base_address;
 
         /* See dr_symbol_import_iterator_start(): we don't have the length of .dynsym
          * (we'd have to map the original file).
@@ -1531,7 +1532,6 @@ dr_symbol_export_iterator_start(module_handle_t handle)
             iter->buckets = (Elf_Symndx *) ma->os_data.buckets;
             iter->chain = (Elf_Symndx *) ma->os_data.chain;
             iter->num_buckets = ma->os_data.num_buckets;
-            iter->load_delta = ma->start - ma->os_data.base_address;
             iter->hidx = 0;
             iter->chain_idx = 0;
         } else {
