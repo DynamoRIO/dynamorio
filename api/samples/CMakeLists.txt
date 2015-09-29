@@ -225,8 +225,12 @@ if (NOT ARM) # FIXME i#1551: port to ARM
   if (NOT WIN32)
     add_sample_client(ssljack     "ssljack.c"       "drmgr;drwrap")
   endif (NOT WIN32)
-  add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
+  # dr_insert_mbr_instrumentation is NYI
+  add_sample_client(modxfer     "modxfer.c;utils.c"     "drx")
+  add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "")
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
+  # dr_insert_cbr_instrument_ex is NYI
+  add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drx")
 endif (NOT ARM)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
@@ -234,10 +238,8 @@ add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(inline      "inline.c"        "")
 add_sample_client(inscount    "inscount.c"      "drmgr")
 add_sample_client(opcodes     "opcodes.c"       "drx")
-add_sample_client(cbrtrace    "cbrtrace.c;utils.c"      "drx")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
-add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
 add_sample_client(stl_test    "stl_test.cpp"    "")
 
 if (WIN32)
