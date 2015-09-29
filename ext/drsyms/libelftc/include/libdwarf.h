@@ -564,12 +564,15 @@ Dwarf_P_Die        dwarf_die_link(Dwarf_P_Die, Dwarf_P_Die, Dwarf_P_Die,
                     Dwarf_P_Die, Dwarf_P_Die, Dwarf_Error *);
 int                dwarf_diename(Dwarf_Die, char **, Dwarf_Error *);
 int                dwarf_dieoffset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
-#ifndef _WIN32
+#ifdef __APPLE__
+int                dwarf_macho_init(Dwarf_Ptr, int, Dwarf_Handler, Dwarf_Ptr,
+                    Dwarf_Debug *, Dwarf_Error *);
+#elif !defined(_WIN32)
 int                dwarf_elf_init(Elf *, int, Dwarf_Handler, Dwarf_Ptr,
                     Dwarf_Debug *, Dwarf_Error *);
 #else
-int            dwarf_pecoff_init(Dwarf_Ptr, int, Dwarf_Handler, Dwarf_Ptr,
-                   Dwarf_Debug *, Dwarf_Error *);
+int                dwarf_pecoff_init(Dwarf_Ptr, int, Dwarf_Handler, Dwarf_Ptr,
+                    Dwarf_Debug *, Dwarf_Error *);
 #endif
 int                dwarf_end_macro_file(Dwarf_P_Debug, Dwarf_Error *);
 const char        *dwarf_errmsg_(Dwarf_Error *);

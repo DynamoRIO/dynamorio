@@ -31,21 +31,24 @@ Index: libdwarf/libdwarf.h
  
  typedef int		Dwarf_Bool;
  typedef off_t		Dwarf_Off;
-@@ -544,8 +564,13 @@
+@@ -544,8 +564,16 @@
  		    Dwarf_P_Die, Dwarf_P_Die, Dwarf_Error *);
  int		dwarf_diename(Dwarf_Die, char **, Dwarf_Error *);
  int		dwarf_dieoffset(Dwarf_Die, Dwarf_Off *, Dwarf_Error *);
-+#ifndef _WIN32
++#ifdef __APPLE__
++int             dwarf_macho_init(Dwarf_Ptr, int, Dwarf_Handler, Dwarf_Ptr,
++                    Dwarf_Debug *, Dwarf_Error *);
++#elif !defined(_WIN32)
  int		dwarf_elf_init(Elf *, int, Dwarf_Handler, Dwarf_Ptr,
  		    Dwarf_Debug *, Dwarf_Error *);
 +#else
-+int            dwarf_pecoff_init(Dwarf_Ptr, int, Dwarf_Handler, Dwarf_Ptr,
-+                   Dwarf_Debug *, Dwarf_Error *);
++int             dwarf_pecoff_init(Dwarf_Ptr, int, Dwarf_Handler, Dwarf_Ptr,
++                    Dwarf_Debug *, Dwarf_Error *);
 +#endif
  int		dwarf_end_macro_file(Dwarf_P_Debug, Dwarf_Error *);
  const char	*dwarf_errmsg_(Dwarf_Error *);
  int		dwarf_expand_frame_instructions(Dwarf_Cie, Dwarf_Ptr,
-@@ -631,7 +656,9 @@
+@@ -631,7 +659,9 @@
  int		dwarf_get_cu_die_offset_given_cu_header_offset_b(Dwarf_Debug,
  		    Dwarf_Off, Dwarf_Bool, Dwarf_Off *, Dwarf_Error *);
  Dwarf_Bool	dwarf_get_die_infotypes_flag(Dwarf_Die);
