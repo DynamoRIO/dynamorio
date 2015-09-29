@@ -53,15 +53,17 @@ if (UNIX)
   # i#1092: remove any stale symlink that might be there.
   file(REMOVE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy")
   # we leave drdeploy for backward compat w/ old script
-  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-    "drrun" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy"
-    RESULT_VARIABLE symlink_result
-    ERROR_VARIABLE symlink_error
-    OUTPUT_QUIET)
-  if (symlink_result OR symlink_error)
-    message(FATAL_ERROR
-      "*** drdeploy symlink failed (${symlink_result}): ***\n${symlink_error}")
-  endif (symlink_result OR symlink_error)
+  if (NOT ANDROID) # symlinks not supported on Android
+    execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+      "drrun" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy"
+      RESULT_VARIABLE symlink_result
+      ERROR_VARIABLE symlink_error
+      OUTPUT_QUIET)
+    if (symlink_result OR symlink_error)
+      message(FATAL_ERROR
+        "*** drdeploy symlink failed (${symlink_result}): ***\n${symlink_error}")
+    endif (symlink_result OR symlink_error)
+  endif ()
   # simpler to install all and exclude
   DR_install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
     DESTINATION "${INSTALL_BIN}"
