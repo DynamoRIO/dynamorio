@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -52,7 +52,7 @@ typedef struct _memquery_iter_t {
      */
     /* XXX i#58: not filled in on Mac */
     uint64 inode;
-    /* Path of file backing, or name of region ("[vsdo]", e.g.) */
+    /* Path of file backing, or name of region ("[vdso]", e.g.) */
     const char *comment;
 
     /* --- INTERNAL --- */

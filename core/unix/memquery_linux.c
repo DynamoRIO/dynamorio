@@ -331,8 +331,7 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
              *   ffffe000-fffff000 ---p 00000000 00:00 0
              * We return "rx" as the permissions in that case.
              */
-            if (iter.prot == MEMPROT_NONE &&
-                vsyscall_page_start != NULL &&
+            if (vsyscall_page_start != NULL &&
                 pc >= vsyscall_page_start && pc < vsyscall_page_start+PAGE_SIZE) {
                 /* i#1583: recent kernels have 2-page vdso, which can be split,
                  * but we don't expect to come here b/c they won't have zero
@@ -340,7 +339,13 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
                  */
                 ASSERT(iter.vm_start == vsyscall_page_start);
                 ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE);
-                info->prot = (MEMPROT_READ|MEMPROT_EXEC);
+                info->prot = (MEMPROT_READ|MEMPROT_EXEC|MEMPROT_VDSO);
+            } else if (strcmp(iter.comment, "[vvar]") == 0) {
+                /* The VVAR pages were added in kernel 3.0 but not labeled until
+                 * 3.15.  We document that we do not label prior to 3.15.
+                 * DrMem#1778 seems to only happen on 3.19+ in any case.
+                 */
+                info->prot |= MEMPROT_VDSO;
             }
             found = true;
             break;

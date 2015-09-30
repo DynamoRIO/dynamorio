@@ -258,6 +258,7 @@ Further non-compatibility-affecting changes include:
  - Added instr_is_3DNow(), instr_is_sse3(), and instr_is_ssse3().
  - Added instr_is_sse41(), instr_is_sse42(), and instr_is_sse4A().
  - Added instr_is_reg_spill_or_restore().
+ - Added #DR_MEMPROT_VDSO.
 
 **************************************************
 <hr>
