@@ -119,9 +119,6 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
         return DR_MARKER_ERROR;
     if (x64) {
 # ifndef X64
-        /* FIXME i#1035: update this routine to handle 64-bit addresses from
-         * 32-bit code using NtWow64ReadVirtualMemory64 to read them.
-         */
         uint64 hook_func = get_proc_address_64
             (get_module_handle_64(L_DR_MARKER_HOOKED_DLL),
              DR_MARKER_HOOKED_FUNCTION_STRING);
@@ -144,8 +141,8 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
             return DR_MARKER_ERROR;
         /* trampoline address is stored at the top of the landing pad for 64-bit */
         target = (void *)PAGE_START(*(ptr_int_t *)buf);
-# endif
     } else {
+# endif /* !X64 */
         void *hook_func = (void *)GetProcAddress(GetModuleHandle(DR_MARKER_HOOKED_DLL),
                                                  DR_MARKER_HOOKED_FUNCTION_STRING);
 #endif
