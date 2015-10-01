@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -114,8 +114,8 @@ drfront_is_system_install_dir(const char *dir)
      * to get to the system install dir, so we cannot just rely on path name to
      * check if dir is the system install dir.
      */
-    return (_strnicmp(dir+strlen("c:\\"), "progra~", strlen("progra~")) != 0 ||
-            _strnicmp(dir+strlen("c:\\"), "Program Files", strlen("Program Files")) != 0);
+    return (_strnicmp(dir+strlen("c:\\"), "progra~", strlen("progra~")) == 0 ||
+            _strnicmp(dir+strlen("c:\\"), "Program Files", strlen("Program Files")) == 0);
 }
 #endif
 
