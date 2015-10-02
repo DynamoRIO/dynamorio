@@ -749,7 +749,7 @@ static char *
 read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
 {
     char path[MAXIMUM_PATH];
-    const char *modpath = path;
+    const char *modpath;
     char subst[MAXIMUM_PATH];
     uint i;
 
@@ -778,6 +778,7 @@ read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
         PRINT(5, "Module: %u, "PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
         mod_table = (module_table_t *) hashtable_lookup(&module_htable, path);
         if (mod_table == NULL) {
+            modpath = path;
             if (mod_size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
             /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
