@@ -78,7 +78,7 @@ add_library(drwrap ${libtype} ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x74000000)
-configure_extension(drwrap)
+configure_extension(drwrap OFF)
 use_DynamoRIO_extension(drwrap drmgr)
 use_DynamoRIO_extension(drwrap drcontainers)
 
@@ -104,7 +104,7 @@ configure_drwrap_target(drwrap)
 # are building an end tool.
 if (NOT STATIC_LIBRARY)
   add_library(drwrap_static STATIC ${srcs_static})
-  configure_extension(drwrap_static)
+  configure_extension(drwrap_static ON)
   use_DynamoRIO_extension(drwrap_static drmgr_static)
   use_DynamoRIO_extension(drwrap_static drcontainers)
   configure_drwrap_target(drwrap_static)

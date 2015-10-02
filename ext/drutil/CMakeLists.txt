@@ -44,7 +44,7 @@ add_library(drutil ${libtype} ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x75000000)
-configure_extension(drutil)
+configure_extension(drutil OFF)
 use_DynamoRIO_extension(drutil drmgr)
 
 # Since LGPL, most users will want this as a shared library.
@@ -54,7 +54,7 @@ use_DynamoRIO_extension(drutil drmgr)
 # are building an end tool.
 if (NOT STATIC_LIBRARY)
   add_library(drutil_static STATIC ${srcs_static})
-  configure_extension(drutil_static)
+  configure_extension(drutil_static ON)
   use_DynamoRIO_extension(drutil_static drmgr_static)
 endif ()
 

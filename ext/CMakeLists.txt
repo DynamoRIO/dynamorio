@@ -67,7 +67,7 @@ endif ()
 
 # This lets us share common code among all extensions.  We use a macro to
 # avoid scope issues and avoid having to call configure_DynamoRIO_global().
-macro(configure_extension target)
+macro(configure_extension target is_static)
   configure_DynamoRIO_client(${target})
 
   # ensure we rebuild if includes change
@@ -75,6 +75,10 @@ macro(configure_extension target)
 
   # i#1713: extension headers may include a shared header from this directory
   include_directories(${INSTALL_EXT_LIB})
+
+  if (${is_static})
+    add_static_lib_debug_info(${target} "${INSTALL_EXT_LIB}")
+  endif ()
 
   if (UNIX)
     # static libs must be PIC to be linked into clients: else requires

@@ -630,6 +630,20 @@ endif (UNIX)
 ###########################################################################
 # basic build rules and flags
 
+# i#1781: cmake 2.8.12+ fails to create static lib pdb by default
+macro(add_static_lib_debug_info target dest_dir)
+  if (WIN32)
+    if ("${CMAKE_VERSION}" VERSION_EQUAL "3.1" OR
+        "${CMAKE_VERSION}" VERSION_GREATER "3.1")
+      append_property_string(TARGET ${target}
+        COMPILE_PDB_NAME${location_suffix} "${target}"
+        COMPILE_PDB_OUTPUT_DIRECTORY{location_suffix} "${dest_dir}")
+    else ()
+      # We just don't support it for < 3.1
+    endif ()
+  endif ()
+endmacro()
+
 # compiler flags
 if (UNIX)
   # -std=c99 doesn't quite work

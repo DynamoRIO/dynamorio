@@ -147,7 +147,7 @@ elseif (UNIX)
 endif (WIN32)
 
 add_library(drsyms ${libtype} ${srcs})
-configure_extension(drsyms)
+configure_extension(drsyms OFF)
 
 macro(configure_drsyms_target target)
   if (WIN32)
@@ -178,7 +178,7 @@ if (NOT STATIC_LIBRARY)
   # with exported separate libs to match Linux (alternative would be a custom
   # command to combine via lib.exe).
   add_library(drsyms_static STATIC ${srcs_static})
-  configure_extension(drsyms_static)
+  configure_extension(drsyms_static ON)
   configure_drsyms_target(drsyms_static)
   use_DynamoRIO_extension(drsyms_static drcontainers)
 endif ()

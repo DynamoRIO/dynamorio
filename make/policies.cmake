@@ -51,3 +51,9 @@ if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.11" OR
   # XXX i#1418: update to cmake 2.8.12's better handling of interface imports, for Qt
   cmake_policy(SET CMP0020 OLD)
 endif ()
+
+if ("${CMAKE_VERSION}" VERSION_EQUAL "2.6.4" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "2.6.4")
+  # Recognize literals in if statements
+  cmake_policy(SET CMP0012 NEW)
+endif ()

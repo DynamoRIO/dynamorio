@@ -53,7 +53,7 @@ add_library(drx ${libtype} ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x77000000)
-configure_extension(drx)
+configure_extension(drx OFF)
 use_DynamoRIO_extension(drx drcontainers)
 
 # While we use drmgr in our implementation of drx, we only use pieces that
@@ -71,7 +71,7 @@ configure_drx_target(drx)
 
 if (NOT STATIC_LIBRARY)
   add_library(drx_static STATIC ${srcs_static})
-  configure_extension(drx_static)
+  configure_extension(drx_static ON)
   use_DynamoRIO_extension(drx_static drcontainers)
   use_DynamoRIO_extension(drx_static drmgr_static)
   configure_drx_target(drx_static)

@@ -45,18 +45,10 @@ add_library(drcontainers STATIC
   # add more here
   )
 configure_DynamoRIO_client(drcontainers)
-if (UNIX)
-  # static containers must be PIC to be linked into clients: else requires
-  # relocations that run afoul of security policies, etc.
-  append_property_string(TARGET drcontainers COMPILE_FLAGS "-fPIC")
-endif (UNIX)
-# ensure we rebuild if includes change
-add_dependencies(drcontainers api_headers)
+configure_extension(drcontainers ON)
 
 # documentation is put into main DR docs/ dir
 
-DR_export_target(drcontainers)
-install_exported_target(drcontainers ${INSTALL_EXT_LIB})
 install_ext_header(hashtable.h)
 install_ext_header(drvector.h)
 install_ext_header(drtable.h)

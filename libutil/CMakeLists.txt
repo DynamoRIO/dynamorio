@@ -203,5 +203,6 @@ add_library(drfrontendlib STATIC ${dr_frontend_srcs})
 # dynamo_options, which probably should be refactored out when we
 # split module_*.c.
 target_link_libraries(drfrontendlib drdecode drhelper)
+add_static_lib_debug_info(drfrontendlib "${INSTALL_BIN}")
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})
