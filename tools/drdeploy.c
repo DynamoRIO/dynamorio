@@ -1588,8 +1588,8 @@ int main(int argc, char *argv[])
             platform = PLATFORM_UNKNOWN;
         if (platform >= PLATFORM_WIN_8 &&
             IF_X64_ELSE(dr_platform != DR_PLATFORM_32BIT,
-                        dr_platform == DR_PLATFORM_64BIT ||
-                        !is_wow64(GetCurrentProcess()))) {
+                        (dr_platform == DR_PLATFORM_64BIT ||
+                         !is_wow64(GetCurrentProcess())))) {
             /* FIXME i#1522: enable AppInit for non-WOW64 on win8+ */
             error("syswide_on is not yet supported on Windows 8+ non-WOW64");
             die();
