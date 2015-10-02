@@ -109,13 +109,6 @@ if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
     VERBATIM)
 endif ()
 
-if (WIN32 AND GENERATE_PDBS)
-  # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
-  # In any case we make sure to add it (for release and debug, to get pdb):
-  append_property_string(TARGET drcov LINK_FLAGS "/debug")
-  append_property_string(TARGET drcov2lcov LINK_FLAGS "/debug")
-endif (WIN32 AND GENERATE_PDBS)
-
 install_target(drcov ${INSTALL_CLIENTS_LIB})
 install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
 

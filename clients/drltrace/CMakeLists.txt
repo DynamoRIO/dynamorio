@@ -56,11 +56,6 @@ if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
     VERBATIM)
 endif ()
 
-if (WIN32 AND GENERATE_PDBS)
-  # XXX: this is in a lot of these files: can we address this once top-level?
-  append_property_string(TARGET drltrace LINK_FLAGS "/debug")
-endif (WIN32 AND GENERATE_PDBS)
-
 install_target(drltrace ${INSTALL_CLIENTS_LIB})
 
 set(INSTALL_DRLTRACE_CONFIG ${INSTALL_CLIENTS_BASE})

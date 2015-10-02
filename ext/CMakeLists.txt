@@ -76,12 +76,6 @@ macro(configure_extension target)
   # i#1713: extension headers may include a shared header from this directory
   include_directories(${INSTALL_EXT_LIB})
 
-  if (WIN32 AND GENERATE_PDBS)
-    # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
-    # In any case we make sure to add it (for release and debug, to get pdb):
-    append_property_string(TARGET ${target} LINK_FLAGS "/debug")
-  endif (WIN32 AND GENERATE_PDBS)
-
   if (UNIX)
     # static libs must be PIC to be linked into clients: else requires
     # relocations that run afoul of security policies, etc.

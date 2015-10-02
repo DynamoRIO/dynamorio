@@ -99,12 +99,6 @@ if (UNIX)
       VERBATIM)
   endif ()
 
-  if (WIN32 AND GENERATE_PDBS)
-    # XXX: this is in a lot of these files: can we address this once top-level?
-    append_property_string(TARGET drmemtrace LINK_FLAGS "/debug")
-    append_property_string(TARGET drcachesim LINK_FLAGS "/debug")
-  endif (WIN32 AND GENERATE_PDBS)
-
   install_target(drmemtrace ${INSTALL_CLIENTS_LIB})
   install_target(drcachesim ${INSTALL_CLIENTS_BIN})
 
