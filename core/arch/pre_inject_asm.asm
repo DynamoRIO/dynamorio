@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -83,7 +83,7 @@ GLOBAL_LABEL(DLL_MAIN_STDCALL_NAME:)
         push     rcx /* preserve arg1, which is caller-saved */
 #endif
         CALLC0(process_attach)
-        cmp      eax, 0
+        cmp      al, 0
         je       do_not_unload
 #ifdef X64
         /* The 32 bytes of shadow space (4 args' worth) are there regardless
