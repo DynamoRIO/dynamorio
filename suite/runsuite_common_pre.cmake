@@ -259,7 +259,9 @@ if(NOT DEFINED PROCESSOR_COUNT)
   endif()
 endif()
 
-math(EXPR PROCESSOR_COUNT "${PROCESSOR_COUNT} + 2")
+math(EXPR PARALLEL_COUNT_BUILD "${PROCESSOR_COUNT} + 2")
+# Typically no benefit and sometimes detrimental to exceed core count here
+math(EXPR PARALLEL_COUNT_TEST "${PROCESSOR_COUNT}")
 
 # CTest goes and does our builds and then wants to configure
 # and build again and complains there's no top-level setting of
@@ -326,7 +328,7 @@ elseif (arg_use_make)
     # can't repro w/ VERBOSE=1
     set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j2")
   else (have_cygwin)
-    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j${PROCESSOR_COUNT}")
+    set(CTEST_BUILD_COMMAND_BASE "${MAKE_COMMAND} -j${PARALLEL_COUNT_BUILD}")
   endif (have_cygwin)
 elseif (arg_use_nmake)
   set(CTEST_CMAKE_GENERATOR "NMake Makefiles")
@@ -617,7 +619,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         # Note that adding -j to CMAKE_COMMAND does not work, though invoking
         # this script with -j does work, but we want parallel by default.
         ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}"
-          PARALLEL_LEVEL ${PROCESSOR_COUNT} ${ctest_test_args})
+          PARALLEL_LEVEL ${PARALLEL_COUNT_TEST} ${ctest_test_args})
       else (RUN_PARALLEL)
         ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" ${ctest_test_args})
       endif (RUN_PARALLEL)
