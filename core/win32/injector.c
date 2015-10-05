@@ -841,9 +841,6 @@ dr_inject_process_inject(void *data, bool force_injection,
         }
     }
 
-    if (!inject)
-        return false;
-
     if (library_path == NULL) {
         int err;
         err = get_process_parameter(info->pi.hProcess,
@@ -857,6 +854,9 @@ dr_inject_process_inject(void *data, bool force_injection,
         NULL_TERMINATE_BUFFER(library_path_buf);
         library_path = library_path_buf;
     }
+
+    if (!inject)
+        return false;
 
 #ifdef PARAMS_IN_REGISTRY
     /* don't set registry from environment if using debug key */
