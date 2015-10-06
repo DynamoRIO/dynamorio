@@ -61,11 +61,22 @@
 # endif
 #endif
 
-static bool verbose;
+static bool verbose = 0;
 
-#define NOTIFY_ELF() do { \
+#undef NOTIFY
+#ifdef DEBUG
+# define NOTIFY(n, ...) do { \
+    if (verbose >= (n)) {             \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+    } \
+} while (0)
+#else
+# define NOTIFY(n, ...) /* nothing */
+#endif
+
+#define NOTIFY_ELF(msg) do { \
     if (verbose) { \
-        dr_fprintf(STDERR, "drsyms: Elf error: %s\n", elf_errmsg(elf_errno())); \
+        dr_fprintf(STDERR, "drsyms %s: Elf error: %s\n", msg, elf_errmsg(elf_errno())); \
     } \
 } while (0)
 
@@ -119,7 +130,7 @@ find_elf_section_by_name(Elf *elf, const char *match_name)
     size_t shstrndx;  /* Means "section header string table section index" */
 
     if (elf_getshdrstrndx(elf, &shstrndx) != 0) {
-        NOTIFY_ELF();
+        NOTIFY_ELF("elf_getshdrstrndx");
         return NULL;
     }
 
@@ -127,12 +138,12 @@ find_elf_section_by_name(Elf *elf, const char *match_name)
         Elf_Shdr *section_header = elf_getshdr(scn);
         const char *sec_name;
         if (section_header == NULL) {
-            NOTIFY_ELF();
+            NOTIFY_ELF("elf_getshdr");
             continue;
         }
         sec_name = elf_strptr(elf, shstrndx, section_header->sh_name);
         if (sec_name == NULL) {
-            NOTIFY_ELF();
+            NOTIFY_ELF("elf_strptr");
         }
         if (strcmp(sec_name, match_name) == 0) {
             /* For our purposes, we want to treat a no-data section
@@ -165,7 +176,7 @@ find_load_base(Elf *elf)
     bool found_pt_load = false;
 
     if (ehdr == NULL || phdr == NULL) {
-        NOTIFY_ELF();
+        NOTIFY_ELF("ehdr+phdr");
         return 0;
     }
 
@@ -304,10 +315,13 @@ const char *
 drsym_obj_debuglink_section(void *mod_in, const char *modpath)
 {
     elf_info_t *mod = (elf_info_t *) mod_in;
-    Elf_Shdr *section_header =
-        elf_getshdr(find_elf_section_by_name(mod->elf, ".gnu_debuglink"));
+    Elf_Shdr *section_header;
+    Elf_Scn *scn = find_elf_section_by_name(mod->elf, ".gnu_debuglink");
+    if (scn == NULL)
+        return NULL;
+    section_header = elf_getshdr(scn);
     if (section_header == NULL) {
-        NOTIFY_ELF();
+        NOTIFY_ELF("elf_getshdr .gnu_debuglink");
         return NULL;
     }
     return ((char*) mod->map_base) + section_header->sh_offset;
@@ -368,13 +382,16 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     if (mod == NULL || mod->syms == NULL || idx == NULL)
         return DRSYM_ERROR;
 
+    NOTIFY(1, "%s: +"PIFX"\n", __FUNCTION__, modoffs);
     /* XXX: if a function is split into non-contiguous pieces, will it
      * have multiple entries?
      */
     for (i = 0; i < mod->num_syms; i++) {
         size_t lo_offs = mod->syms[i].st_value - mod->load_base;
         size_t hi_offs = lo_offs + mod->syms[i].st_size;
+        NOTIFY(3, "\tcomparing +"PIFX" to "PIFX"-"PIFX"\n", modoffs, lo_offs, hi_offs);
         if (lo_offs <= modoffs && modoffs < hi_offs) {
+            NOTIFY(2, "\tfound +"PIFX" in "PIFX"-"PIFX"\n", modoffs, lo_offs, hi_offs);
             *idx = i;
             return DRSYM_SUCCESS;
         }
@@ -383,6 +400,7 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
             if (modoffs - lo_offs < closest_diff) {
                 closest_idx = i;
                 closest_diff = modoffs - lo_offs;
+                NOTIFY(3, "\tclosest diff is now "PIFX"\n", closest_diff);
             }
         }
     }
@@ -390,6 +408,7 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     if (closest_idx >= 0 && mod->syms[closest_idx].st_size == 0) {
         /* i#1337: rule out anything without a name */
         const char *name = drsym_obj_symbol_name(mod_in, closest_idx);
+        NOTIFY(2, "\tusing closest +"PIFX" diff "PIFX"\n", modoffs, closest_diff);
         if (name != NULL && name[0] != '\0') {
             *idx = closest_idx;
             return DRSYM_SUCCESS;
