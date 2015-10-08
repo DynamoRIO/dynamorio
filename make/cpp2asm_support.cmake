@@ -284,10 +284,18 @@ endif (UNIX AND NOT APPLE)
 ##################################################
 # Assembler build rule for Makefile generators
 
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.4" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.4")
+  # i#1792: cmake 3.4 splits off <INCLUDES>
+  set(rule_flags "<FLAGS> <INCLUDES>")
+else ()
+  set(rule_flags "<FLAGS>")
+endif ()
+
 if (APPLE)
   # Despite the docs, -o does not work: cpp prints to stdout.
   set(CMAKE_ASM_NASM_COMPILE_OBJECT
-    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E <SOURCE> > <OBJECT>.s"
+    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} <DEFINES> -E <SOURCE> > <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
@@ -299,11 +307,11 @@ elseif (UNIX)
   # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
   # up the --defsym args.
   set(CMAKE_ASM_COMPILE_OBJECT
-    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E <SOURCE> -o <OBJECT>.s"
+    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} <DEFINES> -E <SOURCE> -o <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
-    # not using <FLAGS> b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
+    # not using ${rule_flags} b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
     # is passed in: we don't need the include dirs b/c of the cpp step.
-    # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from <FLAGS> to <DEFINES>
+    # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from ${rule_flags} to <DEFINES>
     # in CMake/Source/cmMakefileTargetGenerator.cxx:1.115 (will be in 2.6.4).
     #
     # we also aren't passing any <DEFINES> since for one thing
@@ -324,7 +332,7 @@ else ()
     # redirection operator which should work in all supported shells.
     #
     # ml can't handle line number markers so using ${CPP_NO_LINENUM}.
-    "<CMAKE_C_COMPILER> ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E ${CPP_NO_LINENUM} <SOURCE> > <OBJECT>.s"
+    "<CMAKE_C_COMPILER> ${CMAKE_CPP_FLAGS} ${rule_flags} <DEFINES> -E ${CPP_NO_LINENUM} <SOURCE> > <OBJECT>.s"
     # cmake does add quotes in custom commands, etc. but not in this rule so we add
     # them to handle paths with spaces:
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
