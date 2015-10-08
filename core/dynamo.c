@@ -66,6 +66,9 @@
 
 #ifdef ANNOTATIONS
 # include "annotations.h"
+# ifdef JITOPT
+#  include "jitopt.h"
+# endif
 #endif
 
 #include <string.h>
@@ -247,6 +250,7 @@ DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
 /* FIXME : not static so os.c can hand walk it for dump core */
 /* FIXME: use new generic_table_t and generic_hash_* routines */
 thread_record_t ** all_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
+DECLARE_NEVERPROT_VAR(static uint thread_state_version, 0);
 
 /* these locks are used often enough that we put them in .cspdata: */
 
@@ -548,6 +552,12 @@ dynamorio_app_init(void)
         fcache_init();
         link_init();
         fragment_init();
+#ifdef ANNOTATIONS
+        annotation_init();
+# ifdef JITOPT
+        jitopt_init();
+# endif
+#endif
         moduledb_init(); /* before vm_areas_init, after heap_init */
         perscache_init(); /* before vm_areas_init */
         native_exec_init(); /* before vm_areas_init, after arch_init */
@@ -588,6 +598,7 @@ dynamorio_app_init(void)
         size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t*);
         all_threads = (thread_record_t**) global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
+        thread_state_version = 0;
         if (!INTERNAL_OPTION(nop_initial_bblock)
             IF_WINDOWS(|| !check_sole_thread())) /* some other thread is already here! */
             bb_lock_start = true;
@@ -629,9 +640,6 @@ dynamorio_app_init(void)
             dynamo_vm_areas_unlock();
         }
 
-#ifdef ANNOTATIONS
-        annotation_init();
-#endif
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
@@ -782,12 +790,12 @@ dynamorio_fork_init(dcontext_t *dcontext)
         else
             dynamo_other_thread_exit(threads[i]);
     }
-    mutex_unlock(&thread_initexit_lock);
     global_heap_free(threads, num_threads*sizeof(thread_record_t*)
                      HEAPACCT(ACCT_THREAD_MGT));
 
     add_thread(get_process_id(), get_thread_id(), true/*under dynamo control*/,
                dcontext);
+    mutex_unlock(&thread_initexit_lock);
 
     GLOBAL_STAT(num_threads) = 1;
 # ifdef DEBUG
@@ -961,6 +969,9 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     fragment_exit();
 #ifdef ANNOTATIONS
     annotation_exit();
+# ifdef JITOPT
+    jitopt_exit();
+# endif
 #endif
 #ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other
@@ -1024,6 +1035,7 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     monitor_exit();
     synch_exit();
     arch_exit(IF_WINDOWS(detach_stacked_callbacks));
+
 #ifdef CALL_PROFILE
     /* above os_exit to avoid eventlog_mutex trigger if we're the first to
      * create a log file
@@ -1874,6 +1886,13 @@ get_list_of_threads_common(thread_record_t ***list, int *num
     mutex_unlock(&all_threads_lock);
 }
 
+uint
+get_thread_state_version()
+{
+    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    return thread_state_version;
+}
+
 void
 get_list_of_threads(thread_record_t ***list, int *num)
 {
@@ -1991,6 +2010,9 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
     RSTATS_INC(num_threads_created);
     num_known_threads++;
     mutex_unlock(&all_threads_lock);
+    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    RELEASE_LOG(THREAD, LOG_THREADS, 1, "New thread 0x%x\n", tid);
+    thread_state_version++;
 }
 
 /* return false if couldn't find the thread */
@@ -2022,6 +2044,8 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
             close_handle(tr->handle);
 #endif
             global_heap_free(tr, sizeof(thread_record_t) HEAPACCT(ACCT_THREAD_MGT));
+            ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+            thread_state_version++;
             break;
         }
     }
@@ -2187,6 +2211,9 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     fcache_thread_init(dcontext);
     link_thread_init(dcontext);
     fragment_thread_init(dcontext);
+#ifdef JITOPT
+    jitopt_thread_init(dcontext);
+#endif
 
     /* This lock has served its purposes: A) a barrier to thread creation for those
      * iterating over threads, B) mutex for add_thread, and C) mutex for synch_field

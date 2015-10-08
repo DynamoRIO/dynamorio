@@ -1,6 +1,6 @@
-/* ******************************************************
+/* **********************************************************
  * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
- * ******************************************************/
+ * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -30,18 +30,22 @@
  * DAMAGE.
  */
 
-#include "dr_annotations.h"
+/* When an annotated basic block is truncated by the client, we associate the annotation
+ * with the preceding app instruction (if any). In this test, the client additionally uses
+ * instrlist_set_fall_through_target() for the purpose of verifying that our annotation
+ * inclusion policy does not interfere with clients using that feature.
+ */
 
-DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (void), return 0)
+#include <stdio.h>
+#include "valgrind.h"
+#include "memcheck.h"
 
-DR_DEFINE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...),
-                     return 0)
-
-DR_DEFINE_ANNOTATION(void, dynamorio_annotate_manage_code_area,
-                     (void *start, size_t size), )
-
-DR_DEFINE_ANNOTATION(void, dynamorio_annotate_unmanage_code_area,
-                     (void *start, size_t size), )
-
-DR_DEFINE_ANNOTATION(void, dynamorio_annotate_flush_fragments,
-                     (void *start, size_t size), )
+int
+main()
+{
+    if (RUNNING_ON_VALGRIND)
+        printf("RUNNING_ON_VALGRIND is true, and the branch was not skipped\n");
+    else
+        printf("RUNNING_ON_VALGRIND is false, or the branch got skipped\n");
+    return 0;
+}

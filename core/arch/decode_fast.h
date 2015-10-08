@@ -55,6 +55,9 @@ int
 decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
               _IF_X64(uint *rip_rel_pos));
 
+byte *
+direct_cti_disp_pc(byte *pc);
+
 DR_API
 /**
  * Decodes only enough of the instruction at address \p pc to determine its size.

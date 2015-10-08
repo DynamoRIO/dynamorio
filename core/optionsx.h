@@ -253,6 +253,7 @@
     /* this takes precedence over the DYNAMORIO_VAR_LOGDIR config var */
     OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING,
         "directory for log files")
+    OPTION_DEFAULT(bool, release_log, false, "enable release logging to stderr")
 #ifdef DEBUG /* options that only work for debug build */
     /* we do allow logging for customers for forensics/diagnostics that requires
      * debug build for more information.
@@ -1371,7 +1372,7 @@
     OPTION_DEFAULT(uint, report_reset_commit_threshold, 3,
         "syslog one thrash warning message after this many resets at low commit")
     OPTION_DEFAULT(uint, reset_every_nth_pending,
-        IF_ARM_ELSE(0, 35), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_ARM_ELSE(0, 1000000), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches when pending deletion has this many entries")
     /* the reset-by-unit options focus on filled units and not created units
      * to avoid being triggered by new, empty, private units for new threads

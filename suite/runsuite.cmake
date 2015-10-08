@@ -60,7 +60,6 @@ else (UNIX)
   set(install_build_args "")
 endif (UNIX)
 
-
 ##################################################
 # Pre-commit source file checks.
 # Google Code does not support adding subversion hooks, so we
@@ -143,10 +142,10 @@ endif ()
 
 # Check for trailing space.  This is a diff with an initial column for +-,
 # so a blank line will have one space: thus we rule that out.
-string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
+string(REGEX MATCH "\n[^-\n][^\n]* \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   # Get more context
-  string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
+  string(REGEX MATCH "\n[^-\n][^\n]* \n" match "${diff_contents}")
   message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
 endif ()
 

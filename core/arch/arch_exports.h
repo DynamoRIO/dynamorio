@@ -88,6 +88,8 @@ typedef enum {
 
 struct _fragment_entry_t; /* in fragment.h */
 struct _ibl_table_t; /* in fragment.h */
+struct _dgc_writer_mapping_table_t; /* in jitopt.h */
+struct asmtable_entry_t; /* in asmtable.h */
 
 /* Scratch space and state required to be easily accessible from
  * in-cache indirect branch lookup routines, store in thread-local storage.
@@ -165,6 +167,9 @@ typedef struct _local_state_t {
 typedef struct _local_state_extended_t {
     spill_state_t spill_space;
     table_stat_state_t table_space;
+    struct _dgc_writer_mapping_table_t *dgc_mapping_table;
+    struct asmtable_entry_t **dgc_coverage_table;
+    ptr_uint_t dgc_coverage_mask;
 } local_state_extended_t;
 
 /* local_state_[extended_]t is allocated in os-specific thread-local storage (TLS),
@@ -209,6 +214,9 @@ typedef struct _local_state_extended_t {
 #define TLS_TABLE_SLOT(btype)    ((ushort)(TABLE_OFFSET                         \
                                   + offsetof(table_stat_state_t, table[btype])  \
                                   + offsetof(lookup_table_access_t, lookuptable)))
+#define DGC_SHADOW_MAPPING_SLOT  (offsetof(local_state_extended_t, dgc_mapping_table))
+#define DGC_COVERAGE_TABLE_SLOT  (offsetof(local_state_extended_t, dgc_coverage_table))
+#define DGC_COVERAGE_MASK_SLOT   (offsetof(local_state_extended_t, dgc_coverage_mask))
 
 #ifdef HASHTABLE_STATISTICS
 # define TLS_HTABLE_STATS_SLOT   ((ushort)(offsetof(local_state_extended_t,     \
@@ -1437,6 +1445,9 @@ int exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags);
 
 int insert_exit_stub(dcontext_t *dcontext, fragment_t *f,
                      linkstub_t *l, cache_pc stub_pc);
+
+cache_pc
+exit_cti_disp_pc(cache_pc branch_pc);
 
 int
 linkstub_unlink_entry_offset(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);

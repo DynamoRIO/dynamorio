@@ -1030,7 +1030,7 @@ function (configure_DynamoRIO_annotation_sources srcs)
   if (UNIX)
     foreach (src ${srcs})
       _DR_append_property_string(SOURCE ${src} COMPILE_FLAGS
-        "-O0 -Wno-unused-variable -Wno-return-type")
+        "-O0 -fno-omit-frame-pointer -Wno-unused-variable -Wno-return-type")
     endforeach (src ${srcs})
   else (UNIX)
     # /wd4715: disable warning for "not all control paths return a value"

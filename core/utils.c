@@ -726,6 +726,8 @@ static uint spinlock_count = 0;     /* initialized in utils_init, but 0 is alway
 DECLARE_FREQPROT_VAR(static uint random_seed, 1234); /* initialized in utils_init */
 DEBUG_DECLARE(static uint initial_random_seed;)
 
+bool verbose;
+
 void
 utils_init()
 {
@@ -748,6 +750,8 @@ utils_init()
     ASSERT(sizeof(uint32) == 4);
     ASSERT(sizeof(uint) == 4);
     ASSERT(sizeof(reg_t) == sizeof(void *));
+
+    verbose = DYNAMO_OPTION(release_log);
 
 #ifdef UNIX /* after options_init(), before we open logfile or call instrument_init() */
     os_file_init();
@@ -2480,14 +2484,20 @@ memprot_string(uint prot)
 bool
 is_region_memset_to_char(byte *addr, size_t size, byte val)
 {
-    /* FIXME : we could make this much faster with arch specific implementation
-     * (for x86 repe scasd w/proper alignment handling) */
-    size_t i;
-    for (i = 0; i < size; i++) {
-        if (*addr++ != val)
-            return false;
+    if (true) {
+        return true;
+    } else {
+        /* FIXME : we could make this much faster with arch specific implementation
+         * (for x86 repe scasd w/proper alignment handling) */
+        /**/
+        size_t i;
+        for (i = 0; i < size; i++) {
+            if (*addr++ != val)
+                return false;
+        }
+        return true;
+        /**/
     }
-    return true;
 }
 
 /* returns pointer to first char of string that matches either c1 or c2

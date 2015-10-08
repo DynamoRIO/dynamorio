@@ -329,6 +329,12 @@ endif (WIN32)
 option(DISABLE_WARNINGS "disable warnings")
 
 option(SET_PREFERRED_BASE "set a preferred library base address")
+if (ANNOTATIONS)
+  if (NOT WINDOWS)
+    set(JITOPT ON)
+    set(JIT_MONITORED_AREAS ON)
+  endif (NOT WINDOWS)
+endif (ANNOTATIONS)
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")

@@ -45,6 +45,10 @@
 #include "decode_fast.h"
 #include "decode_private.h"
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+# include "../lib/instrument.h" // hack!
+#endif
+
 #include <string.h> /* memcpy, memset */
 
 #ifdef DEBUG
@@ -2156,6 +2160,24 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
         return NULL;
     }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+    if (copy_pc == NULL) {
+# ifdef DEBUG
+        dcontext_t *dcontext = get_thread_private_dcontext();
+# endif
+
+
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Encode a 0x%x to "PFX"\n",
+                    instr->opcode, pc);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Encode a 0x%x to "PFX" (0x%x)\n",
+                    instr->opcode, pc, *pc);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "info: "PFX"\n",
+                    info);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "info opcode: 0x%x\n",
+                    info->opcode);
+    }
+#endif
+
     if (instr->prefixes != 0) {
         if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
             *pc = RAW_PREFIX_jcc_taken;
@@ -2204,6 +2226,15 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
         /* offset is from start of next instr */
         offset = target - ((ptr_int_t)(pc + 1 - copy_pc + final_pc));
         if (check_reachable && !(offset >= INT8_MIN && offset <= INT8_MAX)) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+            extern bool verbose;
+            if (verbose) {
+                dcontext_t *dcontext = get_thread_private_dcontext();
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
+                            "encode_cti error: target beyond 8-bit reach\n");
+                instr_disassemble(dcontext, instr, STDERR);
+            }
+#endif
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 8-bit reach");
             return NULL;
@@ -2216,6 +2247,16 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
         ptr_int_t offset = target - ((ptr_int_t)(pc + 4 - copy_pc + final_pc));
 #ifdef X64
         if (check_reachable && !REL32_REACHABLE_OFFS(offset)) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+            extern bool verbose;
+            if (verbose) {
+                dcontext_t *dcontext = get_thread_private_dcontext();
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
+                            "encode_cti error: target beyond 32-bit reach:\n");
+                instr_disassemble(dcontext, instr, STDERR);
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "\n");
+            }
+#endif
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 32-bit reach");
             return NULL;
@@ -2409,6 +2450,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         info = get_next_instr_info(info);
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
         if (info == NULL || info->type == OP_CONTD) {
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && defined(RELEASE_LOGGING)
+            RELEASE_LOG(THREAD, LOG_EMIT, 0, "Error! Could not find encoding for: ");
+            instr_disassemble(dcontext, instr, STDERR);
+            RELEASE_LOG(THREAD, LOG_EMIT, 0, "\n");
+#endif
             DOLOG(1, LOG_EMIT, {
                 LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
                 instr_disassemble(dcontext, instr, THREAD);
@@ -2418,6 +2464,17 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             /* FIXME: since labels (case 4468) have a legal length 0
              * we may want to return a separate status code for failure.
              */
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && defined(RELEASE_LOGGING)
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
+                        "Error! Cannot encode instr with opcode 0x%x!\n", instr->opcode);
+            if (instr->opcode == OP_lea) {
+                opnd_t src = instr_get_src(instr, 0);
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "base: "PFX"; disp: "PFX"; "
+                            "index: 0x%x; scale: 0x%x\n", opnd_get_base(src),
+                            opnd_get_disp(src), opnd_get_index(src),
+                            opnd_get_scale(src));
+            }
+#endif
             return NULL;
         }
     }

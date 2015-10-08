@@ -268,6 +268,8 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
 # define ENCODED_VALGRIND_ANNOTATION_WORD_3 0x13c7c11dUL
 #endif
 
+// TODO: move these into dr_annotation_asm.h, with assembly snippets?
+// not sure I want to include that file here, and client has no use for these...
 #if !(defined (WINDOWS) && defined (X64))
 # ifdef WINDOWS
 #  define ANNOTATION_JUMP_OVER_LABEL_REFERENCE 0x06eb

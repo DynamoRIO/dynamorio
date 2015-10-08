@@ -793,7 +793,7 @@ opnd_create_rel_addr(void *addr, opnd_size_t data_size)
 /* PR 253327: We represent rip-relative w/ an address-size prefix
  * (i.e., 32 bits instead of 64) as simply having the top 32 bits of
  * "addr" zeroed out.  This means that we never encode an address
- * prefix, and we if one already exists in the raw bits we have to go
+ * prefix, and if one already exists in the raw bits we have to go
  * looking for it at encode time.
  */
 opnd_t

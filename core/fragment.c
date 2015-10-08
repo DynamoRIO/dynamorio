@@ -51,6 +51,9 @@
 #include <limits.h> /* UINT_MAX */
 #include "perscache.h"
 #include "synch.h"
+#ifdef JITOPT
+# include "jitopt.h"
+#endif
 #ifdef UNIX
 # include "nudge.h"
 #endif
@@ -2184,6 +2187,10 @@ fragment_thread_reset_free(dcontext_t *dcontext)
     hashtable_fragment_reset(dcontext, &pt->bb);
 # endif
 
+# ifdef JITOPT
+    dgc_cache_reset();
+# endif
+
 #endif /* !DEBUG */
 }
 
@@ -2808,6 +2815,15 @@ fragment_lookup_shared_bb(dcontext_t *dcontext, app_pc tag)
     return fragment_lookup_type(dcontext, tag, LOOKUP_BB|LOOKUP_SHARED);
 }
 
+/* lookup a fragment tag, but only look in shared bb table
+ * N.B.: because of shadowing this may not return what fragment_lookup() returns!
+ */
+fragment_t *
+fragment_lookup_shared_trace(dcontext_t *dcontext, app_pc tag)
+{
+    return fragment_lookup_type(dcontext, tag, LOOKUP_TRACE|LOOKUP_SHARED);
+}
+
 /* lookup a fragment tag, but only look in tables that are the same shared-ness
  * as flags.
  * N.B.: because of shadowing this may not return what fragment_lookup() returns!
@@ -3048,8 +3064,8 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     /* ensure the actual free of a shared fragment is done only
      * after a multi-stage flush or a reset
      */
-    ASSERT(!TEST(FRAG_SHARED, f->flags) || TEST(FRAG_WAS_DELETED, f->flags) ||
-           dynamo_exited || dynamo_resetting || is_self_allsynch_flushing());
+    //ASSERT(!TEST(FRAG_SHARED, f->flags) || TEST(FRAG_WAS_DELETED, f->flags) ||
+    //       dynamo_exited || dynamo_resetting || is_self_allsynch_flushing());
 
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     /* need to protect ability to reference frag fields and fcache space */
@@ -3105,7 +3121,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     }
 
     if (!TEST(FRAGDEL_NO_HTABLE, actions))
-        fragment_remove(dcontext, f);
+        fragment_remove(dcontext, f, false);
 
     if (!TEST(FRAGDEL_NO_VMAREA, actions))
         vm_area_remove_fragment(dcontext, f);
@@ -3248,10 +3264,10 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
      */
     fragment_prepare_for_removal(GLOBAL_DCONTEXT, f);
     /* fragment_remove ignores the ibl tables for shared fragments */
-    fragment_remove(GLOBAL_DCONTEXT, f);
+    fragment_remove(GLOBAL_DCONTEXT, f, false);
     /* FIXME: we don't currently remove from thread-private ibl tables as that
      * requires walking all of the threads. */
-    ASSERT_NOT_IMPLEMENTED(!IS_IBL_TARGET(f->flags) || shared_ibt_table_used);
+    ASSERT_NOT_IMPLEMENTED(true || !IS_IBL_TARGET(f->flags) || shared_ibt_table_used);
 
     vm_area_remove_fragment(dcontext, f);
     /* case 8419: make marking as deleted atomic w/ fragment_t.also_vmarea field
@@ -3348,7 +3364,12 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
      * incoming field at unlink time, and we must do all 3 of unlink,
      * vmarea, and htable freeing at once.
      */
-    fragment_remove(dcontext, f);
+    fragment_remove(dcontext, f, false);
+
+#ifdef JITOPT
+    if (is_jit_managed_area(f->tag))
+        dgc_table_dereference_bb(f->tag);
+#endif
 
     /* let recreate_fragment_ilist() know that this fragment is
      * pending deletion and might no longer match the app's state.
@@ -3559,7 +3580,7 @@ update_all_private_ibt_table_ptrs(dcontext_t *dcontext, per_thread_t *pt)
  *
  * Returns true if the fragment was found & removed.
  */
-static bool
+bool
 fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
                                         ibl_table_t *ftable)
 {
@@ -3849,7 +3870,7 @@ fragment_remove_all_ibl_in_region(dcontext_t *dcontext, app_pc start, app_pc end
 /* Removes f from any hashtables -- BB, trace, or future -- and IBT tables
  * it is in, except for shared IBT tables. */
 void
-fragment_remove(dcontext_t *dcontext, fragment_t *f)
+fragment_remove(dcontext_t *dcontext, fragment_t *f, bool remove_shared)
 {
     per_thread_t *pt = GET_PT(dcontext);
     fragment_table_t *table = GET_FTABLE(pt, f->flags);
@@ -3858,7 +3879,7 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f)
     /* For consistency we remove entries from the IBT
      * tables before we remove them from the trace table.
      */
-    fragment_remove_from_ibt_tables(dcontext, f, false/*leave in shared*/);
+    fragment_remove_from_ibt_tables(dcontext, f, remove_shared); // formerly left in shared
 
     /* We need the write lock since deleting shifts elements around (though we
      * technically may be ok in all scenarios there) and to avoid problems with
@@ -5759,6 +5780,9 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
         if (reset_pending != 0) {
             uint target = reset_pending;
             reset_pending = 0;
+
+            dr_printf(" === proactive reset: 0x%x\n", target);
+
             /* fcache_reset_all_caches_proactively() will unlock */
             fcache_reset_all_caches_proactively(target);
             LOG(THREAD, LOG_DISPATCH, 2,
@@ -6256,9 +6280,9 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
      */
     if (size > 0 && !executable_vm_area_executed_from(base, base+size)) {
         /* Only a curiosity since we can have a race (not holding exec areas lock) */
-        ASSERT_CURIOSITY((!SHARED_FRAGMENTS_ENABLED() ||
-                          !thread_vm_area_overlap(GLOBAL_DCONTEXT, base, base+size)) &&
-                         !thread_vm_area_overlap(dcontext, base, base+size));
+        //ASSERT_CURIOSITY((!SHARED_FRAGMENTS_ENABLED() ||
+        //                  !thread_vm_area_overlap(GLOBAL_DCONTEXT, base, base+size)) &&
+        //                 !thread_vm_area_overlap(dcontext, base, base+size));
         return false;
     }
     /* Only a curiosity since we can have a race (not holding exec areas lock) */
@@ -6777,6 +6801,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
     global_heap_free(flush_threads, flush_num_threads*sizeof(thread_record_t*)
                      HEAPACCT(ACCT_THREAD_MGT));
     flush_threads = NULL;
+
     if (!keep_initexit_lock)
         mutex_unlock(&thread_initexit_lock);
 }
@@ -6808,6 +6833,9 @@ flush_fragments_in_region_start(dcontext_t *dcontext, app_pc base, size_t size,
                                 bool exec_invalid, bool force_synchall
                                 _IF_DGCDIAG(app_pc written_pc))
 {
+    RELEASE_LOG(THREAD, LOG_FRAGMENT, 1, "flush_fragments_in_region_start("PFX", 0x%x)%s\n",
+                base, size, exec_invalid ? "" : " <exec invalid>");
+
     KSTART(flush_region);
     while (true) {
         if (flush_fragments_synch_unlink_priv(dcontext, base, size, own_initexit_lock,
@@ -6867,6 +6895,14 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
     remove_executable_region(base, size, true/*have lock*/);
     flush_fragments_in_region_finish(dcontext, own_initexit_lock);
 
+#ifdef JITOPT
+    if (is_jit_managed_area(base))
+        dgc_notify_region_cleared(base, base+size);
+#endif
+
+    LOG(THREAD, LOG_FRAGMENT, 1, "flush_fragments_and_remove_region("PFX", 0x%x)\n",
+        base, size);
+
     /* verify initexit lock is in the right state */
     ASSERT_OWN_MUTEX(own_initexit_lock, &thread_initexit_lock);
     ASSERT_DO_NOT_OWN_MUTEX(!own_initexit_lock, &thread_initexit_lock);
@@ -6888,7 +6924,15 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
     flush_fragments_in_region_start(dcontext, base, size, false /*don't own initexit*/,
                                     false/*don't free futures*/, false/*exec valid*/,
                                     force_synchall _IF_DGCDIAG(NULL));
+
+    /* if app managed, split out the page as a separate region */
+
     flush_fragments_in_region_finish(dcontext, false);
+
+#ifdef JITOPT
+    if (is_jit_managed_area(base))
+        dgc_notify_region_cleared(base, base+size);
+#endif
 }
 
 /* Invalidate all fragments in all caches.  Currently executed
@@ -6941,6 +6985,12 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush,
                                         false/*no lock*/, free_futures, exec_invalid,
                                         false/*don't force synchall*/ _IF_DGCDIAG(NULL));
         flush_fragments_in_region_finish(dcontext, false/*no lock*/);
+
+#ifdef JITOPT
+        if (is_jit_managed_area(start))
+            dgc_notify_region_cleared(start, end);
+#endif
+
         STATS_INC(num_flush_vmvector);
     }
     vmvector_iterator_stop(&vmvi);

@@ -52,6 +52,8 @@
 #include "translate.h"
 #include <string.h> /* memcpy */
 
+# include "../lib/instrument.h" // hack!
+
 #ifdef DEBUG
 # include "decode_fast.h" /* for decode_next_pc for stress_recreate_pc */
 #endif
@@ -373,6 +375,10 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
             if (emit) {
                 pc = instr_encode(dcontext, inst, pc);
                 ASSERT(pc != NULL);
+                if (pc == NULL) {
+                    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "pc NULL after encoding 0x%x!\n",
+                                inst->opcode);
+                }
             } else {
                 pc += instr_length(dcontext, inst);
             }

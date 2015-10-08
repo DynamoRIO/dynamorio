@@ -604,7 +604,18 @@ enum {
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
+#ifdef JITOPT
+    MANGLE_DGC_FLAGS_SLOT       = TLS_XDX_SLOT,
+    MANGLE_DGC_TEMP_SLOT_0      = TLS_XAX_SLOT,
+    MANGLE_DGC_TEMP_SLOT_1      = TLS_XBX_SLOT,
+    MANGLE_DGC_TEMP_SLOT_2      = TLS_XCX_SLOT,
+#endif
 };
+
+#define MANGLE_DGC_FLAGS_OFFSET  XDX_OFFSET
+#define MANGLE_DGC_TEMP_OFFSET_0 XAX_OFFSET
+#define MANGLE_DGC_TEMP_OFFSET_1 XBX_OFFSET
+#define MANGLE_DGC_TEMP_OFFSET_2 XCX_OFFSET
 
 /* in interp.c but not exported to non-x86 files */
 bool must_not_be_inlined(app_pc pc);

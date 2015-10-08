@@ -96,6 +96,10 @@
 # include <errno.h>
 #endif
 
+#ifdef JIT_MONITORED_AREAS
+# include "../jitopt.h"
+#endif
+
 #ifdef MACOS
 /* Define the Linux names, which the code is already using */
 #  define SA_NOMASK       SA_NODEFER
@@ -3781,9 +3785,12 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
  * does not need translation but rather should always be re-executed.
  */
 static bool
-check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                        sigcontext_t *sc, byte *target, bool native_state)
+check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontext_t *sc,
+                        priv_mcontext_t *mc, byte *target, bool native_state)
 {
+#ifdef JIT_MONITORED_AREAS
+    //ptr_int_t offset = lookup_dgc_writer_offset(target);
+#endif
     /* special case: we expect a seg fault for executable regions
      * that were writable and marked read-only by us.
      * have to figure out the target address!
@@ -3792,7 +3799,11 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
      * and if that post-syscall instr is a write that could have faulted,
      * how can we tell the difference?
      */
-    if (was_executable_area_writable(target)) {
+    if (was_executable_area_writable(target)
+#ifdef JIT_MONITORED_AREAS
+        || is_jit_managed_area(target) // && offset != 0 && offset != 1)
+#endif
+    ) {
         /* translate instr_cache_pc to original app pc
          * DO NOT use translate_sigcontext, don't want to change the
          * signal frame or else we'll lose control when we try to
@@ -3815,8 +3826,12 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             mutex_unlock(&thread_initexit_lock);
         }
 
+        RELEASE_LOG(GLOBAL, LOG_ALL, 1, "sig at {cache pc "PFX", app pc "PFX"}: "
+                    "was executable? %d; is jit area? %d\n", instr_cache_pc, translated_pc,
+                    was_executable_area_writable(target), is_jit_managed_area(target));
+
         next_pc =
-            handle_modified_code(dcontext, instr_cache_pc, translated_pc,
+            handle_modified_code(dcontext, mc, instr_cache_pc, translated_pc,
                                  target, f);
 
         if (!native_state) {
@@ -3957,6 +3972,9 @@ master_signal_handler_C(byte *xsp)
 # endif
 #endif
 
+    if (sig == SIGILL)
+        RELEASE_LOG(THREAD, LOG_ALL, 1, "sigill at "PFX"\n", sc->SC_XIP);
+
     /* i#350: To support safe_read or TRY_EXCEPT without a dcontext, use the
      * global dcontext
      * when handling safe_read faults.  This lets us pass the check for a
@@ -4082,11 +4100,15 @@ master_signal_handler_C(byte *xsp)
          *     void *pc = (void*) siginfo->si_addr;
          * Thus we must use the third argument, which is a ucontext_t (see above)
          */
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
         bool syscall_signal = false; /* signal came from syscall? */
         bool is_write = false;
         byte *target;
         bool is_DR_exception = false;
+        sig_full_cxt_t sc_full = {sc, NULL}; /* non-ARM so NULL ok */
+        priv_mcontext_t mc;
+        extern bool verbose;
 
 #ifdef SIDELINE
         if (dcontext == NULL) {
@@ -4094,6 +4116,9 @@ master_signal_handler_C(byte *xsp)
             ASSERT_NOT_REACHED();
         }
 #endif
+
+        sigcontext_to_mcontext(&mc, &sc_full);
+
         if (is_safe_read_ucxt(ucxt) ||
             (!dynamo_initialized && global_try_except.try_except_state != NULL) ||
             dcontext->try_except.try_except_state != NULL) {
@@ -4146,7 +4171,7 @@ master_signal_handler_C(byte *xsp)
              */
             if (is_write && !is_couldbelinking(dcontext) &&
                 OWN_NO_LOCKS(dcontext) &&
-                check_for_modified_code(dcontext, pc, sc, target, true/*native*/))
+                check_for_modified_code(dcontext, pc, sc, &mc, target, true/*native*/))
                 break;
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sc,
                            exception_label_client,  (sig == SIGSEGV) ? "SEGV" : "BUS",
@@ -4214,6 +4239,8 @@ master_signal_handler_C(byte *xsp)
             /* kill(getpid(), SIGSEGV) looks just like a SIGSEGV in the store of eax
              * to mcontext after the syscall instr in do_syscall -- try to distinguish:
              */
+            RELEASE_LOG(GLOBAL, LOG_ALL, 1, "Exception in DR at {DR:"PFX", App:"PFX"}\n",
+                        pc, target);
             if (is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, siginfo)) {
                 LOG(THREAD, LOG_ALL, 2,
                     "assuming SIGSEGV at post-do-syscall is kill, not our write fault\n");
@@ -4260,12 +4287,20 @@ master_signal_handler_C(byte *xsp)
              * that were writable and marked read-only by us.
              */
             if (is_write &&
-                check_for_modified_code(dcontext, pc, sc, target, false/*!native*/)) {
+                check_for_modified_code(dcontext, pc, sc, &mc, target, false/*!native*/)) {
                 /* it was our signal, so don't pass to app -- return now */
                 break;
             }
         }
         /* pass it to the application (or client) */
+        RELEASE_LOG(THREAD, LOG_ALL, 1,
+                    "** Received SIG%s at cache pc "PFX" in thread 0x%x %s "PFX"\n",
+                    (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id(),
+                    is_write ? "writing to" : "reading from", target);
+        if (verbose && !is_DR_exception) {
+            disassemble_app_bb(dcontext, pc, STDERR);
+            RELEASE_LOG(THREAD, LOG_ALL, 1, "\n");
+        }
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc "PFX" in thread "TIDFMT"\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());

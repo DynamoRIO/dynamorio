@@ -103,6 +103,9 @@
 /* for now, only used to identify regions that fail our policies */
 #  define FRAG_DYNGEN_RESTRICTED    0x200000
 # endif
+#else
+/* frag is in an app-managed code area */
+# define FRAG_APP_MANAGED            0x100000
 #endif
 
 #ifndef DGC_DIAGNOSTICS
@@ -676,6 +679,10 @@ void
 fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f);
 
 bool
+fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
+                                        ibl_table_t *ftable);
+
+bool
 fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f);
 
 /* Removes f from any IBT tables it is in. */
@@ -688,7 +695,7 @@ fragment_remove_all_ibl_in_region(dcontext_t *dcontext, app_pc start, app_pc end
 /* Removes f from any hashtables -- BB, trace, future -- and IBT tables
  * it is in */
 void
-fragment_remove(dcontext_t *dcontext, fragment_t *f);
+fragment_remove(dcontext_t *dcontext, fragment_t *f, bool remove_shared);
 
 void
 fragment_replace(dcontext_t *dcontext, fragment_t *f, fragment_t *new_f);
@@ -704,6 +711,9 @@ fragment_lookup_shared_bb(dcontext_t *dcontext, app_pc tag);
 
 fragment_t *
 fragment_lookup_trace(dcontext_t *dcontext, app_pc tag);
+
+fragment_t *
+fragment_lookup_shared_trace(dcontext_t *dcontext, app_pc tag);
 
 fragment_t *
 fragment_lookup_same_sharing(dcontext_t *dcontext, app_pc tag, uint flags);
@@ -1086,6 +1096,7 @@ void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
                             bool force_synchall);
 
+/* unused! */
 void
 flush_fragments_custom_list(dcontext_t *dcontext, fragment_t *list,
                             bool own_initexit_lock, bool exec_invalid);

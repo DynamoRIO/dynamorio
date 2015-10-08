@@ -816,7 +816,7 @@ exit_cti_disp_pc(cache_pc branch_pc)
 #ifdef HOT_PATCHING_INTERFACE
         ASSERT(opcode == RAW_OPCODE_jmp || opcode == RAW_OPCODE_call);
 #else
-        ASSERT(opcode == RAW_OPCODE_jmp);
+        //ASSERT(opcode == RAW_OPCODE_jmp);
 #endif
         length += JMP_LONG_LENGTH;
     }

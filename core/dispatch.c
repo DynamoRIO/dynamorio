@@ -313,6 +313,14 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
     }
 # endif
 
+    /*
+    if (targetf->tag == (app_pc)0x5f910c) {
+        ptr_uint_t tag_ptr = *(ptr_uint_t *)get_mcontext(dcontext)->xsp;
+        byte *tag = (byte *)(tag_ptr - 1);
+        RELEASE_LOG(THREAD, LOG_DISPATCH, 1, "AdvanceGetTag("PFX"): 0x%x\n", tag, (*tag & 3));
+    }
+    */
+
     if (stats->loglevel >= 2 && (stats->logmask & LOG_DISPATCH) != 0) {
         /* FIXME: this should use a different mask - and get printed at level 2 when turned on */
         DOLOG(4, LOG_DISPATCH, {

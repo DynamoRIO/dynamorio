@@ -341,6 +341,8 @@ extern file_t our_stdin;
  */
 typedef uint client_id_t;
 
+#define DR_INTERNAL_CLIENT_ID 0xffffffff
+
 #ifdef API_EXPORT_ONLY
 #ifndef DR_FAST_IR
 /**

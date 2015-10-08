@@ -365,6 +365,29 @@ is_in_futureexec_area(app_pc addr);
 bool
 is_valid_address(app_pc addr);
 
+bool
+is_jit_managed_area(app_pc addr);
+
+bool
+is_unmod_image(app_pc addr);
+
+#ifdef JIT_MONITORED_AREAS
+bool
+get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size);
+
+bool
+get_non_jit_area_bounds(app_pc addr, app_pc *start, size_t *size);
+
+bool
+set_region_jit_monitored(app_pc start, size_t len);
+
+bool
+set_region_dgc_writer(app_pc start, size_t len);
+#else
+void
+set_region_app_managed(app_pc start, size_t len);
+#endif
+
 /* Used for DR heap area changes as circular dependences prevent
  * directly adding or removing DR vm areas.
  * Must hold the DR areas lock across the combination of calling this and
@@ -645,7 +668,7 @@ bool was_address_flush_start(dcontext_t *dcontext, app_pc pc);
  */
 bool
 check_thread_vm_area(dcontext_t *dcontext, app_pc start, app_pc tag, void **vmlist,
-                     uint *flags, app_pc *stop, bool xfer);
+                     uint *flags, app_pc *stop, bool *may_be_dgc_writer, bool xfer);
 
 void
 check_thread_vm_area_abort(dcontext_t *dcontext, void **vmlist, uint flags);
@@ -710,6 +733,13 @@ vm_area_unlink_incoming(dcontext_t *dcontext, app_pc pc);
 bool
 vm_area_flush_fragments(dcontext_t *dcontext, fragment_t *was_I_flushed);
 
+bool
+is_vm_area_region_isolated(dcontext_t *dcontext, app_pc start, app_pc end);
+
+/* JIT optimization: isolate the written page in its own vmarea */
+void
+vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end);
+
 /* Decrements ref counts for thread-shared pending-deletion fragments,
  * and deletes those whose count has reached 0.
  * Returns false iff was_I_flushed has been flushed (not necessarily
@@ -746,7 +776,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end);
  * Pass in the fragment containing instr_cache_pc if known: else pass NULL.
  */
 app_pc
-handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
+handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_cache_pc,
                      app_pc instr_app_pc, app_pc target, fragment_t *f);
 
 /* Returns the counter a selfmod fragment should execute for -sandbox2ro_threshold */

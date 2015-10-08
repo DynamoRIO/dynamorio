@@ -627,6 +627,10 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         int len = instr_length(tdcontext, inst);
 
+        RELEASE_LOG(THREAD_GET, LOG_INTERP, 1, "Fault identification: "
+                    "looking for >= "PFX" at "PFX" in ["PFX"-"PFX"]\n",
+                    target_cache, cpc, start_cache, end_cache);
+
         /* All we care about is that we are not going to skip over a
          * bundle of app instructions.
          */

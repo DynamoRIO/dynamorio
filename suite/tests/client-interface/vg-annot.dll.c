@@ -97,7 +97,6 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
         }
         instr = next;
     }
-
     if (truncated)
         test_stats.num_bbs_truncated++;
 

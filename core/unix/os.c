@@ -1014,6 +1014,7 @@ get_timer_frequency_cpuinfo(void)
     char *mhz_line;
     ulong cpu_mhz = 1000;
     ulong cpu_khz = 0;
+    timestamp_t speed;
 
     cpuinfo = os_open(PROC_CPUINFO, OS_OPEN_READ);
 
@@ -1041,7 +1042,10 @@ get_timer_frequency_cpuinfo(void)
     global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
     os_close(cpuinfo);
 
-    return cpu_mhz * 1000 + cpu_khz;
+    speed = cpu_mhz * 1000 + cpu_khz;
+    if (speed == 0)
+        speed = 1000 * 1000;
+    return speed;
 }
 
 timestamp_t
@@ -4305,6 +4309,8 @@ make_writable(byte *pc, size_t size)
     res = mprotect_syscall((void *) start_page, prot_size, prot);
     LOG(THREAD_GET, LOG_VMAREAS, 3, "make_writable: pc "PFX" -> "PFX"-"PFX" %d\n",
         pc, start_page, start_page + prot_size, res);
+    RELEASE_LOG(THREAD_GET, LOG_VMAREAS, 3, "make_writable: pc "PFX" -> "PFX"-"PFX" %d\n",
+                pc, start_page, start_page + prot_size, res);
     ASSERT(res == 0);
     if (res != 0)
         return false;
@@ -4365,6 +4371,8 @@ make_unwritable(byte *pc, size_t size)
     res = mprotect_syscall((void *) start_page, prot_size, prot);
     LOG(THREAD_GET, LOG_VMAREAS, 3, "make_unwritable: pc "PFX" -> "PFX"-"PFX"\n",
         pc, start_page, start_page + prot_size);
+    RELEASE_LOG(THREAD_GET, LOG_VMAREAS, 3, "make_unwritable: pc "PFX" -> "PFX"-"PFX"\n",
+                pc, start_page, start_page + prot_size);
     ASSERT(res == 0);
 
 # ifndef HAVE_MEMINFO_QUERY
@@ -6259,6 +6267,7 @@ pre_system_call(dcontext_t *dcontext)
          *     void __user *parent_tid, void __user *child_tid, struct pt_regs *regs)
          */
         uint flags = (uint) sys_param(dcontext, 0);
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = "PFX"\n", flags);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = "PFX"\n", flags);
         LOG(THREAD, LOG_SYSCALLS, 2, "args: "PFX", "PFX", "PFX", "PFX", "PFX"\n",
             sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
@@ -6327,6 +6336,7 @@ pre_system_call(dcontext_t *dcontext)
         /* treat as if sys_clone with flags just as sys_vfork does */
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         uint flags = CLONE_VFORK | CLONE_VM | SIGCHLD;
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork\n");
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork\n");
         handle_clone(dcontext, flags);
         cleanup_after_vfork_execve(dcontext);
@@ -6355,6 +6365,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 
     case SYS_fork: {
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork\n");
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork\n");
         os_fork_pre(dcontext);
         break;
@@ -7544,6 +7555,7 @@ post_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c */
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n", mc->xax);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n",
             MCXT_SYSCALL_RES(mc));
         /* We switch the lib tls segment back to dr's segment.
@@ -7568,12 +7580,14 @@ post_system_call(dcontext_t *dcontext)
 #endif
 
     case SYS_fork: {
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n", mc->xax);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n",
             MCXT_SYSCALL_RES(mc));
         break;
     }
 
     case SYS_vfork: {
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n", mc->xax);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n",
             MCXT_SYSCALL_RES(mc));
         IF_LINUX(ASSERT(was_thread_create_syscall(dcontext)));

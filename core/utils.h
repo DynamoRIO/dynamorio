@@ -460,6 +460,8 @@ enum {
     LOCK_RANK(patch_proof_areas), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(emulate_write_areas), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(IAT_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(dgc_mapping_lock),
+    LOCK_RANK(dgc_table_lock),
 #ifdef CLIENT_INTERFACE
     /* PR 198871: this same label is used for all client locks */
     LOCK_RANK(dr_client_mutex), /* > module_data_lock */
@@ -1126,6 +1128,49 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 # define MAX_LOG_LENGTH_MINUS_ONE IF_CLIENT_INTERFACE_ELSE(2047,1383)
 #endif
 
+
+#ifdef DEBUG
+# ifdef RELEASE_LOGGING
+#  define RELEASE_LOG(file, category, level, ...) \
+do { \
+    extern bool verbose; \
+    if (verbose) { \
+        if (level == 0) \
+            dr_fprintf(STDOUT, __VA_ARGS__); \
+        else \
+            dr_fprintf(STDERR, __VA_ARGS__); \
+    } else if (level == 0) \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+    if (level == 0) \
+        LOG(file, category, 1, __VA_ARGS__); \
+    else \
+        LOG(file, category, level, __VA_ARGS__); \
+} while(0)
+# else
+#  define RELEASE_LOG(file, category, level, ...)
+# endif
+# define RELEASE_ASSERT(cond, msg, ...) \
+    if (!(cond)) \
+        LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
+#else
+# ifdef RELEASE_LOGGING
+#  define RELEASE_LOG(file, category, level, ...) \
+do { \
+    extern bool verbose; \
+    if (verbose || level == 0) \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+} while(0)
+# else
+#  define RELEASE_LOG(file, category, level, ...)
+# endif
+# define RELEASE_ASSERT(cond, msg, ...) \
+do { \
+    extern bool verbose; \
+    if (verbose && !(cond)) \
+        dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__); \
+} while(0)
+#endif
+
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
 # define LOG(file, mask, level, ...) do {        \
   if (stats != NULL &&                           \
@@ -1596,6 +1641,17 @@ enum {LONGJMP_EXCEPTION = 1};
 #define RSTATS_ADD XSTATS_ADD
 #define RSTATS_SUB XSTATS_SUB
 #define RSTATS_ADD_PEAK XSTATS_ADD_PEAK
+
+#define RSTATS_GET(stat) stats->stat##_pair.value
+#define RSTATS_SET(stat, new_value) \
+do { \
+    stats->stat##_pair.value = (new_value); \
+} while (0)
+#define RSTATS_SET_MAX(stat, max, new_value) \
+do { \
+    if ((new_value) > (max)) \
+        stats->stat##_pair.value = (new_value); \
+} while (0)
 
 #if defined(DEBUG) && defined(INTERNAL)
 #   define DODEBUGINT DODEBUG

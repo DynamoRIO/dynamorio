@@ -49,6 +49,11 @@
 #include "perscache.h"
 #include "instr.h" /* PC_RELATIVE_TARGET */
 
+#ifdef JITOPT
+# include "jitopt.h"
+# include "instrument.h" //hack
+#endif
+
 /* fragment_t and future_fragment_t are guaranteed to have flags field at same offset,
  * so we use it to find incoming_stubs offset
  */
@@ -1215,9 +1220,17 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
             if (do_not_need_stub)
                 separate_stub_free(dcontext, f, l, false);
         }
+#ifdef JITOPT
+        if (TEST(FRAG_APP_MANAGED, f->flags))
+            RSTATS_INC(app_managed_direct_links);
+#endif
     } else if (LINKSTUB_INDIRECT(l->flags)) {
         if (INTERNAL_OPTION(link_ibl))
             link_indirect_exit(dcontext, f, l, hot_patch);
+#ifdef JITOPT
+        if (TEST(FRAG_APP_MANAGED, f->flags))
+            RSTATS_INC(app_managed_indirect_links);
+#endif
     } else
         ASSERT_NOT_REACHED();
 
@@ -1408,6 +1421,16 @@ static bool
 incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                             fragment_t *targetf, common_direct_linkstub_t **inlist)
 {
+    uint count = 0; //, recount = 0;
+#ifdef TRACE_ANALYSIS
+    common_direct_linkstub_t *t; //, *start = NULL;
+    static app_pc wonko_bb = NULL;
+    uint recount = 0;
+    common_direct_linkstub_t *start = NULL;
+#endif
+#ifdef JITOPT
+    uint max = RSTATS_GET(max_incoming_direct_linkstubs);
+#endif
     common_direct_linkstub_t *s, *prevs, *dl;
     dl = (common_direct_linkstub_t *) l;
     ASSERT(LINKSTUB_DIRECT(l->flags));
@@ -1416,18 +1439,54 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
            (LINKSTUB_COARSE_PROXY(l->flags) &&
             TEST(FRAG_COARSE_GRAIN, f->flags) && LINKSTUB_NORMAL_DIRECT(l->flags)));
     for (s = *inlist, prevs = NULL; s;
-         prevs = s, s = (common_direct_linkstub_t *) s->next_incoming) {
+         prevs = s, s = (common_direct_linkstub_t *) s->next_incoming, count++) {
         ASSERT(LINKSTUB_DIRECT(s->l.flags));
         if (incoming_direct_linkstubs_match(s, dl)) {
+#ifdef TRACE_ANALYSIS
+            for (t = s; t; t = (common_direct_linkstub_t *) t->next_incoming, count++);
+            if (count > 100000 || wonko_bb == targetf->tag) {
+                bool from_jit_managed = is_jit_managed_area(f->tag);
+                bool to_jit_managed = is_jit_managed_area(targetf->tag);
+                int bb_count = -1;
+                if (wonko_bb == NULL)
+                    wonko_bb = targetf->tag;
+                if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
+                    trace_t *t = (trace_t*) fragment_lookup_trace(dcontext, f->tag);
+                    if (t != NULL)
+                        bb_count = t->t.num_bbs;
+                }
+                start = *inlist;
+                dr_printf("Many links (%d) removing linkstub (0x%x) from "PFX
+                          " (0x%x %s) to "PFX" (0x%x, %s) -- trace has %d blocks\n",
+                          count, l->flags, f->tag, f->flags,
+                          from_jit_managed ? "app-managed" : "not app-managed",
+                          targetf->tag, targetf->flags,
+                          to_jit_managed ? "app-managed" : "not app-managed", bb_count);
+
+            }
+#endif
             /* We must remove s and NOT the passed-in l as coarse_remove_outgoing()
              * passes in a new proxy that we use only to match and find the
              * entry in the list to remove.
              */
             incoming_remove_link_nosearch(dcontext, f, (linkstub_t *)s,
                                           targetf, (linkstub_t *)prevs, inlist);
+#ifdef TRACE_ANALYSIS
+            if (count > 100000) {
+                for (t = start; t; t = (common_direct_linkstub_t *) t->next_incoming, recount++);
+                if (recount != (count-1))
+                    dr_printf("\tRemoval failed? pre-count=%d, post-count=%d\n", count, recount);
+            }
+#endif
+#ifdef JITOPT
+            RSTATS_SET_MAX(max_incoming_direct_linkstubs, max, count);
+#endif
             return true;
         }
     }
+#ifdef JITOPT
+    RSTATS_SET_MAX(max_incoming_direct_linkstubs, max, count);
+#endif
     return false;
 }
 
@@ -1770,7 +1829,7 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
     f->flags |= FRAG_LINKED_INCOMING;
 
     /* link incoming links */
-    for (l = f->in_xlate.incoming_stubs; l != NULL; l = LINKSTUB_NEXT_INCOMING(l)) {
+    for (l = f->in_xlate.incoming_stubs; l; l = LINKSTUB_NEXT_INCOMING(l)) {
         bool local_trace_head = false;
         fragment_t *in_f = linkstub_fragment(dcontext, l);
         if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -1839,6 +1898,11 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                 g = f;
             else /* primarily interested in fragment of same sharing */
                 g = fragment_link_lookup_same_sharing(dcontext, target_tag, l, f->flags);
+#ifdef JITOPT
+            //if (((ptr_uint_t)target_tag & 0xfffULL) == 0xe30ULL)
+            if ((ptr_uint_t)target_tag == 0x414980ULL)
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
+#endif
             if (g != NULL) {
                 if (is_linkable(dcontext, f, l, g,
                                 NEED_SHARED_LOCK(f->flags) ||
@@ -1859,6 +1923,10 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                         ((l->flags & LINK_LINKED) != 0)?" (linked)":"",
                         ((l->flags & LINK_SPECIAL_EXIT) != 0)?" (special)":"");
                 }
+#ifdef JITOPT
+                if (TEST(FRAG_APP_MANAGED, f->flags))
+                    patchable_bb_linked(dcontext, g);
+#endif
             } else {
                 if (new_fragment)
                     add_future_incoming(dcontext, f, l);

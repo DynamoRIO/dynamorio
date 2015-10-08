@@ -197,6 +197,7 @@ typedef struct HTNAME(_,NAME_KEY,_table_t) {
 
     uint load_factor_percent; /* \alpha = load_factor_percent/100 */
     uint resize_threshold;    /*  = capacity * load_factor */
+    uint resize_scale;
 
     uint groom_factor_percent; /* \gamma = groom_factor_percent/100 */
     uint groom_threshold;    /*  = capacity * groom_factor_percent */
@@ -542,6 +543,7 @@ HTNAME(hashtable_,NAME_KEY,_init)(dcontext_t *dcontext,
     table->is_local = false;
 #endif
     table->table_flags = table_flags;
+    table->resize_scale = 1;
 #ifdef HASHTABLE_STATISTICS
     /* indicate this is first time, not a resize */
 # ifdef HASHTABLE_ENTRY_STATS
@@ -1066,7 +1068,7 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
                    (HASHTABLE_SIZE(table->hash_bits)+1/*sentinel*/)
                    * table->load_factor_percent / 100
                    && table->hash_bits != table->max_capacity_bits) {
-                table->hash_bits++;     /* double the size */
+                table->hash_bits += table->resize_scale;  /* scale the size */
             }
             ASSERT(table->hash_bits > old_bits);
         }

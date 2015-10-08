@@ -1392,6 +1392,32 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     return (start_pc + sz);
 }
 
+// can it use exit_cti_disp_pc now?
+byte *
+direct_cti_disp_pc(byte *pc)
+{
+    byte byte0, byte1;
+    if (pc == NULL)
+        return NULL;
+
+    byte0 = *pc;
+    byte1 = *(pc + 1);
+
+    if (interesting[byte0] == 0) /* not a cti */
+        return NULL;
+
+    if (byte0 == 0xe8)  /* call */
+        return pc + 1;
+
+    if (byte0 == 0xe9)  /* jmp */
+        return pc + 1;
+
+    if ((byte0 == 0x0f) && ((byte1 & 0xf0) == 0x80))  /* jcc */
+        return pc + 2;
+
+    return NULL;
+}
+
 /* Returns a pointer to the pc of the next instruction
  * Returns NULL on decoding an invalid instruction.
  */

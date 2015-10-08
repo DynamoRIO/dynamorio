@@ -76,6 +76,9 @@
 
 #ifdef ANNOTATIONS
 # include "../annotations.h"
+# ifdef JITOPT
+#  include "../jitopt.h"
+# endif
 #endif
 
 enum { DIRECT_XFER_LENGTH = 5 };
@@ -227,6 +230,8 @@ typedef struct {
     instr_t *instr;             /* the current instr */
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
+    bool may_be_dgc_writer;
+    bool is_dgc_instrumented;
 #ifdef ARM
     dr_pred_type_t svc_pred;    /* predicate for conditional svc */
 #endif
@@ -256,6 +261,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
+    bb->may_be_dgc_writer = false;
 #ifdef ARM
     bb->svc_pred = DR_PRED_NONE;
 #endif
@@ -290,8 +296,17 @@ update_overlap_info(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc, bool jm
             bb->overlap_info->overlap = true;
         }
     }
-    if (bb->overlap_info->contiguous && jmp)
+    if (bb->overlap_info->contiguous && jmp) {
         bb->overlap_info->contiguous = false;
+#ifdef DEBUG
+        if (is_jit_managed_area(bb->overlap_info->min_pc) || is_jit_managed_area(bb->overlap_info->max_pc) ||
+            is_jit_managed_area(bb->last_page) || is_jit_managed_area(bb->overlap_info->region_end) ||
+            is_jit_managed_area(new_pc)) {
+            dr_printf("Non-contiguous app-managed bb: "PFX" and "PFX"\n",
+                bb->start_pc, new_pc);
+        }
+#endif
+    }
 }
 
 #ifdef DEBUG
@@ -693,7 +708,7 @@ check_new_page_start(dcontext_t *dcontext, build_bb_t *bb)
     DEBUG_DECLARE(ok =) check_thread_vm_area(dcontext, bb->start_pc, bb->start_pc,
                                              (bb->record_vmlist ? &bb->vmlist : NULL),
                                              &bb->flags, &bb->checked_end,
-                                             false/*!xfer*/);
+                                             &bb->may_be_dgc_writer, false/*!xfer*/);
     ASSERT(ok); /* cannot return false on non-xfer */
     bb->last_page = bb->start_pc;
     if (bb->overlap_info != NULL)
@@ -727,7 +742,7 @@ check_new_page_contig(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
                                    * false to forcibly merge in the vmarea
                                    * flags.
                                    */
-                                  !is_first_instr/*xfer*/)) {
+                                  &bb->may_be_dgc_writer, !is_first_instr/*xfer*/)) {
             return false;
         }
     }
@@ -790,7 +805,8 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
     /* need to check this even if an intra-page jmp b/c we allow sub-page vm regions */
     if (!check_thread_vm_area(dcontext, new_pc, bb->start_pc,
                               (bb->record_vmlist ? &bb->vmlist : NULL),
-                              &bb->flags, &bb->checked_end, true/*xfer*/))
+                              &bb->flags, &bb->checked_end, &bb->may_be_dgc_writer,
+                              true/*xfer*/))
         return false;
     if (bb->overlap_info != NULL)
         update_overlap_info(dcontext, bb, new_pc, true/*jmp*/);
@@ -3212,6 +3228,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     DEBUG_DECLARE(bool regenerated = false;)
     bool stop_bb_on_fallthrough = false;
+#ifdef JITOPT
+    instr_t *dgc_writer_instrumentation;
+#endif
 
     ASSERT(bb->initialized);
     /* note that it's ok for bb->start_pc to be NULL as our check_new_page_start
@@ -3308,12 +3327,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      * instructions, (i.e. check_for_stopping_point()) */
     bb->instr_start = bb->cur_pc;
 
+    //RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Interp "PFX"\n", bb->start_pc);
+
     /* create instrlist after check_new_page_start to avoid memory leak
      * on unreadable memory -- though we now properly clean up and won't leak
      * on unreadable on any check_thread_vm_area call
      */
     bb->ilist = instrlist_create(dcontext);
     bb->instr = NULL;
+    bb->is_dgc_instrumented = false;
 
     /* avoid discrepancy in finding invalid instructions between fast decode
      * and the full decode of sandboxing by doing full decode up front
@@ -3353,6 +3375,30 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
 
             bb->instr_start = bb->cur_pc;
+            ASSERT(bb->instr_start >= non_cti_start_pc);
+#ifdef JITOPT
+            if (bb->app_interp && apply_dgc_emulation_plan(dcontext, &bb->cur_pc,
+                                                           &dgc_writer_instrumentation)) {
+                bb->is_dgc_instrumented = true;
+                if (!bb->full_decode && bb->instr_start != non_cti_start_pc) {
+                    /* instr now holds the cti, so create an instr_t for the non-cti */
+                    non_cti = instr_create(dcontext);
+                    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(bb->instr_start - non_cti_start_pc)));
+                    instr_set_raw_bits(non_cti, non_cti_start_pc,
+                                       (uint)(bb->instr_start - non_cti_start_pc));
+                    if (bb->record_translation)
+                        instr_set_translation(non_cti, non_cti_start_pc);
+                    /* add non-cti instructions to instruction list */
+                    instrlist_append(bb->ilist, non_cti);
+                }
+
+                instrlist_append(bb->ilist, dgc_writer_instrumentation);
+                non_cti_start_pc = bb->cur_pc;
+                bb->instr_start = bb->cur_pc;
+                continue;
+            }
+#endif
+            ASSERT(bb->instr_start >= non_cti_start_pc);
             if (bb->full_decode) {
                 /* only going through this do loop once! */
                 bb->cur_pc = decode(dcontext, bb->cur_pc, bb->instr);
@@ -4441,6 +4487,11 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         LOG(THREAD, LOG_INTERP, 4, "bb ilist before mangling:\n");
         instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
     });
+    if (bb->is_dgc_instrumented) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Mangling fragment "PFX" with flags 0x%x%s\n", bb->start_pc,
+                    bb->flags, bb->for_trace ? " (for trace)" : "");
+    }
     mangle(dcontext, bb->ilist, &bb->flags, true, bb->record_translation);
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist after mangling:\n");
@@ -5079,10 +5130,31 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     if (image_entry)
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
+#ifdef JITOPT
+    // is_jit_managed_area--maybe keep a sorted list of app-managed regions?
+    if (visible && is_jit_managed_area(bb.start_pc)) {
+        bb.flags |= FRAG_APP_MANAGED;
+        ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
+        add_patchable_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
+    }
+#endif
+
     /* emit fragment into fcache */
     KSTART(bb_emit);
     f = emit_fragment_ex(dcontext, start, bb.ilist, bb.flags, bb.vmlist, link, visible);
     KSTOP(bb_emit);
+
+#ifdef JITOPT
+    if (bb.is_dgc_instrumented) {
+        extern bool verbose;
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: bb "PFX"-"PFX" is instrumented at cache pc "
+                    PFX"\n", bb.start_pc, bb.end_pc, f->start_pc);
+        if (verbose) {
+            disassemble_app_bb(dcontext, start, STDERR);
+            instrlist_disassemble(dcontext, bb.start_pc, bb.ilist, STDERR);
+        }
+    }
+#endif
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     f->num_calls = dcontext->num_calls;
