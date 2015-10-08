@@ -32,7 +32,7 @@
 # Test suite post-processing
 # See instructions in runsuite_common_pre.cmake
 
-cmake_minimum_required (VERSION 2.4)
+cmake_minimum_required (VERSION 2.6)
 if (COMMAND cmake_policy)
   # avoid warnings on include()
   cmake_policy(VERSION 2.8)
