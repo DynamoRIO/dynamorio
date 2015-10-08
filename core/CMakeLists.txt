@@ -913,8 +913,13 @@ if (BUILD_TESTS)
     # for parallel build correctness we need a target dependence
     add_dependencies(unit_tests ${arch_core_asm_tgt} ntdll_imports)
   endif ()
+  set(unit_tests_extra_flags "")
+  if (UNIX AND NOT DEBUG)
+    # -Wno-array-bounds to work around compiler bug (i#1796)
+    set(unit_tests_extra_flags "${unit_tests_extra_flags} -Wno-array-bounds")
+  endif ()
   set_target_properties(unit_tests PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
+    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
     # i#1228 make sure entry point of the elf binary pointing to _start.
