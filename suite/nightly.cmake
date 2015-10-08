@@ -42,8 +42,13 @@ cmake_minimum_required (VERSION 2.4)
 #    convention is {Linux,Windows}.OSVersion.Machine/Location.
 #    E.g., Windows.Vista64.CSAIL
 #    The site name should not contain spaces or quotes.
-# 4) Set up a cron job to run:
-#    cd $nightly/run; ctest -V -S ../nightly.cmake > ctest.log 2>&1
+# 4) Build a version of CTest that sets the Content-Type header to
+#    satisfy the security rules on our CDash server.
+#    You will need this patch, which is too new to be in a released CTest version:
+#      https://cmake.org/gitweb?p=cmake.git;a=commitdiff;h=1b700612
+#    For more information, see https://cmake.org/Bug/view.php?id=15774
+# 5) Set up a cron job to run:
+#    cd $nightly/run; /path/to/patched/ctest -V -S ../nightly.cmake > ctest.log 2>&1
 #
 # Each run will clobber the build directories from the last run to save disk
 # space, but the xml file results will be recorded on the CDash server.
@@ -52,4 +57,4 @@ cmake_minimum_required (VERSION 2.4)
 # We point at src/suite/runsuite.cmake, assuming this file will be executed
 # from two dirs below.
 # Site name should not have spaces or quotes.
-ctest_run_script(${CTEST_SCRIPT_DIRECTORY}/src/suite/runsuite.cmake,nightly\;long\;site=Linux.Fedora10.Glaurung)
+ctest_run_script(${CTEST_SCRIPT_DIRECTORY}/src/suite/runsuite.cmake,nightly\;long\;site=Linux.Fedora22.Ancalagon)
