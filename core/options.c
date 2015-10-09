@@ -1956,7 +1956,9 @@ check_option_compatibility_helper(int recurse_count)
     changed_options = heap_check_option_compatibility() || changed_options;
 
     changed_options = os_check_option_compatibility() || changed_options;
+# if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     disassemble_options_init();
+# endif
 #endif
 
     if (changed_options) {

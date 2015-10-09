@@ -1913,14 +1913,10 @@ os_thread_init(dcontext_t *dcontext)
     ksynch_init_var(&ostd->terminated);
 
 #ifdef RETURN_AFTER_CALL
-    if (!dynamo_initialized) {
-        /* Find the bottom of the stack of the initial (native) entry */
-        ostd->stack_bottom_pc = find_stack_bottom();
-        LOG(THREAD, LOG_ALL, 1, "Stack bottom pc = "PFX"\n", ostd->stack_bottom_pc);
-    } else {
-        /* We only need the stack bottom for the initial thread */
-        ostd->stack_bottom_pc = NULL;
-    }
+    /* We only need the stack bottom for the initial thread, and due to thread
+     * init now preceding vm_areas_init(), we initialize in find_executable_vm_areas()
+     */
+    ostd->stack_bottom_pc = NULL;
 #endif
 
     ASSIGN_INIT_LOCK_FREE(ostd->suspend_lock, suspend_lock);
@@ -8064,6 +8060,10 @@ find_executable_vm_areas(void)
     app_pc shared_start, shared_end;
     bool have_shared = module_dyld_shared_region(&shared_start, &shared_end);
 #endif
+#ifdef RETURN_AFTER_CALL
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+#endif
 
 #ifndef HAVE_MEMINFO_QUERY
     /* We avoid tracking the innards of vmheap for all_memory_areas by
@@ -8278,6 +8278,12 @@ find_executable_vm_areas(void)
     DOLOG(4, LOG_VMAREAS, memcache_print(GLOBAL,"init: all memory areas:\n"););
 #endif
 
+#ifdef RETURN_AFTER_CALL
+    /* Find the bottom of the stack of the initial (native) entry */
+    ostd->stack_bottom_pc = find_stack_bottom();
+    LOG(THREAD, LOG_ALL, 1, "Stack bottom pc = "PFX"\n", ostd->stack_bottom_pc);
+#endif
+
     /* now that we've walked memory print all modules */
     LOG(GLOBAL, LOG_VMAREAS, 2, "Module list after memory walk\n");
     DOLOG(1, LOG_VMAREAS, { print_modules(GLOBAL, DUMP_NOT_XML); });
@@ -8399,14 +8405,13 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size,
                 uint *prot /* OUT optional, returns MEMPROT_* value */)
 {
     dr_mem_info_t info;
-#ifdef CLIENT_INTERFACE
     if (is_vmm_reserved_address((byte*)pc, 1)) {
         if (!query_memory_ex_from_os(pc, &info) || info.type == DR_MEMTYPE_FREE)
             return false;
-    } else
-#endif
+    } else {
         if (!query_memory_ex(pc, &info) || info.type == DR_MEMTYPE_FREE)
             return false;
+    }
     if (base_pc != NULL)
         *base_pc = info.base_pc;
     if (size != NULL)
