@@ -1170,13 +1170,6 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
              */
             ASSERT(dynamo_exited || !TEST(FRAG_SHARED, f->flags) || dynamo_resetting);
 
-# if defined(SIDELINE) && defined(PROFILE_LINKCOUNT)
-            if ((f->flags & FRAG_DO_NOT_SIDELINE) != 0) {
-                /* print out total count of exit counters */
-                LOG(THREAD, LOG_SIDELINE, 2, "\tSidelined trace F%d total times executed: "
-                    LINKCOUNT_FORMAT_STRING "\n", f->id, get_total_linkcount(f));
-            }
-# endif
             if (TEST(FRAG_IS_FUTURE, f->flags)) {
                 DODEBUG({ ((future_fragment_t *)f)->incoming_stubs = NULL; });
                 fragment_free_future(dcontext, (future_fragment_t *)f);
@@ -2052,11 +2045,6 @@ fragment_thread_init(dcontext_t *dcontext)
     pt->finished_all_unlink = create_event();
     pt->soon_to_be_linking = false;
     pt->at_syscall_at_flush = false;
-
-#ifdef PROFILE_LINKCOUNT
-    pt->tracedump_num_below_threshold = 0;
-    pt->tracedump_count_below_threshold = (linkcount_type_t) 0;
-#endif
 }
 
 static bool
@@ -2330,10 +2318,6 @@ fragment_init_heap(fragment_t *f, app_pc tag, int direct_exits, int indirect_exi
 #ifdef PROFILE_RDTSC
         t->count = 0UL;
         t->total_time = (uint64) 0;
-#endif
-#ifdef SIDELINE_COUNT_STUDY
-        t->count_old_pre = (linkcount_type_t) 0;
-        t->count_old_post = (linkcount_type_t) 0;
 #endif
     }
 }
@@ -2636,20 +2620,6 @@ fragment_body_end_pc(dcontext_t *dcontext, fragment_t *f)
     return fragment_stubs_end_pc(f);
 }
 
-#ifdef PROFILE_LINKCOUNT
-linkcount_type_t
-get_total_linkcount(fragment_t *f)
-{
-    /* return total count of exit counters */
-    linkstub_t *l;
-    linkcount_type_t total = (linkcount_type_t) 0;
-    for (l = FRAGMENT_EXIT_STUBS(f); l != NULL; l = LINKSTUB_NEXT_EXIT(l)) {
-        total += l->count;
-    }
-    return total;
-}
-#endif
-
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
 /* synchronization routines needed for sideline threads so they don't get
  * fragments they are referencing deleted */
@@ -2926,8 +2896,7 @@ fragment_pclookup(dcontext_t *dcontext, cache_pc pc, fragment_t *wrapper)
      * the linkstub_t* from there.
      * Or we can decode until we hit a jmp and if it's to a linked fragment_t,
      * search its incoming list.
-     * Stub decoding is complicated by CLIENT_INTERFACE custom stubs and by
-     * PROFILE_LINKCOUNT stub variations.
+     * Stub decoding is complicated by CLIENT_INTERFACE custom stubs.
      */
     return fcache_fragment_pclookup(dcontext, pc, wrapper);
 }
@@ -4018,11 +3987,6 @@ fragment_copy_data_fields(dcontext_t *dcontext, fragment_t *f_src, fragment_t *f
 #ifdef PROFILE_RDTSC
         t_dst->count = t_src->count;
         t_dst->total_time = t_src->total_time;
-#endif
-
-#if defined (PROFILE_LINKCOUNT) && defined(SIDELINE_COUNT_STUDY)
-        t_dst->count_old_pre = t_src->count_old_pre;
-        t_dst->count_old_post = t_src->count_old_post;
 #endif
     }
 }
@@ -6967,18 +6931,11 @@ void
 init_trace_file(per_thread_t *pt)
 {
     if (INTERNAL_OPTION(tracedump_binary)) {
-        /* first 4 bytes in binary file gives size of linkcounts
-         * 0 if no linkcounts
+        /* First 4 bytes in binary file gives size of linkcounts, which are
+         * no longer supported: we always set to 0 to indicate no linkcounts.
          */
         tracedump_file_header_t hdr =
             {CURRENT_API_VERSION, IF_X64_ELSE(true, false), 0 };
-#ifdef PROFILE_LINKCOUNT
-        if (dynamo_options.profile_counts) {
-            hdr.linkcount_size = sizeof(linkcount_type_t);
-            ASSERT_NOT_IMPLEMENTED(false == DYNAMO_OPTION(inline_trace_ibl));
-            /* Cannot use PROFILE_LINKCOUNT with inline_trace_ibl */
-        }
-#endif
         os_write(pt->tracefile, &hdr, sizeof(hdr));
     }
 }
@@ -6986,21 +6943,6 @@ init_trace_file(per_thread_t *pt)
 void
 exit_trace_file(per_thread_t *pt)
 {
-#ifdef PROFILE_LINKCOUNT
-    if (dynamo_options.tracedump_threshold > 0) {
-        if (INTERNAL_OPTION(tracedump_binary)) {
-            os_write(pt->tracefile, &pt->tracedump_num_below_threshold,
-                     sizeof(pt->tracedump_num_below_threshold));
-            os_write(pt->tracefile, &pt->tracedump_count_below_threshold,
-                     sizeof(pt->tracedump_count_below_threshold));
-        } else {
-            print_file(pt->tracefile, "\nTraces below dump threshold of %d: %d\n",
-                       dynamo_options.tracedump_threshold, pt->tracedump_num_below_threshold);
-            print_file(pt->tracefile, "Total count below dump threshold: "
-                       LINKCOUNT_FORMAT_STRING"\n", pt->tracedump_count_below_threshold);
-        }
-    }
-#endif
     close_log_file(pt->tracefile);
 }
 
@@ -7103,12 +7045,6 @@ output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         memcpy(p, &stub, STUB_DATA_FIXED_SIZE);
         p += STUB_DATA_FIXED_SIZE;
 
-#ifdef PROFILE_LINKCOUNT
-        if (dynamo_options.profile_counts) {
-            *((linkcount_type_t *)p) = l->count;
-            p += sizeof(linkcount_type_t);
-        }
-#endif
         if (TEST(LINK_SEPARATE_STUB, l->flags) && stub_pc != NULL) {
             TRACEBUF_MAKE_ROOM(p, buf, DIRECT_EXIT_STUB_SIZE(f->flags));
             ASSERT(stub_pc < f->start_pc || stub_pc >= f->start_pc+f->size);
@@ -7160,17 +7096,6 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     ASSERT(!TEST(FRAG_SHARED, f->flags) ||
            self_owns_recursive_lock(&change_linking_lock));
     f->flags |= FRAG_TRACE_OUTPUT;
-
-#ifdef PROFILE_LINKCOUNT
-    if (dynamo_options.tracedump_threshold > 0) {
-        linkcount_type_t count = get_total_linkcount(f);
-        if (count < (linkcount_type_t) dynamo_options.tracedump_threshold) {
-            pt->tracedump_num_below_threshold++;
-            pt->tracedump_count_below_threshold += count;
-            return;
-        }
-    }
-#endif
 
     LOG(THREAD, LOG_FRAGMENT, 4, "output_trace: F%d("PFX")\n", f->id, f->tag);
     /* Recreate in same mode as original fragment */
@@ -7313,50 +7238,6 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
 #else
     print_file(pt->tracefile, "Size = %d\n", f->size);
 #endif /* PROFILE_RDTSC */
-
-#ifdef PROFILE_LINKCOUNT
-    if (dynamo_options.profile_counts) {
-        int num_exits = 0;
-        linkstub_t *ls;
-        print_file(pt->tracefile, "Exit stubs:\n");
-        for (ls = FRAGMENT_EXIT_STUBS(f); ls; ls = LINKSTUB_NEXT_EXIT(ls)) {
-            int id = -1;
-            app_pc target;
-            if ((ls->flags & LINK_INDIRECT) != 0) {
-                target = 0;
-                id = -1;
-            } else {
-# ifdef DEBUG
-                fragment_t *targetf = fragment_lookup(dcontext,
-                                                    EXIT_TARGET_TAG(dcontext, f, ls));
-                id = (targetf != NULL) ? targetf->id : -1;
-# else
-                id = -1;
-# endif
-                target = EXIT_TARGET_TAG(dcontext, f, ls);
-            }
-            print_file(pt->tracefile,
-                       "\t#%d: target = "PFX" (F#%d), count = "
-                       LINKCOUNT_FORMAT_STRING "%s\n",
-                       num_exits, target, id, ls->count,
-                       ((ls->flags & LINK_LINKED) != 0) ? ", linked" : "");
-            num_exits++;
-        }
-# ifdef SIDELINE_COUNT_STUDY
-        if (dynamo_options.sideline && t->count_old_pre > (linkcount_type_t)0) {
-            print_file(pt->tracefile, "Sideline: pre-opt count = "
-                       LINKCOUNT_FORMAT_STRING "\n",
-                       t->count_old_pre);
-            print_file(pt->tracefile, "\tpost-opt count = "
-                       LINKCOUNT_FORMAT_STRING "\n",
-                       t->count_old_post);
-            print_file(pt->tracefile, "\tnew trace count = "
-                       LINKCOUNT_FORMAT_STRING "\n",
-                       get_total_linkcount(f));
-        }
-# endif
-    }
-#endif /* PROFILE_LINKCOUNT */
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     print_file(pt->tracefile, "Body:\n");

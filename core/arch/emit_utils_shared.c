@@ -80,11 +80,6 @@
 #  define LINKSTUB_TARGET_FRAG_OFFS  (offsetof(direct_linkstub_t, target_fragment))
 #endif
 
-#ifdef PROFILE_LINKCOUNT
-#  define LINKSTUB_COUNT_OFFS        (offsetof(linkstub_t, count))
-#endif
-
-
 /* N.B.: I decided to not keep supporting DCONTEXT_IN_EDI
  * If we really want it later we can add it, it's a pain to keep
  * maintaining it with every change here
@@ -114,11 +109,8 @@
  ***************************************************************************
  ** EXIT STUB
  **
- ** WARNING: all exit stubs must support atomic linking and unlinking,
+ ** N.B.: all exit stubs must support atomic linking and unlinking,
  ** meaning a link/unlink operation must involve a single store!
- ** There is an exception: a first-time link (detected using a sentinel
- ** LINKCOUNT_NEVER_LINKED_SENTINEL placed where the unlinked entry
- ** code will go once linked) does not need to be atomic.
  **/
 
 /* The general flow of a direct exit stub is:
@@ -156,27 +148,6 @@
 
 /* STUB_COARSE_DIRECT_SIZE is in arch_exports.h */
 #define STUB_COARSE_INDIRECT_SIZE(flags) (STUB_INDIRECT_SIZE(flags))
-
-#ifndef LINKCOUNT_64_BITS
-#  define LINKCOUNT_INCSIZE (6)
-#else
-#  define LINKCOUNT_INCSIZE (7+7)
-#endif
-#define LINKCOUNT_EFLAGS_SAVE (3+1)
-#define LINKCOUNT_EFLAGS_RESTORE (2+1)
-#define LINKCOUNT_FLAGSIZE (LINKCOUNT_EFLAGS_SAVE + LINKCOUNT_EFLAGS_RESTORE)
-
-#define LINKCOUNT_DIRECT_EXTRA(flags) \
-    (LINKCOUNT_INCSIZE + LINKCOUNT_FLAGSIZE + STUB_DIRECT_SIZE(flags))
-#define LINKCOUNT_UNLINKED_ENTRY(flags) \
-    (LINKCOUNT_INCSIZE + LINKCOUNT_FLAGSIZE + STUB_DIRECT_SIZE(flags))
-
-/* used to distinguish a never-linked direct exit -- once linked this
- * will be replaced by the beginning of the unlink entry point, which is
- * a save of xax, which will never look like this.  we choose nops to
- * avoid complicating our disassembly routines.
- */
-#define LINKCOUNT_NEVER_LINKED_SENTINEL 0x90909090
 
 /* Return size in bytes required for an exit stub with specified
  * target and FRAG_ flags
@@ -241,15 +212,8 @@ exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
         /* direct branch */
         if (TEST(FRAG_COARSE_GRAIN, flags))
             return (STUB_COARSE_DIRECT_SIZE(flags));
-#ifdef PROFILE_LINKCOUNT
-        if (dynamo_options.profile_counts && (flags & FRAG_IS_TRACE) != 0)
-            return (STUB_DIRECT_SIZE(flags) + LINKCOUNT_DIRECT_EXTRA(flags));
-        else {
-#endif
+        else
             return (STUB_DIRECT_SIZE(flags));
-#ifdef PROFILE_LINKCOUNT
-        }
-#endif
     }
 }
 
@@ -274,7 +238,7 @@ is_patchable_exit_stub_helper(dcontext_t *dcontext, cache_pc ltarget,
     } else {
         /* direct */
         ASSERT(LINKSTUB_DIRECT(lflags));
-#if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR)
+#ifdef TRACE_HEAD_CACHE_INCR
         return true;
 #else
         return false;
@@ -320,12 +284,6 @@ bytes_for_exitstub_alignment(dcontext_t *dcontext, linkstub_t *l,
              exit_stub_size(dcontext, EXIT_TARGET_TAG(dcontext, f, l), f->flags) -
              EXIT_STUB_PATCH_OFFSET,
              EXIT_STUB_PATCH_SIZE, PAD_JMPS_ALIGNMENT);
-#ifdef PROFILE_LINKCOUNT
-        /* assumption doesn't hold because of the optimize ... */
-        /* FIXME : once this is implemented re-enable the ifdefed out stats
-         * in emit_fragment_common */
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif
         IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(shift)));
         return (uint) shift;
     }
@@ -434,110 +392,6 @@ insert_exit_stub(dcontext_t *dcontext, fragment_t *f,
     return insert_exit_stub_other_flags(dcontext, f, l, stub_pc, l->flags);
 }
 
-#ifdef PROFILE_LINKCOUNT
-static byte *
-change_linkcount_target(byte *pc, app_pc target)
-{
-    /* Once we've linked once, we modify the jmp at the end of the
-     * link code in the stub to either jmp to the unlinked entry
-     * (which has no counter inc code of its own, that's why the exit
-     * jmp doesn't go straight there) or to the target.
-     * To find the jmp, watch first opcode to determine which state
-     * stub is in (depending on whether had to save eflags or not).
-     */
-    if (*pc == 0xff || *pc == 0x83) { /* inc/add is 1st instr */
-        pc += LINKCOUNT_INCSIZE + 1;
-    } else {
-        IF_X64(ASSERT_NOT_IMPLEMENTED(false)); /* need to pass in flags */
-        pc += LINKCOUNT_INCSIZE + LINKCOUNT_FLAGSIZE + STUB_DIRECT_SIZE(FRAG_32_BIT) - 4;
-    }
-    pc = insert_relative_target(pc, target, HOT_PATCHABLE);
-    return pc;
-}
-
-static void
-optimize_linkcount_stub(dcontext_t *dcontext, fragment_t *f,
-                        linkstub_t *l, fragment_t *targetf)
-{
-    /* first-time link: try to remove eflags save/restore */
-# ifdef CUSTOM_EXIT_STUBS
-    byte *stub_pc = (byte *) EXIT_FIXED_STUB_PC(dcontext, f, l);
-# else
-    byte *stub_pc = (byte *) EXIT_STUB_PC(dcontext, f, l);
-# endif
-    byte *pc = stub_pc;
-    bool remove_eflags_save = false;
-    ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
-    ASSERT(LINKSTUB_DIRECT(l->flags));
-
-    if (!INTERNAL_OPTION(unsafe_ignore_eflags_prefix)) {
-        remove_eflags_save = TEST(FRAG_WRITES_EFLAGS_6, targetf->flags);
-    }
-    else {
-        /* scan through code at target fragment, stop scanning at 1st branch */
-        uint eflags = 0;
-        cache_pc end_pc = EXIT_CTI_PC(f, FRAGMENT_EXIT_STUBS(targetf));
-        byte *fpc = (byte *) FCACHE_ENTRY_PC(targetf);
-        /* for simplicity, stop at first instr that touches the flags */
-        while (eflags == 0 && fpc != NULL && ((cache_pc)fpc) < end_pc) {
-            fpc = decode_eflags_usage(dcontext, fpc, &eflags);
-        }
-        remove_eflags_save =
-            (eflags & (EFLAGS_WRITE_6|EFLAGS_READ_6)) == EFLAGS_WRITE_6;
-    }
-    if (remove_eflags_save) {
-        /* the 6 flags modified by add and adc are written before
-         * they're read -> don't need to save eflags!
-         *
-         * I tried replacing lahf & sahf w/ nops, it's noticeably
-         * faster to not have the nops, so redo the increment:
-         */
-        pc = insert_linkcount_inc(pc, l);
-        pc = insert_relative_jump(pc, FCACHE_ENTRY_PC(targetf),
-                                  NOT_HOT_PATCHABLE);
-        /* Fill out with nops till the unlinked entry point so disassembles
-         * nicely for logfile (we're profile linkcount so presumably going
-         * to dump this). */
-        while (pc < (stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags))) {
-            *pc = 0x90; pc++;  /* nop */
-        }
-    } else {
-        /* keep eflags save & restore -- need to keep save of eax
-         * so skip all that now, go to right before store of &l into eax
-         */
-        pc += LINKCOUNT_DIRECT_EXTRA(f->flags) - 5 - 5;
-        /* need to insert a restore of eax -- luckily it perfectly
-         * overwrites the store of &l into eax, FIXME - dangerous
-         * though, if we ever drop the addr16 flag on a shared restore the
-         * instruction will be 6 bytes and our hardcoded 5 above will
-         * lead to a crash (should trigger assert below at least).
-         */
-        pc = insert_restore_xax(dcontext, pc, f->flags, FRAG_DB_SHARED(f->flags),
-                                DIRECT_STUB_SPILL_SLOT, true);
-        ASSERT(pc == stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags) - 5);
-        /* now add jmp */
-        pc = insert_relative_jump(pc, FCACHE_ENTRY_PC(targetf),
-                                  NOT_HOT_PATCHABLE);
-    }
-
-    /* we need to replace our never-linked sentinel w/ the real
-     * unlinked entry point.
-     */
-    ASSERT(pc == stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags));
-    pc = stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags);
-    ASSERT(*((uint *)pc) == LINKCOUNT_NEVER_LINKED_SENTINEL);
-    pc = insert_save_xax(dcontext, pc, f->flags, FRAG_DB_SHARED(f->flags),
-                         DIRECT_STUB_SPILL_SLOT, true);
-    /* mov $linkstub_ptr,%xax */
-    *pc = MOV_IMM2XAX_OPCODE; pc++;
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    *((uint *)pc) = (uint)l; pc += 4;
-    /* jmp to target */
-    pc = insert_relative_jump(pc, get_direct_exit_target(dcontext, f->flags),
-                              NOT_HOT_PATCHABLE);
-}
-#endif /* PROFILE_LINKCOUNT */
-
 /* Returns true if the exit cti is ever dynamically modified */
 bool
 is_exit_cti_patchable(dcontext_t *dcontext, instr_t *inst, uint frag_flags)
@@ -571,15 +425,6 @@ is_exit_cti_patchable(dcontext_t *dcontext, instr_t *inst, uint frag_flags)
 #endif
     } else {
         /* direct exit */
-#ifdef PROFILE_LINKCOUNT
-        if (DYNAMO_OPTION(profile_counts) && TEST(FRAG_IS_TRACE, frag_flags)) {
-# ifdef CUSTOM_EXIT_STUBS
-            return true;
-# else
-            return false;
-# endif
-        }
-#endif
         if (instr_branch_special_exit(inst))
             return false;
         return true;
@@ -594,7 +439,7 @@ bool
 link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targetf,
                  bool hot_patch)
 {
-#if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR)
+#ifdef TRACE_HEAD_CACHE_INCR
 # ifdef CUSTOM_EXIT_STUBS
     byte *stub_pc = (byte *) (EXIT_FIXED_STUB_PC(dcontext, f, l));
 # else
@@ -604,59 +449,6 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_DIRECT(l->flags));
     STATS_INC(num_direct_links);
-
-#ifdef PROFILE_LINKCOUNT
-    if (dynamo_options.profile_counts && TEST(FRAG_IS_TRACE, f->flags)) {
-        /* do not change the exit jmp, instead change the stub itself */
-        if (*((uint *)(stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags))) ==
-            LINKCOUNT_NEVER_LINKED_SENTINEL) {
-            /* this is not atomic, but that's ok, it's first-time only */
-            /* FIXME - this assumption is so not safe with shared cache
-             * since we add to table and link incoming before linking outgoing
-             */
-            optimize_linkcount_stub(dcontext, f, l, targetf);
-# ifdef CUSTOM_EXIT_STUBS
-            /* FIXME: want flag that says whether should go through custom
-             * only when unlinked, or always!
-             * For now we assume only when unlinked:
-             */
-            /* skip custom code */
-            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc,
-                         TEST(FRAG_SHARED, f->flags) ? hot_patch : NOT_HOT_PATCHABLE);
-# endif
-        } else {
-# ifdef CUSTOM_EXIT_STUBS
-            /* FIXME: want flag that says whether should go through custom
-             * only when unlinked, or always!
-             * For now we assume only when unlinked:
-             */
-            /* skip custom code */
-            patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, hot_patch);
-# endif
-            change_linkcount_target(stub_pc, FCACHE_ENTRY_PC(targetf));
-        }
-# ifdef TRACE_HEAD_CACHE_INCR
-        /* yes, we wait for linkcount to do its thing and then we change it --
-         * but to make it more efficient will make this already ungainly
-         * code even harder to read
-         */
-        /* FIXME - atomicity issues? */
-        if ((targetf->flags & FRAG_IS_TRACE_HEAD) != 0) {
-            /* after optimized inc, jmp to unlinked code, but change its final
-             * jmp to go to incr routine
-             */
-            change_linkcount_target(stub_pc, stub_pc + LINKCOUNT_UNLINKED_ENTRY(f->flags));
-            LOG(THREAD, LOG_LINKS, 4,
-                "\tlinking F%d."PFX" to incr routine b/c F%d is trace head\n",
-                f->id, EXIT_CTI_PC(f, l), targetf->id);
-            patch_branch(FRAG_ISA_MODE(f->flags),
-                         stub_pc + LINKCOUNT_UNLINKED_ENTRY(f->flags) + 10,
-                         trace_head_incr_routine(dcontext), hot_patch);
-        }
-# endif
-        return false; /* going through stub */
-    }
-#endif /* PROFILE_LINKCOUNT */
 
 #ifdef TRACE_HEAD_CACHE_INCR
     if ((targetf->flags & FRAG_IS_TRACE_HEAD) != 0) {
@@ -711,43 +503,6 @@ unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 #endif
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_DIRECT(l->flags));
-
-#ifdef PROFILE_LINKCOUNT
-    if (dynamo_options.profile_counts && TEST(FRAG_IS_TRACE, f->flags)) {
-        byte *pc;
-        if (*((uint *)(stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags))) ==
-            LINKCOUNT_NEVER_LINKED_SENTINEL) {
-            /* never been linked, don't go pointing at the uninitialized
-             * unlink entry point -- just return, initial state is fine
-             */
-            return;
-        }
-# ifdef CUSTOM_EXIT_STUBS
-        pc = (byte *) (EXIT_FIXED_STUB_PC(dcontext, f, l));
-        stub_pc = (cache_pc) pc;
-        /* FIXME: want flag that says whether should go through custom
-         * only when unlinked, or always! Also is racy with 2nd branch patch.
-         * For now we assume only when unlinked.
-         */
-        /* go through custom code again */
-        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, HOT_PATCHABLE);
-# else
-        pc = (byte *) stub_pc;
-# endif
-# ifdef TRACE_HEAD_CACHE_INCR
-        if (dl->target_fragment != NULL) { /* HACK to tell if targeted trace head */
-            /* make unlinked jmp go back to fcache_return */
-            patch_branch(FRAG_ISA_MODE(f->flags),
-                         pc + LINKCOUNT_UNLINKED_ENTRY(f->flags) + 10,
-                         get_direct_exit_target(dcontext, f->flags),
-                         HOT_PATCHABLE);
-        } else
-# endif
-            /* make jmp after incr go to unlinked entry */
-            change_linkcount_target(pc, stub_pc + LINKCOUNT_UNLINKED_ENTRY(f->flags));
-        return;
-    }
-#endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
     if (dl->target_fragment != NULL) { /* HACK to tell if targeted trace head */
@@ -3286,84 +3041,6 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
     if (fragment_found != NULL)
         *fragment_found = inst;
 }
-
-#ifdef PROFILE_LINKCOUNT
-/* assumes linkstub in ebx, can handle NULL linkstub pointer
- * if clobber_eflags is true, assumes can kill eflags
- * else, ASSUMES CAN KILL ECX
- * both require a non null next instruction
- */
-void
-append_linkcount_incr(dcontext_t *dcontext, instrlist_t *ilist, bool clobber_eflags,
-                      instr_t *next)
-{
-    /* PR 248210: unsupported feature on x64 */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    ASSERT(next != NULL);
-    if (clobber_eflags) {
-        /*>>>    testl   ebx,ebx */
-        /*>>>    je      next:  */
-        /* P4 opt guide says to use test to cmp reg with 0: shorter instr */
-        APP(ilist, INSTR_CREATE_test(dcontext, opnd_create_reg(REG_EBX),
-                                     opnd_create_reg(REG_EBX)));
-        APP(ilist, INSTR_CREATE_jcc_short(dcontext, OP_je,
-                                          opnd_create_instr(next)));
-# ifdef LINKCOUNT_64_BITS
-        /*>>>    addl    $1,count_offs(ebx == &linkstub)                 */
-        /*>>>    adcl    $0,count_offs+4(ebx == &linkstub)               */
-        APP(ilist, INSTR_CREATE_add(dcontext,
-                                    OPND_CREATE_MEM32(REG_EBX, LINKSTUB_COUNT_OFFS),
-                                    OPND_CREATE_INT8(1)));
-        APP(ilist, INSTR_CREATE_adc(dcontext,
-                                    OPND_CREATE_MEM32(REG_EBX, LINKSTUB_COUNT_OFFS+4),
-                                    OPND_CREATE_INT8(0)));
-# else
-        /*>>>    incl    count_offs(ebx == &linkstub)                    */
-        APP(ilist, INSTR_CREATE_inc(dcontext,
-                                    OPND_CREATE_MEM32(REG_EBX, LINKSTUB_COUNT_OFFS)));
-# endif
-    } else {
-# ifdef LINKCOUNT_64_BITS
-        instr_t *carry;
-# endif
-        /*>>>    movl    %ebx, %ecx */
-        /*>>>    jecxz   next:      */
-        APP(ilist, XINST_CREATE_load(dcontext, opnd_create_reg(REG_ECX),
-                                     opnd_create_reg(REG_EBX)));
-        APP(ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(next)));
-        /*>>>    movl    count_offs(%ebx == &linkstub), %ecx              */
-        /*>>>    lea     1(%ecx), %ecx                                    */
-        /*>>>    movl    %ecx, count_offs(%ebx == &linkstub), %ecx        */
-        APP(ilist, XINST_CREATE_load(dcontext, opnd_create_reg(REG_ECX),
-                                     OPND_CREATE_MEM32(REG_EBX, LINKSTUB_COUNT_OFFS)));
-        APP(ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_ECX),
-                            opnd_create_base_disp(REG_ECX, REG_NULL, 0, 1, OPSZ_lea)));
-        APP(ilist, XINST_CREATE_store(dcontext,
-                                      OPND_CREATE_MEM32(REG_EBX, LINKSTUB_COUNT_OFFS),
-                                      opnd_create_reg(REG_ECX)));
-# ifdef LINKCOUNT_64_BITS
-        /*>>>    jecxz   carry                                            */
-        /*>>>    jmp     nocarry                                          */
-        /*>>>  carry:                                                     */
-        /*>>>    movl    count_offs+4(%ebx == &linkstub), %ecx            */
-        /*>>>    lea     1(%ecx), %ecx                                    */
-        /*>>>    movl    %ecx, count_offs+4(%ebx == &linkstub), %ecx      */
-        /*>>>  nocarry:                                                   */
-        carry = XINST_CREATE_load(dcontext, opnd_create_reg(REG_ECX),
-                                  OPND_CREATE_MEM32(REG_EBX, LINKSTUB_COUNT_OFFS));
-        APP(ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(carry)));
-        APP(ilist, XINST_CREATE_jump(dcontext, opnd_create_instr(next)));
-        APP(ilist, carry);
-        APP(ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_ECX),
-                            opnd_create_base_disp(REG_ECX, REG_NULL, 0, 1, OPSZ_lea)));
-        APP(ilist, XINST_CREATE_store(dcontext,
-                                      OPND_CREATE_MEM32(REG_EBX, LINKSTUB_COUNT_OFFS),
-                                      opnd_create_reg(REG_ECX)));
-# endif
-    }
-}
-#endif
-
 
 static inline void
 update_ibl_routine(dcontext_t *dcontext, ibl_code_t *ibl_code)

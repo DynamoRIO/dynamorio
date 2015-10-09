@@ -169,19 +169,6 @@ static const fragment_t linkstub_shared_syscall_trace_fragment =
     { NULL, FRAG_FAKE | FRAG_HAS_SYSCALL | FRAG_IS_TRACE, };
 static const fragment_t linkstub_shared_syscall_bb_fragment =
     { NULL, FRAG_FAKE | FRAG_HAS_SYSCALL, };
-# ifdef PROFILE_LINKCOUNT
-/* For PROFILE_LINKCOUNT we need to be able to write to these from the cache
- * to update their linkcounts, so we can't have them const or in .data.
- * Since this is not a product config we don't care if we don't protect their
- * flags (if we did we could put these on the heap).
- */
-DECLARE_NEVERPROT_VAR(static linkstub_t linkstub_shared_syscall_trace,
-    { LINK_FAKE| LINK_INDIRECT | LINK_JMP, 0 });
-DECLARE_NEVERPROT_VAR(static linkstub_t linkstub_shared_syscall_bb,
-    { LINK_FAKE| LINK_INDIRECT | LINK_JMP, 0 });
-DECLARE_NEVERPROT_VAR(static linkstub_t linkstub_shared_syscall_unlinked,
-    { LINK_FAKE, 0 });
-# else
 static const linkstub_t linkstub_shared_syscall_trace =
     { LINK_FAKE| LINK_INDIRECT | LINK_JMP, 0 };
 static const linkstub_t linkstub_shared_syscall_bb =
@@ -189,7 +176,6 @@ static const linkstub_t linkstub_shared_syscall_bb =
 /* NOT marked as LINK_INDIRECT|LINK_JMP since we don't bother updating the ibl table
  * on the unlink path */
 static const linkstub_t linkstub_shared_syscall_unlinked = { LINK_FAKE, 0 };
-# endif
 #endif
 
 /* A unique fragment_t for use when the details don't matter */
@@ -221,29 +207,6 @@ static const fragment_t linkstub_ibl_trace_fragment =
 static const fragment_t linkstub_ibl_bb_fragment =
     { NULL, FRAG_FAKE, };
 
-# ifdef PROFILE_LINKCOUNT
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_trace_ret,
-    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 });
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_trace_jmp,
-    { LINK_FAKE | LINK_INDIRECT | LINK_JMP, 0 });
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_trace_call,
-    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 });
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_ret,
-    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 });
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_jmp,
-    { LINK_FAKE | LINK_INDIRECT | LINK_JMP, 0 });
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_call,
-    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 });
-/* we only need special_*_ret and *_call for client_ibl and native_plt/ret_ibl */
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_bb_ret,
-    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 } /* client_ibl */);
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_bb_call,
-    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 } /* native_plt_ibl */);
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_trace_ret,
-    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 } /* client_ibl */);
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_trace_call,
-    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 }  /* native_plt_ibl */);
-# else /* !PROFILE_LINKCOUNT */
 static const linkstub_t linkstub_ibl_trace_ret =
     { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 };
 static const linkstub_t linkstub_ibl_trace_jmp =
@@ -264,7 +227,6 @@ static const linkstub_t linkstub_special_ibl_trace_ret =
     { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 }; /* client_ibl */
 static const linkstub_t linkstub_special_ibl_trace_call =
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 }; /* native_plt_ibl */
-# endif
 
 #if defined(X64) || defined(DEBUG)
 static inline bool
@@ -1255,8 +1217,7 @@ unlink_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             keep = false;
         } else {
             ASSERT(!LINKSTUB_FAKE(l));
-            /* stub may already exist for TRACE_HEAD_CACHE_INCR,
-             * linkcount profiling, etc. */
+            /* stub may already exist for TRACE_HEAD_CACHE_INCR */
             if (EXIT_STUB_PC(dcontext, f, l) == NULL &&
                 TEST(LINK_SEPARATE_STUB, l->flags))
                 separate_stub_create(dcontext, f, l);

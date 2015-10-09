@@ -235,17 +235,6 @@
     /* whether to mark gray-area instrs as invalid when we know the length (i#1118) */
     OPTION(bool, decode_strict, "mark all known-invalid instructions as invalid")
     OPTION(uint, disasm_mask, "disassembly style as a dr_disasm_flags_t bitmask")
-#ifdef EXPOSE_INTERNAL_OPTIONS
-# ifdef PROFILE_LINKCOUNT
-    OPTION(uint, tracedump_threshold, "profile_counts threshold for dumping a trace")
-
-      /* threshold is limited to 32-bit integer even if linkcounts
-       * are 64 bits -- should be fine, few counts reach that high,
-       * purpose of threshold is to weed out the multitudes of
-       * wimpy traces to reduce the size of the trace file
-       */
-# endif
-#endif /* EXPOSE_INTERNAL_OPTIONS */
     OPTION_INTERNAL(bool, bbdump_tags, "dump tags, sizes, and sharedness of all bbs")
     OPTION_INTERNAL(bool, gendump, "dump generated code")
     OPTION_DEFAULT(bool, global_rstats, true, "enable global release-build statistics")
@@ -326,9 +315,7 @@
     OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring time"))
 # endif
 
-# ifdef PROFILE_LINKCOUNT
-    OPTION_NAME_INTERNAL(bool, profile_counts, "prof_counts", "profiling via counters")
-# endif
+/* -prof_counts and PROFILE_LINKCOUNT are no longer supported and have been removed */
 
 # ifdef CLIENT_INTERFACE
     /* FIXME (xref PR 215082): make these external now that our product is our API? */
@@ -2685,7 +2672,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "if non-0 allows reproducible pseudo random number generator sequences")
 
     /* FIXME PR 215179 on enabling pad_jmps in all builds */
-#if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
+#if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     OPTION_DEFAULT(bool, pad_jmps, false, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #else
     /* No need to pad on ARM with fixed-width instructions */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,7 +72,6 @@
 /* XXX: perhaps should rename CALLPROF cmake var to CALL_PROFILE */
 # define CALL_PROFILE
 #endif
-#cmakedefine LINKCOUNT
 #cmakedefine PARAMS_IN_REGISTRY
 
 /* when packaging */
@@ -137,7 +136,7 @@
 #       and NATIVE_RETURN_TRY_TO_PUT_APP_RETURN_PC_ON_STACK)
 #    $(D)LOAD_DYNAMO_DEBUGBREAK
 # profiling
-#    $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
+#    no longer supported: $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
 #    $(D)PROFILE_RDTSC
 #    ($(D)PAPI - now deprecated)
 #    $(D)WINDOWS_PC_SAMPLE - on for all Windows builds
@@ -156,7 +155,7 @@
 #    $(D)GBOP - generic buffer overflow prevention via hooking APIs
 # optimization of application
 #    $(D)SIDELINE
-#    $(D)SIDELINE_COUNT_STUDY
+#    no longer supported: $(D)SIDELINE_COUNT_STUDY
 #    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
@@ -315,12 +314,6 @@
    /* even though only usable in all-private config useful in default builds */
 #  define SHARING_STUDY
 #  define HASHTABLE_STATISTICS
-#endif
-
-#ifdef LINKCOUNT
-#  define PROFILE_LINKCOUNT
-/* not bothering to support 32-bit: only if we start using it again */
-#  define LINKCOUNT_64_BITS
 #endif
 
 #endif /* _CONFIGURE_H_ */

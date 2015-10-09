@@ -324,11 +324,6 @@ typedef struct _trace_only_t {
     uint64    total_time;       /* total time ever spent in this fragment */
 #endif
 
-#ifdef SIDELINE_COUNT_STUDY
-    linkcount_type_t count_old_pre;
-    linkcount_type_t count_old_post;
-#endif
-
     /* holds the tags (and other info) for all constituent basic blocks */
     trace_bb_info_t *bbs;
     uint    num_bbs;
@@ -523,11 +518,6 @@ typedef struct _per_thread_t {
      * not used while not flushing.
      */
     bool           at_syscall_at_flush;
-
-#ifdef PROFILE_LINKCOUNT
-    uint tracedump_num_below_threshold;
-    linkcount_type_t tracedump_count_below_threshold;
-#endif
 } per_thread_t;
 
 
@@ -614,11 +604,6 @@ fragment_thread_reset_free(dcontext_t *dcontext);
 #ifdef UNIX
 void
 fragment_fork_init(dcontext_t *dcontext);
-#endif
-
-#ifdef PROFILE_LINKCOUNT
-linkcount_type_t
-get_total_linkcount(fragment_t *f);
 #endif
 
 fragment_t *
@@ -1185,7 +1170,7 @@ get_ibl_per_type_statistics(dcontext_t *dcontext, ibl_branch_type_t branch_type)
      endif
      foreach exit:
        struct _tracedump_stub_data
-       if linkcount_size > 0
+       if linkcount_size > 0 # deprecated
          linkcount_type_t count; # sizeof == linkcount_size
        endif
        if separate from body
@@ -1194,10 +1179,6 @@ get_ibl_per_type_statistics(dcontext_t *dcontext, ibl_branch_type_t branch_type)
        endif
      endfor
      byte code[code_size];
- * if the -tracedump_threshold option (deprecated) was specified:
-     int num_below_treshold
-     linkcount_type_t count_below_threshold
-   endif
 </pre>
  */
 typedef struct _tracedump_file_header_t {

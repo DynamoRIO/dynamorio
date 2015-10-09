@@ -245,16 +245,6 @@ if (ARCH_IS_X86)
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
       ")
-    testbuild("linkcount-32" OFF "
-      LINKCOUNT:BOOL=ON
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=ON
-      ")
-    testbuild("nodefs-debug-internal-32" OFF "
-      VMAP:BOOL=OFF
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=ON
-      ")
     if (UNIX)
       # i#975: revived support for STATIC_LIBRARY.
       # FIXME: we need to implement takeover on Windows with .CRT$XCU.

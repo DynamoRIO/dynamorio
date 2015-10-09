@@ -61,31 +61,9 @@
 /*
 direct branch exit_stub:
    5x8  mov   %xax, xax_offs(&dcontext) or tls
-  #if defined(PROFILE_LINKCOUNT)  (PR 248210: x64 not supported)
-  | 1   lahf
-  | 3   seto  %al
-  |#if !defined(LINKCOUNT_64_BITS)
-  | 6   inc   l->count
-  |#else
-  | 7   add   $1,l->count
-  | 7   adc   $0,l->count+4
-  |#endif
-  | 2   add   $0x7f,%al
-  | 1   sahf
-  #endif
+   <we used to support PROFILE_LINKCOUNT with a counter inc here but no more>
    5x10 mov   &linkstub, %xax
     5   jmp   target addr
-#if defined(PROFILE_LINKCOUNT)  (PR 248210: x64 not supported)
-|unlinked entry point:
-|    5   movl  %eax, eax_offs(&dcontext)
-|    5   movl  &linkstub, %eax
-|    5   jmp   fcache_return
-|
-|  Notes: we link/unlink by modifying the 1st jmp to either target unlinked
-|  entry point or the target fragment.  When we link for the first time
-|  we try to remove the eflags save/restore, shifting the 1st jmp up (the
-|  space between it and unlinked entry just becomes junk).
-#endif
 
 indirect branch exit_stub (only used if -indirect_stubs):
    6x9  mov   %xbx, xbx_offs(&dcontext) or tls
@@ -95,10 +73,6 @@ indirect branch exit_stub (only used if -indirect_stubs):
 indirect branches use xbx so that the flags can be saved into xax using
 the lahf instruction!
 xref PR 249775 on lahf support on x64.
-
-for PROFILE_LINKCOUNT, the count increment is performed inside the
-hashtable lookup (in both linked and unlinked paths) both since the flags
-are saved there for the linked path and to save space in stubs
 
 also see emit_inline_ibl_stub() below
 
@@ -358,65 +332,6 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
     return pc;
 }
 
-#ifdef PROFILE_LINKCOUNT /**************************************/
-static byte *
-insert_linkcount_inc(byte *pc, linkstub_t *l)
-{
-    /* increment counter l->count: */
-#ifndef LINKCOUNT_64_BITS
-    /* incl &(l->count) */
-    *pc = 0xff; pc++;
-    *pc = 0x05; pc++;
-    /* PR 248210: PROFILE_LINKCOUNT is unsupported on x64 */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    *((uint *)pc) = (uint) &(l->count); pc+=4;
-#else /* 64-bit */
-    /* addl $0x1,&(l->count) */
-    *pc = 0x83; pc++;
-    *pc = 0x05; pc++;
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    *((uint *)pc) = (uint) &(l->count); pc+=4;
-    *pc = 0x01; pc++;
-    /* adcl $0x0,&(l->count)+4 */
-    *pc = 0x83; pc++;
-    *pc = 0x15; pc++;
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    *((uint *)pc) = 4 + (uint)(&(l->count)); pc+=4;
-    *pc = 0x00; pc++;
-#endif /* 64-bit */
-    return pc;
-}
-
-/* FIXME: keep in synch w/ insert_save_eflags */
-static byte *
-insert_linkcount_saveflags(byte *pc, dcontext_t *dcontext, uint flags)
-{
-    DEBUG_DECLARE(cache_pc original_pc = pc;)
-    /* lahf */
-    *pc = LAHF_OPCODE; pc++;
-    /* 0f 90 c0   seto %al */
-    *pc = SETO_OPCODE_1; pc++;
-    *pc = SETO_OPCODE_2; pc++;
-    *pc = 0xc0; pc++;
-    ASSERT(pc - original_pc == LINKCOUNT_EFLAGS_SAVE);
-    return pc;
-}
-
-/* FIXME: keep in synch w/ insert_restore_eflags */
-static byte *
-insert_linkcount_restoreflags(byte *pc, dcontext_t *dcontext, uint flags)
-{
-    DEBUG_DECLARE(cache_pc original_pc = pc;)
-    /* 04 7f   add $0x7f,%al */
-    *pc = ADD_AL_OPCODE; pc++;
-    *pc = 0x7f; pc++;
-    /* sahf */
-    *pc = SAHF_OPCODE; pc++;
-    ASSERT(pc - original_pc == LINKCOUNT_EFLAGS_RESTORE);
-    return pc;
-}
-#endif /* PROFILE_LINKCOUNT **************************************/
-
 /* inserts any nop padding needed to ensure patchable branch offsets don't
  * cross cache line boundaries.  If emitting sets the offset field of all
  * instructions, else sets the translation for the added nops (for
@@ -625,9 +540,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
     byte *pc = (byte *)stub_pc;
     cache_pc exit_target;
     bool indirect = false;
-#ifdef PROFILE_LINKCOUNT
-    bool linkcount = (dynamo_options.profile_counts && (f->flags & FRAG_IS_TRACE) != 0);
-#endif
     bool can_inline = true;
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
 
@@ -728,13 +640,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         pc = insert_save_xax(dcontext, pc, f->flags, FRAG_DB_SHARED(f->flags),
                              DIRECT_STUB_SPILL_SLOT, true);
 
-#ifdef PROFILE_LINKCOUNT
-        if (linkcount) {
-            pc = insert_linkcount_saveflags(pc, dcontext, f->flags);
-            pc = insert_linkcount_inc(pc, l);
-            pc = insert_linkcount_restoreflags(pc, dcontext, f->flags);
-        }
-#endif
         /* mov $linkstub_ptr,%xax */
 #ifdef X64
         if (FRAG_IS_32(f->flags)) {
@@ -758,21 +663,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
 #endif
         /* jmp to exit target */
         pc = insert_relative_jump(pc, exit_target, NOT_HOT_PATCHABLE);
-
-#ifdef PROFILE_LINKCOUNT
-        if (linkcount) {
-            /* this is where the unlinked entry point goes, but to
-             * distinguish a never-linked stub we place a sentinel here
-             */
-            ASSERT(pc == stub_pc + LINKCOUNT_DIRECT_EXTRA(f->flags));
-            *((uint *)pc) = LINKCOUNT_NEVER_LINKED_SENTINEL;
-            pc += sizeof(uint);
-            /* nop out rest of mem to play nice with the disassembler
-             * (we're profile linkcount so presumably going to output) */
-            memset(pc, 0x90 /* NOP */, STUB_DIRECT_SIZE(f->flags) - sizeof(uint));
-            pc += STUB_DIRECT_SIZE(f->flags) - sizeof(uint);
-        }
-#endif
     }
 
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_int(pc - stub_pc)));
@@ -1925,19 +1815,6 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
         else /* the xdx slot already holds %xdi so use the mcontext */
             after_linkcount = SAVE_TO_DC(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS);
     }
-#ifdef PROFILE_LINKCOUNT
-    ASSERT_NOT_IMPLEMENTED(!inline_ibl_head);
-    /* not supported for inline_ibl_head, so we can assume xbx==&linkstub
-     * FIXME: this ignores whether fragment is trace or not --
-     * everybody has the count field, we just end up incr-ing it for bbs that
-     * nobody looks at
-     */
-    if (dynamo_options.profile_counts &&
-        IS_IBL_TRACE(ibl_code->source_fragment_type)) {
-        append_linkcount_incr(dcontext, ilist, true /* can clobber eflags */,
-                              after_linkcount);
-    }
-#endif /* PROFILE_LINKCOUNT */
     APP(ilist, after_linkcount);
     if (ibl_code->thread_shared_routine && !DYNAMO_OPTION(private_ib_in_tls)) {
         /* copy app xcx currently in tls slot into mcontext slot, so that we
@@ -2381,7 +2258,6 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     instrlist_t ilist;
     instr_t *fragment_not_found, *unlinked = INSTR_CREATE_label(dcontext);
     instr_t *target_delete_entry;
-    instr_t *post_linkcount;
     patch_list_t *patch = &ibl_code->ibl_patch;
     bool absolute = !ibl_code->thread_shared_routine;
     bool table_in_tls = SHARED_IB_TARGETS() &&
@@ -2914,25 +2790,14 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         APP(&ilist, SAVE_TO_DC(dcontext, SCRATCH_REG2, NEXT_TAG_OFFSET));
 
         if (linkstub == NULL) {
-            post_linkcount = XINST_CREATE_load(dcontext,
-                                               opnd_create_reg(SCRATCH_REG0),
-                                               opnd_create_reg(SCRATCH_REG1));
+            APP(&ilist, XINST_CREATE_load(dcontext,
+                                          opnd_create_reg(SCRATCH_REG0),
+                                          opnd_create_reg(SCRATCH_REG1)));
         } else {
             /* there is no exit-specific stub -- we use a generic one here */
-            post_linkcount =
-                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(SCRATCH_REG0),
-                                     OPND_CREATE_INTPTR((ptr_int_t)linkstub));
+            APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(SCRATCH_REG0),
+                                             OPND_CREATE_INTPTR((ptr_int_t)linkstub)));
         }
-#ifdef PROFILE_LINKCOUNT
-        /* not supported for inline_ibl_head, so we can assume xbx==&linkstub
-         * assumes xcx is free */
-        if (dynamo_options.profile_counts &&
-            IS_IBL_TRACE(ibl_code->source_fragment_type)) {
-            append_linkcount_incr(dcontext, &ilist, false/*preserve eflags*/,
-                                  post_linkcount);
-        }
-#endif
-        APP(&ilist, post_linkcount);
 
         if (absolute) {
             if (DYNAMO_OPTION(indirect_stubs))
@@ -3095,11 +2960,6 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
                  */
                 insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
             }
-            /* In a PROFILE_LINKCOUNT LINKCOUNT_64_BITS build with
-             * -prof_counts on, this jmp is too far for a jmp_short on a shared
-             * ibl.  We just use a regular jmp since this code isn't even in a
-             * release build. FIXME - would be a good place for a real
-             * jmp_smart opcode xref case 5232. */
             APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(old_unlinked)));
         } else
 #endif

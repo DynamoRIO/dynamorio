@@ -173,10 +173,7 @@ set(vps_short_list
   "SHORT::-security"
   )
 
-if (LINKCOUNT AND TEST_SUITE)
-  # FIXME: how up time limit?  had TEST_MINS=5 for this:
-  set(run_list "ONLY::^common::-prof_counts -tracedump_binary -no_inline_trace_ibl -indirect_stubs")
-elseif (CALLPROF AND TEST_SUITE)
+if (CALLPROF AND TEST_SUITE)
   set(run_list "ONLY::^common::")
 elseif (VMAP)
   if (TEST_SUITE)
@@ -219,10 +216,10 @@ elseif (VPS)
   else (TEST_SUITE)
     set(run_list ${vps_short_list})
   endif (TEST_SUITE)
-else (LINKCOUNT AND TEST_SUITE)
+else (CALLPROF AND TEST_SUITE)
   # no tests
   set(run_list "")
-endif (LINKCOUNT AND TEST_SUITE)
+endif (CALLPROF AND TEST_SUITE)
 
 ###########################################################################
 # BUILDING

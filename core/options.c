@@ -867,7 +867,7 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 
-#if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
+#if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     if (DYNAMO_OPTION(pad_jmps)) {
         USAGE_ERROR("-pad_jmps not supported in this build yet");
     }
@@ -881,14 +881,6 @@ check_option_compatibility_helper(int recurse_count)
 # endif
         ) {
         USAGE_ERROR("-pad_jmps isn't safe with code_api or on Linux without -pad_jmps_mark_no_trace when traces are enabled");
-    }
-#endif
-
-#ifdef PROFILE_LINKCOUNT
-    if (DYNAMO_OPTION(profile_counts) &&
-        TESTANY(SELFPROT_LOCAL|SELFPROT_GLOBAL, DYNAMO_OPTION(protect_mask))) {
-        /* May not be able to write to some linkstubs! */
-        USAGE_ERROR("-prof_counts incompatible with heap write protection");
     }
 #endif
 
@@ -1238,13 +1230,6 @@ check_option_compatibility_helper(int recurse_count)
             DYNAMO_OPTION(rct_ind_call) != OPTION_DISABLED ||
             DYNAMO_OPTION(rct_ind_jump) != OPTION_DISABLED) {
             USAGE_ERROR("C, E, and F policies require -indirect_stubs, enabling");
-            dynamo_options.indirect_stubs = true;
-            changed_options = true;
-        }
-# endif
-# ifdef PROFILE_LINKCOUNT
-        if (INTERNAL_OPTION(profile_counts)) {
-            USAGE_ERROR("-prof_counts require -indirect_stubs, enabling");
             dynamo_options.indirect_stubs = true;
             changed_options = true;
         }

@@ -160,10 +160,6 @@ final_exit_shares_prev_stub(dcontext_t *dcontext, instrlist_t *ilist, uint frag_
                 && instr_exit_stub_code(prev_cti) == NULL
                 && instr_exit_stub_code(inst) == NULL
 #endif
-#ifdef PROFILE_LINKCOUNT
-                /* no linkcount code, which is only present in traces */
-                && (!TEST(FRAG_IS_TRACE, frag_flags) || !INTERNAL_OPTION(profile_counts))
-#endif
                 /* no separate freeing */
                 && ((TEST(FRAG_SHARED, frag_flags) &&
                      !DYNAMO_OPTION(unsafe_free_shared_stubs)) ||
@@ -468,8 +464,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                  * to handle all the races for more then one). Exceptions are
                  * usually where you have to patch the jmp in the body as well
                  * as in the stub and include inlined_indirect (without
-                 * -atomic_inlined_linking), TRACE_HEAD_CACHE_INCR, or a
-                 * custom exit stub with PROFILE_LINKCOUNT.  All of these
+                 * -atomic_inlined_linking) or TRACE_HEAD_CACHE_INCR.  All of these
                  * have issues with atomically linking/unlinking. Inlined
                  * indirect has special support for unlinking (but not linking
                  * hence can't use inlined_ibl on shared frags without
@@ -623,7 +618,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
      * for tracing. Xref PR 215179, we allow additional pads for CLIENT_INTERFACE
      * and UNIX by marking the bb untraceable and inserting nops. */
 #if !defined(UNIX) && !defined(CLIENT_INTERFACE)
-# if !defined(PROFILE_LINKCOUNT) && !defined(TRACE_HEAD_CACHE_INCR)
+# ifndef TRACE_HEAD_CACHE_INCR
     /* bbs shouldn't need more than a single pad */
     ASSERT((PAD_FRAGMENT_JMPS(flags) && TEST(FRAG_IS_TRACE, flags)) ||
            extra_jmp_padding_body+extra_jmp_padding_stubs ==
@@ -807,9 +802,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
             pc + linkstub_unlink_entry_offset(dcontext, f, l));
 #endif
 
-/* FIXME : once bytes_for_exitstub_alignment is implemented for
- * PROFILE_LINKCOUNT remove this ifndef */
-#ifndef PROFILE_LINKCOUNT
         DODEBUG({
             uint shift = bytes_for_exitstub_alignment(dcontext, l, f, pc);
             if (shift > 0) {
@@ -818,7 +810,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
                 STATS_PAD_JMPS_ADD(flags, unaligned_stubs_bytes, shift);
             }
         });
-#endif
 
         /* insert an exit stub */
         prev_stub_pc = pc;

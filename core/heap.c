@@ -107,7 +107,7 @@ static const uint BLOCK_SIZES[] = {
     /* we have a lot of size 16 requests for IR but they are transient */
     24, /* fcache empties and vm_area_t are now 20, vm area extras still 24 */
     ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT), /* 40 dbg / 36 rel */
-#if defined(X64) || defined(PROFILE_LINKCOUNT) || defined(CUSTOM_EXIT_STUBS)
+#if defined(X64) || defined(CUSTOM_EXIT_STUBS)
     sizeof(instr_t), /* 64 (104 x64) */
     sizeof(fragment_t) + sizeof(direct_linkstub_t)
         + sizeof(cbr_fallthrough_linkstub_t), /* 68 dbg / 64 rel, 112 x64 */

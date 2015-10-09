@@ -307,7 +307,6 @@ if ("${KSTATS}" STREQUAL "")
 endif()
 
 option(CALLPROF "internal caller profiling support")
-option(LINKCOUNT "internal linkcount profiling")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
 
 if (ARM)
@@ -369,7 +368,6 @@ mark_as_advanced(
   VPS
   KSTATS
   CALLPROF
-  LINKCOUNT
   PROFILE
   SET_PREFERRED_BASE
   preferred_base

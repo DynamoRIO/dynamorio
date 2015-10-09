@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -126,13 +126,6 @@ enum {
 # define LINK_NI_SYSCALL_ALL LINK_NI_SYSCALL
 #endif
 
-/* for easy printing */
-#ifndef LINKCOUNT_64_BITS
-#  define LINKCOUNT_FORMAT_STRING "%lu"
-#else
-#  define LINKCOUNT_FORMAT_STRING UINT64_FORMAT_STRING
-#endif
-
 /* linkstub_t heap layout is now quite variable.  linkstubs are laid out
  * after the fragment_t structure, which is itself variable.
  * The indirect_linkstub_t split was case 6468
@@ -176,10 +169,6 @@ struct _linkstub_t {
 #ifdef CUSTOM_EXIT_STUBS
     ushort         fixed_stub_offset;  /* offset in bytes of fixed part of exit stub from
                                           stub_pc, which points to custom prefix of stub */
-#endif
-
-#ifdef PROFILE_LINKCOUNT
-    linkcount_type_t count;
 #endif
 };
 

@@ -212,12 +212,6 @@ typedef byte * cache_pc;  /* fragment cache pc */
 # error Must steal register to keep dcontext in edi
 #endif
 
-#if defined(SIDELINE_COUNT_STUDY)
-# if !defined(PROFILE_LINKCOUNT) || !defined(SIDELINE)
-#  error SIDELINE_COUNT_STUDY requires PROFILE_LINKCOUNT and defined(SIDELINE)
-# endif
-#endif
-
 #ifdef DGC_DIAGNOSTICS
 # ifndef PROGRAM_SHEPHERDING
 #  error DGC_DIAGNOSTICS requires PROGRAM_SHEPHERDING
@@ -330,14 +324,6 @@ typedef struct _thread_record_t {
 /* a few always-exported routines are part of the app interface */
 # undef DYNAMORIO_EXPORT
 # define DYNAMORIO_EXPORT DR_APP_API
-#endif
-
-#ifdef PROFILE_LINKCOUNT
-#ifndef LINKCOUNT_64_BITS
-typedef uint linkcount_type_t;
-#else
-typedef uint64 linkcount_type_t;
-#endif
 #endif
 
 #include "heap.h"
