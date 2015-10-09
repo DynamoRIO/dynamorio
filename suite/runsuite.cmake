@@ -199,10 +199,12 @@ if (DO_ALL_BUILDS)
   testbuild("release-internal-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=ON
+    ${install_path_cache}
     ")
   testbuild("release-internal-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=ON
+    ${install_path_cache}
     ")
 endif (DO_ALL_BUILDS)
 # non-official-API builds but not all are in pre-commit suite on Windows
@@ -216,6 +218,7 @@ if (ARCH_IS_X86)
       VMSAFE:BOOL=ON
       DEBUG:BOOL=ON
       INTERNAL:BOOL=ON
+      ${install_path_cache}
       ")
   endif ()
   if (DO_ALL_BUILDS)
@@ -224,6 +227,7 @@ if (ARCH_IS_X86)
       VMSAFE:BOOL=ON
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
+      ${install_path_cache}
       ")
   endif (DO_ALL_BUILDS)
   testbuild("vps-debug-internal-32" OFF "
@@ -231,6 +235,7 @@ if (ARCH_IS_X86)
     VPS:BOOL=ON
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
+    ${install_path_cache}
     ")
   if (DO_ALL_BUILDS)
     testbuild("vps-release-external-32" OFF "
@@ -238,12 +243,14 @@ if (ARCH_IS_X86)
       VPS:BOOL=ON
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
+      ${install_path_cache}
       ")
     # Builds we'll keep from breaking but not worth running many tests
     testbuild("callprof-32" OFF "
       CALLPROF:BOOL=ON
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
+      ${install_path_cache}
       ")
   endif (DO_ALL_BUILDS)
 endif (ARCH_IS_X86)
