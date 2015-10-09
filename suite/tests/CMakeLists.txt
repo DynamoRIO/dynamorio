@@ -1092,6 +1092,10 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     set(os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
   endif ()
   set(dr_ops -stderr_mask 0xC ${os_ops} ${dr_ops_aux} ${TEST_OPTIONS})
+  if (NOT CLIENT_INTERFACE)
+    # XXX i#1802: non-CI builds have a bug w/ early injection which we work around:
+    set(dr_ops ${dr_ops} -no_early_inject)
+  endif ()
 
   if (separate_script)
     # eliminate double-spaces, to help w/ passing strings to runall.cmake
