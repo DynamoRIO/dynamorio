@@ -228,7 +228,7 @@ static const linkstub_t linkstub_special_ibl_trace_ret =
 static const linkstub_t linkstub_special_ibl_trace_call =
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 }; /* native_plt_ibl */
 
-#if defined(X64) || defined(DEBUG)
+#ifdef DEBUG
 static inline bool
 is_empty_fragment(fragment_t *f)
 {

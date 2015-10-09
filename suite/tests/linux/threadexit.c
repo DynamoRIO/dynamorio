@@ -58,7 +58,7 @@ clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
 
 /* forward declarations */
 static pid_t create_thread(int (*fcn)(void *), void *arg, void **stack);
-static void delete_thread(pid_t pid, void *stack);
+static void delete_thread(int tid_idx, void *stack);
 int run(void *arg);
 static void *stack_alloc(int size);
 static void stack_free(void *p, int size);
@@ -101,6 +101,8 @@ int main()
     while (true)
         nanosleep(&sleeptime, NULL);
 
+    for (i = 0; i < NUM_THREADS; i++)
+        delete_thread(i, &stack[i]);
     fprintf(stderr, "Should never get here\n");
     return 0;
 }
@@ -171,17 +173,15 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
 }
 
 static void
-delete_thread(pid_t pid, void *stack)
+delete_thread(int tid_idx, void *stack)
 {
     pid_t result;
     /* do not print out pids to make diff easy */
     fprintf(stderr, "Waiting for child to exit\n");
-    /* pid is really a tid, and since we used CLONE_THREAD, we cannot use
-     * any wait() routine since our parent has the child not us.
-     * so we rely on CLONE_CHILD_CLEARTID.  FIXME: use futex here.
+    /* We rely on CLONE_CHILD_CLEARTID.  FIXME: use futex here.
      * for now being really simple.
      */
-    while (child != 0)
+    while (child[tid_idx] != 0)
         nanosleep(&sleeptime, NULL);
     fprintf(stderr, "Child has exited\n");
     stack_free(stack, THREAD_STACK_SIZE);

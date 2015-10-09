@@ -677,9 +677,11 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
     # On Mac we have to use the ABI's 16-byte alignment, but we have
     # no compatibility there as we're starting fresh.
     # On ARM, '-mpreferred-stack-boundary' is unrecognized.
-    if (NOT tgt_x64 AND NOT APPLE AND NOT ARM)
+    # i#1800: '-mpreferred-stack-boundary' is not supported by clang,
+    # so clang's build may not run legacy binaries.
+    if (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
       set(tgt_cflags "${tgt_cflags} -mpreferred-stack-boundary=2")
-    endif (NOT tgt_x64 AND NOT APPLE AND NOT ARM)
+    endif (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
 
     if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
       # Generate the .hash section in addition to .gnu.hash for every target, to

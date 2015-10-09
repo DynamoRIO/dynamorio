@@ -131,7 +131,8 @@ find_function(MODULE_TYPE jacobi_module, const char *name)
 {
     char *error;
     void *function = dlsym(jacobi_module, name);
-    if (error = dlerror()) {
+    error = dlerror();
+    if (error != NULL) {
         print("Error: failed to load %s() from lib %s:\n%s\n", name, lib_name, error);
         exit(1);
     }

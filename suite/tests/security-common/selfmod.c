@@ -94,8 +94,6 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 }
 #endif
 
-typedef unsigned char byte;
-
 static byte global_buf[8];
 
 void

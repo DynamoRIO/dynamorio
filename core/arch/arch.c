@@ -3383,7 +3383,6 @@ is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t bra
 # define LOOP_COUNT 10000
 volatile static int count1 = 0;
 volatile static int count2 = 0;
-volatile static ptr_int_t count3 = 0;
 
 IF_UNIX_ELSE(void *, DWORD WINAPI)
 test_thread_func(void *arg)

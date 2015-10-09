@@ -1656,7 +1656,8 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
   endif ()
 
-  if (NOT ARM)
+  # FIXME i#1799: clang does not support "asm goto"
+  if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     set(DynamoRIO_USE_LIBC OFF)
     if (UNIX)
       set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
@@ -1759,7 +1760,7 @@ if (CLIENT_INTERFACE)
       client.annotation-detection-opt annotation-detection.native
       client-interface/annotation-detection.c "")
     set(DynamoRIO_USE_LIBC ON)
-  endif (NOT ARM)
+  endif (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
 
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.

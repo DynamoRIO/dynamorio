@@ -91,7 +91,7 @@ void global_test(void)
 }
 
 #ifdef X64
-# define PREFERRED_ADDR (char *)0x1000000000
+# define PREFERRED_ADDR (byte *)0x1000000000
 #endif
 
 /* Defines the size and alignment of the probe allocation in tests that must probe for

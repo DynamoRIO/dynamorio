@@ -40,8 +40,6 @@ static SIGJMP_BUF mark;
 
 static char app_handler_message[1024];
 
-typedef void (*generic_func_t) ();
-
 /* borrowed from core/ */
 static inline
 generic_func_t

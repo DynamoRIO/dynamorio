@@ -982,7 +982,7 @@ test_tsx(void *dc)
     const byte b2[] = { 0xf3, 0x89, 0x39 };
     const byte b3[] = { 0xf2, 0x89, 0x39 };
     const byte b4[] = { 0xf2, 0xf0, 0x00, 0x00 };
-    byte buf[512];
+    char buf[512];
     int len;
 
     pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1,
@@ -1057,7 +1057,7 @@ test_vsib(void *dc)
     const byte b1[] = { 0xc4, 0xe2, 0xe9, 0x90, 0x24, 0x42 };
     /* Invalid b/c modrm doesn't ask for SIB */
     const byte b2[] = { 0xc4, 0xe2, 0xe9, 0x90, 0x00 };
-    byte buf[512];
+    char buf[512];
     int len;
 
     pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1,
@@ -1158,7 +1158,7 @@ static void
 test_disasm_sizes(void *dc)
 {
     byte *pc;
-    byte buf[512];
+    char buf[512];
     int len;
 
     {

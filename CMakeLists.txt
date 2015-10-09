@@ -670,10 +670,14 @@ if (UNIX)
       set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
       set(BASE_CXXFLAGS "-m32")
       # i#847 keep stack boundary 4-byte aligned (except on Mac)
-      # XXX i#1346: what is clang equivalent?
-      if (NOT CMAKE_COMPILER_IS_CLANG AND NOT APPLE)
+      # XXX i#1800: clang does not support -mpreferred-stack-boundary=2 or
+      # an equivalent flag, so clang's build may not run legacy binaries.
+      if (NOT CMAKE_COMPILER_IS_CLANG)
         set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
         set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
+      elseif (NOT APPLE)
+        message(STATUS "WARNING: 32-bit clang lacks stack alignment control:")
+        message(STATUS "  resulting build may not run all apps correctly")
       endif ()
       set(LD_FLAGS "-melf_i386")
     endif (X64)

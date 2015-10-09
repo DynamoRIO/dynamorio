@@ -71,6 +71,8 @@ main(int argc, char** argv)
     int pipefd[2];
     char buf = 0;
     pid_t child;
+    /* i#1799-c#1: call foo to avoid foo being optimized away by clang */
+    foo();
     if (pipe(pipefd) == -1) {
         perror("pipe");
         exit(1);
