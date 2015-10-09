@@ -47,6 +47,8 @@ cmake_minimum_required (VERSION 2.6)
 #    You will need this patch, which is too new to be in a released CTest version:
 #      https://cmake.org/gitweb?p=cmake.git;a=commitdiff;h=1b700612
 #    For more information, see https://cmake.org/Bug/view.php?id=15774
+#    Recent (after Oct 8 2015) nightly build binaries with the patch can be
+#    downloaded from https://cmake.org/download/.
 # 5) Set up a cron job to run:
 #    cd $nightly/run; /path/to/patched/ctest -V -S ../nightly.cmake > ctest.log 2>&1
 #
