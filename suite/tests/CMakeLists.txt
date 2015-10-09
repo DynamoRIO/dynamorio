@@ -1540,39 +1540,43 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
   tobuild(common.getretaddr common/getretaddr.c)
 
-  # XXX i#1651: we don't support -native_exec combined with -early_inject so
-  # for now we pass -no_early_inject to all of these tests.
-  tobuild_appdll(common.nativeexec common/nativeexec.c)
-  get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})
-  get_filename_component(native_dll_name "${native_dll_name}" NAME)
-  tobuild_ops(common.nativeexec common/nativeexec.c
-    "-no_early_inject -native_exec_list ${native_dll_name}" "")
-  target_link_libraries(common.nativeexec common.nativeexec.appdll)
-  # We want rpath on Linux so we can load the appdll.
-  set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
-  if (UNIX)
-    # FIXME i#978: Windows support NYI
-    torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
-      "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover" "")
-    torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
-      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover" "")
-    torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
-      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover"
-      "-bind_now")
-    # XXX: the next 3 tests, and perhaps all of these native_exec tests,
-    # really want a mode with -no_private_loader -no_mangle_app_seg.  With
-    # our reluctance to add lib deps back to DR, that's going to require a
-    # sepaparate build.  Until someone really focuses on hybrid mode again
-    # (in which case a new build param should be added to re-enable libdl),
-    # we leave the tests here as regression tests but w/ private loader in place.
-    torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-      "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
-    # No swap TLS and no kstats for optimized native_exec
-    torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
-      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
-    torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
-      "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
-  endif ()
+  if (CLIENT_INTERFACE) # b/c native_exec links w/ DR and needs api_headers
+    # XXX i#1651: we don't support -native_exec combined with -early_inject so
+    # for now we pass -no_early_inject to all of these tests.
+    tobuild_appdll(common.nativeexec common/nativeexec.c)
+    get_target_property(native_dll_name common.nativeexec.appdll
+      LOCATION${location_suffix})
+    get_filename_component(native_dll_name "${native_dll_name}" NAME)
+    tobuild_ops(common.nativeexec common/nativeexec.c
+      "-no_early_inject -native_exec_list ${native_dll_name}" "")
+    target_link_libraries(common.nativeexec common.nativeexec.appdll)
+    # We want rpath on Linux so we can load the appdll.
+    set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
+    if (UNIX)
+      # FIXME i#978: Windows support NYI
+      torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
+        "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover"
+        "")
+      torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover" "")
+      torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover"
+        "-bind_now")
+      # XXX: the next 3 tests, and perhaps all of these native_exec tests,
+      # really want a mode with -no_private_loader -no_mangle_app_seg.  With
+      # our reluctance to add lib deps back to DR, that's going to require a
+      # sepaparate build.  Until someone really focuses on hybrid mode again
+      # (in which case a new build param should be added to re-enable libdl),
+      # we leave the tests here as regression tests but w/ private loader in place.
+      torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
+        "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
+      # No swap TLS and no kstats for optimized native_exec
+      torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
+      torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
+    endif ()
+  endif (CLIENT_INTERFACE)
 
   # App seg mangling makes dstack test fail, and our default build does not
   # support disabling such mangling, so this test is Windows-only.
@@ -1604,9 +1608,11 @@ if (ARM)
   append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -Wl,-static")
 endif (ARM)
 
-tobuild(libutil.frontend_test libutil/frontend_test.c)
-configure_DynamoRIO_standalone(libutil.frontend_test)
-target_link_libraries(libutil.frontend_test drfrontendlib)
+if (CLIENT_INTERFACE)
+  tobuild(libutil.frontend_test libutil/frontend_test.c)
+  configure_DynamoRIO_standalone(libutil.frontend_test)
+  target_link_libraries(libutil.frontend_test drfrontendlib)
+endif ()
 
 if (CLIENT_INTERFACE)
   set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
