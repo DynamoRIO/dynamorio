@@ -365,13 +365,15 @@ is_in_futureexec_area(app_pc addr);
 bool
 is_valid_address(app_pc addr);
 
+#ifdef JITOPT
 bool
 is_jit_managed_area(app_pc addr);
+#endif
 
 bool
 is_unmod_image(app_pc addr);
 
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
 bool
 get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size);
 
@@ -383,7 +385,7 @@ set_region_jit_monitored(app_pc start, size_t len);
 
 bool
 set_region_dgc_writer(app_pc start, size_t len);
-#else
+#elif defined(JITOPT_ANNOTATIONS)
 void
 set_region_app_managed(app_pc start, size_t len);
 #endif

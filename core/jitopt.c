@@ -309,7 +309,7 @@ check_stale_bbs();
 void
 jitopt_init()
 {
-#ifndef JIT_MONITORED_AREAS
+#ifdef JITOPT_ANNOTATION
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
                                 (void *) annotation_manage_code_area, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
@@ -465,7 +465,7 @@ manage_code_area(app_pc start, size_t len)
     //    start, start+len);
     RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
                 start, start+len);
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_ANNOTATION
     uint prot;
     if (!set_region_jit_monitored(start, len)) {
         RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
@@ -480,7 +480,7 @@ manage_code_area(app_pc start, size_t len)
         return;
     }
     setup_double_mapping(dcontext, start, len, prot);
-#else
+#else /* JITOPT_INFERENCE */
     set_region_app_managed(start, len);
 #endif
 
@@ -619,7 +619,7 @@ flush_jit_fragments(app_pc start, size_t len)
 static ptr_uint_t
 valgrind_discard_translations(dr_vg_client_request_t *request)
 {
-# ifndef JIT_MONITORED_AREAS
+# ifdef JITOPT_ANNOTATIONS
     flush_jit_fragments((app_pc) request->args[0], request->args[1]);
 # endif
     return 0;

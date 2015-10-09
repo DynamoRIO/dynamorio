@@ -298,7 +298,7 @@ update_overlap_info(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc, bool jm
     }
     if (bb->overlap_info->contiguous && jmp) {
         bb->overlap_info->contiguous = false;
-#ifdef DEBUG
+#if defined(DEBUG) && defined(JITOPT)
         if (is_jit_managed_area(bb->overlap_info->min_pc) || is_jit_managed_area(bb->overlap_info->max_pc) ||
             is_jit_managed_area(bb->last_page) || is_jit_managed_area(bb->overlap_info->region_end) ||
             is_jit_managed_area(new_pc)) {

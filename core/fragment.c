@@ -5781,7 +5781,9 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
             uint target = reset_pending;
             reset_pending = 0;
 
+#ifdef JITOPT
             dr_printf(" === proactive reset: 0x%x\n", target);
+#endif
 
             /* fcache_reset_all_caches_proactively() will unlock */
             fcache_reset_all_caches_proactively(target);

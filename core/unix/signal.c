@@ -96,7 +96,7 @@
 # include <errno.h>
 #endif
 
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
 # include "../jitopt.h"
 #endif
 
@@ -3788,7 +3788,7 @@ static bool
 check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontext_t *sc,
                         priv_mcontext_t *mc, byte *target, bool native_state)
 {
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
     //ptr_int_t offset = lookup_dgc_writer_offset(target);
 #endif
     /* special case: we expect a seg fault for executable regions
@@ -3800,7 +3800,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontex
      * how can we tell the difference?
      */
     if (was_executable_area_writable(target)
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
         || is_jit_managed_area(target) // && offset != 0 && offset != 1)
 #endif
     ) {
@@ -3826,9 +3826,11 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontex
             mutex_unlock(&thread_initexit_lock);
         }
 
+#ifdef JITOPT
         RELEASE_LOG(GLOBAL, LOG_ALL, 1, "sig at {cache pc "PFX", app pc "PFX"}: "
                     "was executable? %d; is jit area? %d\n", instr_cache_pc, translated_pc,
                     was_executable_area_writable(target), is_jit_managed_area(target));
+#endif
 
         next_pc =
             handle_modified_code(dcontext, mc, instr_cache_pc, translated_pc,

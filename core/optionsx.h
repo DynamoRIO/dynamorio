@@ -214,6 +214,12 @@
                OPTION_ENABLED|OPTION_BLOCK|OPTION_REPORT|OPTION_CUSTOM;) \
 }
 
+#ifdef JITOPT
+# define CACHE_RESET_INTERVAL 1000000
+#else
+# define CACHE_RESET_INTERVAL 35
+#endif
+
 /* options start here */
     DYNAMIC_OPTION_DEFAULT(bool, dynamic_options, true, "dynamically update options")
 
@@ -1372,7 +1378,7 @@
     OPTION_DEFAULT(uint, report_reset_commit_threshold, 3,
         "syslog one thrash warning message after this many resets at low commit")
     OPTION_DEFAULT(uint, reset_every_nth_pending,
-        IF_ARM_ELSE(0, 1000000), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_ARM_ELSE(0, CACHE_RESET_INTERVAL), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches when pending deletion has this many entries")
     /* the reset-by-unit options focus on filled units and not created units
      * to avoid being triggered by new, empty, private units for new threads

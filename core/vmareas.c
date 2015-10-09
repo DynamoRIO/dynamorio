@@ -68,7 +68,7 @@
 # include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#if defined(JITOPT) || defined(JIT_MONITORED_AREAS)
+#if defined(JITOPT)
 # include "jitopt.h"
 #endif
 
@@ -139,22 +139,22 @@ enum {
      */
     VM_ADD_TO_SHARED_DATA  = 0x1000,
 
-#ifdef JIT_MONITORED_AREAS
-    /* Cache consistency managed by instrumenting DGC to write to a double-mapped page
-     * followed by a call to annotation_flush_fragments().
+#ifdef JITOPT_INFERENCE
+    /* Cache consistency managed by inference: instrumenting DGC to write to a
+     * double-mapped page followed by a call to annotation_flush_fragments().
      */
     VM_JIT_MONITORED = 0X2000,
     VM_DGC_WRITER = 0x4000,
-#else
+#elif defined(JITOPT_ANNOTATIONS)
     /* Cache consistency managed by the app via annotations. */
     VM_APP_MANAGED = 0x2000,
 #endif
 };
 
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
 # define VM_JIT_MANAGED_TYPE VM_JIT_MONITORED
 # define VM_ISOLATION_FLAGS VM_EXECUTED_FROM|VM_JIT_MANAGED_TYPE|VM_MADE_READONLY
-#else
+#elif defined(JITOPT_ANNOTATIONS)
 # define VM_JIT_MANAGED_TYPE VM_APP_MANAGED
 # define VM_ISOLATION_FLAGS VM_EXECUTED_FROM|VM_JIT_MANAGED_TYPE
 #endif
@@ -983,6 +983,7 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
               v->should_merge_func(true/*adjacent*/, data, v->buf[i].custom.client)))) {
             ASSERT(!(start < v->buf[i].end && end > v->buf[i].start) ||
                    !TEST(VECTOR_NEVER_OVERLAP, v->flags));
+#ifdef JITOPT
             /* app-managed regions are split/merged according to app behavior */
             if (TEST(VM_JIT_MANAGED_TYPE, v->buf[i].vm_flags) &&
                 TEST(VM_JIT_MANAGED_TYPE, vm_flags)) {
@@ -993,6 +994,7 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
                     ASSERT(end == v->buf[i].start);
                 break;
             }
+#endif
             if (overlap_start == -1) {
                 /* assume we'll simply expand an existing area rather than
                  * add a new one -- we'll reset this if we hit merge conflicts */
@@ -1226,9 +1228,11 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
             print_vm_areas(v, GLOBAL);
         }
 #endif
+#ifdef JITOPT
         ASSERT(((i == 0 || v->buf[i-1].end <= v->buf[i].start) &&
                (i == v->length || v->buf[i].end <= v->buf[i+1].start)) ||
                TEST(VM_JIT_MANAGED_TYPE, v->buf[i].vm_flags));
+#endif
         v->length++;
         STATS_TRACK_MAX(max_vmareas_length, v->length);
         DOSTATS({
@@ -2640,7 +2644,9 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
 {
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
 
+#ifdef JITOPT
     ASSERT(!TEST(VM_JIT_MANAGED_TYPE, vm_flags));
+#endif
     add_vm_area(executable_areas, start, end,
                 vm_flags, frag_flags, NULL _IF_DEBUG(comment));
 
@@ -3176,7 +3182,9 @@ get_coarse_info_internal(app_pc addr, bool init, bool have_shvm_lock)
                 LOG(GLOBAL, LOG_VMAREAS, 2,
                     "adding coarse region "PFX"-"PFX" to shared vm areas\n",
                     area_copy.start, area_copy.end);
+#ifdef JITOPT
                 ASSERT(!TEST(VM_JIT_MANAGED_TYPE, area_copy.vm_flags));
+#endif
                 add_vm_area(&shared_data->areas, area_copy.start, area_copy.end,
                             area_copy.vm_flags, area_copy.frag_flags, NULL
                             _IF_DEBUG(area_copy.comment));
@@ -3585,16 +3593,6 @@ is_valid_address(app_pc addr)
 }
 
 bool
-is_jit_managed_area(app_pc addr)
-{
-    uint vm_flags;
-    if (get_executable_area_vm_flags(addr, &vm_flags))
-        return TEST(VM_JIT_MANAGED_TYPE, vm_flags);
-    else
-        return false;
-}
-
-bool
 is_unmod_image(app_pc addr)
 {
     uint vm_flags;
@@ -3604,7 +3602,19 @@ is_unmod_image(app_pc addr)
         return false;
 }
 
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT
+bool
+is_jit_managed_area(app_pc addr)
+{
+    uint vm_flags;
+    if (get_executable_area_vm_flags(addr, &vm_flags))
+        return TEST(VM_JIT_MANAGED_TYPE, vm_flags);
+    else
+        return false;
+}
+#endif
+
+#ifdef JITOPT_INFERENCE
 static vm_area_t *
 get_jit_monitored_area(app_pc addr)
 {
@@ -3703,7 +3713,7 @@ set_region_dgc_writer(app_pc start, size_t len)
     write_unlock(&executable_areas->lock);
     return result;
 }
-#else
+#elif defined(JITOPT_ANNOTATIONS)
 void
 set_region_app_managed(app_pc start, size_t len)
 {
@@ -6620,7 +6630,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
         }
     }
 
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
     if (is_jit_managed_area(base)) {
         LOG(THREAD, LOG_VMAREAS, 1, "JITMON: App changes prot 0x%x to 0x%x\n",
             old_memprot == NULL ? -1 : *old_memprot, prot);
@@ -7405,10 +7415,10 @@ static void
 handle_delay_readonly(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
 {
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
     ASSERT(TESTALL(VM_DELAY_READONLY|VM_WRITABLE, area->vm_flags) ||
            TESTALL(VM_DELAY_READONLY|VM_JIT_MONITORED, area->vm_flags));
-#else
+#elif defined(JITOPT_ANNOTATIONS)
     ASSERT(TESTALL(VM_DELAY_READONLY|VM_WRITABLE, area->vm_flags));
 #endif
     /* should never get a selfmod region here, to be marked selfmod
@@ -8430,7 +8440,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     result = true;
 
     /* we are building a real bb, assert consistency checks */
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
     DOCHECK(1, {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
@@ -8440,7 +8450,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                TEST(VM_JIT_MONITORED, area->vm_flags));
         ASSERT(is_readable_without_exception_try(pc, 1));
     });
-#else
+#elif defined(JITOPT_ANNOTATIONS)
     DOCHECK(1, {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
@@ -9838,6 +9848,7 @@ vm_area_unlink_incoming(dcontext_t *dcontext, app_pc pc)
     }
 }
 
+#ifdef JITOPT
 bool
 is_vm_area_region_isolated(dcontext_t *dcontext, app_pc start, app_pc end)
 {
@@ -9875,6 +9886,7 @@ vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
             continue;
 
         ASSERT(TEST(VM_JIT_MANAGED_TYPE, executable_areas->buf[i].vm_flags));
+
         if ((area_end - area_start) > ISOLATION_VMAREA_SIZE) {
             if (isolation_start < area_start)
                 isolation_start = area_start;
@@ -9911,6 +9923,7 @@ vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
         break;
     }
 }
+#endif
 
 /* Decrements ref counts for thread-shared pending-deletion fragments,
  * and deletes those whose count has reached 0.
@@ -10415,7 +10428,9 @@ vm_area_allsynch_flush_fragments(dcontext_t *dcontext, dcontext_t *del_dcontext,
      */
     for (i = v->length - 1; i >= 0; i--) {
         if (start < v->buf[i].end && end > v->buf[i].start) {
+#ifdef JITOPT
             ASSERT(!TEST(v->buf[i].vm_flags, VM_JIT_MANAGED_TYPE));
+#endif
             if (v->buf[i].start < start ||
                 v->buf[i].end > end) {
                 /* see comments in vm_area_unlink_fragments() */
@@ -10822,7 +10837,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     app_pc bb_pstart = NULL, bb_pend = NULL; /* pages occupied by instr's bb */
     vm_area_t *a = NULL;
     fragment_t wrapper;
-#if defined(JIT_MONITORED_AREAS) && defined(RELEASE_LOGGING)
+#if defined(JITOPT_INFERENCE) && defined(RELEASE_LOGGING)
     ptr_int_t offset = lookup_dgc_writer_offset(target);
 #endif
     /* get the "region" size (don't use exec list, it merges regions),
@@ -10859,7 +10874,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     });
     ASSERT(ok);
 
-#ifndef JIT_MONITORED_AREAS
+#ifndef JITOPT_INFERENCE
     SYSLOG_INTERNAL_WARNING_ONCE("writing to executable region.");
 #endif
     STATS_INC(num_write_faults);
@@ -10925,7 +10940,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     ASSERT(opnd_size != 0);
     instr_size = next_pc - instr_size_pc;
 
-#ifdef JIT_MONITORED_AREAS
+#ifdef JITOPT_INFERENCE
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "handle_modified_code(): prot 0x%x, JIT managed? %d, "
                 "offset: "PFX", instr_app_pc: "PFX"\n", prot, is_jit_managed_area(target),
                 offset, instr_app_pc);
