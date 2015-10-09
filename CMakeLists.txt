@@ -264,7 +264,11 @@ if (VPS)
   endif (WIN32)
 endif (VPS)
 
-option(STATIC_LIBRARY "build DR statically (not supported yet)")
+# i#975: revived support for STATIC_LIBRARY.
+# FIXME: we need to implement takeover on Windows with .CRT$XCU.
+# i#1793: the tests do not build anymore: abandoning official support,
+# but leaving the code in the repo as we may want to revive it again later.
+option(STATIC_LIBRARY "build DR statically (not fully supported)")
 if (STATIC_LIBRARY)
   set(SHARED_OR_STATIC STATIC)
 else ()

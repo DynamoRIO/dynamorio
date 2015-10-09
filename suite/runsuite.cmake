@@ -245,20 +245,6 @@ if (ARCH_IS_X86)
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
       ")
-    if (UNIX)
-      # i#975: revived support for STATIC_LIBRARY.
-      # FIXME: we need to implement takeover on Windows with .CRT$XCU.
-      testbuild("static-debug-internal-64" ON "
-        STATIC_LIBRARY:BOOL=ON
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        ")
-      testbuild("static-debug-internal-32" OFF "
-        STATIC_LIBRARY:BOOL=ON
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        ")
-    endif ()
   endif (DO_ALL_BUILDS)
 endif (ARCH_IS_X86)
 
