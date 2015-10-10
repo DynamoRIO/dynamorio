@@ -47,6 +47,9 @@
 #ifdef ANNOTATIONS
 # include "../annotations.h"
 #endif
+#ifdef JITOPT_INFERENCE
+# include "../jitopt.h"
+#endif
 
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
@@ -808,6 +811,12 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 #ifdef ANNOTATIONS
         if (is_annotation_label(instr)) {
             mangle_annotation_helper(dcontext, instr, ilist);
+            continue;
+        }
+#endif
+#ifdef JITOPT_INFERENCE
+        if (is_dgc_optimization_label(instr)) {
+            mangle_dgc_optimization_helper(dcontext, instr, ilist, *flags);
             continue;
         }
 #endif

@@ -385,7 +385,7 @@ set_region_jit_monitored(app_pc start, size_t len);
 
 bool
 set_region_dgc_writer(app_pc start, size_t len);
-#elif defined(JITOPT_ANNOTATIONS)
+#elif defined(JITOPT_ANNOTATION)
 void
 set_region_app_managed(app_pc start, size_t len);
 #endif

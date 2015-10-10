@@ -47,10 +47,10 @@
 
 #include <stdlib.h>
 #ifdef LINUX
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
+# include <sys/types.h>
+# include <sys/stat.h>
+# include <sys/mman.h>
+# include <fcntl.h>
 # include "include/syscall.h"            /* our own local copy */
 #else
 # include <sys/syscall.h>
@@ -64,8 +64,6 @@
 
 #define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME \
     "dynamorio_annotate_flush_fragments"
-
-#ifdef JITOPT
 
 #define BUCKET_BIT_SIZE DGC_OVERLAP_BUCKET_BIT_SIZE
 #define BUCKET_MASK 0x3f
@@ -172,6 +170,7 @@ typedef struct _dgc_writer_mapping_table_t {
     dgc_writer_mapping_t *table[DGC_MAPPING_TABLE_SIZE];
 } dgc_writer_mapping_table_t;
 
+#ifdef JITOPT_INFERENCE
 static dgc_writer_mapping_table_t *dgc_writer_mapping_table;
 
 DECLARE_CXTSWPROT_VAR(static mutex_t dgc_mapping_lock, INIT_LOCK_FREE(dgc_mapping_lock));
@@ -189,7 +188,7 @@ typedef struct double_mapping_list_t {
     double_mapping_t *mappings;
 } double_mapping_list_t;
 
-#define MAX_DOUBLE_MAPPINGS 500
+# define MAX_DOUBLE_MAPPINGS 500
 static double_mapping_list_t *double_mappings;
 #endif
 
@@ -213,10 +212,11 @@ typedef struct _dgc_stats_t {
 
 static dgc_stats_t *dgc_stats;
 
+#ifdef JITOPT_INFERENCE
 generic_table_t *emulation_plans;
 
-#define JIT_MANAGED_FLUSH_THRESHOLD 10
-#define MAX_EXEC_AREA_COUNTERS 1000
+# define JIT_MANAGED_FLUSH_THRESHOLD 10
+# define MAX_EXEC_AREA_COUNTERS 1000
 
 typedef struct _exec_area_counter_t {
     app_pc start;
@@ -231,6 +231,7 @@ typedef struct _exec_area_counters_t {
 } exec_area_counters_t;
 
 static exec_area_counters_t *exec_area_counters;
+#endif
 
 #define EXPAND_ARRAY(array, max_size, type) \
 do { \
@@ -272,11 +273,13 @@ dgc_table_resized();
 static void
 free_dgc_bucket_chain(void *p);
 
+#ifdef JITOPT_INFERENCE
 static void
 free_double_mapping(double_mapping_t *mapping);
 
 static void
 free_emulation_plan(void *p);
+#endif
 
 static void
 update_thread_state();
@@ -287,7 +290,7 @@ dgc_stat_report();
 static inline app_pc
 maybe_exit_cti_disp_pc(app_pc maybe_branch_pc);
 
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
 static void
 free_dgc_writer_mapping(dgc_writer_mapping_t *mapping);
 
@@ -321,11 +324,10 @@ jitopt_init()
                                 (void *) flush_jit_fragments, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
 #endif
-#if !(defined (WINDOWS) && defined (X64))
+#if !(defined(WINDOWS) && defined(X64))
     dr_annotation_register_valgrind(DR_VG_ID__DISCARD_TRANSLATIONS,
                                     valgrind_discard_translations);
 #endif
-#ifdef JITOPT
     dgc_table = asmtable_create(20, 45, &dgc_table_lock,
                                 (void *)free_dgc_bucket_chain, dgc_table_resized);
 
@@ -361,6 +363,7 @@ jitopt_init()
                          ACCT_OTHER, UNPROTECTED);
     dgc_removal_queue->sample_index = 0;
 
+#ifdef JITOPT_INFERENCE
     double_mappings = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, double_mapping_list_t,
                                       ACCT_OTHER, UNPROTECTED);
     double_mappings->index = 0;
@@ -394,8 +397,6 @@ jitopt_init()
 void
 jitopt_exit()
 {
-    uint i;
-#ifdef JITOPT
     asmtable_destroy(dgc_table);
     DELETE_LOCK(dgc_table_lock);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->staging, dgc_bucket_t *,
@@ -421,25 +422,28 @@ jitopt_exit()
                     dgc_removal_queue->max, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_removal_queue, dgc_removal_queue_t,
                    ACCT_OTHER, UNPROTECTED);
+#ifdef JITOPT_INFERENCE
+    {
+        uint i;
+        for (i = 0; i < double_mappings->index; i++)
+            free_double_mapping(&double_mappings->mappings[i]);
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, double_mappings->mappings, double_mapping_t,
+                        MAX_DOUBLE_MAPPINGS, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, double_mappings, double_mapping_list_t,
+                       ACCT_OTHER, UNPROTECTED);
 
-    for (i = 0; i < double_mappings->index; i++)
-        free_double_mapping(&double_mappings->mappings[i]);
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, double_mappings->mappings, double_mapping_t,
-                    MAX_DOUBLE_MAPPINGS, ACCT_OTHER, UNPROTECTED);
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, double_mappings, double_mapping_list_t,
-                   ACCT_OTHER, UNPROTECTED);
+        generic_hash_destroy(GLOBAL_DCONTEXT, emulation_plans);
 
-    generic_hash_destroy(GLOBAL_DCONTEXT, emulation_plans);
+        clear_dgc_writer_table();
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_writer_mapping_table, dgc_writer_mapping_table_t,
+                       ACCT_OTHER, UNPROTECTED);
+        DELETE_LOCK(dgc_mapping_lock);
 
-    clear_dgc_writer_table();
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_writer_mapping_table, dgc_writer_mapping_table_t,
-                   ACCT_OTHER, UNPROTECTED);
-    DELETE_LOCK(dgc_mapping_lock);
-
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, exec_area_counters->counters, exec_area_counter_t,
-                    exec_area_counters->max_size, ACCT_OTHER, UNPROTECTED);
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, exec_area_counters, exec_area_counters_t,
-                   ACCT_OTHER, UNPROTECTED);
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, exec_area_counters->counters, exec_area_counter_t,
+                        exec_area_counters->max_size, ACCT_OTHER, UNPROTECTED);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, exec_area_counters, exec_area_counters_t,
+                       ACCT_OTHER, UNPROTECTED);
+    }
 #endif
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
 }
@@ -447,6 +451,7 @@ jitopt_exit()
 void
 jitopt_thread_init(dcontext_t *dcontext)
 {
+#ifdef JITOPT_INFERENCE
     local_state_extended_t *state = (local_state_extended_t *) dcontext->local_state;
     state->dgc_mapping_table = dgc_writer_mapping_table;
     state->dgc_coverage_table = dgc_table->table;
@@ -455,32 +460,36 @@ jitopt_thread_init(dcontext_t *dcontext)
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "Initialized thread 0x%x with dgc mapping table "PFX"\n",
                 get_thread_id(), state->dgc_mapping_table);
+#endif
 }
 
 void
 manage_code_area(app_pc start, size_t len)
 {
-    dcontext_t *dcontext = get_thread_private_dcontext();
     //dr_printf("Manage code area "PFX"-"PFX"\n",
     //    start, start+len);
     RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
                 start, start+len);
-#ifdef JITOPT_ANNOTATION
-    uint prot;
-    if (!set_region_jit_monitored(start, len)) {
-        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
-                    "DGC: Failed to manage area; already managed! "PFX" +0x%x \n",
-                    start, len);
-        return;
+#ifdef JITOPT_INFERENCE
+    {
+        uint prot;
+        dcontext_t *dcontext = get_thread_private_dcontext();
+
+        if (!set_region_jit_monitored(start, len)) {
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                        "DGC: Failed to manage area; already managed! "PFX" +0x%x \n",
+                        start, len);
+            return;
+        }
+        if (!get_memory_info(start, NULL, NULL, &prot)) {
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                        "DGC: Failed to get memory protection info for "PFX" +0x%x\n",
+                        start, len);
+            return;
+        }
+        setup_double_mapping(dcontext, start, len, prot);
     }
-    if (!get_memory_info(start, NULL, NULL, &prot)) {
-        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
-                    "DGC: Failed to get memory protection info for "PFX" +0x%x\n",
-                    start, len);
-        return;
-    }
-    setup_double_mapping(dcontext, start, len, prot);
-#else /* JITOPT_INFERENCE */
+#else /* JITOPT_ANNOTATION */
     set_region_app_managed(start, len);
 #endif
 
@@ -511,9 +520,8 @@ annotation_unmanage_code_area(app_pc start, size_t len)
     flush_fragments_and_remove_region(dcontext, start, len,
                                       true /* own initexit_lock */, false);
     mutex_unlock(&thread_initexit_lock);
-#ifdef JITOPT
+
     dgc_notify_region_cleared(start, start+len);
-#endif
 }
 
 static void
@@ -564,13 +572,13 @@ flush_jit_fragments(app_pc start, size_t len)
 #ifdef RELEASE_LOGGING
     RSTATS_INC(app_managed_writes_observed);
 #endif
-#ifdef JITOPT
+#ifdef JITOPT /* vs. page isolation only--make public? */
     if (true) {
-#ifdef RELEASE_LOGGING
+# ifdef RELEASE_LOGGING
         uint removal_count =
-#endif
+# endif
             remove_patchable_fragments(dcontext, start, start+len);
-#ifdef RELEASE_LOGGING
+# ifdef RELEASE_LOGGING
         if (removal_count > 0) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                         "Removed %d fragments in ["PFX"-"PFX"].\n",
@@ -600,16 +608,16 @@ flush_jit_fragments(app_pc start, size_t len)
                         start, start+len);
             RSTATS_INC(app_managed_writes_ignored);
         }
-#endif
-    } else {
 # endif
+    } else {
+#endif
         if (len == PAGE_SIZE)
             RSTATS_INC(app_managed_page_writes);
         else
             RSTATS_INC(app_managed_multipage_writes);
 
         flush_and_isolate_region(dcontext, start, len);
-#ifdef JITOPT
+#ifdef JITOPT /* vs. page isolation only */
         dgc_notify_region_cleared(start, start+len);
     }
 #endif
@@ -626,7 +634,50 @@ valgrind_discard_translations(dr_vg_client_request_t *request)
 }
 #endif
 
-#ifdef JITOPT
+static inline void
+remove_from_all_threads(fragment_t *f)
+{
+    uint i;
+    dcontext_t *dc;
+    per_thread_t *pt;
+    ibl_branch_type_t branch_type;
+    bool remove_trace_from_all_threads = false;
+    bool remove_bb_from_all_threads = false;
+
+    if (IS_IBL_TARGET(f->flags)) {
+        if (TEST(FRAG_IS_TRACE, f->flags))
+            remove_trace_from_all_threads = !DYNAMO_OPTION(shared_trace_ibt_tables);
+        if (DYNAMO_OPTION(bb_ibl_targets) &&
+            (!TEST(FRAG_IS_TRACE, f->flags) ||
+             DYNAMO_OPTION(bb_ibt_table_includes_traces))) {
+            remove_bb_from_all_threads = !DYNAMO_OPTION(shared_bb_ibt_tables);
+        }
+    }
+
+    if (!remove_trace_from_all_threads && !remove_bb_from_all_threads)
+        return;
+
+    for (i=0; i < thread_state->count; i++) {
+        dc = thread_state->threads[i]->dcontext;
+        pt = (per_thread_t *) dc->fragment_field;
+        if (remove_trace_from_all_threads) {
+            for (branch_type = IBL_BRANCH_TYPE_START;
+                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+                fragment_prepare_for_removal_from_table(dc, f,
+                                                        &pt->trace_ibt[branch_type]);
+            }
+        }
+        if (remove_bb_from_all_threads) {
+            for (branch_type = IBL_BRANCH_TYPE_START;
+                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+                fragment_prepare_for_removal_from_table(dc, f,
+                                                        &pt->bb_ibt[branch_type]);
+            }
+        }
+    }
+}
+
+#ifdef JITOPT_INFERENCE
 static void
 free_dgc_writer_mapping(dgc_writer_mapping_t *mapping)
 {
@@ -672,9 +723,9 @@ insert_dgc_writer_offsets(app_pc start, size_t size, ptr_int_t offset)
     ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(start);
     ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
     ptr_uint_t last_page_id = page_id + page_span;
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     ASSERT_OWN_MUTEX(true, &dgc_mapping_lock);
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Insert writer offsets "PFX" +0x%x = "PFX" "
@@ -704,9 +755,9 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
     ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(start);
     ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
     ptr_uint_t last_page_id = page_id + page_span;
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     ASSERT_OWN_MUTEX(true, &dgc_mapping_lock);
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Remove writer offsets "PFX" +0x%x "
@@ -851,9 +902,9 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
     uint i;
     uint *value, *value_base;
     uint *target_access = (uint *)((ptr_int_t)write_target + page_delta);
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     if (plan->src_in_reg)
         value = (uint *)((byte *)mc + plan->src.mcontext_reg_offset);
@@ -1072,9 +1123,9 @@ setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
 void
 notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readonly)
 {
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     mutex_lock(&dgc_mapping_lock);
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_readonly_for_cache_consistency("PFX", 0x%x, %s)\n",
@@ -1096,9 +1147,9 @@ locate_and_manage_code_area(app_pc pc)
     // TODO: check & prevent flush in this region!
     app_pc start;
     size_t size;
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area() at "PFX"\n", pc);
 
@@ -1142,9 +1193,9 @@ void
 notify_exec_invalidation(app_pc start, size_t size)
 {
     uint i;
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_exec_invalidation("PFX", 0x%x)\n",
                 start, size);
@@ -1204,9 +1255,9 @@ clear_double_mapping(app_pc start)
 {
     uint i, j;
     bool removed = false;
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     mutex_lock(&dgc_mapping_lock);
     for (i = 0; i < double_mappings->index; i++) {
@@ -1349,49 +1400,6 @@ instrumentation_failure:
     }
 }
 
-static inline void
-remove_from_all_threads(fragment_t *f)
-{
-    uint i;
-    dcontext_t *dc;
-    per_thread_t *pt;
-    ibl_branch_type_t branch_type;
-    bool remove_trace_from_all_threads = false;
-    bool remove_bb_from_all_threads = false;
-
-    if (IS_IBL_TARGET(f->flags)) {
-        if (TEST(FRAG_IS_TRACE, f->flags))
-            remove_trace_from_all_threads = !DYNAMO_OPTION(shared_trace_ibt_tables);
-        if (DYNAMO_OPTION(bb_ibl_targets) &&
-            (!TEST(FRAG_IS_TRACE, f->flags) ||
-             DYNAMO_OPTION(bb_ibt_table_includes_traces))) {
-            remove_bb_from_all_threads = !DYNAMO_OPTION(shared_bb_ibt_tables);
-        }
-    }
-
-    if (!remove_trace_from_all_threads && !remove_bb_from_all_threads)
-        return;
-
-    for (i=0; i < thread_state->count; i++) {
-        dc = thread_state->threads[i]->dcontext;
-        pt = (per_thread_t *) dc->fragment_field;
-        if (remove_trace_from_all_threads) {
-            for (branch_type = IBL_BRANCH_TYPE_START;
-                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-                fragment_prepare_for_removal_from_table(dc, f,
-                                                        &pt->trace_ibt[branch_type]);
-            }
-        }
-        if (remove_bb_from_all_threads) {
-            for (branch_type = IBL_BRANCH_TYPE_START;
-                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-                fragment_prepare_for_removal_from_table(dc, f,
-                                                        &pt->bb_ibt[branch_type]);
-            }
-        }
-    }
-}
-
 app_pc
 instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc writer_app_pc,
                       app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
@@ -1401,9 +1409,9 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     bool created_plan = false;
     extern bool verbose;
 
-#ifdef RELEASE_LOGGING
+# ifdef RELEASE_LOGGING
     RSTATS_INC(app_managed_instrumentations);
-#endif
+# endif
 
     TABLE_RWLOCK(emulation_plans, write, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
@@ -1501,15 +1509,15 @@ emulate_dgc_write(app_pc writer_pc)
     priv_mcontext_t *mc = get_priv_mcontext_from_dstack(dcontext);
     app_pc write_target;
     bool simulating =
-#ifdef JITOPT_EMULATE
+# ifdef JITOPT_EMULATE
     false;
-#else
+# else
     true;
-#endif
+# endif
 
-#ifdef RELEASE_LOGGING
+# ifdef RELEASE_LOGGING
     RSTATS_INC(app_managed_clean_calls);
-#endif
+# endif
 
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_pc);
@@ -1541,9 +1549,9 @@ emulate_dgc_write(app_pc writer_pc)
         emulate_writer(mc, plan, offset, write_target, simulating);
     }
 
-#ifndef JITOPT_EMULATE
+# ifndef JITOPT_EMULATE
     ASSERT(!plan->is_jit_self_write);
-#endif
+# endif
     if (!plan->is_jit_self_write)
         flush_jit_fragments(write_target, plan->dst_size);
 }
@@ -1555,10 +1563,10 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     instr_t *label;
     dr_instr_label_data_t *label_data;
 
-#ifdef JITOPT_PAGE_FAULT
+# ifdef JITOPT_PAGE_FAULT
     if (true)
         return false;
-#endif
+# endif
 
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) *pc);
@@ -1583,6 +1591,7 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     *pc = plan->resume_pc;
     return true;
 }
+#endif
 
 static inline bool
 dgc_bb_is_head(dgc_bb_t *bb)
@@ -1657,7 +1666,6 @@ dgc_bb_overlaps(dgc_bb_t *bb, app_pc start, app_pc end)
     ptr_uint_t bb_end = (ptr_uint_t) dgc_bb_end(head);
     return (ptr_uint_t)head->start < (ptr_uint_t)end && bb_end > (ptr_uint_t)start;
 }
-#endif /* JITOPT */
 
 static void
 dgc_stat_report()
@@ -2038,6 +2046,7 @@ dgc_set_all_slots_empty(dgc_bb_t *bb)
 static void
 dgc_table_resized()
 {
+#ifdef JITOPT_INFERENCE
     uint i;
     dcontext_t *dc;
     local_state_extended_t *state;
@@ -2051,6 +2060,7 @@ dgc_table_resized()
         state->dgc_coverage_mask = dgc_table->hash_mask;
     }
     mutex_unlock(&thread_initexit_lock);
+#endif
 }
 
 static void
@@ -2076,12 +2086,13 @@ free_dgc_bucket_chain(void *p)
     } while (bucket != NULL);
 }
 
+#ifdef JITOPT_INFERENCE
 static void
 free_double_mapping(double_mapping_t *mapping)
 {
-#ifdef DEBUG
+# ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
-#endif
+# endif
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "free_double_mapping of "PFX": "PFX" + 0x%x\n",
                 mapping->app_memory_start, mapping->double_mapping_start,
@@ -2104,6 +2115,7 @@ free_emulation_plan(void *p)
     instr_free(dcontext, &plan->writer);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, plan, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 }
+#endif
 
 void
 dgc_table_dereference_bb(app_pc tag)
@@ -2973,4 +2985,4 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
     return fragment_intersection_count;
 }
 #endif /* JITOPT */
-#endif /* ANNOTATIONS */
+#endif

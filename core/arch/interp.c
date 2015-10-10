@@ -3228,7 +3228,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     DEBUG_DECLARE(bool regenerated = false;)
     bool stop_bb_on_fallthrough = false;
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
     instr_t *dgc_writer_instrumentation;
 #endif
 
@@ -3376,7 +3376,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
             bb->instr_start = bb->cur_pc;
             ASSERT(bb->instr_start >= non_cti_start_pc);
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
             if (bb->app_interp && apply_dgc_emulation_plan(dcontext, &bb->cur_pc,
                                                            &dgc_writer_instrumentation)) {
                 bb->is_dgc_instrumented = true;

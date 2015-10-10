@@ -33,6 +33,8 @@
 #ifndef _JITOPT_H_
 #define _JITOPT_H_ 1
 
+#ifdef JITOPT /* around whole file */
+
 #include "monitor.h"
 
 #define DGC_MAPPING_TABLE_SHIFT 0xc    /* extract page id */
@@ -93,7 +95,6 @@ annotation_unmanage_code_area(app_pc start, size_t len);
 void
 flush_jit_fragments(app_pc start, size_t len);
 
-#ifdef JITOPT
 ptr_int_t
 lookup_dgc_writer_offset(app_pc addr);
 

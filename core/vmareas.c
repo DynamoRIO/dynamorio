@@ -145,7 +145,7 @@ enum {
      */
     VM_JIT_MONITORED = 0X2000,
     VM_DGC_WRITER = 0x4000,
-#elif defined(JITOPT_ANNOTATIONS)
+#elif defined(JITOPT_ANNOTATION)
     /* Cache consistency managed by the app via annotations. */
     VM_APP_MANAGED = 0x2000,
 #endif
@@ -154,7 +154,7 @@ enum {
 #ifdef JITOPT_INFERENCE
 # define VM_JIT_MANAGED_TYPE VM_JIT_MONITORED
 # define VM_ISOLATION_FLAGS VM_EXECUTED_FROM|VM_JIT_MANAGED_TYPE|VM_MADE_READONLY
-#elif defined(JITOPT_ANNOTATIONS)
+#elif defined(JITOPT_ANNOTATION)
 # define VM_JIT_MANAGED_TYPE VM_APP_MANAGED
 # define VM_ISOLATION_FLAGS VM_EXECUTED_FROM|VM_JIT_MANAGED_TYPE
 #endif
@@ -671,7 +671,7 @@ vm_make_writable(byte *pc, size_t size)
     ASSERT(ok);
     ASSERT(INTERNAL_OPTION(hw_cache_consistency));
 
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
     notify_readonly_for_cache_consistency(pc, size, false);
 #endif
 }
@@ -698,7 +698,7 @@ vm_make_unwritable(byte *pc, size_t size)
         }
     });
 
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "vm_make_unwritable "PFX" "PFX"\n",
                 pc, (ptr_uint_t) pc + size);
     notify_readonly_for_cache_consistency(pc, size, true);
@@ -1408,7 +1408,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             new_area.start = end;
             /* rest of fields are correct */
             add_new_area = true;
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
             if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags) && (v == executable_areas)) {
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                             "\tremove_vm_area: split "PFX"-"PFX", adding tail section "
@@ -1422,7 +1422,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tchanging "PFX"-"PFX" to "PFX"-"PFX"\n",
             v->buf[overlap_start].start, v->buf[overlap_start].end,
             v->buf[overlap_start].start, start);
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
         if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                         "\tremove_vm_area: left-shrinking "PFX"-"PFX" to "PFX"-"PFX" %s\n",
@@ -1449,7 +1449,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tchanging "PFX"-"PFX" to "PFX"-"PFX"\n",
             v->buf[overlap_end-1].start, v->buf[overlap_end-1].end,
             end, v->buf[overlap_end-1].end);
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
         if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                         "\tremove_vm_area: right-shrinking "PFX"-"PFX" to "PFX"-"PFX" %s\n",
@@ -1477,7 +1477,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         for (i = overlap_start; i < overlap_end; i++) {
             LOG(GLOBAL, LOG_VMAREAS, 3, "\tcompletely removing "PFX"-"PFX" %s\n",
                 v->buf[i].start, v->buf[i].end, v->buf[i].comment);
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
             if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags) && (v == executable_areas)) {
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
                             "\tremove_vm_area: completely removing "PFX"-"PFX" %s\n",
@@ -1549,7 +1549,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         v->length -= diff;
     }
     if (add_new_area) {
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
         bool was_jit_managed = TEST(VM_JIT_MANAGED_TYPE, new_area.vm_flags);
 #endif
         /* Case 8640: Do not propagate coarse-grain-ness to split-off region,
@@ -1576,7 +1576,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                     new_area.frag_flags, new_area.custom.client
                     _IF_DEBUG(new_area.comment));
 
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
         if (was_jit_managed) {
             uint prot;
             dcontext_t *dcontext = get_thread_private_dcontext();
@@ -3713,7 +3713,7 @@ set_region_dgc_writer(app_pc start, size_t len)
     write_unlock(&executable_areas->lock);
     return result;
 }
-#elif defined(JITOPT_ANNOTATIONS)
+#elif defined(JITOPT_ANNOTATION)
 void
 set_region_app_managed(app_pc start, size_t len)
 {
@@ -7418,7 +7418,7 @@ handle_delay_readonly(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
 #ifdef JITOPT_INFERENCE
     ASSERT(TESTALL(VM_DELAY_READONLY|VM_WRITABLE, area->vm_flags) ||
            TESTALL(VM_DELAY_READONLY|VM_JIT_MONITORED, area->vm_flags));
-#elif defined(JITOPT_ANNOTATIONS)
+#elif defined(JITOPT_ANNOTATION)
     ASSERT(TESTALL(VM_DELAY_READONLY|VM_WRITABLE, area->vm_flags));
 #endif
     /* should never get a selfmod region here, to be marked selfmod
@@ -8058,7 +8058,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         }
 #endif
 
-#ifdef JITOPT
+#ifdef JITOPT_INFERENCE
         if (may_be_dgc_writer != NULL)
             *may_be_dgc_writer = TEST(VM_DGC_WRITER, area->vm_flags);
 #endif
@@ -8450,7 +8450,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                TEST(VM_JIT_MONITORED, area->vm_flags));
         ASSERT(is_readable_without_exception_try(pc, 1));
     });
-#elif defined(JITOPT_ANNOTATIONS)
+#elif defined(JITOPT_ANNOTATION)
     DOCHECK(1, {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
@@ -11148,11 +11148,12 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
                 if (is_jit_managed_area((app_pc)tgt_pstart)) {
                     dgc_notify_region_cleared((app_pc)tgt_pstart,
                                               (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
+#ifdef JITOPT_INFERENCE
                 } else {
                     notify_exec_invalidation((app_pc)tgt_pstart,
                                              tgt_pend+PAGE_SIZE-tgt_pstart);
+#endif
                 }
-
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, " === modified code! (case 1) ===\n");
             }
 #endif
@@ -11298,13 +11299,15 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
 #ifdef JITOPT
     if (!TEST(MEMPROT_WRITE, prot)) {
-        if (is_jit_managed_area(flush_start))
+        if (is_jit_managed_area(flush_start)) {
             dgc_notify_region_cleared(flush_start, flush_start+flush_size);
-        else {
+# ifdef JITOPT_INFERENCE
+        } else {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
                         "handle_modified_code() case 2 -> notify_exec_invalidation() "
                         "(0x%x)\n", prot);
             notify_exec_invalidation(flush_start, flush_size);
+# endif
         }
     }
 #endif
