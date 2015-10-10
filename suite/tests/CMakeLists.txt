@@ -107,7 +107,7 @@ set(vmap_run_list
   "-code_api -thread_private"
   "-code_api -disable_traces"
   "-code_api -thread_private -disable_traces"
-  "LIN::-code_api -no_early_inject"
+  "LIN::ONLY::^common::-code_api -no_early_inject"
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
   "ONLY::^common::-code_api -stack_size 120k"
   "WIN::ONLY::^(runall|client)::-enable_full_api"
@@ -122,7 +122,7 @@ set(vmap_run_list
   "ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
   "ONLY::^common::-code_api -thread_private -tracedump_binary"
   # make sure we at least sometimes exercise non-default -checklevel
-  "DEBUG::-checklevel 4"
+  "DEBUG::ONLY::^common::-checklevel 4"
 
   # pcache tests: per-user so each app will merge w/ previous, plus merge
   # w/ at-unload persists from earlier -desktop run
@@ -136,37 +136,30 @@ set(vmap_run_list
   "ONLY::^(runall|${osname})::-finite_shared_trace_cache -cache_shared_trace_regen 80"
   )
 
+# This is no longer an actively supported config so we have few tests.
 set(vmsafe_run_list
   # keep lightweight modes alive
   # i#24: -thin_client not working: once it works, re-enable
   #"WIN::ONLY::^runall::-thin_client"
   "WIN::ONLY::^runall::-probe_api -hotp_only"
-  # our supported configurations
-  "ONLY::^[^h]::-code_api -probe_api"
+  # We no longer actively support this build so we run only a few tests.
+  "ONLY::^security::-code_api -probe_api"
   "ONLY::^security ^runall runinterface::-security_api"
-  "ONLY::^[^h]::-security_api"
-  "WIN::ONLY::^(runall|${osname})::-probe_api -hotp_only"
-  "WIN::ONLY::^(common|security)::-probe_api -hotp_only"
-  # other configurations we may eventually support
-  "ONLY::^[^h]::-security_api -code_api"
-  "-security_api -probe_api"
-  "-security_api -code_api -probe_api"
+  "ONLY::^security::-security_api -code_api -probe_api"
   )
 
-# xref the very long set of runs we used to test in
-# suite/old-runregression-runs-2-6-08
+# Xref the very long set of runs we used to test in
+# suite/old-runregression-runs-2-6-08.
+# This is no longer an actively supported config so we have few tests.
 set(vps_run_list
-  "ONLY::^(common|${osname}|security|runall)::"
   "ONLY::^(common|${osname}|security|runall)::-security"
-  "ONLY::^security::-security -detect_mode -report_max 0 -no_diagnostics"
-  "WIN::ONLY::^(common|${osname}|security|runall)::-security -liveshields"
-  "WIN::ONLY::^runall ^security::-security -client"
-  "WIN::ONLY::^runall ^security::-security -low" # not a default config
+  "WIN::ONLY::^runall::-security -client"
+  "WIN::ONLY::^runall::-security -low" # not a default config
   # Test with -use_moduledb relaxations, (is on by default, but tests Makefile
   # adds -staged which turns it off, we re-enable by turning the option back on).
   # The tests Makefile adds different version resource information to different
   # tests in runall/ and security-{common,win32}/ to fully exercise this.
-  "WIN::ONLY::^(runall|security)::-security -use_moduledb"
+  "WIN::ONLY::^runall::-security -use_moduledb"
   )
 # if building dedicated vps, want short suite of all tests
 set(vps_short_list
