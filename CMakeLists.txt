@@ -1229,17 +1229,20 @@ include_directories(BEFORE
 # Debug vs release is automatically added as a suffix.
 if (X64)
   set(exported_targets_name "DynamoRIOTarget64")
+  set(exported_map_name "DynamoRIOMap64")
 else (X64)
   set(exported_targets_name "DynamoRIOTarget32")
+  set(exported_map_name "DynamoRIOMap32")
 endif (X64)
 
 # i#948: we need to map RelWithDebInfo and RelMinSize to Release so importing
 # projects don't end up with Debug instead, yet Release for static libs
 # set in DynamoRIOConfig.cmake.
-# We do this with the MAP_IMPORTED_CONFIG_<CONFIG> target property.
-# If we pass APPEND to the first one, subsequent configs keep growing the file,
-# so we remove it up front.
-file(WRITE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake "")
+# We do this with the MAP_IMPORTED_CONFIG_<CONFIG> target property in a
+# special DynamoRIOMap file included by DynamoRIOConfig.cmake for build dirs, and
+# directly in the DynamoRIOTarget file for install dirs (where we can append easily).
+# For the Map file, we need to start empty:
+file(WRITE ${PROJECT_BINARY_DIR}/cmake/${exported_map_name}.cmake "")
 set(exported_targets_append "")
 macro(DR_export_target target)
   export(TARGETS ${ARGV} FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
@@ -1249,7 +1252,7 @@ SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELEASE RelWithDebInfo)
 SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE RelWithDebInfo)
 ")
   if (NOT DEBUG)
-    file(APPEND ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake ${toadd})
+    file(APPEND ${PROJECT_BINARY_DIR}/cmake/${exported_map_name}.cmake ${toadd})
   endif (NOT DEBUG)
   # We append to the installed file even in debug build so the ordering of
   # release vs debug doesn't matter in the final package.

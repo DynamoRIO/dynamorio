@@ -412,6 +412,12 @@ if (NOT DynamoRIO_INTERNAL)
   # swapped in instead.
   # We assume _DR_is_x64 can have only one value per configuration.
   include(${DynamoRIO_cwd}/DynamoRIOTarget${_DR_bits}.cmake)
+
+  # i#1804: when running from build dirs we can't easily append to the Target
+  # file, so we use a separate Map file and include it here.
+  if (EXISTS ${DynamoRIO_cwd}/DynamoRIOMap${_DR_bits}.cmake)
+    include(${DynamoRIO_cwd}/DynamoRIOMap${_DR_bits}.cmake)
+  endif ()
 endif (NOT DynamoRIO_INTERNAL)
 
 # Unfortunately, CMake doesn't support removing flags on a per-target basis,
