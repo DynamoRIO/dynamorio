@@ -7107,7 +7107,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
      * can lead to a rank-order violation. */
     if (!dynamo_resetting) {
         /* We must grab shared_vm_areas lock first to avoid rank order (i#1157) */
-        locked_vmareas = acquire_vm_areas_lock_if_not_already(dcontext, FRAG_SHARED);
+        if (SHARED_FRAGMENTS_ENABLED())
+            locked_vmareas = acquire_vm_areas_lock_if_not_already(dcontext, FRAG_SHARED);
         mutex_lock(&tracedump_mutex);
     }
     trace_num = tcount;

@@ -120,10 +120,9 @@ set(vmap_run_list
 
   # cover -tracedump_* options, just a couple combinations
   # XXX: how up time limit?  Used to have TEST_MINS=5 for tracedump runs.
-  # FIXME i#1807: disabling until we fix asserts in these:
-  #"ONLY::^common::-code_api -tracedump_text -tracedump_origins"
-  #"ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
-  #"ONLY::^common::-code_api -thread_private -tracedump_binary"
+  "ONLY::^common::-code_api -tracedump_text -tracedump_origins"
+  "ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
+  "ONLY::^common::-code_api -thread_private -tracedump_binary"
 
   # make sure we at least sometimes exercise non-default -checklevel
   "DEBUG::ONLY::^common::-checklevel 4"
