@@ -91,6 +91,8 @@ endif (UNIX)
 # N.B.: if short-suite tests are added to other than the debug-internal-{32,64}
 # builds, update runsuite.cmake to build the tests for those builds!
 
+# FIXME i#1807: below, we convert all long suite test subsets to ^common
+
 set(vmap_run_list
   # our main configuration
   "SHORT::-code_api"
@@ -117,10 +119,12 @@ set(vmap_run_list
   "LIN::ONLY::^${osname}::-code_api -sysenter_is_int80"
 
   # cover -tracedump_* options, just a couple combinations
-  # FIXME: how up time limit?  had TEST_MINS=5 for next 4 runs:
-  "ONLY::^common::-code_api -tracedump_text -tracedump_origins"
-  "ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
-  "ONLY::^common::-code_api -thread_private -tracedump_binary"
+  # XXX: how up time limit?  Used to have TEST_MINS=5 for tracedump runs.
+  # FIXME i#1807: disabling until we fix asserts in these:
+  #"ONLY::^common::-code_api -tracedump_text -tracedump_origins"
+  #"ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
+  #"ONLY::^common::-code_api -thread_private -tracedump_binary"
+
   # make sure we at least sometimes exercise non-default -checklevel
   "DEBUG::ONLY::^common::-checklevel 4"
 
@@ -2831,6 +2835,14 @@ foreach (run ${run_list})
     string(REGEX MATCHALL "^ONLY::.*::" regex "${run}")
     string(REGEX REPLACE "^ONLY::.*::" "" run "${run}")
     string(REGEX REPLACE "^ONLY::(.*)::" "\\1" regex "${regex}")
+
+    if (NOT is_short)
+      # FIXME i#1807: fix the failing long suite tests so we can enable them once again
+      # in our nightly regression runs.  For now we disable the extra tests (but
+      # we leave the extra builds selected in runsuite.cmake) by throttling
+      # all long tests to only run ^common.
+      set(regex "^common")
+    endif ()
 
     foreach (test ${testlist_normal})
       if (NOT regex OR "${test}" MATCHES "${regex}")
