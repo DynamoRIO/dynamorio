@@ -169,6 +169,9 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         while (!child_alive)
             dr_thread_yield();
         /* We leave the client thread alive until the app exits, to test i#1489 */
+#ifdef UNIX
+        dr_sleep(30); /* ensure we get an alarm */
+#endif
     }
     return DR_EMIT_DEFAULT;
 }
