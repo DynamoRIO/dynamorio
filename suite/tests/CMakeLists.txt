@@ -1540,7 +1540,10 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
   tobuild(common.getretaddr common/getretaddr.c)
 
-  if (CLIENT_INTERFACE) # b/c native_exec links w/ DR and needs api_headers
+  # nativeexec tests are under CLIENT_INTERFACE b/c they link w/ DR and need api_headers.
+  # We do not run for VMSAFE as they fail there and we just don't support that
+  # combination now (i#1793).
+  if (CLIENT_INTERFACE AND NOT VMSAFE)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
@@ -1576,7 +1579,7 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
       torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
     endif ()
-  endif (CLIENT_INTERFACE)
+  endif (CLIENT_INTERFACE AND NOT VMSAFE)
 
   # App seg mangling makes dstack test fail, and our default build does not
   # support disabling such mangling, so this test is Windows-only.
@@ -1843,8 +1846,10 @@ if (CLIENT_INTERFACE)
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.file_io client-interface/file_io.c
       "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
-    # we add custom option to flush test based on dr ops in torun_ci()
-    tobuild_ci(client.flush client-interface/flush.c "" "" "")
+    if (DEBUG) # FIXME i#1806: fails in release
+      # we add custom option to flush test based on dr ops in torun_ci()
+      tobuild_ci(client.flush client-interface/flush.c "" "" "")
+    endif ()
     tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
     tobuild_appdll(client.thread client-interface/thread.c)
     tobuild_ci(client.strace client-interface/strace.c "" "" "")

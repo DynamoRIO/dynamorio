@@ -1,20 +1,20 @@
 #ifdef X64
 FXSAVE64 intra is correctly handled
-# ifdef translate_fpu_pc
+# if defined(translate_fpu_pc) || defined(hotp_only)
 FXSAVE64 inter is correctly handled
 # else
 FXSAVE64 inter is **incorrectly** handled
 # endif
 #else
 FNSTENV intra is correctly handled
-# ifdef translate_fpu_pc
+# if defined(translate_fpu_pc) || defined(hotp_only)
 FNSTENV inter is correctly handled
 # else
 FNSTENV inter is **incorrectly** handled
 # endif
 #endif
 FXSAVE intra is correctly handled
-#ifdef translate_fpu_pc
+#if defined(translate_fpu_pc) || defined(hotp_only)
 FXSAVE inter is correctly handled
 #else
 FXSAVE inter is **incorrectly** handled
