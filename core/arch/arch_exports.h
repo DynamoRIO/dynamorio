@@ -401,20 +401,26 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
  * if target is within cache line.
  */
 #  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
+     /* allow a constant to be passed in by supplying our own lvalue */ \
+     int _myval = value;                                          \
      ASSERT(sizeof(value) == 4);                                      \
      /* test that we aren't crossing a cache line boundary */         \
      CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);                \
      /* we use xchgl instead of mov for non-4-byte-aligned writes */  \
-     __asm__ __volatile__("xchgl (%0), %1" : : "r" (target), "r" (value) : "memory"); \
+     /* i#1805: both operands must be outputs to ensure proper compiler behavior */ \
+     __asm__ __volatile__("xchgl %0, %1" : "+m"(*(int*)(target)), "+r"(_myval) : ); \
    } while (0)
 #  ifdef X64
 #   define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {         \
+      /* allow a constant to be passed in by supplying our own lvalue */ \
+      int64 _myval = value;                                       \
       ASSERT(sizeof(value) == 8);                                     \
       /* Not currently used to write code */                          \
       ASSERT_CURIOSITY(!hot_patch);                                   \
       /* test that we aren't crossing a cache line boundary */        \
       CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
-      __asm__ __volatile__("xchgq (%0), %1" : : "r" (target), "r" (value) : "memory"); \
+      /* i#1805: both operands must be outputs to ensure proper compiler behavior */ \
+      __asm__ __volatile__("xchgq %0, %1" : "+m"(*(int64*)(target)), "+r"(_myval) : ); \
     } while (0)
 #  endif /* X64 */
 #  define ATOMIC_INC_suffix(suffix, var) \

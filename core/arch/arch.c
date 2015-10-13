@@ -3383,6 +3383,9 @@ is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t bra
 # define LOOP_COUNT 10000
 volatile static int count1 = 0;
 volatile static int count2 = 0;
+# ifdef X64
+volatile static ptr_int_t count3 = 0;
+# endif
 
 IF_UNIX_ELSE(void *, DWORD WINAPI)
 test_thread_func(void *arg)
@@ -3434,9 +3437,16 @@ void
 unit_test_atomic_ops(void)
 {
     int value = -1;
+# ifdef X64
+    int64 value64 = -1;
+# endif
     print_file(STDERR, "test inline asm atomic ops\n");
     ATOMIC_4BYTE_WRITE(&count1, value, false);
     EXPECT(count1, -1);
+# ifdef X64
+    ATOMIC_8BYTE_WRITE(&count3, value64, false);
+    EXPECT(count3, -1);
+# endif
     EXPECT(atomic_inc_and_test(&count1), true);  /* result is 0 */
     EXPECT(atomic_inc_and_test(&count1), false); /* result is 1 */
     EXPECT(atomic_dec_and_test(&count1), false); /* init value is 1, result is 0 */
