@@ -57,7 +57,11 @@ function(get_visualstudio_info vs_dir_out vs_version_out vs_generator_out)
   endif()
   get_filename_component(${vs_dir_out} [HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\VisualStudio\\10.0_Config\\Setup\\VS;ProductDir] REALPATH)
   if ("${vs_dir_out}" MATCHES "/registry$")
-    # on failure we get "/registry"
+      # Visual Studio 2010 may store the regkey "ProductDir" in a different
+      # registry path.
+      get_filename_component(${vs_dir_out} [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\10.0\\Setup\\VS;ProductDir] REALPATH)
+  endif ()
+  if ("${vs_dir_out}" MATCHES "/registry$")
     set(${vs_version_out} "NOTFOUND" PARENT_SCOPE)
   else ()
     set(${vs_version_out} "10.0" PARENT_SCOPE)
