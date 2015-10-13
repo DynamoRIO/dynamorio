@@ -2591,7 +2591,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
              OPND_CREATE_INTPTR((ptr_int_t)get_ibl_deleted_linkstub())));
 #endif
         if (absolute) {
-            APP(&ilist, instr_create_save_immed_to_dcontext
+            APP(&ilist, instr_create_save_immed32_to_dcontext
                 (dcontext, (int)(ptr_int_t) get_ibl_deleted_linkstub(), SCRATCH_REG5_OFFS));
         } else if (table_in_tls) {
             APP(&ilist, XINST_CREATE_store

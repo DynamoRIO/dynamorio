@@ -2671,7 +2671,12 @@ bool instr_is_ubr_arch(instr_t *instr);
 
 /* private routines for spill code */
 instr_t * instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
-instr_t * instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs);
+instr_t * instr_create_save_immed32_to_dcontext(dcontext_t *dcontext, int immed,
+                                                int offs);
+instr_t * instr_create_save_immed16_to_dcontext(dcontext_t *dcontext, int immed,
+                                                int offs);
+instr_t * instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed,
+                                               int offs);
 instr_t *
 instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
                                       int offs, ptr_int_t immed, opnd_size_t sz);

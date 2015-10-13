@@ -2175,13 +2175,13 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                 PRE(ilist, instr, INSTR_CREATE_mov_st
                     (dcontext,
                      opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                                           EXIT_REASON_OFFSET, OPSZ_4),
-                     OPND_CREATE_INT32(reason)));
+                                                           EXIT_REASON_OFFSET, OPSZ_2),
+                     OPND_CREATE_INT16(reason)));
                 insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
             } else {
                 PRE(ilist, instr,
-                    instr_create_save_immed_to_dcontext(dcontext, reason,
-                                                        EXIT_REASON_OFFSET));
+                    instr_create_save_immed16_to_dcontext(dcontext, reason,
+                                                          EXIT_REASON_OFFSET));
             }
         }
     }
@@ -2278,7 +2278,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 # endif
             }
             else {
-                PRE(ilist, instr, instr_create_save_immed_to_dcontext
+                PRE(ilist, instr, instr_create_save_immed32_to_dcontext
                     (dcontext, (uint)(ptr_uint_t)(instr->bytes + len), XSI_OFFSET));
             }
         }
@@ -2567,12 +2567,12 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
             PRE(ilist, instr, INSTR_CREATE_mov_st
                 (dcontext,
                  opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                                       EXIT_REASON_OFFSET, OPSZ_4),
-                 OPND_CREATE_INT32(reason)));
+                                                       EXIT_REASON_OFFSET, OPSZ_2),
+                 OPND_CREATE_INT16(reason)));
         } else {
             PRE(ilist, instr,
-                instr_create_save_immed_to_dcontext(dcontext, reason,
-                                                    EXIT_REASON_OFFSET));
+                instr_create_save_immed16_to_dcontext(dcontext, reason,
+                                                      EXIT_REASON_OFFSET));
             PRE(ilist, instr,
                 instr_create_save_to_tls(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
         }

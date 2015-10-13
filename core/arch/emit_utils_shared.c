@@ -3643,7 +3643,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         }
 # endif
     } else
-        linked = instr_create_save_immed_to_dcontext(dcontext, 1, SCRATCH_REG0_OFFS);
+        linked = instr_create_save_immed32_to_dcontext(dcontext, 1, SCRATCH_REG0_OFFS);
     APP(&ilist, linked);
     add_patch_marker(patch, instrlist_first(&ilist), PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */, (ptr_uint_t*)shared_syscall_pc);
@@ -3762,12 +3762,12 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         APP(&ilist, XINST_CREATE_store
             (dcontext,
              opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                                   AT_SYSCALL_OFFSET, OPSZ_4),
-             OPND_CREATE_INT32(1)));
+                                                   AT_SYSCALL_OFFSET, OPSZ_1),
+             OPND_CREATE_INT8(1)));
         /* restore app %xdi */
         insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     } else
-        APP(&ilist, instr_create_save_immed_to_dcontext(dcontext, 1, AT_SYSCALL_OFFSET));
+        APP(&ilist, instr_create_save_immed8_to_dcontext(dcontext, 1, AT_SYSCALL_OFFSET));
 
     if (DYNAMO_OPTION(sygate_sysenter) &&
         get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
@@ -3851,7 +3851,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 # endif
     } else {
         instrlist_prepend(&ilist,
-                          instr_create_save_immed_to_dcontext(dcontext, 0, SCRATCH_REG0_OFFS));
+                          instr_create_save_immed32_to_dcontext(dcontext, 0,
+                                                                SCRATCH_REG0_OFFS));
     }
 
     /* even if !DYNAMO_OPTION(syscalls_synch_flush) must clear for cbret */
@@ -3861,10 +3862,10 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         APP(&ilist, XINST_CREATE_store
             (dcontext,
              opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                                   AT_SYSCALL_OFFSET, OPSZ_4),
-             OPND_CREATE_INT32(0)));
+                                                   AT_SYSCALL_OFFSET, OPSZ_1),
+             OPND_CREATE_INT8(0)));
     } else
-        APP(&ilist, instr_create_save_immed_to_dcontext(dcontext, 0, AT_SYSCALL_OFFSET));
+        APP(&ilist, instr_create_save_immed8_to_dcontext(dcontext, 0, AT_SYSCALL_OFFSET));
 
     if (!inline_ibl_head && DYNAMO_OPTION(indirect_stubs)) {
         /* FIXME Can we remove the write to the mcontext for the !absolute
@@ -4058,7 +4059,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     }
     else {
         if (absolute) {
-            APP(&ilist, instr_create_save_immed_to_dcontext
+            APP(&ilist, instr_create_save_immed32_to_dcontext
                 (dcontext, (int)(ptr_int_t)get_shared_syscalls_unlinked_linkstub(),
                  SCRATCH_REG5_OFFS));
         }

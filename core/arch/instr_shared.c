@@ -3017,15 +3017,37 @@ instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     }
 }
 
-instr_t *
-instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+static instr_t *
+instr_create_save_immedN_to_dcontext(dcontext_t *dcontext, opnd_size_t sz,
+                                     opnd_t immed_op, int offs)
 {
-    opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
+    opnd_t memopnd = opnd_create_dcontext_field_sz(dcontext, offs, sz);
     /* PR 244737: thread-private scratch space needs to fixed for x64 */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
     /* there is no immed to mem instr on ARM */
     IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
-    return XINST_CREATE_store(dcontext, memopnd, OPND_CREATE_INT32(immed));
+    return XINST_CREATE_store(dcontext, memopnd, immed_op);
+}
+
+instr_t *
+instr_create_save_immed32_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+{
+    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_4,
+                                                OPND_CREATE_INT32(immed), offs);
+}
+
+instr_t *
+instr_create_save_immed16_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+{
+    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_2,
+                                                OPND_CREATE_INT16(immed), offs);
+}
+
+instr_t *
+instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+{
+    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_1,
+                                                OPND_CREATE_INT8(immed), offs);
 }
 
 instr_t *
