@@ -173,13 +173,12 @@ if (CALLPROF AND TEST_SUITE)
   set(run_list "ONLY::^common::")
 elseif (VMAP)
   if (TEST_SUITE)
-    # if running multiple builds we don't redo all tests for later builds
-    # we expect internal debug to catch most problems
-    if (DEBUG AND INTERNAL)
+    # We don't redo all tests for internal vs external, but we do for debug vs release
+    if (DEBUG OR NOT INTERNAL)
       set(run_list ${vmap_run_list})
-    else (DEBUG AND INTERNAL)
+    else ()
       set(run_list "ONLY::^client::-code_api")
-    endif (DEBUG AND INTERNAL)
+    endif ()
   else (TEST_SUITE)
     set(run_list ${vmap_run_list})
   endif (TEST_SUITE)
