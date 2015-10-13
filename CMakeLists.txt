@@ -335,16 +335,7 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
-elseif (ARM AND NOT X64)
-  # 32-bit Linux ARM reserves some space upper for kernel, either 0x8 or 0xc:
-  # we have to be conservative and stay below 0x8 b/c we cannot recover if we
-  # conflict with the kernel (initial exec will fail with EBADF).
-  # XXX: we could have drrun check and provide a user-visible message?
-  set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
-elseif (UNIX AND NOT X64)
-  # put dynamorio at top of address space, little chance of conflict
-  set(preferred_base "0xf7000000" CACHE STRING "Preferred library base address")
-else (UNIX AND NOT X64)
+else (WIN32 AND DEBUG)
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
 endif (WIN32 AND DEBUG)
 

@@ -338,7 +338,12 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
                  * permissions.
                  */
                 ASSERT(iter.vm_start == vsyscall_page_start);
-                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE);
+                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE ||
+                       /* i386 Ubuntu 14.04:
+                        * 0xb77bc000-0xb77be000   0x2000    0x0 [vvar]
+                        * 0xb77be000-0xb77c0000   0x2000    0x0 [vdso]
+                        */
+                       iter.vm_end - iter.vm_start == 2*PAGE_SIZE);
                 info->prot = (MEMPROT_READ|MEMPROT_EXEC|MEMPROT_VDSO);
             } else if (strcmp(iter.comment, "[vvar]") == 0) {
                 /* The VVAR pages were added in kernel 3.0 but not labeled until

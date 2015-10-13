@@ -379,7 +379,9 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
                  /* allow maps to have +x (PR 213256)
                   * +x may be caused by READ_IMPLIES_EXEC set in personality flag (i#262)
                   */
-                 (from_os_prot & (~MEMPROT_EXEC)) == info->prot) &&
+                 (from_os_prot & (~MEMPROT_EXEC)) == info->prot
+                 /* DrMem#1778: newly added MEMPROT_VDSO */
+                 IF_LINUX(|| (from_os_prot & (~MEMPROT_VDSO)) == info->prot)) &&
                 ((info->type == DR_MEMTYPE_IMAGE &&
                   from_os_base_pc >= start &&
                   from_os_size <= (end - start)) ||
