@@ -530,13 +530,16 @@ enum_line_cb(drsym_line_info_t *info, void *data)
     const module_data_t *dll_data = (const module_data_t *) data;
     ASSERT(info->line_addr <= (size_t)(dll_data->end - dll_data->start));
     if (info->file != NULL) {
-        if (!found_tools_h && strstr(info->file, "tools.h") != NULL) {
-            found_tools_h = true;
-            dr_fprintf(STDERR, "found tools.h\n");
-        }
         if (!found_appdll && strstr(info->file, "drsyms-test.appdll.cpp") != NULL) {
             found_appdll = true;
             dr_fprintf(STDERR, "found drsyms-test.appdll.cpp\n");
+        }
+        /* We only start looking for tools.h after we found appdll to make sure
+         * fixed print out order.
+         */
+        if (found_appdll && !found_tools_h && strstr(info->file, "tools.h") != NULL) {
+            found_tools_h = true;
+            dr_fprintf(STDERR, "found tools.h\n");
         }
     }
     return true;

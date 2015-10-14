@@ -44,6 +44,9 @@
 NOINLINE void
 stack_trace(void)
 {
+    /* i#1801-c#2: call to page_align to make sure tools.h is included in the binary */
+    if (page_align((char *)0x1234) != (char *)0x2000)
+        print("page_align is wrong %p!\n");
 }
 
 NOINLINE int

@@ -39,15 +39,13 @@ finished unmangling.
 enumerating with DRSYM_LEAVE_MANGLED
 enumerating with DRSYM_DEMANGLE
 enumerating with DRSYM_DEMANGLE_FULL
-#ifdef UNIX
-found tools.h
-#endif
 found drsyms-test.appdll.cpp
+found tools.h
 stack trace:
-drsyms-test\.appdll\.cpp:52!dll_public
+drsyms-test\.appdll\.cpp:55!dll_public
 #if !(defined(WINDOWS) && defined(X64)) && !defined(ARM)
-drsyms-test\.appdll\.cpp:59!dll_static
-drsyms-test\.appdll\.cpp:65!dll_export
+drsyms-test\.appdll\.cpp:62!dll_static
+drsyms-test\.appdll\.cpp:68!dll_export
 drsyms-test\.cpp:75!.anonymous namespace.::Foo::Bar
 drsyms-test\.cpp:82!exe_export
 drsyms-test\.cpp:88!exe_public
