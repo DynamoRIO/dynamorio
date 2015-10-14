@@ -2173,7 +2173,8 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.phys_rawtemp ON) # no preprocessor
 
-      if (NOT ARM)
+      # FIXME i#1799: clang does not support "asm goto" used in annotation
+      if (NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
         # Our pthreads tests don't have many threads so we run this annot test,
         # though it is a little slow under drcachesim.
         # XXX i#1703: this may be too flaky: we may want to remove this once
