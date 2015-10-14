@@ -292,10 +292,13 @@ else ()
   set(rule_flags "<FLAGS>")
 endif ()
 
+# Include a define that can be used to identify asm code
+set(rule_defs "<DEFINES> -DCPP2ASM")
+
 if (APPLE)
   # Despite the docs, -o does not work: cpp prints to stdout.
   set(CMAKE_ASM_NASM_COMPILE_OBJECT
-    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} <DEFINES> -E <SOURCE> > <OBJECT>.s"
+     "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> > <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
@@ -307,7 +310,7 @@ elseif (UNIX)
   # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
   # up the --defsym args.
   set(CMAKE_ASM_COMPILE_OBJECT
-    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} <DEFINES> -E <SOURCE> -o <OBJECT>.s"
+    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> -o <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     # not using ${rule_flags} b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
     # is passed in: we don't need the include dirs b/c of the cpp step.
@@ -332,7 +335,7 @@ else ()
     # redirection operator which should work in all supported shells.
     #
     # ml can't handle line number markers so using ${CPP_NO_LINENUM}.
-    "<CMAKE_C_COMPILER> ${CMAKE_CPP_FLAGS} ${rule_flags} <DEFINES> -E ${CPP_NO_LINENUM} <SOURCE> > <OBJECT>.s"
+    "<CMAKE_C_COMPILER> ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E ${CPP_NO_LINENUM} <SOURCE> > <OBJECT>.s"
     # cmake does add quotes in custom commands, etc. but not in this rule so we add
     # them to handle paths with spaces:
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
