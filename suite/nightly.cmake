@@ -39,8 +39,9 @@ cmake_minimum_required (VERSION 2.6)
 # 3) To keep the sources pristine, copy this file from
 #    $nightly/src/suite/nightly.cmake to $nightly/nightly.cmake.  Pick a site
 #    name and change the site= string below in $nightly/nightly.cmake.  The
-#    convention is {Linux,Windows}.OSVersion.Machine/Location.
-#    E.g., Windows.Vista64.CSAIL
+#    convention is Architecture.OSVersion.Compiler.Hostname, where
+#    Architecture comes from {X64,X86,ARM,AArch64}.
+#    E.g.: X64.Fedora22.gcc511.Ancalagon or X86.Windows10.VS2013.Buildbot44.
 #    The site name should not contain spaces or quotes.
 # 4) Build a version of CTest that sets the Content-Type header to
 #    satisfy the security rules on our CDash server.
@@ -59,4 +60,4 @@ cmake_minimum_required (VERSION 2.6)
 # We point at src/suite/runsuite.cmake, assuming this file will be executed
 # from two dirs below.
 # Site name should not have spaces or quotes.
-ctest_run_script(${CTEST_SCRIPT_DIRECTORY}/src/suite/runsuite.cmake,nightly\;long\;site=Linux.Fedora22.Ancalagon)
+ctest_run_script(${CTEST_SCRIPT_DIRECTORY}/src/suite/runsuite.cmake,nightly\;long\;site=X64.Fedora22.gcc511.Ancalagon)
