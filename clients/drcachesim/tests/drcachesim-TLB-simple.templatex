@@ -11,7 +11,7 @@ Core #0 \(1 thread\(s\)\)
     Miss rate:                        [0-9][,\.]..%
   LL stats:
     Hits:                      *[0-9,\.]*
-    Misses:                            [0-9]..
+    Misses:                           *[0-9]..?
     Local miss rate:           *[0-9]*[\.]..%
     Child hits:                *[0-9,\.]*
     Total miss rate:                  0[,\.]..%
