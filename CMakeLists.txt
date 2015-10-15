@@ -696,6 +696,11 @@ if (UNIX)
     # Ensure our binaries can run on older OSX
     set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.7")
   endif ()
+  if (APPLE)
+    set(ld_entry_flag "-e")
+  else ()
+    set(ld_entry_flag "--entry")
+  endif ()
   # there's no cmake warning control so we hardcode it
   set(WARN "-Wall -Werror -Wwrite-strings")
   if (NOT CMAKE_COMPILER_IS_CLANG)

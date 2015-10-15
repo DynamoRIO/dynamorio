@@ -53,6 +53,10 @@
 # include <stdlib.h> /* abort */
 # include <errno.h>
 # include <signal.h>
+# ifdef MACOS
+#  define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
+#  define __need_struct_ucontext64 /* seems to be missing from Mac headers */
+# endif
 # include <ucontext.h>
 # include <unistd.h>
 #else
@@ -135,6 +139,12 @@ typedef enum {
         ((((ptr_uint_t)x) + (((ptr_uint_t)alignment)-1)) & \
          (~(((ptr_uint_t)alignment)-1)))
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+
+#ifdef UNIX
+# ifndef MAP_ANONYMOUS
+#  define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
+# endif
+#endif
 
 #ifndef __cplusplus
 # ifndef true
@@ -223,7 +233,11 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 # define NOP asm("nop")
 # define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
 # ifdef X86
-#  define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
+#  ifdef MACOS
+#   define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #tgt)
+#  else
+#   define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
+#  endif
 # elif defined(ARM)
 /* Make sure to mark $lr as clobbered to avoid functions like
  * client-interface/call-retarget.c:main() being interpreted as a leaf

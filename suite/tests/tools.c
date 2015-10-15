@@ -38,6 +38,10 @@
 # include <unistd.h>
 # include <sys/syscall.h> /* for SYS_* numbers */
 #endif
+#ifdef MACOS
+# include <mach/mach.h>
+# include <mach/semaphore.h>
+#endif
 
 #define ASSERT_NOT_IMPLEMENTED() do { print("NYI\n"); abort();} while (0)
 
@@ -369,7 +373,13 @@ nolibc_print(const char *str)
 #else
                       SYS_write,
 #endif
-                      3, stderr->_fileno, str, nolibc_strlen(str));
+                      3,
+#if defined(MACOS) || defined(ANDROID)
+                      stderr->_file,
+#else
+                      stderr->_fileno,
+#endif
+                      str, nolibc_strlen(str));
 }
 
 /* Safe print int syscall.
@@ -413,7 +423,21 @@ nolibc_print_int(int n)
 void
 nolibc_nanosleep(struct timespec *req)
 {
+#ifdef MACOS
+    /* XXX: share with os_thread_sleep */
+    semaphore_t sem = MACH_PORT_NULL;
+    int res;
+    if (sem == MACH_PORT_NULL) {
+        kern_return_t res =
+            semaphore_create(mach_task_self(), &sem, SYNC_POLICY_FIFO, 0);
+        assert(res == KERN_SUCCESS);
+    }
+    res = dynamorio_syscall(SYS___semwait_signal_nocancel,
+                            6, sem, MACH_PORT_NULL, 1, 1,
+                            (int64_t)req->tv_sec, (int32_t)req->tv_nsec);
+#else
     dynamorio_syscall(SYS_nanosleep, 2, req, NULL);
+#endif
 }
 
 /* Safe mmap.
@@ -421,7 +445,7 @@ nolibc_nanosleep(struct timespec *req)
 void *
 nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-#ifdef X64
+#if defined(X64) || defined(MACOS)
     int sysnum = SYS_mmap;
 #else
     int sysnum = SYS_mmap2;

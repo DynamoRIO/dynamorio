@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,7 +35,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
-#ifdef UNIX
+#ifdef LINUX
 # include <sys/personality.h>
 # include <sys/mman.h>
 #endif
@@ -677,7 +677,7 @@ void dr_init(client_id_t id)
 
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
 
-#ifdef UNIX
+#ifdef LINUX
     /* i#262: check if READ_IMPLIES_EXEC in personality. If true,
      * we expect the readable memory also has exec right.
      */

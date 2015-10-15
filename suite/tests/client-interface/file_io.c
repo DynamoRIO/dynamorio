@@ -76,7 +76,7 @@ int main()
      * typical max we assume it's just a power of 2.
      */
     if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
-        fprintf(stderr, "RLIMIT_NOFILE max is %ld but shouldn't be power of 2 under DR\n",
+        fprintf(stderr, "RLIMIT_NOFILE max is %llu but shouldn't be power of 2 under DR\n",
                 rlimit.rlim_max);
         return 1;
     }

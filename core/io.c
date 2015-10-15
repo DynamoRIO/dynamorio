@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -794,7 +794,9 @@ test_sscanf_all_specs(void)
 #  include <dlfcn.h>  /* for dlsym for libc routines */
 
 /* From dlfcn.h, but we'd have to define _GNU_SOURCE 1 before globals.h. */
-#  define RTLD_NEXT     ((void *) -1l)
+#  ifndef RTLD_NEXT
+#   define RTLD_NEXT     ((void *) -1l)
+#  endif
 
 typedef void (*memcpy_t)(void *dst, const void *src, size_t n);
 

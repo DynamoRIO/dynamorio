@@ -160,7 +160,9 @@ typedef int (*init_fn_t)(int argc, char **argv, char **envp);
 char **our_environ;
 #include <errno.h>
 /* avoid problems with use of errno as var name in rest of file */
-#undef errno
+#if !defined(STANDALONE_UNIT_TEST) && !defined(MACOS)
+# undef errno
+#endif
 /* we define __set_errno below */
 
 /* must be prior to <link.h> => <elf.h> => INT*_{MIN,MAX} */
@@ -509,11 +511,14 @@ get_libc_errno_location(bool do_init)
 int
 get_libc_errno(void)
 {
-#ifdef STANDALONE_UNIT_TEST
-    errno_loc_t func = __errno_location;
+#if defined(STANDALONE_UNIT_TEST) && defined(MACOS)
+    return errno;
 #else
+# ifdef STANDALONE_UNIT_TEST
+    errno_loc_t func = __errno_location;
+# else
     errno_loc_t func = get_libc_errno_location(false);
-#endif
+# endif
     if (func == NULL) {
         /* libc hasn't been loaded yet or we're doing early injection. */
         return 0;
@@ -525,6 +530,7 @@ get_libc_errno(void)
             return *loc;
     }
     return 0;
+#endif
 }
 
 /* N.B.: pthreads has two other locations it keeps on a per-thread basis:
@@ -676,8 +682,12 @@ our_init(int argc, char **argv, char **envp)
  * toolchains pass the args and environment to the constructor.
  */
 static init_fn_t
+# ifdef MACOS
+__attribute__ ((section ("__DATA,__mod_init_func"), aligned (sizeof (void *)), used))
+# else
 __attribute__ ((section (".init_array"), aligned (sizeof (void *)), used))
-init_array[] = {
+# endif
+    init_array[] = {
     our_init
 };
 #else
@@ -4719,15 +4729,15 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
 
 /* Always pass a positive value for errno */
 static inline void
-set_failure_return_val(dcontext_t *dcontext, uint errno)
+set_failure_return_val(dcontext_t *dcontext, uint errno_val)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
     mc->eflags |= EFLAGS_CF;
-    MCXT_SYSCALL_RES(mc) = errno;
+    MCXT_SYSCALL_RES(mc) = errno_val;
 #else
-    MCXT_SYSCALL_RES(mc) = -(int)errno;
+    MCXT_SYSCALL_RES(mc) = -(int)errno_val;
 #endif
 }
 

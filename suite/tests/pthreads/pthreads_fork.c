@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include "tools.h"
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -47,7 +48,6 @@
 #define NUM_MPROTECT_THREADS 2
 #define NUM_FORK_THREADS 1
 #define NUM_FORK_LEVELS 2
-#define PAGE_SIZE 4096
 #define RET_OPCODE 0xc2
 
 /* This global limits us to running one set of mprotect threads per process. */

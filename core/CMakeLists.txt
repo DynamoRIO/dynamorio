@@ -484,11 +484,7 @@ if (UNIX)
     append_property_string(TARGET dynamorio COMPILE_FLAGS "-fPIC")
   else ()
     # i#47: set the ELF header entry point to _start for early injection.
-    if (APPLE)
-      set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,-e,_start")
-    else (APPLE)
-      set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,--entry,_start")
-    endif (APPLE)
+    set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,${ld_entry_flag},_start")
   endif ()
 
   if (NOT HAVE_FVISIBILITY)
@@ -922,10 +918,12 @@ if (BUILD_TESTS)
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
-    # i#1228 make sure entry point of the elf binary pointing to _start.
-    # Otherwise, the entry point will point to the start of .text section,
-    # which might not be _start.
-    append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,--entry,_start")
+    if (NOT APPLE)
+      # i#1228 make sure entry point of the elf binary pointing to _start.
+      # Otherwise, the entry point will point to the start of .text section,
+      # which might not be _start.
+      append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,${ld_entry_flag},_start")
+    endif ()
     target_link_libraries(unit_tests c dl m pthread)
     set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)

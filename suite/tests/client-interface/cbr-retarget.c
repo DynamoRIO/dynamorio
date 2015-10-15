@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,7 +61,11 @@ int main(void)
     __asm("movl $0x0, %ecx");
     __asm("cmp $0x0, %ecx");
     __asm("jne skip");
+# ifdef MACOS
+    __asm("call _foo");
+# else
     __asm("call foo");
+# endif
     __asm("skip:");
 #endif
     bar();
