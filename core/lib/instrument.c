@@ -6351,11 +6351,14 @@ dr_delete_fragment(void *drcontext, void *tag)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
-    bool deletable = false;
+    bool deletable = false, waslinking;
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     CLIENT_ASSERT(!SHARED_FRAGMENTS_ENABLED(),
                   "dr_delete_fragment() only valid with -thread_private");
     CLIENT_ASSERT(drcontext != NULL, "dr_delete_fragment(): drcontext cannot be NULL");
+    waslinking = is_couldbelinking(dcontext);
+    if (!waslinking)
+        enter_couldbelinking(dcontext, NULL, false);
 #ifdef CLIENT_SIDELINE
     mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
@@ -6392,6 +6395,8 @@ dr_delete_fragment(void *drcontext, void *tag)
     fragment_release_fragment_delete_mutex(dcontext);
     mutex_unlock(&(dcontext->client_data->sideline_mutex));
 #endif
+    if (!waslinking)
+        enter_nolinking(dcontext, NULL, false);
     return deletable;
 }
 
@@ -6412,7 +6417,7 @@ bool
 dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    bool frag_found;
+    bool frag_found, waslinking;
     fragment_t * f;
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     CLIENT_ASSERT(!SHARED_FRAGMENTS_ENABLED(),
@@ -6420,6 +6425,9 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     CLIENT_ASSERT(drcontext != NULL, "dr_replace_fragment(): drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_replace_fragment: drcontext is invalid");
+    waslinking = is_couldbelinking(dcontext);
+    if (!waslinking)
+        enter_couldbelinking(dcontext, NULL, false);
 #ifdef CLIENT_SIDELINE
     mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
@@ -6454,6 +6462,8 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     fragment_release_fragment_delete_mutex(dcontext);
     mutex_unlock(&(dcontext->client_data->sideline_mutex));
 #endif
+    if (!waslinking)
+        enter_nolinking(dcontext, NULL, false);
     return frag_found;
 }
 

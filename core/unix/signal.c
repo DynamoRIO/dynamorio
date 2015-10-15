@@ -2991,6 +2991,9 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
      * long signal delays.  xref PR 596069.
      */
     bool changed = false;
+    bool waslinking = is_couldbelinking(dcontext);
+    if (!waslinking)
+        enter_couldbelinking(dcontext, NULL, false);
     /* may not be linked if trace_relink or something */
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
         /* XXX PR 213040: we don't support unlinking coarse, so we try
@@ -3021,6 +3024,8 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
         changed = changed ||
             mangle_syscall_code(dcontext, f, pc, false/*do not skip exit cti*/);
     }
+    if (!waslinking)
+        enter_nolinking(dcontext, NULL, false);
     return changed;
 }
 
