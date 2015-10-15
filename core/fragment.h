@@ -972,6 +972,18 @@ is_self_allsynch_flushing(void);
 bool
 is_self_couldbelinking(void);
 
+/* The "couldbelinking" status is used for the efficient, lightweight "unlink"
+ * flushing.  Rather than requiring suspension of every thread at a safe spot
+ * from which that thread can be relocated, supporting immediate cache removal,
+ * "unlink" flushing allows delayed removal by unlinking target fragments and
+ * waiting for any threads inside them to come out naturally.  The flusher needs
+ * safe access to unlink fragments belonging or used by other threads.  Any
+ * thread that might change a fragment link status, or allocate memory in the
+ * nonpersistent heap units (i#1791), must first enter a "couldbelinking" state.
+ * The unlink flush process must wait for each target thread to exit this
+ * "couldbelinking" state prior to proceeding with that thread.
+ */
+
 /* N.B.: can only call if target thread is suspended or waiting for flush */
 bool
 is_couldbelinking(dcontext_t *dcontext);
@@ -1032,6 +1044,9 @@ get_at_syscall(dcontext_t *dcontext);
  * in between.
  * WARNING: case 8572: the caller owning the thread_initexit_lock
  * is incompatible w/ suspend-the-world flushing!
+ *
+ * See the comments above is_couldbelinking() regarding the unlink flush safety
+ * approach.
  */
 /* If size>0, returns whether there is an overlap; if not, no synch is done.
  * If size==0, synch is always performed and true is always returned.

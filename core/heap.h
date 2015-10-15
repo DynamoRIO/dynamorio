@@ -199,6 +199,7 @@ void print_heap_statistics(void);
 /* FIXME: persistence is yet another dimension here
  * let's clean all these up and have a single alloc routine?
  */
+/* i#1791: nonpersistent heap cannot be used for IR or other client allocations */
 void *nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size
                                HEAPACCT(which_heap_t which));
 void nonpersistent_heap_free(dcontext_t *dcontext, void *p, size_t size
@@ -243,6 +244,7 @@ void global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t whi
     HEAP_ARRAY_FREE(dc, p, type, 1, which, protected)
 
 /* nonpersistent heap is assumed to be protected */
+/* i#1791: nonpersistent heap cannot be used for IR or other client allocations */
 #define NONPERSISTENT_HEAP_ARRAY_ALLOC(dc, type, num, which) \
     (type *) nonpersistent_heap_alloc(dc, sizeof(type)*(num) HEAPACCT(which))
 #define NONPERSISTENT_HEAP_TYPE_ALLOC(dc, type, which) \

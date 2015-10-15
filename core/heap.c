@@ -50,6 +50,9 @@
 #ifdef DEBUG
 # include "hotpatch.h" /* To handle leak for case 9593. */
 #endif
+#ifdef CLIENT_INTERFACE
+# include "instrument.h"
+#endif
 
 #ifdef HEAP_ACCOUNTING
 # ifndef DEBUG
@@ -262,6 +265,16 @@ typedef struct _thread_units_t {
     heap_acct_t acct;
 #endif
 } thread_units_t;
+
+/* We separate out heap memory used for fragments, linking, and vmarea multi-entries
+ * both to enable resetting memory and for safety for unlink flushing in the presence
+ * of clean calls out of the cache that might allocate IR memory (which does not
+ * use nonpersistent heap).  Any client actions that involve fragments or linking
+ * should require couldbelinking status, which makes them safe wrt unlink flushing.
+ * Xref i#1791.
+ */
+#define SEPARATE_NONPERSISTENT_HEAP() \
+    (DYNAMO_OPTION(enable_reset) IF_CLIENT_INTERFACE(|| true))
 
 /* per-thread structure: */
 typedef struct _thread_heap_t {
@@ -1478,7 +1491,7 @@ heap_check_option_compatibility()
 void
 heap_reset_init()
 {
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_nonpersistent_units,
                          GLOBAL_UNIT_MIN_SIZE);
     }
@@ -1618,7 +1631,7 @@ heap_exit()
 
     LOG(GLOBAL, LOG_HEAP, 1, "Global unprotected heap unit stats:\n");
     threadunits_exit(&heapmgt->global_unprotected_units, GLOBAL_DCONTEXT);
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         LOG(GLOBAL, LOG_HEAP, 1, "Global nonpersistent heap unit stats:\n");
         threadunits_exit(&heapmgt->global_nonpersistent_units, GLOBAL_DCONTEXT);
     }
@@ -2988,14 +3001,14 @@ print_heap_statistics()
         thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
         if (th != NULL) { /* may not be initialized yet */
             print_tu_heap_statistics(th->local_heap, THREAD, "Thread");
-            if (DYNAMO_OPTION(enable_reset)) {
+            if (SEPARATE_NONPERSISTENT_HEAP()) {
                 ASSERT(th->nonpersistent_heap != NULL);
                 print_tu_heap_statistics(th->nonpersistent_heap, THREAD,
                                          "Thread non-persistent");
             }
         }
     }
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         print_tu_heap_statistics(&heapmgt->global_nonpersistent_units, GLOBAL,
                                  "Non-persistent global units");
     }
@@ -3132,7 +3145,7 @@ void
 heap_thread_reset_init(dcontext_t *dcontext)
 {
     thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         ASSERT(th->nonpersistent_heap != NULL);
         threadunits_init(dcontext, th->nonpersistent_heap, HEAP_UNIT_MIN_SIZE);
     }
@@ -3147,7 +3160,7 @@ heap_thread_init(dcontext_t *dcontext)
     th->local_heap = (thread_units_t *) global_heap_alloc(sizeof(thread_units_t)
                                                        HEAPACCT(ACCT_MEM_MGT));
     threadunits_init(dcontext, th->local_heap, HEAP_UNIT_MIN_SIZE);
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         th->nonpersistent_heap = (thread_units_t *)
             global_heap_alloc(sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
     } else
@@ -3159,7 +3172,7 @@ void
 heap_thread_reset_free(dcontext_t *dcontext)
 {
     thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         ASSERT(th->nonpersistent_heap != NULL);
         /* FIXME: free directly rather than sending to dead list for
          * heap_reset_free() to free!
@@ -3177,7 +3190,7 @@ heap_thread_exit(dcontext_t *dcontext)
     threadunits_exit(th->local_heap, dcontext);
     heap_thread_reset_free(dcontext);
     global_heap_free(th->local_heap, sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         ASSERT(th->nonpersistent_heap != NULL);
         global_heap_free(th->nonpersistent_heap, sizeof(thread_units_t)
                          HEAPACCT(ACCT_MEM_MGT));
@@ -3792,7 +3805,7 @@ protect_local_heap(dcontext_t *dcontext, bool writable)
 {
     thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
     protect_threadunits(th->local_heap, writable);
-    if (DYNAMO_OPTION(enable_reset))
+    if (SEPARATE_NONPERSISTENT_HEAP())
         protect_threadunits(th->nonpersistent_heap, writable);
 }
 
@@ -3826,7 +3839,7 @@ protect_global_heap(bool writable)
     }
 
     protect_local_units_helper(heapmgt->global_units.top_unit, writable);
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         protect_local_units_helper(heapmgt->global_nonpersistent_units.top_unit,
                                    writable);
     }
@@ -3864,7 +3877,7 @@ void *
 nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         if (dcontext == GLOBAL_DCONTEXT) {
             p = common_global_heap_alloc(&heapmgt->global_nonpersistent_units,
                                          size HEAPACCT(which));
@@ -3885,7 +3898,7 @@ void
 nonpersistent_heap_free(dcontext_t *dcontext, void *p, size_t size
                         HEAPACCT(which_heap_t which))
 {
-    if (DYNAMO_OPTION(enable_reset)) {
+    if (SEPARATE_NONPERSISTENT_HEAP()) {
         if (dcontext == GLOBAL_DCONTEXT) {
             common_global_heap_free(&heapmgt->global_nonpersistent_units,
                                     p, size HEAPACCT(which));
