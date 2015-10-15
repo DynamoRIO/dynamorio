@@ -148,18 +148,16 @@ typedef struct {
 # endif
 } kernel_ucontext_t;
 
-#  define SIGCXT_FROM_UCXT(ucxt) (&((ucxt)->uc_mcontext))
-#  define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
+/* SIGCXT_FROM_UCXT is in os_public.h */
+# define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
 
 #elif defined(MACOS)
-#  ifdef X64
+# ifdef X64
 typedef _STRUCT_UCONTEXT64 /* == __darwin_ucontext64 */ kernel_ucontext_t;
-#    define SIGCXT_FROM_UCXT(ucxt) ((sigcontext_t*)((ucxt)->uc_mcontext64))
-#  else
+# else
 typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
-#    define SIGCXT_FROM_UCXT(ucxt) ((sigcontext_t*)((ucxt)->uc_mcontext))
-#  endif
-#  define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t*)&((ucxt)->uc_sigmask))
+# endif
+# define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t*)&((ucxt)->uc_sigmask))
 #endif
 
 #ifdef LINUX

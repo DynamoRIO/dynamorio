@@ -42,47 +42,7 @@
 #ifndef _OS_EXPORTS_H_
 #define _OS_EXPORTS_H_ 1
 
-/* CONTEXT field name changes: before including arch_exports.h, for cxt_seg_t! */
-#ifdef X64
-typedef ushort cxt_seg_t;
-# define CXT_XIP Rip
-# define CXT_XAX Rax
-# define CXT_XCX Rcx
-# define CXT_XDX Rdx
-# define CXT_XBX Rbx
-# define CXT_XSP Rsp
-# define CXT_XBP Rbp
-# define CXT_XSI Rsi
-# define CXT_XDI Rdi
-/* It looks like both CONTEXT.Xmm0 and CONTEXT.FltSave.XmmRegisters[0] are filled in.
- * We use the latter so that we don't have to hardcode the index.
- */
-# define CXT_XMM(cxt, idx) ((dr_xmm_t*)&((cxt)->FltSave.XmmRegisters[idx]))
-/* FIXME i#437: need CXT_YMM */
-/* they kept the 32-bit EFlags field; sure, the upper 32 bits of Rflags
- * are undefined right now, but doesn't seem very forward-thinking. */
-# define CXT_XFLAGS EFlags
-#else
-typedef DWORD cxt_seg_t;
-# define CXT_XIP Eip
-# define CXT_XAX Eax
-# define CXT_XCX Ecx
-# define CXT_XDX Edx
-# define CXT_XBX Ebx
-# define CXT_XSP Esp
-# define CXT_XBP Ebp
-# define CXT_XSI Esi
-# define CXT_XDI Edi
-# define CXT_XFLAGS EFlags
-/* This is not documented, but CONTEXT.ExtendedRegisters looks like fxsave layout.
- * Presumably there are no processors that have SSE but not FXSR
- * (we ASSERT on that in proc_init()).
- */
-# define FXSAVE_XMM0_OFFSET 160
-# define CXT_XMM(cxt, idx) \
-    ((dr_xmm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
-#endif
-
+#include "os_public.h"
 #include "../os_shared.h"
 #include "arch_exports.h"       /* for priv_mcontext_t */
 #include "aslr.h"               /* for aslr_context */

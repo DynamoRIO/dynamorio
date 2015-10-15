@@ -57,17 +57,16 @@ convert_data_to_function(void *data_ptr)
 
 #if defined(UNIX)
 # include <signal.h>
-# define SIG_XIP IF_X86_ELSE(IF_X64_ELSE(rip, eip), arm_pc)
 
 static void
 handle_sigsegv(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     /* Unfortunately the kernel does not fill in siginfo->si_addr for exec faults! */
-    struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     snprintf(app_handler_message,
              BUFFER_SIZE_ELEMENTS(app_handler_message),
              "app handler got signal %d with addr "PFX,
-             signal, (ptr_uint_t)sc->SIG_XIP);
+             signal, (ptr_uint_t)sc->SC_XIP);
     NULL_TERMINATE_BUFFER(app_handler_message);
     SIGLONGJMP(mark, 1);
 }

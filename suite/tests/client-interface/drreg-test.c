@@ -47,7 +47,7 @@ static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_3_C)
             print("ERROR: spilled register value was not preserved!\n");
     }

@@ -41,7 +41,7 @@
 #define TEST_REG IF_X86_ELSE(DR_REG_XDX, DR_REG_R4)
 #define TEST_REG_ASM IF_X86_ELSE(REG_XDX, r4)
 #define TEST_REG_CXT IF_X64_ELSE(Rdx, Edx)
-#define TEST_REG_SIG IF_X86_ELSE(IF_X64_ELSE(rdx, edx), arm_r4)
+#define TEST_REG_SIG IF_X86_ELSE(SC_XDX, arm_r4)
 
 /* Immediates that we look for in the app code to identify places for
  * specific tests in the client.

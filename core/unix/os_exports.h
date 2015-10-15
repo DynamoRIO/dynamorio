@@ -36,7 +36,7 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 /*
- * os_exports.h - Linux specific exported declarations
+ * os_exports.h - UNIX-specific exported declarations
  */
 
 #ifndef _OS_EXPORTS_H_
@@ -44,11 +44,7 @@
 
 #include <stdarg.h>
 #include "../os_shared.h"
-#ifdef MACOS
-#  define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
-#  define __need_struct_ucontext64 /* seems to be missing from Mac headers */
-#  include <ucontext.h>
-#endif
+#include "os_public.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 # define getpid getpid_forbidden_use_get_process_id
@@ -320,19 +316,6 @@ void receive_pending_signal(dcontext_t *dcontext);
 bool is_signal_restorer_code(byte *pc, size_t *len);
 bool is_currently_on_sigaltstack(dcontext_t *dcontext);
 
-#ifdef MACOS
-/* mcontext_t is a pointer and we want the real thing */
-/* We need room for avx.  If we end up with !YMM_ENABLED() we'll just end
- * up wasting some space in synched thread allocations.
- */
-#  ifdef X64
-typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
-#  else
-typedef _STRUCT_MCONTEXT_AVX32 sigcontext_t; /* == __darwin_mcontext_avx32 */
-#  endif
-#else
-typedef struct sigcontext sigcontext_t;
-#endif
 #define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
 #define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(sigcontext_t))
 
@@ -345,69 +328,6 @@ typedef struct _sig_full_cxt_t {
     void *fp_simd_state;
 } sig_full_cxt_t;
 
-/* cross-platform sigcontext_t field access */
-#ifdef MACOS
-/* We're using _XOPEN_SOURCE >= 600 so we have __DARWIN_UNIX03 and thus leading __: */
-# define SC_FIELD(name) __ss.__##name
-#else
-# define SC_FIELD(name) name
-#endif
-#ifdef X86
-# ifdef X64
-#  define SC_XIP SC_FIELD(rip)
-#  define SC_XAX SC_FIELD(rax)
-#  define SC_XCX SC_FIELD(rcx)
-#  define SC_XDX SC_FIELD(rdx)
-#  define SC_XBX SC_FIELD(rbx)
-#  define SC_XSP SC_FIELD(rsp)
-#  define SC_XBP SC_FIELD(rbp)
-#  define SC_XSI SC_FIELD(rsi)
-#  define SC_XDI SC_FIELD(rdi)
-#  ifdef MACOS
-#   define SC_XFLAGS SC_FIELD(rflags)
-#  else
-#   define SC_XFLAGS SC_FIELD(eflags)
-#  endif
-# else /* 32-bit */
-#  define SC_XIP SC_FIELD(eip)
-#  define SC_XAX SC_FIELD(eax)
-#  define SC_XCX SC_FIELD(ecx)
-#  define SC_XDX SC_FIELD(edx)
-#  define SC_XBX SC_FIELD(ebx)
-#  define SC_XSP SC_FIELD(esp)
-#  define SC_XBP SC_FIELD(ebp)
-#  define SC_XSI SC_FIELD(esi)
-#  define SC_XDI SC_FIELD(edi)
-#  define SC_XFLAGS SC_FIELD(eflags)
-# endif /* 64/32-bit */
-# define SC_FP SC_XBP
-# define SC_SYSNUM_REG SC_XAX
-#elif defined(ARM)
-# ifdef X64
-   /* FIXME i#1569: NYI */
-#  error 64-bit ARM is not supported
-# else
-#  define SC_XIP SC_FIELD(arm_pc)
-#  define SC_FP  SC_FIELD(arm_fp)
-#  define SC_R0  SC_FIELD(arm_r0)
-#  define SC_R1  SC_FIELD(arm_r1)
-#  define SC_R2  SC_FIELD(arm_r2)
-#  define SC_R3  SC_FIELD(arm_r3)
-#  define SC_R4  SC_FIELD(arm_r4)
-#  define SC_R5  SC_FIELD(arm_r5)
-#  define SC_R6  SC_FIELD(arm_r6)
-#  define SC_R7  SC_FIELD(arm_r7)
-#  define SC_R8  SC_FIELD(arm_r8)
-#  define SC_R9  SC_FIELD(arm_r9)
-#  define SC_R10 SC_FIELD(arm_r10)
-#  define SC_R11 SC_FIELD(arm_fp)
-#  define SC_R12 SC_FIELD(arm_ip)
-#  define SC_XSP SC_FIELD(arm_sp)
-#  define SC_LR  SC_FIELD(arm_lr)
-#  define SC_XFLAGS SC_FIELD(arm_cpsr)
-#  define SC_SYSNUM_REG SC_R7
-# endif /* 64/32-bit */
-#endif /* X86/ARM */
 void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,

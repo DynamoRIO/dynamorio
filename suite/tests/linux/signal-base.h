@@ -93,8 +93,8 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
-    print("signal_handler: sig=%d, retaddr=0x%08x, fpregs=0x%08x\n",
-          sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
+    print("signal_handler: sig=%d, retaddr=0x%08x, ucxt=0x%08x\n",
+          sig, *(&sig - 1), ucxt);
 #else
 # if USE_TIMER
     if (sig != SIGVTALRM)
@@ -105,7 +105,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     switch (sig) {
 
     case SIGSEGV: {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
 #if USE_LONGJMP && BLOCK_IN_HANDLER
         sigset_t set;
@@ -131,7 +131,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     }
 
     case SIGUSR1: {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
 #if VERBOSE
         print("Got SIGUSR1 @ 0x%08x\n", pc);
@@ -142,7 +142,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     }
 
     case __SIGRTMAX: {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
         /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
          * sources. */
@@ -158,7 +158,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 
 #if USE_TIMER
     case SIGVTALRM: {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
 #if VERBOSE
         print("Got SIGVTALRM @ 0x%08x\n", pc);

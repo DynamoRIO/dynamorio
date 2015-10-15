@@ -286,7 +286,7 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBP
         ret
 # else
-        JUMP     level2
+        JUMP     GLOBAL_REF(level2)
 # endif
 # ifndef ARM
         ret /* won't get here */

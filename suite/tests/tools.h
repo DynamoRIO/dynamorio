@@ -59,9 +59,11 @@
 # endif
 # include <ucontext.h>
 # include <unistd.h>
+# include "../../core/unix/os_public.h"
 #else
 # include <windows.h>
 # include <process.h> /* _beginthreadex */
+# include "../../core/win32/os_public.h"
 # define NTSTATUS DWORD
 # define NT_SUCCESS(status) (status >= 0)
 #endif
@@ -160,44 +162,7 @@ typedef enum {
 static void VERBOSE_PRINT(const char *fmt, ...) {}
 #endif
 
-#ifdef WINDOWS
-/* FIXME: share w/ core/win32/os_exports.h */
-# ifdef X64
-#  define CXT_XIP Rip
-#  define CXT_XAX Rax
-#  define CXT_XCX Rcx
-#  define CXT_XDX Rdx
-#  define CXT_XBX Rbx
-#  define CXT_XSP Rsp
-#  define CXT_XBP Rbp
-#  define CXT_XSI Rsi
-#  define CXT_XDI Rdi
-#  define CXT_XFLAGS EFlags
-# else
-#  define CXT_XIP Eip
-#  define CXT_XAX Eax
-#  define CXT_XCX Ecx
-#  define CXT_XDX Edx
-#  define CXT_XBX Ebx
-#  define CXT_XSP Esp
-#  define CXT_XBP Ebp
-#  define CXT_XSI Esi
-#  define CXT_XDI Edi
-#  define CXT_XFLAGS EFlags
-# endif
-#endif
-
 #ifdef UNIX
-# ifdef ARM
-#  define SC_XIP arm_pc
-# else
-#  ifdef X64
-#   define SC_XIP rip
-#  else
-#   define SC_XIP eip
-#  endif
-# endif
-
 # define ASSERT_NOERR(rc) do {                                 \
     if (rc) {                                                  \
         print("%s:%d rc=%d errno=%d %s\n",                     \
