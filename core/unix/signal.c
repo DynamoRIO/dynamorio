@@ -1194,8 +1194,22 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
          * on sigstack in signal handler.
          * In that case we set sigstack (ss_sp) NULL to avoid stack swap.
          */
+# ifdef MACOS
+        if (info->app_sigstack.ss_sp == NULL) {
+            /* Kernel fails with ENOMEM (even for SS_DISABLE) if ss_size is too small */
+            info->sigstack.ss_flags = SS_DISABLE;
+            i = sigaltstack_syscall(&info->sigstack, NULL);
+            /* i#1814: kernel gives EINVAL if last handler didn't call sigreturn! */
+            ASSERT(i == 0 || i == -EINVAL);
+        } else {
+            i = sigaltstack_syscall(&info->app_sigstack, NULL);
+            /* i#1814: kernel gives EINVAL if last handler didn't call sigreturn! */
+            ASSERT(i == 0 || i == -EINVAL);
+        }
+# else
         i = sigaltstack_syscall(&info->app_sigstack, NULL);
         ASSERT(i == 0);
+# endif
     }
 #endif
     IF_LINUX(signalfd_thread_exit(dcontext, info));
