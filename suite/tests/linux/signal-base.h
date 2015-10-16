@@ -99,7 +99,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 # if USE_TIMER
     if (sig != SIGVTALRM)
 # endif
-        print("signal_handler: sig=%d\n", sig);
+        print("in signal handler\n");
 #endif
 
     switch (sig) {
@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 #else
     /* Match same output */
     print("Sending SIGRTMAX\n");
-    print("signal_handler: sig=64\n");
+    print("in signal handler\n");
     print("Got SIGRTMAX\n");
 #endif
 

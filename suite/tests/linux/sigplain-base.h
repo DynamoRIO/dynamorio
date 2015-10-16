@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -90,7 +90,7 @@ signal_handler(int sig)
         timer_hits++;
     else
 #endif
-        print("signal_handler: sig=%d\n", sig);
+        print("in signal handler\n");
 }
 
 /* set up signal_handler as the handler for signal "sig" */

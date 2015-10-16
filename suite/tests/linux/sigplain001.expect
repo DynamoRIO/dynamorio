@@ -1,5 +1,5 @@
 Sending SIGUSR2
 Sending SIGUSR1
-signal_handler: sig=10
+in signal handler
 1750007.722714
 Got some timer hits!
