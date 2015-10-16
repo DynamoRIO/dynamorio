@@ -1881,6 +1881,11 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
+    # i#1801: optimize client.inline.dll to make sure that compiler_inscount
+    # is simple enough to be inlined
+    if (CMAKE_COMPILER_IS_CLANG)
+      optimize(client.inline.dll)
+    endif ()
   endif (NOT ARM)
 
   tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
