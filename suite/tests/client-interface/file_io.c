@@ -77,7 +77,10 @@ int main()
      */
     if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
         fprintf(stderr, "RLIMIT_NOFILE max is %llu but shouldn't be power of 2 under DR\n",
-                rlimit.rlim_max);
+                /* The size of rlim_max depends on whether __USE_FILE_OFFSET64
+                 * is defined. We simply cast it to 8-byte for printing.
+                 */
+                (unsigned long long)rlimit.rlim_max);
         return 1;
     }
 
