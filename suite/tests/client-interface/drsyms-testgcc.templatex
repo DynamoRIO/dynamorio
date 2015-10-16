@@ -14,10 +14,10 @@ enumerating with DRSYM_DEMANGLE
 enumerating with DRSYM_DEMANGLE_FULL
 found drsyms-test.appdll.cpp
 stack trace:
-drsyms-test\.appdll\.cpp:52!dll_public(\(\))?
+drsyms-test\.appdll\.cpp:58!dll_public(\(\))?
 #if !(defined(WINDOWS) && defined(X64))
-drsyms-test\.appdll\.cpp:59!dll_static(\(\))?
-drsyms-test\.appdll\.cpp:65!dll_export
+drsyms-test\.appdll\.cpp:65!dll_static(\(\))?
+drsyms-test\.appdll\.cpp:71!dll_export
 // my cygwin line #'s are all one off so I'm just using . for 2nd digit:
 drsyms-test\.cpp:7.!.anonymous namespace.::Foo::Bar(\(\))?
 drsyms-test\.cpp:8.!exe_export

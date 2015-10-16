@@ -42,10 +42,10 @@ enumerating with DRSYM_DEMANGLE_FULL
 found drsyms-test.appdll.cpp
 found tools.h
 stack trace:
-drsyms-test\.appdll\.cpp:55!dll_public
+drsyms-test\.appdll\.cpp:58!dll_public
 #if !(defined(WINDOWS) && defined(X64)) && !defined(ARM)
-drsyms-test\.appdll\.cpp:62!dll_static
-drsyms-test\.appdll\.cpp:68!dll_export
+drsyms-test\.appdll\.cpp:65!dll_static
+drsyms-test\.appdll\.cpp:71!dll_export
 drsyms-test\.cpp:75!.anonymous namespace.::Foo::Bar
 drsyms-test\.cpp:82!exe_export
 drsyms-test\.cpp:88!exe_public

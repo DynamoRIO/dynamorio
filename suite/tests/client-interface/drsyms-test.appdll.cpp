@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 # include "tools.h"
 #else /* cygwin/mingw */
 # include <windows.h>
+# include <stdio.h>
 # define print(...) fprintf(stderr, __VA_ARGS__)
 /* we want PE exports so dr_get_proc_addr finds them */
 # define EXPORT __declspec(dllexport)
@@ -44,9 +45,11 @@
 NOINLINE void
 stack_trace(void)
 {
+#if defined(UNIX) || defined(_MSC_VER)
     /* i#1801-c#2: call to page_align to make sure tools.h is included in the binary */
     if (page_align((char *)0x1234) != (char *)0x2000)
         print("page_align is wrong %p!\n");
+#endif
 }
 
 NOINLINE int
