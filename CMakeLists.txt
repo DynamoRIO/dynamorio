@@ -1551,7 +1551,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
         set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
       else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
         # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX)
+        if (TEST_SUITE AND UNIX AND NOT APPLE)
           message(FATAL_ERROR "ImageMagick is required to build the documentation")
         else ()
           # Non-fatal for a single, un-official build, or on Windows
@@ -1565,7 +1565,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
       # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX)
+      if (TEST_SUITE AND UNIX AND NOT APPLE)
         message(FATAL_ERROR "doxygen is required to build the documentation")
       else ()
         # Non-fatal for a single, un-official build, or on Windows
@@ -1577,7 +1577,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     include(${PROJECT_SOURCE_DIR}/make/FindFig2Dev.cmake)
     if (NOT FIG2DEV_FOUND)
       # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX)
+      if (TEST_SUITE AND UNIX AND NOT APPLE)
         message(FATAL_ERROR "fig2dev (from transfig) is required to build documentation")
       else ()
         # Non-fatal for a single, un-official build, or on Windows
@@ -1590,7 +1590,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
     if (NOT GHOSTSCRIPT_FOUND)
       # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX)
+      if (TEST_SUITE AND UNIX AND NOT APPLE)
         message(FATAL_ERROR "ghostscript is required to build documentation")
       else ()
         # Non-fatal for a single, un-official build, or on Windows
@@ -1604,7 +1604,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
       find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
       if (NOT GHOSTSCRIPT_ON_PATH)
         # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX)
+        if (TEST_SUITE AND UNIX AND NOT APPLE)
           message(FATAL_ERROR
             "ghostscript is installed, but must be on PATH for fig2dev to find it")
         else ()

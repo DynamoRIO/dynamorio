@@ -85,6 +85,7 @@ set(arg_long OFF)     # whether to run the long suite
 set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
 set(arg_verbose OFF)  # extra output
+set(arg_32_only OFF)  # do not include 64-bit
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "nightly")
@@ -133,6 +134,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     # not parallel to include=.  this excludes individual tests.
     string(REGEX REPLACE "^exclude=" "" arg_exclude "${arg}")
   endif (${arg} MATCHES "^exclude=")
+  if (${arg} MATCHES "^32_only")
+    set(arg_32_only ON)
+  endif ()
 endforeach (arg)
 
 # allow setting the base cache variables via an include file
@@ -396,6 +400,9 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
 
   # Skip x64 builds on a true ia32 machine.
   if (is64 AND NOT KERNEL_IS_X64)
+    return()
+  endif ()
+  if (is64 AND arg_32_only)
     return()
   endif ()
 

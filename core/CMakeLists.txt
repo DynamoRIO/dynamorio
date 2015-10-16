@@ -934,6 +934,9 @@ if (BUILD_TESTS)
   endif (UNIX)
   target_link_libraries(unit_tests drhelper)
   add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
+  if (APPLE)
+    set_tests_properties(unit_tests PROPERTIES LABELS OSX)
+  endif ()
 endif (BUILD_TESTS)
 
 ###########################################################################

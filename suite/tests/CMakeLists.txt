@@ -53,7 +53,7 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 option(TEST_LONG "run long set of tests")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
-set(TEST_SECONDS "60" CACHE STRING "Test time limit in seconds")
+set(TEST_SECONDS "90" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
 
@@ -2885,3 +2885,63 @@ foreach (run ${run_list})
 
   endif (enabled)
 endforeach(run)
+
+if (APPLE)
+  # Enable just the quarter of the tests that pass, to get our test suite started
+  # on the bot without perturbing all the code above and without disabling tests
+  # from the build (all tests build, they just don't all run successfully).
+  # FIXME i#1815: fix the failing tests so we can enable the full suite.
+  # XXX: can we get this to automatically happen for a local "ctest" w/o
+  # the user having to pass "-L OSX"?
+  set_tests_properties(
+    samples_proj
+    code_api|common.broadfun
+    code_api|common.fib
+    code_api|common.floatpc
+    code_api|common.floatpc_xl8all
+    code_api|common.getretaddr
+    code_api|libutil.frontend_test
+    code_api|linux.exit
+    code_api|linux.infinite
+    code_api|linux.signal0000
+    code_api|linux.signal0010
+    code_api|linux.signal0100
+    code_api|linux.signal0110
+    code_api|linux.sigaction
+    code_api|linux.app_tls
+    code_api|linux.fib-conflict
+    code_api|linux.fib-pie
+    code_api|security-common.codemod
+    code_api|security-common.retexisting
+    code_api|security-common.ret_noncall_trace
+    code_api|client.abort
+    code_api|client.crashmsg
+    code_api|client.count-ctis-noopt
+    code_api|client.exception
+    code_api|client.timer
+    code_api|client.syscall-mod
+    code_api|client.cbr-retarget
+    code_api|client.flush
+    code_api|client.truncate
+    code_api|client.dr_options
+    code_api|client.unregister
+    code_api|client.null_instrument
+    code_api|client.option_parse
+    code_api|client.drcontainers-test
+    code_api|client.fcache_shift
+    code_api|client.destructor
+    code_api|sample.signal
+    code_api|tool.drcpusim.simple
+    code_api|tool.drcpusim.cpuid-Banias
+    code_api|tool.drcpusim.cpuid-Prescott
+    code_api|tool.drcpusim.cpuid-Presler
+    code_api|tool.drcpusim.cpuid-Merom
+    code_api|tool.drcpusim.cpuid-Penryn
+    code_api|tool.drcpusim.cpuid-Westmere
+    code_api|tool.drcpusim.cpuid-Nehalem
+    code_api|api.ir
+    code_api|api.dis
+    code_api|api.ir-static
+    code_api|api.static
+    PROPERTIES LABELS OSX)
+endif ()

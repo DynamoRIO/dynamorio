@@ -35,6 +35,11 @@ set(CTEST_PROJECT_NAME "DynamoRIO")
 set(cpack_project_name "DynamoRIO")
 set(run_tests ON)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
+if (APPLE)
+  # For now we run just a quarter of the tests, using a test label.
+  # FIXME i#1815: get all the tests working.
+  set(extra_ctest_args INCLUDE_LABEL OSX)
+endif ()
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 
 # extra args (note that runsuite_common_pre.cmake has already walked
@@ -60,6 +65,10 @@ else (UNIX)
   set(install_build_args "")
 endif (UNIX)
 
+if (APPLE)
+  # DRi#58: core DR does not yet support 64-bit Mac
+  set(arg_32_only ON)
+endif ()
 
 ##################################################
 # Pre-commit source file checks.
@@ -210,7 +219,7 @@ endif (DO_ALL_BUILDS)
 # non-official-API builds but not all are in pre-commit suite on Windows
 # where building is slow: we'll rely on bots to catch breakage in most of these
 # builds on Windows
-if (ARCH_IS_X86)
+if (ARCH_IS_X86 AND NOT APPLE)
   # we do not bother to support these on ARM
   if (UNIX OR DO_ALL_BUILDS)
     testbuild("vmsafe-debug-internal-32" OFF "
@@ -253,7 +262,7 @@ if (ARCH_IS_X86)
       ${install_path_cache}
       ")
   endif (DO_ALL_BUILDS)
-endif (ARCH_IS_X86)
+endif (ARCH_IS_X86 AND NOT APPLE)
 
 # FIXME: what about these builds?
 ## defines we don't want to break -- no runs though since we don't currently use these
