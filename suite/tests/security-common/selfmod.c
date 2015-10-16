@@ -323,7 +323,8 @@ DECL_EXTERN(print_int)
         nop @N@\
         ENDM
 #else
-# error NASM NYI
+# define ALIGN_WITH_NOPS(bytes) ALIGN bytes
+# define FILL_WITH_NOPS(bytes) TIMES bytes nop
 #endif
 
 #if defined(ASSEMBLE_WITH_MASM)

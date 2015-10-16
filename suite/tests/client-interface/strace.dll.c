@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,11 +46,12 @@
 #include <string.h> /* memset */
 
 #ifdef UNIX
-# include <syscall.h>
 # ifdef LINUX
-#  define SYSNUM_SIGPROCMASK SYS_rt_sigprocmask
+# include <syscall.h>
+# define SYSNUM_SIGPROCMASK SYS_rt_sigprocmask
 # else
-#  define SYSNUM_SIGPROCMASK SYS_sigprocmask
+# include <sys/syscall.h>
+# define SYSNUM_SIGPROCMASK SYS_sigprocmask
 # endif
 # include <errno.h>
 #endif

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,13 +58,15 @@ main()
 #if VERBOSE
     print("mmap returned "PFX"\n", p);
 #endif
+#ifndef MACOS
     p = (void *)mremap(p, size, newsize, 0);
     if ((ptr_int_t) p == -1) {
         print("mremap ERROR "PFX"\n", p);
         return 1;
     }
-#if VERBOSE
+# if VERBOSE
     print("mremap returned "PFX"\n", p);
+# endif
 #endif
     munmap(p, newsize);
     return 0;

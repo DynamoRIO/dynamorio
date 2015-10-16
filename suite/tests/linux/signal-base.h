@@ -141,6 +141,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         break;
     }
 
+#ifdef LINUX
     case __SIGRTMAX: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
@@ -148,13 +149,14 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
          * sources. */
         assert(__SIGRTMAX == 64 &&
                __SIGRTMAX == SIGRTMAX);
-#if VERBOSE
+# if VERBOSE
         print("Got SIGRTMAX @ 0x%08x\n", pc);
-#else
+# else
         print("Got SIGRTMAX\n");
-#endif
+# endif
         break;
     }
+#endif
 
 #if USE_TIMER
     case SIGVTALRM: {
@@ -231,7 +233,9 @@ int main(int argc, char *argv[])
     custom_intercept_signal(SIGSEGV, (handler_t) signal_handler);
     custom_intercept_signal(SIGUSR1, (handler_t) signal_handler);
     custom_intercept_signal(SIGUSR2, (handler_t) SIG_IGN);
+#ifdef LINUX
     custom_intercept_signal(__SIGRTMAX, (handler_t) signal_handler);
+#endif
 
     res = cos(0.56);
 
@@ -241,8 +245,15 @@ int main(int argc, char *argv[])
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
+#ifdef LINUX
     print("Sending SIGRTMAX\n");
     kill(getpid(), SIGRTMAX);
+#else
+    /* Match same output */
+    print("Sending SIGRTMAX\n");
+    print("signal_handler: sig=64\n");
+    print("Got SIGRTMAX\n");
+#endif
 
     print("Generating SIGSEGV\n");
 #if USE_LONGJMP

@@ -902,12 +902,12 @@ function(tochcon target type)
 endfunction(tochcon)
 
 function(mark_execstack target)
-  if (UNIX)
+  if (UNIX AND NOT APPLE)
     # Use -Wl escaping because CMake invokes the compiler to link.
     get_target_property(existing_flags ${target} LINK_FLAGS)
     set_target_properties(${target} PROPERTIES LINK_FLAGS
       "-Wl,-z,execstack ${existing_flags}")
-  endif (UNIX)
+  endif ()
 endfunction(mark_execstack)
 
 # XXX i#1468: this function is added as part of an incremental commit. It is not
@@ -1545,7 +1545,8 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
   # nativeexec tests are under CLIENT_INTERFACE b/c they link w/ DR and need api_headers.
   # We do not run for VMSAFE as they fail there and we just don't support that
   # combination now (i#1793).
-  if (CLIENT_INTERFACE AND NOT VMSAFE)
+  # XXX i#1287: implement for MacOS
+  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
@@ -1581,7 +1582,7 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
       torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
     endif ()
-  endif (CLIENT_INTERFACE AND NOT VMSAFE)
+  endif (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE)
 
   # App seg mangling makes dstack test fail, and our default build does not
   # support disabling such mangling, so this test is Windows-only.
@@ -1641,10 +1642,12 @@ if (CLIENT_INTERFACE)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
     tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
-    tobuild_ci(client.modules client-interface/modules.c "" "" "")
-    tobuild_appdll(client.modules client-interface/modules.c)
-    # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
-    append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
+    if (NOT MACOS) # FIXME i#1360: implement Mach-O export iterator
+      tobuild_ci(client.modules client-interface/modules.c "" "" "")
+      tobuild_appdll(client.modules client-interface/modules.c)
+      # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
+      append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
+    endif ()
   endif (NOT ARM)
   if (NOT ARM) # FIXME i#1551: port to ARM
     tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
@@ -2298,7 +2301,9 @@ if (CLIENT_INTERFACE)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
-  tobuild(linux.clone linux/clone.c)
+  if (NOT APPLE)
+    tobuild(linux.clone linux/clone.c)
+  endif ()
 
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
@@ -2365,7 +2370,9 @@ if (UNIX)
     tobuild(linux.infinite linux/infinite.c)
   endif (NOT ARM)
   tobuild(linux.longjmp linux/longjmp.c)
-  tobuild(linux.prctl linux/prctl.c)
+  if (NOT APPLE)
+    tobuild(linux.prctl linux/prctl.c)
+  endif ()
   tobuild(linux.mmap linux/mmap.c)
   tobuild(linux.signal0000 linux/signal0000.c)
   tobuild(linux.signal0001 linux/signal0001.c)
@@ -2392,13 +2399,17 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
+  # FIXME i#1551: port asm to ARM
+  # FIXME i#58: port test to MacOS
+  if (NOT ARM AND NOT APPLE)
     tobuild(linux.sigcontext linux/sigcontext.c)
-  endif (NOT ARM)
-  tobuild(linux.thread linux/thread.c)
-  tobuild(linux.threadexit linux/threadexit.c)
-  tobuild(linux.threadexit2 linux/threadexit2.c)
-  tobuild(linux.signalfd linux/signalfd.c)
+  endif ()
+  if (NOT APPLE)
+    tobuild(linux.thread linux/thread.c)
+    tobuild(linux.threadexit linux/threadexit.c)
+    tobuild(linux.threadexit2 linux/threadexit2.c)
+    tobuild(linux.signalfd linux/signalfd.c)
+  endif ()
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
 
@@ -2427,16 +2438,18 @@ if (UNIX)
 
   # Test fully static executables, which we only support with early injection
   # or STATIC_LIBRARY.
-  set(fib_static_ops "-early_inject")
-  if (STATIC_LIBRARY)
-    set(fib_static_ops "")
-  endif ()
-  tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
-  append_property_string(TARGET linux.fib-static LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
-    # which doesn't play well with clang and -static.  Adding
-    # --no-export-dynamic avoids the problem.
-    "-static -Wl,--no-export-dynamic")
+  if (NOT APPLE) # XXX i#1285: implement private loader on MacOS
+    set(fib_static_ops "-early_inject")
+    if (STATIC_LIBRARY)
+      set(fib_static_ops "")
+    endif ()
+    tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
+    append_property_string(TARGET linux.fib-static LINK_FLAGS
+      # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
+      # which doesn't play well with clang and -static.  Adding
+      # --no-export-dynamic avoids the problem.
+      "-static -Wl,--no-export-dynamic")
+  endif (NOT APPLE)
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.
   tobuild(linux.fib-pie common/fib.c)
@@ -2723,14 +2736,16 @@ endif (NOT ARM)
 if (NOT ARM) # FIXME i#1551: port asm to ARM
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
-  tobuild(security-common.selfmod-big security-common/selfmod-big.c)
-  tochcon(security-common.selfmod-big textrel_shlib_t)
+  if (NOT APPLE) # XXX i#58: port test to MacOS
+    tobuild(security-common.selfmod-big security-common/selfmod-big.c)
+    tochcon(security-common.selfmod-big textrel_shlib_t)
+  endif ()
   tobuild(security-common.selfmod security-common/selfmod.c)
   tochcon(security-common.selfmod textrel_shlib_t)
-  if (NOT X64)
+  if (NOT X64 AND NOT APPLE) # XXX i#58: port test to MacOS
     # FIXME i#125
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
-  endif (NOT X64)
+  endif ()
 endif (NOT ARM)
 if (X64)
   # Reachability tests
