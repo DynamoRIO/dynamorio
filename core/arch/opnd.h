@@ -2034,9 +2034,8 @@ opnd_defines_use(opnd_t def, opnd_t use);
 
 DR_API
 /**
- * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
- * On x86, if \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
- * to get a OPSZ_ constant that assumes the entire register is used.
+ * Assumes \p size is an OPSZ_ constant, typically obtained from
+ * opnd_get_size() or reg_get_size().
  * Returns the number of bytes the OPSZ_ constant represents.
  * If OPSZ_ is a variable-sized size, returns the default size,
  * which may or may not match the actual size decided up on at
@@ -2047,7 +2046,8 @@ opnd_size_in_bytes(opnd_size_t size);
 
 DR_API
 /**
- * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
+ * Assumes \p size is an OPSZ_ constant, typically obtained from
+ * opnd_get_size() or reg_get_size().
  * Returns the number of bits the OPSZ_ constant represents.
  * If OPSZ_ is a variable-sized size, returns the default size,
  * which may or may not match the actual size decided up on at

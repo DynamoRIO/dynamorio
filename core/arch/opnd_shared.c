@@ -1297,9 +1297,7 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
 uint
 opnd_size_in_bytes(opnd_size_t size)
 {
-    /* allow some REG_ constants, convert them to OPSZ_ constants */
-    if (size < OPSZ_FIRST)
-        size = reg_get_size(size);
+    CLIENT_ASSERT(size >= OPSZ_FIRST, "opnd_size_in_bytes: invalid size");
     switch (size) {
     case OPSZ_0:
         return 0;
