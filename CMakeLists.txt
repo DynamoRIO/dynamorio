@@ -1773,11 +1773,11 @@ if (UNIX)
   # We've already split out our separate .debug files and stripped the
   # originals in our build rules
   set(CPACK_STRIP_FILES OFF)
-  if (VMKERNEL)
-    set(CPACK_SYSTEM_NAME "ESXi")
-  else (VMKERNEL)
+  if (APPLE)
+    set(CPACK_SYSTEM_NAME "MacOS")
+  else ()
     set(CPACK_SYSTEM_NAME "Linux")
-  endif (VMKERNEL)
+  endif ()
 else (UNIX)
   # FIXME: try Windows NSIS
   set(CPACK_GENERATOR "ZIP")
