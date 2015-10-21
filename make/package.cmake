@@ -100,6 +100,11 @@ set(run_tests OFF)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 include("${CTEST_SCRIPT_DIRECTORY}/../suite/runsuite_common_pre.cmake")
 
+if (APPLE)
+  # DRi#58: core DR does not yet support 64-bit Mac
+  set(arg_32_only ON)
+endif ()
+
 set(base_cache "
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}
