@@ -88,10 +88,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drvector_t allowed;
     ptr_int_t subtest = (ptr_int_t) user_data;
 
-    drvector_init(&allowed, DR_NUM_GPR_REGS, false/*!synch*/, NULL);
-    for (reg = 0; reg < DR_NUM_GPR_REGS; reg++)
-        drvector_set_entry(&allowed, reg, NULL);
-    drvector_set_entry(&allowed, TEST_REG-DR_REG_START_GPR, (void *)(ptr_uint_t)1);
+    drreg_init_and_fill_vector(&allowed, false);
+    drreg_set_vector_entry(&allowed, TEST_REG, true);
 
     if (subtest == 0) {
         /* Local tests */

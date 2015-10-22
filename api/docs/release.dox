@@ -137,6 +137,9 @@ The changes between version \DR_VERSION and 6.0.0 include:
 
  - opnd_size_in_bytes() and opnd_size_in_bits() no longer accept DR_REG_
    constants as input (the caller must first call reg_get_size()).
+   This was true in the 6.0.0 release but the documentation and the
+   routines themselves did not reflect this.
+ - Added drreg_init_and_fill_vector() and drreg_set_vector_entry().
 
 **************************************************
 <hr>

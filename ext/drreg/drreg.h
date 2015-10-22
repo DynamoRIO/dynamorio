@@ -229,17 +229,46 @@ DR_EXPORT
  * Must be called during drmgr's insertion phase.  Requests exclusive
  * use of an application register, spilling the application value at
  * \p where in \p ilist if necessary.  The register chosen is returned
- * in \p reg.  If \p reg_allowed is non-NULL, only registers from the
- * specified set will be considered, where \p reg_allowed must be a
- * vector with one entry for each general-purpose register in
- * [DR_REG_START_GPR..DR_REG_STOP_GPR] where a NULL entry indicates not allowed
- * and any non-NULL entry indicates allowed.
+ * in \p reg.
+ *
+ * If \p reg_allowed is non-NULL, only registers from the specified
+ * set will be considered, where \p reg_allowed must be a vector with
+ * one entry for each general-purpose register in
+ * [#DR_REG_START_GPR..#DR_REG_STOP_GPR] where a NULL entry indicates
+ * not allowed and any non-NULL entry indicates allowed.  The
+ * drreg_init_and_fill_vector() routine can be used to set up \p
+ * reg_allowed.
  *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                        drvector_t *reg_allowed, OUT reg_id_t *reg);
+
+DR_EXPORT
+/**
+ * Initializes \p vec to hold #DR_NUM_GPR_REGS entries, each either
+ * set to NULL if \p allowed is false or a non-NULL value if \p
+ * allowed is true.  This is intendend as a convenience routine for
+ * setting up the \p reg_allowed parameter to
+ * drreg_reserve_register().
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_init_and_fill_vector(drvector_t *vec, bool allowed);
+
+DR_EXPORT
+/**
+ * Sets the entry in \p vec at index \p reg minus #DR_REG_START_GPR to
+ * NULL if \p allowed is false or a non-NULL value if \p allowed is
+ * true.  This is intendend as a convenience routine for setting up
+ * the \p reg_allowed parameter to drreg_reserve_register().
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed);
 
 DR_EXPORT
 /**

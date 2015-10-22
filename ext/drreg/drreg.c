@@ -193,7 +193,6 @@ get_spilled_value(void *drcontext, uint slot)
     }
 }
 
-DR_EXPORT
 drreg_status_t
 drreg_max_slots_used(OUT uint *max)
 {
@@ -454,6 +453,28 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
  */
 
 drreg_status_t
+drreg_init_and_fill_vector(drvector_t *vec, bool allowed)
+{
+    reg_id_t reg;
+    if (vec == NULL)
+        return DRREG_ERROR_INVALID_PARAMETER;
+    drvector_init(vec, DR_NUM_GPR_REGS, false/*!synch*/, NULL);
+    for (reg = 0; reg < DR_NUM_GPR_REGS; reg++)
+        drvector_set_entry(vec, reg, allowed ? (void *)(ptr_uint_t)1 : NULL);
+    return DRREG_SUCCESS;
+}
+
+drreg_status_t
+drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
+{
+    if (vec == NULL || reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
+        return DRREG_ERROR_INVALID_PARAMETER;
+    drvector_set_entry(vec, reg - DR_REG_START_GPR,
+                       allowed ? (void *)(ptr_uint_t)1 : NULL);
+    return DRREG_SUCCESS;
+}
+
+drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                         drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
@@ -602,7 +623,6 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
  * ARITHMETIC FLAGS
  */
 
-DR_EXPORT
 drreg_status_t
 drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
@@ -670,7 +690,6 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     return DRREG_SUCCESS;
 }
 
-DR_EXPORT
 drreg_status_t
 drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
@@ -727,7 +746,6 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     return DRREG_SUCCESS;
 }
 
-DR_EXPORT
 drreg_status_t
 drreg_aflags_liveness(void *drcontext, OUT uint *value)
 {
@@ -740,7 +758,6 @@ drreg_aflags_liveness(void *drcontext, OUT uint *value)
     return DRREG_SUCCESS;
 }
 
-DR_EXPORT
 drreg_status_t
 drreg_are_aflags_dead(void *drcontext, instr_t *inst, bool *dead)
 {
@@ -882,7 +899,6 @@ drreg_thread_exit(void *drcontext)
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
-DR_EXPORT
 drreg_status_t
 drreg_init(drreg_options_t *ops_in)
 {
@@ -937,7 +953,6 @@ drreg_init(drreg_options_t *ops_in)
     return DRREG_SUCCESS;
 }
 
-DR_EXPORT
 drreg_status_t
 drreg_exit(void)
 {
