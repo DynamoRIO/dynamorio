@@ -441,7 +441,12 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t instru2instru_func);
 
 DR_EXPORT
-/** Returns which bb phase is the current one, if any. */
+/**
+ * Returns which bb phase is the current one, if any.
+ *
+ * \note May be called without calling drmgr_init() to test whether drmgr
+ * is in use.
+ */
 drmgr_bb_phase_t
 drmgr_current_bb_phase(void *drcontext);
 

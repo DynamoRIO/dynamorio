@@ -129,9 +129,17 @@ DR_EXPORT
  * Inserts into \p ilist prior to \p where meta-instruction(s) to add the
  * constant \p value to the counter located at \p addr.
  * Different DRX_COUNTER_* options can be specified by \p flags.
- * The spill slot \p slot is used for storing arithmetic flags or a scratch
- * register if necessary.
- * The spill slot \p slot2 is used only on ARM for spilling a second scratch
+ *
+ * When used with drmgr, this routine uses the drreg extension.  It must be
+ * called from drmgr's insertion phase.  The drreg extension will be used to
+ * spill the arithmetic flags and any scratch registers needed.  It is up to the
+ * caller to ensure that enough spill slots are available, through drreg's
+ * initialization.  The slot and slot2 parameters must be set to
+ * SPILL_SLOT_MAX+1.
+ *
+ * When used without drmgr, the spill slot \p slot is used for storing
+ * arithmetic flags or a scratch register if necessary.  The spill
+ * slot \p slot2 is used only on ARM for spilling a second scratch
  * register.
  *
  * \return whether successful.

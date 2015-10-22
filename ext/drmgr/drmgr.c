@@ -1075,7 +1075,11 @@ DR_EXPORT
 drmgr_bb_phase_t
 drmgr_current_bb_phase(void *drcontext)
 {
-    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
+    per_thread_t *pt;
+    /* Support being called w/o being set up, for detection of whether under drmgr */
+    if (drmgr_init_count == 0)
+        return DRMGR_PHASE_NONE;
+    pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
     return pt->cur_phase;
 }
 

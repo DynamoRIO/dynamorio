@@ -1925,6 +1925,11 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
   use_DynamoRIO_extension(client.drx-test.dll drx)
 
+  tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
+  use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
+  use_DynamoRIO_extension(client.drxmgr-test.dll drx)
+  use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
+
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
   get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
   tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")

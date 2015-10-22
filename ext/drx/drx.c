@@ -42,6 +42,8 @@
  */
 #include "drmgr.h"
 
+#include "drreg.h"
+
 #ifdef UNIX
 # ifdef LINUX
 #  include "../../core/unix/include/syscall.h"
@@ -393,10 +395,12 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                           void *addr, int value, uint flags)
 {
     instr_t *instr;
+    bool use_drreg = false;
 #ifdef X86
-    bool save_aflags = !drx_aflags_are_dead(where);
+    bool save_aflags = true;
 #elif defined(ARM)
     bool save_regs = true;
+    reg_id_t reg1, reg2;
 #endif
     bool is_64 = TEST(DRX_COUNTER_64BIT, flags);
 
@@ -404,7 +408,17 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         ASSERT(false, "drcontext cannot be NULL");
         return false;
     }
-    if (!(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX)) {
+    /* This drx routine is labeled as not needing drx_init(), so drmgr may not
+     * be initialized.  drmgr explicitly supports calling this routine though:
+     */
+    if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
+        use_drreg = true;
+        if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&
+            slot != SPILL_SLOT_MAX+1) {
+            ASSERT(false, "with drmgr, SPILL_SLOT_MAX+1 must be passed");
+            return false;
+        }
+    } else if (!(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX)) {
         ASSERT(false, "wrong spill slot");
         return false;
     }
@@ -422,20 +436,25 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 
 #ifdef X86
-    /* if save_aflags, check if we can merge with the prev aflags save */
-    if (save_aflags) {
-        instr = merge_prev_drx_spill(where, true/*aflags*/);
-        if (instr != NULL) {
-            save_aflags = false;
-            where = instr;
+    if (use_drreg) {
+        if (drreg_reserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
+            return false;
+    } else {
+        /* if save_aflags, check if we can merge with the prev aflags save */
+        save_aflags = !drx_aflags_are_dead(where);
+        if (save_aflags) {
+            instr = merge_prev_drx_spill(where, true/*aflags*/);
+            if (instr != NULL) {
+                save_aflags = false;
+                where = instr;
+            }
         }
-    }
-
-    /* save aflags if necessary */
-    if (save_aflags) {
-        drx_save_arith_flags(drcontext, ilist, where,
-                             true /* save eax */, true /* save oflag */,
-                             slot, DR_REG_NULL);
+        /* save aflags if necessary */
+        if (save_aflags) {
+            drx_save_arith_flags(drcontext, ilist, where,
+                                 true /* save eax */, true /* save oflag */,
+                                 slot, DR_REG_NULL);
+        }
     }
     /* update counter */
     instr = INSTR_CREATE_add(drcontext,
@@ -455,49 +474,67 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  OPND_CREATE_INT32(0)));
     }
 # endif /* !X64 */
-    /* restore aflags if necessary */
-    if (save_aflags) {
-        drx_restore_arith_flags(drcontext, ilist, where,
-                                true /* restore eax */, true /* restore oflag */,
-                                slot, DR_REG_NULL);
+    if (use_drreg) {
+        if (drreg_unreserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
+            return false;
+    } else {
+        /* restore aflags if necessary */
+        if (save_aflags) {
+            drx_restore_arith_flags(drcontext, ilist, where,
+                                    true /* restore eax */, true /* restore oflag */,
+                                    slot, DR_REG_NULL);
+        }
     }
 #elif defined(ARM)
     /* FIXME i#1551: implement 64-bit counter support */
     ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented");
 
-    /* merge w/ prior restore */
-    if (save_regs) {
-        instr = merge_prev_drx_spill(where, false/*!aflags*/);
-        if (instr != NULL) {
-            save_regs = false;
-            where = instr;
+    if (use_drreg) {
+        if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg1)
+            != DRREG_SUCCESS ||
+            drreg_reserve_register(drcontext, ilist, where, NULL, &reg2)
+            != DRREG_SUCCESS)
+            return false;
+    } else {
+        reg1 = SCRATCH_REG0;
+        reg2 = SCRATCH_REG1;
+        /* merge w/ prior restore */
+        if (save_regs) {
+            instr = merge_prev_drx_spill(where, false/*!aflags*/);
+            if (instr != NULL) {
+                save_regs = false;
+                where = instr;
+            }
+        }
+        if (save_regs) {
+            dr_save_reg(drcontext, ilist, where, reg1, slot);
+            dr_save_reg(drcontext, ilist, where, reg2, slot2);
         }
     }
-
-    if (save_regs) {
-        dr_save_reg(drcontext, ilist, where, SCRATCH_REG0, slot);
-        dr_save_reg(drcontext, ilist, where, SCRATCH_REG1, slot2);
-    }
     /* XXX: another optimization is to look for the prior increment's
-     * address being near this one, and add to SCRATCH_REG0 instead of
+     * address being near this one, and add to reg1 instead of
      * taking 2 instrs to load it fresh.
      */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr,
-                                     opnd_create_reg(SCRATCH_REG0),
+                                     opnd_create_reg(reg1),
                                      ilist, where, NULL, NULL);
     MINSERT(ilist, where, XINST_CREATE_load
-            (drcontext, opnd_create_reg(SCRATCH_REG1),
-             OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+            (drcontext, opnd_create_reg(reg2),
+             OPND_CREATE_MEMPTR(reg1, 0)));
     MINSERT(ilist, where, XINST_CREATE_add
-            (drcontext, opnd_create_reg(SCRATCH_REG1), OPND_CREATE_INT(value)));
+            (drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
     MINSERT(ilist, where, XINST_CREATE_store
-            (drcontext, OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
-             opnd_create_reg(SCRATCH_REG1)));
-    if (save_regs) {
+            (drcontext, OPND_CREATE_MEMPTR(reg1, 0),
+             opnd_create_reg(reg2)));
+    if (use_drreg) {
+        if (drreg_unreserve_register(drcontext, ilist, where, reg1) != DRREG_SUCCESS ||
+            drreg_unreserve_register(drcontext, ilist, where, reg2) != DRREG_SUCCESS)
+            return false;
+    } else if (save_regs) {
         ilist_insert_note_label(drcontext, ilist, where,
                                 NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
-        dr_restore_reg(drcontext, ilist, where, SCRATCH_REG1, slot2);
-        dr_restore_reg(drcontext, ilist, where, SCRATCH_REG0, slot);
+        dr_restore_reg(drcontext, ilist, where, reg2, slot2);
+        dr_restore_reg(drcontext, ilist, where, reg1, slot);
         ilist_insert_note_label(drcontext, ilist, where,
                                 NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
     }

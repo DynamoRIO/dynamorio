@@ -31,9 +31,11 @@
  */
 
 
-/* Tests the drx extension without drmgr */
+/* Tests the drx extension with drmgr */
 
 #include "dr_api.h"
+#include "drmgr.h"
+#include "drreg.h"
 #include "drx.h"
 
 #define CHECK(x, msg) do {               \
@@ -43,8 +45,6 @@
     }                                    \
 } while (0);
 
-static client_id_t client_id;
-
 static uint counterA;
 static uint counterB;
 
@@ -52,55 +52,38 @@ static void
 event_exit(void)
 {
     drx_exit();
-    CHECK(counterB == 2*counterA, "counter inc messed up");
+    drreg_exit();
+    drmgr_exit();
+    CHECK(counterB == 3*counterA, "counter inc messed up");
     dr_fprintf(STDERR, "event_exit\n");
 }
 
-static void
-event_nudge(void *drcontext, uint64 argument)
-{
-    static int nudge_term_count;
-    /* handle multiple from both NtTerminateProcess and NtTerminateJobObject */
-    uint count = dr_atomic_add32_return_sum(&nudge_term_count, 1);
-    if (count == 1) {
-        dr_fprintf(STDERR, "event_nudge exit code %d\n", (int)argument);
-        dr_exit_process((int)argument);
-        CHECK(false, "should not reach here");
-    }
-}
-
-static bool
-event_soft_kill(process_id_t pid, int exit_code)
-{
-    dr_config_status_t res =
-        dr_nudge_client_ex(pid, client_id, exit_code, 0);
-    CHECK(res == DR_SUCCESS, dr_config_status_code_to_string(res));
-    return true; /* skip kill */
-}
-
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *first = instrlist_first_app(bb);
-    /* Exercise drx's adjacent increment aflags spill removal code */
-    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, IF_ARM_(SPILL_SLOT_2)
-                              &counterA, 1,
-                              /* DRX_COUNTER_LOCK is not yet supported on ARM */
-                              IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
-    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, IF_ARM_(SPILL_SLOT_2)
-                              &counterB, 2, IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+    if (!drmgr_is_first_instr(drcontext, inst))
+        return DR_EMIT_DEFAULT;
+    /* Exercise drreg's adjacent increment aflags spill removal code */
+    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX+1,
+                              IF_ARM_(SPILL_SLOT_MAX+1) &counterA, 1, 0);
+    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX+1,
+                              IF_ARM_(SPILL_SLOT_MAX+1) &counterB, 3, 0);
     return DR_EMIT_DEFAULT;
 }
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    bool ok = drx_init();
-    client_id = id;
+    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
+    drreg_status_t res;
+    bool ok = drmgr_init();
+    CHECK(ok, "drmgr_init failed");
+    ok = drx_init();
     CHECK(ok, "drx_init failed");
+    res = drreg_init(&ops);
+    CHECK(res == DRREG_SUCCESS, "drreg_init failed");
     dr_register_exit_event(event_exit);
-    drx_register_soft_kills(event_soft_kill);
-    dr_register_nudge_event(event_nudge, id);
-    dr_register_bb_event(event_basic_block);
+    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        DR_ASSERT(false);
 }

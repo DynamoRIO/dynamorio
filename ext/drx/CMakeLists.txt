@@ -55,6 +55,8 @@ add_library(drx ${libtype} ${srcs})
 set(PREFERRED_BASE 0x77000000)
 configure_extension(drx OFF)
 use_DynamoRIO_extension(drx drcontainers)
+use_DynamoRIO_extension(drx drmgr)
+use_DynamoRIO_extension(drx drreg)
 
 # While we use drmgr in our implementation of drx, we only use pieces that
 # do not rely on drmgr's 4 phases or event orderings, and we do not include
@@ -74,6 +76,7 @@ if (NOT STATIC_LIBRARY)
   configure_extension(drx_static ON)
   use_DynamoRIO_extension(drx_static drcontainers)
   use_DynamoRIO_extension(drx_static drmgr_static)
+  use_DynamoRIO_extension(drx_static drreg_static)
   configure_drx_target(drx_static)
 endif ()
 
