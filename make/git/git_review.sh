@@ -163,8 +163,11 @@ elif [ "$mode" = "commit" ]; then
         hash=$(git log -n 1 --format=%H)
         msg=$(echo -e "Committed as ${hashurl}${hash}\n\nFinal commit log:" \
             "\n---------------\n${log}\n---------------")
+        exec 9>&1
         output=$(python ${root}/make/upload.py -y -e "${user}" -i ${issue} \
-            -t "${subject}" -m "${msg}" ${email} HEAD^)
+            --oauth2 ${token} -t "${subject}" -m "${msg}" ${email} HEAD^ \
+            | tee >(cat - >&9))
+        exec 9>&-
         echo "${output}"
     else
         echo "WARNING: this branch is not associated with any review."
