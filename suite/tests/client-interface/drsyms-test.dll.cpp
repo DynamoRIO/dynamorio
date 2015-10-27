@@ -67,6 +67,8 @@ static void lookup_type_by_name(const char *exe_path);
 static dr_os_version_info_t os_version = {sizeof(os_version),};
 #endif
 
+static bool found_tools_h, found_appdll;
+
 extern "C" DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -526,20 +528,14 @@ lookup_type_by_name(const char *exe_path)
 static bool
 enum_line_cb(drsym_line_info_t *info, void *data)
 {
-    static bool found_tools_h, found_appdll;
     const module_data_t *dll_data = (const module_data_t *) data;
     ASSERT(info->line_addr <= (size_t)(dll_data->end - dll_data->start));
     if (info->file != NULL) {
         if (!found_appdll && strstr(info->file, "drsyms-test.appdll.cpp") != NULL) {
             found_appdll = true;
-            dr_fprintf(STDERR, "found drsyms-test.appdll.cpp\n");
         }
-        /* We only start looking for tools.h after we found appdll to make sure
-         * fixed print out order.
-         */
-        if (found_appdll && !found_tools_h && strstr(info->file, "tools.h") != NULL) {
+        if (!found_tools_h && strstr(info->file, "tools.h") != NULL) {
             found_tools_h = true;
-            dr_fprintf(STDERR, "found tools.h\n");
         }
     }
     return true;
@@ -551,6 +547,11 @@ test_line_iteration(const module_data_t *dll_data)
     drsym_error_t res = drsym_enumerate_lines(dll_data->full_path, enum_line_cb,
                                               (void *) dll_data);
     ASSERT(res == DRSYM_SUCCESS);
+    /* We print outside of the loop to ensure a fixed order */
+    if (found_appdll)
+        dr_fprintf(STDERR, "found drsyms-test.appdll.cpp\n");
+    if (found_tools_h)
+        dr_fprintf(STDERR, "found tools.h\n");
 }
 
 /* Lookup symbols in the appdll and wrap them. */
