@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,9 @@
 #                 for 1st patchset)
 #  -t = prepends "TBR" to the review title
 #  -b = base git ref to diff against
+#  -k <token> = pass in oauth2 token to avoid opening a browser window, obtained
+#               separately from https://codereview.appspot.com/get-access-token
+#
 
 # Send email by default
 email="--send_mail --cc=dynamorio-devs@googlegroups.com"
@@ -48,7 +51,7 @@ hashurl="https://github.com/DynamoRIO/dynamorio/commit/"
 # after we sync on the master branch.
 base="HEAD^"
 
-while getopts ":ucqtr:s:b:" opt; do
+while getopts ":ucqtr:s:b:k:" opt; do
   case $opt in
     u)
       mode="upload"
@@ -70,6 +73,9 @@ while getopts ":ucqtr:s:b:" opt; do
       ;;
     t)
       prefix="TBR: "
+      ;;
+    k)
+      token="--oauth2_token $OPTARG"
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -125,9 +131,15 @@ if [ "$mode" = "upload" ]; then
     fi
     msg=$(echo -e "Commit log for ${label}:\n---------------\n${log}\n---------------")
     echo "Uploading the review..."
-    output=$(python ${root}/make/upload.py -y -e "${user}" ${reviewer} ${issue} \
-        -t "${subject}" -m "${msg}" ${email} "${base}"..)
-    echo "${output}"
+    # For re-authentication, upload.py prompts on stdout, so we need to tee it.
+    # We assume all devs have tee and cat, or that git's built-in shell has them.
+    exec 9>&1
+    # Pass -u to avoid python's buffering from preventing any output while
+    # python script sits there waiting for input.
+    output=$(python -u ${root}/make/upload.py -y -e "${user}" ${reviewer} ${issue} \
+        --oauth2 ${token} -t "${subject}" -m "${msg}" ${email} "${base}".. \
+        | tee >(cat - >&9))
+    exec 9>&-
     if test -z "$issue"; then
         number=$(echo "$output" | grep http://)
         number=${number##*/}

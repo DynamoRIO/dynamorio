@@ -617,6 +617,9 @@ group.add_option("--oauth2_port", action="store", type="int",
 group.add_option("--no_oauth2_webbrowser", action="store_false",
                  dest="open_oauth2_local_webbrowser", default=True,
                  help="Don't open a browser window to get an access token.")
+group.add_option("--oauth2_token", action="store",
+                 dest="oauth2_token", default=None,
+                 help="Specify oauth2 token to avoid opening a browser window.")
 group.add_option("--account_type", action="store", dest="account_type",
                  metavar="TYPE", default=AUTH_ACCOUNT_TYPE,
                  choices=["GOOGLE", "HOSTED"],
@@ -814,7 +817,7 @@ def WaitForAccessToken(port=DEFAULT_OAUTH2_PORT):
 
 
 def GetAccessToken(server=DEFAULT_REVIEW_SERVER, port=DEFAULT_OAUTH2_PORT,
-                   open_local_webbrowser=True):
+                   open_local_webbrowser=True, oauth2_token=None):
   """Gets an Access Token for the current user.
 
   Args:
@@ -830,8 +833,8 @@ def GetAccessToken(server=DEFAULT_REVIEW_SERVER, port=DEFAULT_OAUTH2_PORT,
       via WaitForAccessToken does not receive an access token, this method
       returns None.
   """
-  access_token = None
-  if open_local_webbrowser:
+  access_token = oauth2_token
+  if access_token is None and open_local_webbrowser:
     page_opened = OpenOAuth2ConsentPage(server=server, port=port)
     if page_opened:
       try:
@@ -896,21 +899,24 @@ class KeyringCreds(object):
 class OAuth2Creds(object):
   """Simple object to hold server and port to be passed to GetAccessToken."""
 
-  def __init__(self, server, port, open_local_webbrowser=True):
+  def __init__(self, server, port, open_local_webbrowser=True,
+               oauth2_token=None):
     self.server = server
     self.port = port
     self.open_local_webbrowser = open_local_webbrowser
+    self.oauth2_token = oauth2_token
 
   def __call__(self):
     """Uses stored server and port to retrieve OAuth 2.0 access token."""
     return GetAccessToken(server=self.server, port=self.port,
-                          open_local_webbrowser=self.open_local_webbrowser)
+                          open_local_webbrowser=self.open_local_webbrowser,
+                          oauth2_token=self.oauth2_token)
 
 
 def GetRpcServer(server, email=None, host_override=None, save_cookies=True,
                  account_type=AUTH_ACCOUNT_TYPE, use_oauth2=False,
                  oauth2_port=DEFAULT_OAUTH2_PORT,
-                 open_oauth2_local_webbrowser=True):
+                 open_oauth2_local_webbrowser=True, oauth2_token=None):
   """Returns an instance of an AbstractRpcServer.
 
   Args:
@@ -952,7 +958,8 @@ def GetRpcServer(server, email=None, host_override=None, save_cookies=True,
   positional_args = [server]
   if use_oauth2:
     positional_args.append(
-        OAuth2Creds(server, oauth2_port, open_oauth2_local_webbrowser))
+        OAuth2Creds(server, oauth2_port, open_oauth2_local_webbrowser,
+                    oauth2_token))
   else:
     positional_args.append(KeyringCreds(server, host, email).GetUserCredentials)
   return HttpRpcServer(*positional_args,
@@ -2582,7 +2589,8 @@ def RealMain(argv, data=None):
                             options.account_type,
                             options.use_oauth2,
                             options.oauth2_port,
-                            options.open_oauth2_local_webbrowser)
+                            options.open_oauth2_local_webbrowser,
+                            options.oauth2_token)
   form_fields = []
 
   repo_guid = vcs.GetGUID()
