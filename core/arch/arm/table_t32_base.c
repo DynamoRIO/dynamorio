@@ -49,9 +49,9 @@ const instr_info_t T32_base_e[] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     /* 80 */
     {OP_srsdb,    0xe80dc000, "srsdb",  Mq, xx, i5, LRw, SPSR, no, x, xbase[0x02]},/*PUW=000*/
-    {OP_rfedb,    0xe810c000, "rfedb",  CPSR, xx, Mq, xx, xx, no, x, END_LIST},/*PUW=000*/
+    {OP_rfedb,    0xe810c000, "rfedb",  CPSR, xx, Mq, xx, xx, no, fWNZCVQG, END_LIST},/*PUW=000*/
     {OP_srsdb,    0xe82dc000, "srsdb",  Mq, SPw, i5, SPw, LRw, xop, x, xexop[0x6]},/*PUW=001*/
-    {OP_rfedb,    0xe830c000, "rfedb",  RAw, CPSR, Mq, RAw, xx, no, x, xbase[0x01]},/*PUW=001*/
+    {OP_rfedb,    0xe830c000, "rfedb",  RAw, CPSR, Mq, RAw, xx, no, fWNZCVQG, xbase[0x01]},/*PUW=001*/
     {OP_strex,    0xe8400000, "strex",  MP8Xw, RCw, RBw, xx, xx, no, x, END_LIST},
     {OP_ldrex,    0xe8500f00, "ldrex",  RBw, xx, MP8Xw, xx, xx, no, x, END_LIST},
     {OP_strd,     0xe8600000, "strd",   Mq, RAw, RBw, RCw, n8, xop_wb, x, END_LIST},/*PUW=001*/
@@ -74,9 +74,9 @@ const instr_info_t T32_base_e[] = {
     {OP_strd,     0xe9600000, "strd",   MN8Xq, RAw, RBw, RCw, n8x4, xop_wb, x, xbase[0x0e]},/*PUW=101*/
     {OP_ldrd,     0xe9700000, "ldrd",   RBw, RCw, RAw, MN8Xq, n8x4, xop_wb|dstX3, x, xbase[0x0f]},/*PUW=101*/
     {OP_srs,      0xe98dc000, "srs",    Mq, xx, i5, LRw, SPSR, no, x, xbase[0x1a]},/*PUW=110*/
-    {OP_rfe,      0xe990c000, "rfe",    CPSR, xx, Mq, xx, xx, no, x, xbase[0x1b]},/*PUW=110*/
+    {OP_rfe,      0xe990c000, "rfe",    CPSR, xx, Mq, xx, xx, no, fWNZCVQG, xbase[0x1b]},/*PUW=110*/
     {OP_srs,      0xe9adc000, "srs",    Mq, SPw, i5, SPw, LRw, xop, x, xexop[0x6]},/*PUW=111*/
-    {OP_rfe,      0xe9b0c000, "rfe",    RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=111*/
+    {OP_rfe,      0xe9b0c000, "rfe",    RAw, CPSR, Mq, RAw, xx, no, fWNZCVQG, END_LIST},/*PUW=111*/
     {OP_strd,     0xe9c00000, "strd",   MP8Xq, xx, RBw, RCw, xx, no, x, xbase[0x14]},/*PUW=110*/
     {OP_ldrd,     0xe9d00000, "ldrd",   RBw, RCw, MP8Xq, xx, xx, no, x, xbase[0x15]},/*PUW=110*/
     {OP_strd,     0xe9e00000, "strd",   MP8Xq, RAw, RBw, RCw, i8x4, xop_wb, x, xbase[0x16]},/*PUW=111*/
@@ -813,16 +813,16 @@ const instr_info_t T32_ext_bit_B4[][2] = {
 /* Indexed by bit B5 */
 const instr_info_t T32_ext_bit_B5[][2] = {
   { /* 0 */
-    {OP_msr,      0xf3808000, "msr",    CPSR, xx, i4_8, RAw, xx, no, x, END_LIST},
-    {OP_msr_priv, 0xf3808020, "msr",    CPSR, xx, i5x4_8, RAw, xx, no, x, END_LIST},
+    {OP_msr,      0xf3808000, "msr",    CPSR, xx, i4_8, RAw, xx, no, fWNZCVQG/*see decode_eflags_to_instr_eflags*/, END_LIST},
+    {OP_msr_priv, 0xf3808020, "msr",    xx, xx, i5x4_8, RAw, xx, no, x, END_LIST},
   }, { /* 1 */
-    {OP_msr,      0xf3908000, "msr",    SPSR, xx, i4_8, RAw, xx, no, x, xb5[0][0x00]},
+    {OP_msr,      0xf3908000, "msr",    SPSR, xx, i4_8, RAw, xx, no, fWNZCVQG/*see decode_eflags_to_instr_eflags*/, xb5[0][0x00]},
     {OP_msr_priv, 0xf3908020, "msr",    SPSR, xx, i5x4_8, RAw, xx, no, x, xb5[0][0x01]},
   }, { /* 2 */
-    {OP_mrs,      0xf3ef8000, "mrs",    RCw, xx, CPSR, xx, xx, no, x, END_LIST},
-    {OP_mrs_priv, 0xf3e08020, "mrs",    RCw, xx, CPSR, i5x4_16, xx, no, x, END_LIST},
+    {OP_mrs,      0xf3ef8000, "mrs",    RCw, xx, CPSR, xx, xx, no, fRNZCVQG, END_LIST},
+    {OP_mrs_priv, 0xf3e08020, "mrs",    RCw, xx, i5x4_16, xx, xx, no, x, END_LIST},
   }, { /* 3 */
-    {OP_mrs,      0xf3ff8000, "mrs",    RCw, xx, SPSR, xx, xx, no, x, xb5[2][0x00]},/*FIXME i#1551: also mark as reading all flags*/
+    {OP_mrs,      0xf3ff8000, "mrs",    RCw, xx, SPSR, xx, xx, no, fRNZCVQG, xb5[2][0x00]},
     {OP_mrs_priv, 0xf3f08020, "mrs",    RCw, xx, SPSR, i5x4_16, xx, no, x, xb5[2][0x01]},
   }, { /* 4 */
     {OP_umlal,    0xfbe00000, "umlal",  RCw, RBw, RCw, RBw, RAw, xop, x, xexop[0x7]},
@@ -1047,7 +1047,7 @@ const instr_info_t T32_ext_RBPC[][2] = {
     {OP_usad8,    0xfb70f000, "usad8",  RCw, xx, RAw, RDw, xx, no, x, END_LIST},
   }, { /* 17 */
     {EXT_IMM1916, 0xeef00a10, "(ext imm1916 3)", xx, xx, xx, xx, xx, no, x, 3},
-    {OP_vmrs,     0xeef0fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, vfp, x, xi19[3][0x00]},
+    {OP_vmrs,     0xeef0fa10, "vmrs",   CPSR, xx, FPSCR, xx, xx, vfp, fWNZCV, xi19[3][0x00]},
   }, { /* 18 */
     {OP_ldrb,     0xf8100c00, "ldrb",   RBw, xx, MN8b, xx, xx, no, x, xrbpc[4][0x00]},/*PUW=100*/
     {OP_pld,      0xf810fc00, "pld",    xx, xx, MN8z, xx, xx, no, x, DUP_ENTRY},/*PUW=000*/

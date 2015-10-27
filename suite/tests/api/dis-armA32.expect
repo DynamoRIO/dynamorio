@@ -4220,7 +4220,7 @@
 +0x41ec   012d8028   bxj.eq %r8
 +0x41f0   ed126acf   vldr   -0x0000033c(%r2)[4byte] -> %s12
 +0x41f4   f2ec42cf   vmlal.s32 %d28 %d15[4byte] $0x00 -> %q10
-+0x41f8   91073302   mrs.ls %cpsr $0x17 -> %r3
++0x41f8   91073302   mrs.ls $0x00000017 -> %r3
 +0x41fc   610240c1   smlabt.vs %r1[2byte] %r0[2byte] %r4 -> %r2
 +0x4200   37fb095e   ubfx.cc %lr $0x12 $0x1b -> %r0
 +0x4204   d6fcaa92   usat.le $0x1c %r2 lsl $0x15 -> %r10
@@ -4886,7 +4886,7 @@
 +0x4c54   d7443134   smlaldx.le %r4 %r3 %r4 %r1 -> %r4 %r3
 +0x4c58   f2e8c6c4   vmlsl.s32 %d24 %d4[4byte] $0x00 -> %q14
 +0x4c5c   67019338   smladx.vs %r8 %r3 %r9 -> %r1
-+0x4c60   410f9307   mrs.mi %cpsr $0x1f -> %r9
++0x4c60   410f9307   mrs.mi $0x0000001f -> %r9
 +0x4c64   ae25da04   vmul.ge.f32 %s10 %s8 -> %s26
 +0x4c68   06b8877e   sxtah.eq %r8 %lr $0x00000001 -> %r8
 +0x4c6c   9ef54a0c   vmov.ls.f32 $0x3ee00000 -> %s9
@@ -5169,7 +5169,7 @@
 +0x50c0   f44b946d   vst3.16 %d25 %d26 %d27 $0x02 %r11 -> (%r11)[24byte] %r11
 +0x50c4   4164f554   qdsub.mi %r4 %r4 -> %pc
 +0x50c8   50e0dd9f   smlal.pl %r0 %sp %pc %sp -> %r0 %sp
-+0x50cc   b100eb06   mrs.lt %cpsr $0x10 -> %lr
++0x50cc   b100eb06   mrs.lt $0x00000010 -> %lr
 +0x50d0   96cbe07d   uxtab16.ls %r11 %sp $0x00000000 -> %lr
 +0x50d4   f48574ae   vst1.16 %d7[2byte] $0x02 $0x00 %lr %r5 -> (%r5)[2byte] %r5
 +0x50d8   0e6e6b3b   vmov.eq.8 %r6[1byte] $0x05 -> %d14[1byte]
@@ -5290,14 +5290,14 @@
 +0x52a4   306e6091   mls.cc %r1 %r0 %r6 -> %lr
 +0x52a8   a149917a   hvc.ge $0x917a
 +0x52ac   f2ca4ee4   vmull.p8 %d26 %d20 -> %q10
-+0x52b0   5108b301   mrs.pl %cpsr $0x18 -> %r11
++0x52b0   5108b301   mrs.pl $0x00000018 -> %r11
 +0x52b4   f44b0546   vst3.16 %d16 %d18 %d20 $0x00 %r6 %r11 -> (%r11)[24byte] %r11
 +0x52b8   912da2ee   smulwt.ls %lr %r2[2byte] -> %sp
 +0x52bc   07453a75   smlsldx.eq %r5 %r3 %r5 %r10 -> %r5 %r3
 +0x52c0   10ac9894   umlal.ne %r12 %r9 %r4 %r8 -> %r12 %r9
 +0x52c4   f345b1ca   vrhadd.u8 %q10 %q5 -> %q13
 +0x52c8   f2db19f3   vsra.s64 %q9 $0x1b -> %q8
-+0x52cc   7101ce05   mrs.vc %cpsr $0x01 -> %r12
++0x52cc   7101ce05   mrs.vc $0x00000001 -> %r12
 +0x52d0   4e6d5a80   vmul.mi.f32 %s27 %s0 -> %s11
 +0x52d4   504cee91   umaal.pl %r12 %lr %r1 %lr -> %r12 %lr
 +0x52d8   870f6254   smlsd.hi %r4 %r2 %r6 -> %pc
@@ -5313,7 +5313,7 @@
 +0x5300   f4c0b55d   vst2.16 %d27[2byte] %d28[2byte] $0x01 $0x01 %r0 -> (%r0)[4byte] %r0
 +0x5304   f48fd1de   vst2.8 %d13[1byte] %d14[1byte] $0x06 $0x01 %lr %pc -> (%pc)[2byte] %pc
 +0x5308   17583ddf   smmls.ne %pc %sp %r3 -> %r8
-+0x530c   31015a04   mrs.cc %cpsr $0x01 -> %r5
++0x530c   31015a04   mrs.cc $0x00000001 -> %r5
 +0x5310   f2f9bd2a   vext.8 %d9 %d26 $0x0d -> %d27
 +0x5314   b10416eb   smlatt.lt %r11[2byte] %r6[2byte] %r1 -> %r4
 +0x5318   8e409b31   vmov.hi.8 %r9[1byte] $0x01 -> %d0[1byte]
@@ -5675,7 +5675,7 @@
 +0x58a8   f245e3df   vcge.s8 %q10 %q7 -> %q15
 +0x58ac   f20af50f   vrshl.s8 %d10 %d15 -> %d15
 +0x58b0   f952ffbe   rfedb  (%r2)[8byte] -> %cpsr
-+0x58b4   31019a0f   mrs.cc %cpsr $0x01 -> %r9
++0x58b4   31019a0f   mrs.cc $0x00000001 -> %r9
 +0x58b8   ae7f1a2f   vadd.ge.f32 %s30 %s31 -> %s3
 +0x58bc   c01ace9d   muls.gt %sp %lr -> %r10
 +0x58c0   c7030f17   smlad.gt %r7 %pc %r0 -> %r3
@@ -8702,7 +8702,7 @@
 +0x87f4   f30fa012   vqadd.u8 %d15 %d2 -> %d10
 +0x87f8   f3c89118   vsra.u8 %d8 $0x00 -> %d25
 +0x87fc   f3037e5d   vacge.f32 %q1 %q6 -> %q3
-+0x8800   8125fe01   msr.hi $0x05 %r1 -> %cpsr
++0x8800   8125fe01   msr.hi $0x00000005 %r1
 +0x8804   f3bd5f7c   vcvt.u32.f32 %q14 $0x3d -> %q2
 +0x8808   f30075e0   vrshl.u8 %q8 %q8 -> %q3
 +0x880c   f4e743d0   vld4.8 (%r7)[4byte] $0x06 %r0 %r7 -> %d20[1byte] %d21[1byte] %d22[1byte] %d23[1byte] %r7
@@ -10145,7 +10145,7 @@
 +0x9e80   f292d273   vrshr.s16 %q9 $0x02 -> %q6
 +0x9e84   f3d05a8e   vmlsl.u16 %d16 %d14 -> %q10
 +0x9e88   f266f6bc   vmin.s32 %d22 %d28 -> %d31
-+0x9e8c   812dff07   msr.hi $0x1d %r7 -> %cpsr
++0x9e8c   812dff07   msr.hi $0x0000001d %r7
 +0x9e90   e109be49   crc32cb %r9 %r9[1byte] -> %r11
 +0x9e94   f222083e   vtst.32 %d2 %d30 -> %d0
 +0x9e98   f29fe5af   vabal.s16 %d31 %d31 -> %q7

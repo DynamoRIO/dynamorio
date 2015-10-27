@@ -2400,14 +2400,44 @@ read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
     return pc;
 }
 
+/* We have 3 callers.  Only one plans to decode its instr's operands: and for
+ * that caller, decode_common(), we'd have to remember the original instr_info_t
+ * in an extra local for all decodes.  We decided that it's better to pay for an
+ * extra operand decode for OP_msr (and have a simpler routine here) than affect
+ * the common case.
+ */
+static inline uint
+decode_eflags_to_instr_eflags(decode_info_t *di, const instr_info_t *info)
+{
+    uint res = info->eflags;
+    if (info->type == OP_msr) {
+        /* i#1817: msr writes a subset determined by 1st immed */
+        uint sel;
+        /* For decoding eflags w/o operands we need this one operand */
+        opnd_t immed;
+        uint num = 0;
+        ASSERT(info->src1_type == TYPE_I_b16 || info->src1_type == TYPE_I_b8);
+        if (!decode_operand(di, info->src1_type, info->src1_size, &immed, &num))
+            return 0; /* Return empty set on bogus instr */
+        sel = opnd_get_immed_int(immed);
+        if (!TESTALL(EFLAGS_MSR_NZCVQ, sel))
+            res &= ~(EFLAGS_WRITE_NZCV|EFLAGS_WRITE_Q);
+        if (!TESTALL(EFLAGS_MSR_G, sel))
+            res &= ~(EFLAGS_WRITE_GE);
+    }
+    return res;
+}
+
 byte *
 decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
                     dr_opnd_query_flags_t flags)
 {
     const instr_info_t *info;
     decode_info_t di;
+    uint eflags;
     pc = read_instruction(dcontext, pc, pc, &info, &di _IF_DEBUG(true));
-    *usage = instr_eflags_conditionally(info->eflags, di.predicate, flags);
+    eflags = decode_eflags_to_instr_eflags(&di, info);
+    *usage = instr_eflags_conditionally(eflags, di.predicate, flags);
     /* we're fine returning NULL on failure */
     return pc;
 }
@@ -2424,7 +2454,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
         CLIENT_ASSERT(!instr_valid(instr), "decode_opcode: invalid instr");
         return NULL;
     }
-    instr->eflags = info->eflags;
+    instr->eflags = decode_eflags_to_instr_eflags(&di, info);
     instr_set_eflags_valid(instr, true);
     instr_set_operands_valid(instr, false);
     instr_set_raw_bits(instr, pc, pc - di.orig_pc);
@@ -2456,7 +2486,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         CLIENT_ASSERT(!instr_valid(instr), "decode: invalid instr");
         return NULL;
     }
-    instr->eflags = info->eflags;
+    instr->eflags = decode_eflags_to_instr_eflags(&di, info);
     instr_set_eflags_valid(instr, true);
     /* since we don't use set_src/set_dst we must explicitly say they're valid */
     instr_set_operands_valid(instr, true);

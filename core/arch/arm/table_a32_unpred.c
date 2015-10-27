@@ -118,22 +118,22 @@ const instr_info_t A32_unpred_opc7[] = {
     {INVALID,    0xf7b00000, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     /* 80 */
     {OP_srsda,   0xf84d0500, "srsda",       Mq, xx, i5, LRw, SPSR, no, x, top7[0x42]},/*PUW=000*/
-    {OP_rfeda,   0xf8100a00, "rfeda",       CPSR, xx, Mq, xx, xx, no, x, END_LIST},/*PUW=000*/
+    {OP_rfeda,   0xf8100a00, "rfeda",       CPSR, xx, Mq, xx, xx, no, fWNZCVQG, END_LIST},/*PUW=000*/
     {OP_srsda,   0xf86d0500, "srsda",       Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=001*/
-    {OP_rfeda,   0xf8300a00, "rfeda",       RAw, CPSR, Mq, RAw, xx, no, x, top7[0x41]},/*PUW=001*/
+    {OP_rfeda,   0xf8300a00, "rfeda",       RAw, CPSR, Mq, RAw, xx, no, fWNZCVQG, top7[0x41]},/*PUW=001*/
     {OP_srs,     0xf8cd0500, "srs",         Mq, xx, i5, LRw, SPSR, no, x, top7[0x46]},/*PUW=010*/
-    {OP_rfe,     0xf8900a00, "rfe",         CPSR, xx, Mq, xx, xx, no, x, END_LIST},/*PUW=010*/
+    {OP_rfe,     0xf8900a00, "rfe",         CPSR, xx, Mq, xx, xx, no, fWNZCVQG, END_LIST},/*PUW=010*/
     {OP_srs,     0xf8ed0500, "srs",         Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=011*/
-    {OP_rfe,     0xf8b00a00, "rfe",         RAw, CPSR, Mq, RAw, xx, no, x, top7[0x45]},/*PUW=011*/
+    {OP_rfe,     0xf8b00a00, "rfe",         RAw, CPSR, Mq, RAw, xx, no, fWNZCVQG, top7[0x45]},/*PUW=011*/
     /* 90 */
     {OP_srsdb,   0xf94d0500, "srsdb",       Mq, xx, i5, LRw, SPSR, no, x, top7[0x4a]},/*PUW=100*/
-    {OP_rfedb,   0xf9100a00, "rfedb",       CPSR, xx, Mq, xx, xx, no, x, top7[0x4b]},/*PUW=100*/
+    {OP_rfedb,   0xf9100a00, "rfedb",       CPSR, xx, Mq, xx, xx, no, fWNZCVQG, top7[0x4b]},/*PUW=100*/
     {OP_srsdb,   0xf96d0500, "srsdb",       Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=101*/
-    {OP_rfedb,   0xf9300a00, "rfedb",       RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=101*/
+    {OP_rfedb,   0xf9300a00, "rfedb",       RAw, CPSR, Mq, RAw, xx, no, fWNZCVQG, END_LIST},/*PUW=101*/
     {OP_srsib,   0xf9cd0500, "srsib",       Mq, xx, i5, LRw, SPSR, no, x, top7[0x4e]},/*PUW=110*/
-    {OP_rfeib,   0xf9900a00, "rfeib",       CPSR, xx, Mq, xx, xx, no, x, top7[0x4f]},/*PUW=110*/
+    {OP_rfeib,   0xf9900a00, "rfeib",       CPSR, xx, Mq, xx, xx, no, fWNZCVQG, top7[0x4f]},/*PUW=110*/
     {OP_srsib,   0xf9ed0500, "srsib",       Mq, SPw, i5, SPw, LRw, xop, x, exop[0x6]},/*PUW=111*/
-    {OP_rfeib,   0xf9b00a00, "rfeib",       RAw, CPSR, Mq, RAw, xx, no, x, END_LIST},/*PUW=111*/
+    {OP_rfeib,   0xf9b00a00, "rfeib",       RAw, CPSR, Mq, RAw, xx, no, fWNZCVQG, END_LIST},/*PUW=111*/
     /* a0 */
     {OP_blx,     0xfa000000, "blx",         LRw, xx, j25x0_24, xx, xx, no, x, END_LIST},
     {OP_blx,     0xfa100000, "blx",         LRw, xx, j25x0_24, xx, xx, no, x, DUP_ENTRY},

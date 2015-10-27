@@ -1001,8 +1001,9 @@ DR_API
  * Returns the eflags usage of instructions with opcode \p opcode,
  * as EFLAGS_ constants (e.g., EFLAGS_READ_CF, EFLAGS_WRITE_OF, etc.) or'ed
  * together.
- * If \p opcode is predicated (see instr_is_predicated()), the eflags may not
- * always be accessed or written.
+ * If \p opcode is predicated (see instr_is_predicated()) or if the set
+ * of flags read or written varies with an operand value, this routine
+ * returns the maximal set that might be accessed or written.
  */
 uint
 instr_get_opcode_eflags(int opcode);
@@ -1475,7 +1476,9 @@ DR_UNS_API
  * from the raw bits pointed to by instr to bring it to that level.
  * Assumes that instr is a single instr (i.e., NOT Level 0).
  *
- * decode_opcode decodes the opcode and eflags usage of the instruction.
+ * decode_opcode decodes the opcode and eflags usage of the instruction
+ * (if the eflags usage varies with operand values, the maximal value
+ * will be set).
  * This corresponds to a Level 2 decoding.
  */
 void
@@ -2744,7 +2747,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
  * EFLAGS/CONDITION CODES
  *
  * The EFLAGS_READ_* and EFLAGS_WRITE_* constants are used by API routines
- * instr_get_eflags(), instr_get_opcode_flags(), and instr_get_arith_flags().
+ * instr_get_eflags(), instr_get_opcode_eflags(), and instr_get_arith_flags().
  */
 #ifdef X86
 /* we only care about these 11 flags, and mostly only about the first 6
@@ -2794,7 +2797,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /**
  * The actual bits in the eflags register that we care about:\n<pre>
  *   11 10  9  8  7  6  5  4  3  2  1  0
- *   OF DF       SF ZF    AF    PF    CF  </pre>
+ *   OF DF IF TF SF ZF  0 AF  0 PF  1 CF  </pre>
  */
 enum {
     EFLAGS_CF = 0x00000001, /**< The bit in the eflags register of CF (Carry Flag). */
@@ -2804,6 +2807,8 @@ enum {
     EFLAGS_SF = 0x00000080, /**< The bit in the eflags register of SF (Sign Flag). */
     EFLAGS_DF = 0x00000400, /**< The bit in the eflags register of DF (Direction Flag). */
     EFLAGS_OF = 0x00000800, /**< The bit in the eflags register of OF (Overflow Flag). */
+    /** The bits in the eflags register of CF, PF, AF, ZF, SF, OF. */
+    EFLAGS_ARITH = EFLAGS_CF|EFLAGS_PF|EFLAGS_AF|EFLAGS_ZF|EFLAGS_SF|EFLAGS_OF,
 };
 
 #elif defined(ARM)
@@ -2850,6 +2855,8 @@ enum {
     EFLAGS_V =  0x10000000, /**< The bit in the CPSR register of V (overflow flag). */
     EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation flag). */
     EFLAGS_GE = 0x000f0000, /**< The bits in the CPSR register of GE[3:0]. */
+    /** The bits in the CPSR register of N, Z, C, V, Q, and GE. */
+    EFLAGS_ARITH = EFLAGS_N|EFLAGS_Z|EFLAGS_C|EFLAGS_V|EFLAGS_Q|EFLAGS_GE,
     /**
      * The bit in the CPSR register of T (Thumb mode indicator bit).  This is
      * not readable from user space and should only be examined when looking at
@@ -2872,6 +2879,13 @@ enum {
 
 /** The bits in the CPSR register of the T32 IT block state. */
 # define EFLAGS_IT (EFLAGS_IT_COND | EFLAGS_IT_SIZE)
+
+/** The bit in the 4-bit OP_msr immediate that selects the nzcvq status flags. */
+# define EFLAGS_MSR_NZCVQ 0x8
+/** The bit in the 4-bit OP_msr immediate that selects the apsr_g status flags. */
+# define EFLAGS_MSR_G     0x4
+/** The bits in the 4-bit OP_msr immediate that select the nzcvqg status flags. */
+# define EFLAGS_MSR_NZCVQG (EFLAGS_MSR_NZCVQ|EFLAGS_MSR_G)
 #endif
 /* DR_API EXPORT END */
 

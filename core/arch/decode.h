@@ -459,6 +459,8 @@ DR_UNS_API
 /**
  * Decodes the opcode and eflags usage of instruction at address \p pc
  * into \p instr.
+ * If the eflags usage varies with operand values, the maximal value
+ * will be set.
  * The instruction's raw bits are set to valid and pointed at \p pc
  * (xref instr_get_raw_bits()).
  * Assumes that \p instr is already initialized, and uses the x86/x64 mode
