@@ -848,6 +848,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      * a spill of an already-spilled reg to a different slot.
      */
     uint spilled_to[DR_NUM_GPR_REGS];
+    uint spilled_to_aflags = MAX_SPILLS;
     reg_id_t reg;
     instr_t inst;
     byte *prev_pc, *pc = info->fragment_info.cache_start_pc;
@@ -888,7 +889,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 __FUNCTION__, prev_pc, spill ? "spill" : "restore",
                 get_register_name(reg), offs, slot);
             if (spill) {
-                if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
+                if (slot == AFLAGS_SLOT) {
+                    spilled_to_aflags = slot;
+                } else if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
                            /* allow redundant spill */
                            spilled_to[GPR_IDX(reg)] != slot) {
                     /* This reg is already spilled: we assume that this new spill
@@ -900,7 +903,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                     spilled_to[GPR_IDX(reg)] = slot;
                 }
             } else {
-                if (spilled_to[GPR_IDX(reg)] == slot)
+                if (slot == AFLAGS_SLOT && spilled_to_aflags == slot)
+                    spilled_to_aflags = MAX_SPILLS;
+                else if (spilled_to[GPR_IDX(reg)] == slot)
                     spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
                 else {
                     LOG(drcontext, LOG_ALL, 3, "%s @"PFX": ignoring restore\n",
@@ -911,6 +916,23 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     }
     instr_free(drcontext, &inst);
 
+    if (spilled_to_aflags < MAX_SPILLS) {
+        reg_t val = get_spilled_value(drcontext, spilled_to_aflags);
+        reg_t newval = info->mcontext->xflags;
+#ifdef ARM
+        newval &= ~(EFLAGS_ARITH);
+        newval |= val;
+#elif defined(X86)
+        uint sahf = (val & 0xff00) >> 8;
+        newval &= ~(EFLAGS_ARITH);
+        newval |= sahf;
+        if (TEST(1, val)) /* seto */
+            newval |= EFLAGS_OF;
+#endif
+        LOG(drcontext, LOG_ALL, 3, "%s: restoring aflags from "PFX" to "PFX"\n",
+            __FUNCTION__, info->mcontext->xflags, newval);
+        info->mcontext->xflags = newval;
+    }
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS) {
             reg_t val = get_spilled_value(drcontext, spilled_to[GPR_IDX(reg)]);

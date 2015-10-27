@@ -138,7 +138,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "unreserve should work");
         }
-    } else if (subtest == DRREG_TEST_4_C) {
+    } else if (subtest == DRREG_TEST_4_C ||
+               subtest == DRREG_TEST_5_C) {
         /* Cross-app-instr aflags test */
         dr_log(drcontext, LOG_ALL, 1, "drreg test #4\n");
         if (instr_is_label(inst)) {

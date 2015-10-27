@@ -51,6 +51,10 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_3_C)
             print("ERROR: spilled register value was not preserved!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+            print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -62,6 +66,9 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
             print("ERROR: spilled register value was not preserved!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+            print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -81,14 +88,14 @@ main(int argc, const char *argv[])
 
     test_asm();
 
-    /* Test a simple fault */
-    if (SIGSETJMP(mark) == 0) {
-        *(volatile int *)(long)argc = argc;
-    }
-
     /* Test fault reg restore */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultA();
+    }
+
+    /* Test fault aflags restore */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultB();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -223,6 +230,56 @@ GLOBAL_LABEL(FUNCNAME:)
 
         b        epilog2
     epilog2:
+        bx       lr
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_asm_faultB
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        /* push callee-saved registers */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test5
+        /* Test 5: fault aflags restore */
+     test5:
+        mov      TEST_REG_ASM, DRREG_TEST_5_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_5_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        nop
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+
+        jmp      epilog3
+     epilog3:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
+        ret
+#elif defined(ARM)
+        b        test5
+        /* Test 5: fault aflags restore */
+     test5:
+        movw     TEST_REG_ASM, DRREG_TEST_5_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_5_ASM
+        /* XXX: also test GE flags */
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+        nop
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog3
+    epilog3:
         bx       lr
 #endif
         END_FUNC(FUNCNAME)
