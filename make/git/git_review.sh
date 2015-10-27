@@ -40,9 +40,12 @@
 #                 for 1st patchset)
 #  -t = prepends "TBR" to the review title
 #  -b = base git ref to diff against
-#  -k <token> = pass in oauth2 token to avoid opening a browser window, obtained
-#               separately from https://codereview.appspot.com/get-access-token
 #
+# If $HOME/.codereview_dr_token exists, its contents are passed as the
+# oauth2 token to the code review site.  The file should contain the text
+# string obtained from https://codereview.appspot.com/get-access-token.
+# If the file does not exist, a browser window will be auto-launched
+# for oauth2 authentication.
 
 # Send email by default
 email="--send_mail --cc=dynamorio-devs@googlegroups.com"
@@ -50,6 +53,7 @@ hashurl="https://github.com/DynamoRIO/dynamorio/commit/"
 # We use HEAD^ instead of origin/master to avoid messing up code review diff
 # after we sync on the master branch.
 base="HEAD^"
+tokfile=$HOME/.codereview_dr_token
 
 while getopts ":ucqtr:s:b:k:" opt; do
   case $opt in
@@ -74,9 +78,6 @@ while getopts ":ucqtr:s:b:k:" opt; do
     t)
       prefix="TBR: "
       ;;
-    k)
-      token="--oauth2_token $OPTARG"
-      ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
       exit 1
@@ -91,6 +92,11 @@ done
 if ! git diff-index --quiet HEAD --; then
     echo "ERROR: branch contains uncommitted changes.  Please commit them first."
     exit 1
+fi
+
+if test -e "$tokfile"; then
+    echo "Using oauth2 token from $tokfile"
+    token="--oauth2_token `cat $tokfile`"
 fi
 
 branch=$(git symbolic-ref -q HEAD)
@@ -155,16 +161,16 @@ if [ "$mode" = "upload" ]; then
     fi
 elif [ "$mode" = "commit" ]; then
     if test -n "$issue"; then
-        # Remove the issue marker
-        git config --unset branch.${branch}.rietveldissue
         # Upload the committed diff, for easy viewing of final changes.
         echo "Finalizing existing code review request #${issue}."
         subject="Committed"
         hash=$(git log -n 1 --format=%H)
         msg=$(echo -e "Committed as ${hashurl}${hash}\n\nFinal commit log:" \
             "\n---------------\n${log}\n---------------")
-        python ${root}/make/upload.py -y -e "${user}" -i ${issue} \
+        python -u ${root}/make/upload.py -y -e "${user}" -i ${issue} \
             --oauth2 ${token} -t "${subject}" -m "${msg}" ${email} HEAD^
+        # Remove the issue marker
+        git config --unset branch.${branch}.rietveldissue
     else
         echo "WARNING: this branch is not associated with any review."
         # Keep exit status 0
