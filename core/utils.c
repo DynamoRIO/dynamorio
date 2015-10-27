@@ -491,7 +491,7 @@ add_process_lock(mutex_t *lock)
 static void
 remove_process_lock(mutex_t *lock)
 {
-    LOG(THREAD_GET, LOG_THREADS, 3, "remove_process_lock"
+    LOG(THREAD_GET, LOG_THREADS, 3, "remove_process_lock "
         DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     STATS_ADD(total_acquired, lock->count_times_acquired);
     STATS_ADD(total_contended, lock->count_times_contended);
@@ -949,7 +949,8 @@ mutex_delete(mutex_t *lock)
 {
     LOG(GLOBAL, LOG_THREADS, 3, "mutex_delete lock "PFX"\n", lock);
 #ifdef DEADLOCK_AVOIDANCE
-    LOG(THREAD_GET, LOG_THREADS, 2, "mutex_delete" DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
+    LOG(THREAD_GET, LOG_THREADS, 3, "mutex_delete "
+        DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     remove_process_lock(lock);
     lock->deleted = true;
 #endif

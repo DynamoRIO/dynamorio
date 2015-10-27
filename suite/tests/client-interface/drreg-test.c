@@ -37,7 +37,8 @@
 
 /* asm routines */
 void test_asm();
-void test_asm_fault();
+void test_asm_faultA();
+void test_asm_faultB();
 
 static SIGJMP_BUF mark;
 
@@ -87,7 +88,7 @@ main(int argc, const char *argv[])
 
     /* Test fault reg restore */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_fault();
+        test_asm_faultA();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -135,6 +136,14 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, REG_XSP
         mov      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
 
+        jmp      test4
+        /* Test 4: read and write of reserved aflags */
+     test4:
+        mov      TEST_REG_ASM, DRREG_TEST_4_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_4_ASM
+        setne    TEST_REG_ASM_LSB
+        cmp      TEST_REG_ASM, REG_XSP
+
         jmp      epilog
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -160,6 +169,14 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, sp
         ldr      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
 
+        b        test4
+        /* Test 4: read and write of reserved aflags */
+     test4:
+        movw     TEST_REG_ASM, DRREG_TEST_4_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_4_ASM
+        sel      TEST_REG_ASM, r0, r0
+        cmp      TEST_REG_ASM, sp
+
         b        epilog
     epilog:
         bx       lr
@@ -167,7 +184,7 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME test_asm_fault
+#define FUNCNAME test_asm_faultA
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86

@@ -138,6 +138,24 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "unreserve should work");
         }
+    } else if (subtest == DRREG_TEST_4_C) {
+        /* Cross-app-instr aflags test */
+        dr_log(drcontext, LOG_ALL, 1, "drreg test #4\n");
+        if (instr_is_label(inst)) {
+            res = drreg_reserve_aflags(drcontext, bb, inst);
+            CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        } else if (instr_is_nop(inst)
+                   IF_ARM(|| instr_get_opcode(inst) == OP_mov &&
+                          /* assembler uses "mov r0,r0" for our nop */
+                          opnd_same(instr_get_dst(inst, 0), instr_get_src(inst, 0)))) {
+            /* Modify aflags to test preserving for app */
+            instrlist_meta_preinsert(bb, inst, XINST_CREATE_cmp
+                                     (drcontext, opnd_create_reg(DR_REG_START_32),
+                                      OPND_CREATE_INT32(0)));
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            res = drreg_unreserve_aflags(drcontext, bb, inst);
+            CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
+        }
     }
 
     drvector_delete(&allowed);
