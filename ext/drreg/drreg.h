@@ -289,6 +289,29 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
+ * Must be called during drmgr's insertion phase.  Returns information
+ * about the TLS slot assigned to \p reg, which must be a
+ * currently-reserved register.
+ *
+ * If \p opnd is non-NULL, returns an opnd_t in \p opnd that references
+ * the TLS slot assigned to \p reg.
+ *
+ * If \p is_dr_slot is non-NULL, returns true if the slot is a DR slot
+ * (and can thus be accessed by dr_read_saved_reg()) and false if the
+ * slot is inside the dr_raw_tls_calloc() allocation used by drreg.
+ *
+ * If \p tls_offs is non-NULL, if the slot is a DR slot, returns the
+ * DR slot index; otherwise, returns the offset from the TLS base of
+ * the slot assigned to \p reg.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
+                       bool *is_dr_slot OUT, uint *tls_offs OUT);
+
+DR_EXPORT
+/**
  * Must be called during drmgr's insertion phase.  Terminates
  * exclusive use of the register \p reg.  Restores the application
  * value at \p where in \p ilist, if necessary.

@@ -660,6 +660,38 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     return DRREG_SUCCESS;
 }
 
+drreg_status_t
+drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
+                       bool *is_dr_slot OUT, uint *tls_offs OUT)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    uint slot;
+    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
+           "must be called from drmgr insertion phase");
+    if (!pt->reg[GPR_IDX(reg)].in_use)
+        return DRREG_ERROR_INVALID_PARAMETER;
+    slot = pt->reg[GPR_IDX(reg)].slot;
+    ASSERT(pt->slot_use[slot] == reg, "internal tracking error");
+
+    if (slot < ops.num_spill_slots) {
+        if (opnd != NULL)
+            *opnd = dr_raw_tls_opnd(drcontext, tls_seg, tls_slot_offs);
+        if (is_dr_slot != NULL)
+            *is_dr_slot = false;
+        if (tls_offs != NULL)
+            *tls_offs = tls_slot_offs + slot*sizeof(reg_t);
+    } else {
+        dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
+        if (opnd != NULL)
+            *opnd = dr_reg_spill_slot_opnd(drcontext, DR_slot);
+        if (is_dr_slot != NULL)
+            *is_dr_slot = true;
+        if (tls_offs != NULL)
+            *tls_offs = DR_slot;
+    }
+    return DRREG_SUCCESS;
+}
+
 /***************************************************************************
  * ARITHMETIC FLAGS
  */
@@ -1031,7 +1063,7 @@ drreg_init(drreg_options_t *ops_in)
         return DRREG_ERROR;
 
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
-        return DRREG_ERROR;
+        return DRREG_ERROR_OUT_OF_SLOTS;
 
     return DRREG_SUCCESS;
 }

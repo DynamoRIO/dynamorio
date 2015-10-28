@@ -118,6 +118,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS && reg == TEST_REG, "only 1 choice");
         res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
         CHECK(res == DRREG_ERROR_REG_CONFLICT, "still reserved");
+        {
+            opnd_t opnd = opnd_create_null();
+            res = drreg_reservation_info(drcontext, reg, &opnd, NULL, NULL);
+            CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(opnd),
+                  "slot info should succeed");
+        }
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve should work");
     } else if (subtest == DRREG_TEST_1_C ||
