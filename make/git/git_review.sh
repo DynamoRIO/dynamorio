@@ -55,7 +55,7 @@ hashurl="https://github.com/DynamoRIO/dynamorio/commit/"
 base="HEAD^"
 tokfile=$HOME/.codereview_dr_token
 
-while getopts ":ucqtr:s:b:k:" opt; do
+while getopts ":ucqtr:s:b:" opt; do
   case $opt in
     u)
       mode="upload"
