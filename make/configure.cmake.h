@@ -65,6 +65,9 @@
 #cmakedefine PROCESS_CONTROL
 #cmakedefine GBOP
 
+/* i#1801 for clang build */
+#cmakedefine CLANG
+
 /* for use by developers */
 #cmakedefine KSTATS
 #cmakedefine CALLPROF

@@ -521,6 +521,9 @@ endif (UNIX)
 
 if (UNIX)
   identify_clang(CMAKE_COMPILER_IS_CLANG)
+  if (CMAKE_COMPILER_IS_CLANG)
+    set(CLANG 1)
+  endif (CMAKE_COMPILER_IS_CLANG)
 
   if (CYGWIN)
     message(FATAL_ERROR "building using gcc within cygwin is not supported")

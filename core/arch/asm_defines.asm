@@ -472,8 +472,8 @@ ASSUME fs:_DATA @N@\
 #else /* 32-bit */
 # define PUSHF   pushfd
 # define POPF    popfd
-# ifdef MACOS
-/* Mac requires 32-bit to have 16-byte stack alignment (at call site)
+# if defined(MACOS) || defined(CLANG)
+/* Mac or clang requires 32-bit to have 16-byte stack alignment (at call site)
  * Pass 4 instead of 0 for mod4 to avoid wasting stack space.
  */
 #  define STACK_PAD(tot, gt4, mod4) \
@@ -488,7 +488,7 @@ ASSUME fs:_DATA @N@\
 /* p cannot be a memory operand, naturally */
 #  define SETARG(argoffs, argreg, p) \
         mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
-# else /* !MACOS */
+# else /* !MACOS && !CLANG */
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*tot + REG_XSP]
@@ -503,7 +503,7 @@ ASSUME fs:_DATA @N@\
  */
 #  define SETARG(argoffs, argreg, p) \
         push     p
-# endif /* !MACOS */
+# endif /* !MACOS && !CLANG */
 #endif /* 64/32-bit */
 
 /* CALLC* are for C calling convention callees only.
