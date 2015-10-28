@@ -834,10 +834,14 @@ else (UNIX)
   # and cl 14.00 hangs compiling core/fragment.c with /Od and DEBUG.
   set(DBG_OPT "/Od")
   set(BASE_CXXFLAGS "${BASE_CFLAGS}")
-  if (CMAKE_RC_FLAGS)
-    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /nologo")
-  else ()
-    set(CMAKE_RC_FLAGS "/nologo")
+  if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # i#1821: cmake 3.3.1 (but not 2.8.12) somehow messes up this /nologo flag.
+    # We just avoid it for VS generators as a workaround.
+    if (CMAKE_RC_FLAGS)
+      set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /nologo")
+    else ()
+      set(CMAKE_RC_FLAGS "/nologo")
+    endif ()
   endif ()
 endif (UNIX)
 
