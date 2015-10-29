@@ -4298,6 +4298,14 @@ dr_raw_tls_cfree(uint offset, uint num_slots);
 
 DR_API
 /**
+ * Returns an operand that refers to the raw TLS slot with offset \p
+ * tls_offs from the TLS base \p tls_register.
+ */
+opnd_t
+dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs);
+
+DR_API
+/**
  * Inserts into ilist prior to "where" instruction(s) to read into the
  * general-purpose full-size register \p reg from the raw TLS slot with offset
  * \p tls_offs from the TLS base \p tls_register.

@@ -4533,6 +4533,25 @@ dr_raw_tls_cfree(uint offset, uint num_slots)
 }
 
 DR_API
+opnd_t
+dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs)
+{
+    CLIENT_ASSERT(drcontext != NULL, "dr_raw_tls_opnd: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_raw_tls_opnd: drcontext is invalid");
+    IF_X86_ELSE({
+        return opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL,
+                                            0, tls_offs, OPSZ_PTR,
+                                            /* modern processors don't want addr16
+                                             * prefixes
+                                             */
+                                            false, true, false);
+    }, {
+        return OPND_CREATE_MEMPTR(tls_register, tls_offs);
+    });
+}
+
+DR_API
 void
 dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t tls_register, uint tls_offs, reg_id_t reg)
@@ -4545,16 +4564,11 @@ dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
     IF_X86_ELSE({
         MINSERT(ilist, where, INSTR_CREATE_mov_ld
                 (dcontext, opnd_create_reg(reg),
-                 opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL,
-                                              0, tls_offs, OPSZ_PTR,
-                                              /* modern processors don't want addr16
-                                               * prefixes
-                                               */
-                                              false, true, false)));
+                 dr_raw_tls_opnd(drcontext, tls_register, tls_offs)));
     }, {
         MINSERT(ilist, where, XINST_CREATE_load
                 (dcontext, opnd_create_reg(reg),
-                 OPND_CREATE_MEMPTR(tls_register, tls_offs)));
+                 dr_raw_tls_opnd(drcontext, tls_register, tls_offs)));
     });
 }
 
@@ -4571,14 +4585,11 @@ dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
     IF_X86_ELSE({
         MINSERT(ilist, where, INSTR_CREATE_mov_st
                 (dcontext,
-                 opnd_create_far_base_disp_ex(tls_register, DR_REG_NULL, DR_REG_NULL,
-                                              0, tls_offs, OPSZ_PTR,
-                                              /* no addr16 prefixes, for modern proc */
-                                              false, true, false),
+                 dr_raw_tls_opnd(drcontext, tls_register, tls_offs),
                  opnd_create_reg(reg)));
     }, {
         MINSERT(ilist, where, XINST_CREATE_store
-                (dcontext, OPND_CREATE_MEMPTR(tls_register, tls_offs),
+                (dcontext, dr_raw_tls_opnd(drcontext, tls_register, tls_offs),
                  opnd_create_reg(reg)));
     });
 }

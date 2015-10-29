@@ -141,6 +141,7 @@ The changes between version \DR_VERSION and 6.0.0 include:
    routines themselves did not reflect this.
  - Added drreg_init_and_fill_vector() and drreg_set_vector_entry().
  - Augmented drx_insert_counter_update() to work with drreg.
+ - Added dr_raw_tls_opnd().
 
 **************************************************
 <hr>

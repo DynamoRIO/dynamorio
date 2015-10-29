@@ -50,6 +50,7 @@
 
 static uint num_lea = 0;
 
+static reg_id_t tls_seg;
 static uint tls_offs;
 #define CANARY 0xbadcab42
 #define NUM_TLS_SLOTS 4
@@ -219,6 +220,12 @@ static void
 thread_exit_event(void *drcontext)
 {
     int i;
+    instrlist_t *ilist = instrlist_create(drcontext);
+    dr_insert_read_raw_tls(drcontext, ilist, NULL, tls_seg, tls_offs, DR_REG_START_GPR);
+    ASSERT(opnd_same(dr_raw_tls_opnd(drcontext, tls_seg, tls_offs),
+                     instr_get_src(instrlist_first(ilist), 0)));
+    instrlist_clear_and_destroy(drcontext, ilist);
+
     for (i = 0; i < NUM_TLS_SLOTS; i++) {
         int idx = tls_offs + i*sizeof(void*);
         ptr_uint_t val;
@@ -237,7 +244,6 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     bool success;
-    reg_id_t seg;
     /* PR 216931: client options */
     const char * ops = dr_get_options(id);
     dr_fprintf(STDERR, "PR 216931: client options are %s\n", ops);
@@ -250,9 +256,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_thread_exit_event(thread_exit_event);
 
     /* i#108: client raw TLS */
-    success = dr_raw_tls_calloc(&seg, &tls_offs, NUM_TLS_SLOTS, 0);
+    success = dr_raw_tls_calloc(&tls_seg, &tls_offs, NUM_TLS_SLOTS, 0);
     ASSERT(success);
-    ASSERT(seg == IF_X64_ELSE(SEG_GS, SEG_FS));
+    ASSERT(tls_seg == IF_X64_ELSE(SEG_GS, SEG_FS));
 
     /* PR 219381: dr_get_application_name() and dr_get_process_id() */
 #ifdef WINDOWS
