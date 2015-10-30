@@ -46,6 +46,7 @@
 #include "drreg.h"
 #include <string.h>
 #include <limits.h>
+#include <stddef.h> /* offsetof */
 
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
@@ -53,6 +54,12 @@
 #else
 # define ASSERT(x, msg) /* nothing */
 # define LOG(dc, mask, level, ...) /* nothing */
+#endif
+
+#ifdef WINDOWS
+# define DISPLAY_ERROR(msg) dr_messagebox(msg)
+#else
+# define DISPLAY_ERROR(msg) dr_fprintf(STDERR, "%s\n", msg);
 #endif
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
@@ -129,6 +136,18 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 static drreg_status_t
 drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
                    per_thread_t *pt);
+
+static void
+drreg_report_error(drreg_status_t res, const char *msg)
+{
+    if (ops.error_callback != NULL) {
+        if ((*ops.error_callback)(res))
+            return;
+    }
+    ASSERT(false, msg);
+    DISPLAY_ERROR(msg);
+    dr_abort();
+}
 
 /***************************************************************************
  * SPILLING AND RESTORING
@@ -345,7 +364,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     reg_id_t reg;
     instr_t *next = instr_get_next(inst);
     bool restored_for_read[DR_NUM_GPR_REGS];
+    drreg_status_t res;
 
+    drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS, "NOCHECKIN out of slots");
     /* For unreserved regs still spilled, we lazily do the restore here.  We also
      * update reserved regs wrt app uses.
      */
@@ -361,9 +382,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         /* Restore aflags to app value */
         LOG(drcontext, LOG_ALL, 3, "%s @"PFX" aflags=0x%x: lazily restoring aflags\n",
             __FUNCTION__, instr_get_app_pc(inst), aflags);
-        if (drreg_restore_aflags(drcontext, bb, inst, pt, false/*keep slot*/) !=
-            DRREG_SUCCESS)
-            ASSERT(false, "failed to restore flags"); /* XXX: need better way to fail */
+        res = drreg_restore_aflags(drcontext, bb, inst, pt, false/*keep slot*/);
+        if (res != DRREG_SUCCESS)
+            drreg_report_error(res, "failed to restore flags before app read");
         if (!pt->aflags.in_use)
             pt->aflags.native = true;
     }
@@ -386,7 +407,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     if (pt->reg[GPR_IDX(reg)].ever_spilled) {
                         if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
                             /* XXX i#511: NYI */
-                            ASSERT(false, "NYI");
+                            drreg_report_error(DRREG_ERROR_FEATURE_NOT_AVAILABLE,
+                                               "xchg NYI");
                         }
                         LOG(drcontext, LOG_ALL, 3, "%s @"PFX": lazily restoring %s\n",
                             __FUNCTION__, instr_get_app_pc(inst), get_register_name(reg));
@@ -405,8 +427,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                      * XXX: optimize via xchg w/ a dead reg.
                      */
                     uint tmp_slot = find_free_slot(pt);
-                    if (tmp_slot == MAX_SPILLS)
-                        ASSERT(false, "NYI"); /* XXX: need better way to fail */
+                    if (tmp_slot == MAX_SPILLS) {
+                        drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
+                                           "failed to preserve tool val around app read");
+                    }
                     /* The approach:
                      *   + spill reg (tool val) to new slot
                      *   + restore to reg (app val) from app slot
@@ -438,7 +462,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         if (pt->aflags.in_use) {
             LOG(drcontext, LOG_ALL, 3, "%s @"PFX": re-spilling aflags after app write\n",
                 __FUNCTION__, instr_get_app_pc(inst));
-            drreg_spill_aflags(drcontext, bb, next/*after*/, pt);
+            res = drreg_spill_aflags(drcontext, bb, next/*after*/, pt);
+            if (res != DRREG_SUCCESS) {
+                drreg_report_error(res, "failed to spill aflags after app write");
+            }
         } else if (!pt->aflags.native) {
             /* give up slot */
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
@@ -458,7 +485,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 uint tmp_slot = MAX_SPILLS;
                 if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
                     /* XXX i#511: NYI */
-                    ASSERT(false, "NYI");
+                    drreg_report_error(DRREG_ERROR_FEATURE_NOT_AVAILABLE, "xchg NYI");
                 }
                 /* Approach (we share 1st and last w/ read, if reads and writes):
                  *   + spill reg (tool val) to new slot
@@ -472,8 +499,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     __FUNCTION__, instr_get_app_pc(inst), get_register_name(reg));
                 if (!restored_for_read[GPR_IDX(reg)]) {
                     tmp_slot = find_free_slot(pt);
-                    if (tmp_slot == MAX_SPILLS)
-                        ASSERT(false, "NYI"); /* XXX: need better way to fail */
+                    if (tmp_slot == MAX_SPILLS) {
+                        drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
+                                           "failed to preserve tool val wrt app write");
+                    }
                     spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
                 }
                 spill_reg(drcontext, pt, reg,
@@ -515,7 +544,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
 
 drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        drvector_t *reg_allowed, OUT reg_id_t *reg_out)
+                       drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     uint slot = MAX_SPILLS;
@@ -652,6 +681,7 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
            "must be called from drmgr insertion phase");
     if (!pt->reg[GPR_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
+    LOG(drcontext, LOG_ALL, 3, "%s @"PFX"\n", __FUNCTION__, instr_get_app_pc(where));
     /* We lazily restore in drreg_event_bb_insert_late(), in case
      * someone else wants a local scratch.
      */
@@ -791,6 +821,7 @@ drreg_status_t
 drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    drreg_status_t res;
     uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
     ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
            "must be called from drmgr insertion phase");
@@ -815,7 +846,9 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 
     LOG(drcontext, LOG_ALL, 3, "%s @"PFX": spilling aflags\n",
         __FUNCTION__, instr_get_app_pc(where));
-    drreg_spill_aflags(drcontext, ilist, where, pt);
+    res = drreg_spill_aflags(drcontext, ilist, where, pt);
+    if (res != DRREG_SUCCESS)
+        return res;
     pt->aflags.in_use = true;
     pt->aflags.native = false;
     pt->aflags.xchg = DR_REG_NULL;
@@ -831,6 +864,7 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
            "must be called from drmgr insertion phase");
     if (!pt->aflags.in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
+    LOG(drcontext, LOG_ALL, 3, "%s @"PFX"\n", __FUNCTION__, instr_get_app_pc(where));
     /* We lazily restore in drreg_event_bb_insert_late(), in case
      * someone else wants the aflags locally.
      */
@@ -1041,8 +1075,10 @@ drreg_init(drreg_options_t *ops_in)
     if (count > 1)
         return DRREG_SUCCESS;
 
-    if (ops_in->struct_size < sizeof(ops))
+    if (ops_in->struct_size < offsetof(drreg_options_t, error_callback))
         return DRREG_ERROR_INVALID_PARAMETER;
+    else if (ops_in->struct_size < sizeof(ops))
+        ops.error_callback = NULL;
     ops = *ops_in;
 
     drmgr_init();

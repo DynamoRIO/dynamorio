@@ -132,6 +132,13 @@ typedef struct _drreg_options_t {
      * request that drreg not make this assumption.
      */
     bool conservative;
+    /**
+     * Some drreg operations are performed during drmgr events where there is
+     * no direct return value to the user of drreg.  When an error is encountered
+     * at these times, drreg will call this callback and pass the error value.
+     * If this callback is NULL, or if it returns false, drreg will call dr_abort().
+     */
+    bool (*error_callback)(drreg_status_t status);
 } drreg_options_t;
 
 DR_EXPORT
