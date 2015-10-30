@@ -84,11 +84,11 @@ typedef enum {
  */
 enum {
     /** Priority of drreg analysis and pre-insert */
-    DRMGR_PRIORITY_INSERT_DRREG_HIGH =  -750,
+    DRMGR_PRIORITY_INSERT_DRREG_HIGH =  -7500,
     /** Priority of drreg post-insert */
-    DRMGR_PRIORITY_INSERT_DRREG_LOW  =   750,
+    DRMGR_PRIORITY_INSERT_DRREG_LOW  =   7500,
     /** Priority of drreg fault handling event */
-    DRMGR_PRIORITY_FAULT_DRREG       =  -750,
+    DRMGR_PRIORITY_FAULT_DRREG       =  -7500,
 };
 
 /**
