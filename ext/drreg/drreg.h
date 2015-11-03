@@ -186,9 +186,13 @@ drreg_max_slots_used(OUT uint *max);
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Requests exclusive
- * use of the arithmetic flags register.  Spills the application value
- * at \p where in \p ilist, if necessary.
+ * Requests exclusive use of the arithmetic flags register.  Spills
+ * the application value at \p where in \p ilist, if necessary.
+ * When used during drmgr's insertion phase, optimizations such as
+ * keeping the application flags value in a register and eliding
+ * duplicate spills and restores will be automatically applied.
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
  *
  * @return whether successful or an error code on failure.
  */
@@ -197,9 +201,11 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where);
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Terminates
- * exclusive use of the arithmetic flags register.  Restores the
- * application value at \p where in \p ilist, if necessary.
+ * Terminates exclusive use of the arithmetic flags register.
+ * Restores the application value at \p where in \p ilist, if
+ * necessary.
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
  *
  * @return whether successful or an error code on failure.
  */
@@ -208,19 +214,21 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where);
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Returns in \p value
- * EFLAGS_READ_6 bits telling which arithmetic flags are live at the current
- * drmgr instruction.
+ * Returns in \p value EFLAGS_READ_6 bits telling which arithmetic
+ * flags are live at the point of \p inst.  If called during drmgr's
+ * insertion phase, \p inst must be the current application
+ * instruction.
  *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_aflags_liveness(void *drcontext, OUT uint *value);
+drreg_aflags_liveness(void *drcontext, instr_t *inst, OUT uint *value);
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Returns in \p dead
- * whether the arithmetic flags are all dead at the point of \p inst.
+ * Returns in \p dead whether the arithmetic flags are all dead at the
+ * point of \p inst.  If called during drmgr's insertion phase, \p
+ * inst must be the current application instruction.
  *
  * @return whether successful or an error code on failure.
  */

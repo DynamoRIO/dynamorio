@@ -37,8 +37,12 @@
 
 The \p drreg DynamoRIO Register Management Extension is a mediator for
 selecting, preserving, and using registers among multiple instrumentation
-components.  The interface must be used in concert with the \p drmgr
-instrumentation pass scheme.
+components.  The interface is meant to be used in concert with the \p drmgr
+instrumentation pass scheme.  The results are most efficient when used in
+the \p drmgr instrumentation insertion phase.  Use outside of the insertion
+phase, such as during \p drmgr's instrumentation-to-instrumentation
+transformation phase, or use outside of \p drmgr entirely, is supported,
+but duplicate spills and restores may not be optimized away.
 
 CAUTION: this extension is still a work in progress.  Not all pieces are
 implemented yet, and the interface may be in flux until the details are

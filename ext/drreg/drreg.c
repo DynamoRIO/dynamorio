@@ -77,6 +77,7 @@
 
 #define REG_DEAD ((void*)(ptr_uint_t)0)
 #define REG_LIVE ((void*)(ptr_uint_t)1)
+#define REG_UNKNOWN ((void*)(ptr_uint_t)2) /* only used outside drmgr insert phase */
 
 typedef struct _reg_info_t {
     /* XXX: better to flip around and store bitvector of registers per instr
@@ -257,7 +258,7 @@ count_app_uses(per_thread_t *pt, opnd_t opnd)
     }
 }
 
-/* This even has to go last, to handle labels inserted by other components:
+/* This event has to go last, to handle labels inserted by other components:
  * else our indices get off, and we can't simply skip labels in the
  * per-instr event b/c we need the liveness to advance at the label
  * but not after the label.
@@ -366,7 +367,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     bool restored_for_read[DR_NUM_GPR_REGS];
     drreg_status_t res;
 
-    drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS, "NOCHECKIN out of slots");
     /* For unreserved regs still spilled, we lazily do the restore here.  We also
      * update reserved regs wrt app uses.
      */
@@ -385,8 +385,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         res = drreg_restore_aflags(drcontext, bb, inst, pt, false/*keep slot*/);
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to restore flags before app read");
-        if (!pt->aflags.in_use)
+        if (!pt->aflags.in_use) {
             pt->aflags.native = true;
+            pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
+        }
     }
 
     /* Before each app read, or at end of bb, restore spilled registers to app values: */
@@ -513,6 +515,103 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         }
     }
 
+#ifdef DEBUG
+    if (drmgr_is_last_instr(drcontext, inst)) {
+        uint i;
+        reg_id_t reg;
+        for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+            ASSERT(!pt->aflags.in_use, "user failed to unreserve aflags");
+            ASSERT(pt->aflags.native, "user failed to unreserve aflags");
+            ASSERT(!pt->reg[GPR_IDX(reg)].in_use, "user failed to unreserve a register");
+            ASSERT(pt->reg[GPR_IDX(reg)].native, "user failed to unreserve a register");
+        }
+        for (i = 0; i < MAX_SPILLS; i++) {
+            ASSERT(pt->slot_use[i] == DR_REG_NULL, "user failed to unreserve a register");
+        }
+    }
+#endif
+
+    return DR_EMIT_DEFAULT;
+}
+
+/***************************************************************************
+ * USE OUTSIDE INSERT PHASE
+ */
+
+/* For use outside drmgr's insert phase where we don't know the bounds of the
+ * app instrs, we fall back to a more expensive liveness analysis on each
+ * insertion.
+ */
+static dr_emit_flags_t
+drreg_forward_analysis(void *drcontext, instr_t *start)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    instr_t *inst;
+    ptr_uint_t aflags_new, aflags_cur = 0;
+    reg_id_t reg;
+
+    /* We just use index 0 of the live vectors */
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        pt->reg[GPR_IDX(reg)].app_uses = 0;
+        drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_UNKNOWN);
+    }
+
+    /* We have to consider meta instrs as well */
+    for (inst = start; inst != NULL; inst = instr_get_next(inst)) {
+        if (instr_is_cti(inst) || instr_is_interrupt(inst) || instr_is_syscall(inst))
+            break;
+
+        /* GPR liveness */
+        for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+            void *value = REG_UNKNOWN;
+            if (drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, 0) != REG_UNKNOWN)
+                continue;
+            if (instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
+                value = REG_LIVE;
+            /* make sure we don't consider writes to sub-regs */
+            else if (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS)
+                     /* a write to a 32-bit reg for amd64 zeroes the top 32 bits */
+                     IF_X86_X64(|| instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
+                                                             DR_QUERY_INCLUDE_COND_SRCS)))
+                value = REG_DEAD;
+            if (value != REG_UNKNOWN)
+                drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, value);
+        }
+
+        /* aflags liveness */
+        aflags_new = instr_get_arith_flags(inst, DR_QUERY_INCLUDE_COND_SRCS);
+        /* reading and writing counts only as reading */
+        aflags_new &= (~(EFLAGS_READ_TO_WRITE(aflags_new)));
+        /* reading doesn't count if already written */
+        aflags_new &= (~(EFLAGS_WRITE_TO_READ(aflags_cur)));
+        aflags_cur |= aflags_new;
+
+        if (instr_is_app(inst)) {
+            int i;
+            for (i = 0; i < instr_num_dsts(inst); i++)
+                count_app_uses(pt, instr_get_dst(inst, i));
+            for (i = 0; i < instr_num_srcs(inst); i++)
+                count_app_uses(pt, instr_get_src(inst, i));
+        }
+    }
+
+    pt->live_idx = 0;
+    pt->app_uses_min = UINT_MAX;
+    pt->app_uses_max = 0;
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        if (pt->reg[GPR_IDX(reg)].app_uses > pt->app_uses_max)
+            pt->app_uses_max = pt->reg[GPR_IDX(reg)].app_uses;
+        if (pt->reg[GPR_IDX(reg)].app_uses < pt->app_uses_min)
+            pt->app_uses_min = pt->reg[GPR_IDX(reg)].app_uses;
+    }
+
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        if (drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, 0) == REG_UNKNOWN)
+            drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_LIVE);
+    }
+    drvector_set_entry(&pt->aflags.live, 0, (void *)(ptr_uint_t)
+                       /* set read bit if not written */
+                       (EFLAGS_READ_ARITH & (~(EFLAGS_WRITE_TO_READ(aflags_cur)))));
     return DR_EMIT_DEFAULT;
 }
 
@@ -822,9 +921,14 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     drreg_status_t res;
-    uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
-    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
-           "must be called from drmgr insertion phase");
+    uint aflags;
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        res = drreg_forward_analysis(drcontext, where);
+        if (res != DRREG_SUCCESS)
+            return res;
+        ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
+    }
+    aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
     /* Just like scratch regs, flags are exclusively owned */
     if (pt->aflags.in_use)
         return DRREG_ERROR_IN_USE;
@@ -860,10 +964,18 @@ drreg_status_t
 drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
-           "must be called from drmgr insertion phase");
     if (!pt->aflags.in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        /* We have no way to lazily restore.  We do not bother at this point
+         * to try and eliminate back-to-back spill/restore pairs.
+         */
+        if (!pt->aflags.native) {
+            drreg_restore_aflags(drcontext, ilist, where, pt, true/*release*/);
+            pt->aflags.native = true;
+        }
+        pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
+    }
     LOG(drcontext, LOG_ALL, 3, "%s @"PFX"\n", __FUNCTION__, instr_get_app_pc(where));
     /* We lazily restore in drreg_event_bb_insert_late(), in case
      * someone else wants the aflags locally.
@@ -873,13 +985,17 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 }
 
 drreg_status_t
-drreg_aflags_liveness(void *drcontext, OUT uint *value)
+drreg_aflags_liveness(void *drcontext, instr_t *inst, OUT uint *value)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
-           "must be called from drmgr insertion phase");
     if (value == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        drreg_status_t res = drreg_forward_analysis(drcontext, inst);
+        if (res != DRREG_SUCCESS)
+            return res;
+        ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
+    }
     *value = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
     return DRREG_SUCCESS;
 }
@@ -888,7 +1004,7 @@ drreg_status_t
 drreg_are_aflags_dead(void *drcontext, instr_t *inst, bool *dead)
 {
     uint flags;
-    drreg_status_t res = drreg_aflags_liveness(drcontext, &flags);
+    drreg_status_t res = drreg_aflags_liveness(drcontext, inst, &flags);
     if (res != DRREG_SUCCESS)
         return res;
     if (dead == NULL)

@@ -92,6 +92,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drreg_set_vector_entry(&allowed, TEST_REG, true);
 
     if (subtest == 0) {
+        uint flags;
+        bool dead;
         /* Local tests */
         res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
         CHECK(res == DRREG_SUCCESS, "default reserve should always work");
@@ -111,6 +113,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS ||
               (res == DRREG_ERROR_NO_APP_VALUE && reg == random),
               "get random reg app value should always work");
+        /* query tests */
+        res = drreg_aflags_liveness(drcontext, inst, &flags);
+        CHECK(res == DRREG_SUCCESS, "query of aflags should work");
+        res = drreg_are_aflags_dead(drcontext, inst, &dead);
+        CHECK(res == DRREG_SUCCESS, "query of aflags should work");
+        CHECK((dead && !TESTANY(EFLAGS_READ_ARITH, flags)) ||
+              (!dead && TESTANY(EFLAGS_READ_ARITH, flags)), "liveness inconsistency");
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
 
@@ -172,6 +181,28 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     return DR_EMIT_DEFAULT;
 }
 
+dr_emit_flags_t
+event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
+                    bool for_trace, bool translating)
+{
+    /* Test using outside of insert event */
+    uint flags;
+    bool dead;
+    instr_t *inst = instrlist_first(bb);
+    drreg_status_t res = drreg_reserve_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+    res = drreg_unreserve_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
+    res = drreg_aflags_liveness(drcontext, inst, &flags);
+    CHECK(res == DRREG_SUCCESS, "query of aflags should work");
+    res = drreg_are_aflags_dead(drcontext, inst, &dead);
+    CHECK(res == DRREG_SUCCESS, "query of aflags should work");
+    CHECK((dead && !TESTANY(EFLAGS_READ_ARITH, flags)) ||
+          (!dead && TESTANY(EFLAGS_READ_ARITH, flags)), "aflags liveness inconsistency");
+
+    return DR_EMIT_DEFAULT;
+}
+
 static void
 event_exit(void)
 {
@@ -193,6 +224,7 @@ dr_init(client_id_t id)
     /* register events */
     dr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_app_analysis,
-                                                 event_app_instruction, NULL))
+                                                 event_app_instruction, NULL) ||
+        !drmgr_register_bb_instru2instru_event(event_instru2instru, NULL))
         CHECK(false, "init failed");
 }
