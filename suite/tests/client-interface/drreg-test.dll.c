@@ -189,7 +189,19 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
     uint flags;
     bool dead;
     instr_t *inst = instrlist_first(bb);
-    drreg_status_t res = drreg_reserve_aflags(drcontext, bb, inst);
+    drreg_status_t res;
+    drvector_t allowed;
+    reg_id_t reg;
+
+    drreg_init_and_fill_vector(&allowed, false);
+    drreg_set_vector_entry(&allowed, TEST_REG, true);
+
+    res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
+    CHECK(res == DRREG_SUCCESS, "default reserve should always work");
+    res = drreg_unreserve_register(drcontext, bb, inst, reg);
+    CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+
+    res = drreg_reserve_aflags(drcontext, bb, inst);
     CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
     res = drreg_unreserve_aflags(drcontext, bb, inst);
     CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
@@ -199,6 +211,8 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
     CHECK(res == DRREG_SUCCESS, "query of aflags should work");
     CHECK((dead && !TESTANY(EFLAGS_READ_ARITH, flags)) ||
           (!dead && TESTANY(EFLAGS_READ_ARITH, flags)), "aflags liveness inconsistency");
+
+    drvector_delete(&allowed);
 
     return DR_EMIT_DEFAULT;
 }

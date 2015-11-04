@@ -241,10 +241,15 @@ drreg_are_aflags_dead(void *drcontext, instr_t *inst, bool *dead);
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Requests exclusive
- * use of an application register, spilling the application value at
- * \p where in \p ilist if necessary.  The register chosen is returned
- * in \p reg.
+ * Requests exclusive use of an application register, spilling the
+ * application value at \p where in \p ilist if necessary.  The
+ * register chosen is returned in \p reg.
+ *
+ * When used during drmgr's insertion phase, optimizations such as
+ * keeping the application flags value in a register and eliding
+ * duplicate spills and restores will be automatically applied.
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
  *
  * If \p reg_allowed is non-NULL, only registers from the specified
  * set will be considered, where \p reg_allowed must be a vector with
@@ -287,14 +292,17 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed);
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Inserts
- * instructions at \p where in \p ilist to retrieve the application
- * value for \p app_reg into \p dst_reg.  This will automatically be
- * done for reserved registers prior to an application instruction
- * that reads \p app_reg, but sometimes instrumentation needs to read
- * the application value of a register that has been reserved.
- * If \p app_reg is a dead register, DRREG_ERROR_NO_APP_VALUE may be
- * returned. Set \p conservative in \p drreg_options_t to avoid this error.
+ * Inserts instructions at \p where in \p ilist to retrieve the
+ * application value for \p app_reg into \p dst_reg.  This will
+ * automatically be done for reserved registers prior to an
+ * application instruction that reads \p app_reg, but sometimes
+ * instrumentation needs to read the application value of a register
+ * that has been reserved.  If \p app_reg is a dead register,
+ * DRREG_ERROR_NO_APP_VALUE may be returned. Set \p conservative in \p
+ * drreg_options_t to avoid this error.
+ *
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
  *
  * @return whether successful or an error code on failure.
  */
@@ -304,9 +312,8 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Returns information
- * about the TLS slot assigned to \p reg, which must be a
- * currently-reserved register.
+ * Returns information about the TLS slot assigned to \p reg, which
+ * must be a currently-reserved register.
  *
  * If \p opnd is non-NULL, returns an opnd_t in \p opnd that references
  * the TLS slot assigned to \p reg.
@@ -327,9 +334,10 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
 
 DR_EXPORT
 /**
- * Must be called during drmgr's insertion phase.  Terminates
- * exclusive use of the register \p reg.  Restores the application
- * value at \p where in \p ilist, if necessary.
+ * Terminates exclusive use of the register \p reg.  Restores the
+ * application value at \p where in \p ilist, if necessary.  If called
+ * during drmgr's insertion phase, \p where must be the current
+ * application instruction.
  *
  * @return whether successful or an error code on failure.
  */

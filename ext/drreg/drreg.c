@@ -131,6 +131,10 @@ static uint stats_max_slot;
 #endif
 
 static drreg_status_t
+drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
+                      per_thread_t *pt, reg_id_t reg);
+
+static drreg_status_t
 drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
                      per_thread_t *pt, bool release);
 
@@ -406,19 +410,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_reg(inst, reg, DR_QUERY_DEFAULT))) {
                 if (!pt->reg[GPR_IDX(reg)].in_use) {
-                    if (pt->reg[GPR_IDX(reg)].ever_spilled) {
-                        if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
-                            /* XXX i#511: NYI */
-                            drreg_report_error(DRREG_ERROR_FEATURE_NOT_AVAILABLE,
-                                               "xchg NYI");
-                        }
-                        LOG(drcontext, LOG_ALL, 3, "%s @"PFX": lazily restoring %s\n",
-                            __FUNCTION__, instr_get_app_pc(inst), get_register_name(reg));
-                        restore_reg(drcontext, pt, reg,
-                                    pt->reg[GPR_IDX(reg)].slot, bb, inst, true);
-                    } else /* still need to release slot */
-                        pt->slot_use[pt->reg[GPR_IDX(reg)].slot] = DR_REG_NULL;
-                    pt->reg[GPR_IDX(reg)].native = true;
+                    res = drreg_restore_reg_now(drcontext, bb, inst, pt, reg);
+                    if (res != DRREG_SUCCESS)
+                        drreg_report_error(res, "lazy restore failed");
                     ASSERT(pt->pending_unreserved > 0, "should not go negative");
                     pt->pending_unreserved--;
                 } else {
@@ -468,6 +462,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             if (res != DRREG_SUCCESS) {
                 drreg_report_error(res, "failed to spill aflags after app write");
             }
+            pt->aflags.native = false;
         } else if (!pt->aflags.native) {
             /* give up slot */
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
@@ -541,8 +536,12 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 /* For use outside drmgr's insert phase where we don't know the bounds of the
  * app instrs, we fall back to a more expensive liveness analysis on each
  * insertion.
+ *
+ * XXX: we'd want to add a new API for instru2instru that takes in
+ * both the save and restore points at once to allow keeping aflags in
+ * eax and other optimizations.
  */
-static dr_emit_flags_t
+static drreg_status_t
 drreg_forward_analysis(void *drcontext, instr_t *start)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
@@ -554,6 +553,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         pt->reg[GPR_IDX(reg)].app_uses = 0;
         drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_UNKNOWN);
+        pt->reg[GPR_IDX(reg)].ever_spilled = false;
     }
 
     /* We have to consider meta instrs as well */
@@ -612,7 +612,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
     drvector_set_entry(&pt->aflags.live, 0, (void *)(ptr_uint_t)
                        /* set read bit if not written */
                        (EFLAGS_READ_ARITH & (~(EFLAGS_WRITE_TO_READ(aflags_cur)))));
-    return DR_EMIT_DEFAULT;
+    return DRREG_SUCCESS;
 }
 
 /***************************************************************************
@@ -641,17 +641,16 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
     return DRREG_SUCCESS;
 }
 
-drreg_status_t
-drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       drvector_t *reg_allowed, OUT reg_id_t *reg_out)
+/* Assumes liveness info is already set up in per_thread_t */
+static drreg_status_t
+drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     uint slot = MAX_SPILLS;
     uint min_uses = UINT_MAX;
     reg_id_t reg = DR_REG_STOP_GPR + 1, best_reg = DR_REG_NULL;
     bool already_spilled = false;
-    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
-           "must be called from drmgr insertion phase");
     if (reg_out == NULL)
         return DRREG_ERROR_INVALID_PARAMETER;
 
@@ -733,6 +732,18 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 }
 
 drreg_status_t
+drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       drvector_t *reg_allowed, OUT reg_id_t *reg_out)
+{
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        drreg_status_t res = drreg_forward_analysis(drcontext, where);
+        if (res != DRREG_SUCCESS)
+            return res;
+    }
+    return drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed, reg_out);
+}
+
+drreg_status_t
 drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
                     reg_id_t app_reg, reg_id_t dst_reg)
 {
@@ -771,21 +782,48 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     return DRREG_SUCCESS;
 }
 
+static drreg_status_t
+drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
+                      per_thread_t *pt, reg_id_t reg)
+{
+    if (pt->reg[GPR_IDX(reg)].ever_spilled) {
+        if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
+            /* XXX i#511: NYI */
+            return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+        }
+        LOG(drcontext, LOG_ALL, 3, "%s @"PFX": restoring %s\n",
+            __FUNCTION__, instr_get_app_pc(inst), get_register_name(reg));
+        restore_reg(drcontext, pt, reg,
+                    pt->reg[GPR_IDX(reg)].slot, ilist, inst, true);
+    } else /* still need to release slot */
+        pt->slot_use[pt->reg[GPR_IDX(reg)].slot] = DR_REG_NULL;
+    pt->reg[GPR_IDX(reg)].native = true;
+    return DRREG_SUCCESS;
+}
+
 drreg_status_t
 drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                          reg_id_t reg)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
-           "must be called from drmgr insertion phase");
     if (!pt->reg[GPR_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
-    LOG(drcontext, LOG_ALL, 3, "%s @"PFX"\n", __FUNCTION__, instr_get_app_pc(where));
-    /* We lazily restore in drreg_event_bb_insert_late(), in case
-     * someone else wants a local scratch.
-     */
+    LOG(drcontext, LOG_ALL, 3, "%s @"PFX" %s\n", __FUNCTION__, instr_get_app_pc(where),
+        get_register_name(reg));
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        /* We have no way to lazily restore.  We do not bother at this point
+         * to try and eliminate back-to-back spill/restore pairs.
+         */
+        drreg_status_t res = drreg_restore_reg_now(drcontext, ilist, where, pt, reg);
+        if (res != DRREG_SUCCESS)
+            return res;
+    } else {
+        /* We lazily restore in drreg_event_bb_insert_late(), in case
+         * someone else wants a local scratch.
+         */
+        pt->pending_unreserved++;
+    }
     pt->reg[GPR_IDX(reg)].in_use = false;
-    pt->pending_unreserved++;
     return DRREG_SUCCESS;
 }
 
@@ -795,8 +833,6 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     uint slot;
-    ASSERT(drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION,
-           "must be called from drmgr insertion phase");
     if (!pt->reg[GPR_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
     slot = pt->reg[GPR_IDX(reg)].slot;
@@ -860,7 +896,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
 #elif defined(ARM)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
-    res = drreg_reserve_register(drcontext, ilist, where, NULL, &scratch);
+    res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, &scratch);
     if (res != DRREG_SUCCESS)
         return res;
     dr_save_arith_flags_to_reg(drcontext, ilist, where, scratch);
@@ -904,7 +940,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 #elif defined(ARM)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
-    res = drreg_reserve_register(drcontext, ilist, where, NULL, &scratch);
+    res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, &scratch);
     if (res != DRREG_SUCCESS)
         return res;
     restore_reg(drcontext, pt, scratch, AFLAGS_SLOT, ilist, where, release);
