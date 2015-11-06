@@ -1524,7 +1524,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * The reg must not be used in the oldop, otherwise, the reg value
  * is corrupted.
  */
-static opnd_t
+opnd_t
 mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
                     instr_t *where, opnd_t oldop, reg_id_t reg)
 {

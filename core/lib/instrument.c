@@ -5724,6 +5724,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     ptr_uint_t address = (ptr_uint_t) instr_get_translation(instr);
     opnd_t tls_opnd;
     instr_t *newinst;
+    reg_id_t reg_target;
 
     /* PR 214051: dr_insert_mbr_instrumentation() broken with -indcall2direct */
     CLIENT_ASSERT(!DYNAMO_OPTION(indcall2direct),
@@ -5741,6 +5742,14 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
                   "dr_insert_mbr_instrumentation: scratch_slot must be less than "
                   "dr_max_opnd_accessible_spill_slot()");
 
+    /* It is possible for mbr instruction to use XCX register, so we have
+     * to use an unsed register.
+     */
+    for (reg_target = REG_XAX; reg_target <= REG_XBX; reg_target++) {
+        if (!instr_uses_reg(instr, reg_target))
+            break;
+    }
+
     /* PR 240265: we disallow clients to add post-mbr instrumentation, so we
      * avoid doing that here even though it's a little less efficient since
      * our mbr mangling will re-grab the target.
@@ -5753,7 +5762,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     /* Note that since we're using a client exposed slot we know it will be
      * preserved across the clean call. */
     tls_opnd = dr_reg_spill_slot_opnd(drcontext, scratch_slot);
-    newinst = XINST_CREATE_store(dcontext, tls_opnd, opnd_create_reg(REG_XCX));
+    newinst = XINST_CREATE_store(dcontext, tls_opnd, opnd_create_reg(reg_target));
 
     /* PR 214962: ensure we'll properly translate the de-ref of app
      * memory by marking the spill and de-ref as INSTR_OUR_MANGLING.
@@ -5767,40 +5776,49 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
         opnd_size_t sz = opnd_get_size(retaddr);
         /* even for far ret and iret, retaddr is at TOS */
         newinst = instr_create_1dst_1src(dcontext, sz == OPSZ_2 ? OP_movzx : OP_mov_ld,
-                                         opnd_create_reg(REG_XCX), retaddr);
+                                         opnd_create_reg(reg_target), retaddr);
     } else {
         /* call* or jmp* */
         opnd_t src = instr_get_src(instr, 0);
         opnd_size_t sz = opnd_get_size(src);
-        reg_id_t reg_target = REG_XCX;
         /* if a far cti, we can't fit it into a register: asserted above.
          * in release build we'll get just the address here.
          */
         if (instr_is_far_cti(instr)) {
             if (sz == OPSZ_10) {
                 sz = OPSZ_8;
-                reg_target = REG_RCX;
             } else if (sz == OPSZ_6) {
                 sz = OPSZ_4;
-                reg_target = REG_ECX;
+# ifdef X64
+                reg_target = reg_64_to_32(reg_target);
+# endif
             } else /* target has OPSZ_4 */ {
                 sz = OPSZ_2;
-                reg_target = REG_XCX; /* we use movzx below */
             }
             opnd_set_size(&src, sz);
         }
-        newinst = instr_create_1dst_1src(dcontext, sz == OPSZ_2 ? OP_movzx : OP_mov_ld,
+# ifdef UNIX
+        /* xref i#1834 the problem with fs and gs segment is a general problem
+         * on linux, this fix is specific for mbr_instrumentation, but a general
+         * solution is needed.
+         */
+        if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(src)) {
+            src = mangle_seg_ref_opnd(dcontext, ilist, instr, src, reg_target);
+        }
+# endif
+
+        newinst = instr_create_1dst_1src(dcontext,
+                                         sz == OPSZ_2 ? OP_movzx : OP_mov_ld,
                                          opnd_create_reg(reg_target), src);
     }
     instr_set_our_mangling(newinst, true);
     MINSERT(ilist, instr, newinst);
-
     /* Now we want the true app state saved, for dr_get_mcontext().
      * We specially recognize our OP_xchg as a restore in
      * instr_is_reg_spill_or_restore().
      */
     MINSERT(ilist, instr,
-            INSTR_CREATE_xchg(dcontext, tls_opnd, opnd_create_reg(REG_XCX)));
+            INSTR_CREATE_xchg(dcontext, tls_opnd, opnd_create_reg(reg_target)));
 
     dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 2,
                          /* address of mbr is 1st param */

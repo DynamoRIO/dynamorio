@@ -537,6 +537,12 @@ int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr, bool save);
 #ifdef X86
+# ifdef UNIX
+/* Mangle reference of fs/gs semgents, reg must not be used in the oldop. */
+opnd_t
+mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
+                    instr_t *where, opnd_t oldop, reg_id_t reg);
+# endif
 /* mangle the instruction that reference memory via segment register */
 void
 mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
