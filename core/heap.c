@@ -956,14 +956,18 @@ vmcode_unreachable_pc(void)
 bool
 rel32_reachable_from_vmcode(byte *tgt)
 {
-    byte *vmcode_start = vmcode_get_start();
-    byte *vmcode_end = vmcode_get_end();
-    ptr_int_t new_offs = (tgt > vmcode_start) ? (tgt - vmcode_start) : (vmcode_end - tgt);
-    /* Beyond-vmm-reservation allocs are handled b/c those are subject to the
-     * reachability constraints we set up on every new reservation, including
-     * the initial vm_reserve.
+#ifdef X64
+    /* To handle beyond-vmm-reservation allocs, we must compare to the allowable
+     * heap range and not just the vmcode range (i#1479).
      */
+    ptr_int_t new_offs = (tgt > heap_allowable_region_start) ?
+        (tgt - heap_allowable_region_start) : (heap_allowable_region_end - tgt);
+    ASSERT(vmcode_get_start() >= heap_allowable_region_start);
+    ASSERT(vmcode_get_end() <= heap_allowable_region_end);
     return REL32_REACHABLE_OFFS(new_offs);
+#else
+    return true;
+#endif
 }
 
 /* Reservations here are done with VMM_BLOCK_SIZE alignment
