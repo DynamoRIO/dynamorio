@@ -41,6 +41,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/syscall.h>
 
 static void
 set_sigaction_handler(int sig, void *action)
@@ -53,9 +54,27 @@ set_sigaction_handler(int sig, void *action)
     assert(rc == 0);
 }
 
+#ifndef X64
+static void
+test_non_rt_sigaction(int sig)
+{
+    /* Test passing NULL to non-rt sigaction, which is used on Android (i#1822) */
+    int rc;
+    struct sigaction oact;
+    /* Set to a bogus value to ensure the kernel returns something for the old action */
+    oact.sa_sigaction = (void (*)(int, siginfo_t *, void *)) 42L;
+    rc = dynamorio_syscall(SYS_sigaction, 3, sig, NULL, &oact);
+    assert(rc == 0);
+    assert(oact.sa_sigaction != (void (*)(int, siginfo_t *, void *)) 42L);
+}
+#endif
+
 int
 main(int argc, char **argv)
 {
+#ifndef X64
+    test_non_rt_sigaction(SIGPIPE);
+#endif
     set_sigaction_handler(SIGTERM, (void *)SIG_IGN);
     print("Sending SIGTERM first time\n");
     kill(getpid(), SIGTERM);

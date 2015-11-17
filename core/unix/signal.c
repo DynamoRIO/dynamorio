@@ -1570,8 +1570,10 @@ handle_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
     kernel_sigaction_t kact;
     kernel_sigaction_t okact;
     bool res;
-    convert_old_sigaction_to_kernel(&kact, act);
-    res = handle_sigaction(dcontext, sig, &kact, &okact, sizeof(kernel_sigset_t));
+    if (act != NULL)
+        convert_old_sigaction_to_kernel(&kact, act);
+    res = handle_sigaction(dcontext, sig, act == NULL ? NULL : &kact,
+                           &okact, sizeof(kernel_sigset_t));
     if (oact != NULL)
         convert_kernel_sigaction_to_old(oact, &okact);
     return res;
@@ -1583,8 +1585,10 @@ handle_post_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *
 {
     kernel_sigaction_t kact;
     kernel_sigaction_t okact;
-    convert_old_sigaction_to_kernel(&kact, act);
-    handle_post_sigaction(dcontext, sig, &kact, &okact, sizeof(kernel_sigset_t));
+    if (act != NULL)
+        convert_old_sigaction_to_kernel(&kact, act);
+    handle_post_sigaction(dcontext, sig, act == NULL ? NULL : &kact,
+                          &okact, sizeof(kernel_sigset_t));
     if (oact != NULL)
         convert_kernel_sigaction_to_old(oact, &okact);
 }
