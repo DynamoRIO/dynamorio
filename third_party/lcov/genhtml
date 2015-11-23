@@ -1552,6 +1552,12 @@ sub read_info_file($)
                                 # Filename information found
                                 # Retrieve data for new entry
                                 $filename = $1;
+                                # convert \ to / in $filename to support proccessing
+                                # Windows cov files using cygwin perl
+                                if ($^O = 'cygwin')
+                                {
+                                    $filename =~ tr#\\#/#;
+                                }
 
                                 $data = $result{$filename};
                                 ($testdata, $sumcount, $funcdata, $checkdata,
