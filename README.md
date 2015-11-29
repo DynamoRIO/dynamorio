@@ -21,12 +21,16 @@ and AMD64 hardware.  Both Mac OSX and ARM support are in progress.
 Tools built on DynamoRIO include:
 
 - The memory debugging tool [Dr. Memory](http://drmemory.org)
-- An "strace for Windows" tool called [drstrace](http://drmemory.org/strace_for_windows.html)
-- A code coverage tool [drcov](http://dynamorio.org/docs/page_drcov.html)
-- A library tracing tool [drltrace](http://dynamorio.org/docs/page_drltrace.html)
-- A memory tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace.c)
-- A basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
-- An instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
+- The multi-process online cache simulator
+  [drcachesim](http://dynamorio.org/docs/page_drcachesim.html)
+- The legacy processor emulator
+  [drcpusim](http://dynamorio.org/docs/page_drcpusim.html)
+- The "strace for Windows" tool [drstrace](http://drmemory.org/strace_for_windows.html)
+- The code coverage tool [drcov](http://dynamorio.org/docs/page_drcov.html)
+- The library tracing tool [drltrace](http://dynamorio.org/docs/page_drltrace.html)
+- The memory tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace.c)
+- The basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
+- The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
 
 ## Building your own custom tools
 
