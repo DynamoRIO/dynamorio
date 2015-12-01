@@ -602,13 +602,19 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
             if (TEST(DR_STATE_STACK_BOUNDS, flags) &&
                 dynamo_initialized /* on app stack until init finished */) {
                 if (SWAP_TEB_STACKLIMIT() &&
-                    !is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_limit != dcontext->dstack - DYNAMORIO_STACK_SIZE) {
                     dcontext->app_stack_limit = cur_stack_limit;
                     set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
                                   dcontext->dstack - DYNAMORIO_STACK_SIZE);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    !is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_base != dcontext->dstack) {
                     dcontext->app_stack_base = cur_stack_base;
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
@@ -636,12 +642,18 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         } else {
             if (TEST(DR_STATE_STACK_BOUNDS, flags)) {
                 if (SWAP_TEB_STACKLIMIT() &&
-                    is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_limit == dcontext->dstack - DYNAMORIO_STACK_SIZE) {
                     set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
                                   dcontext->app_stack_limit);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_base == dcontext->dstack) {
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET,
                                   dcontext->app_stack_base);
                 }

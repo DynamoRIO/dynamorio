@@ -982,12 +982,26 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         fragment_t *f = owning_f;
         bool alloc = false, ok;
         dr_isa_mode_t old_mode;
+#ifdef WINDOWS
+        bool swap_peb = false;
+#endif
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
         dr_mcontext_t xl8_mcontext;
         dr_mcontext_t raw_mcontext;
         dr_mcontext_init(&xl8_mcontext);
         dr_mcontext_init(&raw_mcontext);
+#endif
+#ifdef WINDOWS
+        /* i#889: restore private PEB/TEB for faithful recreation */
+        /* i#1832: swap_peb_pointer() calls is_dynamo_address() in debug build, which
+         * acquires dynamo_areas->lock and global_alloc_lock, but this is limited to
+         * in_fcache() and thus we should have no deadlock problems on thread synch.
+         */
+        if (os_using_app_state(tdcontext)) {
+            swap_peb_pointer(tdcontext, true/*to priv*/);
+            swap_peb = true;
+        }
 #endif
 
         /* Rather than storing a mapping table, we re-build the fragment
@@ -1152,6 +1166,10 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             ASSERT(f != NULL);
             fragment_free(tdcontext, f);
         }
+#ifdef WINDOWS
+        if (swap_peb)
+            swap_peb_pointer(tdcontext, false/*to app*/);
+#endif
         return res;
     } else {
         /* handle any other cases, in DR etc. */
@@ -1184,13 +1202,6 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
     priv_mcontext_t mc;
     recreate_success_t res;
 
-#ifdef WINDOWS
-    bool swap_peb = false;
-    if (os_using_app_state(tdcontext)) {
-        swap_peb_pointer(tdcontext, true/*to priv*/);
-        swap_peb = true;
-    }
-#endif
     LOG(THREAD_GET, LOG_INTERP, 2,
         "recreate_app_pc -- translating from pc="PFX"\n", pc);
 
@@ -1211,10 +1222,6 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
     LOG(THREAD_GET, LOG_INTERP, 2,
         "recreate_app_pc -- translation is "PFX"\n", mc.pc);
 
-#ifdef WINDOWS
-    if (swap_peb)
-        swap_peb_pointer(tdcontext, false/*to app*/);
-#endif
     return mc.pc;
 }
 
@@ -1259,13 +1266,7 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                    bool restore_memory, fragment_t *f)
 {
     recreate_success_t res;
-#ifdef WINDOWS
-    bool swap_peb = false;
-    if (os_using_app_state(tdcontext)) {
-        swap_peb_pointer(tdcontext, true/*to priv*/);
-        swap_peb = true;
-    }
-#endif
+
 #ifdef DEBUG
     if (stats->loglevel >= 2 && (stats->logmask & LOG_SYNCH) != 0) {
         LOG(THREAD_GET, LOG_SYNCH, 2,
@@ -1289,10 +1290,6 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
     }
 #endif
 
-#ifdef WINDOWS
-    if (swap_peb)
-        swap_peb_pointer(tdcontext, false/*to app*/);
-#endif
     return res;
 }
 
