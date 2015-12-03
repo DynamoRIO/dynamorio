@@ -195,14 +195,14 @@ typedef struct _generic_entry_t {
 #define ENTRY_TYPE generic_entry_t *
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
 #define CUSTOM_FIELDS \
-    void (*free_payload_func)(void*);
+    void (*free_payload_func)(dcontext_t*, void*);
 #define HASHTABLEX_HEADER 1
 #include "hashtablex.h"
 #undef HASHTABLEX_HEADER
 
 generic_table_t *
 generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
-                    uint table_flags, void (*free_payload_func)(void*)
+                    uint table_flags, void (*free_payload_func)(dcontext_t*, void*)
                     _IF_DEBUG(const char *table_name));
 
 void
@@ -220,6 +220,11 @@ generic_hash_add(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key,
 
 bool
 generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key);
+
+/* removes the key range [start,end) and returns the number of entries removed */
+uint
+generic_hash_range_remove(dcontext_t *dcontext, generic_table_t *htable,
+                          ptr_uint_t start, ptr_uint_t end);
 
 /* pass 0 to start.  returns -1 when there are no more entries. */
 int

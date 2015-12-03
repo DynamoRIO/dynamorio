@@ -279,7 +279,7 @@ struct _sigfd_pipe_t {
 };
 
 static void
-sigfd_pipe_free(void *ptr)
+sigfd_pipe_free(dcontext_t *dcontext, void *ptr)
 {
     sigfd_pipe_t *pipe = (sigfd_pipe_t *) ptr;
     ASSERT(pipe->refcount > 0);

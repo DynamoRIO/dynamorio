@@ -89,7 +89,7 @@ callee_info_init(callee_info_t *ci)
 }
 
 static void
-callee_info_free(callee_info_t *ci)
+callee_info_free(dcontext_t *dcontext, callee_info_t *ci)
 {
     ASSERT(callee_info_table_exit);
     if (ci->ilist != NULL) {
@@ -158,7 +158,7 @@ callee_info_table_init(void)
                             INIT_HTABLE_SIZE_CALLEE,
                             80 /* load factor: not perf-critical */,
                             HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
-                            (void(*)(void*)) callee_info_free
+                            (void(*)(dcontext_t*, void*)) callee_info_free
                             _IF_DEBUG("callee-info table"));
 }
 
@@ -202,7 +202,7 @@ callee_info_table_add(callee_info_t *ci)
          * Since we assume callee should never be changed, they should have
          * the same content of ci.
          */
-        callee_info_free(ci);
+        callee_info_free(GLOBAL_DCONTEXT, ci);
     }
     TABLE_RWLOCK(callee_info_table, write, unlock);
     return info;

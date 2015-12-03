@@ -115,7 +115,7 @@ typedef struct _section_to_file_t {
 } section_to_file_t;
 
 static void
-section_to_file_free(section_to_file_t *s2f)
+section_to_file_free(dcontext_t *dcontext, section_to_file_t *s2f)
 {
     dr_strfree(s2f->file_path HEAPACCT(ACCT_VMAREAS));
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, s2f, section_to_file_t, ACCT_VMAREAS, PROTECTED);
@@ -3838,7 +3838,7 @@ os_modules_init(void)
                             INIT_HTABLE_SIZE_SECTION,
                             80 /* load factor: not perf-critical */,
                             HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
-                            (void(*)(void*)) section_to_file_free
+                            (void(*)(dcontext_t*, void*)) section_to_file_free
                             _IF_DEBUG("section-to-file table"));
 
     if (DYNAMO_OPTION(hide) && !dr_earliest_injected) {

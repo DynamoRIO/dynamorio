@@ -8209,7 +8209,7 @@ typedef struct _pclookup_last_t {
 } pclookup_last_t;
 
 static void
-pclookup_last_free(pclookup_last_t *last)
+pclookup_last_free(dcontext_t *dcontext, void *last)
 {
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, last, pclookup_last_t, ACCT_FRAG_TABLE, PROTECTED);
 }
@@ -8254,7 +8254,7 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
                                             80 /* load factor: not perf-critical */,
                                             HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                             HASHTABLE_RELAX_CLUSTER_CHECKS,
-                                            (void(*)(void*)) pclookup_last_free
+                                            pclookup_last_free
                                             _IF_DEBUG("pclookup last table"));
             /* Only when fully initialized can we set it, as we hold no lock for it */
             info->pclookup_last_htable = (void *) pc_htable;

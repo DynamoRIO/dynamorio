@@ -1694,7 +1694,7 @@ static generic_table_t *takeover_table;
 #define INVALID_PAYLOAD ((void *)(ptr_int_t)-2) /* NULL and -1 are used by table */
 
 static void
-takeover_table_entry_free(void *e)
+takeover_table_entry_free(dcontext_t *dcontext, void *e)
 {
     takeover_data_t *data = (takeover_data_t *) e;
     if (e == INVALID_PAYLOAD)

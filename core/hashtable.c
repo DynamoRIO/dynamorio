@@ -109,7 +109,7 @@ hashtable_generic_free_entry(dcontext_t *dcontext, generic_table_t *htable,
                              generic_entry_t *entry)
 {
     if (htable->free_payload_func != NULL)
-        (*htable->free_payload_func)(entry->payload);
+        (*htable->free_payload_func)(dcontext, entry->payload);
     HEAP_TYPE_FREE(dcontext, entry, generic_entry_t, ACCT_OTHER, PROTECTED);
 }
 
@@ -117,7 +117,7 @@ hashtable_generic_free_entry(dcontext_t *dcontext, generic_table_t *htable,
 
 generic_table_t *
 generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
-                    uint table_flags, void (*free_payload_func)(void*)
+                    uint table_flags, void (*free_payload_func)(dcontext_t*, void*)
                     _IF_DEBUG(const char *table_name))
 {
     generic_table_t *table = HEAP_TYPE_ALLOC(dcontext, generic_table_t,
@@ -179,7 +179,7 @@ bool
 generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t key)
 {
     /* There is no remove routine that takes in a tag, nor one that frees the
-     * payload, so we construct it
+     * payload, so we construct it.
      */
     generic_entry_t *e = hashtable_generic_lookup(dcontext, key, htable);
     if (e != NULL && hashtable_generic_remove(e, htable)) {
@@ -187,6 +187,13 @@ generic_hash_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uint_t ke
         return true;
     }
     return false;
+}
+
+uint
+generic_hash_range_remove(dcontext_t *dcontext, generic_table_t *htable,
+                          ptr_uint_t start, ptr_uint_t end)
+{
+    return hashtable_generic_range_remove(dcontext, htable, start, end, NULL);
 }
 
 /* pass 0 to start.  returns -1 when there are no more entries. */

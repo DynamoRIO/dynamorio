@@ -114,26 +114,11 @@ mangle_trace_at_end(void);
  * we could keep the counters in future_fragment_t when a bb dies and
  * re-initialize to that value when it comes back.
  */
+
 typedef struct _trace_head_counter_t {
     app_pc tag;
     uint   counter;
-    /* FIXME: use open-address to save memory, and share code
-     * w/ fragment.c?
-     */
-    struct _trace_head_counter_t *next;
 } trace_head_counter_t;
-
-typedef struct _trace_head_table_t {
-    trace_head_counter_t **counter_table;
-    uint  hash_bits;
-    ptr_uint_t  hash_mask;
-    uint  hash_mask_offset;
-    hash_function_t hash_func;
-    uint  capacity;           /* = 2^bits */
-    uint  entries;
-    uint  load_factor_percent; /* \alpha = load_factor_percent/100 */
-    uint  resize_threshold;    /*  = capacity * load_factor */
-} trace_head_table_t;
 
 typedef struct _trace_bb_build_t {
     trace_bb_info_t info;
@@ -154,43 +139,44 @@ typedef struct _monitor_data_t {
      * exported in the header file.
      * Needs to be in separate struct to share across callbacks.
      */
-    app_pc         trace_tag;       /* tag of trace head */
-    uint           trace_flags;     /* FRAGMENT_ flags for trace */
-    instrlist_t      trace;           /* place to build the instruction trace */
-    byte           *trace_buf;      /* place to temporarily store instr bytes */
-    uint           trace_buf_size;  /* length of trace_buf in bytes */
-    uint           trace_buf_top;   /* index of next free location in trace_buf */
-    void *         trace_vmlist;    /* list of vmareas trace touches */
-    uint           num_blks;        /* count of the number of blocks in trace */
-    trace_bb_build_t *blk_info;     /* info for all basic blocks making up trace */
-    uint           blk_info_length; /* length of blk_info array */
-    uint           emitted_size;    /* calculated final trace size once emitted */
-    fragment_t *     last_copy;     /* private copy of shared bb for trace building only
-                                     * equals the previous last_fragment that was shared
-                                     */
-    fragment_t *     last_fragment;   /* for restoring (can't just use last_exit) */
-    uint           last_fragment_flags; /* for restoring */
+    app_pc           trace_tag;           /* tag of trace head */
+    uint             trace_flags;         /* FRAGMENT_ flags for trace */
+    instrlist_t      trace;               /* place to build the instruction trace */
+    byte             *trace_buf;          /* place to temporarily store instr bytes */
+    uint             trace_buf_size;      /* length of trace_buf in bytes */
+    uint             trace_buf_top;       /* index of next free location in trace_buf */
+    void *           trace_vmlist;        /* list of vmareas trace touches */
+    uint             num_blks;            /* count of the number of blocks in trace */
+    trace_bb_build_t *blk_info;           /* info for all basic blocks making up trace */
+    uint             blk_info_length;     /* length of blk_info array */
+    uint             emitted_size;        /* calculated final trace size once emitted */
+
+    /* private copy of shared bb for trace building only
+     * equals the previous last_fragment that was shared
+     */
+    fragment_t *     last_copy;
+    fragment_t *     last_fragment;       /* for restoring (can't just use last_exit) */
+    uint             last_fragment_flags; /* for restoring */
 
     /* trace head counters are thread-private and must be kept in a
      * separate table and not in the fragment_t structure.
      */
-    /* FIXME: use new generic_table_t and generic_hash_* routines */
-    trace_head_table_t thead_table;
+    generic_table_t  *thead_table;
 
 #ifdef CLIENT_INTERFACE
     /* PR 299808: we re-build each bb and pass to the client */
-    instrlist_t    unmangled_ilist;
-    instrlist_t    *unmangled_bb_ilist; /* next bb */
+    instrlist_t      unmangled_ilist;
+    instrlist_t      *unmangled_bb_ilist; /* next bb */
     /* cache at start of trace building whether we're going to pass to client */
-    bool           pass_to_client;
+    bool             pass_to_client;
 #endif
     /* Record whether final block ends in syscall or int.
      * FIXME: remove once we have PR 307284.
      */
-    uint           final_exit_flags;
+    uint             final_exit_flags;
 
 #ifdef CUSTOM_TRACES
-    fragment_t     wrapper; /* for creating new shadowed trace heads */
+    fragment_t       wrapper; /* for creating new shadowed trace heads */
 #endif
 } monitor_data_t;
 
