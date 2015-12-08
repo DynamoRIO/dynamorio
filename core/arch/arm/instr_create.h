@@ -42,6 +42,10 @@
 
 /* DR_API EXPORT TOFILE dr_ir_macros_arm.h */
 /* DR_API EXPORT BEGIN */
+/**
+ * @file dr_ir_macros_arm.h
+ * @brief ARM-specific instruction creation convenience macros.
+ */
 
 /**
  * Create an absolute address operand encoded as pc-relative.
@@ -371,7 +375,7 @@
  * This macro creates an instr_t for a push instruction of a single
  * register, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
+ * \param Rt The destination register opnd_t operand.
  */
 #define INSTR_CREATE_push(dc, Rt) \
   INSTR_CREATE_str_wbimm((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, -sizeof(void*)), (Rt), \

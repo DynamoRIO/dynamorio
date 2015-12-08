@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,15 +41,7 @@
 /* DR_API EXPORT BEGIN */
 /**
  * @file dr_ir_macros.h
- * @brief Instruction creation convenience macros.
- *
- * All macros assume default data and address sizes.  For the most part these
- * macros do not support building non-default address or data size
- * versions; for that, simply duplicate the macro's body, replacing the
- * SIZE and/or hardcoded registers with smaller versions (the IR does
- * not support cs segments with non-default sizes where the default
- * size requires instruction prefixes).  For shrinking data sizes, see
- * the instr_shrink_to_16_bits() routine.
+ * @brief Cross-platform instruction creation convenience macros.
  */
 
 #ifdef AVOID_API_EXPORT

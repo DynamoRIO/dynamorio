@@ -41,6 +41,18 @@
 
 /* DR_API EXPORT TOFILE dr_ir_macros_x86.h */
 /* DR_API EXPORT BEGIN */
+/**
+ * @file dr_ir_macros_x86.h
+ * @brief AMD64/IA-32 instruction creation convenience macros.
+ *
+ * All macros assume default data and address sizes.  For the most part these
+ * macros do not support building non-default address or data size
+ * versions; for that, simply duplicate the macro's body, replacing the
+ * size and/or hardcoded registers with smaller versions (the IR does
+ * not support cs segments with non-default sizes where the default
+ * size requires instruction prefixes).  For shrinking data sizes, see
+ * the instr_shrink_to_16_bits() routine.
+ */
 
 #include <math.h> /* for floating-point math constants */
 
