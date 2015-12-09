@@ -4519,6 +4519,38 @@ special_heap_free(void *special, void *p)
     special_heap_cfree(special, p, 1);
 }
 
+bool
+special_heap_can_calloc(void *special, uint num)
+{
+    special_units_t *su = (special_units_t *) special;
+    bool can_calloc = false;
+
+    ASSERT(num > 0);
+    if (su->use_lock)
+        mutex_lock(&su->lock);
+    if (su->free_list != NULL && num == 1) {
+        can_calloc = true;
+    } else if (su->cfree_list != NULL && num > 1) {
+        cfree_header_t *cfree = su->cfree_list;
+        while (cfree != NULL) {
+            if (cfree->count >= num) {
+                can_calloc = true;
+                break;
+            }
+            cfree = cfree->next_cfree;
+        }
+    }
+    if (!can_calloc) {
+        special_heap_unit_t *u = su->cur_unit; /* what if more units are available? */
+        can_calloc = (u->cur_pc + su->block_size*num <= u->reserved_end_pc &&
+                      !POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num));
+    }
+    if (su->use_lock)
+        mutex_unlock(&su->lock);
+
+    return can_calloc;
+}
+
 /* Special heap iterator.  Initialized with special_heap_iterator_start(), which
  * grabs the heap lock (regardless of whether synch is used for allocs), and
  * destroyed with special_heap_iterator_stop() to release the lock.

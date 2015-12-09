@@ -5672,7 +5672,7 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
     ASSERT(info != NULL && info->itimer != NULL);
     int which = 0;
     bool invoke_cb = false, pass_to_app = false, reset_timer_manually = false;
-    bool acquired_lock = false;
+    bool should_release_lock = false;
 
     /* i#471: suppress alarms coming in after exit */
     if (dynamo_exited)
@@ -5697,7 +5697,7 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
              */
         } else if (try_recursive_lock(info->shared_itimer_lock) ||
                    try_recursive_lock(info->shared_itimer_lock)) {
-            acquired_lock = true;
+            should_release_lock = true;
         } else {
             /* Heuristic: if fail twice then assume interrupted lock routine.
              * What can we do?  Just continue and hope conflicting writes work out.
@@ -5743,16 +5743,25 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
         /* invoke after setting new itimer value */
         /* we save stack space by allocating superset dr_mcontext_t */
         dr_mcontext_t dmc;
-        priv_mcontext_t *mc;
         dr_mcontext_init(&dmc);
-        mc = dr_mcontext_as_priv_mcontext(&dmc);
-        ucontext_to_mcontext(mc, ucxt);
-        if ((*info->itimer)[which].cb != NULL)
-            (*(*info->itimer)[which].cb)(dcontext, mc);
-        else
-            (*(*info->itimer)[which].cb_api)(dcontext, &dmc);
+        void (*cb)(dcontext_t *, priv_mcontext_t *) = (*info->itimer)[which].cb;
+        void (*cb_api)(dcontext_t *, dr_mcontext_t *) = (*info->itimer)[which].cb_api;
+
+        if (which == ITIMER_VIRTUAL && info->shared_itimer && should_release_lock) {
+            release_recursive_lock(info->shared_itimer_lock);
+            should_release_lock = false;
+        }
+
+        if (cb != NULL) {
+            priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(&dmc);
+
+            ucontext_to_mcontext(mc, ucxt);
+            cb(dcontext, mc);
+        } else {
+            cb_api(dcontext, &dmc);
+        }
     }
-    if (info->shared_itimer && acquired_lock)
+    if (info->shared_itimer && should_release_lock)
         release_recursive_lock(info->shared_itimer_lock);
     return pass_to_app;
 }

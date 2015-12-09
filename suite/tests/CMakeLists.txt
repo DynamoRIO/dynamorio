@@ -1713,6 +1713,16 @@ if (CLIENT_INTERFACE)
     set(client.annotation-concurrency.bb-truncate-2_timeout 120)
 
     if (UNIX)
+      # i#140: when client-compatibility issues with -prof_pcs are resolved, this
+      # test should use the annotation test client (and this template can be removed)
+      set(client.annotation-concurrency.prof-pcs_expectbase
+        "annotation-concurrency.prof-pcs")
+      torunonly_api(client.annotation-concurrency.prof-pcs client.annotation-concurrency
+        client-interface/annotation-concurrency.c "-prof_pcs" "${annotation_test_args}"
+        OFF)
+    endif (UNIX)
+
+    if (UNIX)
       set(annotation_opt_args "libclient.annotation-concurrency-opt.appdll.so" "A" "4")
     else (UNIX)
       set(annotation_opt_args "client.annotation-concurrency-opt.appdll.dll" "A" "4")

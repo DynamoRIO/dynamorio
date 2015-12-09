@@ -262,6 +262,10 @@ void *special_heap_alloc(void *special);
 void *special_heap_calloc(void *special, uint num);
 void special_heap_free(void *special, void *p);
 void special_heap_cfree(void *special, void *p, uint num);
+/* return true if the requested chunk would be fulfilled by special_heap_calloc()
+ * without allocating additional heap units
+ */
+bool special_heap_can_calloc(void *special, uint num);
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
 void special_heap_profile_exit(void);
 #endif

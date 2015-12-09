@@ -304,6 +304,9 @@
 
 #if defined(UNIX)
     OPTION_NAME_INTERNAL(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
+    /* for default size 0, special_heap_init() will use initial_heap_unit_size instead */
+    OPTION_DEFAULT_INTERNAL(uint_size, prof_pcs_heap_size, 0,
+                            "special heap size for pc-sampling profiling")
 #else
 # ifdef WINDOWS_PC_SAMPLE
      OPTION_NAME(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
