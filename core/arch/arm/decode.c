@@ -1365,6 +1365,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
 
     /* Memory */
     /* Only some types are ever used with register lists. */
+    /* We do not turn base-disp operands with PC bases into opnd_is_rel_addr opnds. */
     case TYPE_M:
         opsize = decode_mem_reglist_size(di, &array[*counter], opsize, false/*just sz*/);
         array[(*counter)++] =

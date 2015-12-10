@@ -4558,7 +4558,7 @@ dr_insert_read_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
-                  "dr_insert_read_tls_field: drcontext cannot be NULL");
+                  "dr_insert_read_raw_tls: drcontext cannot be NULL");
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "must use a pointer-sized general-purpose register");
     IF_X86_ELSE({
@@ -4579,7 +4579,7 @@ dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
-                  "dr_insert_read_tls_field: drcontext cannot be NULL");
+                  "dr_insert_write_raw_tls: drcontext cannot be NULL");
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "must use a pointer-sized general-purpose register");
     IF_X86_ELSE({

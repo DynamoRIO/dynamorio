@@ -135,9 +135,10 @@ opnd_is_far_base_disp(opnd_t op)
 }
 
 
-#ifdef X64
-# define OPND_IS_REL_ADDR(op)   ((op).kind == REL_ADDR_kind)
-# define opnd_is_rel_addr       OPND_IS_REL_ADDR
+#if defined(X64) || defined(ARM)
+# ifdef X86
+#  define OPND_IS_REL_ADDR(op)   ((op).kind == REL_ADDR_kind)
+#  define opnd_is_rel_addr       OPND_IS_REL_ADDR
 
 INSTR_INLINE
 bool
@@ -153,7 +154,27 @@ opnd_is_far_rel_addr(opnd_t opnd)
     return IF_X86_ELSE(opnd.kind == REL_ADDR_kind && opnd.aux.segment != DR_REG_NULL,
                        false);
 }
-#endif /* X64 */
+# elif defined(ARM)
+#  define OPND_IS_REL_ADDR(op) \
+    ((op).kind == REL_ADDR_kind || \
+     (opnd_is_base_disp(op) && opnd_get_base(op) == DR_REG_PC))
+#  define opnd_is_rel_addr       OPND_IS_REL_ADDR
+
+INSTR_INLINE
+bool
+opnd_is_near_rel_addr(opnd_t opnd)
+{
+    return opnd_is_rel_addr(opnd);
+}
+
+INSTR_INLINE
+bool
+opnd_is_far_rel_addr(opnd_t opnd)
+{
+    return false;
+}
+# endif
+#endif /* X64 || ARM */
 
 /* opnd_t constructors */
 

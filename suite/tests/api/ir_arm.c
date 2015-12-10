@@ -76,6 +76,22 @@ static byte buf[8192];
 /*
  ***************************************************************************/
 
+static void
+test_pcrel(void *dc)
+{
+    byte *pc;
+    instr_t *inst;
+    inst = INSTR_CREATE_ldr
+        (dc, opnd_create_reg(DR_REG_R0),
+         opnd_create_rel_addr((void *)&buf[128], OPSZ_PTR));
+    pc = instr_encode(dc, inst, buf);
+    /* (gdb) x/2i buf+1
+     *    0x120b9 <buf+1>:     ldr     r0, [pc, #124]  ; (0x12138 <buf+128>)
+     */
+    ASSERT(pc != NULL);
+    instr_free(dc, inst);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -88,6 +104,8 @@ main(int argc, char *argv[])
     /* XXX i#1686: add tests of all opcodes for internal consistency */
 
     /* XXX i#1686: add tests of XINST_CREATE macros */
+
+    test_pcrel(dcontext);
 
     print("all done\n");
     return 0;

@@ -1099,20 +1099,26 @@ encode_VFP_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
 }
 
 static ptr_int_t
-get_mem_instr_delta(decode_info_t *di, opnd_t opnd)
+get_abspc_delta(decode_info_t *di, opnd_t opnd)
 {
     /* For A32, "cur PC" is really "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
-    return (ptr_int_t)opnd_get_instr(opnd)->note -
-        (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL) -
-         di->final_pc) + opnd_get_mem_instr_disp(opnd);
+    if (opnd_is_mem_instr(opnd)) {
+        return (ptr_int_t)opnd_get_instr(opnd)->note -
+            (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL) -
+             di->final_pc) + opnd_get_mem_instr_disp(opnd);
+    } else {
+        CLIENT_ASSERT(opnd_is_rel_addr(opnd), "not an abspc type");
+        return (ptr_int_t)opnd_get_addr(opnd) -
+            (ptr_int_t)decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL);
+    }
 }
 
 static bool
-encode_mem_instr_ok(decode_info_t *di, opnd_size_t size_immed,
-                    opnd_t opnd, bool is_signed, bool negated, int scale)
+encode_abspc_ok(decode_info_t *di, opnd_size_t size_immed,
+                      opnd_t opnd, bool is_signed, bool negated, int scale)
 {
-    if (opnd_is_mem_instr(opnd)) {
-        ptr_int_t delta = get_mem_instr_delta(di, opnd);
+    if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+        ptr_int_t delta = get_abspc_delta(di, opnd);
         bool res = false;
         if (negated) {
             res = (delta < 0 &&
@@ -1595,8 +1601,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->check_wb_disp = opnd_get_signed_disp(opnd);
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_12b, opnd, false/*unsigned*/,
-                                       optype == TYPE_M_NEG_I12, 0/*no scale*/);
+            return encode_abspc_ok(di, OPSZ_12b, opnd, false/*unsigned*/,
+                                   optype == TYPE_M_NEG_I12, 0/*no scale*/);
         }
     case TYPE_M_POS_REG:
     case TYPE_M_NEG_REG:
@@ -1706,8 +1712,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->check_wb_disp = opnd_get_signed_disp(opnd);
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_1, opnd, false/*unsigned*/,
-                                       optype == TYPE_M_NEG_I8, 0/*no scale*/);
+            return encode_abspc_ok(di, OPSZ_1, opnd, false/*unsigned*/,
+                                   optype == TYPE_M_NEG_I8, 0/*no scale*/);
         }
     case TYPE_M_POS_I8x4:
     case TYPE_M_NEG_I8x4:
@@ -1726,8 +1732,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->check_wb_disp = opnd_get_signed_disp(opnd);
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_1, opnd, false/*unsigned*/,
-                                       optype == TYPE_M_NEG_I8x4, 4/*scale*/);
+            return encode_abspc_ok(di, OPSZ_1, opnd, false/*unsigned*/,
+                                   optype == TYPE_M_NEG_I8x4, 4/*scale*/);
         }
     case TYPE_M_POS_I4_4:
     case TYPE_M_NEG_I4_4:
@@ -1746,8 +1752,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->check_wb_disp = opnd_get_signed_disp(opnd);
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_1, opnd, false/*unsigned*/,
-                                       optype == TYPE_M_NEG_I4_4, 0/*no scale*/);
+            return encode_abspc_ok(di, OPSZ_1, opnd, false/*unsigned*/,
+                                   optype == TYPE_M_NEG_I4_4, 0/*no scale*/);
         }
     case TYPE_M_POS_I5:
         if (opnd_is_base_disp(opnd) &&
@@ -1762,8 +1768,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             /* no writeback */
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
-                                       false/*negated*/, 0/*no scale*/);
+            return encode_abspc_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                   false/*negated*/, 0/*no scale*/);
         }
     case TYPE_M_POS_I5x2:
         if (opnd_is_base_disp(opnd) &&
@@ -1778,8 +1784,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             /* no writeback */
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
-                                       false/*negated*/, 2/*scale*/);
+            return encode_abspc_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                   false/*negated*/, 2/*scale*/);
         }
     case TYPE_M_POS_I5x4:
         if (opnd_is_base_disp(opnd) &&
@@ -1794,8 +1800,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             /* no writeback */
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
-                                       false/*negated*/, 4/*scale*/);
+            return encode_abspc_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                   false/*negated*/, 4/*scale*/);
         }
     case TYPE_M_PCREL_POS_I8x4:
         if (opnd_is_base_disp(opnd) &&
@@ -1809,8 +1815,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             /* no writeback */
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
-                                       false/*negated*/, 4/*scale*/);
+            return encode_abspc_ok(di, OPSZ_5b, opnd, false/*unsigned*/,
+                                   false/*negated*/, 4/*scale*/);
         }
         return false;
     case TYPE_M_PCREL_POS_I12:
@@ -1830,8 +1836,8 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             di->check_wb_disp = opnd_get_signed_disp(opnd);
             return true;
         } else {
-            return encode_mem_instr_ok(di, OPSZ_1, opnd, false/*unsigned*/,
-                                       optype == TYPE_M_PCREL_NEG_I12, 0/*no scale*/);
+            return encode_abspc_ok(di, OPSZ_1, opnd, false/*unsigned*/,
+                                   optype == TYPE_M_PCREL_NEG_I12, 0/*no scale*/);
         }
     case TYPE_M_UP_OFFS:
     case TYPE_M_DOWN_OFFS:
@@ -2627,8 +2633,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             encode_regA(di, opnd_get_base(opnd));
             encode_immed(di, 0, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             encode_regA(di, DR_REG_PC);
             encode_immed(di, 0, OPSZ_12b, delta < 0 ? -delta : delta, false/*unsigned*/);
         }
@@ -2676,8 +2682,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             encode_regA(di, opnd_get_base(opnd));
             encode_immed(di, 0, OPSZ_1, opnd_get_disp(opnd), false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             encode_regA(di, DR_REG_PC);
             encode_immed(di, 0, OPSZ_1, delta < 0 ? -delta : delta, false/*unsigned*/);
         }
@@ -2687,8 +2693,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             encode_regA(di, opnd_get_base(opnd));
             encode_immed(di, 0, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd)/4;
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd)/4;
             encode_regA(di, DR_REG_PC);
             encode_immed(di, 0, OPSZ_1, delta < 0 ? -delta : delta, false/*unsigned*/);
         }
@@ -2699,8 +2705,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             encode_regA(di, opnd_get_base(opnd));
             encode_immed(di, 0, OPSZ_4b, opnd_get_disp(opnd), false/*unsigned*/);
             encode_immed(di, 8, OPSZ_4b, opnd_get_disp(opnd) >> 4, false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             encode_regA(di, DR_REG_PC);
             encode_immed(di, 0, OPSZ_4b, delta < 0 ? -delta : delta, false/*unsigned*/);
             encode_immed(di, 8, OPSZ_4b, (delta < 0 ? -delta : delta) >> 4,
@@ -2712,8 +2718,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             encode_regY(di, opnd_get_base(opnd));
             encode_immed(di, 6, OPSZ_5b, opnd_get_disp(opnd), false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             encode_regY(di, DR_REG_PC);
             encode_immed(di, 6, OPSZ_5b, delta, false/*unsigned*/);
         }
@@ -2723,8 +2729,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             encode_regY(di, opnd_get_base(opnd));
             encode_immed(di, 6, OPSZ_5b, opnd_get_disp(opnd)/2, false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             encode_regY(di, DR_REG_PC);
             encode_immed(di, 6, OPSZ_5b, delta/2, false/*unsigned*/);
         }
@@ -2734,8 +2740,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             encode_regY(di, opnd_get_base(opnd));
             encode_immed(di, 6, OPSZ_5b, opnd_get_disp(opnd)/4, false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             encode_regY(di, DR_REG_PC);
             encode_immed(di, 6, OPSZ_5b, delta/4, false/*unsigned*/);
         }
@@ -2744,8 +2750,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             /* base is implied as PC */
             encode_immed(di, 0, OPSZ_1, opnd_get_disp(opnd)/4, false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             encode_immed(di, 0, OPSZ_1, delta/4, false/*unsigned*/);
         }
         break;
@@ -2754,8 +2760,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd)) {
             /* base is implied as PC */
             encode_immed(di, 0, OPSZ_12b, opnd_get_disp(opnd), false/*unsigned*/);
-        } else if (opnd_is_mem_instr(opnd)) {
-            ptr_int_t delta = get_mem_instr_delta(di, opnd);
+        } else if (opnd_is_mem_instr(opnd) || opnd_is_rel_addr(opnd)) {
+            ptr_int_t delta = get_abspc_delta(di, opnd);
             CLIENT_ASSERT(!di->T32_16, "unsupported in T32.16");
             encode_immed(di, 0, OPSZ_12b, delta < 0 ? -delta : delta, false/*unsigned*/);
         }

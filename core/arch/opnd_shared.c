@@ -90,7 +90,7 @@ bool opnd_is_valid      (opnd_t op) { return OPND_IS_VALID(op); }
 #define opnd_is_mem_instr       OPND_IS_MEM_INSTR
 #define opnd_is_valid           OPND_IS_VALID
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
 # undef opnd_is_rel_addr
 bool opnd_is_rel_addr(opnd_t op) { return OPND_IS_REL_ADDR(op); }
 # define opnd_is_rel_addr OPND_IS_REL_ADDR
@@ -213,8 +213,10 @@ opnd_get_size(opnd_t opnd)
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
     case BASE_DISP_kind:
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
 #endif
     case MEM_INSTR_kind:
@@ -239,8 +241,10 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     switch(opnd->kind) {
     case IMMED_INTEGER_kind:
     case BASE_DISP_kind:
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
 #endif
     case REG_kind:
@@ -810,7 +814,7 @@ opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
     opnd.value.addr = addr;
     return opnd;
 }
-#endif /* X64 || ARM */
+#endif /* X64 */
 
 void *
 opnd_get_addr(opnd_t opnd)
@@ -818,8 +822,8 @@ opnd_get_addr(opnd_t opnd)
     /* check base-disp first since opnd_is_abs_addr() says yes for it */
     if (opnd_is_abs_base_disp(opnd))
         return (void *)(ptr_int_t) opnd_get_disp(opnd);
-#ifdef X64
-    if (opnd_is_rel_addr(opnd) || opnd_is_abs_addr(opnd))
+#if defined(X64) || defined(ARM)
+    if (IF_X64(opnd_is_abs_addr(opnd) ||) opnd_is_rel_addr(opnd))
         return opnd.value.addr;
 #endif
     CLIENT_ASSERT(false, "opnd_get_addr called on invalid opnd type");
@@ -831,6 +835,7 @@ opnd_is_memory_reference(opnd_t opnd)
 {
     return (opnd_is_base_disp(opnd)
             IF_X64(|| opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) ||
+            IF_ARM(opnd_is_rel_addr(opnd) ||)
             opnd_is_mem_instr(opnd));
 }
 
@@ -846,6 +851,7 @@ opnd_is_near_memory_reference(opnd_t opnd)
 {
     return (opnd_is_near_base_disp(opnd)
             IF_X64(|| opnd_is_near_abs_addr(opnd) || opnd_is_near_rel_addr(opnd)) ||
+            IF_ARM(opnd_is_near_rel_addr(opnd) ||)
             opnd_is_mem_instr(opnd));
 }
 
@@ -871,8 +877,10 @@ opnd_num_regs_used(opnd_t opnd)
                 ((opnd_get_index(opnd)==REG_NULL) ? 0 : 1) +
                 ((opnd_get_segment(opnd)==REG_NULL) ? 0 : 1));
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return ((opnd_get_segment(opnd) == REG_NULL) ? 0 : 1);
 #endif
@@ -923,8 +931,10 @@ opnd_get_reg_used(opnd_t opnd, int index)
             return REG_NULL;
         }
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         if (index == 0)
             return opnd_get_segment(opnd);
@@ -994,8 +1004,10 @@ opnd_uses_reg(opnd_t opnd, reg_id_t reg)
                 dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_index(opnd)] ||
                 dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_segment(opnd)]);
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return (dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_segment(opnd)]);
 #endif
@@ -1048,7 +1060,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
         }
         return false;
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
         if (old_reg == opnd_get_segment(*opnd)) {
             *opnd = opnd_create_far_rel_addr(new_reg, opnd_get_addr(*opnd),
@@ -1056,7 +1068,8 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             return true;
         }
         return false;
-
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         if (old_reg == opnd_get_segment(*opnd)) {
             *opnd = opnd_create_far_abs_addr(new_reg, opnd_get_addr(*opnd),
@@ -1097,8 +1110,8 @@ bool opnd_same_address(opnd_t op1, opnd_t op2)
         if (opnd_get_disp(op1) != opnd_get_disp(op2))
             return false;
     } else {
-#ifdef X64
-        CLIENT_ASSERT(opnd_is_abs_addr(op1) || opnd_is_rel_addr(op1),
+#if defined(X64) || defined(ARM)
+        CLIENT_ASSERT(IF_X64(opnd_is_abs_addr(op1) ||) opnd_is_rel_addr(op1),
                       "internal type error in opnd_same_address");
         if (opnd_get_addr(op1) != opnd_get_addr(op2))
             return false;
@@ -1169,8 +1182,10 @@ bool opnd_same(opnd_t op1, opnd_t op2)
                    op2.value.base_disp.index_reg != REG_NULL)) ||
                  op1.value.base_disp.disp_short_addr ==
                  op2.value.base_disp.disp_short_addr));
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                 op1.value.addr == op2.value.addr);
@@ -1202,8 +1217,10 @@ bool opnd_share_reg(opnd_t op1, opnd_t op2)
         return (opnd_uses_reg(op2, opnd_get_base(op1)) ||
                 opnd_uses_reg(op2, opnd_get_index(op1)) ||
                 opnd_uses_reg(op2, opnd_get_segment(op1)));
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return (opnd_uses_reg(op2, opnd_get_segment(op1)));
 #endif
@@ -1269,8 +1286,10 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
         return range_overlap(opnd_get_disp(def), opnd_get_disp(use),
                              opnd_size_in_bytes(opnd_get_size(def)),
                              opnd_size_in_bytes(opnd_get_size(use)));
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         if (!opnd_is_memory_reference(use))
             return false;
@@ -1702,8 +1721,8 @@ opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_i
 # endif
 #endif
     }
-#ifdef X64
-    if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
+#if defined(X64) || defined(ARM)
+    if (IF_X64(opnd_is_abs_addr(opnd) ||) opnd_is_rel_addr(opnd)) {
         return (app_pc) opnd_get_addr(opnd) + (ptr_uint_t) seg_base;
     }
 #endif

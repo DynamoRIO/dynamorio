@@ -148,6 +148,7 @@ The changes between version \DR_VERSION and 6.0.0 include:
  - Augmented drx_insert_counter_update() to work with drreg.
  - Added dr_raw_tls_opnd().
  - Added drreg_reservation_info().
+ - Added opnd_create_rel_addr() and opnd_is_rel_addr() support for ARM.
 
 **************************************************
 <hr>

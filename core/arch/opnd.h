@@ -866,7 +866,7 @@ enum {
     FAR_PC_kind,    /* a segment is specified as a selector value */
     FAR_INSTR_kind, /* a segment is specified as a selector value */
 #if defined(X64) || defined(ARM)
-    REL_ADDR_kind,  /* pc-relative address: 64-bit X86 or ARM only */
+    REL_ADDR_kind,  /* pc-relative address: ARM or 64-bit X86 only */
 #endif
 #ifdef X64
     ABS_ADDR_kind,  /* 64-bit absolute address: x64 only */
@@ -1191,8 +1191,9 @@ DR_API
 /**
  * Returns a memory reference operand that refers to the address \p
  * addr, but will be encoded as a pc-relative address.  At emit time,
- * if \p addr is out of reach of a 32-bit signed displacement from the
- * next instruction, encoding will fail.
+ * if \p addr is out of reach of the maximum encodable displacement
+ * (signed 32-bit for x86) from the next instruction, encoding will
+ * fail.
  *
  * DR guarantees that all of its code caches, all client libraries and
  * Extensions (though not copies of system libraries), and all client
@@ -1207,16 +1208,23 @@ DR_API
  * runtime option -reachable_heap can be used to guarantee that
  * all memory is reachable.
  *
- * If \p addr is not pc-reachable at encoding time and this operand is
- * used in a load or store to or from the rax (or eax) register, an
- * absolute form will be used (as though opnd_create_abs_addr() had
- * been called).
+ * On x86, if \p addr is not pc-reachable at encoding time and this
+ * operand is used in a load or store to or from the rax (or eax)
+ * register, an absolute form will be used (as though
+ * opnd_create_abs_addr() had been called).
  *
  * The operand has data size data_size (must be a OPSZ_ constant).
  *
  * To represent a 32-bit address (i.e., what an address size prefix
  * indicates), simply zero out the top 32 bits of the address before
  * passing it to this routine.
+ *
+ * On ARM, the resulting operand will not contain an explicit PC
+ * register, and thus will not return true on queries to whether the
+ * operand reads the PC.  Explicit use of opnd_is_rel_addr() is
+ * required.  However, DR does not decode any PC-using instructions
+ * into this type of relative address operand: decoding will always
+ * produce a regular base + displacement operand.
  *
  * \note For ARM or 64-bit X86 DR builds only.
  */
@@ -1401,13 +1409,12 @@ bool
 opnd_is_far_abs_addr(opnd_t opnd);
 
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+#if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
  * Returns true iff \p opnd is a (near or far) pc-relative memory reference operand.
- *
- * \note For 64-bit DR builds only.
+ * Returns true for base-disp operands on ARM that use the PC as the base register.
  */
 bool
 opnd_is_rel_addr(opnd_t opnd);
@@ -1418,7 +1425,7 @@ INSTR_INLINE
  * Returns true iff \p opnd is a near (i.e., default segment) pc-relative memory
  * reference operand.
  *
- * \note For 64-bit DR builds only.
+ * \note For 64-bit x86 DR builds only.  Equivalent to opnd_is_rel_addr() for ARM.
  */
 bool
 opnd_is_near_rel_addr(opnd_t opnd);
@@ -1428,7 +1435,7 @@ INSTR_INLINE
 /**
  * Returns true iff \p opnd is a far pc-relative memory reference operand.
  *
- * \note For 64-bit DR builds only.
+ * \note For 64-bit x86 DR builds only.  Always returns false on ARM.
  */
 bool
 opnd_is_far_rel_addr(opnd_t opnd);
