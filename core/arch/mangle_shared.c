@@ -762,7 +762,13 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
          * for exit_cti and syscall.
          * skip the rest of the loop if instr is destroyed.
          */
-        if (instr_has_rel_addr_reference(instr)) {
+        if (instr_has_rel_addr_reference(instr)
+            /* XXX i#1834: it should be up to the app to re-relativize, yet on amd64
+             * our own samples are relying on DR re-relativizing (and we just haven't
+             * run big enough apps to hit reachability problems) so for now we continue
+             * mangling meta instrs for x86 builds.
+             */
+            IF_ARM(&& instr_is_app(instr))) {
             instr_t *res = mangle_rel_addr(dcontext, ilist, instr, next_instr);
             /* Either returns NULL == destroyed "instr", or a new next_instr */
             if (res == NULL)
