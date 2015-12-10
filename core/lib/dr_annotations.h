@@ -54,6 +54,12 @@ DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (void));
 
 DR_DECLARE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...));
 
+DR_DECLARE_ANNOTATION(void, dynamorio_annotate_manage_code_area,
+                      (void *start, size_t size));
+
+DR_DECLARE_ANNOTATION(void, dynamorio_annotate_unmanage_code_area,
+                      (void *start, size_t size));
+
 #ifdef __cplusplus
 }
 #endif

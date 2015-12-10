@@ -313,6 +313,10 @@
 # endif
 #endif
 
+    /* XXX i#1114: enable by default when the implementation is complete */
+    OPTION_DEFAULT(bool, opt_jit, false,
+                   "optimize translation of dynamically generated code")
+
 #ifdef EXPOSE_INTERNAL_OPTIONS
 # ifdef PROFILE_RDTSC
     OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring time"))

@@ -63,6 +63,7 @@
 #include "module_shared.h"
 #include "synch.h"
 #include "native_exec.h"
+#include "jit_opt.h"
 
 #ifdef ANNOTATIONS
 # include "annotations.h"
@@ -632,6 +633,7 @@ dynamorio_app_init(void)
 #ifdef ANNOTATIONS
         annotation_init();
 #endif
+        jitopt_init();
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
@@ -962,6 +964,7 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
 #ifdef ANNOTATIONS
     annotation_exit();
 #endif
+    jitopt_exit();
 #ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other
      * components.  Must be after fragment_exit() so that the client gets all the

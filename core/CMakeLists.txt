@@ -118,6 +118,7 @@ set(CORE_SRCS
   lib/instrument.c
   translate.c
   annotations.c
+  jit_opt.c
   )
 
 if (UNIX)
