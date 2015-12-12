@@ -9,6 +9,7 @@
 #define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME \
     "dynamorio_annotate_unmanage_code_area"
 
+#ifdef ANNOTATIONS
 static void
 annotation_manage_code_area(void *start, size_t size)
 {
@@ -20,6 +21,7 @@ annotation_unmanage_code_area(void *start, size_t size)
 {
     /* i#1114 NYI: mark the corresponding VM area as app-managed */
 }
+#endif
 
 void
 jitopt_init()
