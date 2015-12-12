@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,48 +30,65 @@
  * DAMAGE.
  */
 
-/* Tests using drsyms from a standalone app */
+/* Define DR_FAST_IR to verify that everything compiles when we call the inline
+ * versions of these routines.
+ */
+#ifndef STANDALONE_DECODER
+# define DR_FAST_IR 1
+#endif
+
+/* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
+ * being a client library working with DR on a target program.
+ */
+
+#ifndef USE_DYNAMO
+#error NEED USE_DYNAMO
+#endif
 
 #include "configure.h"
 #include "dr_api.h"
-#include "drsyms.h"
-#include <assert.h>
+#include "tools.h"
 
-static bool
-enum_cb(const char *name, size_t modoffs, void *data)
-{
-    const char *match = (const char *) data;
-    if (match != NULL && strstr(name, match) != NULL)
-        dr_printf("Found %s\n", name);
-    return true; /* keep iterating */
-}
+#define VERBOSE 0
+
+#ifdef STANDALONE_DECODER
+# define ASSERT(x) \
+    ((void)((!(x)) ? \
+        (fprintf(stderr, "ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
+         abort(), 0) : 0))
+#else
+# define ASSERT(x) \
+    ((void)((!(x)) ? \
+        (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
+         dr_abort(), 0) : 0))
+#endif
+
+static byte buf[8192];
+
+/***************************************************************************
+ * XXX i#1686: we need to add the IR consistency checks for ARM that we have on
+ * x86, ensuring that these are all consistent with each other:
+ * - decode
+ * - INSTR_CREATE_
+ * - encode
+ */
+
+/*
+ ***************************************************************************/
 
 int
 main(int argc, char *argv[])
 {
-    drsym_error_t symres;
-    void *drcontext = dr_standalone_init();
-    int i;
-    const char *match = NULL;
-    if (drsym_init(IF_WINDOWS_ELSE(NULL, 0)) != DRSYM_SUCCESS) {
-        assert(false);
-        return 1;
-    }
+#ifdef STANDALONE_DECODER
+    void *dcontext = GLOBAL_DCONTEXT;
+#else
+    void *dcontext = dr_standalone_init();
+#endif
 
-    /* Current design is to pass in paths of libraries to search for symbols */
-    for (i = 1; i < argc; i++) {
-        if (strstr(argv[i], "libstdc++") != NULL) {
-            /* Test i#680: MinGW stripped symbols */
-            match = "operator new";
-        } else
-            match = NULL;
-        /* XXX: add more tests */
-        symres = drsym_enumerate_symbols(argv[i], enum_cb, (void *)match,
-                                         DRSYM_DEMANGLE);
-        assert(symres == DRSYM_SUCCESS);
-    }
+    /* XXX i#1686: add tests of all opcodes for internal consistency */
 
-    symres = drsym_exit();
-    assert(symres == DRSYM_SUCCESS);
+    /* XXX i#1686: add tests of XINST_CREATE macros */
+
+    print("all done\n");
     return 0;
 }

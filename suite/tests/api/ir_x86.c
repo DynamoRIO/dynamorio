@@ -112,13 +112,13 @@ static byte buf[8192];
 static void
 test_all_opcodes_0(void *dc)
 {
-#   define INCLUDE_NAME "ir_0args.h"
+#   define INCLUDE_NAME "ir_x86_0args.h"
 #   define OPCODE_FOR_CREATE(name, opc, icnm, flags) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_all_opc.h"
+#   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
@@ -131,13 +131,13 @@ test_all_opcodes_0(void *dc)
 static void
 test_all_opcodes_1(void *dc)
 {
-#   define INCLUDE_NAME "ir_1args.h"
+#   define INCLUDE_NAME "ir_x86_1args.h"
 #   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_all_opc.h"
+#   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
@@ -145,13 +145,13 @@ test_all_opcodes_1(void *dc)
 static void
 test_all_opcodes_2(void *dc)
 {
-#   define INCLUDE_NAME "ir_2args.h"
+#   define INCLUDE_NAME "ir_x86_2args.h"
 #   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_all_opc.h"
+#   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
@@ -159,13 +159,13 @@ test_all_opcodes_2(void *dc)
 static void
 test_all_opcodes_2_mm(void *dc)
 {
-#   define INCLUDE_NAME "ir_2args_mm.h"
+#   define INCLUDE_NAME "ir_x86_2args_mm.h"
 #   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_all_opc.h"
+#   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
@@ -173,13 +173,13 @@ test_all_opcodes_2_mm(void *dc)
 static void
 test_all_opcodes_3(void *dc)
 {
-#   define INCLUDE_NAME "ir_3args.h"
+#   define INCLUDE_NAME "ir_x86_3args.h"
 #   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_all_opc.h"
+#   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
@@ -187,13 +187,13 @@ test_all_opcodes_3(void *dc)
 static void
 test_all_opcodes_3_avx(void *dc)
 {
-#   define INCLUDE_NAME "ir_3args_avx.h"
+#   define INCLUDE_NAME "ir_x86_3args_avx.h"
 #   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_all_opc.h"
+#   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
@@ -201,13 +201,13 @@ test_all_opcodes_3_avx(void *dc)
 static void
 test_all_opcodes_4(void *dc)
 {
-#   define INCLUDE_NAME "ir_4args.h"
+#   define INCLUDE_NAME "ir_x86_4args.h"
 #   define OPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
-#   include "ir_all_opc.h"
+#   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }

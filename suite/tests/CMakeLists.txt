@@ -2028,23 +2028,29 @@ if (CLIENT_INTERFACE)
     set(client.pcache-use_expectbase "pcache-use")
     # when running tests in parallel: have to generate pcaches first
     set(client.pcache-use_depends client.pcache)
-
-    tobuild_api(api.ir api/ir.c "" "" OFF)
-    if ("${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
-      # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
-      # and so doesn't find headers named via macros
-      # (http://www.cmake.org/Bug/view.php?id=13718)
-      set(api_ir_headers # must be full paths:
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_0args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_1args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_2args_mm.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args_avx.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_3args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_4args.h)
-      append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
-    endif ()
   endif (NOT ARM)
+
+  if (ARM)
+    set(sfx "arm")
+  else ()
+    set(sfx "x86")
+  endif ()
+  tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF)
+  # XXX i#1686: add ARM's headers too once they are all created
+  if (NOT ARM AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+    # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
+    # and so doesn't find headers named via macros
+    # (http://www.cmake.org/Bug/view.php?id=13718)
+    set(api_ir_headers # must be full paths:
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_0args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_1args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_mm.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h)
+    append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
+  endif ()
 
   if (ARM)
     # Helper exe, used offline to build smaller input binary to test itself:
@@ -2074,7 +2080,7 @@ if (CLIENT_INTERFACE)
   endif (NOT ARM)
   if (NOT ARM) # FIXME i#1551: port to ARM
     # test static decoder library
-    tobuild_api(api.ir-static api/ir.c "" "" ON)
+    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON)
   endif (NOT ARM)
 
   if (ARM)
