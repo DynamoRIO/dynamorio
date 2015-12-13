@@ -263,6 +263,24 @@ if (ARCH_IS_X86 AND NOT APPLE)
       ")
   endif (DO_ALL_BUILDS)
 endif (ARCH_IS_X86 AND NOT APPLE)
+if (UNIX AND ARCH_IS_X86)
+  set(optional_cross_compile ON)
+  set(ARCH_IS_X86 OFF)
+  set(ENV{CFLAGS} "") # environment vars do not obey the normal scope rules--must reset
+  set(ENV{CXXFLAGS} "")
+  testbuild_ex("arm-debug-internal-32" OFF "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+    " OFF OFF "")
+  testbuild_ex("arm-release-external-32" OFF "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+    " OFF OFF "")
+  set(optional_cross_compile OFF)
+  set(ARCH_IS_X86 ON)
+endif (UNIX AND ARCH_IS_X86)
 
 # FIXME: what about these builds?
 ## defines we don't want to break -- no runs though since we don't currently use these

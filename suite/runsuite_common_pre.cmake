@@ -589,6 +589,19 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
 
     else (config_success EQUAL 0)
       set(build_success -1)
+      if (optional_cross_compile)
+        # XXX: for platforms requiring special hardware such as ARM, this global indicates
+        # an optional cross-compilation, for use on more common platforms like x86 Unix
+        # (would use a parameter instead of a global, except for backward compatibility)
+        file(GLOB last_config ${CTEST_BINARY_DIRECTORY}/Testing/*/*.xml)
+        if (last_config)
+          file(REMOVE ${last_config})
+        endif (last_config)
+        set(DO_SUBMIT OFF)
+        message("Warning: optional cross-compilation \"${name}\" is not available"
+          "--skipping")
+        file(WRITE ${CTEST_BINARY_DIRECTORY}/Testing/missing-cross-compile "${name}")
+      endif (optional_cross_compile)
     endif (config_success EQUAL 0)
   else (NOT arg_already_built)
     set(build_success 0)
