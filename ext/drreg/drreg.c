@@ -644,7 +644,8 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
 /* Assumes liveness info is already set up in per_thread_t */
 static drreg_status_t
 drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
-                           drvector_t *reg_allowed, OUT reg_id_t *reg_out)
+                           drvector_t *reg_allowed, bool only_if_no_spill,
+                           OUT reg_id_t *reg_out)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     uint slot = MAX_SPILLS;
@@ -689,6 +690,8 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
              */
             if (drvector_get_entry(&pt->reg[idx].live, pt->live_idx) == REG_DEAD)
                 break;
+            if (only_if_no_spill)
+                continue;
             if (pt->reg[idx].app_uses == pt->app_uses_min)
                 break;
             if (pt->reg[idx].app_uses < min_uses) {
@@ -740,7 +743,21 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (res != DRREG_SUCCESS)
             return res;
     }
-    return drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed, reg_out);
+    return drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
+                                      false, reg_out);
+}
+
+drreg_status_t
+drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
+                            drvector_t *reg_allowed, OUT reg_id_t *reg_out)
+{
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        drreg_status_t res = drreg_forward_analysis(drcontext, where);
+        if (res != DRREG_SUCCESS)
+            return res;
+    }
+    return drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
+                                      true, reg_out);
 }
 
 drreg_status_t
@@ -912,7 +929,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
 #elif defined(ARM)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
-    res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, &scratch);
+    res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, false, &scratch);
     if (res != DRREG_SUCCESS)
         return res;
     dr_save_arith_flags_to_reg(drcontext, ilist, where, scratch);
@@ -956,7 +973,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 #elif defined(ARM)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
-    res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, &scratch);
+    res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, false, &scratch);
     if (res != DRREG_SUCCESS)
         return res;
     restore_reg(drcontext, pt, scratch, AFLAGS_SLOT, ilist, where, release);

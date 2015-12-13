@@ -267,6 +267,17 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
+ * Identical to drreg_reserve_register() except returns failure if no
+ * register is available that does not require a spill.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
+                            drvector_t *reg_allowed, OUT reg_id_t *reg);
+
+DR_EXPORT
+/**
  * Initializes \p vec to hold #DR_NUM_GPR_REGS entries, each either
  * set to NULL if \p allowed is false or a non-NULL value if \p
  * allowed is true.  This is intendend as a convenience routine for

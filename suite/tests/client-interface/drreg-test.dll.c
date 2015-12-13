@@ -201,6 +201,13 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
     res = drreg_unreserve_register(drcontext, bb, inst, reg);
     CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
 
+    /* XXX: construct better tests with and without a dead reg available */
+    res = drreg_reserve_dead_register(drcontext, bb, inst, NULL, &reg);
+    if (res == DRREG_SUCCESS) {
+        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+    }
+
     res = drreg_reserve_aflags(drcontext, bb, inst);
     CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
     res = drreg_unreserve_aflags(drcontext, bb, inst);
