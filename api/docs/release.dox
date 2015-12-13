@@ -149,6 +149,7 @@ The changes between version \DR_VERSION and 6.0.0 include:
  - Added dr_raw_tls_opnd().
  - Added drreg_reservation_info().
  - Added opnd_create_rel_addr() and opnd_is_rel_addr() support for ARM.
+ - Added drreg_is_register_dead().
 
 **************************************************
 <hr>

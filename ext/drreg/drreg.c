@@ -857,6 +857,22 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
     return DRREG_SUCCESS;
 }
 
+drreg_status_t
+drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (dead == NULL)
+        return DRREG_ERROR_INVALID_PARAMETER;
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        drreg_status_t res = drreg_forward_analysis(drcontext, inst);
+        if (res != DRREG_SUCCESS)
+            return res;
+        ASSERT(pt->live_idx == 0, "non-drmgr-insert always uses 0 index");
+    }
+    *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
+    return DRREG_SUCCESS;
+}
+
 /***************************************************************************
  * ARITHMETIC FLAGS
  */

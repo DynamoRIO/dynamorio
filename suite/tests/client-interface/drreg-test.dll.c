@@ -211,6 +211,8 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
     CHECK(res == DRREG_SUCCESS, "query of aflags should work");
     CHECK((dead && !TESTANY(EFLAGS_READ_ARITH, flags)) ||
           (!dead && TESTANY(EFLAGS_READ_ARITH, flags)), "aflags liveness inconsistency");
+    res = drreg_is_register_dead(drcontext, DR_REG_START_GPR, inst, &dead);
+    CHECK(res == DRREG_SUCCESS, "query of liveness should work");
 
     drvector_delete(&allowed);
 
