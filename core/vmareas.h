@@ -811,6 +811,12 @@ tamper_resistant_region_add(app_pc start, app_pc end);
 bool
 tamper_resistant_region_overlap(app_pc start, app_pc end);
 
+bool
+is_jit_managed_area(app_pc addr);
+
+void
+set_region_jit_managed(app_pc start, size_t len);
+
 void
 mark_unload_start(app_pc module_base, size_t module_size);
 void

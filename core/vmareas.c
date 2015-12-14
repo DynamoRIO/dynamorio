@@ -54,6 +54,7 @@
 #include "module_shared.h"
 #include "perscache.h"
 #include "translate.h"
+#include "jit_opt.h"
 
 #ifdef WINDOWS
 # include "events.h"             /* event log messages - not supported yet on Linux  */
@@ -133,6 +134,9 @@ enum {
      * This flags is NOT propagated on vmarea splits.
      */
     VM_ADD_TO_SHARED_DATA  = 0x1000,
+
+    /* i#1114: for areas containing JIT code flushed via annotation or inference */
+    VM_JIT_MANAGED         = 0x2000,
 };
 
 /* simple way to disable sandboxing */
@@ -6252,6 +6256,44 @@ tamper_resistant_region_overlap(app_pc start, app_pc end)
             start < tamper_resistant_region_end);
 }
 
+bool
+is_jit_managed_area(app_pc addr)
+{
+    uint vm_flags;
+    if (get_executable_area_vm_flags(addr, &vm_flags))
+        return TEST(VM_JIT_MANAGED, vm_flags);
+    else
+        return false;
+}
+
+void
+set_region_jit_managed(app_pc start, size_t len)
+{
+    vm_area_t *region;
+
+    ASSERT(DYNAMO_OPTION(opt_jit));
+    write_lock(&executable_areas->lock);
+    if (lookup_addr(executable_areas, start, &region)) {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_jit_managed("PFX" +0x%x)\n", start, len);
+        ASSERT(region->start == start && region->end == (start+len));
+        if (!TEST(VM_JIT_MANAGED, region->vm_flags)) {
+            if (TEST(VM_MADE_READONLY, region->vm_flags))
+               vm_make_writable(region->start, region->end - region->start);
+            region->vm_flags |= VM_JIT_MANAGED;
+            region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
+            LOG(GLOBAL, LOG_VMAREAS, 1,
+                "Region ("PFX" +0x%x) no longer 'made readonly'\n", start, len);
+        }
+    } else {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new jit-managed vmarea: "PFX"-"PFX"\n",
+            start, start+len);
+
+        add_vm_area(executable_areas, start, start+len, VM_JIT_MANAGED, 0, NULL
+                    _IF_DEBUG("jit-managed"));
+    }
+    write_unlock(&executable_areas->lock);
+}
+
 /* memory region base:base+size now has privileges prot
  * returns a value from the enum in vmareas->h about whether to perform the
  * system call or not and if not what the return code to the app should be
@@ -6958,9 +7000,12 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
         }
     }
 #endif /* PROGRAM_SHEPHERDING */
-    if (should_finish_flushing)
+    if (should_finish_flushing) {
         flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
 
+        if (DYNAMO_OPTION(opt_jit) && is_jit_managed_area(base))
+            jitopt_clear_span(base, base+size);
+    }
     return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
 }
 
@@ -8951,6 +8996,14 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
     mutex_lock(&lazy_delete_lock);
     if (todelete->move_pending) {
         /* it's possible for remove_from_lazy_deletion_list to drop the count */
+#ifdef X86
+        DODEBUG({
+            fragment_t *f; /* Raise SIGILL if a deleted fragment gets executed again */
+            for (f = todelete->lazy_delete_list; f != NULL; f = f->next_vmarea) {
+                *(ushort *) f->start_pc = RAW_OPCODE_SIGILL;
+            }
+        });
+#endif
         DODEBUG({
             if (todelete->lazy_delete_count <=
                 DYNAMO_OPTION(lazy_deletion_max_pending)) {
@@ -9104,6 +9157,11 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
                 ASSERT(todelete->lazy_delete_list == NULL);
                 todelete->lazy_delete_tail = NULL;
             }
+#ifdef X86
+            DODEBUG({ /* Raise SIGILL if a deleted fragment gets executed again */
+                *(ushort *) f->start_pc = RAW_OPCODE_SIGILL;
+            });
+#endif
             fragment_delete(dcontext, f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_UNLINK |
                             FRAGDEL_NO_HTABLE | FRAGDEL_NO_VMAREA);
@@ -10560,6 +10618,11 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             DOLOG(3, LOG_VMAREAS, { print_vm_areas(executable_areas, GLOBAL); });
             flush_fragments_in_region_finish(dcontext,
                                              false /*don't keep initexit_lock*/);
+            if (DYNAMO_OPTION(opt_jit) && !TEST(MEMPROT_WRITE, prot) &&
+                is_jit_managed_area((app_pc)tgt_pstart)) {
+                jitopt_clear_span((app_pc) tgt_pstart,
+                                             (app_pc) (tgt_pend+PAGE_SIZE-tgt_pstart));
+            }
             /* must execute instr_app_pc next, even though that new bb will be
              * useless afterward (will most likely re-enter from bb_start)
              */
@@ -10700,6 +10763,9 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
      * FIXME - Redoing the write would be more efficient then going back to
      * dispatch and should be the common case. */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
+    if (DYNAMO_OPTION(opt_jit) && !TEST(MEMPROT_WRITE, prot) &&
+        is_jit_managed_area(flush_start))
+        jitopt_clear_span(flush_start, flush_start+flush_size);
     return instr_app_pc;
 }
 
@@ -10913,6 +10979,8 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
 
     flush_fragments_in_region_finish(dcontext,
                                      false /*don't keep initexit_lock*/);
+    if (DYNAMO_OPTION(opt_jit) && is_jit_managed_area(start))
+        jitopt_clear_span(start, end);
     return true;
 }
 

@@ -65,6 +65,7 @@
 #endif
 #include "../perscache.h"
 #include "../native_exec.h"
+#include "../jit_opt.h"
 
 #ifdef CHECK_RETURNS_SSE2
 #include <setjmp.h> /* for warning when see libc setjmp */
@@ -5078,6 +5079,11 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
      */
     if (image_entry)
         bb.flags &= ~FRAG_COARSE_GRAIN;
+
+    if (DYNAMO_OPTION(opt_jit) && visible && is_jit_managed_area(bb.start_pc)) {
+        ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
+        jitopt_add_dgc_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
+    }
 
     /* emit fragment into fcache */
     KSTART(bb_emit);

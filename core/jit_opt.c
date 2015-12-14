@@ -13,13 +13,31 @@
 static void
 annotation_manage_code_area(void *start, size_t size)
 {
-    /* i#1114 NYI: mark the corresponding VM area as app-managed */
+    LOG(GLOBAL, LOG_ANNOTATIONS, 2,
+        "Add code area "PFX"-"PFX" to JIT managed regions\n",
+        start, (app_pc) start + size);
+
+    set_region_jit_managed(start, size);
 }
 
 static void
 annotation_unmanage_code_area(void *start, size_t size)
 {
-    /* i#1114 NYI: mark the corresponding VM area as app-managed */
+    dcontext_t *dcontext = get_thread_private_dcontext();
+
+    if (!is_jit_managed_area(start))
+        return;
+
+    LOG(GLOBAL, LOG_ANNOTATIONS, 2,
+        "Remove code area "PFX"-"PFX" from JIT managed regions\n",
+        start, (app_pc) start + size);
+
+    mutex_lock(&thread_initexit_lock);
+    flush_fragments_and_remove_region(dcontext, start, size,
+                                      true/*own initexit_lock*/, false/*keep futures*/);
+    mutex_unlock(&thread_initexit_lock);
+
+    jitopt_clear_span(start, (app_pc) start + size);
 }
 #endif
 
@@ -42,4 +60,16 @@ void
 jitopt_exit()
 {
     /* nothing */
+}
+
+void
+jitopt_add_dgc_bb(app_pc start_pc, app_pc end_pc, bool is_trace_head)
+{
+    /* i#1114 NYI: add bb to the fragment tree */
+}
+
+void
+jitopt_clear_span(app_pc start, app_pc end)
+{
+    /* i#1114 NYI: remove fragments overlapping [start,end) from the fragment tree */
 }

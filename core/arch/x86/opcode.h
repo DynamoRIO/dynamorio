@@ -1366,6 +1366,7 @@ enum {
     RAW_OPCODE_loop_start      = 0xe0,
     RAW_OPCODE_loop_end        = 0xe3,
     RAW_OPCODE_lea             = 0x8d,
+    RAW_OPCODE_SIGILL          = 0x0b0f,
     RAW_PREFIX_jcc_not_taken   = 0x2e,
     RAW_PREFIX_jcc_taken       = 0x3e,
     RAW_PREFIX_lock            = 0xf0,
