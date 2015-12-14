@@ -77,6 +77,30 @@ static byte buf[8192];
  ***************************************************************************/
 
 static void
+test_pred(void *dc)
+{
+    byte *pc;
+    instr_t *inst;
+    dr_isa_mode_t old_mode;
+    dr_set_isa_mode(dc, DR_ISA_ARM_A32, &old_mode);
+    inst = INSTR_PRED
+        (INSTR_CREATE_sel
+         (dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
+          opnd_create_reg(DR_REG_R1)),
+         DR_PRED_EQ);
+    ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_ALL);
+    ASSERT(instr_get_eflags(inst, 0) == EFLAGS_READ_ARITH);
+    instr_free(dc, inst);
+    inst = INSTR_CREATE_sel
+        (dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
+         opnd_create_reg(DR_REG_R1));
+    ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_GE);
+    ASSERT(instr_get_eflags(inst, 0) == EFLAGS_READ_GE);
+    instr_free(dc, inst);
+    dr_set_isa_mode(dc, old_mode, NULL);
+}
+
+static void
 test_pcrel(void *dc)
 {
     byte *pc;
@@ -106,6 +130,8 @@ main(int argc, char *argv[])
     /* XXX i#1686: add tests of XINST_CREATE macros */
 
     test_pcrel(dcontext);
+
+    test_pred(dcontext);
 
     print("all done\n");
     return 0;

@@ -2426,6 +2426,10 @@ decode_eflags_to_instr_eflags(decode_info_t *di, const instr_info_t *info)
         if (!TESTALL(EFLAGS_MSR_G, sel))
             res &= ~(EFLAGS_WRITE_GE);
     }
+    if (di->predicate != DR_PRED_OP && di->predicate != DR_PRED_AL &&
+        di->predicate != DR_PRED_NONE) {
+        res |= EFLAGS_READ_ARITH;
+    }
     return res;
 }
 

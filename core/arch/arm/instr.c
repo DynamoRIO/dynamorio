@@ -703,7 +703,7 @@ instr_predicate_writes_eflags(dr_pred_type_t pred)
 bool
 instr_predicate_is_cond(dr_pred_type_t pred)
 {
-    return pred != DR_PRED_NONE && pred != DR_PRED_AL;
+    return pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP;
 }
 
 bool

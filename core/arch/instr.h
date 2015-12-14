@@ -2777,6 +2777,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 # define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */
 
 # define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */
+# define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
 # define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
@@ -2822,6 +2823,7 @@ enum {
                              EFLAGS_READ_C | EFLAGS_READ_V)
 # define EFLAGS_READ_ARITH  EFLAGS_READ_NZCV /**< Reads all arithmetic flags. */
 # define EFLAGS_READ_ALL    (EFLAGS_READ_NZCV | EFLAGS_READ_GE) /**< Reads all flags. */
+# define EFLAGS_READ_NON_PRED EFLAGS_READ_GE /**< Flags not read by predicates. */
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
 # define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */

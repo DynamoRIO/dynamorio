@@ -900,11 +900,13 @@ instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
                            dr_opnd_query_flags_t flags)
 {
     if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_predicate_is_cond(pred) &&
-        !instr_predicate_reads_srcs(pred))
-        flags &= ~EFLAGS_READ_ALL;
+        !instr_predicate_reads_srcs(pred)) {
+        /* i#1836: the predicate itself reads some flags */
+        full_eflags &= ~EFLAGS_READ_NON_PRED;
+    }
     if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_predicate_is_cond(pred) &&
         !instr_predicate_writes_eflags(pred))
-        flags &= ~EFLAGS_WRITE_ALL;
+        full_eflags &= ~EFLAGS_WRITE_ALL;
     return full_eflags;
 }
 
