@@ -8,7 +8,7 @@ void
 jitopt_exit();
 
 void
-jitopt_add_dgc_bb(app_pc start_pc, app_pc end_pc, bool is_trace_head);
+jitopt_add_dgc_bb(app_pc start, app_pc end, bool is_trace_head);
 
 void
 jitopt_clear_span(app_pc start, app_pc end);
