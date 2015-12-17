@@ -1409,7 +1409,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     } else if (str_case_prefix(name, "API-MS-Win-Core-Profile-L1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-RTLSupport-L1")) {
-        if (get_os_version() >= WINDOWS_VERSION_8)
+        if (get_os_version() >= WINDOWS_VERSION_8 ||
+            str_case_prefix(dependent->name, "kernel"))
             return "ntdll.dll";
         else
             return "kernel32.dll";
