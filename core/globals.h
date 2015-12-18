@@ -599,6 +599,7 @@ typedef enum {
     WHERE_CONTEXT_SWITCH,
     WHERE_IBL,
     WHERE_FCACHE,
+    WHERE_CLEAN_CALLEE,
     WHERE_UNKNOWN,
 #ifdef HOT_PATCHING_INTERFACE
     WHERE_HOTPATCH,
@@ -772,6 +773,8 @@ struct _dcontext_t {
         coarse_info_t *dir_exit;
     } coarse_exit;
 
+    where_am_i_t       whereami;        /* where control is at the moment */
+
     /************* end of offset-crucial fields *********************/
 
     /* FIXME: now that we initialize a new thread's dcontext right away, and
@@ -786,7 +789,6 @@ struct _dcontext_t {
     uint thread_port; /* mach_port_t */
 #endif
     thread_record_t   *thread_record;  /* so don't have to do a thread_lookup */
-    where_am_i_t       whereami;        /* where control is at the moment */
     void *         allocated_start; /* used for cache alignment */
     fragment_t *     last_fragment;   /* cached value of linkstub_fragment(last_exit) */
 

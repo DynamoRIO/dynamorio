@@ -4944,7 +4944,7 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
         va_end(ap);
     }
-    insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/, true/*returns*/,
+    insert_meta_call_vargs(dcontext, ilist, where, META_CALL_RETURNS,
                            vmcode_get_start(), callee, num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
@@ -4964,8 +4964,8 @@ dr_insert_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
         convert_va_list_to_opnd(drcontext, &args, num_args, ap);
         va_end(ap);
     }
-    direct = insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
-                                    true/*returns*/, encode_pc, callee, num_args, args);
+    direct = insert_meta_call_vargs(dcontext, ilist, where, META_CALL_RETURNS, encode_pc,
+                                    callee, num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
     return direct;
@@ -4985,8 +4985,8 @@ dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
         va_end(ap);
     }
-    insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/, false/*!returns*/,
-                           vmcode_get_start(), callee, num_args, args);
+    insert_meta_call_vargs(dcontext, ilist, where, 0, vmcode_get_start(), callee,
+                           num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
 }
@@ -5067,6 +5067,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     size_t buf_sz = 0;
     clean_call_info_t cci; /* information for clean call insertion. */
     bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
+    meta_call_flags_t call_flags = META_CALL_CLEAN | META_CALL_RETURNS;
     byte *encode_pc;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
@@ -5168,7 +5169,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         encode_pc = vmcode_unreachable_pc();
     else
         encode_pc = vmcode_get_start();
-    insert_meta_call_vargs(dcontext, ilist, where, true/*clean*/, true/*returns*/,
+    if (TEST(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
+        call_flags |= META_CALL_RETURNS_TO_NATIVE;
+    insert_meta_call_vargs(dcontext, ilist, where, call_flags,
                            encode_pc, callee, num_args, args);
     instrlist_set_our_mangling(ilist, false);
 
@@ -5184,8 +5187,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 
 void
 dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        void *callee, dr_cleancall_save_t save_flags,
-                        uint num_args, ...)
+                        void *callee, dr_cleancall_save_t save_flags, uint num_args, ...)
 {
     opnd_t *args = NULL;
     if (num_args != 0) {

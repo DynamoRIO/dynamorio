@@ -348,21 +348,41 @@ parameters_stack_padded(void)
  */
 bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, bool returns, byte *encode_pc, void *callee,
+                       meta_call_flags_t flags, byte *encode_pc, void *callee,
                        uint num_args, opnd_t *args)
 {
     instr_t *in = (instr == NULL) ? instrlist_last(ilist) : instr_get_prev(instr);
     bool direct;
     uint stack_for_params =
         insert_parameter_preparation(dcontext, ilist, instr,
-                                     clean_call, num_args, args);
+                                     TEST(META_CALL_CLEAN, flags), num_args, args);
     IF_X64(ASSERT(ALIGNED(stack_for_params, 16)));
+
+#ifdef CLIENT_INTERFACE
+    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+        if (SCRATCH_ALWAYS_TLS()) {
+            /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
+             * which specifies that the caller must save xax (and xcx and xdx)
+             */
+            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
+            PRE(ilist, instr,
+                instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
+                                                      WHEREAMI_OFFSET,
+                                                      (uint) WHERE_CLEAN_CALLEE, OPSZ_4));
+        } else {
+            PRE(ilist, instr, XINST_CREATE_store(dcontext,
+                opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
+                OPND_CREATE_INT32(WHERE_CLEAN_CALLEE)));
+        }
+    }
+#endif
+
     /* If we need an indirect call, we use r11 as the last of the scratch regs.
      * We document this to clients using dr_insert_call_ex() or DR_CLEANCALL_INDIRECT.
      */
     direct = insert_reachable_cti(dcontext, ilist, instr, encode_pc, (byte *)callee,
-                                  false/*call*/, returns, false/*!precise*/,
-                                  DR_REG_R11, NULL);
+                                  false/*call*/, TEST(META_CALL_RETURNS, flags),
+                                  false/*!precise*/, DR_REG_R11, NULL);
     if (stack_for_params > 0) {
         /* XXX PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?
@@ -377,6 +397,30 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         ASSERT_NOT_IMPLEMENTED(false);
 #endif
     }
+
+#ifdef CLIENT_INTERFACE
+    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+        uint whereami;
+
+        if (TEST(META_CALL_RETURNS_TO_NATIVE, flags))
+            whereami = (uint) WHERE_APP;
+        else
+            whereami = (uint) WHERE_FCACHE;
+
+        if (SCRATCH_ALWAYS_TLS()) {
+            /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */
+            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
+            PRE(ilist, instr,
+                instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
+                                                      WHEREAMI_OFFSET, whereami, OPSZ_4));
+        } else {
+            PRE(ilist, instr, XINST_CREATE_store(dcontext,
+                opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
+                OPND_CREATE_INT32(whereami)));
+        }
+    }
+#endif
+
     /* mark it all meta */
     if (in == NULL)
         in = instrlist_first(ilist);

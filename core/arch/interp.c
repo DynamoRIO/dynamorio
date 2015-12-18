@@ -4656,17 +4656,17 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
      * code.
      */
     if (bb->native_call) {
-        dr_insert_clean_call(dcontext, bb->ilist, NULL,
-                             (void *)call_to_native, false/*!fp*/, 1,
-                             opnd_create_reg(REG_XSP));
+        dr_insert_clean_call_ex(dcontext, bb->ilist, NULL,
+                                (void *)call_to_native, DR_CLEANCALL_RETURNS_TO_NATIVE,
+                                1, opnd_create_reg(REG_XSP));
     } else {
         if (DYNAMO_OPTION(native_exec_opt)) {
             insert_return_to_native(dcontext, bb->ilist, NULL,
                                     REG_NULL /* default */,
                                     SCRATCH_REG0);
         } else {
-            dr_insert_clean_call(dcontext, bb->ilist, NULL,
-                                 (void *) return_to_native, false/*!fp*/, 0);
+            dr_insert_clean_call_ex(dcontext, bb->ilist, NULL, (void *) return_to_native,
+                                    DR_CLEANCALL_RETURNS_TO_NATIVE, 0);
         }
     }
 

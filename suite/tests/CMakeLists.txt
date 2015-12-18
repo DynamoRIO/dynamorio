@@ -109,6 +109,8 @@ set(vmap_run_list
   "-code_api -thread_private"
   "-code_api -disable_traces"
   "-code_api -thread_private -disable_traces"
+  "-prof_pcs"
+  "-prof_pcs -thread_private"
   "LIN::ONLY::^common::-code_api -no_early_inject"
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
   "ONLY::^common::-code_api -stack_size 120k"
@@ -1653,6 +1655,15 @@ if (CLIENT_INTERFACE)
   if (NOT ARM) # FIXME i#1551: port to ARM
     tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
+    if (UNIX)
+      torunonly_ci(client.cleancall.prof-pcs client.cleancall client.cleancall.dll
+        client-interface/cleancall.c "" "-prof_pcs -opt_cleancall 0" "")
+      if (NOT X64)
+        torunonly_ci(client.cleancall.prof-pcs.thread-private
+          client.cleancall client.cleancall.dll
+          client-interface/cleancall.c "" "-thread_private -prof_pcs -opt_cleancall 0" "")
+      endif (NOT X64)
+    endif (UNIX)
     tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
     # check dr_insert_cbr_instrumentation with out-of-line clean call
     torunonly_ci(client.count-ctis-noopt client.count-ctis client.count-ctis.dll
@@ -1713,13 +1724,21 @@ if (CLIENT_INTERFACE)
     set(client.annotation-concurrency.bb-truncate-2_timeout 120)
 
     if (UNIX)
-      # i#140: when client-compatibility issues with -prof_pcs are resolved, this
-      # test should use the annotation test client (and this template can be removed)
+      set(client.annotation-concurrency.prof-pcs_timeout 120)
       set(client.annotation-concurrency.prof-pcs_expectbase
-        "annotation-concurrency.prof-pcs")
-      torunonly_api(client.annotation-concurrency.prof-pcs client.annotation-concurrency
-        client-interface/annotation-concurrency.c "-prof_pcs" "${annotation_test_args}"
-        OFF)
+        "annotation-concurrency.full-decode")
+      torunonly_ci(client.annotation-concurrency.prof-pcs client.annotation-concurrency
+        client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+        "full-decode" "-prof_pcs" "${annotation_test_args}")
+      if (NOT X64)
+        set(client.annotation-concurrency.prof-pcs.thread-private_timeout 120)
+        set(client.annotation-concurrency.prof-pcs.thread-private_expectbase
+          "annotation-concurrency.full-decode")
+        torunonly_ci(client.annotation-concurrency.prof-pcs.thread-private
+          client.annotation-concurrency
+          client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+          "full-decode" "-thread_private -prof_pcs" "${annotation_test_args}")
+      endif (NOT X64)
     endif (UNIX)
 
     if (UNIX)
@@ -2144,6 +2163,15 @@ if (CLIENT_INTERFACE)
           # test out-of-line clean call
           torunonly_ci(sample.${sample}.cleancall common.eflags ${sample}
             common/eflags.c "" "-opt_cleancall 0" "")
+          if (UNIX)
+            torunonly_ci(sample.${sample}.prof-pcs.cleancall common.eflags ${sample}
+              common/eflags.c "" "-prof_pcs -opt_cleancall 0" "")
+            if (NOT X64)
+              torunonly_ci(sample.${sample}.prof-pcs.thread-private.cleancall
+                common.eflags ${sample} common/eflags.c ""
+                "-thread_private -prof_pcs -opt_cleancall 0" "")
+            endif (NOT X64)
+          endif (UNIX)
         endif ()
       endforeach ()
     endif (NOT ARM)

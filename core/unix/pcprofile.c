@@ -579,6 +579,8 @@ pcprofile_results(thread_pc_info_t *info)
                         print_file(info->file, " context switch\n");
                     } else if (e->whereami == WHERE_IBL) {
                         print_file(info->file, " indirect_branch_lookup\n");
+                    } else if (e->whereami == WHERE_CLEAN_CALLEE) {
+                        print_file(info->file, " clean call\n");
                     } else {
                         print_file(STDERR, "ERROR: unknown whereAmI %d\n",
                                 e->whereami);

@@ -5003,6 +5003,8 @@ typedef enum {
      * Only honored for 64-bit mode, where r11 will be used for the indirection.
      */
     DR_CLEANCALL_INDIRECT               = 0x0020,
+    /* internal use only: maps to META_CALL_RETURNS_TO_NATIVE in insert_meta_call_vargs */
+    DR_CLEANCALL_RETURNS_TO_NATIVE      = 0x0040,
 } dr_cleancall_save_t;
 /* DR_API EXPORT END */
 

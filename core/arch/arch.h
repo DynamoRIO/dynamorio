@@ -347,6 +347,14 @@ typedef struct _clean_call_info_t {
     instrlist_t *ilist; /* instruction list for inline optimization */
 } clean_call_info_t;
 
+/* flags for insert_meta_call_vargs, to indicate various properties about the call */
+typedef enum {
+    META_CALL_CLEAN             = 0x0001,
+    META_CALL_RETURNS           = 0x0002,
+    /* alias of DR_CLEANCALL_RETURNS_TO_NATIVE */
+    META_CALL_RETURNS_TO_NATIVE = 0x0004,
+} meta_call_flags_t;
+
 cache_pc get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                             ibl_source_fragment_type_t source_fragment_type,
                             ibl_branch_type_t branch_type _IF_X64(gencode_mode_t mode));
@@ -414,7 +422,7 @@ parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
 bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, bool returns, byte *encode_pc, void *callee,
+                       meta_call_flags_t flags, byte *encode_pc, void *callee,
                        uint num_args, opnd_t *args);
 void
 mangle_init(void);
