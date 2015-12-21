@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -654,17 +654,14 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32)
 
     if (is_64 == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
-
     f = read_nt_headers(exe, &nt);
-    if (f == INVALID_HANDLE_VALUE) {
-        *is_64 = res;
-        if (also_32 != NULL)
-            *also_32 = false;
+    if (f == INVALID_HANDLE_VALUE)
         return DRFRONT_ERROR_INVALID_PARAMETER;
-    }
     res = (nt.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
     CloseHandle(f);
     *is_64 = res;
+    if (also_32 != NULL)
+        *also_32 = false;
     return DRFRONT_SUCCESS;
 }
 
