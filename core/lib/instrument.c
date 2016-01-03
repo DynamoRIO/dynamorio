@@ -4255,6 +4255,26 @@ DR_API
 bool
 dr_using_console(void)
 {
+    FILE_FS_DEVICE_INFORMATION DeviceInformation;
+    HANDLE herr = get_stderr_handle();
+    if (get_os_version() >= WINDOWS_VERSION_8) {
+        /* The handle is invalid iff it's a gui app and the parent is a console */
+        if (herr == INVALID_HANDLE_VALUE) {
+            module_data_t *app_kernel32 = dr_lookup_module_by_name("kernel32.dll");
+            if (privload_attach_parent_console(app_kernel32->start) == false) {
+                dr_free_module_data(app_kernel32);
+                return false;
+            }
+            dr_free_module_data(app_kernel32);
+            herr = get_stderr_handle();
+        }
+        if (nt_query_volume_info(herr, &DeviceInformation, sizeof(DeviceInformation),
+                                 FileFsDeviceInformation) == STATUS_SUCCESS) {
+            if (DeviceInformation.DeviceType == FILE_DEVICE_CONSOLE)
+                return true;
+        }
+        return false;
+    }
     /* We detect cmd window using what kernel32!WriteFile uses: a handle
      * having certain bits set.
      */

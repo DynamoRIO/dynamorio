@@ -1825,6 +1825,30 @@ privload_disable_console_init(privmod_t *mod)
     return success;
 }
 
+/* GUI apps are initialized without a console. To enable writing to the console
+ * we attach to the parent's console.
+ * XXX: if an app attempts to create/attach to a console w/o first freeing itself
+ * from this console, it will fail since a process can only associate w/ one console.
+ * The solution here would be to monitor such attempts by the app and free the console
+ * that is setup here.
+ */
+typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
+static kernel32_AttachConsole_t kernel32_AttachConsole;
+
+bool
+privload_attach_parent_console(app_pc app_kernel32)
+{
+    ASSERT(app_kernel32 != NULL);
+    if (kernel32_AttachConsole == NULL)
+        kernel32_AttachConsole = (kernel32_AttachConsole_t)
+            get_proc_address(app_kernel32, "AttachConsole");
+    if (kernel32_AttachConsole != NULL) {
+        if (kernel32_AttachConsole(ATTACH_PARENT_PROCESS) != 0)
+            return true;
+    }
+    return false;
+}
+
 /* i#556: A process can be associated with only one console, which is why the call to
  * ConnectConsoleInternal is nop'd out for win7. With the call disabled priv kernel32
  * does not initialize globals needed for console support. This routine will share the
@@ -1849,22 +1873,9 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
     static const uint MAX_DECODE = 1024;
 
     ASSERT(app_kernel32 != NULL);
-    /* GUI apps are initialized without a console. To enable writing to the console
-     * we attach to the parent's console.
-     * XXX: if an app attempts to create/attach to a console w/o first freeing itself
-     * from this console, it will fail since a process can only associate w/ one console.
-     * The solution here would be to monitor such attempts by the app and free the console
-     * that is setup here.
-     */
     if (get_own_peb()->ImageSubsystem != IMAGE_SUBSYSTEM_WINDOWS_CUI) {
-        kernel32_AttachConsole = (kernel32_AttachConsole_t)
-            get_proc_address(app_kernel32, "AttachConsole");
-        if (kernel32_AttachConsole == NULL)
+        if (privload_attach_parent_console(app_kernel32) == false)
             return false;
-        status = kernel32_AttachConsole(ATTACH_PARENT_PROCESS);
-        if (status == 0) {
-            return false;
-        }
     }
     /* xref i#440: Noping out the call to ConsoleConnectInternal is enough to get console
      * support for wow64. We have this check after in case of GUI app.
