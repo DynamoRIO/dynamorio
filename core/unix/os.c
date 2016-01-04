@@ -1256,7 +1256,7 @@ os_timeout(int time_in_milliseconds)
 #define TLS_APP_LIB_TLS_REG_OFFSET  (offsetof(os_local_state_t, app_lib_tls_reg))
 #define TLS_APP_ALT_TLS_REG_OFFSET  (offsetof(os_local_state_t, app_alt_tls_reg))
 
-/* N.B.: imm and idx are ushorts!
+/* N.B.: imm and offs are ushorts!
  * We use %c[0-9] to get gcc to emit an integer constant without a leading $ for
  * the segment offset.  See the documentation here:
  * http://gcc.gnu.org/onlinedocs/gccint/Output-Template.html#Output-Template
@@ -1278,18 +1278,18 @@ os_timeout(int time_in_milliseconds)
     asm volatile("mov %"ASM_SEG":%c1, %0" : "=r"(var) : "i"(imm));
 
 /* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
-# define WRITE_TLS_SLOT(idx, var)                           \
+# define WRITE_TLS_SLOT(offs, var)                          \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                  \
     ASSERT(sizeof(var) == sizeof(void*));                   \
-    ASSERT(sizeof(idx) == 2);                               \
+    ASSERT(sizeof(offs) == 2);                              \
     asm("mov %0, %%"ASM_XAX : : "m"((var)) : ASM_XAX);      \
-    asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XDX : : "m"((idx)) : ASM_XDX); \
+    asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XDX : : "m"((offs)) : ASM_XDX); \
     asm("mov %%"ASM_XAX", %"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
 
-# define READ_TLS_SLOT(idx, var)                                   \
+# define READ_TLS_SLOT(offs, var)                                  \
     ASSERT(sizeof(var) == sizeof(void*));                          \
-    ASSERT(sizeof(idx) == 2);                                      \
-    asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX); \
+    ASSERT(sizeof(offs) == 2);                                     \
+    asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((offs)) : ASM_XAX); \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
 #elif defined(ARM)
@@ -1306,20 +1306,20 @@ os_timeout(int time_in_milliseconds)
       : "=r" (var)                   \
       : "i" (imm)                    \
       : ASM_R3);
-# define WRITE_TLS_SLOT(idx, var)            \
+# define WRITE_TLS_SLOT(offs, var)           \
     __asm__ __volatile__(                    \
       READ_TP_TO_R3                          \
       "add "ASM_R3", "ASM_R3", %1 \n\t"      \
       "str %0, ["ASM_R3"]   \n\t"            \
-      : : "r" (var), "r" (idx * sizeof(var)) \
+      : : "r" (var), "r" (offs)              \
       : "memory", ASM_R3);
-# define READ_TLS_SLOT(idx, var)          \
+# define READ_TLS_SLOT(offs, var)         \
     __asm__ __volatile__(                 \
       READ_TP_TO_R3                       \
       "add "ASM_R3", "ASM_R3", %1 \n\t"   \
       "ldr %0, ["ASM_R3"]   \n\t"         \
       : "=r" (var)                        \
-      : "r"  (idx * sizeof(var))          \
+      : "r"  (offs)                       \
       : ASM_R3);
 #endif /* X86/ARM */
 
