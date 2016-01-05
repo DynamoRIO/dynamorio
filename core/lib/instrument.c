@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -4255,9 +4255,10 @@ DR_API
 bool
 dr_using_console(void)
 {
-    FILE_FS_DEVICE_INFORMATION DeviceInformation;
-    HANDLE herr = get_stderr_handle();
+    bool res;
     if (get_os_version() >= WINDOWS_VERSION_8) {
+        FILE_FS_DEVICE_INFORMATION device_info;
+        HANDLE herr = get_stderr_handle();
         /* The handle is invalid iff it's a gui app and the parent is a console */
         if (herr == INVALID_HANDLE_VALUE) {
             module_data_t *app_kernel32 = dr_lookup_module_by_name("kernel32.dll");
@@ -4268,9 +4269,9 @@ dr_using_console(void)
             dr_free_module_data(app_kernel32);
             herr = get_stderr_handle();
         }
-        if (nt_query_volume_info(herr, &DeviceInformation, sizeof(DeviceInformation),
+        if (nt_query_volume_info(herr, &device_info, sizeof(device_info),
                                  FileFsDeviceInformation) == STATUS_SUCCESS) {
-            if (DeviceInformation.DeviceType == FILE_DEVICE_CONSOLE)
+            if (device_info.DeviceType == FILE_DEVICE_CONSOLE)
                 return true;
         }
         return false;
@@ -4278,7 +4279,7 @@ dr_using_console(void)
     /* We detect cmd window using what kernel32!WriteFile uses: a handle
      * having certain bits set.
      */
-    bool res = (((ptr_int_t)get_stderr_handle() & 0x10000003) == 0x3);
+    res = (((ptr_int_t)get_stderr_handle() & 0x10000003) == 0x3);
     CLIENT_ASSERT(!res || get_os_version() < WINDOWS_VERSION_8,
                   "Please report this: Windows 8 does have old-style consoles!");
     return res;
