@@ -6277,6 +6277,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
     priv_mcontext_t *state;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
+    IF_ARM(reg_t reg_val = 0 /* silence the compiler warning */;)
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
@@ -6307,12 +6308,18 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
          */
         priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(context);
         set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT), (void *) get_stolen_reg_val(mc));
-        /* Avoid the copy below clobbering the reg val on the stack */
-        set_stolen_reg_val(mc, get_stolen_reg_val(state));
+        /* save the reg val on the stack to be clobbered by the the copy below */
+        reg_val = get_stolen_reg_val(state);
     }
 #endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
+#ifdef ARM
+    if (TEST(DR_MC_INTEGER, context->flags)) {
+        /* restore the reg val on the stack clobbered by the copy above */
+        set_stolen_reg_val(state, reg_val);
+    }
+#endif
 
     if (TEST(DR_MC_CONTROL, context->flags)) {
         /* esp will be restored from a field in the dcontext */
