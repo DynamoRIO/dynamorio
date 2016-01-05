@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -405,6 +405,22 @@ syscalls_init_options_read()
     nt_wrappers_intercepted = false;
 }
 
+static int
+syscalls_init_get_num(HANDLE ntdllh, int sys_enum)
+{
+    app_pc wrapper;
+    ASSERT(ntdllh != NULL);
+    /* We can't check syscalls[] for SYSCALL_NOT_PRESENT b/c it's not set up yet */
+    /* get_proc_address() does invoke NtQueryVirtualMemory, but we go through the
+     * ntdll wrapper for that syscall and thus it works this early.
+     */
+    wrapper = (app_pc) get_proc_address(ntdllh, syscall_names[sys_enum]);
+    if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
+        return *((int *)((wrapper) + SYSNUM_OFFS));
+    else
+        return -1;
+}
+
 /* Called very early, prior to any system call use by us, making error
  * reporting problematic once we have all syscalls requiring this!
  * See windows_version_init() comments.
@@ -438,7 +454,8 @@ syscalls_init()
     ushort check = *((ushort *)(int_target));
     HMODULE ntdllh = get_ntdll_base();
 
-    if (!windows_version_init())
+    if (!windows_version_init(syscalls_init_get_num(ntdllh, SYS_GetContextThread),
+                              syscalls_init_get_num(ntdllh, SYS_AllocateVirtualMemory)))
         return false;
     ASSERT(syscalls != NULL);
 
@@ -2155,6 +2172,10 @@ NTSTATUS
 nt_remote_query_virtual_memory(HANDLE process, const byte *pc,
                                MEMORY_BASIC_INFORMATION *mbi, size_t mbilen, size_t *got)
 {
+    /* XXX: we can't switch this to a raw syscall as we rely on get_proc_address()
+     * working in syscalls_init_get_num(), and it calls get_allocation_size()
+     * which ends up here.
+     */
     ASSERT(mbilen == sizeof(MEMORY_BASIC_INFORMATION));
     memset(mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
     return NT_SYSCALL(QueryVirtualMemory, process, pc, MemoryBasicInformation,

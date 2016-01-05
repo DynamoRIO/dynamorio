@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -203,7 +203,7 @@ void check_syscall_array_sizes(void);
 #endif
 
 bool
-windows_version_init(void);
+windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory);
 
 enum {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\

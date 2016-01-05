@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -553,7 +553,7 @@ get_context_xstate_flag(void)
  * usage errors prior to that for a long time now anyway.
  */
 bool
-windows_version_init()
+windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
 {
     PEB *peb = get_own_peb();
 
@@ -588,6 +588,18 @@ windows_version_init()
                 os_name = "Microsoft Windows 10";
             }
             os_version = WINDOWS_VERSION_10;
+            /* i#1825: future Windows updates will leave the PEB version at
+             * 10.0.sp0, so we have to use syscall #'s to distinguish.
+             * We check 2 different numbers currently toward the end of the
+             * list in order to handle hooks on one of them and to handle
+             * more weird reorderings.
+             */
+            if ((num_GetContextThread != -1 &&
+                 num_GetContextThread != syscalls[SYS_GetContextThread]) ||
+                (num_AllocateVirtualMemory != -1 &&
+                 num_AllocateVirtualMemory != syscalls[SYS_AllocateVirtualMemory])) {
+                syscalls = NULL;
+            }
         } else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 3) {
             if (module_is_64bit(get_ntdll_base())) {
                 syscalls = (int *) windows_81_x64_syscalls;
@@ -726,10 +738,17 @@ windows_version_init()
                 syscalls = (int *) windows_NT_sp4_syscalls;
                 os_name = "Microsoft Windows NT SP4, 5, 6, or 6a";
             }
-        } else {
-            SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: major=%d, minor=%d",
-                                  peb->OSMajorVersion, peb->OSMinorVersion);
-            os_name = "Unrecognized Windows NT-family version";
+        }
+        if (syscalls == NULL) {
+            if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
+                SYSLOG_INTERNAL_WARNING
+                    ("WARNING: Running on unsupported Windows 10+ version");
+                os_name = "Unknown Windows 10+ version";
+            } else {
+                SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: %d.%d",
+                                      peb->OSMajorVersion, peb->OSMinorVersion);
+                os_name = "Unknown Windows NT-family version";
+            }
             if (dynamo_options.max_supported_os_version <
                 peb->OSMajorVersion * 10 + peb->OSMinorVersion) {
                 if (standalone_library)
@@ -749,7 +768,6 @@ windows_version_init()
                 memcpy(syscalls, windows_10_wow64_syscalls, SYS_MAX*sizeof(syscalls[0]));
             else
                 memcpy(syscalls, windows_10_x86_syscalls, SYS_MAX*sizeof(syscalls[0]));
-            os_name = "Unknown Windows NT-family version";
             os_version = WINDOWS_VERSION_10; /* just use latest */
         }
     } else if (peb->OSPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
