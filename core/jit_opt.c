@@ -701,7 +701,7 @@ unit_test_lookup_all_nodes(bb_node_t **node_list, uint list_length)
 static app_pc
 unit_test_get_random_pc(app_pc range_start, uint max_range_size)
 {
-    return range_start + (ptr_uint_t) dr_get_random_value(max_range_size);
+    return range_start + get_random_offset(max_range_size);
 }
 
 static bool
@@ -715,7 +715,7 @@ unit_test_insert_random_node(bb_node_t **node_list, app_pc random_base, uint ran
         node_list[index] = fragment_tree_insert(fragment_tree, random_start, random_end);
         return true;
     } else {
-        dr_set_random_seed((uint) dr_get_milliseconds());
+        set_random_seed((uint) query_time_millis());
         return false;
     }
 }
@@ -832,7 +832,7 @@ static void
 unit_test_churn_narrow_span(bb_node_t **node_list, uint list_length)
 {
     uint i, j, k, node_count, random_span = list_length * 8;
-    app_pc random_base = (app_pc) (ptr_uint_t) dr_get_random_value(0xf0000000);
+    app_pc random_base = (app_pc) get_random_offset(0xf0000000);
 
     ASSERT(fragment_tree->root == fragment_tree->nil);
 
@@ -875,7 +875,7 @@ unit_test_jit_fragment_tree()
     dynamo_options.opt_jit = true;
 
     fragment_tree = fragment_tree_create();
-    dr_set_random_seed((uint) dr_get_milliseconds());
+    set_random_seed((uint) query_time_millis());
 
     for (i = 0; i < 3; i++) {
         print_file(STDERR, "pass %d... ", i+1);
