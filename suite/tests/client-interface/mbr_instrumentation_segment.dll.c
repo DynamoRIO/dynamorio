@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,8 +40,8 @@ static app_pc func_pc = NULL;
 void static
 mbr_instru_test(app_pc __attribute__((unused))caller, app_pc callee)
 {
-  if (func_pc && callee == func_pc)
-      dr_printf("Call to test_func\n");
+    if (func_pc && callee == func_pc)
+        dr_printf("Call to test_func\n");
 }
 
 dr_emit_flags_t static
@@ -51,11 +51,11 @@ bb_event(void *drcontext, void __attribute__((unused))*tag,
          bool __attribute__((unused))translating,
          void __attribute__((unused))*user_data)
 {
-  if (instr_is_app(instr) && instr_is_call_indirect(instr)) {
-      dr_insert_mbr_instrumentation(drcontext, bb, instr, &mbr_instru_test,
-                                    SPILL_SLOT_1);
-  }
-  return DR_EMIT_DEFAULT;
+    if (instr_is_app(instr) && instr_is_call_indirect(instr)) {
+        dr_insert_mbr_instrumentation(drcontext, bb, instr, &mbr_instru_test,
+                                      SPILL_SLOT_1);
+    }
+    return DR_EMIT_DEFAULT;
 }
 
 bool static
@@ -63,9 +63,9 @@ search_test_func(drsym_info_t *info,
                  drsym_error_t __attribute__((unused))status,
                  void *start)
 {
-  if (strcmp(info->name, "test_func") == 0)
-      func_pc = start + info->start_offs;
-  return true;
+    if (strcmp(info->name, "test_func") == 0)
+        func_pc = start + info->start_offs;
+    return true;
 }
 
 void static
@@ -73,26 +73,26 @@ load_event(void __attribute__((unused))*drcontext,
            const module_data_t *info,
            bool __attribute__((unused))loaded)
 {
-  drsym_enumerate_symbols_ex(info->full_path, &search_test_func,
-                             sizeof(drsym_info_t), info->start,
-                             DRSYM_DEMANGLE_FULL);
-  drsym_free_resources(info->full_path);
+    drsym_enumerate_symbols_ex(info->full_path, &search_test_func,
+                               sizeof(drsym_info_t), info->start,
+                               DRSYM_DEMANGLE_FULL);
+    drsym_free_resources(info->full_path);
 }
 
 void static
 exit_event(void)
 {
-  drsym_exit();
-  drmgr_exit();
+    drsym_exit();
+    drmgr_exit();
 }
 
 DR_EXPORT void dr_client_main(client_id_t __attribute__((unused))id,
                               int __attribute__((unused))argc,
                               const char __attribute__((unused))*argv[])
 {
-  drsym_init(0);
-  drmgr_init();
-  dr_register_exit_event(&exit_event);
-  drmgr_register_module_load_event(&load_event);
-  drmgr_register_bb_instrumentation_event(NULL, &bb_event, NULL);
+    drsym_init(0);
+    drmgr_init();
+    dr_register_exit_event(&exit_event);
+    drmgr_register_module_load_event(&load_event);
+    drmgr_register_bb_instrumentation_event(NULL, &bb_event, NULL);
 }

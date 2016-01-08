@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -1785,12 +1785,12 @@ if (CLIENT_INTERFACE)
     # XXX i#1246: Make partial_module_map work for Windows as well.
     tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
   endif ()
-  if (UNIX AND NOT ARM)
-      #FIXME when i#1833 is fixed enable code in mbr_instrumentation_segment.dll.c
-      tobuild_ci(client.mbr_instrumentation_segment
-        client-interface/mbr_instrumentation_segment.c "" "" "")
-      use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drsyms)
-      use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drmgr)
+  if (LINUX AND NOT ARM)
+    # XXX i#1833: once i#1833 is fixed, enable code in mbr_instrumentation_segment.dll.c
+    tobuild_ci(client.mbr_instrumentation_segment
+      client-interface/mbr_instrumentation_segment.c "" "" "")
+    use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drsyms)
+    use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drmgr)
   endif()
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
