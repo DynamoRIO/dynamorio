@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,7 @@
 #include "drmgr.h"
 #include "drvector.h"
 #include "drreg.h"
+#include "../ext_utils.h"
 #include <string.h>
 #include <limits.h>
 #include <stddef.h> /* offsetof */
@@ -61,10 +62,6 @@
 #else
 # define DISPLAY_ERROR(msg) dr_fprintf(STDERR, "%s\n", msg);
 #endif
-
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-#define TEST TESTANY
 
 #define PRE instrlist_meta_preinsert
 

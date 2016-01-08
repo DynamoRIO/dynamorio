@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -25,6 +25,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "../ext_utils.h"
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user)
@@ -54,9 +55,6 @@
 #define PRE instrlist_meta_preinsert
 /* for inserting an app instruction, which must have a translation ("xl8") field */
 #define PREXL8 instrlist_preinsert
-
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-#define TEST  TESTANY
 
 /***************************************************************************
  * INIT

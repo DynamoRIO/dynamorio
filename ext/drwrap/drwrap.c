@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -29,6 +29,7 @@
 #include "drmgr.h"
 #include "hashtable.h"
 #include "drvector.h"
+#include "../ext_utils.h"
 #include <string.h>
 #include <stddef.h> /* offsetof */
 #include <limits.h> /* USHRT_MAX */
@@ -43,13 +44,6 @@
 # define ASSERT(x, msg) /* nothing */
 # define DODEBUG(statement)
 #endif
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #define EXCLUDE_CALLCONV(flags) ((flags) & ~(DRWRAP_CALLCONV_MASK))
 #define EXTRACT_CALLCONV(flags) ((drwrap_callconv_t) ((flags) & (DRWRAP_CALLCONV_MASK)))
