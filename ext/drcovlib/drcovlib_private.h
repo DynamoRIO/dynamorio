@@ -1,6 +1,6 @@
-/* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
- * **********************************************************/
+/* ***************************************************************************
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * ***************************************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -30,47 +30,22 @@
  * DAMAGE.
  */
 
-/* used by both drcov.c and drcov2lcov.c */
-#ifndef _DRCOV_H_
-#define _DRCOV_H_ 1
+#ifndef _DRCOVLIB_PRIVATE_H_
+#define _DRCOVLIB_PRIVATE_H_
 
-#include "dr_api.h"
+#include "../ext_utils.h"
 
-/* file format version */
-#define DRCOV_VERSION 2
+extern uint verbose;
 
-/* i#1532: drsyms can't mix arch for ELF */
-#ifdef LINUX
-# ifdef X64
-#  define DRCOV_ARCH_FLAVOR "-64"
-# else
-#  define DRCOV_ARCH_FLAVOR "-32"
-# endif
+#ifdef DEBUG
+# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+# define NOTIFY(level, fmt, ...) do {         \
+    if (verbose >= (level))                   \
+        dr_fprintf(STDERR, fmt, __VA_ARGS__); \
+} while (0)
 #else
-# define DRCOV_ARCH_FLAVOR ""
+# define ASSERT(x, msg) /* nothing */
+# define NOTIFY(level, fmt, ...) /* nothing */
 #endif
 
-/* The bb_entry_t is used by both drcov client and post processing drcov2lcov.
- * It has different sizes and members with and without CBR_COVERAGE.
- * We use different flavor markers to make sure the drcov2lcov process the
- * right log file generated from corrsponding drcov client.
- */
-#ifdef CBR_COVERAGE
-# define DRCOV_FLAVOR "cbr" DRCOV_ARCH_FLAVOR
-#else
-# define DRCOV_FLAVOR "drcov" DRCOV_ARCH_FLAVOR
-#endif
-
-/* data structure used in drcov.log */
-typedef struct _bb_entry_t {
-    uint   start;      /* offset of bb start from the image base */
-    ushort size;
-    ushort mod_id;
-#ifdef CBR_COVERAGE
-    uint   cbr_tgt;    /* offset of cbr target from the image base */
-    bool   trace;
-    ushort num_instrs;
-#endif
-} bb_entry_t;
-
-#endif /* _DRCOV_H_ */
+#endif /* _DRCOVLIB_PRIVATE_H */

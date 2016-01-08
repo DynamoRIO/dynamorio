@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #include "modules.h"
-#include "utils.h"
+#include "drcovlib_private.h"
 
 #include <string.h>
 

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -150,6 +150,9 @@ The changes between version \DR_VERSION and 6.0.0 include:
  - Added drreg_reservation_info().
  - Added opnd_create_rel_addr() and opnd_is_rel_addr() support for ARM.
  - Added drreg_is_register_dead() and drreg_reserve_dead_register().
+ - Split out the core functionality of the \ref page_drcov tool into
+   a new Extension \p drcovlib for easier inclusion of coverage output in
+   other tools.
 
 **************************************************
 <hr>

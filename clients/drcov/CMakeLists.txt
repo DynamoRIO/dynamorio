@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,11 +33,6 @@ cmake_minimum_required(VERSION 2.6)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-option(CBR_COVERAGE "build with conditional branch coverage checks" OFF)
-if (CBR_COVERAGE)
-  add_definitions(-DCBR_COVERAGE)
-endif(CBR_COVERAGE)
-
 # We do not need libc, and we avoid a 10x size increase in both our
 # dll and pdb (plus we avoid stressing private library isolation) by
 # not using it (i#714).
@@ -50,15 +45,10 @@ else()
   set(libtype SHARED)
 endif ()
 
-add_library(drcov ${libtype}
-  drcov.c
-  ../common/modules.c
-  # add more here
-  )
+add_library(drcov ${libtype} drcov.c)
 configure_DynamoRIO_client(drcov)
-use_DynamoRIO_extension(drcov drmgr)
+use_DynamoRIO_extension(drcov drcovlib)
 use_DynamoRIO_extension(drcov drx)
-use_DynamoRIO_extension(drcov drcontainers)
 # We keep our shared libs in the lib dir, not the bin dir:
 place_shared_lib_in_lib_dir(drcov)
 

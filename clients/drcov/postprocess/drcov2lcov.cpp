@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,7 +41,7 @@
 
 #include "dr_api.h"
 #include "droption.h"
-#include "../drcov.h"
+#include "drcovlib.h"
 #include "drsyms.h"
 #include "hashtable.h"
 #include "dr_frontend.h"
@@ -97,10 +97,13 @@
 # define DR_LIB_NAME "dynamorio.dll"
 # define DR_PRELOAD_NAME "preinject.dll"
 # define DRCOV_LIB_NAME "drcov.dll"
+/* Often combined with Dr. Memory */
+# define DRMEM_LIB_NAME "drmemorylib.dll"
 #else
 # define DR_LIB_NAME "libdynamorio." /* cover .so and .dylib */
 # define DR_PRELOAD_NAME "libdrpreload."
 # define DRCOV_LIB_NAME "libdrcov."
+# define DRMEM_LIB_NAME "libdrmemorylib."
 #endif
 
 /***************************************************************************
@@ -742,7 +745,8 @@ module_is_from_tool(const char * path)
 {
     return (strstr(path, DR_LIB_NAME) != NULL ||
             strstr(path, DR_PRELOAD_NAME) != NULL ||
-            strstr(path, DRCOV_LIB_NAME) != NULL);
+            strstr(path, DRCOV_LIB_NAME) != NULL ||
+            strstr(path, DRMEM_LIB_NAME) != NULL);
 }
 
 static char *
