@@ -858,6 +858,11 @@ read_file_header(char *buf)
 
     PRINT(3, "Reading file header...\n");
     /* version number */
+    /* XXX i#1842: we're violating abstraction barriers here with hardcoded
+     * file format strings.  drcovlib should either have a formal file format
+     * description in its header, or it should provide API routines to read
+     * the file fields.
+     */
     PRINT(4, "Reading version number\n");
     if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1) {
         WARN(2, "Failed to read version number");

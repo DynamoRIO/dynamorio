@@ -100,7 +100,7 @@ typedef struct _drcovlib_options_t {
 /***************************************************************************
  * Coverage log file format for use in postprocessing.
  *
- * XXX: this is not a sufficient description: special strings for the version,
+ * XXX i#1842: this is not a sufficient description: special strings for the version,
  * flavor, module header, bb header, and module table entry are assumed in
  * drcov2lcov.  It seems better to move the specific parsing into drcovlib and
  * make drcovlib usable in standalone mode.
