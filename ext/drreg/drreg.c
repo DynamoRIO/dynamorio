@@ -196,7 +196,10 @@ static void
 restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
             instrlist_t *ilist, instr_t *where, bool release)
 {
-    ASSERT(pt->slot_use[slot] == reg, "internal tracking error");
+    ASSERT(pt->slot_use[slot] == reg ||
+           /* aflags can be saved and restored using different regs */
+           (slot == AFLAGS_SLOT && pt->slot_use[slot] != DR_REG_NULL),
+           "internal tracking error");
     if (release)
         pt->slot_use[slot] = DR_REG_NULL;
     if (slot < ops.num_spill_slots) {
