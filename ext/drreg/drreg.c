@@ -168,7 +168,7 @@ find_free_slot(per_thread_t *pt)
     return MAX_SPILLS;
 }
 
-/* Up to caller to update pt->reg other than .ever_spilled.
+/* Up to caller to update pt->reg, including .ever_spilled.
  * This routine updates pt->slot_use.
  */
 static void
@@ -178,7 +178,6 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
     ASSERT(pt->slot_use[slot] == DR_REG_NULL ||
            pt->slot_use[slot] == reg, "internal tracking error");
     pt->slot_use[slot] = reg;
-    pt->reg[GPR_IDX(reg)].ever_spilled = true;
     if (slot < ops.num_spill_slots) {
         dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                                 tls_slot_offs + slot*sizeof(reg_t), reg);
@@ -501,6 +500,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 }
                 spill_reg(drcontext, pt, reg,
                           pt->reg[GPR_IDX(reg)].slot, bb, next/*after*/);
+                pt->reg[GPR_IDX(reg)].ever_spilled = true;
                 if (!restored_for_read[GPR_IDX(reg)])
                     restore_reg(drcontext, pt, reg, tmp_slot, bb, next/*after*/, true);
             }
@@ -714,6 +714,7 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
             LOG(drcontext, LOG_ALL, 3, "%s @"PFX": spilling %s\n",
                 __FUNCTION__, instr_get_app_pc(where), get_register_name(reg));
             spill_reg(drcontext, pt, reg, slot, ilist, where);
+            pt->reg[GPR_IDX(reg)].ever_spilled = true;
         } else {
             LOG(drcontext, LOG_ALL, 3, "%s @"PFX": no need to spill %s\n",
                 __FUNCTION__, instr_get_app_pc(where), get_register_name(reg));
