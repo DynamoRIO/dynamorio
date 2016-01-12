@@ -590,6 +590,7 @@ ASSUME fs:_DATA @N@\
         call     callee        @N@\
         STACK_UNPAD_LE4(2, 3)
 #elif defined(ARM)
+/* Our assembly is ARM but our C code is Thumb so we use blx */
 # define CALLC0(callee)    \
         blx      callee
 # define CALLC1(callee, p1)    \

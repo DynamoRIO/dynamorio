@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4149,7 +4149,8 @@ master_signal_handler_C(byte *xsp)
              * need to store it on every setjmp.
              */
             /* Verify that there's no scenario where the mask gets changed prior
-             * to a fault inside a try
+             * to a fault inside a try.  This relies on dr_setjmp_sigmask() filling
+             * in the mask, which we only bother to do in debug build.
              */
             ASSERT(memcmp(&try_cxt->context.sigmask,
                           &ucxt->uc_sigmask, sizeof(ucxt->uc_sigmask)) == 0);

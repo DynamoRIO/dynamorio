@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -41,6 +41,7 @@ START_FILE
 DECL_EXTERN(dynamorio_app_take_over_helper)
 #if defined(UNIX)
 DECL_EXTERN(master_signal_handler_C)
+DECL_EXTERN(dr_setjmp_sigmask)
 #endif
 
 DECL_EXTERN(exiting_thread_count)
@@ -475,9 +476,11 @@ GLOBAL_LABEL(dr_setjmp:)
 #endif
         /* we do not have to save r0 (return value) or r15 (pc) */
         /* optimization: can we trust callee-saved regs r0-r3 and not save them? */
+        push     {lr}
         stm      ARG1, {REG_R1-REG_R12, sp, lr}
+        CALLC1(GLOBAL_REF(dr_setjmp_sigmask), ARG1)
         mov      REG_R0, #0
-        bx       lr
+        pop      {pc}
         END_FUNC(dr_setjmp)
 
 /* int cdecl dr_longjmp(dr_jmp_buf *buf, int retval);
