@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -274,8 +274,7 @@ opnd_create_pc(app_pc pc)
 #ifdef X86
 # define OPND_GET_SCALE(opnd) (GET_BASE_DISP(opnd).scale)
 #else
-# define OPND_GET_SCALE(opnd) \
-    (CLIENT_ASSERT_(false, "opnd_get_scale not supported on ARM") 0)
+# define OPND_GET_SCALE(opnd) 0
 #endif
 
 #define opnd_get_base OPND_GET_BASE

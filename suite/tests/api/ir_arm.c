@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,6 +116,25 @@ test_pcrel(void *dc)
     instr_free(dc, inst);
 }
 
+static void
+test_opnd(void *dc)
+{
+    uint amount;
+    opnd_t op1 = opnd_create_base_disp_arm(DR_REG_R4, DR_REG_R7, DR_SHIFT_ASR, 4,
+                                           0, DR_OPND_NEGATED, OPSZ_PTR);
+    dr_opnd_flags_t orig_flags = opnd_get_flags(op1);
+    bool ok = opnd_replace_reg(&op1, DR_REG_R7, DR_REG_R9);
+    ASSERT(opnd_get_base(op1) == DR_REG_R4);
+    ASSERT(opnd_get_index(op1) == DR_REG_R9);
+    ASSERT(opnd_get_disp(op1) == 0);
+    ASSERT(opnd_get_size(op1) == OPSZ_PTR);
+    /* Ensure ARM-specific fields are preserved (i#1847) */
+    ASSERT(opnd_get_flags(op1) == orig_flags);
+    ASSERT(opnd_get_index_shift(op1, &amount) == DR_SHIFT_ASR && amount == 4);
+
+    /* XXX: test other routines like opnd_defines_use() */
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -132,6 +151,8 @@ main(int argc, char *argv[])
     test_pcrel(dcontext);
 
     test_pred(dcontext);
+
+    test_opnd(dcontext);
 
     print("all done\n");
     return 0;

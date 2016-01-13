@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1048,13 +1048,20 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             if (old_reg == ob || old_reg == oi || old_reg == os) {
                 reg_id_t b = (old_reg == ob) ? new_reg : ob;
                 reg_id_t i = (old_reg == oi) ? new_reg : oi;
-                reg_id_t s = (old_reg == os) ? new_reg : os;
-                int sc = opnd_get_scale(*opnd);
                 int d = opnd_get_disp(*opnd);
+#ifdef ARM
+                uint amount;
+                dr_shift_type_t shift = opnd_get_index_shift(*opnd, &amount);
+                dr_opnd_flags_t flags = opnd_get_flags(*opnd);
+                *opnd = opnd_create_base_disp_arm(b, i, shift, amount, d, flags, size);
+#elif defined(X86)
+                int sc = opnd_get_scale(*opnd);
+                reg_id_t s = (old_reg == os) ? new_reg : os;
                 *opnd = opnd_create_far_base_disp_ex(s, b, i, sc, d, size,
                                                      opnd_is_disp_encode_zero(*opnd),
                                                      opnd_is_disp_force_full(*opnd),
                                                      opnd_is_disp_short_addr(*opnd));
+#endif
                 return true;
             }
         }
@@ -1099,6 +1106,9 @@ bool opnd_same_address(opnd_t op1, opnd_t op2)
     if (opnd_get_segment(op1) != opnd_get_segment(op2))
         return false;
     if (opnd_is_base_disp(op1)) {
+#ifdef ARM
+        uint amount1, amount2;
+#endif
         if (!opnd_is_base_disp(op2))
             return false;
         if (opnd_get_base(op1) != opnd_get_base(op2))
@@ -1109,6 +1119,13 @@ bool opnd_same_address(opnd_t op1, opnd_t op2)
             return false;
         if (opnd_get_disp(op1) != opnd_get_disp(op2))
             return false;
+#ifdef ARM
+        if (opnd_get_index_shift(op1, &amount1) != opnd_get_index_shift(op2, &amount2) ||
+            amount1 != amount2)
+            return false;
+        if (opnd_get_flags(op1) != opnd_get_flags(op2))
+            return false;
+#endif
     } else {
 #if defined(X64) || defined(ARM)
         CLIENT_ASSERT(IF_X64(opnd_is_abs_addr(op1) ||) opnd_is_rel_addr(op1),
@@ -1264,7 +1281,10 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
         return false;
     case REG_kind:
         return opnd_uses_reg(use, opnd_get_reg(def));
-    case BASE_DISP_kind:
+    case BASE_DISP_kind: {
+#ifdef ARM
+        uint amount1, amount2;
+#endif
         if (!opnd_is_memory_reference(use))
             return false;
 #ifdef X64
@@ -1282,10 +1302,18 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
             return true;
         if (opnd_get_segment(def) != opnd_get_segment(use))
             return true;
+#ifdef ARM
+        if (opnd_get_index_shift(def, &amount1) != opnd_get_index_shift(use, &amount2) ||
+            amount1 != amount2)
+            return true;
+        if (opnd_get_flags(def) != opnd_get_flags(use))
+            return true;
+#endif
         /* everything is identical, now make sure disps don't overlap */
         return range_overlap(opnd_get_disp(def), opnd_get_disp(use),
                              opnd_size_in_bytes(opnd_get_size(def)),
                              opnd_size_in_bytes(opnd_get_size(use)));
+    }
 #if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
 #endif
