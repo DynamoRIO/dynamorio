@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -236,6 +236,7 @@ ASSUME fs:_DATA @N@\
 
 /* register set */
 #ifdef ARM
+# define REG_SP sp
 # ifdef X64
 #  define REG_R0  x0
 #  define REG_R1  x1
@@ -333,15 +334,15 @@ ASSUME fs:_DATA @N@\
 #  define ARG7 REG_R6
 #  define ARG8 REG_R7
 /* Arguments are passed on stack right-to-left. */
-#  define ARG9  QWORD [0*ARG_SZ + REG_SP] /* no ret addr */
-#  define ARG10 QWORD [1*ARG_SZ + REG_SP]
+#  define ARG9  QWORD [REG_SP, #(0*ARG_SZ)] /* no ret addr */
+#  define ARG10 QWORD [REG_SP, #(1*ARG_SZ)]
 # else /* 32-bit */
-#  define ARG5  DWORD [0*ARG_SZ + REG_SP] /* no ret addr */
-#  define ARG6  DWORD [1*ARG_SZ + REG_SP]
-#  define ARG7  DWORD [2*ARG_SZ + REG_SP]
-#  define ARG8  DWORD [3*ARG_SZ + REG_SP]
-#  define ARG9  DWORD [4*ARG_SZ + REG_SP]
-#  define ARG10 DWORD [5*ARG_SZ + REG_SP]
+#  define ARG5  DWORD [REG_SP, #(0*ARG_SZ)] /* no ret addr */
+#  define ARG6  DWORD [REG_SP, #(1*ARG_SZ)]
+#  define ARG7  DWORD [REG_SP, #(2*ARG_SZ)]
+#  define ARG8  DWORD [REG_SP, #(3*ARG_SZ)]
+#  define ARG9  DWORD [REG_SP, #(4*ARG_SZ)]
+#  define ARG10 DWORD [REG_SP, #(5*ARG_SZ)]
 # endif /* 64/32-bit */
 # define ARG1_NORETADDR  ARG1
 # define ARG2_NORETADDR  ARG2

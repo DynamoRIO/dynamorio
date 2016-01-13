@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -309,12 +309,25 @@ replacewith(int *x)
 }
 
 static int
+on_clean_stack(int i, int j, int k, int l, int m, int n, int o, int p)
+{
+    return i + j + k + l + m + n + o + p;
+}
+
+static int
 replacewith2(int *x)
 {
     ptr_int_t param = dr_read_saved_reg(dr_get_current_drcontext(),
                                     DRWRAP_REPLACE_NATIVE_DATA_SLOT);
     CHECK(param == DRWRAP_NATIVE_PARAM, "native param wrong");
-    *x = 999;
+    /* Test dr_call_on_clean_stack() */
+    *x = (int)(ptr_uint_t)
+        dr_call_on_clean_stack(dr_get_current_drcontext(),
+                               (void *(*)(void)) on_clean_stack,
+                               (void *)(ptr_uint_t)500, (void *)(ptr_uint_t)400,
+                               (void *)(ptr_uint_t)50, (void *)(ptr_uint_t)40,
+                               (void *)(ptr_uint_t)4, (void *)(ptr_uint_t)3,
+                               (void *)(ptr_uint_t)1, (void *)(ptr_uint_t)1);
     /* We must call this prior to returning, to avoid going native.
      * This also serves as a test of dr_redirect_native_target()
      * as drwrap's continuation relies on that.

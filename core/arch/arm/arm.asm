@@ -154,10 +154,49 @@ call_dispatch_alt_stack_no_free:
 
 
 #ifdef CLIENT_INTERFACE
-/* FIXME i#1551: NYI on ARM */
+/*
+ * Calls the specified function 'func' after switching to the DR stack
+ * for the thread corresponding to 'drcontext'.
+ * Passes in 8 arguments.  Uses the C calling convention, so 'func' will work
+ * just fine even if if takes fewer than 8 args.
+ * Swaps the stack back upon return and returns the value returned by 'func'.
+ *
+ * void * dr_call_on_clean_stack(void *drcontext,            //
+ *                               void *(*func)(arg1...arg8), // 0*ARG_SZ+r4
+ *                               void *arg1,                 // 1*ARG_SZ+r4
+ *                               void *arg2,                 // 2*ARG_SZ+r4
+ *                               void *arg3,                 // 6*ARG_SZ+r4
+ *                               void *arg4,                 // 7*ARG_SZ+r4
+ *                               void *arg5,                 // 8*ARG_SZ+r4
+ *                               void *arg6,                 // 9*ARG_SZ+r4
+ *                               void *arg7,                 //10*ARG_SZ+r4
+ *                               void *arg8)                 //11*ARG_SZ+r4
+ */
         DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
 GLOBAL_LABEL(dr_call_on_clean_stack:)
-        bl       GLOBAL_REF(unexpected_return)
+        /* We need a callee-saved reg across the call: we use r4. */
+        push     {REG_R1-REG_R5, lr}
+        mov      REG_R4, REG_SP /* save sp across the call */
+        mov      REG_R5, ARG2 /* save function in non-param reg */
+        /* Swap stacks */
+        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R0, dstack_OFFSET, REG_SP)
+        /* Set up args */
+        sub      REG_SP, #(4*ARG_SZ)
+        ldr      REG_R0, [REG_R4, #(11*ARG_SZ)]
+        str      REG_R0, ARG8
+        ldr      REG_R0, [REG_R4, #(10*ARG_SZ)]
+        str      REG_R0, ARG7
+        ldr      REG_R0, [REG_R4, #(9*ARG_SZ)]
+        str      REG_R0, ARG6
+        ldr      REG_R0, [REG_R4, #(8*ARG_SZ)]
+        str      REG_R0, ARG5
+        ldr      ARG4, [REG_R4, #(7*ARG_SZ)]
+        ldr      ARG3, [REG_R4, #(6*ARG_SZ)]
+        ldr      ARG2, [REG_R4, #(2*ARG_SZ)]
+        ldr      ARG1, [REG_R4, #(1*ARG_SZ)]
+        blx      REG_R5
+        mov      REG_SP, REG_R4
+        pop      {REG_R1-REG_R5, pc} /* don't need r1-r3 values but this is simplest */
         END_FUNC(dr_call_on_clean_stack)
 #endif /* CLIENT_INTERFACE */
 
