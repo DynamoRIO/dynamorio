@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2139,6 +2139,11 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     int memcount = -1;
     bool write = false;
     bool have_addr = false;
+    /* We allow not selecting xmm fields since clients may legitimately
+     * emulate a memref w/ just GPRs
+     */
+    CLIENT_ASSERT(TESTALL(DR_MC_CONTROL|DR_MC_INTEGER, mc_flags),
+                  "dr_mcontext_t.flags must include DR_MC_CONTROL and DR_MC_INTEGER");
     for (i=0; i<instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {

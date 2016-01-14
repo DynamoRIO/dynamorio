@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3176,11 +3176,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
 priv_mcontext_t *
 dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 {
-    /* We allow not selected xmm fields since clients may legitimately
-     * emulate a memref w/ just GPRs
-     */
-    CLIENT_ASSERT(TESTALL(DR_MC_CONTROL|DR_MC_INTEGER, mc->flags),
-                  "dr_mcontext_t.flags must include DR_MC_CONTROL and DR_MC_INTEGER");
+    /* It's up to the caller to ensure the proper DR_MC_ flags are set (i#1848) */
     return (priv_mcontext_t*)(&MCXT_FIRST_REG_FIELD(mc));
 }
 
