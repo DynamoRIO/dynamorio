@@ -1787,9 +1787,10 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     if (instr_reg_in_src(instr, reg))
         return true;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
-        return false;
-
+    /* As a special case, the addressing registers inside a destination memory
+     * operand are covered by DR_QUERY_INCLUDE_COND_SRCS rather than
+     * DR_QUERY_INCLUDE_COND_DSTS (i#1849).
+     */
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
         if (!opnd_is_reg(opnd) && opnd_uses_reg(opnd, reg))

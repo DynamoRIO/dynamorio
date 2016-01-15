@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3060,7 +3060,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!adjusted_cur_pc) {
             bb->cur_pc = decode_next_pc(dcontext, xl8);
             LOG(THREAD, LOG_INTERP, 3,
-                "setting cur_pc (for fall-through) to" PFX"\n", bb->cur_pc);
+                "setting cur_pc (for fall-through) to " PFX"\n", bb->cur_pc);
         }
 
         /* don't set bb->instr if last instr is still syscall/int.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -305,6 +305,9 @@ typedef struct _dr_instr_label_data_t {
  * Bitmask values passed as flags to routines that ask about whether operands
  * and condition codes are read or written.  These flags determine how to treat
  * conditionally executed instructions.
+ * As a special case, the addressing registers inside a destination memory
+ * operand are covered by DR_QUERY_INCLUDE_COND_SRCS rather than
+ * DR_QUERY_INCLUDE_COND_DSTS.
  */
 typedef enum _dr_opnd_query_flags_t {
     /**
@@ -313,7 +316,9 @@ typedef enum _dr_opnd_query_flags_t {
      * for an instruction that is predicated and executes conditionally (see
      * instr_is_predicated()).  If this flag is set, a conditionally executed
      * instruction's destinations are included just like any other
-     * instruction's.
+     * instruction's.  As a special case, the addressing registers inside a
+     * destination memory operand are covered by DR_QUERY_INCLUDE_COND_SRCS
+     * rather than this flag.
      */
     DR_QUERY_INCLUDE_COND_DSTS = 0x01,
     /**
@@ -323,6 +328,8 @@ typedef enum _dr_opnd_query_flags_t {
      * instr_is_predicated()), except for predication conditions that involve
      * the source operand values.  If this flag is set, a conditionally executed
      * instruction's sources are included just like any other instruction's.
+     * As a special case, the addressing registers inside a destination memory
+     * operand are covered by this flag rather than DR_QUERY_INCLUDE_COND_DSTS.
      */
     DR_QUERY_INCLUDE_COND_SRCS = 0x02,
     /** The default value that typical liveness analysis would want to use. */
@@ -1626,6 +1633,9 @@ DR_API
  *
  * Which operands are considered to be accessed for conditionally executed
  * instructions are controlled by \p flags.
+ * As a special case, the addressing registers inside a destination memory
+ * operand are covered by DR_QUERY_INCLUDE_COND_SRCS rather than
+ * DR_QUERY_INCLUDE_COND_DSTS.
  */
 bool
 instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);

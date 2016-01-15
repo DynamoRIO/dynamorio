@@ -291,6 +291,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
         /* GPR liveness */
         for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
             void *value = REG_LIVE;
+            /* DRi#1849: COND_SRCS here includes addressing regs in dsts */
             if (xfer || instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
                 value = REG_LIVE;
             /* make sure we don't consider writes to sub-regs */
@@ -566,6 +567,7 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
             void *value = REG_UNKNOWN;
             if (drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, 0) != REG_UNKNOWN)
                 continue;
+            /* DRi#1849: COND_SRCS here includes addressing regs in dsts */
             if (instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
                 value = REG_LIVE;
             /* make sure we don't consider writes to sub-regs */
