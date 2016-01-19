@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5954,11 +5954,13 @@ read_version_struct_header(byte *start, byte *valid_start, size_t valid_size,
 
     ASSERT(head != NULL && ((key_ref == NULL && match == NULL) ||
                             (key_ref != NULL && match != NULL)));
-
     if (key_ref != NULL) {
         key_length = sizeof(wchar_t)*(wcslen(key_ref) + 1);
         space_needed += key_length;
     }
+    /* i#1853: on win10 we see final entries with just 2 zero fields and no
+     * further space.  We return NULL for those.
+     */
     if (!CHECK_SAFE_READ(cur, space_needed, valid_start, valid_size))
         return NULL;
     cur_u = (ushort *)cur;
@@ -6072,7 +6074,13 @@ read_string_or_var_info(void *string_or_var_info, void *version_info,
     cur = read_version_struct_header(cur, (byte *)version_info, version_info_size,
                                      &head, L"StringFileInfo", &match);
     if (cur == NULL) {
-        ASSERT_CURIOSITY(false && "read off end of rsrc version");
+        /* i#1853: on Win10 we see final entries with just 2 zero fields */
+        ASSERT_CURIOSITY((byte *)string_or_var_info >= (byte *)version_info &&
+                         (byte *)string_or_var_info + sizeof(uint) <=
+                         (byte *)version_info + version_info_size &&
+                         /* we read 2 ushort fields at once */
+                         *(uint *)string_or_var_info == 0 &&
+                         "read off end of rsrc version");
         return NULL;
     }
     if (!match) {
