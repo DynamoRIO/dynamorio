@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,11 +84,17 @@
 #  define LIB_ASM_SEG "%gs"
 # endif
 #elif defined(ARM)
+/* The SEG_TLS is not preserved by all kernels (older 32-bit, or all 64-bit), so we
+ * end up having to steal the app library TPID register for priv lib use.
+ * When in DR state, we steal a field inside the priv lib TLS to store the DR base.
+ * When in app state in the code cache, we steal a GPR (r10 by default) to store
+ * the DR base.
+ */
 # ifdef X64
-#  define SEG_TLS      DR_REG_TPIDRRO_EL0 /* DR_REG_TPIDRURO */
+#  define SEG_TLS      DR_REG_TPIDRRO_EL0 /* DR_REG_TPIDRURO, but we can't use it */
 #  define LIB_SEG_TLS  DR_REG_TPIDR_EL0   /* DR_REG_TPIDRURW, libc+loader tls */
 # else
-#  define SEG_TLS      DR_REG_TPIDRURW
+#  define SEG_TLS      DR_REG_TPIDRURW /* not restored by older kernel => we can't use */
 #  define LIB_SEG_TLS  DR_REG_TPIDRURO /* libc+loader tls */
 # endif /* 64/32-bit */
 #endif /* X86/ARM */
@@ -103,13 +109,14 @@
 #  error NYI on AArch64
 # endif
 /* The TLS slot for DR's TLS base.
- * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base.
- * typedef struct
- * {
- *   dtv_t *dtv;
- *   void *private;
- * } tcbhead_t;
- * When using private loader, we control all the TLS allocation and
+ * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base,
+ * as we can't use the alternate TLS register b/c the kernel doesn't preserve it.
+ *   typedef struct
+ *   {
+ *     dtv_t *dtv;
+ *     void *private;
+ *   } tcbhead_t;
+ * When using the private loader, we control all the TLS allocation and
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
  */
