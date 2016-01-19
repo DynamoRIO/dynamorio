@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -428,7 +428,22 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
              * handled above. Give up gracefully if we hit any other cti.
              * XXX: what about jmp to shared ret (seen in the past on some syscalls)?
              */
-            break;
+            /* Update: win10 TH2 1511 x64 has a cti:
+             *   ntdll!NtContinue:
+             *   00007ff9`13185630 4c8bd1          mov     r10,rcx
+             *   00007ff9`13185633 b843000000      mov     eax,43h
+             *   00007ff9`13185638 f604250803fe7f01 test    byte ptr [SharedUserData+0x308 (00000000`7ffe0308)],1
+             *   00007ff9`13185640 7503            jne     ntdll!NtContinue+0x15 (00007ff9`13185645)
+             *   00007ff9`13185642 0f05            syscall
+             *   00007ff9`13185644 c3              ret
+             *   00007ff9`13185645 cd2e            int     2Eh
+             *   00007ff9`13185647 c3              ret
+             */
+            if (expect_x64 && instr_is_cbr(instr) &&
+                opnd_get_pc(instr_get_target(instr)) == pc + 3/*syscall;ret*/) {
+                /* keep going */
+            } else
+                break;
         } else if ((!found_eax || !found_edx || !found_ecx) &&
                    instr_get_opcode(instr) == OP_mov_imm &&
                    opnd_is_reg(instr_get_dst(instr, 0))) {

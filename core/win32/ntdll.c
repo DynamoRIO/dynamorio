@@ -459,7 +459,10 @@ syscalls_init()
         return false;
     ASSERT(syscalls != NULL);
 
-    /* check 10th and 11th bytes:
+    /* We check the 10th and 11th bytes to identify the gateway.
+     * XXX i#1854: we should try and reduce how fragile we are wrt small
+     * changes in syscall wrapper sequences.
+     *
      *  int 2e: {2k}
      *    77F97BFA: B8 BA 00 00 00     mov         eax,0BAh
      *    77F97BFF: 8D 54 24 04        lea         edx,[esp+4]
@@ -511,6 +514,15 @@ syscalls_init()
      *    77ced5c7 c3              ret
      *    77ced5c8 eacfd5ce773300  jmp     0033:77CED5CF
      *    77ced5cf 41              inc     ecx
+     *  win10-TH2(1511) x64:
+     *    00007ff9`13185630 4c8bd1          mov     r10,rcx
+     *    00007ff9`13185633 b843000000      mov     eax,43h
+     *    00007ff9`13185638 f604250803fe7f01 test    byte ptr [SharedUserData+0x308 (00000000`7ffe0308)],1
+     *    00007ff9`13185640 7503            jne     ntdll!NtContinue+0x15 (00007ff9`13185645)
+     *    00007ff9`13185642 0f05            syscall
+     *    00007ff9`13185644 c3              ret
+     *    00007ff9`13185645 cd2e            int     2Eh
+     *    00007ff9`13185647 c3              ret
      */
     if (check == 0x2ecd) {
         dr_which_syscall_t = DR_SYSCALL_INT2E;
@@ -536,11 +548,12 @@ syscalls_init()
             ASSERT(teb != NULL && teb->WOW32Reserved != NULL);
         });
 #ifdef X64 /* PR 205898 covers 32-bit syscall support */
-    } else if (check == 0xc305) {
+    } else if (check == 0xc305 || check == 0x2504) {
         dr_which_syscall_t = DR_SYSCALL_SYSCALL;
         set_syscall_method(SYSCALL_METHOD_SYSCALL);
         /* ASSERT is syscall */
-        ASSERT(*(byte *)(int_target - 1) == 0x0f);
+        ASSERT(*(int_target - 1) == 0x0f ||
+               *(ushort *)(int_target + 9) == 0x050f);
 #endif
     } else if (check == 0xff7f &&
                /* rule out win10 wow64 */

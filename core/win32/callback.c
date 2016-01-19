@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1895,6 +1895,9 @@ un_intercept_call(byte *our_pc, byte *tgt_pc)
  * and similar apps. Returns true if syscall wrapper required cleaning */
 /* FIXME - use this for our hook conflict squash policy in intercept_syscall_wrapper as
  * this can handle more complicated hooks. */
+/* XXX i#1854: we should try and reduce how fragile we are wrt small
+ * changes in syscall wrapper sequences.
+ */
 static bool
 clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
 {
@@ -1960,15 +1963,34 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
      *   mov eax, sysnum       {5 bytes}
      *   syscall               {2 bytes}
      *   ret                   {1 byte}
+     *
+     * win10-TH2(1511) x64:
+     *   4c8bd1          mov     r10,rcx
+     *   b843000000      mov     eax,43h
+     *   f604250803fe7f01 test    byte ptr [SharedUserData+0x308 (00000000`7ffe0308)],1
+     *   7503            jne     ntdll!NtContinue+0x15 (00007ff9`13185645)
+     *   0f05            syscall
+     *   c3              ret
+     *   cd2e            int     2Eh
+     *   c3              ret
      */
 
     /* build correct instr list */
 #define APP(list, inst) instrlist_append((list), (inst))
+#define WIN1511_SHUSRDATA_SYS 0x7ffe0308
+#define WIN1511_JNE_OFFS 0x15
 #ifdef X64
     APP(ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R10),
                                    opnd_create_reg(REG_RCX)));
     APP(ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EAX),
                                     OPND_CREATE_INT32(sysnum)));
+    if (get_os_version() >= WINDOWS_VERSION_10_1511) {
+        APP(ilist, INSTR_CREATE_test
+            (dcontext, OPND_CREATE_MEM8(DR_REG_NULL, WIN1511_SHUSRDATA_SYS),
+             OPND_CREATE_INT8(1)));
+        APP(ilist, INSTR_CREATE_jcc
+            (dcontext, OP_jne_short, opnd_create_pc(nt_wrapper + WIN1511_JNE_OFFS)));
+    }
     APP(ilist, INSTR_CREATE_syscall(dcontext));
     APP(ilist, INSTR_CREATE_ret(dcontext));
 #else
@@ -2157,6 +2179,9 @@ exit_clean_syscall_wrapper:
  * can be turned into a direct call, which is only safe for XP SP2 if the
  * vsyscall page is not writable, and cannot be made writable, which is what we
  * have observed to be true.
+ *
+ * XXX i#1854: we should try and reduce how fragile we are wrt small
+ * changes in syscall wrapper sequences.
  */
 
 /* Helper function that returns the after-hook pc */
@@ -2344,6 +2369,16 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
     instr = instr_create(dcontext);
     after_hook_target = pc;
     pc = decode(dcontext, pc, instr);
+    /* i#1825: win10 TH2 has a test;jne here */
+    if (instr_get_opcode(instr) == OP_test) {
+        instrlist_append(ilist, instr);
+        instr = instr_create(dcontext);
+        pc = decode(dcontext, pc, instr);
+        ASSERT(instr_get_opcode(instr) == OP_jne_short);
+        instrlist_append(ilist, instr);
+        instr = instr_create(dcontext);
+        pc = decode(dcontext, pc, instr);
+    }
     *ret_pc = pc;
     ASSERT(instr_get_opcode(instr) == OP_syscall);
     instr_destroy(dcontext, instr);

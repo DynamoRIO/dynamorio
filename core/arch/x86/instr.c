@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -622,7 +622,8 @@ instr_is_wow64_syscall(instr_t *instr)
          */
         static const byte WOW64_SYSSVC[] = {
             0x64,0x8b,0x15,0x30,0x00,0x00,0x00,  /* mov edx,dword ptr fs:[30h] */
-            0x8b,0x92,0x54,0x02,0x00,0x00        /* mov edx,dword ptr [edx+254h] */
+            /* The offset here varies across updates so we do do not check it */
+            0x8b,0x92,                           /* mov edx,dword ptr [edx+254h] */
         };
         byte tgt_code[sizeof(WOW64_SYSSVC)];
         if (instr_get_opcode(instr) != OP_call_ind)
