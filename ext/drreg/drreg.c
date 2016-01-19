@@ -789,22 +789,35 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* check if app_reg is stolen reg */
     if (app_reg == dr_get_stolen_reg()) {
+        /* DR will refuse to load into the same reg (the caller must use
+         * opnd_replace_reg() with a scratch reg in that case).
+         */
+        if (dst_reg == app_reg)
+            return DRREG_ERROR_INVALID_PARAMETER;
         if (dr_insert_get_stolen_reg_value(drcontext, ilist, where, dst_reg))
             return DRREG_SUCCESS;
         ASSERT(false, "internal error on getting stolen reg app value");
         return DRREG_ERROR;
     }
-    /* check if app_reg is an unreserved reg */
-    if (!pt->reg[GPR_IDX(app_reg)].in_use) {
-        PRE(ilist, where, XINST_CREATE_move(drcontext,
-                                            opnd_create_reg(dst_reg),
-                                            opnd_create_reg(app_reg)));
+
+    /* check if app_reg is an unspilled reg */
+    if (pt->reg[GPR_IDX(app_reg)].native) {
+        LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": reg %s already native\n", __FUNCTION__,
+            pt->live_idx, instr_get_app_pc(where), get_register_name(app_reg));
+        if (dst_reg != app_reg) {
+            PRE(ilist, where, XINST_CREATE_move(drcontext,
+                                                opnd_create_reg(dst_reg),
+                                                opnd_create_reg(app_reg)));
+        }
         return DRREG_SUCCESS;
     }
 
     /* we may have lost the app value for a dead reg */
-    if (!pt->reg[GPR_IDX(app_reg)].ever_spilled)
+    if (!pt->reg[GPR_IDX(app_reg)].ever_spilled) {
+        LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": reg %s never spilled\n", __FUNCTION__,
+            pt->live_idx, instr_get_app_pc(where), get_register_name(app_reg));
         return DRREG_ERROR_NO_APP_VALUE;
+    }
     /* restore app value back to app_reg */
     if (pt->reg[GPR_IDX(app_reg)].xchg != DR_REG_NULL) {
         /* XXX i#511: NYI */
@@ -883,8 +896,14 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
             *tls_offs = tls_slot_offs + slot*sizeof(reg_t);
     } else {
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
-        if (opnd != NULL)
-            *opnd = dr_reg_spill_slot_opnd(drcontext, DR_slot);
+        if (opnd != NULL) {
+            if (DR_slot < dr_max_opnd_accessible_spill_slot())
+                *opnd = dr_reg_spill_slot_opnd(drcontext, DR_slot);
+            else {
+                /* Multi-step so no single opnd */
+                *opnd = opnd_create_null();
+            }
+        }
         if (is_dr_slot != NULL)
             *is_dr_slot = true;
         if (tls_offs != NULL)

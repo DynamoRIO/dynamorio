@@ -110,9 +110,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
         /* test get random reg to reg */
         res = drreg_get_app_value(drcontext, bb, inst, random, reg);
-        CHECK(res == DRREG_SUCCESS ||
-              (res == DRREG_ERROR_NO_APP_VALUE && reg == random),
-              "get random reg app value should always work");
+        CHECK(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE,
+              "get random reg app value should only fail on dead reg");
+        if (res == DRREG_ERROR_NO_APP_VALUE) {
+            bool dead;
+            res = drreg_is_register_dead(drcontext, random, inst, &dead);
+            CHECK(res == DRREG_SUCCESS && dead, "get app val should only fail when dead");
+        }
         /* query tests */
         res = drreg_aflags_liveness(drcontext, inst, &flags);
         CHECK(res == DRREG_SUCCESS, "query of aflags should work");
@@ -239,6 +243,9 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    /* We actually need 3 slots (flags + 2 scratch) but we want to test using
+     * a DR slot.
+     */
     drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
     if (!drmgr_init() ||
         drreg_init(&ops) != DRREG_SUCCESS)

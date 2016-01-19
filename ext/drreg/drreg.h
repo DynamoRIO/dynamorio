@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -315,6 +315,12 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * On ARM, asking to place the application value of the register
+ * returned by dr_get_stolen_reg() into itself is not supported.
+ * Instead the caller should use dr_insert_get_stolen_reg_value() and
+ * opnd_replace_reg() to swap the use of the stolen register within a
+ * tool instruction with a scratch register.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -327,7 +333,9 @@ DR_EXPORT
  * must be a currently-reserved register.
  *
  * If \p opnd is non-NULL, returns an opnd_t in \p opnd that references
- * the TLS slot assigned to \p reg.
+ * the TLS slot assigned to \p reg.  If too many slots are in use and
+ * \p reg is stored in a non-directly-addressable slot, returns a null
+ * #opnd_t in \p opnd.
  *
  * If \p is_dr_slot is non-NULL, returns true if the slot is a DR slot
  * (and can thus be accessed by dr_read_saved_reg()) and false if the
