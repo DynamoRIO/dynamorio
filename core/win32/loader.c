@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -1508,7 +1508,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-LibraryLoader-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Fibers-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1"))
         return "kernelbase.dll";
     else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
