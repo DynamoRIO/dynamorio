@@ -1618,8 +1618,8 @@ get_retaddr_at_entry(reg_t xsp)
 
 /* may not return */
 static void
-drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wrapcxt,
-                               bool enabled)
+drwrap_mark_retaddr_for_instru(void *drcontext, app_pc decorated_pc,
+                               drwrap_context_t *wrapcxt, bool enabled)
 {
     post_call_entry_t *e;
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
@@ -1681,7 +1681,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
              */
             /* ensure we have DR_MC_ALL */
             drwrap_get_mcontext_internal((void*)wrapcxt, DR_MC_ALL);
-            wrapcxt->mc->pc = pc;
+            wrapcxt->mc->pc = decorated_pc;
             dr_redirect_execution(wrapcxt->mc);
             ASSERT(false, "dr_redirect_execution should not return");
         }
@@ -1711,9 +1711,10 @@ wrap_table_lookup_normalized_pc(app_pc pc)
  */
 static inline void
 drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
-                       drwrap_context_t *wrapcxt, app_pc pc)
+                       drwrap_context_t *wrapcxt, app_pc decorated_pc)
 {
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
+    app_pc plain_pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, decorated_pc);
     int i;
     /* avoid lock and hashtable lookup by caching prior retaddrs */
     for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
@@ -1739,11 +1740,11 @@ drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
         dr_rwlock_write_unlock(post_call_rwlock);
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
-        drwrap_mark_retaddr_for_instru(drcontext, pc, wrapcxt, enabled);
+        drwrap_mark_retaddr_for_instru(drcontext, decorated_pc, wrapcxt, enabled);
         /* if we come back, re-lookup */
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_lock(wrap_lock);
-        wrap = wrap_table_lookup_normalized_pc(pc);
+        wrap = wrap_table_lookup_normalized_pc(plain_pc);
     } else
         dr_rwlock_write_unlock(post_call_rwlock);
 }
@@ -1808,7 +1809,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
             }
         }
         if (intercept_post && wrapcxt.retaddr != NULL)
-            drwrap_ensure_postcall(drcontext, wrap, &wrapcxt, pc);
+            drwrap_ensure_postcall(drcontext, wrap, &wrapcxt, decorated_pc);
     }
 
     pt->wrap_level++;
