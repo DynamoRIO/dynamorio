@@ -94,6 +94,9 @@
 DECLARE_FREQPROT_VAR(static dcontext_t *flusher, NULL);
 /* Current allsynch-flusher, protected by thread_initexit_lock. */
 DECLARE_FREQPROT_VAR(static dcontext_t *allsynch_flusher, NULL);
+/* Current flush base and size, protected by thread_initexit_lock. */
+DECLARE_FREQPROT_VAR(static app_pc flush_base, NULL);
+DECLARE_FREQPROT_VAR(static size_t flush_size, 0);
 
 /* These global tables are kept on the heap for selfprot (case 7957) */
 
@@ -3171,6 +3174,9 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
 
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
 
+    LOG(GLOBAL, LOG_FRAGMENT, 4, "Remove shared %s "PFX" (@"PFX")\n",
+        fragment_type_name(f), f->tag, f->start_pc);
+
     /* Strategy: ensure no races in updating table or links by grabbing the high-level
      * locks that are used to synchronize additions to the table itself.
      * Then, simply remove directly from DR-only tables, and safely from ib tables.
@@ -3220,7 +3226,8 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     fragment_remove(GLOBAL_DCONTEXT, f);
     /* FIXME: we don't currently remove from thread-private ibl tables as that
      * requires walking all of the threads. */
-    ASSERT_NOT_IMPLEMENTED(!IS_IBL_TARGET(f->flags) || shared_ibt_table_used);
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(opt_jit) || !IS_IBL_TARGET(f->flags) ||
+                           shared_ibt_table_used);
 
     vm_area_remove_fragment(dcontext, f);
     /* case 8419: make marking as deleted atomic w/ fragment_t.also_vmarea field
@@ -6155,42 +6162,148 @@ flush_fragments_synchall_end(dcontext_t *ignored)
     KSTOP(synchall_flush);
 }
 
+/* Relink shared sycalls and/or special IBL transfer for thread-private scenario. */
+static void
+flush_fragments_relink_thread_syscalls(dcontext_t *dcontext, dcontext_t *tgt_dcontext,
+                                           per_thread_t *tgt_pt)
+{
+#ifdef WINDOWS
+    if (DYNAMO_OPTION(shared_syscalls)) {
+        if (SHARED_FRAGMENTS_ENABLED()) {
+            /* we cannot re-link shared_syscall here as that would allow
+             * the target thread to enter to-be-flushed fragments prior
+             * to their being unlinked and removed from ibl tables -- so
+             * we force this thread to re-link in check_flush_queue.
+             * we could re-link after unlink/removal of fragments,
+             * if it's worth optimizing == case 6194/PR 210655.
+             */
+            tgt_pt->flush_queue_nonempty = true;
+            STATS_INC(num_flushq_relink_syscall);
+        } else if (!IS_SHARED_SYSCALL_THREAD_SHARED) {
+            /* no shared fragments, and no private ones being flushed,
+             * so this thread is all set
+             */
+            link_shared_syscall(tgt_dcontext);
+        }
+    }
+#endif
+    if (special_ibl_xfer_is_thread_private()) {
+        if (SHARED_FRAGMENTS_ENABLED()) {
+            /* see shared_syscall relink comment: we have to delay the relink */
+            tgt_pt->flush_queue_nonempty = true;
+            STATS_INC(num_flushq_relink_special_ibl_xfer);
+        } else
+            link_special_ibl_xfer(dcontext);
+    }
+}
+
+static bool
+flush_fragments_thread_unlink(dcontext_t *dcontext, int thread_index,
+                                  dcontext_t *tgt_dcontext)
+{
+    per_thread_t *tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
+
+    /* if a trace-in-progress crosses this region, must squash the trace
+     * (all traces are essentially frozen now since threads stop in dispatch)
+     */
+    if (flush_size > 0 /* else, no region to cross */ &&
+        is_building_trace(tgt_dcontext)) {
+        void *trace_vmlist = cur_trace_vmlist(tgt_dcontext);
+        if (trace_vmlist != NULL &&
+            vm_list_overlaps(tgt_dcontext, trace_vmlist, flush_base,
+                             flush_base+flush_size)) {
+            LOG(THREAD, LOG_FRAGMENT, 2,
+                "\tsquashing trace of thread "TIDFMT"\n", tgt_dcontext->owning_thread);
+            trace_abort(tgt_dcontext);
+        }
+    }
+
+    /* Optimization for shared deletion strategy: perform flush work
+     * for a thread waiting at a system call on behalf of that thread
+     * (which we do before the flush tail synch, as if we did it now we
+     * would need to inc flushtime_global up front, and then we'd have synch
+     * issues trying to prevent thread we hadn't synched with from checking
+     * the pending list before we put flushed fragments on it).
+     * We do count these threads in the ref count as we check the pending
+     * queue on their behalf after adding the newly flushed fragments to
+     * the queue, so the ref count gets decremented right away.
+     *
+     * We must do this AFTER unlinking shared_syscall's post-syscall ibl, to
+     * avoid races -- the thread will hit a real synch point before accessing
+     * any fragments or link info.
+     * Do this BEFORE checking whether fragments in region to catch all threads.
+     */
+    ASSERT(!tgt_pt->at_syscall_at_flush);
+    if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
+        /* we have to know exactly which threads were at_syscall here when
+         * we get to post-flush, so we cache in this special bool
+         */
+        DEBUG_DECLARE(bool tables_updated;)
+        tgt_pt->at_syscall_at_flush = true;
+#ifdef DEBUG
+        tables_updated =
+#endif
+            update_all_private_ibt_table_ptrs(tgt_dcontext, tgt_pt);
+        STATS_INC(num_shared_flush_atsyscall);
+        DODEBUG({
+            if (tables_updated)
+                STATS_INC(num_shared_tables_updated_atsyscall);
+        });
+    }
+
+    /* don't need to go any further if thread has no frags in region */
+    if (flush_size == 0 ||
+        !thread_vm_area_overlap(tgt_dcontext, flush_base, flush_base+flush_size)) {
+        LOG(THREAD, LOG_FRAGMENT, 2,
+            "\tthread "TIDFMT" has no fragments in region to flush\n",
+            tgt_dcontext->owning_thread);
+        return true; /* true: relink syscalls now b/c skipping vm_area_flush_fragments */
+    }
+
+    LOG(THREAD, LOG_FRAGMENT, 2, "\tflushing fragments for thread "TIDFMT"\n",
+        flush_threads[thread_index]->id);
+    DOLOG(2, LOG_FRAGMENT, {
+        if (tgt_dcontext != dcontext) {
+            LOG(tgt_dcontext->logfile, LOG_FRAGMENT, 2,
+                "thread "TIDFMT" is flushing our fragments\n",
+                dcontext->owning_thread);
+        }
+    });
+
+    if (flush_size > 0) {
+        /* unlink all frags in overlapping regions, and mark regions for deletion */
+        tgt_pt->flush_queue_nonempty = true;
+#ifdef DEBUG
+        num_flushed +=
+#endif
+            vm_area_unlink_fragments(tgt_dcontext, flush_base, flush_base + flush_size, 0
+                                     _IF_DGCDIAG(written_pc));
+    }
+
+    return false; /* false: syscalls remain unlinked until vm_area_flush_fragments */
+}
+
 /* This routine begins a flush of the group of fragments in the memory
- * region [base, base+size) by synchronizing with each thread and unlinking
- * all private fragments in the region.
+ * region [base, base+size) by synchronizing with each thread and
+ * invoking thread_synch_callback().
  *
- * The exec_invalid parameter must be set to indicate whether the
- * executable area is being invalidated as well or this is just a capacity
- * flush (or a flush to change instrumentation).
- *
- * If size==0 then no unlinking occurs; however, the full synch is
- * performed (so the caller should check size if no action is desired on
- * zero size).
- *
- * If size>0 and there is no executable area overlap, then no synch is
- * performed and false is returned.  The caller must acquire the executable
- * areas lock and re-check the overlap if exec area manipulation is to be
- * performed.  Returns true otherwise.
+ * If shared syscalls and/or special IBL transfer are thread-private, they will
+ * be unlinked for each thread prior to invocation of the callback. The return
+ * value of the callback indicates whether to relink these routines (true), or
+ * wait for a later operation (such as vm_area_flush_fragments()) to relink
+ * them later (false).
  */
-bool
-flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size,
-                                  /* WARNING: case 8572: the caller owning this lock
-                                   * is incompatible w/ suspend-the-world flushing!
-                                   */
-                                  bool own_initexit_lock, bool exec_invalid,
-                                  bool force_synchall _IF_DGCDIAG(app_pc written_pc))
+void
+flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
+                           bool own_initexit_lock,
+                           bool (*thread_synch_callback)(dcontext_t *dcontext,
+                                                         int thread_index,
+                                                         dcontext_t *thread_dcontext)
+                           _IF_DGCDIAG(app_pc written_pc))
 {
     dcontext_t *tgt_dcontext;
     per_thread_t *tgt_pt;
     int i;
-
-    LOG(THREAD, LOG_FRAGMENT, 2,
-        "FLUSH STAGE 1: synch_unlink_priv(thread "TIDFMT" flushtime %d): "PFX"-"PFX"\n",
-        dcontext->owning_thread, flushtime_global, base, base + size);
-    /* Case 9750: to specify a region of size 0, do not pass in NULL as the base!
-     * Use EMPTY_REGION_{BASE,SIZE} instead.
-     */
-    ASSERT(base != NULL || size != 0);
 
     /* our flushing design requires that flushers are NOT couldbelinking
      * and are not holding any locks
@@ -6211,40 +6324,6 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
         ASSERT_OWN_NO_LOCKS();
     }
 #endif
-    ASSERT(dcontext == get_thread_private_dcontext());
-
-    /* quick check for overlap first by using read lock and avoiding
-     * thread_initexit_lock:
-     * if no overlap, must hold lock through removal of region
-     * if overlap, ok to release for a bit
-     */
-    if (size > 0 && !executable_vm_area_executed_from(base, base+size)) {
-        /* Only a curiosity since we can have a race (not holding exec areas lock) */
-        ASSERT_CURIOSITY((!SHARED_FRAGMENTS_ENABLED() ||
-                          !thread_vm_area_overlap(GLOBAL_DCONTEXT, base, base+size)) &&
-                         !thread_vm_area_overlap(dcontext, base, base+size));
-        return false;
-    }
-    /* Only a curiosity since we can have a race (not holding exec areas lock) */
-    ASSERT_CURIOSITY(size == 0 ||
-                     executable_vm_area_overlap(base, base+size, false/*no lock*/));
-
-    STATS_INC(num_flushes);
-
-    if (force_synchall ||
-        (size > 0 && executable_vm_area_coarse_overlap(base, base+size))) {
-        /* Coarse units do not support individual unlinking (though prior to
-         * freezing they do, we ignore that) and instead require all-thread-synch
-         * in order to flush.  For that we cannot be already holding
-         * thread_initexit_lock!  FIXME case 8572: the only caller who does hold it
-         * now is os_thread_stack_exit().  For now relying on that stack not
-         * overlapping w/ any coarse regions.
-         */
-        ASSERT(!own_initexit_lock);
-        /* The synchall will flush fine as well as coarse so we'll be done */
-        flush_fragments_synchall_start(dcontext, base, size, exec_invalid);
-        return true;
-    }
 
     /* Take a snapshot of the threads in the system.
      * Grab the thread lock to prevent threads from being created or
@@ -6267,7 +6346,10 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
 
     /* FIXME: we can optimize this even more to not grab thread_initexit_lock */
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
-        return true;
+        return;
+
+    flush_base = base;
+    flush_size = size;
 
     /* Set the ref count of threads who may be using a deleted fragment.  We
      * include ourselves in the ref count as we could be invoked with a cache
@@ -6344,128 +6426,25 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
             /* thread is about to exit, it's waiting for us to give up
              * thread_initexit_lock -- we don't need to flush it
              */
-            goto next_thread;
-        }
-
-        /* if a trace-in-progress crosses this region, must squash the trace
-         * (all traces are essentially frozen now since threads stop in dispatch)
-         */
-        if (size > 0 /* else, no region to cross */ &&
-            is_building_trace(tgt_dcontext)) {
-            void *trace_vmlist = cur_trace_vmlist(tgt_dcontext);
-            if (trace_vmlist != NULL &&
-                vm_list_overlaps(tgt_dcontext, trace_vmlist, base, base+size)) {
-                LOG(THREAD, LOG_FRAGMENT, 2,
-                    "\tsquashing trace of thread "TIDFMT"\n", tgt_dcontext->owning_thread);
-                trace_abort(tgt_dcontext);
-            }
-        }
-
+        } else {
 #ifdef WINDOWS
-        /* Make sure exit fcache if currently inside syscall.  If thread has no
-         * vm area overlap, will be re-linked down below before going to the
-         * next thread, unless we have shared fragments, in which case we force
-         * the thread to check_flush_queue() on its next synch point.  It will
-         * re-link in vm_area_flush_fragments().
-         */
-        if (DYNAMO_OPTION(shared_syscalls) && !IS_SHARED_SYSCALL_THREAD_SHARED)
-            unlink_shared_syscall(tgt_dcontext);
-#endif
-        /* i#849: unlink while we clear out ibt */
-        if (special_ibl_xfer_is_thread_private())
-            unlink_special_ibl_xfer(tgt_dcontext);
-
-        /* Optimization for shared deletion strategy: perform flush work
-         * for a thread waiting at a system call on behalf of that thread
-         * (which we do before the flush tail synch, as if we did it now we
-         * would need to inc flushtime_global up front, and then we'd have synch
-         * issues trying to prevent thread we hadn't synched with from checking
-         * the pending list before we put flushed fragments on it).
-         * We do count these threads in the ref count as we check the pending
-         * queue on their behalf after adding the newly flushed fragments to
-         * the queue, so the ref count gets decremented right away.
-         *
-         * We must do this AFTER unlinking shared_syscall's post-syscall ibl, to
-         * avoid races -- the thread will hit a real synch point before accessing
-         * any fragments or link info.
-         * Do this BEFORE checking whether fragments in region to catch all threads.
-         */
-        ASSERT(!tgt_pt->at_syscall_at_flush);
-        if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
-            /* we have to know exactly which threads were at_syscall here when
-             * we get to post-flush, so we cache in this special bool
+            /* Make sure exit fcache if currently inside syscall.  If thread has no
+             * vm area overlap, will be re-linked down below before going to the
+             * next thread, unless we have shared fragments, in which case we force
+             * the thread to check_flush_queue() on its next synch point.  It will
+             * re-link in vm_area_flush_fragments().
              */
-            DEBUG_DECLARE(bool tables_updated;)
-            tgt_pt->at_syscall_at_flush = true;
-#ifdef DEBUG
-            tables_updated =
+            if (DYNAMO_OPTION(shared_syscalls) && !IS_SHARED_SYSCALL_THREAD_SHARED)
+                unlink_shared_syscall(tgt_dcontext);
 #endif
-                update_all_private_ibt_table_ptrs(tgt_dcontext, tgt_pt);
-            STATS_INC(num_shared_flush_atsyscall);
-            DODEBUG({
-                if (tables_updated)
-                    STATS_INC(num_shared_tables_updated_atsyscall);
-            });
+            /* i#849: unlink while we clear out ibt */
+            if (special_ibl_xfer_is_thread_private())
+                unlink_special_ibl_xfer(tgt_dcontext);
+
+            if (thread_synch_callback(dcontext, i, tgt_dcontext))
+                flush_fragments_relink_thread_syscalls(dcontext, tgt_dcontext, tgt_pt);
         }
 
-        /* don't need to go any further if thread has no frags in region */
-        if (size == 0 || !thread_vm_area_overlap(tgt_dcontext, base, base+size)) {
-            LOG(THREAD, LOG_FRAGMENT, 2,
-                "\tthread "TIDFMT" has no fragments in region to flush\n",
-                tgt_dcontext->owning_thread);
-#ifdef WINDOWS
-            /* restore, since won't be restored in vm_area_flush_fragments */
-            if (DYNAMO_OPTION(shared_syscalls)) {
-                if (SHARED_FRAGMENTS_ENABLED()) {
-                    /* we cannot re-link shared_syscall here as that would allow
-                     * the target thread to enter to-be-flushed fragments prior
-                     * to their being unlinked and removed from ibl tables -- so
-                     * we force this thread to re-link in check_flush_queue.
-                     * we could re-link after unlink/removal of fragments,
-                     * if it's worth optimizing == case 6194/PR 210655.
-                     */
-                    tgt_pt->flush_queue_nonempty = true;
-                    STATS_INC(num_flushq_relink_syscall);
-                } else if (!IS_SHARED_SYSCALL_THREAD_SHARED) {
-                    /* no shared fragments, and no private ones being flushed,
-                     * so this thread is all set
-                     */
-                    link_shared_syscall(tgt_dcontext);
-                }
-            }
-#endif
-            if (special_ibl_xfer_is_thread_private()) {
-                if (SHARED_FRAGMENTS_ENABLED()) {
-                    /* see shared_syscall relink comment: we have to delay the relink */
-                    tgt_pt->flush_queue_nonempty = true;
-                    STATS_INC(num_flushq_relink_special_ibl_xfer);
-                } else
-                    link_special_ibl_xfer(dcontext);
-            }
-            goto next_thread;
-        }
-
-        LOG(THREAD, LOG_FRAGMENT, 2, "\tflushing fragments for thread "TIDFMT"\n",
-            flush_threads[i]->id);
-        DOLOG(2, LOG_FRAGMENT, {
-            if (tgt_dcontext != dcontext) {
-                LOG(tgt_dcontext->logfile, LOG_FRAGMENT, 2,
-                    "thread "TIDFMT" is flushing our fragments\n",
-                    dcontext->owning_thread);
-            }
-        });
-
-        if (size > 0) {
-            /* unlink all frags in overlapping regions, and mark regions for deletion */
-            tgt_pt->flush_queue_nonempty = true;
-#ifdef DEBUG
-            num_flushed +=
-#endif
-                vm_area_unlink_fragments(tgt_dcontext, base, base + size, 0
-                                         _IF_DGCDIAG(written_pc));
-        }
-
-    next_thread:
         /* for thread-shared, we CANNOT let any thread become could_be_linking, for normal
          * flushing synch -- for thread-private, we can, but we CANNOT let any thread
          * that we've already synched with for flushing go and change the exec areas
@@ -6483,6 +6462,78 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
             tgt_pt->wait_for_unlink = true; /* stop at cache exit */
         mutex_unlock(&tgt_pt->linking_lock);
     }
+}
+
+/* This routine begins a flush of the group of fragments in the memory
+ * region [base, base+size) by synchronizing with each thread and unlinking
+ * all private fragments in the region.
+ *
+ * The exec_invalid parameter must be set to indicate whether the
+ * executable area is being invalidated as well or this is just a capacity
+ * flush (or a flush to change instrumentation).
+ *
+ * If size==0 then no unlinking occurs; however, the full synch is
+ * performed (so the caller should check size if no action is desired on
+ * zero size).
+ *
+ * If size>0 and there is no executable area overlap, then no synch is
+ * performed and false is returned.  The caller must acquire the executable
+ * areas lock and re-check the overlap if exec area manipulation is to be
+ * performed.  Returns true otherwise.
+ */
+bool
+flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size,
+                                  /* WARNING: case 8572: the caller owning this lock
+                                   * is incompatible w/ suspend-the-world flushing!
+                                   */
+                                  bool own_initexit_lock, bool exec_invalid,
+                                  bool force_synchall _IF_DGCDIAG(app_pc written_pc))
+{
+    LOG(THREAD, LOG_FRAGMENT, 2,
+        "FLUSH STAGE 1: synch_unlink_priv(thread "TIDFMT" flushtime %d): "PFX"-"PFX"\n",
+        dcontext->owning_thread, flushtime_global, base, base + size);
+    /* Case 9750: to specify a region of size 0, do not pass in NULL as the base!
+     * Use EMPTY_REGION_{BASE,SIZE} instead.
+     */
+    ASSERT(base != NULL || size != 0);
+
+    ASSERT(dcontext == get_thread_private_dcontext());
+
+    /* quick check for overlap first by using read lock and avoiding
+     * thread_initexit_lock:
+     * if no overlap, must hold lock through removal of region
+     * if overlap, ok to release for a bit
+     */
+    if (size > 0 && !executable_vm_area_executed_from(base, base+size)) {
+        /* Only a curiosity since we can have a race (not holding exec areas lock) */
+        ASSERT_CURIOSITY((!SHARED_FRAGMENTS_ENABLED() ||
+                          !thread_vm_area_overlap(GLOBAL_DCONTEXT, base, base+size)) &&
+                         !thread_vm_area_overlap(dcontext, base, base+size));
+        return false;
+    }
+    /* Only a curiosity since we can have a race (not holding exec areas lock) */
+    ASSERT_CURIOSITY(size == 0 ||
+                     executable_vm_area_overlap(base, base+size, false/*no lock*/));
+
+    STATS_INC(num_flushes);
+
+    if (force_synchall ||
+        (size > 0 && executable_vm_area_coarse_overlap(base, base+size))) {
+        /* Coarse units do not support individual unlinking (though prior to
+         * freezing they do, we ignore that) and instead require all-thread-synch
+         * in order to flush.  For that we cannot be already holding
+         * thread_initexit_lock!  FIXME case 8572: the only caller who does hold it
+         * now is os_thread_stack_exit().  For now relying on that stack not
+         * overlapping w/ any coarse regions.
+         */
+        ASSERT(!own_initexit_lock);
+        /* The synchall will flush fine as well as coarse so we'll be done */
+        flush_fragments_synchall_start(dcontext, base, size, exec_invalid);
+        return true;
+    }
+
+    flush_fragments_synch_priv(dcontext, base, size, own_initexit_lock,
+                               flush_fragments_thread_unlink _IF_DGCDIAG(written_pc));
 
     return true;
 }

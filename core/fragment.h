@@ -564,6 +564,17 @@ typedef struct _per_thread_t {
 #define FRAGMENT_TRANSLATION_INFO(f) \
   (HAS_STORED_TRANSLATION_INFO(f) ? (*(FRAGMENT_TRANSLATION_INFO_ADDR(f))) : NULL)
 
+static inline const char *
+fragment_type_name(fragment_t *f)
+{
+    if (TEST(FRAG_IS_TRACE_HEAD, f->flags))
+        return "trace head";
+    else if (TEST(FRAG_IS_TRACE, f->flags))
+        return "trace";
+    else
+        return "bb";
+}
+
 /* Returns the end of the fragment body + any local stubs (excluding selfmod copy) */
 cache_pc
 fragment_stubs_end_pc(fragment_t *f);
@@ -1018,6 +1029,8 @@ get_at_syscall(dcontext_t *dcontext);
 /****************************************************************************
  * FLUSHING
  *
+ * Option 1
+ * --------
  * Typical use is to flush a memory region in
  * flush_fragments_and_remove_region().  If custom executable areas editing
  * is required, the memory-region-flushing pair
@@ -1025,19 +1038,46 @@ get_at_syscall(dcontext_t *dcontext);
  * should be used (they MUST be used together). If no executable area removal
  * is needed use flush_fragments_from_region().
  *
- * Alternatively, the trio (also not usable individually)
+ * Option 2
+ * --------
+ * The trio (also not usable individually)
  *   1) flush_fragments_synch_unlink_priv
  *   2) flush_fragments_unlink_shared
  *   3) flush_fragments_end_synch
- * provide flushing for non-memory regions via a list of fragments.  The
- * list should be chained by next_vmarea and vm_area_remove_fragment()
- * should already have been called on each fragment in the list.  This
- * usage does not involve the executable_areas lock at all.
+ * provide flushing for non-memory regions via a list of fragments.  For
+ * stage 2, the list of shared fragments should be chained by next_vmarea,
+ * and vm_area_remove_fragment() should already have been called on each
+ * fragment in the list.  This usage does not involve the executable_areas
+ * lock at all.
  *
- * The exec_invalid parameter must be set to indicate whether the
- * executable area is being invalidated as well or this is just a capacity
- * flush (or a flush to change instrumentation).
+ * The exec_invalid parameter must be set to indicate whether
+ * the executable area is being invalidated as well or this is just a
+ * capacity flush (or a flush to change instrumentation).
  *
+ * Option 3
+ * --------
+ * The trio (also not usable individually)
+ *   1) flush_fragments_synch_priv
+ *   2) flush_fragments_unlink_shared
+ *   3) flush_fragments_end_synch
+ * provide flushing for an arbitrary list of fragments without flushing
+ * any vmarea. Stage 1 will synch with each thread and invoke the callback
+ * with its dcontext, allowing the caller to do any per-thread activity.
+ * For stage 2, the list of shared fragments should be chained by
+ * next_vmarea, and vm_area_remove_fragment() should already have been
+ * called on each fragment in the list.  This usage does not involve the
+ * executable_areas lock at all.
+ *
+ * The thread_synch_callback will be invoked after synching with the
+ * thread (per_thread_t.linking_lock is held). If shared syscalls and/or
+ * special IBL transfer are thread-private, they will be unlinked for
+ * each thread prior to invocation of the callback. The return value of
+ * the callback indicates whether to relink these routines (true), or
+ * wait for a later operation (such as vm_area_flush_fragments()) to
+ * relink them later (false).
+ *
+ * All options
+ * -----------
  * Possibly the thread_initexit_lock (if there are fragments to
  * flush), and always executable_areas lock for region flushing, ARE
  * HELD IN BETWEEN the routines, and no thread is could_be_linking()
@@ -1048,6 +1088,15 @@ get_at_syscall(dcontext_t *dcontext);
  * See the comments above is_couldbelinking() regarding the unlink flush safety
  * approach.
  */
+/* Always performs synch. Invokes thread_synch_callback per thread. */
+void
+flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
+                           bool own_initexit_lock,
+                           bool (*thread_synch_callback)(dcontext_t *dcontext,
+                                                         int thread_index,
+                                                         dcontext_t *thread_dcontext)
+                           _IF_DGCDIAG(app_pc written_pc));
+
 /* If size>0, returns whether there is an overlap; if not, no synch is done.
  * If size==0, synch is always performed and true is always returned.
  */
