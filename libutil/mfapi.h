@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -570,6 +570,7 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars);
 #define PLATFORM_WIN_8         160
 #define PLATFORM_WIN_8_1       170
 #define PLATFORM_WIN_10        180
+#define PLATFORM_WIN_10_1511   190
 
 DWORD
 get_platform(DWORD *platform);

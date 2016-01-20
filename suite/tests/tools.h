@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -544,15 +544,16 @@ signal_handler(int sig)
 #  define INIT() set_global_filter()
 
 /* XXX: when updating here, update core/os_exports.h too */
-# define WINDOWS_VERSION_10    100
-# define WINDOWS_VERSION_8_1    63
-# define WINDOWS_VERSION_8      62
-# define WINDOWS_VERSION_7      61
-# define WINDOWS_VERSION_VISTA  60
-# define WINDOWS_VERSION_2003   52
-# define WINDOWS_VERSION_XP     51
-# define WINDOWS_VERSION_2000   50
-# define WINDOWS_VERSION_NT     40
+# define WINDOWS_VERSION_10_1511 101
+# define WINDOWS_VERSION_10      100
+# define WINDOWS_VERSION_8_1      63
+# define WINDOWS_VERSION_8        62
+# define WINDOWS_VERSION_7        61
+# define WINDOWS_VERSION_VISTA    60
+# define WINDOWS_VERSION_2003     52
+# define WINDOWS_VERSION_XP       51
+# define WINDOWS_VERSION_2000     50
+# define WINDOWS_VERSION_NT       40
 
 /* returns 0 on failure */
 int

@@ -153,6 +153,9 @@ The changes between version \DR_VERSION and 6.0.0 include:
  - Split out the core functionality of the \ref page_drcov tool into
    a new Extension \p drcovlib for easier inclusion of coverage output in
    other tools.
+ - Added support for the Windows 10 TH2 1511 update.  We provide an
+   artificial version identifier #DR_WINDOWS_VERSION_10_1511 to distinguish
+   this major update.
 
 **************************************************
 <hr>

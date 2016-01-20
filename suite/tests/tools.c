@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,7 +67,10 @@ get_windows_version(void)
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
-            return WINDOWS_VERSION_10;
+            if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateEnclave") != NULL)
+                return WINDOWS_VERSION_10_1511;
+            else
+                return WINDOWS_VERSION_10;
         } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 3) {
             return WINDOWS_VERSION_8_1;
         } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 2) {

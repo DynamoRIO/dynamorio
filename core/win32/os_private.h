@@ -166,6 +166,9 @@ extern int *wow64_index;
 #  define SYS_CONST const
 #endif
 extern int windows_unknown_syscalls[];
+extern SYS_CONST int windows_10_1511_x64_syscalls[];
+extern SYS_CONST int windows_10_1511_wow64_syscalls[];
+extern SYS_CONST int windows_10_1511_x86_syscalls[];
 extern SYS_CONST int windows_10_x64_syscalls[];
 extern SYS_CONST int windows_10_wow64_syscalls[];
 extern SYS_CONST int windows_10_x86_syscalls[];
@@ -208,7 +211,8 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory);
 enum {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, x11x64) \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL

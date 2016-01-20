@@ -577,17 +577,31 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
          * handling code below to use the most recent enum and arrays.
          */
         if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
-            if (module_is_64bit(get_ntdll_base())) {
-                syscalls = (int *) windows_10_x64_syscalls;
-                os_name = "Microsoft Windows 10 x64";
-            } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
-                syscalls = (int *) windows_10_wow64_syscalls;
-                os_name = "Microsoft Windows 10 x64";
+            if (get_proc_address(get_ntdll_base(), "NtCreateEnclave") != NULL) {
+                if (module_is_64bit(get_ntdll_base())) {
+                    syscalls = (int *) windows_10_1511_x64_syscalls;
+                    os_name = "Microsoft Windows 10-1511 x64";
+                } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_10_1511_wow64_syscalls;
+                    os_name = "Microsoft Windows 10-1511 x64";
+                } else {
+                    syscalls = (int *) windows_10_1511_x86_syscalls;
+                    os_name = "Microsoft Windows 10-1511";
+                }
+                os_version = WINDOWS_VERSION_10_1511;
             } else {
-                syscalls = (int *) windows_10_x86_syscalls;
-                os_name = "Microsoft Windows 10";
+                if (module_is_64bit(get_ntdll_base())) {
+                    syscalls = (int *) windows_10_x64_syscalls;
+                    os_name = "Microsoft Windows 10 x64";
+                } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_10_wow64_syscalls;
+                    os_name = "Microsoft Windows 10 x64";
+                } else {
+                    syscalls = (int *) windows_10_x86_syscalls;
+                    os_name = "Microsoft Windows 10";
+                }
+                os_version = WINDOWS_VERSION_10;
             }
-            os_version = WINDOWS_VERSION_10;
             /* i#1825: future Windows updates will leave the PEB version at
              * 10.0.sp0, so we have to use syscall #'s to distinguish.
              * We check 2 different numbers currently toward the end of the

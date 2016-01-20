@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -627,7 +627,10 @@ get_platform(DWORD *platform)
         }
         else if (osinfo.dwMajorVersion == 10) {
             if (osinfo.dwMinorVersion == 0) {
-                *platform = PLATFORM_WIN_10;
+                if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateEnclave") != NULL)
+                    *platform = PLATFORM_WIN_10_1511;
+                else
+                    *platform = PLATFORM_WIN_10;
                 return ERROR_SUCCESS;
             }
         }

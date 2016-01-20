@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1764,7 +1764,14 @@ dr_get_parent_id(void);
 /** Windows versions */
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx */
 typedef enum {
-    /** Windows 10 */
+    /**
+     * Windows 10 TH2 1511.  For future Windows updates that change system call
+     * numbers, we'll perform our own artificial minor version number update as
+     * done here, and use the YYMM version as the sub-name, as officially the OS
+     * version will supposedly remain 10.0 forever.
+     */
+    DR_WINDOWS_VERSION_10_1511 = 101,
+    /** Windows 10 pre-TH2 */
     DR_WINDOWS_VERSION_10      = 100,
     /** Windows 8.1 */
     DR_WINDOWS_VERSION_8_1     = 63,
