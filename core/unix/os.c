@@ -5853,6 +5853,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     }
     ASSERT(BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
 #elif defined(ARM)
+    os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(INTERNAL_OPTION(private_loader));
     if (to_app) {
         /* On switching to app's TLS, we need put DR's TLS base into app's TLS
@@ -5863,7 +5864,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
          * later restore on switching back to privlib's TLS.
          */
         byte **priv_lib_tls_swap_slot = (byte **)
-            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+            (ostd->priv_lib_tls_base + DR_TLS_BASE_OFFSET);
         byte **app_lib_tls_swap_slot = (byte **)
             (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
         LOG(THREAD, LOG_LOADER, 3,
@@ -5881,7 +5882,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
          * and put DR's TLS base back to privlib's TLS slot.
          */
         byte **priv_lib_tls_swap_slot = (byte **)
-            (os_tls->os_seg_info.priv_lib_tls_base + DR_TLS_BASE_OFFSET);
+            (ostd->priv_lib_tls_base + DR_TLS_BASE_OFFSET);
         byte **app_lib_tls_swap_slot = (byte **)
             (os_tls->app_lib_tls_base + DR_TLS_BASE_OFFSET);
         byte *dr_tls_base = *app_lib_tls_swap_slot;
@@ -5893,9 +5894,8 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         *priv_lib_tls_swap_slot = dr_tls_base;
         LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting coproc reg to 0x%x\n",
             __FUNCTION__, (to_app ? "app" : "dr"),
-            os_tls->os_seg_info.priv_lib_tls_base);
-        res = dynamorio_syscall(SYS_set_tls, 1,
-                                os_tls->os_seg_info.priv_lib_tls_base) == 0;
+            ostd->priv_lib_tls_base);
+        res = dynamorio_syscall(SYS_set_tls, 1, ostd->priv_lib_tls_base) == 0;
     }
     LOG(THREAD, LOG_LOADER, 2,
         "%s %s: set_tls swap success=%d for thread "TIDFMT"\n",
