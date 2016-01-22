@@ -64,6 +64,7 @@
 #                introduced sorting option (enabled per default)
 #   2014-07-30 / Qin Zhao: added TNDA for per-line test coverage information,
 #                a feature from DrCov and DrCov2Lcov (www.dynamorio.org)
+#   2016-01-21 / boolking: added Windows support
 #
 
 use strict;
@@ -72,6 +73,7 @@ use File::Temp qw(tempfile);
 use Getopt::Long;
 use Digest::MD5 qw(md5_base64);
 use Scalar::Util qw(looks_like_number);
+use Cwd;
 
 
 # Global constants
@@ -165,6 +167,10 @@ our $ERROR_SOURCE       = 0;
 our %ERROR_ID = (
         "source" => $ERROR_SOURCE,
 );
+
+# portable functions
+sub mkdirp($);
+sub strip_colon(*);
 
 # Data related prototypes
 sub print_usage(*);
@@ -311,7 +317,7 @@ our $truncate_testname = "";
 # http://code.google.com/p/chromium/codesearch#search/&q=%s&type=cs
 our $code_search_url = "";
 
-our $cwd = `pwd`;       # Current working directory
+our $cwd = cwd();       # Current working directory
 chomp($cwd);
 our $tool_dir = dirname($0);    # Directory where genhtml tool is installed
 
@@ -566,6 +572,31 @@ gen_html();
 
 exit(0);
 
+
+#
+# mkdir recursively
+#
+
+sub mkdirp($)
+{
+        my $dir = shift;
+        return if (-d $dir);
+        mkdirp(dirname($dir));
+        mkdir $dir;
+}
+
+
+#
+# strip colon on Windows
+#
+
+sub strip_colon(*)
+{
+        my $str =  shift;
+        if ($^O eq 'MSWin32' || $^O eq 'cygwin') {
+                $$str =~ s/://g;
+        }
+}
 
 
 #
@@ -1054,6 +1085,8 @@ sub html_create($$)
 {
         my $handle = $_[0];
         my $filename = $_[1];
+
+        strip_colon(\$filename);
 
         if ($html_gzip)
         {
@@ -1553,8 +1586,8 @@ sub read_info_file($)
                                 # Retrieve data for new entry
                                 $filename = $1;
                                 # convert \ to / in $filename to support proccessing
-                                # Windows cov files using cygwin perl
-                                if ($^O = 'cygwin')
+                                # Windows cov files using cygwin/MSWin32 perl
+                                if ($^O eq 'MSWin32' || $^O eq 'cygwin')
                                 {
                                     $filename =~ tr#\\#/#;
                                 }
@@ -2679,9 +2712,8 @@ sub get_date_string()
 sub create_sub_dir($)
 {
         my ($dir) = @_;
-
-        system("mkdir", "-p" ,$dir)
-                and die("ERROR: cannot create directory $dir!\n");
+        strip_colon(\$dir);
+        mkdirp($dir);
 }
 
 
@@ -3731,6 +3763,7 @@ sub write_file_table_entry(*$$$@)
         my $entry;
         my $esc_filename = escape_html($filename);
 
+        strip_colon(\$page_link);
         # Add link to source if provided
         if (defined($page_link) && $page_link ne "") {
                 $file_code = "<a href=\"$page_link\">$esc_filename</a>";

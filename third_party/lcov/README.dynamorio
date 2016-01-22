@@ -11,3 +11,4 @@ This directory contains a stock genhtml from lcov-1.11 with the following change
 - Replaced all tabs with spaces.
 - Removed all trailing spaces.
 - Added support for DrCov output.
+- Added support Windows support for lcov genhtml (by boolking)
