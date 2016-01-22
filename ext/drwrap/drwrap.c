@@ -1572,8 +1572,9 @@ drwrap_replace_native_fini(void *drcontext)
      * XXX: what if there are multiple copies?  What if the retaddr is left in
      * LR and never pushed on the stack?
      */
-    while (xsp > cur_xsp && *(app_pc*)xsp != app_retaddr)
-        xsp -= sizeof(app_pc);
+    for (xsp -= sizeof(app_pc); xsp > cur_xsp && *(app_pc*)xsp != app_retaddr;
+         xsp -= sizeof(app_pc))
+        ; /* empty body */
     /* XXX: what can we do if we hit cur xsp?  We'll lose control. */
     ASSERT(xsp > cur_xsp, "did not find return address: going to lose control");
     *(app_pc *)xsp = (app_pc) replace_native_xfer;
