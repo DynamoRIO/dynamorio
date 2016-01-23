@@ -1857,8 +1857,8 @@ privload_attach_parent_console(app_pc app_kernel32)
  * with private kernel32. This will enable console support for 32-bit kernel and
  * 64-bit apps.
  */
-typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
-static kernel32_AttachConsole_t kernel32_AttachConsole;
+typedef BOOL (WINAPI *kernel32_FreeConsole_t) (VOID);
+static kernel32_FreeConsole_t kernel32_FreeConsole;
 
 bool
 privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
@@ -1875,6 +1875,19 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
 
     ASSERT(app_kernel32 != NULL);
     if (get_own_peb()->ImageSubsystem != IMAGE_SUBSYSTEM_WINDOWS_CUI) {
+        /* On win8+, if private kernelbase is loaded after calling dr_using_console, its
+         * init routine will call ConsoleInitalize and check if the app is a console. If
+         * it's not a console, it will close all handles with ConsoleCloseIfConsoleHandle.
+         * To enable console printing for gui apps, we simply detach and reattach.
+         */
+        if (get_os_version() >= WINDOWS_VERSION_8) {
+            kernel32_FreeConsole = (kernel32_FreeConsole_t)
+                get_proc_address(app_kernel32, "FreeConsole");
+            if (kernel32_FreeConsole != NULL) {
+                if (kernel32_FreeConsole() == 0)
+                    return false;
+            }
+        }
         if (privload_attach_parent_console(app_kernel32) == false)
             return false;
     }
