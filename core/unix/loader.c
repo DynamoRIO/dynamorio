@@ -550,7 +550,11 @@ privload_call_entry(privmod_t *privmod, uint reason)
     }
     if (reason == DLL_PROCESS_INIT) {
         /* calls init and init array */
+        LOG(GLOBAL, LOG_LOADER, 3, "%s: calling init routines of %s\n", __FUNCTION__,
+            privmod->name);
         if (opd->init != NULL) {
+            LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init func "PFX"\n", __FUNCTION__,
+                privmod->name, opd->init);
             privload_call_lib_func(opd->init);
         }
         if (opd->init_array != NULL) {
@@ -558,14 +562,31 @@ privload_call_entry(privmod_t *privmod, uint reason)
             for (i = 0;
                  i < opd->init_arraysz / sizeof(opd->init_array[i]);
                  i++) {
-                if (opd->init_array[i] != NULL) /* be paranoid */
+                if (opd->init_array[i] != NULL) { /* be paranoid */
+                    LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init array func "PFX"\n",
+                        __FUNCTION__, privmod->name, opd->init_array[i]);
                     privload_call_lib_func(opd->init_array[i]);
+                }
             }
         }
         return true;
     } else if (reason == DLL_PROCESS_EXIT) {
         /* calls fini and fini array */
+#ifdef ANDROID
+        /* i#1701: libdl.so fini routines call into libc somehow, which is
+         * often already unmapped.  We just skip them as a workaround.
+         */
+        if (strcmp(privmod->name, "libdl.so") == 0) {
+            LOG(GLOBAL, LOG_LOADER, 3, "%s: NOT calling fini routines of %s\n",
+                __FUNCTION__, privmod->name);
+            return true;
+        }
+#endif
+        LOG(GLOBAL, LOG_LOADER, 3, "%s: calling fini routines of %s\n", __FUNCTION__,
+            privmod->name);
         if (opd->fini != NULL) {
+            LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini func "PFX"\n", __FUNCTION__,
+                privmod->name, opd->fini);
             privload_call_lib_func(opd->fini);
         }
         if (opd->fini_array != NULL) {
@@ -573,8 +594,11 @@ privload_call_entry(privmod_t *privmod, uint reason)
             for (i = 0;
                  i < opd->fini_arraysz / sizeof(opd->fini_array[0]);
                  i++) {
-                if (opd->fini_array[i] != NULL) /* be paranoid */
+                if (opd->fini_array[i] != NULL) { /* be paranoid */
+                    LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini array func "PFX"\n",
+                        __FUNCTION__, privmod->name, opd->fini_array[i]);
                     privload_call_lib_func(opd->fini_array[i]);
+                }
             }
         }
         return true;
