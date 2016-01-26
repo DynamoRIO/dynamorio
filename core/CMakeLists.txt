@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -257,6 +257,11 @@ if (UNIX)
     unix/loader.c
     )
   if (LINUX)
+    if (ANDROID)
+      set(OS_SRCS ${OS_SRCS} unix/loader_android.c)
+    else ()
+      set(OS_SRCS ${OS_SRCS} unix/loader_linux.c)
+    endif ()
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)

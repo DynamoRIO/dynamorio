@@ -108,6 +108,10 @@
 # ifdef X64
 #  error NYI on AArch64
 # endif
+# ifdef ANDROID
+/* We have our own slot at the end of our instance of Android's pthread_internal_t */
+#  define DR_TLS_BASE_OFFSET   IF_X64_ELSE(616, 588)
+# else
 /* The TLS slot for DR's TLS base.
  * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base,
  * as we can't use the alternate TLS register b/c the kernel doesn't preserve it.
@@ -120,7 +124,8 @@
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
  */
-# define DR_TLS_BASE_OFFSET   IF_X64_ELSE(8, 4) /* skip dtv */
+#  define DR_TLS_BASE_OFFSET   IF_X64_ELSE(8, 4) /* skip dtv */
+# endif
 /* opcode for reading usr mode TLS base (user-read-only-thread-ID-register)
  * mrc p15, 0, reg_app, c13, c0, 3
  */

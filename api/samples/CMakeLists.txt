@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -125,10 +125,6 @@ endif (DEBUG)
 # For C clients that only rely on the DR API and not on any 3rd party
 # library routines, we could shrink the size of the client binary
 # by disabling libc via "set(DynamoRIO_USE_LIBC OFF)".
-if (ANDROID)
-  # Android support does not yet include private libc support
-  set(DynamoRIO_USE_LIBC OFF)
-endif ()
 
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
@@ -237,11 +233,8 @@ add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(inline      "inline.c"        "")
 add_sample_client(inscount    "inscount.c"      "drmgr")
-if (NOT ANDROID)
-  # FIXME i#1701: no C or C++ library support yet for clients
-  add_sample_client(opcodes     "opcodes.c"       "drx")
-  add_sample_client(stl_test    "stl_test.cpp"    "")
-endif ()
+add_sample_client(opcodes     "opcodes.c"       "drx")
+add_sample_client(stl_test    "stl_test.cpp"    "")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 

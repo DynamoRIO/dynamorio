@@ -140,6 +140,8 @@ following minor compatibility changes:
 
 The changes between version \DR_VERSION and 6.0.0 include:
 
+ - Added support for C++ clients on Android via private loader support for
+   Bionic.
  - opnd_size_in_bytes() and opnd_size_in_bits() no longer accept DR_REG_
    constants as input (the caller must first call reg_get_size()).
    This was true in the 6.0.0 release but the documentation and the
@@ -1289,8 +1291,7 @@ not supported.
   - This release of DynamoRIO supports 32-bit applications running on
     32-bit Linux operating systems on AArch32 ARMv7 and ARMv8 hardware.
   - This release of DynamoRIO has experimental support for 32-bit Android
-    applications running on AArch32 ARMv7 and ARMv8 hardware with C
-    clients (but not yet C++ clients).
+    applications running on AArch32 ARMv7 and ARMv8 hardware.
   - This release of DynamoRIO has support for running 32-bit
     Linux applications on 64-bit Linux operating systems on
     AMD64-compatible hardware.
