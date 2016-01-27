@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -406,9 +406,7 @@ char *get_dynamorio_library_path(void);
 #define DR_MEMPROT_READ  0x01 /**< Read privileges. */
 #define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
 #define DR_MEMPROT_EXEC  0x04 /**< Execute privileges. */
-#ifdef WINDOWS
-# define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
-#endif
+#define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
 /**
  * DR's default cache consistency strategy modifies the page protection of
  * pages containing code, making them read-only.  It pretends on application
@@ -492,6 +490,10 @@ typedef struct _dr_mem_info_t {
 #else
 # define MEMPROT_VDSO  DR_MEMPROT_VDSO
 #endif
+/* i#1861: avoid merging Android regions w/ different custom comments */
+#define MEMPROT_HAS_COMMENT DR_MEMPROT_GUARD /* Android-only */
+#define MEMPROT_META_FLAGS (MEMPROT_VDSO | MEMPROT_HAS_COMMENT)
+
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 /* We provide this b/c getting the bounds is expensive on Windows (i#1462) */

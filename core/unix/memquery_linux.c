@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -290,6 +290,11 @@ memquery_iterator_next(memquery_iter_t *iter)
     if (len<6)
         mi->comment_buffer[0]='\0';
     iter->prot = permstr_to_memprot(perm);
+#ifdef ANDROID
+    /* i#1861: the Android kernel supports custom comments which can't merge */
+    if (iter->comment[0] != '\0')
+        iter->prot |= MEMPROT_HAS_COMMENT;
+#endif
     return true;
 }
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -380,8 +380,9 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
                   * +x may be caused by READ_IMPLIES_EXEC set in personality flag (i#262)
                   */
                  (from_os_prot & (~MEMPROT_EXEC)) == info->prot
-                 /* DrMem#1778: newly added MEMPROT_VDSO */
-                 IF_LINUX(|| (from_os_prot & (~MEMPROT_VDSO)) == info->prot)) &&
+                 /* DrMem#1778, i#1861: we have fake flags */
+                 IF_LINUX(|| (from_os_prot & (~MEMPROT_META_FLAGS)) ==
+                          (info->prot & (~MEMPROT_META_FLAGS)))) &&
                 ((info->type == DR_MEMTYPE_IMAGE &&
                   from_os_base_pc >= start &&
                   from_os_size <= (end - start)) ||

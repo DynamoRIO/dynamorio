@@ -4477,6 +4477,9 @@ ignorable_system_call_normalized(int num)
     case SYS_mremap:
 #endif
     case SYS_mprotect:
+#ifdef ANDROID
+    case SYS_prctl:
+#endif
     case SYS_execve:
 #ifdef LINUX
     case SYS_clone:
@@ -6162,7 +6165,7 @@ pre_system_call(dcontext_t *dcontext)
         app_pc addr  = (void *) sys_param(dcontext, 0);
         size_t len  = (size_t) sys_param(dcontext, 1);
         uint prot = (uint) sys_param(dcontext, 2);
-        uint new_memprot;
+        uint old_memprot, new_memprot;
         /* save params in case an undo is needed in post_system_call */
         dcontext->sys_param0 = (reg_t) addr;
         dcontext->sys_param1 = len;
@@ -6187,7 +6190,7 @@ pre_system_call(dcontext_t *dcontext)
          *      to let the system call fail and recover in post_system_call().
          *      See PR 410921.
          */
-        if (!get_memory_info(addr, NULL, IF_DEBUG_ELSE(&size, NULL), NULL)) {
+        if (!get_memory_info(addr, NULL, IF_DEBUG_ELSE(&size, NULL), &old_memprot)) {
             LOG(THREAD, LOG_SYSCALLS, 2,
                 "\t"PFX" isn't mapped; aborting mprotect\n", addr);
             execute_syscall = false;
@@ -6202,8 +6205,10 @@ pre_system_call(dcontext_t *dcontext)
             DOCHECK(1, dcontext->mprot_multi_areas = len > size ? true : false;);
         }
 
-        res = app_memory_protection_change(dcontext, addr, len,
-                                           osprot_to_memprot(prot),
+        new_memprot = osprot_to_memprot(prot) |
+            /* mprotect won't change meta flags */
+            (old_memprot & MEMPROT_META_FLAGS);
+        res = app_memory_protection_change(dcontext, addr, len, new_memprot,
                                            &new_memprot, NULL);
         if (res != DO_APP_MEM_PROT_CHANGE) {
             if (res == FAIL_APP_MEM_PROT_CHANGE) {
@@ -6216,12 +6221,20 @@ pre_system_call(dcontext_t *dcontext)
         }
         else {
             /* FIXME Store state for undo if the syscall fails. */
-            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len,
-                                                  osprot_to_memprot(prot),
+            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, new_memprot,
                                                   -1/*type unchanged*/, true/*exists*/));
         }
         break;
     }
+#ifdef ANDROID
+    case SYS_prctl:
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        dcontext->sys_param2 = sys_param(dcontext, 2);
+        dcontext->sys_param3 = sys_param(dcontext, 3);
+        dcontext->sys_param4 = sys_param(dcontext, 4);
+        break;
+#endif
 #ifdef LINUX
     case SYS_brk: {
         if (DYNAMO_OPTION(emulate_brk)) {
@@ -7112,6 +7125,11 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 {
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
+#ifdef ANDROID
+    /* i#1861: avoid merging file-backed w/ anon regions */
+    if (!TEST(MAP_ANONYMOUS, flags))
+        memprot |= MEMPROT_HAS_COMMENT;
+#endif
 
     LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",0x%x,%s,%s)\n",
         base, size, flags, memprot_string(memprot), map_type);
@@ -7184,7 +7202,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         }
     }
 
-    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, prot, image));
+    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, memprot, image));
 
     /* app_memory_allocation() expects to not see an overlap -- exec areas
      * doesn't expect one.  We have yet to see a +x mmap into a previously
@@ -7545,6 +7563,31 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#ifdef ANDROID
+    case SYS_prctl: {
+        int code = (int) dcontext->sys_param0;
+        int subcode = (ulong) dcontext->sys_param1;
+#       define PR_SET_VMA   0x53564d41
+#       define PR_SET_VMA_ANON_NAME    0
+        if (success && code == PR_SET_VMA && subcode == PR_SET_VMA_ANON_NAME) {
+            byte *addr = (byte *) dcontext->sys_param2;
+            size_t len = (size_t) dcontext->sys_param3;
+            const char *comment = (const char *) dcontext->sys_param4;
+            uint memprot = 0;
+            if (!get_memory_info_from_os(addr, NULL, NULL, &memprot))
+                memprot = MEMPROT_NONE;
+            /* We're post-syscall so from_os should match the prctl */
+            ASSERT((comment == NULL && !TEST(MEMPROT_HAS_COMMENT, memprot)) ||
+                   (comment != NULL && TEST(MEMPROT_HAS_COMMENT, memprot)));
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "syscall: prctl PR_SET_VMA_ANON_NAME base="PFX" size="PFX" comment=%s\n",
+                addr, len, comment == NULL ? "<null>" : comment);
+            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, memprot,
+                                                  -1/*type unchanged*/, true/*exists*/));
+        }
+        break;
+    }
+#endif
 #ifdef LINUX
     case SYS_brk: {
         /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
