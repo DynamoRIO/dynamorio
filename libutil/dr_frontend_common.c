@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -170,7 +170,15 @@ drfront_appdata_logdir(const char *root, const char *subdir,
                 /* bail */
 #else
                 have_env = true;
-                snprintf(env, BUFFER_SIZE_ELEMENTS(env), "%s", "/tmp");
+# ifdef ANDROID
+                /* It's impractical to query Java for the "cache dir" so we use
+                 * this commonly present dir.
+                 */
+#  define TMP_DIR "/data/local/tmp"
+# else
+#  define TMP_DIR "/tmp"
+# endif
+                snprintf(env, BUFFER_SIZE_ELEMENTS(env), "%s", TMP_DIR);
                 NULL_TERMINATE_BUFFER(env);
 #endif
             } else
