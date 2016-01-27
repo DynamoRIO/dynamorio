@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -261,7 +261,7 @@ sub keep_define($)
     my ($def) = @_;
     return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "UNIX" ||
             $def eq "MACOS" || $def eq "X64" || $def eq "CLANG" ||
-            $def eq "X86" || $def eq "ARM" || $def eq "X86_32" ||
+            $def eq "X86" || $def eq "ARM" || $def eq "X86_32" || $def eq "ANDROID" ||
             $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR" || $def eq "__cplusplus" || $def eq "PAGE_SIZE");
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -663,6 +663,14 @@ typedef struct _instr_t instr_t;
 # define _IF_ARM(x)
 # define IF_NOT_ARM(x) x
 # define _IF_NOT_ARM(x) , x
+#endif
+
+#ifdef ANDROID
+# define IF_ANDROID(x) x
+# define IF_NOT_ANDROID(x)
+#else
+# define IF_ANDROID(x)
+# define IF_NOT_ANDROID(x) x
 #endif
 
 #ifdef X64

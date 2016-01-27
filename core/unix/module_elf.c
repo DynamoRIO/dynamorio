@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -283,6 +283,8 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
     first_seg_base = module_vaddr_from_prog_header
         (base + elf_hdr->e_phoff, elf_hdr->e_phnum, NULL, &last_seg_end);
 
+    LOG(GLOBAL, LOG_SYSCALLS, 4, "%s: "PFX" size "PIFX" vs seg "PFX"-"PFX"\n",
+        __FUNCTION__, base, size, first_seg_base, last_seg_end);
     return last_seg_end == NULL ||
            ALIGN_FORWARD(size, PAGE_SIZE) < (last_seg_end - first_seg_base);
 }
@@ -346,7 +348,7 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* common code to fill os_module_data_t for loader and module_area_t */
-static void
+static bool
 module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     app_pc mod_base,
                     app_pc mod_max_end,
@@ -358,26 +360,40 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     OUT os_module_data_t *out_data)
 {
     /* if at_map use file offset as segments haven't been remapped yet and
-     * the dynamic section isn't usually in the first segment (FIXME in
+     * the dynamic section isn't usually in the first segment (XXX: in
      * theory it's possible to construct a file where the dynamic section
      * isn't mapped in as part of the initial map because large parts of the
      * initial portion of the file aren't part of the in memory image which
      * is fixed up with a PT_LOAD).
      *
      * If not at_map use virtual address adjusted for possible loading not
-     * at base. */
+     * at base.
+     */
+    bool res = true;
     ELF_DYNAMIC_ENTRY_TYPE *dyn = (ELF_DYNAMIC_ENTRY_TYPE *)
         (at_map ? base + prog_hdr->p_offset :
          (app_pc)prog_hdr->p_vaddr + load_delta);
     ASSERT(prog_hdr->p_type == PT_DYNAMIC);
     dcontext_t *dcontext = get_thread_private_dcontext();
+    /* i#489, DT_SONAME is optional, init soname to NULL first */
+    *soname = NULL;
+#ifdef ANDROID
+    /* On Android only the first segment is mapped in and .dynamic is not
+     * accessible.  We try to avoid the cost of the fault.
+     * If we do a query (e.g., via is_readable_without_exception()) we'll get
+     * a curiosity assert b/c the memcache is not yet updated.  Instead, we
+     * assume that only this segment is mapped.
+     * os_module_update_dynamic_info() will be called later when .dynamic is
+     * accessible.
+     */
+    if (at_map && (app_pc)dyn > base+view_size)
+        return false;
+#endif
 
     TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
         int soname_index = -1;
         char *dynstr = NULL;
         size_t sz = mod_max_end - mod_base;
-        /* i#489, DT_SONAME is optional, init soname to NULL first */
-        *soname = NULL;
         while (dyn->d_tag != DT_NULL) {
             if (dyn->d_tag == DT_SONAME) {
                 soname_index = dyn->d_un.d_val;
@@ -450,7 +466,11 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     } , { /* EXCEPT */
         ASSERT_CURIOSITY(false && "crashed while walking dynamic header");
         *soname = NULL;
+        res = false;
     });
+    if (res && out_data != NULL)
+        out_data->have_dynamic_info = true;
+    return res;
 }
 
 /* Returned addresses out_base and out_end are relative to the actual
@@ -516,6 +536,17 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 module_fill_os_data(prog_hdr, mod_base, max_end,
                                     base, view_size, at_map, dyn_reloc, load_delta,
                                     &soname, out_data);
+                DOLOG(LOG_INTERP|LOG_VMAREAS, 2, {
+                    if (out_data != NULL) {
+                        LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2,
+                            "%s "PFX": %s dynamic info\n", __FUNCTION__, base,
+                            out_data->have_dynamic_info ? "have" : "no");
+                        /* i#1860: on Android a later os_module_update_dynamic_info() will
+                         * fill in info once .dynamic is mapped in.
+                         */
+                        IF_NOT_ANDROID(ASSERT(out_data->have_dynamic_info));
+                    }
+                });
             }
         }
     }
@@ -541,6 +572,46 @@ module_num_program_headers(app_pc base)
     return elf_hdr->e_phnum;
 }
 
+/* The Android loader does not map the whole library file up front, so we have to
+ * wait to access .dynamic when it gets mapped in.  We basically try on each ELF
+ * segment until we hit the one with .dynamic.
+ */
+void
+os_module_update_dynamic_info(app_pc base, size_t size, bool at_map)
+{
+    module_area_t *ma;
+    os_get_module_info_write_lock();
+    ma = module_pc_lookup(base);
+    if (ma != NULL && !ma->os_data.have_dynamic_info) {
+        uint i;
+        char *soname;
+        ptr_int_t load_delta = ma->start - ma->os_data.base_address;
+        ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *) ma->start;
+        ASSERT(base >= ma->start && base + size <= ma->end);
+        if (elf_hdr->e_phoff != 0 &&
+            elf_hdr->e_phoff + elf_hdr->e_phnum * elf_hdr->e_phentsize <=
+            ma->end - ma->start) {
+            for (i = 0; i < elf_hdr->e_phnum; i++) {
+                ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
+                    (ma->start + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
+                if (prog_hdr->p_type == PT_DYNAMIC) {
+                    module_fill_os_data(prog_hdr, ma->os_data.base_address,
+                                        ma->os_data.base_address + (ma->end - ma->start),
+                                        /* Pretend this segment starts from base */
+                                        ma->start, base + size - ma->start,
+                                        false, /* single-segment so no file offsets */
+                                        !at_map, /* i#1589: ld.so relocates .dynamic */
+                                        load_delta, &soname, &ma->os_data);
+                    if (soname != NULL)
+                        ma->names.module_name = dr_strdup(soname HEAPACCT(ACCT_VMAREAS));
+                    LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "%s "PFX": %s dynamic info\n",
+                        __FUNCTION__, base, ma->os_data.have_dynamic_info ? "have" : "no");
+                }
+            }
+        }
+    }
+    os_get_module_info_write_unlock();
+}
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 

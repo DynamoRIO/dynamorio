@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -7352,7 +7352,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
 #ifdef LINUX
         /* i#1760: an app module loaded by custom loader (e.g., bionic libc)
          * might not be detected by DynamoRIO in process_mmap, so we check
-         * whether it is an unsee module here.
+         * whether it is an unseen module here.
          */
         os_check_new_app_module(dcontext, pc);
 #endif

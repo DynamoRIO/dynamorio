@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,7 +69,8 @@ typedef struct _os_module_data_t {
     /* i#112: Dynamic section info for exported symbol lookup.  Not
      * using elf types here to avoid having to export those.
      */
-    bool   hash_is_gnu;   /* gnu hash function? */
+    bool have_dynamic_info; /* are the fields below filled in yet? */
+    bool hash_is_gnu;     /* gnu hash function? */
     app_pc hashtab;       /* absolute addr of .hash or .gnu.hash */
     size_t num_buckets;   /* number of bucket entries */
     app_pc buckets;       /* absolute addr of hash bucket table */
@@ -126,6 +127,9 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
 
 uint
 module_num_program_headers(app_pc base);
+
+void
+os_module_update_dynamic_info(app_pc base, size_t size, bool at_map);
 
 bool
 module_file_has_module_header(const char *filename);

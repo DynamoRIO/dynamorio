@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -6172,7 +6172,7 @@ pre_system_call(dcontext_t *dcontext)
             addr, len, memprot_string(osprot_to_memprot(prot)));
 
         /* PR 413109 - fail mprotect if start region is unknown; seen in hostd.
-         * FIXME: get_memory_info_from_os() should be used instead of
+         * XXX: get_memory_info_from_os() should be used instead of
          *      vmvector_lookup_data() to catch mprotect failure cases on shared
          *      memory allocated by another process.  However, till PROC_MAPS
          *      are implemented on visor, get_memory_info_from_os() can't
@@ -6180,7 +6180,7 @@ pre_system_call(dcontext_t *dcontext)
          *      work.  Once PROC_MAPS is available on visor use
          *      get_memory_info_from_os() and resolve case.
          *
-         * FIXME: Failing mprotect if addr isn't allocated doesn't help if there
+         * XXX: Failing mprotect if addr isn't allocated doesn't help if there
          *      are unallocated pages in the middle of the the mprotect region.
          *      As it will be expensive to do page wise check for each mprotect
          *      syscall just to guard against a corner case, it might be better
@@ -6972,6 +6972,13 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
         });
     }
     os_get_module_info_unlock();
+#ifdef ANDROID
+    /* i#1860: we need to keep looking for the segment with .dynamic as Android's
+     * loader does not map the whole file up front.
+     */
+    if (ma != NULL && at_map && readable)
+        os_module_update_dynamic_info(base, size, at_map);
+#endif
     return ma != NULL;
 }
 
@@ -7106,8 +7113,8 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
 
-    LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",%s,%s)\n",
-        base, size, memprot_string(memprot), map_type);
+    LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",0x%x,%s,%s)\n",
+        base, size, flags, memprot_string(memprot), map_type);
     /* Notes on how ELF SOs are mapped in.
      *
      * o The initial mmap for an ELF file specifies enough space for
@@ -7131,9 +7138,10 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     /* process_mmap can be called with PROT_NONE, so we need to check if we
      * can read the memory to see if it is a elf_header
      */
-    /* FIXME - get inode for check */
+    /* XXX: get inode for check */
     if (TEST(MAP_ANONYMOUS, flags)) {
         /* not an ELF mmap */
+        LOG(THREAD, LOG_SYSCALLS, 4, "mmap "PFX": anon\n", base);
     } else if (mmap_check_for_module_overlap(base, size,
                                              TEST(MEMPROT_READ, memprot), 0, true)) {
         /* FIXME - how can we distinguish between the loader mapping the segments
@@ -7141,21 +7149,39 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * is the latter case need to adjust the view size or remove from module list. */
         image = true;
         DODEBUG({ map_type = "ELF SO"; });
-    } else if (module_is_partial_map(base, size, memprot)) {
-        /* i#1240: App might read first page of ELF header using mmap, which
-         * might accidentally be treated as a module load. Heuristically
-         * distinguish this by saying that if this is the first mmap for an ELF
-         * (i.e., it doesn't overlap with a previous map), and if it's small,
-         * then don't treat it as a module load.
-         */
+        LOG(THREAD, LOG_SYSCALLS, 4, "mmap "PFX": overlaps image\n", base);
     } else if (TEST(MEMPROT_READ, memprot) &&
                /* i#727: We can still get SIGBUS on mmap'ed files that can't be
                 * read, so pass size=0 to use a safe_read.
                 */
                module_is_header(base, 0)) {
-        image = true;
-        DODEBUG({ map_type = "ELF SO"; });
-        os_add_new_app_module(dcontext, true/*at_map*/, base, size, memprot);
+#ifdef ANDROID
+        /* The Android loader's initial all-segment-covering mmap is anonymous */
+        dr_mem_info_t info;
+        if (query_memory_ex_from_os((byte *)ALIGN_FORWARD(base+size, PAGE_SIZE), &info) &&
+            info.prot == MEMPROT_NONE && info.type == DR_MEMTYPE_DATA) {
+            LOG(THREAD, LOG_SYSCALLS, 4, "mmap "PFX": Android elf\n", base);
+            image = true;
+            DODEBUG({ map_type = "ELF SO"; });
+            os_add_new_app_module(dcontext, true/*at_map*/, base,
+                                  /* pass segment size, not whole module size */
+                                  size, memprot);
+        } else
+#endif
+        if (module_is_partial_map(base, size, memprot)) {
+            /* i#1240: App might read first page of ELF header using mmap, which
+             * might accidentally be treated as a module load. Heuristically
+             * distinguish this by saying that if this is the first mmap for an ELF
+             * (i.e., it doesn't overlap with a previous map), and if it's small,
+             * then don't treat it as a module load.
+             */
+            LOG(THREAD, LOG_SYSCALLS, 4, "mmap "PFX": partial\n", base);
+        } else {
+            LOG(THREAD, LOG_SYSCALLS, 4, "mmap "PFX": elf header\n", base);
+            image = true;
+            DODEBUG({ map_type = "ELF SO"; });
+            os_add_new_app_module(dcontext, true/*at_map*/, base, size, memprot);
+        }
     }
 
     IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, prot, image));

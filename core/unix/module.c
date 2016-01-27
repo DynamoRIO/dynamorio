@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -76,6 +76,10 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     /* i#1589: use privload data if it exists (for client lib) */
     if (!privload_fill_os_module_info(base, &mod_base, &mod_end,
                                       &soname, &ma->os_data)) {
+        /* XXX i#1860: on Android we'll fail to fill in info from .dynamic, so
+         * we'll have incomplete data until the loader maps the segment with .dynamic.
+         * ma->os_data.have_dynamic_info indicates whether we have the info.
+         */
         module_walk_program_headers(base, view_size, at_map,
                                     !at_map, /* i#1589: ld.so relocates .dynamic */
                                     &mod_base, NULL, &mod_end, &soname, &ma->os_data);
