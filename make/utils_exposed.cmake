@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2014 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2016 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@ endfunction (_DR_dirname)
 # the loader will be able to find the libraries.  We assume that the layout
 # is the same in the build and install directories.
 function (DynamoRIO_add_rel_rpaths target)
-  if (UNIX)
+  if (UNIX AND NOT ANDROID) # No DT_RPATH support on Android
     # Turn off the default CMake rpath setting and add our own LINK_FLAGS.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
     foreach (lib ${ARGN})
@@ -106,7 +106,7 @@ function (DynamoRIO_add_rel_rpaths target)
         endif ()
       endif ()
     endforeach ()
-  endif (UNIX)
+  endif ()
 endfunction (DynamoRIO_add_rel_rpaths)
 
 # Check if we're using GNU gold.  We use CMAKE_C_COMPILER in
