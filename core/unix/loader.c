@@ -1187,7 +1187,7 @@ privload_fill_os_module_info(app_pc base,
  * Function Redirection
  */
 
-#ifndef ANDROID
+#if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
 redirect___tls_get_addr();
@@ -1294,7 +1294,7 @@ static const redirect_import_t redirect_imports[] = {
      * malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
      * Any other functions need to be redirected?
      */
-#ifndef ANDROID
+#if defined(LINUX) && !defined(ANDROID)
     {"__tls_get_addr", (app_pc)redirect___tls_get_addr},
     {"___tls_get_addr", (app_pc)redirect____tls_get_addr},
 #endif

@@ -33,8 +33,6 @@
 
 /*
  * loader_linux.c: Linux-specific private loader code
- *
- * XXX i#1285: implement TLS for MacOS private loader
  */
 
 #include "../globals.h"
