@@ -437,7 +437,6 @@ char *get_dynamorio_library_path(void);
  * clients to avoid writing to such memory.
  */
 #define DR_MEMPROT_PRETEND_WRITE 0x10
-#ifdef LINUX
 /**
  * In addition to the appropriate DR_MEMPROT_READ and/or DR_MEMPROT_EXEC flags,
  * this flag will be set for the VDSO and VVAR pages on Linux.
@@ -446,8 +445,7 @@ char *get_dynamorio_library_path(void);
  * In some cases, accessing the VVAR pages can cause problems
  * (e.g., https://github.com/DynamoRIO/drmemory/issues/1778).
  */
-# define DR_MEMPROT_VDSO  0x20
-#endif
+#define DR_MEMPROT_VDSO  0x20
 
 /**
  * Flags describing memory used by dr_query_memory_ex().

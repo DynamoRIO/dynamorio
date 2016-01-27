@@ -132,6 +132,12 @@ struct compat_rlimit {
 # define SYSNUM_EXIT_THREAD SYS_exit
 #endif
 
+#ifdef ANDROID
+/* Custom prctl flags specific to Android (xref i#1861) */
+# define PR_SET_VMA   0x53564d41
+# define PR_SET_VMA_ANON_NAME    0
+#endif
+
 /* This is not always sufficient to identify a syscall return value.
  * For example, MacOS has some 32-bit syscalls that return 64-bit
  * values in xdx:xax.
@@ -2749,6 +2755,11 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     ASSERT(!os_in_vmkernel_userworld() || !executable ||
            ((byte *)p >= os_vmk_mmap_text_start() &&
             ((byte *)p) + size <= os_vmk_mmap_text_end()));
+#endif
+#if defined(ANDROID) && defined(DEBUG)
+    /* We don't label in release to be more transparent */
+    dynamorio_syscall(SYS_prctl, 5, PR_SET_VMA, PR_SET_VMA_ANON_NAME, p, size,
+                      "DynamoRIO-internal");
 #endif
     return p;
 }
@@ -7567,8 +7578,6 @@ post_system_call(dcontext_t *dcontext)
     case SYS_prctl: {
         int code = (int) dcontext->sys_param0;
         int subcode = (ulong) dcontext->sys_param1;
-#       define PR_SET_VMA   0x53564d41
-#       define PR_SET_VMA_ANON_NAME    0
         if (success && code == PR_SET_VMA && subcode == PR_SET_VMA_ANON_NAME) {
             byte *addr = (byte *) dcontext->sys_param2;
             size_t len = (size_t) dcontext->sys_param3;
