@@ -44,8 +44,9 @@ if (APPLE OR NOT CMAKE_COMPILER_IS_GNUCC)
 endif (APPLE OR NOT CMAKE_COMPILER_IS_GNUCC)
 
 # In order to just tweak the default linker script we start with exactly that.
+separate_arguments(LD_FLAGS)
 execute_process(COMMAND
-  ${CMAKE_LINKER} "${LD_FLAGS}" --verbose
+  ${CMAKE_LINKER} ${LD_FLAGS} --verbose
   RESULT_VARIABLE ld_result
   ERROR_VARIABLE ld_error
   OUTPUT_VARIABLE string
