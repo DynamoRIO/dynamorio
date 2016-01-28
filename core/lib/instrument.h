@@ -1628,7 +1628,7 @@ dr_standalone_init(void);
 #else
 # define DR_ASSERT_MSG(x, msg) \
     ((void)((!(x)) ? \
-        (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", \
+        (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)\n", \
                      __FILE__,  __LINE__, #x, msg), \
          dr_abort(), 0) : 0))
 #endif
