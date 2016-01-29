@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -140,6 +140,12 @@ if (UNIX)
   # XXX: this is duplicated in DynamoRIOConfig.cmake
 
   function (set_preferred_base_start_and_end target base set_bounds)
+    if (ANDROID)
+      # i#1863: Android's loader doesn't support a non-zero base.
+      # Turning off SET_PREFERRED_BASE is not sufficient as we get
+      # a 0x10000 base.
+      set(base 0)
+    endif ()
     if (APPLE)
       set(ldflags "-image_base ${base}")
     elseif (NOT LINKER_IS_GNU_GOLD)

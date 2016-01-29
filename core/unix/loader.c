@@ -1643,7 +1643,8 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 
 /* Called from _start in x86.asm.  sp is the initial app stack pointer that the
  * kernel set up for us, and it points to the usual argc, argv, envp, and auxv
- * that the kernel puts on the stack.
+ * that the kernel puts on the stack.  The 2nd & 3rd args must be 0 in
+ * the initial call.
  */
 void
 privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)

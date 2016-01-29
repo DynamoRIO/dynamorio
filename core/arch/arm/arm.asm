@@ -85,6 +85,10 @@ DECL_EXTERN(initstack_mutex)
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
+        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr */
+        eor      ARG2, ARG2
+        eor      ARG3, ARG3
+        /* Entry from xfer_to_new_libdr is here: it assumes ARM! */
         eor      r11, r11  /* clear frame ptr for stack trace bottom */
         mov      r0, sp    /* arg to privload_early_inject */
         bl       GLOBAL_REF(privload_early_inject)
@@ -103,6 +107,8 @@ GLOBAL_LABEL(_start:)
         DECLARE_FUNC(xfer_to_new_libdr)
 GLOBAL_LABEL(xfer_to_new_libdr:)
         mov     r5, ARG1
+        /* Skip 1st 2 instrs of _start (assumes ARM) */
+        add     r5, #(2*4)
         /* Restore sp */
         mov     sp, ARG2
         /* _start expects these as 2nd & 3rd args */
