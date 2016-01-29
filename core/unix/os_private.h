@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -313,6 +313,9 @@ void os_request_live_coredump(const char *msg);
 /* in loader.c */
 void *privload_tls_init(void *app_tp);
 void  privload_tls_exit(void *dr_tp);
+#ifdef ANDROID
+bool get_kernel_args(int *argc OUT, char ***argv OUT, char ***envp OUT);
+#endif
 
 /* in nudgesig.c */
 bool

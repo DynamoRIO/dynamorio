@@ -702,6 +702,19 @@ __attribute__ ((section (".init_array"), aligned (sizeof (void *)), used))
 int
 _init(int argc, char **argv, char **envp)
 {
+# ifdef ANDROID
+    /* i#1862: the Android loader passes *nothing* to lib init routines.  We
+     * rely on DR being listed before libc so we can read the TLS slot the
+     * kernel set up.
+     */
+    if (!get_kernel_args(&argc, &argv, &envp)) {
+        /* XXX: scan the stack and look for known auxv patterns or sthg. */
+        argc = 0;
+        argv = NULL;
+        envp = NULL;
+    }
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find envp", envp != NULL);
+# endif
     return our_init(argc, argv, envp);
 }
 #endif

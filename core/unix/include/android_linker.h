@@ -93,8 +93,8 @@ typedef struct _android_pthread_internal_t {
 /* Adapated from class KernelArgumentBlock */
 typedef struct _android_kernel_args_t {
     int argc;
-    char** argv;
-    char** envp;
+    char **argv;
+    char **envp;
     ELF_AUXV_TYPE *auxv;
     char *abort_message_ptr;
 } android_kernel_args_t;
