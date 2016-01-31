@@ -5284,6 +5284,11 @@ DR_API
  * value is read by the return instruction \p instr.
  * \p instr must be a return instruction or this routine will fail.
  *
+ * On ARM, \p value is ignored and instead a value that is guaranteed
+ * to not look like a return address is used.  This is for efficiency
+ * reasons, as on ARM it would require an extra register spill in
+ * order to write an arbitrary value.
+ *
  * \note This is meant to make it easier to obtain efficient
  * callstacks by eliminating stale return addresses from prior stack
  * frames.  However, it is possible that writing to the application

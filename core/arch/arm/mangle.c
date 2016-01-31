@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -970,9 +970,9 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
     /* We need the spill to be unconditional so start pred processing here */
     PRE(ilist, instr, bound_start);
-    /* Most gpr_list writes are handled by mangle_gpr_list_writes by extracting
+    /* Most gpr_list writes are handled by mangle_gpr_list_write() by extracting
      * a single "ldr pc" instr out for mangling here, except simple instructions
-     * like "pop pc". Xref mangle_gpr_list_writes for details.
+     * like "pop pc". Xref mangle_gpr_list_write() for details.
      */
     if (instr_writes_gpr_list(instr)) {
         opnd_t memop = instr_get_src(instr, 0);
@@ -986,6 +986,22 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         opnd_set_size(&memop, OPSZ_VAR_REGLIST);
         instr_set_src(instr, 0, memop);
         instr_set_dst(instr, 0, opnd_create_reg(IBL_TARGET_REG));
+#ifdef CLIENT_INTERFACE
+        /* We target only the typical return instructions: multi-pop here */
+        if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldmia) {
+            bool writeback = instr_num_srcs(instr) > 1;
+            if (writeback) {
+                opnd_set_disp(&memop, -sizeof(void*));
+                opnd_set_size(&memop, OPSZ_PTR);
+                /* We do not support writing a passed-in value as it would require
+                 * spilling another reg.  We write the only non-retaddr-guaranteed
+                 * reg we have, our stolen reg.
+                 */
+                POST(ilist, instr,
+                     XINST_CREATE_store(dcontext, memop, opnd_create_reg(dr_reg_stolen)));
+            } /* else not a pop */
+        }
+#endif
     } else if (opc == OP_bx || opc ==  OP_bxj) {
         ASSERT(opnd_is_reg(instr_get_target(instr)));
         if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
@@ -1102,6 +1118,19 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             mangle_stolen_reg(dcontext, ilist, instr, immed_next, remove_instr);
         }
+#ifdef CLIENT_INTERFACE
+        /* We target only the typical return instructions: single pop here */
+        if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldr) {
+            bool writeback = instr_num_srcs(instr) > 1;
+            if (writeback && opnd_is_immed_int(instr_get_src(instr, 1))) {
+                opnd_t memop = instr_get_src(instr, 0);
+                opnd_set_disp(&memop, -opnd_get_immed_int(instr_get_src(instr, 1)));
+                /* See above: we just write our stolen reg value */
+                POST(ilist, instr,
+                     XINST_CREATE_store(dcontext, memop, opnd_create_reg(dr_reg_stolen)));
+            } /* else not a pop */
+        }
+#endif
     }
     if (instr_is_predicated(instr)) {
         mangle_add_predicated_fall_through(dcontext, ilist, instr, next_instr,
@@ -1907,6 +1936,8 @@ normalize_ldm_instr(dcontext_t *dcontext,
         }
         instr_set_predicate(*ldr_pc, pred);
         instr_set_translation(*ldr_pc, pc);
+        if (TEST(INSTR_CLOBBER_RETADDR, instr->flags))
+            (*ldr_pc)->flags |= INSTR_CLOBBER_RETADDR;
     }
 }
 
