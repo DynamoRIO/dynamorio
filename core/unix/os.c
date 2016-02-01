@@ -3301,6 +3301,8 @@ get_num_processors(void)
         file_t cpu_dir = os_open_directory("/sys/devices/system/cpu",
                                            OS_OPEN_READ);
         dir_iterator_t iter;
+        ASSERT(cpu_dir != INVALID_FILE &&
+               "/sys must be mounted: mount -t sysfs sysfs /sys");
         os_dir_iterator_start(&iter, cpu_dir);
         while (os_dir_iterator_next(&iter)) {
             int dummy_num;
