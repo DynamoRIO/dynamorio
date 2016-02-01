@@ -7594,7 +7594,7 @@ post_system_call(dcontext_t *dcontext)
         if (success && code == PR_SET_VMA && subcode == PR_SET_VMA_ANON_NAME) {
             byte *addr = (byte *) dcontext->sys_param2;
             size_t len = (size_t) dcontext->sys_param3;
-            const char *comment = (const char *) dcontext->sys_param4;
+            IF_DEBUG(const char *comment = (const char *) dcontext->sys_param4;)
             uint memprot = 0;
             if (!get_memory_info_from_os(addr, NULL, NULL, &memprot))
                 memprot = MEMPROT_NONE;
