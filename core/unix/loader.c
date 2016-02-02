@@ -941,6 +941,7 @@ get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
 }
 
 #ifdef LINUX
+# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1053,6 +1054,7 @@ privload_early_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
         }
     }
 }
+# endif /* !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY) */
 
 /*  This routine is duplicated at privload_early_relocate_os_privmod_data. */
 static void
@@ -1080,7 +1082,7 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
         }
     }
 }
-#endif
+#endif /* LINUX */
 
 static void
 privload_relocate_mod(privmod_t *mod)
@@ -1348,6 +1350,7 @@ privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
  */
 
 #ifdef LINUX
+# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* Find the auxiliary vector and adjust it to look as if the kernel had set up
  * the stack for the ELF mapped at map.  The auxiliary vector starts after the
  * terminating NULL pointer in the envp array.
@@ -1551,7 +1554,7 @@ privload_mem_is_elf_so_header(byte *mem)
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
-static void
+void
 relocate_dynamorio(byte *dr_map, size_t dr_size)
 {
     os_privmod_data_t opd = { {0}};
@@ -1645,6 +1648,9 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
  * kernel set up for us, and it points to the usual argc, argv, envp, and auxv
  * that the kernel puts on the stack.  The 2nd & 3rd args must be 0 in
  * the initial call.
+ *
+ * We assume that _start has already called relocate_dynamorio() for us and
+ * that it is now safe to access globals.
  */
 void
 privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
@@ -1662,11 +1668,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     bool success;
     memquery_iter_t iter;
     app_pc interp_map;
-    kernel_init_sp = (void *)sp;
 
-    /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address */
-    if (old_libdr_base == NULL)
-        relocate_dynamorio(NULL, 0);
+    kernel_init_sp = (void *)sp;
 
     /* XXX i#47: for Linux, we can't easily have this option on by default as
      * code like get_application_short_name() called from drpreload before
@@ -1815,14 +1818,14 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
          * if the app has been mapped correctly without involving DR's code
          * cache.
          */
-#ifdef X86
+#  ifdef X86
         asm ("mov %0, %%"ASM_XSP"\n\t"
              "jmp *%1\n\t"
              : : "r"(sp), "r"(entry));
-#elif defined(ARM)
+#  elif defined(ARM)
         /* FIXME i#1551: NYI on ARM */
         ASSERT_NOT_REACHED();
-#endif
+#  endif
     }
 
     memset(&mc, 0, sizeof(mc));
@@ -1830,6 +1833,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     mc.pc = entry;
     dynamo_start(&mc);
 }
+# endif /* !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY) */
 #else
 /* XXX i#1285: implement MacOS private loader */
 #endif

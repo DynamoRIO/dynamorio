@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -185,6 +185,7 @@ DECL_EXTERN(fixup_rtframe_pointers)
 #ifdef UNIX
 DECL_EXTERN(dr_setjmp_sigmask)
 DECL_EXTERN(privload_early_inject)
+DECL_EXTERN(relocate_dynamorio)
 DECL_EXTERN(dynamorio_dl_fixup)
 #endif
 #ifdef WINDOWS
@@ -1155,6 +1156,15 @@ GLOBAL_LABEL(client_int_syscall:)
  */
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
+        /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address.
+         * We call this here to ensure it's safe to access globals once in C code
+         * (xref i#1865).
+         */
+        cmp     REG_XDI, 0 /* if reloaded, skip for speed + preserve xdi and xsi */
+        jne     reloaded_xfer
+        CALLC2(GLOBAL_REF(relocate_dynamorio), 0, 0)
+
+reloaded_xfer:
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
 # ifdef X64
         /* Reverse order to avoid clobbering */
