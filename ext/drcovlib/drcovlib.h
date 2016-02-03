@@ -67,7 +67,7 @@ typedef enum {
      * in binary format.  When in text format, the log file is \em not readable
      * by the post-processing tool \ref sec_drcov2lcov.
      */
-    DRCOVLIB_DUMP_AS_TEXT,
+    DRCOVLIB_DUMP_AS_TEXT    = 0x0001,
     /**
      * By default, coverage information is dumped in a single process-wide log
      * file.  If DynamoRIO is run with thread-private code caches (i.e.,
@@ -75,7 +75,7 @@ typedef enum {
      * then per-thread coverage information will be stored and dumped in \p
      * drcovlib's own thread exit events rather than in drcovlib_exit().
      */
-    DRCOVLIB_THREAD_PRIVATE,
+    DRCOVLIB_THREAD_PRIVATE  = 0x0002,
 } drcovlib_flags_t;
 
 /** Specifies the options when initializing drcovlib. */
