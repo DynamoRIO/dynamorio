@@ -1871,18 +1871,19 @@ module_get_text_section(app_pc file_map, size_t file_size)
     return 0;
 }
 
-static bool
+static size_t
 os_read_until(file_t fd, void *buf, size_t toread)
 {
+    size_t orig_toread = toread;
     ssize_t nread;
     while (toread > 0) {
         nread = os_read(fd, buf, toread);
-        if (nread < 0)
+        if (nread <= 0)
             break;
         toread -= nread;
         buf = (app_pc)buf + nread;
     }
-    return (toread == 0);
+    return orig_toread - toread; /* return bytes read */
 }
 
 bool
@@ -1916,9 +1917,10 @@ elf_loader_read_ehdr(elf_loader_t *elf)
         /* The user mapped the entire file up front, so use it. */
         elf->ehdr = (ELF_HEADER_TYPE *) elf->file_map;
     } else {
-        if (!os_read_until(elf->fd, elf->buf, sizeof(elf->buf)))
+        size_t size = os_read_until(elf->fd, elf->buf, sizeof(elf->buf));
+        if (size == 0)
             return NULL;
-        if (!is_elf_so_header(elf->buf, sizeof(elf->buf)))
+        if (!is_elf_so_header(elf->buf, size))
             return NULL;
         elf->ehdr = (ELF_HEADER_TYPE *) elf->buf;
     }
