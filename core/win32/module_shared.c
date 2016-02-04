@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -390,9 +390,12 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
     ordinals = (PUSHORT)(module_base + exports->AddressOfNameOrdinals);
     fnames = (PULONG)(module_base + exports->AddressOfNames);
 
-    if (ordinal < UINT_MAX)
-        ord = ordinal;
-    else {
+    if (ordinal < UINT_MAX) {
+        /* The functions array is indexed by the ordinal minus the base, to
+         * support ordinals starting at 1 (i#1866).
+         */
+        ord = ordinal - exports->Base;
+    } else {
         /* FIXME - linear walk, if this routine becomes performance critical we
          * we should use a binary search. */
         bool match = false;
@@ -576,7 +579,7 @@ get_proc_address_resolve_forward(module_base_t lib, const char *name)
             forwarder, forwmodpath, forwfunc);
         forwmod = dr_lookup_module_by_name(forwmodpath);
         if (forwmod == NULL) {
-            LOG(GLOBAL, LOG_INTERP, 1, "%s: unable to load forworder for %s\n"
+            LOG(GLOBAL, LOG_INTERP, 1, "%s: unable to load forwarder for %s\n"
                 __FUNCTION__, forwarder);
             return NULL;
         }

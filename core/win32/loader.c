@@ -1262,10 +1262,13 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
             (forwmodpath, last_forwmod == NULL ? mod : last_forwmod,
              mod, false/*!inc refcnt*/, false/*=> true if in client/ext dir*/);
         if (forwmod == NULL) {
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forwarder for %s\n"
                 __FUNCTION__, forwarder);
             return false;
         }
+        /* XXX i#1870: we've seen ordinals listed as "libname.#nnn",
+         * e.g. "SHUNIMPL.#210".  We should add support for that.
+         */
         /* should be listed as import; don't want to inc ref count on each forw */
         func = get_proc_address_ex(forwmod->base, forwfunc, &forwarder);
     }

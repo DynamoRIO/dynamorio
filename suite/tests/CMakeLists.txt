@@ -1884,6 +1884,10 @@ if (CLIENT_INTERFACE)
     add_exe(client.fibers client-interface/fibers.c)
     torunonly_ci(client.fibers client.fibers client.events_cpp.dll
       client-interface/fibers.c "" "" "")
+
+    # i#1866: stress our private loader
+    tobuild_ci(client.loader client-interface/loader.c "" "" "")
+    target_link_libraries(client.loader.dll "shlwapi")
   endif (UNIX)
   if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.file_io client-interface/file_io.c
