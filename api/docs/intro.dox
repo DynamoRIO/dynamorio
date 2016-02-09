@@ -459,7 +459,10 @@ stored in <tt>$DYNAMORIO_CONFIGDIR/.dynamorio/&lt;appname&gt;.config32</tt>
 (or a \p config64 suffix for 64-bit). If <tt>DYNAMORIO_CONFIGDIR</tt> is
 not set, <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> is used;
 if neither is set, a temp directory will be used when creating new
-configuration files for configure-and-run execution.
+configuration files for configure-and-run execution.  On Android, if
+neither <tt>/data/local/tmp</tt> nor the current working directory are
+writable, you will need to specify a writable directory by setting the
+<tt>DYNAMORIO_CONFIGDIR</tt> environment variable.
 
 DynamoRIO also supports global configuration
 files in <tt>/etc/dynamorio/&lt;appname&gt;.config32</tt> when a local
