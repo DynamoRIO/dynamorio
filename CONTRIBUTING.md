@@ -32,7 +32,7 @@ Please fill in the body of the issue with this template:
 What version of DynamoRIO are you using?
 
 Does the latest build from
-http://build.chromium.org/p/client.dynamorio/builds/ solve the problem?
+https://github.com/DynamoRIO/dynamorio/wiki/Latest-Build solve the problem?
 
 What operating system version are you running on?
 
