@@ -3968,7 +3968,7 @@ static void
 patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
 {
 #ifdef X64
-    ATOMIC_8BYTE_WRITE(tgt_loc, new_val, hot_patch);
+    ATOMIC_8BYTE_WRITE(tgt_loc, (int64)new_val, hot_patch);
 #else
     insert_relative_target(tgt_loc, new_val, hot_patch);
 #endif
