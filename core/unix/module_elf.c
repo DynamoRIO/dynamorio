@@ -2071,7 +2071,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             }
             seg_prot = module_segment_prot_to_osprot(prog_hdr);
             pg_offs  = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
-            /* FIXME:
+            /* XXX:
              * This function can be called after dynamorio_heap_initialized,
              * and we will use map_file instead of os_map_file.
              * However, map_file does not allow mmap with overlapped memory,
@@ -2081,33 +2081,37 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
              * another thread requests memory via mmap takes the memory here,
              * a racy condition.
              */
-            (*unmap_func)(seg_base, seg_size);
-            map = (*map_func)(elf->fd, &seg_size, pg_offs,
-                              seg_base /* base */,
-                              seg_prot | MEMPROT_WRITE /* prot */,
-                              MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
-                              MAP_FILE_IMAGE |
-                              /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
-                              MAP_FILE_FIXED);
-            ASSERT(map != NULL);
-            /* fill zeros at extend size */
-            file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
-            if (seg_end > file_end + delta) {
+            if (seg_size > 0) { /* i#1872: handle empty segments */
+                (*unmap_func)(seg_base, seg_size);
+                map = (*map_func)
+                    (elf->fd, &seg_size, pg_offs,
+                     seg_base /* base */,
+                     seg_prot | MEMPROT_WRITE /* prot */,
+                     MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                     MAP_FILE_IMAGE |
+                     /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
+                     MAP_FILE_FIXED);
+                ASSERT(map != NULL);
+                /* fill zeros at extend size */
+                file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
+                if (seg_end > file_end + delta) {
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-                memset(file_end + delta, 0, seg_end - (file_end + delta));
+                    memset(file_end + delta, 0, seg_end - (file_end + delta));
 #else
-                /* FIXME i#37: use a remote memset to zero out this gap or fix
-                 * it up in the child.  There is typically one RW PT_LOAD
-                 * segment for .data and .bss.  If .data ends and .bss starts
-                 * before filesz bytes, we need to zero the .bss bytes manually.
-                 */
+                    /* FIXME i#37: use a remote memset to zero out this gap or fix
+                     * it up in the child.  There is typically one RW PT_LOAD
+                     * segment for .data and .bss.  If .data ends and .bss starts
+                     * before filesz bytes, we need to zero the .bss bytes manually.
+                     */
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
+                }
             }
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
                                              prog_hdr->p_memsz,
                                              PAGE_SIZE) + delta;
             seg_size = seg_end - seg_base;
-            (*prot_func)(seg_base, seg_size, seg_prot);
+            if (seg_size > 0)
+                (*prot_func)(seg_base, seg_size, seg_prot);
             last_end = seg_end;
         }
     }
