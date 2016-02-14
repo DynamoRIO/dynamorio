@@ -428,6 +428,8 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     out_data->dynstr_size = (size_t) dyn->d_un.d_val;
                 } else if (dyn->d_tag == DT_SYMENT) {
                     out_data->symentry_size = (size_t) dyn->d_un.d_val;
+                } else if (dyn->d_tag == DT_RUNPATH) {
+                    out_data->has_runpath = true;
 #ifndef ANDROID
                 } else if (dyn->d_tag == DT_CHECKSUM) {
                     out_data->checksum = (size_t) dyn->d_un.d_val;

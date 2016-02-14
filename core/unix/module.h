@@ -80,6 +80,7 @@ typedef struct _os_module_data_t {
     app_pc dynstr;        /* absolute addr of .dynstr */
     size_t dynstr_size;   /* size of .dynstr */
     size_t symentry_size; /* size of a .dynsym entry */
+    bool has_runpath;     /* is DT_RUNPATH present? */
     /* for .gnu.hash */
     app_pc gnu_bitmask;
     ptr_uint_t gnu_shift;

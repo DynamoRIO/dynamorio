@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,6 +48,7 @@
 # define ELF_DYNAMIC_ENTRY_TYPE Elf64_Dyn
 # define ELF_ADDR Elf64_Addr
 # define ELF_WORD Elf64_Xword
+# define ELF_SWORD Elf64_Sxword
 # define ELF_HALF Elf64_Half
 # define ELF_SYM_TYPE Elf64_Sym
 # define ELF_WORD_SIZE 64 /* __ELF_NATIVE_CLASS */
@@ -68,6 +69,7 @@
 # define ELF_DYNAMIC_ENTRY_TYPE Elf32_Dyn
 # define ELF_ADDR Elf32_Addr
 # define ELF_WORD Elf32_Word
+# define ELF_SWORD Elf32_Sword
 # define ELF_HALF Elf32_Half
 # define ELF_SYM_TYPE Elf32_Sym
 # define ELF_WORD_SIZE 32 /* __ELF_NATIVE_CLASS */
