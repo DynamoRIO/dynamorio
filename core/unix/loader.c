@@ -657,22 +657,21 @@ privload_load_finalized(privmod_t *mod)
     /* nothing further to do */
 }
 
-/* dtag should be DT_RPATH or DT_RUNPATH */
+/* If runpath, then DT_RUNPATH is searched; else, DT_RPATH. */
 static bool
-privload_search_rpath(privmod_t *mod, ELF_SWORD dtag, const char *name,
+privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                       char *filename OUT /* buffer size is MAXIMUM_PATH */)
 {
 #ifdef LINUX
     os_privmod_data_t *opd;
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ASSERT(mod != NULL && "can't look for rpath without a dependent module");
-    ASSERT(dtag == DT_RPATH || dtag == DT_RUNPATH);
     /* get the loading module's dir for RPATH_ORIGIN */
     opd = (os_privmod_data_t *) mod->os_privmod_data;
     /* i#460: if DT_RUNPATH exists we must ignore ignore DT_RPATH and
      * search DT_RUNPATH after LD_LIBRARY_PATH.
      */
-    if (dtag == DT_RPATH && opd->os_data.has_runpath)
+    if (!runpath && opd->os_data.has_runpath)
         return false;
     const char *moddir_end = strrchr(mod->path, '/');
     size_t moddir_len = (moddir_end == NULL ? strlen(mod->path) : moddir_end - mod->path);
@@ -682,7 +681,7 @@ privload_search_rpath(privmod_t *mod, ELF_SWORD dtag, const char *name,
     strtab = (char *) opd->os_data.dynstr;
     /* support $ORIGIN expansion to lib's current directory */
     while (dyn->d_tag != DT_NULL) {
-        if (dyn->d_tag == dtag) {
+        if (dyn->d_tag == (runpath ? DT_RUNPATH : DT_RPATH)) {
             /* DT_RPATH and DT_RUNPATH are each a colon-separated list of paths */
             const char *list = strtab + dyn->d_un.d_val;
             const char *sep, *origin;
@@ -746,7 +745,7 @@ privload_locate(const char *name, privmod_t *dep,
      */
     /* the loader search order: */
     /* 0) DT_RPATH */
-    if (dep != NULL && privload_search_rpath(dep, DT_RPATH, name, filename))
+    if (dep != NULL && privload_search_rpath(dep, false/*rpath*/, name, filename))
         return true;
 
     /* 1) client lib dir */
@@ -795,7 +794,7 @@ privload_locate(const char *name, privmod_t *dep,
     }
 
     /* 4) DT_RUNPATH */
-    if (dep != NULL && privload_search_rpath(dep, DT_RUNPATH, name, filename))
+    if (dep != NULL && privload_search_rpath(dep, true/*runpath*/, name, filename))
         return true;
 
     /* 5) FIXME: i#460, we use our system paths instead of /etc/ld.so.cache. */
