@@ -631,13 +631,6 @@ typedef struct _instr_t instr_t;
 # define _IF_X86(x) , x
 # define IF_NOT_X86(x)
 # define _IF_NOT_X86(x)
-# ifdef X64
-#  define IF_X86_32(x)
-#  define IF_X86_64(x) x
-# else
-#  define IF_X86_32(x) x
-#  define IF_X86_64(x)
-# endif
 #else
 # define IF_X86(x)
 # define IF_X86_ELSE(x, y) y
@@ -645,8 +638,6 @@ typedef struct _instr_t instr_t;
 # define _IF_X86(x)
 # define IF_NOT_X86(x) x
 # define _IF_NOT_X86(x) , x
-# define IF_X86_32(x)
-# define IF_X86_64(x)
 #endif
 
 #ifdef ARM
@@ -689,20 +680,26 @@ typedef struct _instr_t instr_t;
 # define _IF_NOT_X64(x) , x
 #endif
 
-#if defined(X86) && defined(X64)
-# define IF_X86_X64(x) x
-# define IF_X86_X64_ELSE(x, y) x
-# define IF_X86_X64_(x) x,
-# define _IF_X86_X64(x) , x
-# define IF_NOT_X86_X64(x)
-# define _IF_NOT_X86_X64(x)
+#if defined(X86) && !defined(X64)
+# define IF_X86_32(x) x
 #else
-# define IF_X86_X64(x)
-# define IF_X86_X64_ELSE(x, y) y
-# define IF_X86_X64_(x)
-# define _IF_X86_X64(x)
-# define IF_NOT_X86_X64(x) x
-# define _IF_NOT_X86_X64(x) , x
+# define IF_X86_32(x)
+#endif
+
+#if defined(X86) && defined(X64)
+# define IF_X86_64(x) x
+# define IF_X86_64_ELSE(x, y) x
+# define IF_X86_64_(x) x,
+# define _IF_X86_64(x) , x
+# define IF_NOT_X86_64(x)
+# define _IF_NOT_X86_64(x)
+#else
+# define IF_X86_64(x)
+# define IF_X86_64_ELSE(x, y) y
+# define IF_X86_64_(x)
+# define _IF_X86_64(x)
+# define IF_NOT_X86_64(x) x
+# define _IF_NOT_X86_64(x) , x
 #endif
 
 #if defined(X64) || defined(ARM)

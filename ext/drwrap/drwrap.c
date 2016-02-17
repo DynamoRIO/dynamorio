@@ -1268,7 +1268,7 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 static void
 drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
                                    ptr_int_t pushval, opnd_size_t stacksz
-                                   _IF_X86_X64(bool x86))
+                                   _IF_X86_64(bool x86))
 {
 #ifdef ARM
     instr_t *mov1, *mov2;
@@ -1383,7 +1383,7 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 
     if (topush != NULL) {
         drwrap_replace_native_push_retaddr(drcontext, bb, pc, (ptr_int_t) topush,
-                                           stacksz _IF_X86_X64(x86));
+                                           stacksz _IF_X86_64(x86));
     }
     instrlist_meta_append(bb, XINST_CREATE_store
                           (drcontext, dr_reg_spill_slot_opnd

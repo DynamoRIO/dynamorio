@@ -7054,7 +7054,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
      * Thus we currently do not support using decode_fragment with -x86_to_x64,
      * including trace and coarse_units (coarse-grain code cache management)
      */
-    IF_X86_X64(ASSERT(!DYNAMO_OPTION(x86_to_x64)));
+    IF_X86_64(ASSERT(!DYNAMO_OPTION(x86_to_x64)));
 
     instrlist_init(&intra_ctis);
 

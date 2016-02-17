@@ -1627,7 +1627,7 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
      * then we'll have to hook into encode's size resolution to resolve all
      * operands with each other's constraints at the instr level before coming here.
      */
-    IF_X86_X64(di.x86_mode = false);
+    IF_X86_64(di.x86_mode = false);
     di.prefixes = 0;
     s1_default = resolve_variable_size(&di, s1, is_reg);
     s2_default = resolve_variable_size(&di, s2, is_reg);

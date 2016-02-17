@@ -298,8 +298,8 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
             /* make sure we don't consider writes to sub-regs */
             else if (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS)
                      /* a write to a 32-bit reg for amd64 zeroes the top 32 bits */
-                     IF_X86_X64(|| instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
-                                                             DR_QUERY_INCLUDE_COND_SRCS)))
+                     IF_X86_64(|| instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
+                                                            DR_QUERY_INCLUDE_COND_SRCS)))
                 value = REG_DEAD;
             else if (xfer)
                 value = REG_LIVE;
@@ -584,8 +584,8 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
             /* make sure we don't consider writes to sub-regs */
             else if (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS)
                      /* a write to a 32-bit reg for amd64 zeroes the top 32 bits */
-                     IF_X86_X64(|| instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
-                                                             DR_QUERY_INCLUDE_COND_SRCS)))
+                     IF_X86_64(|| instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
+                                                            DR_QUERY_INCLUDE_COND_SRCS)))
                 value = REG_DEAD;
             if (value != REG_UNKNOWN)
                 drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, value);
