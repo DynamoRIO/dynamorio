@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -1374,6 +1374,7 @@ endif (NOT CLIENT_INTERFACE)
 # An alternative is to keep them in separate projects and only build
 # when we run them via --build-and-test.
 option(BUILD_TESTS "build tests" OFF)
+set(DEVICE_BASEDIR "/data/local/tmp" CACHE STRING "base dir for Android tests")
 if (BUILD_TESTS)
   # Tests require tools
   # FIXME i#65 NOT YET COMPLETED: what about x64 Windows: we need 32-bit drdeploy.exe!

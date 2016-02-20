@@ -280,33 +280,44 @@ set_per_config_ouput_to_match_single_config()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}) # tools.h
 include_directories(${PROJECT_SOURCE_DIR}/core/arch) # asm_defines.asm
 
+if (ANDROID)
+  find_program(adb adb)
+  if (NOT adb)
+    message(STATUS "Failed to find adb: tests expected to fail to run")
+  endif ()
+endif ()
+
 # FIXME i#98: improve code so can set Wall/W4
 if (UNIX)
   string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   # some tests rely on specific "nop;nop" patterns that optimization ruins
   # we should probably move the -O from top level into core/CMakeLists.txt
   string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-  # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
-  # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
-  # multi-arch compilation, whose value is x86_64-linux-gnu or i386-linux-gnu
-  # for 64/32-bit. However, in Ubuntu 11.10, some of the 32-bit libraries
-  # like libm.so, libdl.so, and libpthread.so are in /usr/lib32 or /lib32
-  # instead of /lib/i386-linux-gnu, so cmake cannot to find them.
-  # solution: add explicit paths for lookup.
-  find_library(libmath m)
-  if (NOT libmath AND NOT X64)
-    find_library(libmath m PATHS /usr/lib32 /lib32)
-  endif ()
-  find_library(libdl dl)
-  if (NOT libdl AND NOT X64)
-    find_library(libdl dl PATHS /usr/lib32 /lib32)
-  endif ()
-  find_library(libpthread pthread)
-  if (NOT libpthread AND NOT X64)
-    find_library(libpthread pthread PATHS /usr/lib32 /lib32)
-  endif ()
-  if (NOT libmath OR NOT libdl OR NOT libpthread)
-    message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
+  if (ANDROID)
+    # pthreads is inside Bionic on Android, and for some reason find_library() can't
+    # locate libm or libdl within the Android toolchain: we just assume they're there.
+    set(libmath m)
+    set(libdl dl)
+  else ()
+    # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
+    # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
+    # multi-arch compilation, whose value is x86_64-linux-gnu or i386-linux-gnu
+    # for 64/32-bit. However, in Ubuntu 11.10, some of the 32-bit libraries
+    # like libm.so, libdl.so, and libpthread.so are in /usr/lib32 or /lib32
+    # instead of /lib/i386-linux-gnu, so cmake cannot to find them.
+    # solution: add explicit paths for lookup.
+    find_library(libmath m)
+    if (NOT libmath AND NOT X64)
+      find_library(libmath m PATHS /usr/lib32 /lib32)
+    endif ()
+    find_library(libdl dl)
+    if (NOT libdl AND NOT X64)
+      find_library(libdl dl PATHS /usr/lib32 /lib32)
+    endif ()
+    find_library(libpthread pthread)
+    if (NOT libmath OR NOT libdl OR NOT libpthread)
+      message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
+    endif ()
   endif ()
 else (UNIX)
   # W2 is default (we're using W3).  We should also replace
@@ -384,7 +395,7 @@ include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib) # dr_helper.h
 # Note that the new DynamoRIOConfig.cmake doesn't set these so we can
 # probably remove this line.  We remove from target-specific flags
 # from configure_DynamoRIO_* in tobuild_api().
-remove_definitions(-DX64 -DLINUX -DWINDOWS -DMACOS -DCLANG)
+remove_definitions(-DX64 -DLINUX -DWINDOWS -DMACOS -DCLANG -DANDROID)
 # If people want perf stress tests they'll have to manually build to avoid
 # the NIGHTLY_REGRESSION define
 set(test_defs "-DNIGHTLY_REGRESSION")
@@ -551,13 +562,18 @@ function(add_exe test source)
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
   if (UNIX)
-    target_link_libraries(${test} ${libmath} ${libdl})
-    if ("${test}" MATCHES "^pthread|startstop_FLAKY")
-      target_link_libraries(${test} ${libpthread})
+    # This is kind of a hack: perhaps we should add a flag for whether to use libs.
+    if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static")
+      target_link_libraries(${test} ${libmath} ${libdl})
     endif ()
-  else (UNIX)
+    if (NOT ANDROID) # pthreads is inside Bionic on Android
+      if ("${test}" MATCHES "^pthread|startstop_FLAKY")
+        target_link_libraries(${test} ${libpthread})
+      endif ()
+    endif ()
+  elseif (WIN32)
     append_link_flags(${test} "${ARCH_LDFLAGS}")
-  endif (UNIX)
+  endif ()
   if ("${srccode}" MATCHES "include \"tools\\.h\"")
     target_link_libraries(${test} tools)
   endif ()
@@ -617,7 +633,7 @@ function(get_client_path client_path_out realclient realexe)
   else()
     set(tgt ${realclient})
   endif ()
-  get_target_property(client_path ${tgt} LOCATION${location_suffix})
+  get_target_path_for_execution(client_path ${tgt})
   set(${client_path_out} "${client_path}" PARENT_SCOPE)
 endfunction(get_client_path)
 
@@ -716,6 +732,7 @@ function(configure_app_api_build_flags test decoder)
   string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DMACOS" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DCLANG" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DANDROID" "" prop_cflags "${prop_cflags}")
   # FIXME: apparently moving cflags to a target property makes it show up
   # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.
@@ -1113,11 +1130,12 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
     if (standalone_dr OR NOT native)
-      get_target_property(drrun_path drrun LOCATION${location_suffix})
+      get_target_path_for_execution(drrun_path drrun)
     endif (standalone_dr OR NOT native)
     # CMake 3.x seems to put double slashes in there (xref i#1559)
     string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
     set(cmd "${drrun_path}" -s ${timeout} -quiet)
+    prefix_cmd_if_necessary(cmd OFF ${cmd})
     if (VMSAFE)
       set(cmd ${cmd} -mode code)
     endif ()
@@ -1159,6 +1177,7 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     # rpath (to make it easier to try different trees)
     set(cmd ${cmd} -env LD_LIBRARY_PATH
       "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+    prefix_cmd_if_necessary(cmd OFF ${cmd})
     # add dr_ops last to avoid needing extra \ on ;
     string(REPLACE ";" " " dr_ops_string "${dr_ops}")
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" PARENT_SCOPE)
@@ -1227,7 +1246,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     "${dr_ops}" ${separate_script})
 
   if (TARGET ${exe})
-    get_target_property(exepath ${exe} LOCATION${location_suffix})
+    get_target_path_for_execution(exepath ${exe})
   else ()
     # support running binaries that are not targets of this build
     set(exepath ${exe})
@@ -1252,9 +1271,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
       # swap from drrun to run_in_bg to run the test in the background
+      # XXX i#1874: add support for running on Android
       set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
-      string(REGEX REPLACE "^.*(${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)"
-        "${MAIN_RUNTIME_OUTPUT_DIRECTORY}/run_in_bg;-out;${tmpfile};\\1"
+      string(REGEX REPLACE "^[^/]*(/.*)/drrun" "\\1/run_in_bg;-out;${tmpfile};\\1/drrun"
         rundr "${rundr}")
       # Remove timeout args to drrun to ensure that it doesn't fork the app.
       string(REGEX REPLACE ";-s;[0-9]+" "" rundr "${rundr}")
@@ -1278,13 +1297,16 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     endif (UNIX)
     # FIXME i#120: for Windows, get app name to run from .runall file.
     # For linux we always run linux.infloop.
-    set(cmd_with_at ${rundr} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.infloop ${exe_ops})
+    get_target_path_for_execution(infloop_path linux.infloop)
+    set(cmd_with_at ${rundr} ${infloop_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
     # much simpler this way.
     string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
-    add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${MAIN_RUNTIME_OUTPUT_DIRECTORY}
+    get_target_path_for_execution(toolbindir nudgeunix)
+    get_filename_component(toolbindir ${toolbindir} DIRECTORY)
+    add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${toolbindir}
       -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
       -D clear=${clear_arg}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
@@ -1523,7 +1545,9 @@ endfunction(optimize)
 # tests
 
 tobuild(common.broadfun common/broadfun.c)
-tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
+if (NOT ANDROID) # We do not support -no_early_inject on Android (i#1873).
+  tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
+endif ()
 if (NOT ARM) # FIXME i#1551: port asm to ARM
   tobuild(common.decode-bad common/decode-bad.c)
   # FIXME i#105: get this working for 32-bit linux
@@ -1549,7 +1573,8 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
   # We do not run for VMSAFE as they fail there and we just don't support that
   # combination now (i#1793).
   # XXX i#1287: implement for MacOS
-  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE)
+  # We do not support -no_early_inject on Android (i#1873).
+  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE AND NOT ANDROID)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
@@ -1585,7 +1610,7 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
       torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
     endif ()
-  endif (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE)
+  endif ()
 
   # App seg mangling makes dstack test fail, and our default build does not
   # support disabling such mangling, so this test is Windows-only.
@@ -1953,9 +1978,9 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
   use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
-  if (UNIX)
+  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
     target_link_libraries(client.drmgr-test ${libpthread})
-  endif (UNIX)
+  endif ()
 
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
@@ -1972,7 +1997,7 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-  get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
+  get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll)
   tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
   use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
   tochcon(client.drwrap-test.appdll textrel_shlib_t)
@@ -2002,7 +2027,7 @@ if (CLIENT_INTERFACE)
   endif ()
 
   tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
-  get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
+  get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll)
   tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
     "" "${drsyms_libpath}")
   # Disable optimizations for the exe and appdll to allow stack tracing.
@@ -2034,9 +2059,9 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
   use_DynamoRIO_extension(client.drutil-test.dll drutil)
   use_DynamoRIO_extension(client.drutil-test.dll drmgr)
-  if (UNIX)
+  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
     target_link_libraries(client.drutil-test ${libpthread})
-  endif (UNIX)
+  endif ()
 
   if (NOT ARM) # FIXME i#1551: port to ARM
     # We need to load w/ the same base so the test passes
@@ -2389,8 +2414,8 @@ if (UNIX)
 
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
-  tobuild_ops(linux.execve-null linux/execve-null.c ""
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
+  get_target_path_for_execution(execve-sub-path linux.execve-sub)
+  tobuild_ops(linux.execve-null linux/execve-null.c "" "${execve-sub-path}")
 
   # Test blacklist and whitelist child config vs follow-children options (i#1667).
   # Use a different name to avoid parallel test conflicts when we manipulate
@@ -2399,9 +2424,11 @@ if (UNIX)
   # We want the environment to keep HOME for config dirs (xref i#1679).
   add_exe(linux.execv linux/execv.c)
   set(linux.child-blacklist_expectbase "child-blacklist")
+  get_target_path_for_execution(execve-config-path linux.execve-config)
   torunonly(linux.child-blacklist linux.execv linux/execv.c
-    "-follow_children" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-config")
-  get_target_property(drconfig_path drconfig LOCATION${location_suffix})
+    "-follow_children" "${execve-config-path}")
+  get_target_path_for_execution(drconfig_path drconfig)
+  prefix_cmd_if_necessary(drconfig_path ON ${drconfig_path})
   set(linux.child-blacklist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
   set(linux.child-blacklist_precmd
     "${drconfig_path}@-quiet@-reg@linux.execve-config@-norun")
@@ -2410,7 +2437,7 @@ if (UNIX)
 
   set(linux.child-whitelist_expectbase "child-whitelist")
   torunonly(linux.child-whitelist linux.execv linux/execv.c
-    "-no_follow_children" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-config")
+    "-no_follow_children" "${execve-config-path}")
   set(linux.child-whitelist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
   if (DEBUG)
     set(debug_args "@-debug")
@@ -2481,14 +2508,20 @@ if (UNIX)
 
   # i#1145: test re-starting syscalls, both inlined and from dispatch
   tobuild(linux.eintr linux/eintr.c)
-  target_link_libraries(linux.eintr ${libpthread})
+  if (NOT ANDROID) # pthreads is inside Bionic on Android
+    target_link_libraries(linux.eintr ${libpthread})
+  endif ()
   torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
   tobuild(linux.sigsuspend linux/sigsuspend.c)
-  target_link_libraries(linux.sigsuspend ${libpthread})
+  if (NOT ANDROID) # pthreads is inside Bionic on Android
+    target_link_libraries(linux.sigsuspend ${libpthread})
+  endif ()
 
   tobuild(linux.signest linux/signest.c)
-  target_link_libraries(linux.signest ${libpthread})
+  if (NOT ANDROID) # pthreads is inside Bionic on Android
+    target_link_libraries(linux.signest ${libpthread})
+  endif ()
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
@@ -2523,8 +2556,7 @@ if (UNIX)
   append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
 
   # FIXME i#125: bugs in these, were disabled in the past
-  tobuild_ops(linux.vfork linux/vfork.c ""
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub")
+  tobuild_ops(linux.vfork linux/vfork.c "" "${execve-sub-path}")
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
   # runs of other builds with custom DR options
@@ -2555,8 +2587,10 @@ if (UNIX)
   # this app is used in nudge tests
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
-  add_exe(linux.infloop linux/infloop.c)
-  torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
+  if (NOT ANDROID) # XXX i#1874: add support for running this on Android
+    add_exe(linux.infloop linux/infloop.c)
+    torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
+  endif ()
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall

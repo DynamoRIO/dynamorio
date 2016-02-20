@@ -88,7 +88,9 @@ extern "C" {
 #  error "must include dr_api.h before tools.h"
 # endif
 #else
-# define PAGE_SIZE 0x00001000
+# ifndef PAGE_SIZE
+#  define PAGE_SIZE 0x00001000
+# endif
 #endif
 
 #ifdef WINDOWS

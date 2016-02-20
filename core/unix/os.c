@@ -517,7 +517,7 @@ get_libc_errno_location(bool do_init)
 int
 get_libc_errno(void)
 {
-#if defined(STANDALONE_UNIT_TEST) && defined(MACOS)
+#if defined(STANDALONE_UNIT_TEST) && (defined(MACOS) || defined(ANDROID))
     return errno;
 #else
 # ifdef STANDALONE_UNIT_TEST
