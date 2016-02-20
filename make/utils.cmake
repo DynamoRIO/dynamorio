@@ -56,7 +56,7 @@ endfunction (append_property_list)
 
 function (get_target_path_for_execution out target)
   if (ANDROID)
-    DynamoRIO_get_target_path_for_execution(local ${target} ${DEVICE_BASEDIR})
+    DynamoRIO_get_target_path_for_execution(local ${target} ${DR_DEVICE_BASEDIR})
   else ()
     DynamoRIO_get_target_path_for_execution(local ${target} "")
   endif ()
@@ -67,6 +67,15 @@ function (prefix_cmd_if_necessary cmd_out use_ats cmd_in)
   DynamoRIO_prefix_cmd_if_necessary(local ${use_ats} ${cmd_in} ${ARGN})
   set(${cmd_out} ${local} PARENT_SCOPE)
 endfunction (prefix_cmd_if_necessary)
+
+# i#1873: we copy individual targets for speed, using up less space, and to
+# support "make test" as well as a much nicer rebuild-and-rerun dev model,
+# rather than a massive "adb push" at the very end of the build.
+function (copy_target_to_device target)
+  if (DR_COPY_TO_DEVICE)
+    DynamoRIO_copy_target_to_device(${target} ${DR_DEVICE_BASEDIR})
+  endif ()
+endfunction (copy_target_to_device)
 
 function (add_rel_rpaths target)
   DynamoRIO_add_rel_rpaths(${target} ${ARGN})

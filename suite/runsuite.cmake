@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -263,7 +263,10 @@ if (ARCH_IS_X86 AND NOT APPLE)
       ")
   endif (DO_ALL_BUILDS)
 endif (ARCH_IS_X86 AND NOT APPLE)
+
 if (UNIX AND ARCH_IS_X86)
+  # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
+  # compilers are on the PATH.
   set(optional_cross_compile ON)
   set(ARCH_IS_X86 OFF)
   set(ENV{CFLAGS} "") # environment vars do not obey the normal scope rules--must reset
@@ -278,11 +281,47 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF OFF "")
+
+  # Android cross-compilation and running of tests using "adb shell"
+  find_program(ADB adb DOC "adb Android utility")
+  if (ADB)
+    execute_process(COMMAND ${ADB} get-state
+      RESULT_VARIABLE adb_result
+      ERROR_VARIABLE adb_err
+      OUTPUT_VARIABLE adb_out OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if (adb_result OR NOT adb_out STREQUAL "device")
+      message("Android device not connected: NOT running Android tests")
+      set(ADB OFF)
+    endif ()
+  else ()
+    message("adb not found: NOT running Android tests")
+  endif ()
+  if (ADB)
+    set(android_extra "DR_COPY_TO_DEVICE:BOOL=ON")
+  else ()
+    set(android_extra "")
+    set(run_tests OFF) # build tests but don't run them
+  endif ()
+  testbuild_ex("android-debug-internal-32" OFF "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+    BUILD_TESTS:BOOL=ON
+    DR_COPY_TO_DEVICE:BOOL=ON
+    ${ANDROID_EXTRA}
+    " OFF OFF "")
+  testbuild_ex("android-release-external-32" OFF "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+    " OFF OFF "")
+  set(run_tests ON)
+
   set(optional_cross_compile OFF)
   set(ARCH_IS_X86 ON)
 endif (UNIX AND ARCH_IS_X86)
 
-# FIXME: what about these builds?
+# XXX: do we still care about these builds?
 ## defines we don't want to break -- no runs though since we don't currently use these
 #    "BUILD::NOSHORT::ADD_DEFINES=\"${D}DGC_DIAGNOSTICS\"",
 #    "BUILD::NOSHORT::LIN::ADD_DEFINES=\"${D}CHECK_RETURNS_SSE2\"",

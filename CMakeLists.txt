@@ -204,6 +204,24 @@ endif (WIN32)
 # ANDROID is not mutually exclusive with LINUX or UNIX.
 if (CMAKE_SYSTEM_NAME MATCHES "^Android")
   set(ANDROID 1)
+  # We prefix new options with DR_ to make it easier for containing projects including
+  # DR to avoid name conflicts and to separate options.
+  set(DR_DEVICE_BASEDIR "/data/local/tmp" CACHE STRING "base dir for Android binaries")
+  option(DR_COPY_TO_DEVICE "copy cross-compiled binaries to DR_DEVICE_BASEDIR" OFF)
+  if (DR_COPY_TO_DEVICE)
+    find_program(ADB adb DOC "adb Android utility")
+    if (NOT ADB)
+      message(FATAL_ERROR "Unable to find adb for DR_COPY_TO_DEVICE")
+    else ()
+      execute_process(COMMAND ${ADB} get-state
+        RESULT_VARIABLE adb_result
+        ERROR_VARIABLE adb_err
+        OUTPUT_VARIABLE adb_out OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if (adb_result OR NOT adb_out STREQUAL "device")
+        message(FATAL_ERROR "Android device not connected for DR_COPY_TO_DEVICE")
+      endif ()
+    endif ()
+  endif ()
 endif ()
 
 # The target architecture.
@@ -1374,10 +1392,8 @@ endif (NOT CLIENT_INTERFACE)
 # An alternative is to keep them in separate projects and only build
 # when we run them via --build-and-test.
 option(BUILD_TESTS "build tests" OFF)
-set(DEVICE_BASEDIR "/data/local/tmp" CACHE STRING "base dir for Android tests")
 if (BUILD_TESTS)
   # Tests require tools
-  # FIXME i#65 NOT YET COMPLETED: what about x64 Windows: we need 32-bit drdeploy.exe!
   set(BUILD_TOOLS ON)
   enable_testing()
   # add Dashboard support

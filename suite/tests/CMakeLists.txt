@@ -280,8 +280,8 @@ set_per_config_ouput_to_match_single_config()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}) # tools.h
 include_directories(${PROJECT_SOURCE_DIR}/core/arch) # asm_defines.asm
 
-if (ANDROID)
-  find_program(adb adb)
+if (ANDROID AND NOT ADB)
+  find_program(ADB adb)
   if (NOT adb)
     message(STATUS "Failed to find adb: tests expected to fail to run")
   endif ()
@@ -555,6 +555,7 @@ function(add_exe test source)
   endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
 
   add_executable(${test} ${test_srcs})
+  copy_target_to_device(${test})
 
   set_target_properties(${test} PROPERTIES
     LINK_FLAGS "${ARCH_DEBUG}"
@@ -617,6 +618,7 @@ function(tobuild_dll test source dr_ops)
   set_cflags(${dll_source}) # sets srccode var
   add_library(${test}.dll SHARED ${lib_srcs})
   set_target_properties(${test}.dll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
+  copy_target_to_device(${test}.dll)
   target_link_libraries(${test} ${test}.dll)
   if ("${srccode}" MATCHES "include \"tools\\.h\"")
     target_link_libraries(${test}.dll tools)
@@ -688,6 +690,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   configure_DynamoRIO_client(${test}.dll)
   append_property_string(TARGET ${test}.dll LINK_FLAGS "${ARCH_DEBUG}")
   add_dependencies(${test}.dll api_headers)
+  copy_target_to_device(${test}.dll)
   get_client_path(client_path ${test}.dll ${test})
   if (STATIC_LIBRARY)
     # For STATIC_LIBRARY, we support a single client by linking the client into
@@ -788,6 +791,7 @@ function(tobuild_appdll test source)
       configure_app_api_build_flags(${test}.appdll OFF)
       add_dependencies(${test}.appdll api_headers)
     endif()
+  copy_target_to_device(${test}.appdll)
   endif (EXISTS "${dll_srcpath}")
 endfunction(tobuild_appdll)
 

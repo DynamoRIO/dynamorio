@@ -409,6 +409,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 endif ()
 
 target_link_libraries(dynamorio drhelper)
+copy_target_to_device(dynamorio)
 
 # rather than a separate BUILD_INCLUDES option we always build
 # include headers if building core (or if building docs or samples as
@@ -439,6 +440,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
 target_link_libraries(${PRELOAD_NAME} drhelper)
+copy_target_to_device(${PRELOAD_NAME})
 
 # static decoding library
 add_library(drdecode
@@ -948,6 +950,7 @@ if (BUILD_TESTS)
   if (APPLE)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
   endif ()
+  copy_target_to_device(unit_tests)
 endif (BUILD_TESTS)
 
 ###########################################################################
