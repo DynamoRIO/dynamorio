@@ -630,16 +630,14 @@ reg_id_t opnd_get_segment(opnd_t opnd) { return OPND_GET_SEGMENT(opnd); }
 dr_shift_type_t
 opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
 {
+    if (amount != NULL)
+        *amount = 0;
     if (!opnd_is_base_disp(opnd)) {
         CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
         return DR_SHIFT_NONE;
     }
-    if (amount != NULL) {
-        if (opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
-            *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
-        else
-            *amount = 0;
-    }
+    if (amount != NULL && opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
+        *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
     return opnd.value.base_disp.shift_type;
 }
 
