@@ -366,7 +366,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         ((valid_to_cache && instr_is_app(instr)) ||
          always_cache /*caller will use then invalidate*/)) {
         bool valid = instr_operands_valid(instr);
-#ifdef X64
+#ifdef X86_64
         /* we can't call instr_rip_rel_valid() b/c the raw bytes are not yet
          * set up: we rely on instr_encode() setting instr->rip_rel_pos and
          * the valid flag, even though raw bytes weren't there at the time.
@@ -385,7 +385,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
          */
         tmp = instr->bytes;
         instr->bytes = buf;
-#ifdef X64
+#ifdef X86_64
         instr_set_rip_rel_valid(instr, rip_rel_valid);
 #endif
         copy_and_re_relativize_raw_instr(dcontext, instr, tmp, tmp);
@@ -1033,7 +1033,7 @@ instr_set_raw_bits(instr_t *instr, byte *addr, uint length)
     instr->flags |= INSTR_RAW_BITS_VALID;
     instr->bytes = addr;
     instr->length = length;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1047,7 +1047,7 @@ instr_shift_raw_bits(instr_t *instr, ssize_t offs)
 {
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         instr->bytes += offs;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1067,7 +1067,7 @@ instr_set_raw_bits_valid(instr_t *instr, bool valid)
          * addresses for exception/signal handlers
          * Also do not de-allocate allocated bits
          */
-#ifdef X64
+#ifdef X86_64
         instr_set_rip_rel_valid(instr, false);
 #endif
     }
@@ -1113,7 +1113,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     instr->flags |= INSTR_RAW_BITS_ALLOCATED;
     instr->flags &= ~INSTR_OPERANDS_VALID;
     instr->flags &= ~INSTR_EFLAGS_VALID;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1187,7 +1187,7 @@ instr_set_raw_byte(instr_t *instr, uint pos, byte val)
     CLIENT_ASSERT(pos >= 0 && pos < instr->length && instr->bytes != NULL,
                   "instr_set_raw_byte: ordinal invalid, or no raw bits");
     instr->bytes[pos] = (byte) val;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1204,7 +1204,7 @@ instr_set_raw_bytes(instr_t *instr, byte *start, uint num_bytes)
     CLIENT_ASSERT(num_bytes <= instr->length && instr->bytes != NULL,
                   "instr_set_raw_bytes: ordinal invalid, or no raw bits");
     memcpy(instr->bytes, start, num_bytes);
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1221,7 +1221,7 @@ instr_set_raw_word(instr_t *instr, uint pos, uint word)
     CLIENT_ASSERT(pos >= 0 && pos+3 < instr->length && instr->bytes != NULL,
                   "instr_set_raw_word: ordinal invalid, or no raw bits");
     *((uint *)(instr->bytes+pos)) = word;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -3374,7 +3374,7 @@ instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2
     return XINST_CREATE_move(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
 }
 
-#ifdef X64
+#ifdef X86_64
 /* Returns NULL if pc is not the start of a rip-rel lea.
  * If it could be, returns the address it refers to (which we assume is
  * never NULL).

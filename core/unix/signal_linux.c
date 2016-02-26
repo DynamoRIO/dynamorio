@@ -224,7 +224,7 @@ sysnum_is_not_restartable(int sysnum)
     return (sysnum == SYS_pause ||
             sysnum == SYS_rt_sigsuspend ||
             sysnum == SYS_rt_sigtimedwait ||
-            IF_X64(sysnum == SYS_epoll_wait_old ||)
+            IF_X86_64(sysnum == SYS_epoll_wait_old ||)
             sysnum == SYS_epoll_wait || sysnum == SYS_epoll_pwait ||
             sysnum == SYS_poll || sysnum == SYS_ppoll ||
             IF_NOT_ARM(sysnum == SYS_select ||)

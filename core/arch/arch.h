@@ -41,8 +41,8 @@
  *   "Intel Architecture Software Developer's Manual", 1999.
  */
 
-#ifndef X86_ARCH_H
-#define X86_ARCH_H
+#ifndef ARCH_H
+#define ARCH_H
 
 #include <stddef.h> /* for offsetof */
 #include "instr.h" /* for reg_id_t */
@@ -50,7 +50,7 @@
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 #include "../fragment.h" /* IS_IBL_TARGET */
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 static inline bool
 mixed_mode_enabled(void)
 {
@@ -229,7 +229,7 @@ typedef enum {
     /* Pre-ibl routines for far ctis */
     IBL_FAR,
     IBL_FAR_UNLINKED,
-#ifdef X64
+#if defined(X86) && defined(X64)
     /* PR 257963: trace inline cmp has separate entries b/c it saves flags */
     IBL_TRACE_CMP,
     IBL_TRACE_CMP_UNLINKED,
@@ -263,10 +263,10 @@ typedef enum {
     ((ibltype) == IBL_TRACE_PRIVATE || (ibltype) == IBL_TRACE_SHARED)
 #define IS_IBL_LINKED(ibltype) \
     ((ibltype) == IBL_LINKED || (ibltype) == IBL_FAR \
-     IF_X64(|| (ibltype) == IBL_TRACE_CMP))
+     IF_X86_64(|| (ibltype) == IBL_TRACE_CMP))
 #define IS_IBL_UNLINKED(ibltype) \
     ((ibltype) == IBL_UNLINKED || (ibltype) == IBL_FAR_UNLINKED \
-     IF_X64(|| (ibltype) == IBL_TRACE_CMP_UNLINKED))
+     IF_X86_64(|| (ibltype) == IBL_TRACE_CMP_UNLINKED))
 
 #define IBL_FRAG_FLAGS(ibl_code) \
     (IS_IBL_TRACE((ibl_code)->source_fragment_type) ? FRAG_IS_TRACE : 0)
@@ -274,7 +274,7 @@ typedef enum {
 static inline ibl_entry_point_type_t
 get_ibl_entry_type(uint link_or_instr_flags)
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (TEST(LINK_TRACE_CMP, link_or_instr_flags))
         return IBL_TRACE_CMP;
 #endif
@@ -292,7 +292,7 @@ typedef struct
     ibl_branch_type_t branch_type;
 } ibl_type_t;
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* PR 282576: With shared_code_x86, GLOBAL_DCONTEXT no longer specifies
  * a unique generated_code_t.  Rather than add GLOBAL_DCONTEXT_X86 everywhere,
  * we add mode parameters to a handful of routines that take in GLOBAL_DCONTEXT.
@@ -357,17 +357,17 @@ typedef enum {
 
 cache_pc get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                             ibl_source_fragment_type_t source_fragment_type,
-                            ibl_branch_type_t branch_type _IF_X64(gencode_mode_t mode));
+                            ibl_branch_type_t branch_type _IF_X86_64(gencode_mode_t mode));
 cache_pc get_ibl_routine(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                          ibl_source_fragment_type_t source_fragment_type,
                          ibl_branch_type_t branch_type);
 cache_pc get_ibl_routine_template(dcontext_t *dcontext,
                                   ibl_source_fragment_type_t source_fragment_type,
                                   ibl_branch_type_t branch_type
-                                  _IF_X64(gencode_mode_t mode));
+                                  _IF_X86_64(gencode_mode_t mode));
 bool get_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type);
 bool get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
-                             _IF_X64(gencode_mode_t *mode_out));
+                             _IF_X86_64(gencode_mode_t *mode_out));
 const char *get_ibl_routine_name(dcontext_t *dcontext, cache_pc target,
                                  const char **ibl_brtype_name);
 cache_pc get_trace_ibl_routine(dcontext_t *dcontext, cache_pc current_entry);
@@ -394,15 +394,15 @@ const char *get_target_delete_entry_name(dcontext_t *dcontext,
  * non-global dcontext; also less ugly than adding GLOBAL_DCONTEXT_X86.
  */
 cache_pc
-shared_syscall_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+shared_syscall_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc
-unlinked_shared_syscall_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+unlinked_shared_syscall_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc shared_syscall_routine(dcontext_t *dcontext);
 cache_pc unlinked_shared_syscall_routine(dcontext_t *dcontext);
 #endif
 #ifdef TRACE_HEAD_CACHE_INCR
 cache_pc trace_head_incr_routine(dcontext_t *dcontext);
-cache_pc trace_head_incr_shared_routine(IF_X64(gencode_mode_t mode));
+cache_pc trace_head_incr_shared_routine(IF_X86_64(gencode_mode_t mode));
 #endif
 
 /* in mangle_shared.c */
@@ -498,7 +498,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                          instr_t *next_instr);
 #endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
-                              instr_t *instr _IF_X64(gencode_mode_t mode));
+                              instr_t *instr _IF_X86_64(gencode_mode_t mode));
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void);
@@ -681,7 +681,7 @@ int
 encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch,
                        instrlist_t *ilist, cache_pc start_pc);
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* Shouldn't need to mark as packed.  We order for 6-byte little-endian selector:pc. */
 typedef struct _far_ref_t {
     /* We target WOW64 and cross-plaform so no 8-byte Intel-only pc */
@@ -699,7 +699,7 @@ typedef struct ibl_code_t {
     /* for far ctis (i#823) */
     byte *far_ibl;
     byte *far_ibl_unlinked;
-#ifdef X64
+#if defined(X86) && defined(X64)
     /* PR 257963: trace inline cmp has already saved eflags */
     byte *trace_cmp_entry;
     byte *trace_cmp_unlinked;
@@ -841,7 +841,7 @@ typedef struct _generated_code_t {
 
     bool thread_shared;
     bool writable;
-#ifdef X64
+#if defined(X86) && defined(X64)
     gencode_mode_t gencode_mode; /* mode of this code (x64, x86, x86_to_x64) */
 #endif
 
@@ -859,7 +859,7 @@ typedef struct _generated_code_t {
 /* thread-private generated code */
 fcache_enter_func_t fcache_enter_routine(dcontext_t *dcontext);
 cache_pc fcache_return_routine(dcontext_t *dcontext);
-cache_pc fcache_return_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc fcache_return_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 
 /* thread-shared generated code */
 byte * emit_fcache_enter_shared(dcontext_t *dcontext, generated_code_t *code, byte *pc);
@@ -868,24 +868,24 @@ fcache_enter_func_t fcache_enter_shared_routine(dcontext_t *dcontext);
 /* the fcache_return routines are queried by get_direct_exit_target and need more
  * direct control than the dcontext
  */
-cache_pc fcache_return_shared_routine(IF_X64(gencode_mode_t mode));
+cache_pc fcache_return_shared_routine(IF_X86_64(gencode_mode_t mode));
 
 /* coarse-grain generated code */
 byte * emit_fcache_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 byte * emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code,
                                      byte *pc);
-cache_pc fcache_return_coarse_routine(IF_X64(gencode_mode_t mode));
-cache_pc trace_head_return_coarse_routine(IF_X64(gencode_mode_t mode));
+cache_pc fcache_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc trace_head_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
 
 /* shared clean call context switch */
 bool client_clean_call_is_thread_private();
-cache_pc get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
-cache_pc get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc get_clean_call_save(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
+cache_pc get_clean_call_restore(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 
 void protect_generated_code(generated_code_t *code, bool writable);
 
 extern generated_code_t *shared_code;
-#ifdef X64
+#if defined(X86) && defined(X64)
 extern generated_code_t *shared_code_x86;
 extern generated_code_t *shared_code_x86_to_x64;
 #endif
@@ -895,7 +895,7 @@ is_shared_gencode(generated_code_t *code)
 {
     if (code == NULL) /* since shared_code_x86 in particular can be NULL */
         return false;
-#ifdef X64
+#if defined(X86) && defined(X64)
     return code == shared_code_x86 || code == shared_code ||
            code == shared_code_x86_to_x64;
 #else
@@ -904,9 +904,9 @@ is_shared_gencode(generated_code_t *code)
 }
 
 static inline generated_code_t *
-get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+get_shared_gencode(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT
            IF_INTERNAL(IF_CLIENT_INTERFACE(|| dynamo_exited)));
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -951,7 +951,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 
 /* returns the thread private code or GLOBAL thread shared code */
 static inline generated_code_t*
-get_emitted_routines_code(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+get_emitted_routines_code(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
     generated_code_t *code;
     /* This routine exists only because GLOBAL_DCONTEXT is not a real dcontext
@@ -959,10 +959,10 @@ get_emitted_routines_code(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     /* PR 244737: thread-private uses only shared gencode on x64 */
     /* PR 253431: to distinguish shared x86 gencode from x64 gencode, a dcontext
      * must be passed in; use get_shared_gencode() for x64 builds */
-    IF_X64(ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT));
+    IF_X86_64(ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT));
     if (USE_SHARED_GENCODE_ALWAYS() ||
         (USE_SHARED_GENCODE() && dcontext == GLOBAL_DCONTEXT)) {
-        code = get_shared_gencode(dcontext _IF_X64(mode));
+        code = get_shared_gencode(dcontext _IF_X86_64(mode));
     } else {
         ASSERT(dcontext != GLOBAL_DCONTEXT);
         /* NOTE thread private code entry points may also refer to shared
@@ -975,7 +975,7 @@ get_emitted_routines_code(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 ibl_code_t *get_ibl_routine_code(dcontext_t *dcontext, ibl_branch_type_t branch_type,
                                  uint fragment_flags);
 ibl_code_t *get_ibl_routine_code_ex(dcontext_t *dcontext, ibl_branch_type_t branch_type,
-                                    uint fragment_flags _IF_X64(gencode_mode_t mode));
+                                    uint fragment_flags _IF_X86_64(gencode_mode_t mode));
 
 /* in emit_utils.c but not exported to non-x86 files */
 int insert_exit_stub_other_flags(dcontext_t *dcontext,  fragment_t *f, linkstub_t *l,
@@ -998,7 +998,7 @@ byte * emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code,
 void update_indirect_branch_lookup(dcontext_t *dcontext);
 
 byte *emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code, cache_pc ibl_tgt
-                   _IF_X64(far_ref_t *far_jmp_opnd));
+                   _IF_X86_64(far_ref_t *far_jmp_opnd));
 
 #ifndef WINDOWS
 void update_syscalls(dcontext_t *dcontext);
@@ -1028,7 +1028,7 @@ void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                    bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv);
 
-void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mode));
+void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X86_64(gencode_mode_t mode));
 #endif /* WINDOWS */
 
 byte * emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
@@ -1041,9 +1041,9 @@ byte * emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
  * non-global dcontext; also less ugly than adding GLOBAL_DCONTEXT_X86.
  */
 cache_pc
-after_shared_syscall_code_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+after_shared_syscall_code_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc
-after_do_syscall_code_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+after_do_syscall_code_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 
 byte * emit_fcache_enter_indirect(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                                   byte *fcache_return_pc);
@@ -1064,7 +1064,7 @@ byte * emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte 
 byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc);
 
-cache_pc get_new_thread_start(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc get_new_thread_start(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
@@ -1096,11 +1096,11 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64_ibl_opt));
+                   uint flags, bool tls, bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt));
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                       uint flags, bool tls, bool absolute
-                      _IF_X64(bool x86_to_x64_ibl_opt));
+                      _IF_X86_64(bool x86_to_x64_ibl_opt));
 
 instr_t * create_syscall_instr(dcontext_t *dcontext);
 
@@ -1556,4 +1556,4 @@ void
 instrlist_convert_to_x86(instrlist_t *ilist);
 #endif
 
-#endif /* X86_ARCH_H */
+#endif /* ARCH_H */

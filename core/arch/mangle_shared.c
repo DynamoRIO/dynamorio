@@ -235,7 +235,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * We do not need to preserve DR's Linux errno across app execution.
      */
 
-#if defined(X64) || defined(MACOS)
+#if (defined(X86) && defined(X64)) || defined(MACOS)
     /* PR 218790: maintain 16-byte rsp alignment.
      * insert_parameter_preparation() currently assumes we leave rsp aligned.
      */
@@ -271,7 +271,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         cci = &default_clean_call_info;
     /* saved error code is currently on the top of the stack */
 
-#if defined(X64) || defined(MACOS)
+#if (defined(X86) && defined(X64)) || defined(MACOS)
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;

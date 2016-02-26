@@ -162,8 +162,8 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
         "Creating private copy of F%d ("PFX") for trace creation\n", f->id, f->tag);
 
     ASSERT(dr_get_isa_mode(dcontext) == FRAG_ISA_MODE(f->flags)
-           IF_X64(|| (dr_get_isa_mode(dcontext) == DR_ISA_IA32 &&
-                      !FRAG_IS_32(f->flags) && DYNAMO_OPTION(x86_to_x64))));
+           IF_X86_64(|| (dr_get_isa_mode(dcontext) == DR_ISA_IA32 &&
+                         !FRAG_IS_32(f->flags) && DYNAMO_OPTION(x86_to_x64))));
 
     /* only keep one private copy around at a time
      * we delete here, when we add a new copy, and not in internal_restore_last
@@ -1160,7 +1160,7 @@ get_and_check_add_size(dcontext_t *dcontext, fragment_t *f, uint *res_add_size,
 static inline uint
 trace_flags_from_component_flags(uint flags)
 {
-    return (flags & (FRAG_HAS_SYSCALL | FRAG_HAS_DIRECT_CTI IF_X64(| FRAG_32_BIT)));
+    return (flags & (FRAG_HAS_SYSCALL | FRAG_HAS_DIRECT_CTI IF_X86_64(| FRAG_32_BIT)));
 }
 
 static inline uint
@@ -1536,7 +1536,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         mutex_unlock(&trace_building_lock);
 
     RSTATS_INC(num_traces);
-    DOSTATS({ IF_X64(if (FRAG_IS_32(trace_f->flags)) STATS_INC(num_32bit_traces);) });
+    DOSTATS({ IF_X86_64(if (FRAG_IS_32(trace_f->flags)) STATS_INC(num_32bit_traces);) });
     STATS_ADD(num_bbs_in_all_traces, md->num_blks);
     STATS_TRACK_MAX(max_bbs_in_a_trace, md->num_blks);
     DOLOG(2, LOG_MONITOR, {
@@ -1981,7 +1981,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* check for conditions signaling end of trace regardless of client */
         end_trace = end_trace || TEST(FRAG_CANNOT_BE_TRACE, f->flags);
 
-#ifdef X64
+#if defined(X86) && defined(X64)
         /* no traces that mix 32 and 64: decode_fragment not set up for it */
         if (TEST(FRAG_32_BIT, f->flags) != TEST(FRAG_32_BIT, md->trace_flags))
             end_trace = true;

@@ -498,7 +498,7 @@ must_escape_from(app_pc pc)
 static void
 bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     /* i#922: we're going to run this jmp from our code cache so we have to
      * make sure it still reaches its target.  We could try to check
      * reachability from the likely code cache slot, but these should be
@@ -535,6 +535,8 @@ bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
         instrlist_remove(bb->ilist, bb->instr);
     instr_destroy(dcontext, bb->instr);
     bb->instr = NULL;
+#elif defined(ARM)
+    ASSERT_NOT_IMPLEMENTED(false); /* i#1582 */
 #else
     if (appended) {
         /* avoid assert about meta w/ translation but no restore_state callback */
@@ -4602,7 +4604,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
 {
     instr_t *in;
     opnd_t jmp_tgt;
-#ifdef X64
+#if defined(X86) && defined(X64)
     bool reachable = rel32_reachable_from_vmcode(bb->start_pc);
 #endif
     DEBUG_DECLARE(bool ok;)
@@ -4670,7 +4672,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
         }
     }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (!reachable) {
         /* best to store the target at the end of the bb, to keep it readonly,
          * but that requires a post-pass to patch its value: since native_exec
@@ -5757,7 +5759,7 @@ insert_transparent_comparison(dcontext_t *dcontext, instrlist_t *trace,
     return added_size;
 }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 static int
 mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                        instr_t *targeter, app_pc next_tag)
@@ -7435,7 +7437,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     cur_buf += (int)(pc - prev_pc);
                     raw_start_pc = pc;
                 }
-#ifdef X64
+#if defined(X86) && defined(X64)
                 else if (instr_has_rel_addr_reference(instr)) {
                     /* We need to re-relativize, which is done automatically only for
                      * level 1 instrs (PR 251479), and only when raw bits point to
@@ -7559,7 +7561,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                 l_flags = LINK_INDIRECT;
                 DEBUG_DECLARE(is_ibl = )
                     get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type
-                                            _IF_X64(NULL));
+                                            _IF_X86_64(NULL));
                 ASSERT(is_ibl);
                 l_flags |= ibltype_to_linktype(ibl_type.branch_type);
                 LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext)-1,

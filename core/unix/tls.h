@@ -51,7 +51,7 @@ typedef enum {
     TLS_TYPE_NONE,
     TLS_TYPE_LDT,
     TLS_TYPE_GDT,
-#ifdef X64
+#if defined(X86) && defined(X64)
     TLS_TYPE_ARCH_PRCTL,
 #endif
     /* Used with stealing a register in code cache, we use a (app/priv) lib TLS
@@ -162,7 +162,7 @@ read_thread_register(reg_id_t reg)
     return sel;
 }
 
-#if defined(LINUX) && defined(X64) && !defined(ARCH_SET_GS)
+#if defined(LINUX) && defined(X86) && defined(X64) && !defined(ARCH_SET_GS)
 #  define ARCH_SET_GS 0x1001
 #  define ARCH_SET_FS 0x1002
 #  define ARCH_GET_FS 0x1003

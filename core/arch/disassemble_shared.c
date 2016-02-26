@@ -402,11 +402,11 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
                             target, ibl_name, ibl_brtype);
             printed = true;
         } else if (SHARED_FRAGMENTS_ENABLED() && target ==
-                   fcache_return_shared_routine(IF_X64(GENCODE_X64)))
+                   fcache_return_shared_routine(IF_X86_64(GENCODE_X64)))
             gencode_routine = "fcache_return";
 # ifdef X64
         else if (SHARED_FRAGMENTS_ENABLED() && target ==
-                 fcache_return_shared_routine(IF_X64(GENCODE_X86)))
+                 fcache_return_shared_routine(IF_X86_64(GENCODE_X86)))
             gencode_routine = "x86_fcache_return";
 # endif
         else if (dcontext != GLOBAL_DCONTEXT &&
@@ -414,19 +414,19 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
             gencode_routine = "fcache_return";
         else if (DYNAMO_OPTION(coarse_units)) {
             if (target == fcache_return_coarse_prefix(target, NULL) ||
-                target == fcache_return_coarse_routine(IF_X64(GENCODE_X64)))
+                target == fcache_return_coarse_routine(IF_X86_64(GENCODE_X64)))
                 gencode_routine = "fcache_return_coarse";
             else if (target == trace_head_return_coarse_prefix(target, NULL) ||
                      target == trace_head_return_coarse_routine
-                     (IF_X64(GENCODE_X64)))
+                     (IF_X86_64(GENCODE_X64)))
                 gencode_routine = "trace_head_return_coarse";
 # ifdef X64
             else if (target == fcache_return_coarse_prefix(target, NULL) ||
-                     target == fcache_return_coarse_routine(IF_X64(GENCODE_X86)))
+                     target == fcache_return_coarse_routine(IF_X86_64(GENCODE_X86)))
                 gencode_routine = "x86_fcache_return_coarse";
             else if (target == trace_head_return_coarse_prefix(target, NULL) ||
                      target == trace_head_return_coarse_routine
-                     (IF_X64(GENCODE_X86)))
+                     (IF_X86_64(GENCODE_X86)))
                 gencode_routine = "x86_trace_head_return_coarse";
 # endif
         }

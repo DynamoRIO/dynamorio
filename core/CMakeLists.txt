@@ -213,9 +213,9 @@ set(ARCH_SRCS
   arch/retcheck.c
   )
 
-if (X64)
+if (X86 AND X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
-endif (X64)
+endif (X86 AND X64)
 
 if (WIN32)
   # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.

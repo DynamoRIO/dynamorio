@@ -1819,7 +1819,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
      */
     if (!other_thread) {
         tls_thread_free(tls_type, index);
-# ifdef X64
+# if defined(X86) && defined(X64)
         if (tls_type == TLS_TYPE_ARCH_PRCTL) {
             /* syscall re-sets gs register so re-clear it */
             if (read_thread_register(SEG_TLS) != 0) {
@@ -4576,7 +4576,7 @@ ignorable_system_call_normalized(int num)
     /* i#107: syscall might change/query app's seg memory
      * need stop app from clobbering our GDT slot.
      */
-#if defined(LINUX) && defined(X64)
+#if defined(LINUX) && defined(X86) && defined(X64)
     case SYS_arch_prctl:
 #endif
 #if defined(LINUX) && defined(X86)
@@ -4659,7 +4659,7 @@ sys_param_addr(dcontext_t *dcontext, int num)
 {
     /* we force-inline get_mcontext() and so don't take it as a param */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#ifdef X64
+#if defined(X86) && defined(X64)
     switch (num) {
     case 0: return &mc->xdi;
     case 1: return &mc->xsi;
@@ -6828,7 +6828,7 @@ pre_system_call(dcontext_t *dcontext)
 
     /* i#107 syscalls that might change/query app's segment */
 
-# ifdef X64
+# if defined(X86) && defined(X64)
     case SYS_arch_prctl: {
         /* we handle arch_prctl in post_syscall */
         dcontext->sys_param0 = sys_param(dcontext, 0);
@@ -7777,7 +7777,7 @@ post_system_call(dcontext_t *dcontext)
         handle_post_alarm(dcontext, success, (unsigned int) dcontext->sys_param0);
         break;
 #endif
-#if defined(LINUX) && defined(X64)
+#if defined(LINUX) && defined(X86) && defined(X64)
     case SYS_arch_prctl: {
         if (success && INTERNAL_OPTION(mangle_app_seg)) {
             tls_handle_post_arch_prctl(dcontext, dcontext->sys_param0,

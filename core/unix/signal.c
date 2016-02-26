@@ -419,7 +419,7 @@ os_itimers_thread_shared(void)
 void
 signal_init()
 {
-    IF_LINUX(IF_X64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT))));
+    IF_LINUX(IF_X86_64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT))));
     IF_MACOS(ASSERT(sizeof(kernel_sigset_t) == sizeof(__darwin_sigset_t)));
     os_itimers_thread_shared();
 

@@ -1889,6 +1889,7 @@ reg_64_to_32(reg_id_t reg)
     return (reg - REG_START_64) + REG_START_32;
 }
 
+# ifdef X86
 bool
 reg_is_extended(reg_id_t reg)
 {
@@ -1903,6 +1904,7 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_DR+8  && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR+8  && reg <= REG_STOP_CR));
 }
+# endif
 #endif
 
 reg_id_t

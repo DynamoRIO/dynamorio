@@ -111,11 +111,11 @@ DECLARE_CXTSWPROT_VAR(recursive_lock_t change_linking_lock,
  * To avoid wasting capacity space we use a shared heap for all stubs
  */
 void *stub_heap;
-#ifdef X64
+#if defined(X86) && defined(X64)
 void *stub32_heap;
 #endif
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 # define SEPARATE_STUB_HEAP(flags) (FRAG_IS_32(flags) ? stub32_heap : stub_heap)
 #else
 # define SEPARATE_STUB_HEAP(flags) stub_heap
@@ -145,7 +145,7 @@ void *stub32_heap;
  */
 /* linkstub_fragment() returns a static fragment_t for these fake linkstubs: */
 static const fragment_t linkstub_empty_fragment = { NULL, FRAG_FAKE, };
-#ifdef X64
+#if defined(X86) && defined(X64)
 static const fragment_t linkstub_empty_fragment_x86 = { NULL, FRAG_FAKE | FRAG_32_BIT, };
 #endif
 static const linkstub_t linkstub_starting    = { LINK_FAKE, 0 };
@@ -233,11 +233,11 @@ static inline bool
 is_empty_fragment(fragment_t *f)
 {
     return (f == (fragment_t *)&linkstub_empty_fragment
-            IF_X64(|| f == (fragment_t *)&linkstub_empty_fragment_x86));
+            IF_X86_64(|| f == (fragment_t *)&linkstub_empty_fragment_x86));
 }
 #endif
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 fragment_t *
 empty_fragment_mark_x86(fragment_t *f)
 {
@@ -267,7 +267,7 @@ link_reset_init(void)
         stub_heap = special_heap_init(SEPARATE_STUB_ALLOC_SIZE(0/*default*/),
                                       true /* must synch */, true /* +x */,
                                       false /* not persistent */);
-#ifdef X64
+#if defined(X86) && defined(X64)
         stub32_heap = special_heap_init(SEPARATE_STUB_ALLOC_SIZE(FRAG_32_BIT),
                                         true /* must synch */, true /* +x */,
                                         false /* not persistent */);
@@ -284,7 +284,7 @@ link_reset_free(void)
     if (DYNAMO_OPTION(separate_private_stubs) ||
         DYNAMO_OPTION(separate_shared_stubs)) {
         special_heap_exit(stub_heap);
-#ifdef X64
+#if defined(X86) && defined(X64)
         special_heap_exit(stub32_heap);
 #endif
     }
@@ -535,8 +535,8 @@ linkstub_owned_by_fragment(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         else {
             return (linkstub_fragment(dcontext, l) == f
                     /* For reset exit stub we need a fake empty fragment marked as x86 */
-                    IF_X64(|| (is_empty_fragment(linkstub_fragment(dcontext, l)) &&
-                               f == (fragment_t *)&linkstub_empty_fragment_x86)));
+                    IF_X86_64(|| (is_empty_fragment(linkstub_fragment(dcontext, l)) &&
+                                  f == (fragment_t *)&linkstub_empty_fragment_x86)));
         }
     }
     for (ls = FRAGMENT_EXIT_STUBS(f); ls != NULL; ls = LINKSTUB_NEXT_EXIT(ls)) {

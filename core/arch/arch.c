@@ -67,7 +67,7 @@ void interp_exit(void);
  * executable.
  */
 generated_code_t *shared_code = NULL;
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* PR 282576: For WOW64 processes we need context switches that swap between 64-bit
  * mode and 32-bit mode when executing 32-bit code cache code, as well as
  * 32-bit-targeted IBL routines for performance.
@@ -124,7 +124,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
 {
     byte *last_pc;
     /* FIXME i#1551: merge w/ GENCODE_IS_X86 below */
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (GENCODE_IS_X86(code->gencode_mode)) {
         /* parts of x86 gencode are 64-bit but it's hard to know which here
          * so we dump all as x86
@@ -210,7 +210,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                    code->commit_end_pc - code->gen_start_pc);
     }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (GENCODE_IS_X86(code->gencode_mode))
         set_x86_mode(dcontext, false/*x64*/);
 #endif
@@ -298,9 +298,9 @@ release_final_page(generated_code_t *code)
 }
 
 static void
-shared_gencode_emit(generated_code_t *gencode _IF_X64(bool x86_mode))
+shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     fragment_t *fragment;
 #endif
     byte *pc;
@@ -347,7 +347,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X64(bool x86_mode))
                                pc, gencode->fcache_return,
                                IBL_BB_SHARED, /* source_fragment_type */
                                /* thread_shared */
-                               IF_X64_ELSE(true, SHARED_FRAGMENTS_ENABLED()),
+                               IF_X86_64_ELSE(true, SHARED_FRAGMENTS_ENABLED()),
                                !DYNAMO_OPTION(bb_ibl_targets), /* target_trace_table */
                                gencode->bb_ibl);
     }
@@ -357,7 +357,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X64(bool x86_mode))
                                gencode->fcache_return,
                                IBL_COARSE_SHARED, /* source_fragment_type */
                                /* thread_shared */
-                               IF_X64_ELSE(true, SHARED_FRAGMENTS_ENABLED()),
+                               IF_X86_64_ELSE(true, SHARED_FRAGMENTS_ENABLED()),
                                !DYNAMO_OPTION(bb_ibl_targets), /*target_trace_table*/
                                gencode->coarse_ibl);
     }
@@ -387,7 +387,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X64(bool x86_mode))
     pc = emit_new_thread_dynamo_start(GLOBAL_DCONTEXT, pc);
 #endif
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 # ifdef WINDOWS
     /* plain fcache_enter indirects through edi, and next_tag is in tls,
      * so we don't need a separate routine for callback return
@@ -464,11 +464,11 @@ shared_gencode_emit(generated_code_t *gencode _IF_X64(bool x86_mode))
 }
 
 static void
-shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
+shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void))
 {
     generated_code_t *gencode;
     ibl_branch_type_t branch_type;
-#ifdef X64
+#if defined(X86) && defined(X64)
     bool x86_mode = false;
     bool x86_to_x64_mode = false;
 #endif
@@ -477,7 +477,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     /* we would return gencode and let caller assign, but emit routines
      * that this routine calls query the shared vars so we set here
      */
-#ifdef X64
+#if defined(X86) && defined(X64)
     switch (gencode_mode) {
     case GENCODE_X64:
         shared_code = gencode;
@@ -502,7 +502,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     memset(gencode, 0, sizeof(*gencode));
 
     gencode->thread_shared = true;
-    IF_X64(gencode->gencode_mode = gencode_mode);
+    IF_X86_64(gencode->gencode_mode = gencode_mode);
     /* Generated code immediately follows struct */
     gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
     gencode->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
@@ -511,33 +511,35 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
         gencode->trace_ibl[branch_type].initialized = false;
         gencode->bb_ibl[branch_type].initialized = false;
         gencode->coarse_ibl[branch_type].initialized = false;
+#if defined(X86) && defined(X64)
         /* cache the mode so we can pass just the ibl_code_t around */
-        IF_X64(gencode->trace_ibl[branch_type].x86_mode = x86_mode);
-        IF_X64(gencode->trace_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
-        IF_X64(gencode->bb_ibl[branch_type].x86_mode = x86_mode);
-        IF_X64(gencode->bb_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
-        IF_X64(gencode->coarse_ibl[branch_type].x86_mode = x86_mode);
-        IF_X64(gencode->coarse_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode);
+        gencode->trace_ibl[branch_type].x86_mode = x86_mode;
+        gencode->trace_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode;
+        gencode->bb_ibl[branch_type].x86_mode = x86_mode;
+        gencode->bb_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode;
+        gencode->coarse_ibl[branch_type].x86_mode = x86_mode;
+        gencode->coarse_ibl[branch_type].x86_to_x64_mode = x86_to_x64_mode;
+#endif
     }
-#if defined(X64) && defined(WINDOWS)
+#if defined(X86) && defined(X64) && defined(WINDOWS)
     gencode->shared_syscall_code.x86_mode = x86_mode;
     gencode->shared_syscall_code.x86_to_x64_mode = x86_to_x64_mode;
 #endif
 
-    shared_gencode_emit(gencode _IF_X64(x86_mode));
+    shared_gencode_emit(gencode _IF_X86_64(x86_mode));
     release_final_page(gencode);
 
     DOLOG(3, LOG_EMIT, {
         dump_emitted_routines(GLOBAL_DCONTEXT, GLOBAL,
-                              IF_X64_ELSE(x86_mode ? "thread-shared x86" :
-                                          "thread-shared", "thread-shared"),
+                              IF_X86_64_ELSE(x86_mode ? "thread-shared x86" :
+                                             "thread-shared", "thread-shared"),
                               gencode, gencode->gen_end_pc);
     });
 #ifdef INTERNAL
     if (INTERNAL_OPTION(gendump)) {
         dump_emitted_routines_to_file(GLOBAL_DCONTEXT, "gencode-shared",
-                                      IF_X64_ELSE(x86_mode ? "thread-shared x86" :
-                                                  "thread-shared", "thread-shared"),
+                                      IF_X86_64_ELSE(x86_mode ? "thread-shared x86" :
+                                                     "thread-shared", "thread-shared"),
                                       gencode, gencode->gen_end_pc);
     }
 #endif
@@ -580,7 +582,7 @@ arch_reset_stolen_reg(void)
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dr_reg_stolen = DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset);
     ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX);
-    shared_gencode_emit(shared_code _IF_X64(x86_mode));
+    shared_gencode_emit(shared_code);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
     dr_set_isa_mode(dcontext, old_mode, NULL);
@@ -602,7 +604,7 @@ arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc)
 }
 #endif /* ARM */
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* Sets other-mode ibl targets, for mixed-mode and x86_to_x64 mode */
 static void
 far_ibl_set_targets(ibl_code_t src_ibl[], ibl_code_t tgt_ibl[])
@@ -696,8 +698,8 @@ arch_init(void)
          */
         ASSERT(GENCODE_COMMIT_SIZE < GENCODE_RESERVE_SIZE);
 
-        shared_gencode_init(IF_X64(GENCODE_X64));
-#ifdef X64
+        shared_gencode_init(IF_X86_64(GENCODE_X64));
+#if defined(X86) && defined(X64)
         /* FIXME i#49: usually LOL64 has only 32-bit code (kernel has 32-bit syscall
          * interface) but for mixed modes how would we know?  We'd have to make
          * this be initialized lazily on first occurrence.
@@ -737,12 +739,12 @@ arch_init(void)
 
 #ifdef WINDOWS_PC_SAMPLE
 static void
-arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-    generated_code_t *tpc = get_emitted_routines_code(dcontext _IF_X64(mode));
+    generated_code_t *tpc = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     thread_id_t tid = dcontext == GLOBAL_DCONTEXT ? 0 : dcontext->owning_thread;
     /* we may not have x86 gencode */
-    ASSERT(tpc != NULL IF_X64(|| mode == GENCODE_X86));
+    ASSERT(tpc != NULL IF_X86_64(|| mode == GENCODE_X86));
     if (tpc != NULL && tpc->profile != NULL) {
 
         ibl_branch_type_t branch_type;
@@ -848,7 +850,7 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
     if (IF_WINDOWS(IF_X64(!detach_stacked_callbacks &&)) shared_code != NULL) {
         heap_munmap(shared_code, GENCODE_RESERVE_SIZE);
     }
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (shared_code_x86 != NULL)
         heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE);
     if (shared_code_x86_to_x64 != NULL)
@@ -891,11 +893,11 @@ emit_ibl_routine_and_template(dcontext_t *dcontext, generated_code_t *code,
     ibl_code->far_ibl = pc;
     pc = emit_far_ibl(dcontext, pc, ibl_code,
                       ibl_code->indirect_branch_lookup_routine
-                      _IF_X64(&ibl_code->far_jmp_opnd));
+                      _IF_X86_64(&ibl_code->far_jmp_opnd));
     ibl_code->far_ibl_unlinked = pc;
     pc = emit_far_ibl(dcontext, pc, ibl_code,
                       ibl_code->unlinked_ibl_entry
-                      _IF_X64(&ibl_code->far_jmp_unlinked_opnd));
+                      _IF_X86_64(&ibl_code->far_jmp_unlinked_opnd));
 
     return pc;
 }
@@ -1096,7 +1098,7 @@ arch_thread_init(dcontext_t *dcontext)
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state())
                      IF_WINDOWS(|| DYNAMO_OPTION(tls_align != 0)));
 
-#ifdef X64
+#if defined(X86) && defined(X64)
     /* PR 244737: thread-private uses only shared gencode on x64 */
     ASSERT(dcontext->private_code == NULL);
     return;
@@ -1359,7 +1361,7 @@ arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks)
 static void
 arch_patch_syscall_common(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mode))
 {
-    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X64(mode));
+    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     if (code != NULL && (!is_shared_gencode(code) || dcontext == GLOBAL_DCONTEXT)) {
         /* ensure we didn't miss the init patch and leave it writable! */
         ASSERT(!TEST(SELFPROT_GENCODE, DYNAMO_OPTION(protect_mask)) || !code->writable);
@@ -1455,7 +1457,7 @@ is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc)
         return true;
 #endif
     /* we only care if it is found */
-    return get_ibl_routine_type_ex(dcontext, pc, NULL _IF_X64(NULL));
+    return get_ibl_routine_type_ex(dcontext, pc, NULL _IF_X86_64(NULL));
 }
 
 /* Promotes the current ibl routine from IBL_BB* to IBL_TRACE* preserving other properties */
@@ -1525,9 +1527,9 @@ get_alternate_ibl_routine(dcontext_t *dcontext, cache_pc current_entry,
                           uint flags)
 {
     ibl_type_t ibl_type = {0};
-    IF_X64(gencode_mode_t mode = GENCODE_FROM_DCONTEXT;)
+    IF_X86_64(gencode_mode_t mode = GENCODE_FROM_DCONTEXT;)
     DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, current_entry, &ibl_type _IF_X64(&mode));
+        get_ibl_routine_type_ex(dcontext, current_entry, &ibl_type _IF_X86_64(&mode));
     ASSERT(is_ibl);
 #ifdef WINDOWS
     /* shared_syscalls does not change currently
@@ -1540,13 +1542,13 @@ get_alternate_ibl_routine(dcontext_t *dcontext, cache_pc current_entry,
 #endif
     return get_ibl_routine_ex(dcontext, ibl_type.link_state,
                               get_source_fragment_type(dcontext, flags),
-                              ibl_type.branch_type _IF_X64(mode));
+                              ibl_type.branch_type _IF_X86_64(mode));
 }
 
 static ibl_entry_point_type_t
 get_unlinked_type(ibl_entry_point_type_t link_state)
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (link_state == IBL_TRACE_CMP)
         return IBL_TRACE_CMP_UNLINKED;
 #endif
@@ -1559,7 +1561,7 @@ get_unlinked_type(ibl_entry_point_type_t link_state)
 static ibl_entry_point_type_t
 get_linked_type(ibl_entry_point_type_t unlink_state)
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (unlink_state == IBL_TRACE_CMP_UNLINKED)
         return IBL_TRACE_CMP;
 #endif
@@ -1573,14 +1575,14 @@ cache_pc
 get_linked_entry(dcontext_t *dcontext, cache_pc unlinked_entry)
 {
     ibl_type_t ibl_type = {0};
-    IF_X64(gencode_mode_t mode = GENCODE_FROM_DCONTEXT;)
+    IF_X86_64(gencode_mode_t mode = GENCODE_FROM_DCONTEXT;)
     DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, unlinked_entry, &ibl_type _IF_X64(&mode));
+        get_ibl_routine_type_ex(dcontext, unlinked_entry, &ibl_type _IF_X86_64(&mode));
     ASSERT(is_ibl && IS_IBL_UNLINKED(ibl_type.link_state));
 
 #ifdef WINDOWS
-    if (unlinked_entry == unlinked_shared_syscall_routine_ex(dcontext _IF_X64(mode))) {
-        return shared_syscall_routine_ex(dcontext _IF_X64(mode));
+    if (unlinked_entry == unlinked_shared_syscall_routine_ex(dcontext _IF_X86_64(mode))) {
+        return shared_syscall_routine_ex(dcontext _IF_X86_64(mode));
     }
 #endif
 
@@ -1590,10 +1592,10 @@ get_linked_entry(dcontext_t *dcontext, cache_pc unlinked_entry)
                                * them up but will have no problems */
                               get_linked_type(ibl_type.link_state),
                               ibl_type.source_fragment_type, ibl_type.branch_type
-                              _IF_X64(mode));
+                              _IF_X86_64(mode));
 }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 cache_pc
 get_trace_cmp_entry(dcontext_t *dcontext, cache_pc linked_entry)
 {
@@ -1611,18 +1613,18 @@ cache_pc
 get_unlinked_entry(dcontext_t *dcontext, cache_pc linked_entry)
 {
     ibl_type_t ibl_type = {0};
-    IF_X64(gencode_mode_t mode = GENCODE_FROM_DCONTEXT;)
+    IF_X86_64(gencode_mode_t mode = GENCODE_FROM_DCONTEXT;)
     DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, linked_entry, &ibl_type _IF_X64(&mode));
+        get_ibl_routine_type_ex(dcontext, linked_entry, &ibl_type _IF_X86_64(&mode));
     ASSERT(is_ibl && IS_IBL_LINKED(ibl_type.link_state));
 
 #ifdef WINDOWS
-    if (linked_entry == shared_syscall_routine_ex(dcontext _IF_X64(mode)))
-        return unlinked_shared_syscall_routine_ex(dcontext _IF_X64(mode));
+    if (linked_entry == shared_syscall_routine_ex(dcontext _IF_X86_64(mode)))
+        return unlinked_shared_syscall_routine_ex(dcontext _IF_X86_64(mode));
 #endif
     return get_ibl_routine_ex(dcontext, get_unlinked_type(ibl_type.link_state),
                               ibl_type.source_fragment_type, ibl_type.branch_type
-                              _IF_X64(mode));
+                              _IF_X86_64(mode));
 }
 
 static bool
@@ -1631,12 +1633,12 @@ in_generated_shared_routine(dcontext_t *dcontext, cache_pc pc)
     if (USE_SHARED_GENCODE()) {
         return (pc >= (cache_pc)(shared_code->gen_start_pc) &&
                 pc < (cache_pc)(shared_code->commit_end_pc))
-            IF_X64(|| (shared_code_x86 != NULL &&
-                       pc >= (cache_pc)(shared_code_x86->gen_start_pc) &&
-                       pc < (cache_pc)(shared_code_x86->commit_end_pc))
-                   || (shared_code_x86_to_x64 != NULL &&
-                       pc >= (cache_pc)(shared_code_x86_to_x64->gen_start_pc) &&
-                       pc < (cache_pc)(shared_code_x86_to_x64->commit_end_pc)))
+            IF_X86_64(|| (shared_code_x86 != NULL &&
+                          pc >= (cache_pc)(shared_code_x86->gen_start_pc) &&
+                          pc < (cache_pc)(shared_code_x86->commit_end_pc))
+                      || (shared_code_x86_to_x64 != NULL &&
+                          pc >= (cache_pc)(shared_code_x86_to_x64->gen_start_pc) &&
+                          pc < (cache_pc)(shared_code_x86_to_x64->commit_end_pc)))
             ;
     }
     return false;
@@ -1772,16 +1774,16 @@ fcache_return_routine(dcontext_t *dcontext)
 }
 
 cache_pc
-fcache_return_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+fcache_return_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X64(mode));
+    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     return (cache_pc) code->fcache_return;
 }
 
 cache_pc
-fcache_return_coarse_routine(IF_X64_ELSE(gencode_mode_t mode, void))
+fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
-    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
     if (code == NULL)
         return NULL;
@@ -1790,9 +1792,9 @@ fcache_return_coarse_routine(IF_X64_ELSE(gencode_mode_t mode, void))
 }
 
 cache_pc
-trace_head_return_coarse_routine(IF_X64_ELSE(gencode_mode_t mode, void))
+trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
-    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
     if (code == NULL)
         return NULL;
@@ -1801,13 +1803,13 @@ trace_head_return_coarse_routine(IF_X64_ELSE(gencode_mode_t mode, void))
 }
 
 cache_pc
-get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+get_clean_call_save(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
     generated_code_t *code;
     if (client_clean_call_is_thread_private())
-        code = get_emitted_routines_code(dcontext _IF_X64(mode));
+        code = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     else
-        code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
+        code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(code != NULL);
     /* FIXME i#1551: NYI on ARM (we need emit_clean_call_save()) */
     IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
@@ -1815,13 +1817,13 @@ get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 }
 
 cache_pc
-get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+get_clean_call_restore(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
     generated_code_t *code;
     if (client_clean_call_is_thread_private())
-        code = get_emitted_routines_code(dcontext _IF_X64(mode));
+        code = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     else
-        code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
+        code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(code != NULL);
     /* FIXME i#1551: NYI on ARM (we need emit_clean_call_restore()) */
     IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
@@ -1870,12 +1872,12 @@ get_native_ret_ibl_xfer_entry(dcontext_t *dcontext)
  */
 bool
 get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
-                        _IF_X64(gencode_mode_t *mode_out))
+                        _IF_X86_64(gencode_mode_t *mode_out))
 {
     ibl_entry_point_type_t link_state;
     ibl_source_fragment_type_t source_fragment_type;
     ibl_branch_type_t branch_type;
-#ifdef X64
+#if defined(X86) && defined(X64)
     gencode_mode_t mode;
 #endif
 
@@ -1887,12 +1889,12 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
     if ((shared_code == NULL ||
          target < shared_code->gen_start_pc ||
          target >= shared_code->gen_end_pc)
-        IF_X64(&& (shared_code_x86 == NULL ||
-                   target < shared_code_x86->gen_start_pc ||
-                   target >= shared_code_x86->gen_end_pc)
-               && (shared_code_x86_to_x64 == NULL ||
-                   target < shared_code_x86_to_x64->gen_start_pc ||
-                   target >= shared_code_x86_to_x64->gen_end_pc))) {
+        IF_X86_64(&& (shared_code_x86 == NULL ||
+                      target < shared_code_x86->gen_start_pc ||
+                      target >= shared_code_x86->gen_end_pc)
+                  && (shared_code_x86_to_x64 == NULL ||
+                      target < shared_code_x86_to_x64->gen_start_pc ||
+                      target >= shared_code_x86_to_x64->gen_end_pc))) {
         if (dcontext == GLOBAL_DCONTEXT ||
             USE_SHARED_GENCODE_ALWAYS() ||
             target < ((generated_code_t *)dcontext->private_code)->gen_start_pc ||
@@ -1912,24 +1914,24 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
             for (branch_type = IBL_BRANCH_TYPE_START;
                  branch_type < IBL_BRANCH_TYPE_END;
                  branch_type++) {
-#ifdef X64
+#if defined(X86) && defined(X64)
                 for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
 #endif
                     if (target == get_ibl_routine_ex(dcontext, link_state,
                                                      source_fragment_type,
-                                                     branch_type _IF_X64(mode))) {
+                                                     branch_type _IF_X86_64(mode))) {
                         if (type) {
                             type->link_state = link_state;
                             type->source_fragment_type = source_fragment_type;
                             type->branch_type = branch_type;
                         }
-#ifdef X64
+#if defined(X86) && defined(X64)
                         if (mode_out != NULL)
                             *mode_out = mode;
 #endif
                         return true;
                     }
-#ifdef X64
+#if defined(X86) && defined(X64)
                 }
 #endif
             }
@@ -1940,15 +1942,15 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
         if (type != NULL) {
             type->branch_type = IBL_SHARED_SYSCALL;
             type->source_fragment_type = DEFAULT_IBL_BB();
-#ifdef X64
+#if defined(X86) && defined(X64)
             for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
 #endif
-                if (target == unlinked_shared_syscall_routine_ex(dcontext _IF_X64(mode)))
+                if (target == unlinked_shared_syscall_routine_ex(dcontext _IF_X86_64(mode)))
                     type->link_state = IBL_UNLINKED;
                 else IF_X64(if (target ==
-                                shared_syscall_routine_ex(dcontext _IF_X64(mode))))
+                                shared_syscall_routine_ex(dcontext _IF_X86_64(mode))))
                     type->link_state = IBL_LINKED;
-#ifdef X64
+#if defined(X86) && defined(X64)
                 else
                     continue;
                 if (mode_out != NULL)
@@ -1968,7 +1970,7 @@ bool
 get_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type)
 {
     IF_X64(ASSERT(dcontext != GLOBAL_DCONTEXT)); /* should call get_ibl_routine_type_ex */
-    return get_ibl_routine_type_ex(dcontext, target, type _IF_X64(NULL));
+    return get_ibl_routine_type_ex(dcontext, target, type _IF_X86_64(NULL));
 }
 
 /* returns false if target is not an IBL template
@@ -1976,11 +1978,11 @@ get_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type)
 */
 static bool
 get_ibl_routine_template_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
-                              _IF_X64(gencode_mode_t *mode_out))
+                              _IF_X86_64(gencode_mode_t *mode_out))
 {
     ibl_source_fragment_type_t source_fragment_type;
     ibl_branch_type_t branch_type;
-#ifdef X64
+#if defined(X86) && defined(X64)
     gencode_mode_t mode;
 #endif
 
@@ -1990,22 +1992,22 @@ get_ibl_routine_template_type(dcontext_t *dcontext, cache_pc target, ibl_type_t 
         for (branch_type = IBL_BRANCH_TYPE_START;
              branch_type < IBL_BRANCH_TYPE_END;
              branch_type++) {
-#ifdef X64
+#if defined(X86) && defined(X64)
             for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
 #endif
                 if (target == get_ibl_routine_template(dcontext, source_fragment_type,
-                                                       branch_type _IF_X64(mode))) {
+                                                       branch_type _IF_X86_64(mode))) {
                     if (type) {
                         type->link_state = IBL_TEMPLATE;
                         type->source_fragment_type = source_fragment_type;
                         type->branch_type = branch_type;
-#ifdef X64
+#if defined(X86) && defined(X64)
                         if (mode_out != NULL)
                             *mode_out = mode;
 #endif
                     }
                     return true;
-#ifdef X64
+#if defined(X86) && defined(X64)
                 }
 #endif
             }
@@ -2045,29 +2047,29 @@ const char *
 get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brtype_name)
 {
     static const char *const
-        ibl_routine_names IF_X64([3]) [IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
-        IF_X64({)
+        ibl_routine_names IF_X86_64([3]) [IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
+        IF_X86_64({)
         {"shared_unlinked_bb_ibl", "shared_delete_bb_ibl",
          "shared_bb_far", "shared_bb_far_unlinked",
-         IF_X64_("shared_bb_cmp") IF_X64_("shared_bb_cmp_unlinked")
+         IF_X86_64_("shared_bb_cmp") IF_X86_64_("shared_bb_cmp_unlinked")
          "shared_bb_ibl", "shared_bb_ibl_template"},
         {"shared_unlinked_trace_ibl", "shared_delete_trace_ibl",
          "shared_trace_far", "shared_trace_far_unlinked",
-         IF_X64_("shared_trace_cmp") IF_X64_("shared_trace_cmp_unlinked")
+         IF_X86_64_("shared_trace_cmp") IF_X86_64_("shared_trace_cmp_unlinked")
          "shared_trace_ibl", "shared_trace_ibl_template"},
         {"private_unlinked_bb_ibl", "private_delete_bb_ibl",
          "private_bb_far", "private_bb_far_unlinked",
-         IF_X64_("private_bb_cmp") IF_X64_("private_bb_cmp_unlinked")
+         IF_X86_64_("private_bb_cmp") IF_X86_64_("private_bb_cmp_unlinked")
          "private_bb_ibl", "private_bb_ibl_template"},
         {"private_unlinked_trace_ibl", "private_delete_trace_ibl",
          "private_trace_far", "private_trace_far_unlinked",
-         IF_X64_("private_trace_cmp") IF_X64_("private_trace_cmp_unlinked")
+         IF_X86_64_("private_trace_cmp") IF_X86_64_("private_trace_cmp_unlinked")
          "private_trace_ibl", "private_trace_ibl_template"},
         {"shared_unlinked_coarse_ibl", "shared_delete_coarse_ibl",
          "shared_coarse_trace_far", "shared_coarse_trace_far_unlinked",
-         IF_X64_("shared_coarse_trace_cmp") IF_X64_("shared_coarse_trace_cmp_unlinked")
+         IF_X86_64_("shared_coarse_trace_cmp") IF_X86_64_("shared_coarse_trace_cmp_unlinked")
          "shared_coarse_ibl", "shared_coarse_ibl_template"},
-#ifdef X64
+#if defined(X86) && defined(X64)
         /* PR 282576: for WOW64 processes we have separate x86 routines */
         }, {
         {"x86_shared_unlinked_bb_ibl", "x86_shared_delete_bb_ibl",
@@ -2119,19 +2121,19 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
 #endif
     };
     ibl_type_t ibl_type;
-#ifdef X64
+#if defined(X86) && defined(X64)
     gencode_mode_t mode;
 #endif
-    if (!get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X64(&mode))) {
+    if (!get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X86_64(&mode))) {
         /* not an IBL routine */
-        if (!get_ibl_routine_template_type(dcontext, target, &ibl_type _IF_X64(&mode))) {
+        if (!get_ibl_routine_template_type(dcontext, target, &ibl_type _IF_X86_64(&mode))) {
             return NULL;                /* not an IBL template either */
         }
     }
     /* ibl_type is valid and will give routine or template name, and qualifier */
 
     *ibl_brtype_name = get_branch_type_name(ibl_type.branch_type);
-    return ibl_routine_names IF_X64([mode])
+    return ibl_routine_names IF_X86_64([mode])
         [ibl_type.source_fragment_type][ibl_type.link_state];
 }
 
@@ -2140,9 +2142,9 @@ ibl_code_t*
 get_ibl_routine_code_internal(dcontext_t *dcontext,
                               ibl_source_fragment_type_t source_fragment_type,
                               ibl_branch_type_t branch_type
-                              _IF_X64(gencode_mode_t mode))
+                              _IF_X86_64(gencode_mode_t mode))
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (((mode == GENCODE_X86 ||
           (mode == GENCODE_FROM_DCONTEXT && dcontext != GLOBAL_DCONTEXT &&
            dcontext->isa_mode == DR_ISA_IA32 && !X64_CACHE_MODE_DC(dcontext))) &&
@@ -2157,20 +2159,20 @@ get_ibl_routine_code_internal(dcontext_t *dcontext,
     case IBL_BB_SHARED:
         if (!USE_SHARED_BB_IBL())
             return NULL;
-        return &(get_shared_gencode(dcontext _IF_X64(mode))->bb_ibl[branch_type]);
+        return &(get_shared_gencode(dcontext _IF_X86_64(mode))->bb_ibl[branch_type]);
     case IBL_BB_PRIVATE:
-        return &(get_emitted_routines_code(dcontext _IF_X64(mode))->bb_ibl[branch_type]);
+        return &(get_emitted_routines_code(dcontext _IF_X86_64(mode))->bb_ibl[branch_type]);
     case IBL_TRACE_SHARED:
         if (!USE_SHARED_TRACE_IBL())
             return NULL;
-        return &(get_shared_gencode(dcontext _IF_X64(mode))->trace_ibl[branch_type]);
+        return &(get_shared_gencode(dcontext _IF_X86_64(mode))->trace_ibl[branch_type]);
     case IBL_TRACE_PRIVATE:
-        return &(get_emitted_routines_code(dcontext _IF_X64(mode))
+        return &(get_emitted_routines_code(dcontext _IF_X86_64(mode))
                  ->trace_ibl[branch_type]);
     case IBL_COARSE_SHARED:
         if (!DYNAMO_OPTION(coarse_units))
             return NULL;
-        return &(get_shared_gencode(dcontext _IF_X64(mode))->coarse_ibl[branch_type]);
+        return &(get_shared_gencode(dcontext _IF_X86_64(mode))->coarse_ibl[branch_type]);
     default:
         ASSERT_NOT_REACHED();
     }
@@ -2182,11 +2184,11 @@ get_ibl_routine_code_internal(dcontext_t *dcontext,
 cache_pc
 get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                    ibl_source_fragment_type_t source_fragment_type,
-                   ibl_branch_type_t branch_type _IF_X64(gencode_mode_t mode))
+                   ibl_branch_type_t branch_type _IF_X86_64(gencode_mode_t mode))
 {
     ibl_code_t *ibl_code =
         get_ibl_routine_code_internal(dcontext,
-                                      source_fragment_type, branch_type _IF_X64(mode));
+                                      source_fragment_type, branch_type _IF_X86_64(mode));
     if (ibl_code == NULL || !ibl_code->initialized)
         return NULL;
     switch (entry_type) {
@@ -2200,7 +2202,7 @@ get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
         return (cache_pc) ibl_code->far_ibl;
     case IBL_FAR_UNLINKED:
         return (cache_pc) ibl_code->far_ibl_unlinked;
-#ifdef X64
+#if defined(X86) && defined(X64)
     case IBL_TRACE_CMP:
         return (cache_pc) ibl_code->trace_cmp_entry;
     case IBL_TRACE_CMP_UNLINKED:
@@ -2218,17 +2220,17 @@ get_ibl_routine(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                 ibl_branch_type_t branch_type)
 {
     return get_ibl_routine_ex(dcontext, entry_type, source_fragment_type,
-                              branch_type _IF_X64(GENCODE_FROM_DCONTEXT));
+                              branch_type _IF_X86_64(GENCODE_FROM_DCONTEXT));
 }
 
 cache_pc
 get_ibl_routine_template(dcontext_t *dcontext,
                          ibl_source_fragment_type_t source_fragment_type,
                          ibl_branch_type_t branch_type
-                         _IF_X64(gencode_mode_t mode))
+                         _IF_X86_64(gencode_mode_t mode))
 {
     ibl_code_t *ibl_code = get_ibl_routine_code_internal
-        (dcontext, source_fragment_type, branch_type _IF_X64(mode));
+        (dcontext, source_fragment_type, branch_type _IF_X86_64(mode));
     if (ibl_code == NULL || !ibl_code->initialized)
         return NULL;
     return ibl_code->inline_ibl_stub_template;
@@ -2296,14 +2298,14 @@ get_target_delete_entry_pc(dcontext_t *dcontext, ibl_table_t *table)
 
 ibl_code_t *
 get_ibl_routine_code_ex(dcontext_t *dcontext, ibl_branch_type_t branch_type,
-                        uint fragment_flags _IF_X64(gencode_mode_t mode))
+                        uint fragment_flags _IF_X86_64(gencode_mode_t mode))
 {
     ibl_source_fragment_type_t source_fragment_type =
         get_source_fragment_type(dcontext, fragment_flags);
 
     ibl_code_t *ibl_code =
         get_ibl_routine_code_internal(dcontext, source_fragment_type, branch_type
-                                      _IF_X64(mode));
+                                      _IF_X86_64(mode));
     ASSERT(ibl_code != NULL);
     return ibl_code;
 }
@@ -2313,9 +2315,9 @@ get_ibl_routine_code(dcontext_t *dcontext, ibl_branch_type_t branch_type,
                      uint fragment_flags)
 {
     return get_ibl_routine_code_ex(dcontext, branch_type, fragment_flags
-                                   _IF_X64(dcontext == GLOBAL_DCONTEXT ?
-                                           FRAGMENT_GENCODE_MODE(fragment_flags) :
-                                           GENCODE_FROM_DCONTEXT));
+                                   _IF_X86_64(dcontext == GLOBAL_DCONTEXT ?
+                                              FRAGMENT_GENCODE_MODE(fragment_flags) :
+                                              GENCODE_FROM_DCONTEXT));
 }
 
 
@@ -2330,11 +2332,11 @@ get_ibl_routine_code(dcontext_t *dcontext, ibl_branch_type_t branch_type,
  * non-global dcontext; also less ugly than adding GLOBAL_DCONTEXT_X86.
  */
 cache_pc
-shared_syscall_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+shared_syscall_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
     generated_code_t *code = DYNAMO_OPTION(shared_fragment_shared_syscalls) ?
-        get_shared_gencode(dcontext _IF_X64(mode)) :
-        get_emitted_routines_code(dcontext _IF_X64(mode));
+        get_shared_gencode(dcontext _IF_X86_64(mode)) :
+        get_emitted_routines_code(dcontext _IF_X86_64(mode));
     if (code == NULL)
         return NULL;
     else
@@ -2348,11 +2350,11 @@ shared_syscall_routine(dcontext_t *dcontext)
 }
 
 cache_pc
-unlinked_shared_syscall_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+unlinked_shared_syscall_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
     generated_code_t *code = DYNAMO_OPTION(shared_fragment_shared_syscalls) ?
-        get_shared_gencode(dcontext _IF_X64(mode)) :
-        get_emitted_routines_code(dcontext _IF_X64(mode));
+        get_shared_gencode(dcontext _IF_X86_64(mode)) :
+        get_emitted_routines_code(dcontext _IF_X86_64(mode));
     if (code == NULL)
         return NULL;
     else
@@ -2362,19 +2364,19 @@ unlinked_shared_syscall_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t m
 cache_pc
 unlinked_shared_syscall_routine(dcontext_t *dcontext)
 {
-    return unlinked_shared_syscall_routine_ex(dcontext _IF_X64(GENCODE_FROM_DCONTEXT));
+    return unlinked_shared_syscall_routine_ex(dcontext _IF_X86_64(GENCODE_FROM_DCONTEXT));
 }
 
 cache_pc
 after_shared_syscall_code(dcontext_t *dcontext)
 {
-    return after_shared_syscall_code_ex(dcontext  _IF_X64(GENCODE_FROM_DCONTEXT));
+    return after_shared_syscall_code_ex(dcontext  _IF_X86_64(GENCODE_FROM_DCONTEXT));
 }
 
 cache_pc
-after_shared_syscall_code_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+after_shared_syscall_code_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X64(mode));
+    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     ASSERT(code != NULL);
     return (cache_pc) (code->unlinked_shared_syscall + code->sys_syscall_offs);
 }
@@ -2396,13 +2398,13 @@ after_shared_syscall_addr(dcontext_t *dcontext)
 cache_pc
 after_do_syscall_code(dcontext_t *dcontext)
 {
-    return after_do_syscall_code_ex(dcontext  _IF_X64(GENCODE_FROM_DCONTEXT));
+    return after_do_syscall_code_ex(dcontext  _IF_X86_64(GENCODE_FROM_DCONTEXT));
 }
 
 cache_pc
-after_do_syscall_code_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+after_do_syscall_code_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X64(mode));
+    generated_code_t *code = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     ASSERT(code != NULL);
     return (cache_pc) (code->do_syscall + code->do_syscall_offs);
 }
@@ -2423,8 +2425,8 @@ after_do_shared_syscall_addr(dcontext_t *dcontext)
 {
     /* PR 212570: return the thread-shared do_syscall used for vsyscall hook */
     generated_code_t *code = get_emitted_routines_code(GLOBAL_DCONTEXT
-                                                       _IF_X64(GENCODE_X64));
-    IF_X64(ASSERT_NOT_REACHED()); /* else have to worry about GENCODE_X86 */
+                                                       _IF_X86_64(GENCODE_X64));
+    IF_X86_64(ASSERT_NOT_REACHED()); /* else have to worry about GENCODE_X86 */
     ASSERT(code != NULL);
     ASSERT(code->do_syscall != NULL);
     return (cache_pc) (code->do_syscall + code->do_syscall_offs);
@@ -2435,7 +2437,7 @@ after_do_syscall_addr(dcontext_t *dcontext)
 {
     /* PR 212570: return the thread-shared do_syscall used for vsyscall hook */
     generated_code_t *code = get_emitted_routines_code(dcontext
-                                                       _IF_X64(GENCODE_FROM_DCONTEXT));
+                                                       _IF_X86_64(GENCODE_FROM_DCONTEXT));
     ASSERT(code != NULL);
     ASSERT(code->do_syscall != NULL);
     return (cache_pc) (code->do_syscall + code->do_syscall_offs);
@@ -2445,7 +2447,7 @@ bool
 is_after_main_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
 {
     generated_code_t *code = get_emitted_routines_code(dcontext
-                                                       _IF_X64(GENCODE_FROM_DCONTEXT));
+                                                       _IF_X86_64(GENCODE_FROM_DCONTEXT));
     ASSERT(code != NULL);
     return (pc == (cache_pc) (code->do_syscall + code->do_syscall_offs));
 }
@@ -2454,7 +2456,7 @@ bool
 is_after_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
 {
     generated_code_t *code = get_emitted_routines_code(dcontext
-                                                       _IF_X64(GENCODE_FROM_DCONTEXT));
+                                                       _IF_X86_64(GENCODE_FROM_DCONTEXT));
     ASSERT(code != NULL);
     return (pc == (cache_pc) (code->do_syscall + code->do_syscall_offs) ||
             pc == (cache_pc) (code->do_int_syscall + code->do_int_syscall_offs)
@@ -2491,7 +2493,7 @@ is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc)
             does_syscall_ret_to_callsite());
 #else
     generated_code_t *code = get_emitted_routines_code(dcontext
-                                                       _IF_X64(GENCODE_FROM_DCONTEXT));
+                                                       _IF_X86_64(GENCODE_FROM_DCONTEXT));
     ASSERT(code != NULL);
     return ((pc == (cache_pc) (code->do_syscall + code->do_syscall_offs) &&
              does_syscall_ret_to_callsite()) ||
@@ -2504,7 +2506,7 @@ is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc)
 #ifdef UNIX
 /* PR 212290: can't be static code in x86.asm since it can't be PIC */
 cache_pc
-get_new_thread_start(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+get_new_thread_start(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
 #ifdef HAVE_TLS
     /* for HAVE_TLS we use the shared version; w/o TLS we don't
@@ -2512,7 +2514,7 @@ get_new_thread_start(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
      */
     dcontext = GLOBAL_DCONTEXT;
 #endif
-    generated_code_t *gen = get_emitted_routines_code(dcontext _IF_X64(mode));
+    generated_code_t *gen = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     return gen->new_thread_dynamo_start;
 }
 #endif
@@ -2558,9 +2560,9 @@ fcache_enter_shared_routine(dcontext_t *dcontext)
 }
 
 cache_pc
-fcache_return_shared_routine(IF_X64_ELSE(gencode_mode_t mode, void))
+fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
-    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());
     if (code == NULL)
         return NULL;
@@ -2570,9 +2572,9 @@ fcache_return_shared_routine(IF_X64_ELSE(gencode_mode_t mode, void))
 
 #ifdef TRACE_HEAD_CACHE_INCR
 cache_pc
-trace_head_incr_shared_routine(IF_X64_ELSE(gencode_mode_t mode, void))
+trace_head_incr_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
-    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());
     if (code == NULL)
         return NULL;
@@ -2634,7 +2636,7 @@ get_global_do_syscall_entry()
         return (byte *)global_do_syscall_wow64;
 #endif
     else if (method == SYSCALL_METHOD_SYSCALL) {
-#ifdef X64
+#if defined(X86) && defined(X64)
         return (byte *)global_do_syscall_syscall;
 #else
 # ifdef WINDOWS
@@ -2648,7 +2650,7 @@ get_global_do_syscall_entry()
         /* PR 205310: we sometimes have to execute syscalls before we
          * see an app syscall: for a signal default action, e.g.
          */
-        return (byte *)IF_X64_ELSE(global_do_syscall_syscall,global_do_syscall_int);
+        return (byte *)IF_X86_64_ELSE(global_do_syscall_syscall,global_do_syscall_int);
 #else
         ASSERT_NOT_REACHED();
 #endif
@@ -2666,7 +2668,7 @@ get_cleanup_and_terminate_global_do_syscall_entry()
      * if called from cleanup_and_terminate() where ebp is
      * left pointing to the old freed stack.
      */
-#if defined(WINDOWS) || defined(X64)
+#if defined(WINDOWS) || (defined(X86) && defined(X64))
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER)
         return (byte *)global_do_syscall_sysenter;
     else
@@ -3360,7 +3362,7 @@ is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t bra
 {
     ibl_type_t ibl_type;
     DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X64(NULL));
+        get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X86_64(NULL));
     ASSERT(is_ibl);
     return (branch_type == ibl_type.branch_type);
 }

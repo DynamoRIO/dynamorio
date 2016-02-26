@@ -7029,7 +7029,7 @@ output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     tracedump_trace_header_t hdr = {
         (int) trace_num, f->tag, f->start_pc, f->prefix_size, 0, f->size,
         (INTERNAL_OPTION(tracedump_origins) ? t->num_bbs : 0),
-        IF_X64_ELSE(!TEST(FRAG_32_BIT, f->flags), false),
+        IF_X86_64_ELSE(!TEST(FRAG_32_BIT, f->flags), false),
     };
     tracedump_stub_data_t stub;
     /* Should we widen the identifier? */
