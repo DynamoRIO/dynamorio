@@ -168,7 +168,8 @@ if ($header) {
     }
 }
 
-$arch = defined($defines{"ARM"}) ? "arm" : "x86";
+$arch = (defined($defines{"AARCH64"}) ? "aarch64" :
+         defined($defines{"ARM"}) ? "arm" : "x86");
 
 # I used to just do
 #   open(FIND, "find . -name \\*.h |")
@@ -187,12 +188,14 @@ $arch = defined($defines{"ARM"}) ? "arm" : "x86";
      "$core/module_shared.h",    # before instrument.h
      "$core/lib/instrument.h",
      "$core/arch/x86/opcode.h",
+     "$core/arch/aarch64/opcode.h",
      "$core/arch/arm/opcode.h",
      "$core/arch/opnd.h",
      "$core/arch/instr.h",
      "$core/arch/instr_inline.h",
      "$core/arch/instr_create_shared.h",
      "$core/arch/x86/instr_create.h",
+     "$core/arch/aarch64/instr_create.h",
      "$core/arch/arm/instr_create.h",
      "$core/arch/decode.h",       # OPSZ_ consts, decode routines
      "$core/arch/decode_fast.h",  # decode routines
@@ -261,8 +264,9 @@ sub keep_define($)
     my ($def) = @_;
     return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "UNIX" ||
             $def eq "MACOS" || $def eq "X64" || $def eq "CLANG" ||
-            $def eq "X86" || $def eq "ARM" || $def eq "X86_32" || $def eq "ANDROID" ||
-            $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
+            $def eq "X86" || $def eq "AARCH64" || $def eq "ARM" ||
+            $def eq "X86_32" || $def eq "X86_64" ||
+            $def eq "ANDROID" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR" || $def eq "__cplusplus" || $def eq "PAGE_SIZE");
 }
 

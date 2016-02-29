@@ -227,19 +227,21 @@ endif ()
 # The target architecture.
 # For cross-compilation this should still work as you're supposed to set this var.
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-  set(ARM 1)
+  set(ARM 1) # This means AArch32.
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(AARCH64 1)
 else ()
   set(X86 1) # This means IA-32 or AMD64
 endif ()
 
 if (X86)
   set(ARCH_NAME x86)
+elseif (ARM)
+  set(ARCH_NAME arm)
+elseif (AARCH64)
+  set(ARCH_NAME aarch64)
 else ()
-  if (ARM)
-    set(ARCH_NAME arm)
-  else ()
-    message(FATAL_ERROR "Unknown architecture target")
-  endif ()
+  message(FATAL_ERROR "Unknown architecture target")
 endif ()
 
 # The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
@@ -331,10 +333,10 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
 
-if (ARM)
-  set(ANNOTATIONS_DEFAULT OFF)
-else ()
+if (X86)
   set(ANNOTATIONS_DEFAULT ON)
+else ()
+  set(ANNOTATIONS_DEFAULT OFF)
 endif ()
 option(ANNOTATIONS "annotations" ${ANNOTATIONS_DEFAULT})
 
@@ -1366,13 +1368,13 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-if (ARM)
+if (NOT X86)
   # FIXME i#1551: fail to install necessary package on Linux ARM
   # XXX i#1730: if we enable this we'll need to disable for cross-compilation
   option(BUILD_DOCS "build documentation" OFF)
-else (ARM)
+else ()
   option(BUILD_DOCS "build documentation" ON)
-endif (ARM)
+endif ()
 
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to

@@ -46,6 +46,7 @@
 /* target */
 #cmakedefine X86
 #cmakedefine ARM
+#cmakedefine AARCH64
 #cmakedefine X64
 #cmakedefine WINDOWS
 #cmakedefine LINUX

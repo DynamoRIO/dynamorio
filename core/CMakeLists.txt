@@ -183,7 +183,7 @@ if (X86)
   set(DECODER_SRCS ${DECODER_SRCS}
     arch/${ARCH_NAME}/decode_table.c
     arch/${ARCH_NAME}/decode_fast.c)
-else ()
+elseif (ARM)
   set(DECODER_SRCS ${DECODER_SRCS}
     arch/${ARCH_NAME}/table_a32_pred.c
     arch/${ARCH_NAME}/table_a32_unpred.c

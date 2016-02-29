@@ -117,12 +117,21 @@ if (check_libc)
   if (readelf_result OR readelf_error)
     message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
   endif (readelf_result OR readelf_error)
-  # We want to avoid dependences beyond glibc 2.4 for maximum backward
+  # Avoid dependences beyond glibc 2.4 (2.17 on AArch64) for maximum backward
   # portability without going to extremes with a fixed toolchain (xref i#1504):
-  string(REGEX MATCH " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_2\\.([5-9]|1[0-9])"
+  execute_process(COMMAND
+    ${READELF_EXECUTABLE} -h ${lib}
+    OUTPUT_VARIABLE file_header_result
+    )
+  if (file_header_result MATCHES "AArch64")
+    set (glibc_version_regexp "2\\.(1[8-9]|[2-9][0-9])")
+  else ()
+    set (glibc_version_regexp "2\\.([5-9]|[1-9][0-9])")
+  endif ()
+  string(REGEX MATCH " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_${glibc_version_regexp}"
     has_recent "${string}")
   if (has_recent)
-    string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_2\\.([5-9]|1[0-9])[^\n]*\n"
+    string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_${glibc_version_regexp}[^\n]*\n"
       symname "${string}")
     message(FATAL_ERROR "*** Error: ${lib} has too-recent import: ${symname}")
   endif ()

@@ -62,6 +62,10 @@ if (ARM)
   endif ()
 endif()
 
+if (AARCH64)
+  set(ARCH "-aarch64")
+endif ()
+
 # we need libc b/c our elftoolchain libraries use it
 set(DynamoRIO_USE_LIBC ON)
 
