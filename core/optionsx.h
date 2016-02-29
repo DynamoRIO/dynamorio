@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -840,7 +840,7 @@
         options->finite_bb_cache = !options->thread_private;
         options->finite_trace_cache = !options->thread_private;
         if (options->thread_private && options->indirect_stubs)
-            options->coarse_units = true;
+            IF_NOT_ARM(options->coarse_units = true); /* i#1575: coarse NYI on ARM */
         IF_NOT_X64_OR_ARM(options->private_ib_in_tls = !options->thread_private;)
         options->atomic_inlined_linking = !options->thread_private;
         options->shared_trace_ibl_routine = !options->thread_private;

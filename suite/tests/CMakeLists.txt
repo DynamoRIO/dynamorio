@@ -97,34 +97,37 @@ set(vmap_run_list
   # our main configuration
   "SHORT::-code_api"
   # sanity check: run single app to make sure these options aren't totally broken
-  "SHORT::ONLY::client.events$::-code_api -opt_memory"
-  "SHORT::ONLY::client.events$::-code_api -opt_speed"
-  "SHORT::ONLY::client.events$::-code_api -thread_private"
+  # i#1575: ARM doesn't yet support -coarse_units
+  "SHORT::X86::ONLY::client.events$::-code_api -opt_memory"
+  # i#1551: ARM doesn't yet support indcall2direct
+  "SHORT::X86::ONLY::client.events$::-code_api -opt_speed"
+  # i#1884: ARM doesn't yet support thread_private
+  "SHORT::X86::ONLY::client.events$::-code_api -thread_private"
   "SHORT::ONLY::client.events$::-code_api -disable_traces"
-  "SHORT::ONLY::client.events$::-code_api -thread_private -disable_traces"
-  "SHORT::LIN::ONLY::client.events$::-code_api -no_early_inject"
+  "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
+  "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
   # maybe this should be SHORT as -coarse_units will eventually be the default?
-  "-code_api -opt_memory"
-  "-code_api -opt_speed"
-  "-code_api -thread_private"
+  "X86::-code_api -opt_memory"       # i#1575: ARM -coarse_units NYI
+  "X86::-code_api -opt_speed"        # i#1551: ARM indcall2direct NYI
+  "X86::-code_api -thread_private"   # i#1884: ARM thread_private NYI
   "-code_api -disable_traces"
-  "-code_api -thread_private -disable_traces"
+  "X86::-code_api -thread_private -disable_traces" # i#1884: ARM thread_private NYI
   "-prof_pcs"
-  "-prof_pcs -thread_private"
-  "LIN::ONLY::^common::-code_api -no_early_inject"
+  "X86::-prof_pcs -thread_private"                 # i#1884: ARM thread_private NYI
+  "X86::LIN::ONLY::^common::-code_api -no_early_inject" # ARM only supports early
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
   "ONLY::^common::-code_api -stack_size 120k"
   "WIN::ONLY::^(runall|client)::-enable_full_api"
   "DEBUG::WIN::ONLY::^(common|client)::-code_api -stack_size 120K -loglevel 1 -no_hide"
   "DEBUG::LIN::ONLY::^(common|client)::-code_api -stack_size 120K -loglevel 1"
   "ONLY::^common::"
-  "LIN::ONLY::^${osname}::-code_api -sysenter_is_int80"
+  "X86::LIN::ONLY::^${osname}::-code_api -sysenter_is_int80"
 
   # cover -tracedump_* options, just a couple combinations
   # XXX: how up time limit?  Used to have TEST_MINS=5 for tracedump runs.
   "ONLY::^common::-code_api -tracedump_text -tracedump_origins"
   "ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
-  "ONLY::^common::-code_api -thread_private -tracedump_binary"
+  "X86::ONLY::^common::-code_api -thread_private -tracedump_binary" # i#1884: ARM NYI
 
   # make sure we at least sometimes exercise non-default -checklevel
   "DEBUG::ONLY::^common::-checklevel 4"
@@ -2611,8 +2614,10 @@ if (UNIX)
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
-  # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
-  tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
+  if (NOT ANDROID) # FIXME i#1874: failing on Android
+    # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
+    tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
+  endif ()
 
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
@@ -2977,6 +2982,12 @@ foreach (run ${run_list})
   if (is_debug AND NOT DEBUG)
     set(enabled OFF)
   endif (is_debug AND NOT DEBUG)
+
+  string(REGEX MATCHALL "^X86::" is_x86 "${run}")
+  string(REGEX REPLACE "^X86::" "" run "${run}")
+  if (is_x86 AND NOT X86)
+    set(enabled OFF)
+  endif ()
 
   string(REGEX MATCHALL "^WIN::" is_win "${run}")
   string(REGEX REPLACE "^WIN::" "" run "${run}")
