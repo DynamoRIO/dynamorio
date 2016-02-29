@@ -297,9 +297,13 @@ if (UNIX AND ARCH_IS_X86)
     message("adb not found: NOT running Android tests")
   endif ()
   if (ADB)
-    set(android_extra "DR_COPY_TO_DEVICE:BOOL=ON")
+    set(android_extra_dbg "DR_COPY_TO_DEVICE:BOOL=ON")
+    if (TEST_LONG)
+      set(android_extra_rel "DR_COPY_TO_DEVICE:BOOL=ON")
+    endif ()
   else ()
-    set(android_extra "")
+    set(android_extra_dbg "")
+    set(android_extra_rel "")
     set(run_tests OFF) # build tests but don't run them
   endif ()
   testbuild_ex("android-debug-internal-32" OFF "
@@ -307,13 +311,13 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
     BUILD_TESTS:BOOL=ON
-    DR_COPY_TO_DEVICE:BOOL=ON
-    ${ANDROID_EXTRA}
+    ${android_extra_dbg}
     " OFF OFF "")
   testbuild_ex("android-release-external-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+    ${android_extra_rel}
     " OFF OFF "")
   set(run_tests ON)
 
