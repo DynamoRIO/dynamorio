@@ -1871,6 +1871,7 @@ module_get_text_section(app_pc file_map, size_t file_size)
     return 0;
 }
 
+/* Read until EOF or error. Return number of bytes read. */
 static size_t
 os_read_until(file_t fd, void *buf, size_t toread)
 {
@@ -1883,7 +1884,7 @@ os_read_until(file_t fd, void *buf, size_t toread)
         toread -= nread;
         buf = (app_pc)buf + nread;
     }
-    return orig_toread - toread; /* return bytes read */
+    return orig_toread - toread;
 }
 
 bool
