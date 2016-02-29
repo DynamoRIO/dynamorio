@@ -1,0 +1,57 @@
+How To Build libelf.a, libelftc.a, and libdwarf.a for AArch64
+by Edmund Grimley Evans based on version for ARM by Qin Zhao
+
+# Native build:
+
+Tested on Debian arm64 stretch on 2016-03-02
+
+sudo apt-get install bison build-essential flex libarchive-dev m4 pmake zlib1g-dev
+sudo apt-get install lsb-release subversion
+
+svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk elftc
+# Checked out revision 3424.
+cd elftc/
+cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-aarch64/native-elf-format.h common/
+( cd libelf && CFLAGS="-O2 -g -fPIC" pmake libelf.a )
+( cd libelftc && CFLAGS="-O2 -g -fPIC" pmake libelftc.a )
+( cd libdwarf && CFLAGS="-O2 -g -fPIC" pmake libdwarf.a )
+
+Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the
+DynamoRIO source tree at ext/drsyms/libelftc-aarch64/lib64/.
+
+# Cross-compiling:
+
+Tested on Debian amd64 stretch on 2016-03-02
+
+Install required packages:
+$ sudo apt-get install bison build-essential flex libarchive-dev m4 pmake zlib1g-dev
+$ sudo apt-get install lsb-release subversion
+$ sudo apt-get install gcc-aarch64-linux-gnu
+
+I have cross compiler aarch64-linux-gnu-gcc
+$ aarch64-linux-gnu-gcc --version
+aarch64-linux-gnu-gcc (Debian 5.3.1-8) 5.3.1 20160205
+
+Check out the sources:
+$ svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
+I have r3424.
+
+Now build:
+$ export CC=aarch64-linux-gnu-gcc
+$ export LD=aarch64-linux-gnu-ld
+$ export AR=aarch64-linux-gnu-ar
+$ export RANLIB=aarch64-linux-gnu-ranlib
+$ cd common
+$ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-aarch64/native-elf-format.h native-elf-format.h
+$ cd ../libelf
+$ pmake clean
+$ CFLAGS="-O2 -g -fPIC" pmake libelf.a
+$ cd ../libdwarf
+$ pmake clean
+$ CFLAGS="-O2 -g -fPIC" pmake libdwarf.a
+$ cd ../libelftc
+$ pmake clean
+$ CFLAGS="-O2 -g -fPIC" pmake libelftc.a
+
+Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the
+DynamoRIO source tree at ext/drsyms/libelftc-aarch64/lib64/.

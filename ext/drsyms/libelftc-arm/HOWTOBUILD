@@ -55,5 +55,3 @@ $ CFLAGS="-O2 -g -fPIC" pmake libelftc.a
 
 Then copy the resulting libelf.a, libelftc.a, and libdwarf.a into the DR source tree
 in ext/drsyms/libelftc-arm/lib32-eabihf/.
-
-I have not yet built or tested 64-bit.
