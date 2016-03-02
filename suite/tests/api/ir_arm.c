@@ -135,6 +135,35 @@ test_opnd(void *dc)
     /* XXX: test other routines like opnd_defines_use() */
 }
 
+static void
+test_flags(void *dc)
+{
+    /* Some sanity checks for i#1885: logical instrs do not write all the flags! */
+    byte *pc;
+    instr_t *inst;
+    inst = INSTR_CREATE_lsls
+        (dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
+         OPND_CREATE_INT(4));
+    ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    instr_free(dc, inst);
+
+    inst = INSTR_CREATE_movs
+        (dc, opnd_create_reg(DR_REG_R0), OPND_CREATE_INT(4));
+    ASSERT(TEST(EFLAGS_READ_C, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(TESTALL(EFLAGS_WRITE_N|EFLAGS_WRITE_Z|EFLAGS_WRITE_C,
+                   instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    instr_free(dc, inst);
+
+    inst = INSTR_CREATE_movs
+        (dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1));
+    ASSERT(!TESTANY(EFLAGS_WRITE_C|EFLAGS_WRITE_V,
+                    instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(TESTALL(EFLAGS_WRITE_N|EFLAGS_WRITE_Z,
+                   instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
+    instr_free(dc, inst);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -153,6 +182,8 @@ main(int argc, char *argv[])
     test_pred(dcontext);
 
     test_opnd(dcontext);
+
+    test_flags(dcontext);
 
     print("all done\n");
     return 0;

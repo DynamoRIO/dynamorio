@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,6 +74,7 @@
 #define fRNZCVQG  (EFLAGS_READ_NZCV|EFLAGS_READ_Q|EFLAGS_READ_GE)
 #define fWNZCVQG  (EFLAGS_WRITE_NZCV|EFLAGS_WRITE_Q|EFLAGS_WRITE_GE)
 #define fRZ       EFLAGS_READ_Z
+#define fRC       EFLAGS_READ_C
 #define fRV       EFLAGS_READ_V
 #define fRNV      (EFLAGS_READ_N | EFLAGS_READ_V)
 #define fRNZV     (EFLAGS_READ_N | EFLAGS_READ_Z | EFLAGS_READ_V)
