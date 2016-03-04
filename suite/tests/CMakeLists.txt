@@ -255,18 +255,26 @@ if (WIN32)
     endif()
   endif (NOT GCC)
 else (WIN32)
-  # i#215: if chcon exists then we'll mark tests w/ text relocations to
-  # avoid violating selinux policies.  On Ubuntu, chcon is part of coreutils
-  # package too, so it will be there even if selinux isn't enabled, so check for
-  # for selinux.
+  # i#215: if SELinux is enabled we'll use chcon to mark tests w/ text relocations
+  # to avoid violating SELinux policies.  On Ubuntu, chcon is part of coreutils
+  # so it will be there even if SELinux isn't installed or enabled.  If SELinux
+  # is not enabled, chcon will give 'Operation not supported'.
+  # To find out whether SELinux is enabled, we find and run the selinuxenabled
+  # command and look for a zero return code.
   find_program(SEUNIXENABLED selinuxenabled DOC "path to selinuxenabled")
   if (SEUNIXENABLED)
-    find_program(CHCON chcon DOC "path to chcon")
-    if (CHCON)
-      message(STATUS "Detected selinux: will chcon binaries with text relocations.")
-      set(SEUNIXFOUND "yes")
-    endif (CHCON)
-    mark_as_advanced(CHCON)
+    execute_process(COMMAND ${SEUNIXENABLED}
+      RESULT_VARIABLE cmd_result)
+    if (NOT cmd_result)
+      find_program(CHCON chcon DOC "path to chcon")
+      if (CHCON)
+        message(STATUS "Detected SELnux: will chcon binaries with text relocations.")
+        set(SEUNIXFOUND "yes")
+      else (CHCON)
+        message(WARNING "SELinux enabled, but chcon command not found.")
+      endif (CHCON)
+      mark_as_advanced(CHCON)
+    endif (NOT cmd_result)
   endif (SEUNIXENABLED)
 endif (WIN32)
 
