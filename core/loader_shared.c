@@ -486,11 +486,13 @@ privload_read_drpath_file(const char *libname)
          */
         file_t f = os_open(path, OS_OPEN_READ);
         char *map;
-        size_t map_size = 0;
+        size_t map_size;
         uint64 file_size;
         if (f != INVALID_FILE &&
             os_get_file_size_by_handle(f, &file_size)) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s: reading %s\n", __FUNCTION__, path);
+            ASSERT_TRUNCATE(map_size, size_t, file_size);
+            map_size = (size_t) file_size;
             map = (char *)
                 os_map_file(f, &map_size, 0, NULL, MEMPROT_READ, 0);
             if (map != NULL && map_size >= file_size) {
