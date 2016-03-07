@@ -37,7 +37,9 @@
  */
 .global _start
 
+        .align   6
 _start:
+        bic      sp, sp, #63       // align stack pointer to cache line
         mov      r3, #4
 1:
         mov      r0, #1            // stdout
@@ -110,7 +112,7 @@ separate_bb:
         mov      r7, sp
         vld3.8   {d10-d12}, [r7]!
         vmull.u16 q10, d24, d16
-        vldm     r7, {d3}
+        vldm     r7!, {d3}
         vld4.32  {d17[],d19[],d21[],d23[]}, [r7 :128], r12
         vsri.64  d28, d15, #1
         vsli.32  d27, d0, #31
@@ -156,6 +158,7 @@ _flush:
         bx       lr
 
         .data
+        .align   6
 hello:
         .ascii   "Hello world!\n"
 alldone:
