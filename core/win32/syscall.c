@@ -1033,18 +1033,20 @@ presys_CreateProcess(dcontext_t *dcontext, reg_t *param_base, bool ex)
     dcontext->aslr_context.last_child_padded = 0;
 
     DOLOG(1, LOG_SYSCALLS, {
-        app_pc base = (app_pc) get_section_address(section_handle);
-        /* we will inject in post_syscall or when the first thread is about
-         * to be created */
-        LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
-            "syscall: NtCreateProcess section @"PFX"\n", base);
-        DOLOG(1, LOG_SYSCALLS, {
-            char buf[MAXIMUM_PATH];
-            get_module_name(base, buf, sizeof(buf));
-            if (buf[0] != '\0')
-                LOG(THREAD, LOG_SYSCALLS, 2,
-                    "\tNtCreateProcess for module %s\n", buf);
-        });
+        if (section_handle != 0) {
+            app_pc base = (app_pc) get_section_address(section_handle);
+            /* we will inject in post_syscall or when the first thread is about
+             * to be created */
+            LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
+                "syscall: NtCreateProcess section @"PFX"\n", base);
+            DOLOG(1, LOG_SYSCALLS, {
+                char buf[MAXIMUM_PATH];
+                get_module_name(base, buf, sizeof(buf));
+                if (buf[0] != '\0')
+                    LOG(THREAD, LOG_SYSCALLS, 2,
+                        "\tNtCreateProcess for module %s\n", buf);
+            });
+        }
     });
 }
 
@@ -4028,7 +4030,7 @@ void post_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
                 "syscall post: NtCreateProcess section @"PFX"\n", base);
         });
-        if (safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
             maybe_inject_into_process(dcontext, proc_handle, NULL);
     }
     else if (sysnum == syscalls[SYS_CreateProcessEx]) {
@@ -4046,12 +4048,13 @@ void post_system_call(dcontext_t *dcontext)
         uint job_member_level = (uint) postsys_param(dcontext, param_base, 8);
 
         DOLOG(1, LOG_SYSCALLS, {
-            app_pc base = (app_pc) get_section_address(section_handle);
-
-            LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
-                "syscall: NtCreateProcessEx section @"PFX"\n", base);
+            if (section_handle != 0) {
+                app_pc base = (app_pc) get_section_address(section_handle);
+                LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
+                    "syscall: NtCreateProcessEx section @"PFX"\n", base);
+            }
         });
-        if (safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
             maybe_inject_into_process(dcontext, proc_handle, NULL);
     }
     else if (sysnum == syscalls[SYS_CreateUserProcess]) {

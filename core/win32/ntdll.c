@@ -2005,7 +2005,7 @@ get_process_load(HANDLE h)
 }
 
 /* Returns 0 for both known false and error
- * FIXME: do we still have the restriction of not returning a bool for ntdll.c
+ * XXX: do we still have the restriction of not returning a bool for ntdll.c
  * routines?!?
  */
 bool
@@ -2014,6 +2014,8 @@ is_wow64_process(HANDLE h)
     /* since this is called a lot we remember the result for the current process */
     static bool self_init = false;
     static bool self_is_wow64 = false;
+    if (h == 0)
+        return false;
     if (!self_init || h != NT_CURRENT_PROCESS) {
         ptr_uint_t is_wow64;
         NTSTATUS res;
