@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -788,7 +788,8 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
         /* see comments in x86.asm: we patch to avoid text relocations */
         byte *pc = (byte *) hashlookup_null_handler;
         byte *page_start = (byte *) PAGE_START(pc);
-        byte *page_end = (byte *) ALIGN_FORWARD(pc + JMP_LONG_LENGTH, PAGE_SIZE);
+        byte *page_end = (byte *)
+            ALIGN_FORWARD(pc IF_ARM(+ ARM_INSTR_SIZE) + JMP_LONG_LENGTH, PAGE_SIZE);
         make_writable(page_start, page_end - page_start);
 # ifdef X86
         insert_relative_target(pc + 1, hashlookup_null_target, NOT_HOT_PATCHABLE);
