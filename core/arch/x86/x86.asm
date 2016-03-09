@@ -2292,7 +2292,7 @@ GLOBAL_LABEL(hashlookup_null_handler:)
          * (though if we used shared ibl target_delete we could
          * set our final address prior to using null_fragment anywhere).
          */
-        jmp      hashlookup_null_handler
+        jmp      .+130 /* force long jump for patching: i#1895 */
 #else
         jmp      PTRSZ SYMREF(hashlookup_null_target) /* rip-relative on x64 */
 #endif
