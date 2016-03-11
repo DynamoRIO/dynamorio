@@ -74,14 +74,9 @@
 # if (defined(X86_64) && defined(X86_32)) || defined(ARM_32) || defined(ARM_64)
 #  error Target architecture over-specified: must define only one
 # endif
-#elif defined(ARM_32)
+#elif defined(ARM_32) || defined(ARM_64)
 # define ARM
-# if defined(X86_32) || defined(X86_64) || defined(ARM_64)
-#  error Target architecture over-specified: must define only one
-# endif
-#elif defined(ARM_64)
-# define AARCH64
-# if defined(X86_32) || defined(X86_64) || defined(ARM_32)
+# if defined(X86_32) || defined(X86_64) || (defined(ARM_64) && defined(ARM_32))
 #  error Target architecture over-specified: must define only one
 # endif
 #else
@@ -635,7 +630,6 @@ typedef struct _instr_t instr_t;
 # define IF_X86_(x) x,
 # define _IF_X86(x) , x
 # define IF_NOT_X86(x)
-# define IF_NOT_X86_(x)
 # define _IF_NOT_X86(x)
 #else
 # define IF_X86(x)
@@ -643,7 +637,6 @@ typedef struct _instr_t instr_t;
 # define IF_X86_(x)
 # define _IF_X86(x)
 # define IF_NOT_X86(x) x
-# define IF_NOT_X86_(x) x,
 # define _IF_NOT_X86(x) , x
 #endif
 
@@ -1747,7 +1740,7 @@ typedef union _dr_ymm_t {
     reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef ARM
 /**
  * 128-bit ARM SIMD Vn register.
  * We're not using any uint64 fields here to avoid alignment padding in

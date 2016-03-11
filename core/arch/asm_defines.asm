@@ -49,20 +49,17 @@
 # define X86
 #endif
 
-#if defined(ARM_64) && !defined(AARCH64)
-# define AARCH64
-#endif
-
-#if defined(ARM_32) && !defined(ARM)
+#if (defined(ARM_64) || defined(ARM_32)) && !defined(ARM)
 # define ARM
 #endif
 
-#if (defined(ARM) && defined(X64)) || (defined(AARCH64) && !defined(X64))
-# error ARM is only 32-bit; AARCH64 is 64-bit
-#endif
-
-#if (defined(ARM) || defined(AARCH64)) && defined(WINDOWS)
-# error ARM/AArch64 on Windows is not supported
+#ifdef ARM
+# ifdef X64
+#  error 64-bit ARM is not supported
+# endif
+# ifdef WINDOWS
+#  error ARM on Windows is not supported
+# endif
 #endif
 
 #undef WEAK /* avoid conflict with C define */
@@ -102,7 +99,7 @@
 #  else
 #   define SYMREF(sym) [sym]
 #  endif
-# elif defined(ARM) || defined(AARCH64)
+# elif defined(ARM)
 #  define BYTE /* nothing */
 #  define WORD /* nothing */
 #  define DWORD /* nothing */
@@ -238,37 +235,39 @@ ASSUME fs:_DATA @N@\
 /* Macros for writing cross-platform 64-bit + 32-bit code */
 
 /* register set */
-#if defined(ARM)
+#ifdef ARM
 # define REG_SP sp
-# define REG_R0  r0
-# define REG_R1  r1
-# define REG_R2  r2
-# define REG_R3  r3
-# define REG_R4  r4
-# define REG_R5  r5
-# define REG_R6  r6
-# define REG_R7  r7
-# define REG_R8  r8
-# define REG_R9  r9
-# define REG_R10 r10
-# define REG_R11 r11
-# define REG_R12 r12
+# ifdef X64
+#  define REG_R0  x0
+#  define REG_R1  x1
+#  define REG_R2  x2
+#  define REG_R3  x3
+#  define REG_R4  x4
+#  define REG_R5  x5
+#  define REG_R6  x6
+#  define REG_R7  x7
+#  define REG_R8  x8
+#  define REG_R9  x9
+#  define REG_R10 x10
+#  define REG_R11 x11
+#  define REG_R12 x12
+/* skip [x16..x30], only available on AArch64 */
+# else /* 32-bit */
+#  define REG_R0  r0
+#  define REG_R1  r1
+#  define REG_R2  r2
+#  define REG_R3  r3
+#  define REG_R4  r4
+#  define REG_R5  r5
+#  define REG_R6  r6
+#  define REG_R7  r7
+#  define REG_R8  r8
+#  define REG_R9  r9
+#  define REG_R10 r10
+#  define REG_R11 r11
+#  define REG_R12 r12
 /* {r13, r14, r15} are used for {sp, lr, pc} on AArch32 */
-#elif defined(AARCH64)
-# define REG_R0  x0
-# define REG_R1  x1
-# define REG_R2  x2
-# define REG_R3  x3
-# define REG_R4  x4
-# define REG_R5  x5
-# define REG_R6  x6
-# define REG_R7  x7
-# define REG_R8  x8
-# define REG_R9  x9
-# define REG_R10 x10
-# define REG_R11 x11
-# define REG_R12 x12
-/* skip [x13..x30], not available on AArch32 */
+# endif /* 64/32-bit */
 #else /* Intel X86 */
 # ifdef X64
 #  define REG_XAX rax
@@ -303,7 +302,7 @@ ASSUME fs:_DATA @N@\
 # define PTRSZ DWORD
 #endif
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef ARM
 /* ARM AArch64 calling convention:
  * SP:       stack pointer
  * x30(LR):  link register
@@ -591,27 +590,6 @@ ASSUME fs:_DATA @N@\
         SETARG(0, ARG1, p1)    @N@\
         call     callee        @N@\
         STACK_UNPAD_LE4(2, 3)
-#elif defined(AARCH64)
-# define CALLC0(callee)    \
-        bl       callee
-# define CALLC1(callee, p1)    \
-        mov      ARG1, p1   @N@\
-        bl       callee
-# define CALLC2(callee, p1, p2)    \
-        mov      ARG2, p2   @N@\
-        mov      ARG1, p1   @N@\
-        bl       callee
-# define CALLC3(callee, p1, p2, p3)    \
-        mov      ARG3, p3   @N@\
-        mov      ARG2, p2   @N@\
-        mov      ARG1, p1   @N@\
-        bl       callee
-# define CALLC4(callee, p1, p2, p3, p4)    \
-        mov      ARG4, p4   @N@\
-        mov      ARG3, p3   @N@\
-        mov      ARG2, p2   @N@\
-        mov      ARG1, p1   @N@\
-        bl       callee
 #elif defined(ARM)
 /* Our assembly is ARM but our C code is Thumb so we use blx */
 # define CALLC0(callee)    \
@@ -665,16 +643,12 @@ ASSUME fs:_DATA @N@\
 # define RETURN   ret
 # define INC(reg) inc reg
 # define DEC(reg) dec reg
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
 # define REG_SCRATCH0 REG_R0
 # define REG_SCRATCH1 REG_R1
 # define REG_SCRATCH2 REG_R2
 # define JUMP     b
-# ifdef X64
-#  define RETURN  ret
-# else
-#  define RETURN  bx lr
-# endif
+# define RETURN   bx lr
 # define INC(reg) add reg, reg, POUND 1
 # define DEC(reg) sub reg, reg, POUND 1
 #endif /* X86/ARM */

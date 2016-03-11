@@ -1017,9 +1017,9 @@ enum {
     JMP_ABS_MEM_IND64_MODRM = 0x25,
 # endif
 };
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
 enum {
-    /* FIXME i#1551, i#1569: this is for A32 for now to get things compiling */
+    /* FIXME i#1551: this is for A32 for now to get things compiling */
     JMP_REL32_OPCODE  = 0xec000000,
     JMP_REL32_SIZE    = 4,
     CALL_REL32_OPCODE = 0xed000000,

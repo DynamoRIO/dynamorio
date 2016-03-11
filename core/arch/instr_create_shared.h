@@ -51,8 +51,6 @@
 #ifdef API_EXPORT_ONLY
 #ifdef X86
 # include "dr_ir_macros_x86.h"
-#elif defined(AARCH64)
-# include "dr_ir_macros_aarch64.h"
 #elif defined(ARM)
 # include "dr_ir_macros_arm.h"
 #endif

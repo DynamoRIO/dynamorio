@@ -39,7 +39,7 @@
  */
 /* START INCLUDE */
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef ARM
 # ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */
@@ -94,7 +94,7 @@
      * The program counter.
      * \note This field is not always set or read by all API routines.
      */
-    byte *pc;
+    reg_t pc;
 # else /* 32-bit */
     union {
         reg_t r13; /**< The r13 register. */

@@ -2511,8 +2511,8 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
     bb->exit_target = target;
     *elide_continue = false;    /* matching, but should stop bb */
     return true;               /* matching */
-#elif defined(ARM) || defined(AARCH64)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif /* X86/ARM */
@@ -2622,8 +2622,8 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
      */
     *elide_continue = false;    /* matching, but should stop bb */
     return true;                /* converted indirect to direct */
-#elif defined(ARM) || defined(AARCH64)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif /* X86/ARM */
@@ -3266,7 +3266,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     }
 
     LOG(THREAD, LOG_INTERP, 3, "\ninterp%s: ",
-        IF_X86_64_ELSE(X64_MODE_DC(dcontext) ? "" : " (x86 mode)", ""));
+        IF_X64_ELSE(X64_MODE_DC(dcontext) ? "" : " (x86 mode)", ""));
     BBPRINT(bb, 3, "start_pc = "PFX"\n", bb->start_pc);
 
     DOSTATS({
@@ -4701,15 +4701,11 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
                       SCRATCH_REG0, SCRATCH_REG0_OFFS));
     insert_shared_restore_dcontext_reg(dcontext, bb->ilist, NULL);
 
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
     /* this is the jump to native code */
     instrlist_append(bb->ilist,
                      opnd_is_pc(jmp_tgt) ?
                      XINST_CREATE_jump(dcontext, jmp_tgt) :
                      XINST_CREATE_jump_mem(dcontext, jmp_tgt));
-#endif
 
     /* mark all as do-not-mangle, so selfmod, etc. will leave alone (in absence
      * of selfmod only really needed for the jmp to native code)
@@ -5702,8 +5698,8 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         instr_get_opcode(inst) == OP_jmp
 # endif
         ;
-#elif defined(ARM) || defined(AARCH64)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
 #endif
@@ -8073,7 +8069,7 @@ emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
         }
 #ifdef X64
         else if (sz == 8) {
-            if (opc == IF_X86_ELSE(OP_inc, OP_add))
+            if (opc == OP_inc)
                 (*target)++;
             else
                 (*target)--;

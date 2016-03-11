@@ -20,7 +20,7 @@
 
 #ifdef X86
 # include "syscall_linux_x86.h"
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
 # include "syscall_linux_arm.h"
 #endif
 

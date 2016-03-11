@@ -143,16 +143,16 @@ struct compat_rlimit {
  * values in xdx:xax.
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
-#if defined(AARCH64)
-# define ASM_R3 "x3"
-# define READ_TP_TO_R3 \
-      "mrs "ASM_R3", tpidr_el0\n\t" \
-      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
-#elif defined(ARM)
-# define ASM_R3 "r3"
-# define READ_TP_TO_R3 \
+#ifdef ARM
+# ifdef X64
+#  define ASM_R3 "x3"
+#  define READ_TP_TO_R3  "NYI on ARM" /* FIXME i#1551: NYI on ARM */
+# else
+#  define ASM_R3 "r3"
+#  define READ_TP_TO_R3 \
       "mrc p15, 0, "ASM_R3", c13, c0, "STRINGIFY(USR_TLS_REG_OPCODE)" \n\t" \
       "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
+# endif /* 64/32-bit */
 #endif /* ARM */
 
 /* Prototype for all functions in .init_array. */
@@ -1311,7 +1311,7 @@ os_timeout(int time_in_milliseconds)
     asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((offs)) : ASM_XAX); \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
 # define WRITE_TLS_SLOT_IMM(imm, var) \
     __asm__ __volatile__(             \
       READ_TP_TO_R3                   \
@@ -1371,7 +1371,7 @@ is_thread_tls_initialized(void)
     }
 # endif
     return false;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
     byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
@@ -1557,7 +1557,7 @@ get_segment_base(uint seg)
 # else
     return (byte *) POINTER_MAX;
  #endif /* HAVE_TLS */
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
     /* XXX i#1551: should we rename/refactor to avoid "segment"? */
     return (byte *) read_thread_register(seg);
 #endif
@@ -2154,7 +2154,7 @@ os_should_swap_state(void)
     /* -private_loader currently implies -mangle_app_seg, but let's be safe. */
     return (INTERNAL_OPTION(mangle_app_seg) &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
     /* FIXME i#1551: we may need swap TLS for private libraries */
     return false;
 #endif
@@ -3263,7 +3263,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp="PFX" dstack="PFX"\n",
         xsp, get_clone_record_dstack(crec));
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL,
-                                         IF_X86_ELSE(IF_X64_ELSE(NULL, &desc), NULL),
+                                         IF_ARM_ELSE(NULL, IF_X64_ELSE(NULL, &desc)),
                                          NULL, client_thread_run);
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
@@ -4569,7 +4569,7 @@ ignorable_system_call_normalized(int num)
     case SYS_ugetrlimit:
 #endif
     case SYS_setrlimit:
-#if defined(LINUX) && defined(X86)
+#if defined(LINUX) && !defined(ARM)
     /* i#784: app may have behavior relying on SIGALRM */
     case SYS_alarm:
 #endif
@@ -4638,13 +4638,17 @@ const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS] = {
     DR_REG_EDI,
     DR_REG_EBP
 # endif /* 64/32-bit */
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
+# ifdef X64
+#  error AArch64 syscall not supported
+# else
     DR_REG_R0,
     DR_REG_R1,
     DR_REG_R2,
     DR_REG_R3,
     DR_REG_R4,
     DR_REG_R5,
+# endif /* 64/32-bit */
 #endif /* X86/ARM */
 };
 
@@ -5925,10 +5929,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2,
         "%s %s: set_tls swap success=%d for thread "TIDFMT"\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, get_thread_id());
-#elif defined(AARCH64)
-    (void)os_tls;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif /* X86/ARM/AARCH64 */
+#endif /* X86/ARM */
     return res;
 }
 
@@ -6620,7 +6621,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         break;
-#if defined(LINUX) && defined(X86)
+#if defined(LINUX) && !defined(ARM)
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         dcontext->sys_param0 = sys_param(dcontext, 0);
         handle_pre_alarm(dcontext, (unsigned int) dcontext->sys_param0);
@@ -7771,7 +7772,7 @@ post_system_call(dcontext_t *dcontext)
         handle_post_getitimer(dcontext, success, (int) dcontext->sys_param0,
                               (struct itimerval *) dcontext->sys_param1);
         break;
-#if defined(LINUX) && defined(X86)
+#if defined(LINUX) && !defined(ARM)
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         handle_post_alarm(dcontext, success, (unsigned int) dcontext->sys_param0);
         break;

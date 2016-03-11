@@ -1209,7 +1209,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     if (spilled_to_aflags < MAX_SPILLS) {
         reg_t val = get_spilled_value(drcontext, spilled_to_aflags);
         reg_t newval = info->mcontext->xflags;
-#if defined(ARM) || defined(AARCH64)
+#ifdef ARM
         newval &= ~(EFLAGS_ARITH);
         newval |= val;
 #elif defined(X86)

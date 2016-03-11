@@ -133,33 +133,18 @@ struct _old_sigaction_t {
  * this is adapted from asm/ucontext.h:
  */
 typedef struct {
-# if defined(X86)
     unsigned long     uc_flags;
     struct ucontext  *uc_link;
     stack_t           uc_stack;
     sigcontext_t      uc_mcontext;
     kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
-# elif defined(AARCH64)
-    unsigned long     uc_flags;
-    struct ucontext  *uc_link;
-    stack_t           uc_stack;
-    kernel_sigset_t   uc_sigmask;
-    unsigned char     sigset_ex[1024 / 8 - sizeof(kernel_sigset_t)];
-    sigcontext_t      uc_mcontext; /* last for future expansion */
-# elif defined(ARM)
-    unsigned long     uc_flags;
-    struct ucontext  *uc_link;
-    stack_t           uc_stack;
-    sigcontext_t      uc_mcontext;
-    kernel_sigset_t   uc_sigmask;
+# ifdef ARM
     int               sigset_ex[32 - (sizeof(kernel_sigset_t)/sizeof(int))];
     /* coprocessor state is here */
     union {
         unsigned long uc_regspace[128] __attribute__((__aligned__(8)));
         struct vfp_sigframe uc_vfp;
     } coproc;
-# else
-#  error NYI
 # endif
 } kernel_ucontext_t;
 
@@ -243,7 +228,7 @@ typedef struct rt_sigframe {
     char retcode[RETCODE_SIZE];
 #  endif
     /* In 2.6.28+, fpstate/xstate goes here */
-# elif defined(ARM) || defined(AARCH64)
+# elif defined(ARM)
     siginfo_t info;
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];

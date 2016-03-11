@@ -788,6 +788,7 @@ enum { MAX_SHELL_CODE = 4096 };
 # define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
 # define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
 #elif defined(ARM)
+# ifndef X64
 /* On AArch32, glibc uses user_regs instead of user_regs_struct.
  * struct user_regs {
  *   unsigned long int uregs[18];
@@ -796,16 +797,14 @@ enum { MAX_SHELL_CODE = 4096 };
  * - uregs[16] is for cpsr,
  * - uregs[17] is for "orig_r0".
  */
-# define USER_REGS_TYPE user_regs
-# define REG_PC_FIELD uregs[15] /* r15 in user_regs */
-# define REG_SP_FIELD uregs[13] /* r13 in user_regs */
+#  define USER_REGS_TYPE user_regs
+#  define REG_PC_FIELD uregs[15] /* r15 in user_regs */
+#  define REG_SP_FIELD uregs[13] /* r13 in user_regs */
 /* On ARM, all reg args are also reg retvals. */
-# define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
-#elif defined(AARCH64)
-# define USER_REGS_TYPE user_regs_struct
-# define REG_PC_FIELD pc
-# define REG_SP_FIELD sp
-# define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */
+#  define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
+# else
+#  error AArch64 is not supported
+# endif
 #endif
 
 enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
@@ -838,18 +837,14 @@ static const enum_name_pair_t pt_req_map[] = {
     {PTRACE_CONT,           "PTRACE_CONT"},
     {PTRACE_KILL,           "PTRACE_KILL"},
     {PTRACE_SINGLESTEP,     "PTRACE_SINGLESTEP"},
-#ifndef AARCH64
     {PTRACE_GETREGS,        "PTRACE_GETREGS"},
     {PTRACE_SETREGS,        "PTRACE_SETREGS"},
     {PTRACE_GETFPREGS,      "PTRACE_GETFPREGS"},
     {PTRACE_SETFPREGS,      "PTRACE_SETFPREGS"},
-#endif
     {PTRACE_ATTACH,         "PTRACE_ATTACH"},
     {PTRACE_DETACH,         "PTRACE_DETACH"},
-#ifndef AARCH64
     {PTRACE_GETFPXREGS,     "PTRACE_GETFPXREGS"},
     {PTRACE_SETFPXREGS,     "PTRACE_SETFPXREGS"},
-#endif
     {PTRACE_SYSCALL,        "PTRACE_SYSCALL"},
     {PTRACE_SETOPTIONS,     "PTRACE_SETOPTIONS"},
     {PTRACE_GETEVENTMSG,    "PTRACE_GETEVENTMSG"},
@@ -857,12 +852,6 @@ static const enum_name_pair_t pt_req_map[] = {
     {PTRACE_SETSIGINFO,     "PTRACE_SETSIGINFO"},
     {0}
 };
-
-#ifdef AARCH64
-/* FIXME i#1569: must use GETREGSET/SETREGSET instead of GETREGS/SETREGS */
-#define PTRACE_GETREGS PTRACE_GETREGSET
-#define PTRACE_SETREGS PTRACE_SETREGSET
-#endif
 
 /* Ptrace syscall wrapper, for logging.
  * XXX: We could call libc's ptrace instead of using dynamorio_syscall.
@@ -1052,10 +1041,6 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     app_pc pc;
     long r;
     ptr_int_t failure = -EUNATCH;  /* Unlikely to be used by most syscalls. */
-
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
 
     /* Get register state before executing the shellcode. */
     r = our_ptrace(PTRACE_GETREGS, info->pid, NULL, &regs);
@@ -1268,6 +1253,9 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->edi = regs->edi;
 # endif
 #elif defined(ARM)
+# ifdef X64
+#  error AArch64 is not supported
+# else
     mc->r0  = regs->uregs[0];
     mc->r1  = regs->uregs[1];
     mc->r2  = regs->uregs[2];
@@ -1285,8 +1273,7 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->r14 = regs->uregs[14];
     mc->r15 = regs->uregs[15];
     mc->cpsr = regs->uregs[16];
-#elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+# endif /* 64/32-bit */
 #endif /* X86/ARM */
 }
 
@@ -1345,10 +1332,6 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     elf_loader_t loader;
     int status;
     int signal;
-
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
 
     /* Attach to the process in question. */
     r = our_ptrace(PTRACE_ATTACH, info->pid, NULL, NULL);
@@ -1425,7 +1408,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     strncpy(args.home_dir, getenv("HOME"), BUFFER_SIZE_ELEMENTS(args.home_dir));
     NULL_TERMINATE_BUFFER(args.home_dir);
 
-#if defined(X86) || defined(ARM) || defined(AARCH64)
+#if defined(X86) || defined(ARM)
     regs.REG_SP_FIELD -= REDZONE_SIZE;  /* Need to preserve x64 red zone. */
     regs.REG_SP_FIELD -= sizeof(args);  /* Allocate space for args. */
     regs.REG_SP_FIELD = ALIGN_BACKWARD(regs.REG_SP_FIELD, REGPARM_END_ALIGN);

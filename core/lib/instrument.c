@@ -5320,7 +5320,10 @@ static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] =
     REG_R15, REG_R14, REG_R13, REG_R12, REG_R11, REG_R10, REG_R9, REG_R8,
 # endif
     REG_XDI, REG_XSI, REG_XBP, REG_XDX, REG_XCX, REG_XBX
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
+# ifdef X64
+#  error NYI
+# endif
     DR_REG_R6, DR_REG_R5, DR_REG_R4, DR_REG_R3, DR_REG_R2, DR_REG_R1
 #endif /* X86/ARM */
 };
@@ -5648,9 +5651,6 @@ dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist,
             INSTR_CREATE_mrs(dcontext,
                              opnd_create_reg(reg),
                              opnd_create_reg(DR_REG_CPSR)));
-#elif defined(AARCH64)
-    (void)dcontext;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #endif /* X86/ARM */
 }
 
@@ -5682,10 +5682,6 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_CPSR),
                              OPND_CREATE_INT_MSR_NZCVQG(),
                              opnd_create_reg(reg)));
-#elif defined(AARCH64)
-    /* flag restoring code: mrs reg, nzcv */
-    (void)dcontext;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #endif /* X86/ARM */
 }
 
@@ -7181,9 +7177,9 @@ DR_API
 int
 dr_remove_it_instrs(void *drcontext, instrlist_t *ilist)
 {
-#if !defined(ARM)
+#ifdef X86
     return 0;
-#else
+#elif defined(ARM)
     int res = 0;
     instr_t *inst, *next;
     for (inst = instrlist_first(ilist); inst != NULL; inst = next) {
@@ -7202,9 +7198,9 @@ DR_API
 int
 dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
 {
-#if !defined(ARM)
+#ifdef X86
     return 0;
-#else
+#elif defined(ARM)
     instr_t *first = instrlist_first(ilist);
     if (first == NULL || instr_get_isa_mode(first) != DR_ISA_ARM_THUMB)
         return 0;

@@ -1905,9 +1905,6 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
     mc->r14 = sc->SC_FIELD(r14);
     mc->r15 = sc->SC_FIELD(r15);
 # endif /* X64 */
-#elif defined(AARCH64)
-    (void)sc;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #elif defined (ARM)
     mc->r0  = sc->SC_FIELD(arm_r0);
     mc->r1  = sc->SC_FIELD(arm_r1);
@@ -1974,9 +1971,6 @@ mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     sc->SC_FIELD(r14) = mc->r14;
     sc->SC_FIELD(r15) = mc->r15;
 # endif /* X64 */
-#elif defined(AARCH64)
-    (void)sc;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #elif defined(ARM)
     sc->SC_FIELD(arm_r0)  = mc->r0;
     sc->SC_FIELD(arm_r1)  = mc->r1;
@@ -2018,7 +2012,7 @@ mcontext_to_ucontext(kernel_ucontext_t *uc, priv_mcontext_t *mc)
     mcontext_to_sigcontext(&sc_full, mc);
 }
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef ARM
 static void
 set_sigcxt_stolen_reg(sigcontext_t *sc, reg_t val)
 {
@@ -2031,7 +2025,6 @@ get_sigcxt_stolen_reg(sigcontext_t *sc)
     return *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0));
 }
 
-# ifdef ARM
 static dr_isa_mode_t
 get_pc_mode_from_cpsr(sigcontext_t *sc)
 {
@@ -2046,7 +2039,6 @@ set_pc_mode_in_cpsr(sigcontext_t *sc, dr_isa_mode_t isa_mode)
     else
         sc->SC_XFLAGS &= ~EFLAGS_T;
 }
-# endif
 #endif
 
 /* Returns whether successful.  If avoid_failure, tries to translate
@@ -2149,8 +2141,6 @@ thread_set_self_context(void *cxt)
 # else
     asm("jmp dynamorio_sigreturn");
 # endif /* MACOS/LINUX */
-#elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #elif defined(ARM)
     asm("ldr  "ASM_XSP", %0" : : "m"(xsp_for_sigreturn));
     asm("b    dynamorio_sigreturn");
@@ -2212,11 +2202,6 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
           {0x77, 0x70, 0xa0, 0xe3, 0x00, 0x00, 0x00, 0xef};
         static const byte SIGRET_RT[8] =
           {0xad, 0x70, 0xa0, 0xe3, 0x00, 0x00, 0x00, 0xef};
-# elif defined(AARCH64)
-        /* FIXME i#1569 */
-        static const byte SIGRET_NONRT[8] = { 0 };
-        static const byte SIGRET_RT[8] = { 0 };
-        ASSERT_NOT_IMPLEMENTED(false);
 # endif
         byte buf[MAX(sizeof(SIGRET_NONRT), sizeof(SIGRET_RT))]= {0};
         if (safe_read(info->app_sigaction[sig]->restorer, sizeof(buf), buf) &&
@@ -2745,10 +2730,6 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
     IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
 
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
-
     /* Set our sigreturn context to point to fcache_return!
      * Then we'll go back through kernel, appear in fcache_return,
      * and go through dispatch & interp, without messing up dynamo stack.
@@ -3097,9 +3078,10 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
                 ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
                 syslen = SYSCALL_LENGTH;
             }, {
-                syslen = IF_ARM_ELSE((FRAG_IS_THUMB(f->flags) ?
-                                      SVC_THUMB_LENGTH : SVC_ARM_LENGTH),
-                                     SVC_LENGTH);
+                if (FRAG_IS_THUMB(f->flags))
+                    syslen = SVC_THUMB_LENGTH;
+                else
+                    syslen = SVC_ARM_LENGTH;
             });
             nxt_pc = decode(dcontext, pc - syslen, &instr);
             if (nxt_pc != NULL && instr_valid(&instr) &&
@@ -3227,7 +3209,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     }
     dr_set_isa_mode(dcontext, isa_mode, &old_mode);
     sys_inst_len = (isa_mode == DR_ISA_ARM_THUMB) ? SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
-#else
+#elif defined(X86)
     ASSERT(INT_LENGTH == SYSCALL_LENGTH &&
            INT_LENGTH == SYSENTER_LENGTH);
     sys_inst_len = INT_LENGTH;
@@ -4464,8 +4446,6 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     sc->SC_XDI = sig;
     sc->SC_XSI = (reg_t) &((sigframe_rt_t *)xsp)->info;
     sc->SC_XDX = (reg_t) &((sigframe_rt_t *)xsp)->uc;
-#elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #elif defined(ARM)
     sc->SC_R0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
@@ -4677,7 +4657,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     mcontext->xdi = sig;
     mcontext->xsi = (reg_t) &((sigframe_rt_t *)xsp)->info;
     mcontext->xdx = (reg_t) &((sigframe_rt_t *)xsp)->uc;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(ARM)
     mcontext->r0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
         mcontext->r1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
@@ -5153,15 +5133,11 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
-#ifdef AARCH64
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
         prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
         if (_NSIG_WORDS > 1) {
             memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
                    sizeof(prevset.sig[1]));
         }
-#endif
         set_blocked(dcontext, &prevset, true/*absolute*/);
     }
 #endif
@@ -5242,16 +5218,11 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
-# if defined(ARM) || defined(AARCH64)
-#  ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#  endif
+# ifdef ARM
     set_stolen_reg_val(get_mcontext(dcontext), get_sigcxt_stolen_reg(sc));
     set_sigcxt_stolen_reg(sc, (reg_t) *get_dr_tls_base_addr());
-#  ifndef AARCH64
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
     set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
-#  endif
 # endif
 #endif
 
@@ -6027,10 +5998,10 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
             asm("movl $1,(%"ASM_XAX")");
             asm("jmp dynamorio_futex_wake_and_exit");
 # endif
-#elif defined(ARM) || defined(AARCH64)
-            asm("ldr "ASM_R0", %0" : : "m"(term));
-            asm("mov "ASM_R1", #1");
-            asm("str "ASM_R1",["ASM_R0"]");
+#elif defined(ARM)
+            asm("ldr %%"ASM_R0", %0" : : "m"(term));
+            asm("mov %"ASM_R1", #1");
+            asm("str %"ASM_R1",[%"ASM_R0"]");
             asm("b dynamorio_futex_wake_and_exit");
 #endif
         } else {

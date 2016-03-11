@@ -18,7 +18,12 @@
 # error Only use this file on Linux
 #endif
 
-#if defined(ARM) || defined(AARCH64) /* FIXME i#1569: arm64 has different numbers */
+#ifdef X64
+
+/* FIXME i#1569: add AArch64 support */
+# error NYI
+
+#else /* X64 */
 
 /* From /usr/include/arm-linux-gnueabihf/asm/unistd.h */
 
@@ -430,9 +435,14 @@
 # undef __NR_syscall
 # undef __NR_ipc
 
-#endif /* ARM || AARCH64 */
+#endif /* !X64 */
 
-#if defined(ARM) || defined(AARCH64) /* FIXME i#1569: arm64 has different numbers */
+#ifdef X64
+
+/* FIXME i#1569: add AArch64 support */
+# error NYI
+
+#else /* X64 */
 
 /* From /usr/include/arm-linux-gnueabihf/bits/syscall.h */
 
@@ -776,12 +786,6 @@
 # define SYS_usr __ARM_NR_usr
 # define SYS_usr __ARM_NR_usr
 # define SYS_set_tls __ARM_NR_set_tls
-#endif /* ARM || AARCH64 */
-
-/* FIXME i#1569: arm64 does not have these system calls */
-#ifdef AARCH64
-# define SYS_mmap 1001
-# define SYS_getrlimit 1002
-#endif
+#endif /* !X64 */
 
 #endif /* _SYSCALL_LINUX_ARM_H_ */

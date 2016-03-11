@@ -370,12 +370,9 @@ typedef enum {
     DRWRAP_CALLCONV_FASTCALL       = 0x05000000,
     /** The Microsoft IA-32 thiscall calling convention. */
     DRWRAP_CALLCONV_THISCALL       = 0x06000000,
-    /** The ARM AArch64 calling convention. */
-    DRWRAP_CALLCONV_AARCH64        = 0x07000000,
 #ifdef X64
-# ifdef AARCH64
-    /** Default calling convention for the platform. */
-    DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AARCH64,
+# ifdef ARM
+#  error NYI ARM X64
 # elif defined(UNIX) /* x64 */
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AMD64,

@@ -109,33 +109,31 @@ typedef struct sigcontext sigcontext_t;
 # endif /* 64/32-bit */
 # define SC_FP SC_XBP
 # define SC_SYSNUM_REG SC_XAX
-#elif defined(AARCH64)
-   /* FIXME i#1569: NYI */
-# define SC_XIP SC_FIELD(pc)
-# define SC_FP  SC_FIELD(regs[29])
-# define SC_R0  SC_FIELD(regs[0])
-# define SC_XSP SC_FIELD(sp)
-# define SC_XFLAGS SC_FIELD(pstate)
 #elif defined(ARM)
-# define SC_XIP SC_FIELD(arm_pc)
-# define SC_FP  SC_FIELD(arm_fp)
-# define SC_R0  SC_FIELD(arm_r0)
-# define SC_R1  SC_FIELD(arm_r1)
-# define SC_R2  SC_FIELD(arm_r2)
-# define SC_R3  SC_FIELD(arm_r3)
-# define SC_R4  SC_FIELD(arm_r4)
-# define SC_R5  SC_FIELD(arm_r5)
-# define SC_R6  SC_FIELD(arm_r6)
-# define SC_R7  SC_FIELD(arm_r7)
-# define SC_R8  SC_FIELD(arm_r8)
-# define SC_R9  SC_FIELD(arm_r9)
-# define SC_R10 SC_FIELD(arm_r10)
-# define SC_R11 SC_FIELD(arm_fp)
-# define SC_R12 SC_FIELD(arm_ip)
-# define SC_XSP SC_FIELD(arm_sp)
-# define SC_LR  SC_FIELD(arm_lr)
-# define SC_XFLAGS SC_FIELD(arm_cpsr)
-# define SC_SYSNUM_REG SC_R7
+# ifdef X64
+   /* FIXME i#1569: NYI */
+#  error 64-bit ARM is not supported
+# else
+#  define SC_XIP SC_FIELD(arm_pc)
+#  define SC_FP  SC_FIELD(arm_fp)
+#  define SC_R0  SC_FIELD(arm_r0)
+#  define SC_R1  SC_FIELD(arm_r1)
+#  define SC_R2  SC_FIELD(arm_r2)
+#  define SC_R3  SC_FIELD(arm_r3)
+#  define SC_R4  SC_FIELD(arm_r4)
+#  define SC_R5  SC_FIELD(arm_r5)
+#  define SC_R6  SC_FIELD(arm_r6)
+#  define SC_R7  SC_FIELD(arm_r7)
+#  define SC_R8  SC_FIELD(arm_r8)
+#  define SC_R9  SC_FIELD(arm_r9)
+#  define SC_R10 SC_FIELD(arm_r10)
+#  define SC_R11 SC_FIELD(arm_fp)
+#  define SC_R12 SC_FIELD(arm_ip)
+#  define SC_XSP SC_FIELD(arm_sp)
+#  define SC_LR  SC_FIELD(arm_lr)
+#  define SC_XFLAGS SC_FIELD(arm_cpsr)
+#  define SC_SYSNUM_REG SC_R7
+# endif /* 64/32-bit */
 #endif /* X86/ARM */
 
 #endif /* _OS_PUBLIC_H_ 1 */
