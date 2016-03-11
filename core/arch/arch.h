@@ -114,7 +114,7 @@ mixed_mode_enabled(void)
 # define SCRATCH_REG3_OFFS XDX_OFFSET
 # define SCRATCH_REG4_OFFS XSI_OFFSET
 # define SCRATCH_REG5_OFFS XDI_OFFSET
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 # define R0_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
 # define R1_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
 # define R2_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r2)))
@@ -1291,7 +1291,7 @@ add_patch_entry_internal(patch_list_t *patch, instr_t *instr, ushort patch_flags
 cache_pc
 get_direct_exit_target(dcontext_t *dcontext, uint flags);
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 size_t
 get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags);
 

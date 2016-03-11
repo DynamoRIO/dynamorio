@@ -149,23 +149,21 @@ typedef struct _tcb_head_t {
 
     ptr_uint_t stack_guard;
     ptr_uint_t pointer_guard;
+#elif defined(AARCH64)
+    /* FIXME i#1569: This may be wrong! */
+    void *dtv;
+    void *private;
 #elif defined(ARM)
-# ifdef X64
-#  error NYI on AArch64
-# else
     void *dtv;
     void *private;
     byte  padding[2]; /* make it 16-byte align */
-# endif
 #endif /* X86/ARM */
 } tcb_head_t;
 
 #ifdef X86
 # define TLS_PRE_TCB_SIZE 0
-#elif defined(ARM)
-# ifdef X64
-#  error NYI on AArch64
-# else
+#elif defined(ARM) || defined(AARCH64)
+/* FIXME i#1569: This may be wrong for AArch64! */
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
  * the size and member locations match to avoid gdb crash.
@@ -176,10 +174,9 @@ typedef struct _dr_pthread_t {
     thread_id_t pid;
     byte data2[0x450]; /* # of bytes after pid within pthread */
 } dr_pthread_t;
-#  define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
-#  define LIBC_PTHREAD_SIZE 0x4c0
-#  define LIBC_PTHREAD_TID_OFFSET 0x68
-# endif
+# define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
+# define LIBC_PTHREAD_SIZE 0x4c0
+# define LIBC_PTHREAD_TID_OFFSET 0x68
 #endif /* X86/ARM */
 
 #ifdef X86
@@ -190,8 +187,8 @@ typedef struct _dr_pthread_t {
  * (i#46), we need to copy this data from before the thread pointer.
  */
 # define APP_LIBC_TLS_SIZE 0x400
-#elif defined(ARM)
-/* FIXME i#1551: investigate the difference between ARM and X86 on TLS.
+#elif defined(ARM) || defined(AARCH64)
+/* FIXME i#1551, i#1569: investigate the difference between ARM and X86 on TLS.
  * On ARM, it seems that TLS variables are not put before the thread pointer
  * as they are on X86.
  */
@@ -257,7 +254,7 @@ privload_tls_init(void *app_tp)
         __FUNCTION__, app_tp);
     dr_tp = heap_mmap(max_client_tls_size);
     ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= max_client_tls_size);
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
      * the size and member locations match to avoid gdb crash.
      */
@@ -287,7 +284,7 @@ privload_tls_init(void *app_tp)
         LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed, tcb was 0x%lx bytes "
             "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
             APP_LIBC_TLS_SIZE, tcb_size);
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     } else {
         dr_pthread_t *dp =
             (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE);
@@ -306,7 +303,7 @@ privload_tls_init(void *app_tp)
     dr_tcb->self = dr_tcb;
     /* i#555: replace app's vsyscall with DR's int0x80 syscall */
     dr_tcb->sysinfo = (ptr_uint_t)client_int_syscall;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     dr_tcb->dtv = NULL;
     dr_tcb->private = NULL;
 #endif
@@ -367,6 +364,10 @@ redirect____tls_get_addr()
      */
 #ifdef X86
     asm("mov %%"ASM_XAX", %0" : "=m"((ti)) : : ASM_XAX);
+#elif defined(AARCH64)
+    /* FIXME i#1569: NYI */
+    asm("str x0, %0" : "=m"((ti)) : : "x0");
+    ASSERT_NOT_REACHED();
 #elif defined(ARM)
     /* XXX: assuming ti is passed via r0? */
     asm("str r0, %0" : "=m"((ti)) : : "r0");

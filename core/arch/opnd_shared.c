@@ -41,7 +41,9 @@
 #include "opnd.h"
 #include "arch.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+#ifndef AARCH64
 #include "x86/decode_private.h"
+#endif
 
 #include <string.h> /* for memcpy */
 
@@ -832,8 +834,10 @@ bool
 opnd_is_memory_reference(opnd_t opnd)
 {
     return (opnd_is_base_disp(opnd)
-            IF_X64(|| opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) ||
-            IF_ARM(opnd_is_rel_addr(opnd) ||)
+            IF_X86_64(|| opnd_is_abs_addr(opnd)) ||
+#if defined(X64) || defined(ARM)
+            opnd_is_rel_addr(opnd) ||
+#endif
             opnd_is_mem_instr(opnd));
 }
 
@@ -962,7 +966,7 @@ const reg_id_t regparms[] = {
     REGPARM_4, REGPARM_5,
 #  endif
 # endif
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3,
 # ifdef X64
     REGPARM_4, REGPARM_5, REGPARM_6, REGPARM_7,
@@ -1047,7 +1051,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 reg_id_t b = (old_reg == ob) ? new_reg : ob;
                 reg_id_t i = (old_reg == oi) ? new_reg : oi;
                 int d = opnd_get_disp(*opnd);
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
                 uint amount;
                 dr_shift_type_t shift = opnd_get_index_shift(*opnd, &amount);
                 dr_opnd_flags_t flags = opnd_get_flags(*opnd);
@@ -1783,6 +1787,9 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
 #ifdef X86
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
+#elif defined(AARCH64)
+        (void)index;
+        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #elif defined(ARM)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
@@ -1844,7 +1851,7 @@ reg_32_to_16(reg_id_t reg)
     CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
                   "reg_32_to_16: passed non-32-bit reg");
     return (reg - REG_START_32) + REG_START_16;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     CLIENT_ASSERT(false, "reg_32_to_16 not supported on ARM");
     return REG_NULL;
 #endif
@@ -1866,7 +1873,7 @@ reg_32_to_8(reg_id_t reg)
 # endif
     }
     return r8;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
     return REG_NULL;
 #endif
@@ -2047,7 +2054,7 @@ reg_get_size(reg_id_t reg)
     /* i#176 add reg size handling for floating point registers */
     if (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT)
         return OPSZ_10;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
         return OPSZ_16;
     if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
@@ -2058,14 +2065,16 @@ reg_get_size(reg_id_t reg)
         return OPSZ_2;
     if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
         return OPSZ_1;
+# ifdef ARM
     if (reg >= DR_REG_CR0 && reg <= DR_REG_CR15)
         return OPSZ_PTR;
     if (reg >= DR_REG_CPSR && reg <= DR_REG_FPSCR)
         return OPSZ_4;
+# endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
-# ifdef X64
-#  error FIXME i#1569: NYI on AArch64
+# ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 # endif
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");

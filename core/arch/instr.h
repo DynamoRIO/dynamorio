@@ -66,6 +66,8 @@ struct instr_info_t;
 #ifdef API_EXPORT_ONLY
 #ifdef X86
 # include "dr_ir_opcodes_x86.h"
+#elif defined(AARCH64)
+# include "dr_ir_opcodes_aarch64.h"
 #elif defined(ARM)
 # include "dr_ir_opcodes_arm.h"
 #endif
@@ -1692,6 +1694,7 @@ DR_API
 bool
 instr_writes_memory(instr_t *instr);
 
+#ifdef X86
 DR_API
 /**
  * Returns true iff \p instr writes to an xmm register and zeroes the top half
@@ -1701,6 +1704,7 @@ DR_API
  */
 bool
 instr_zeroes_ymmh(instr_t *instr);
+#endif
 
 /* DR_API EXPORT BEGIN */
 #if defined(X64) || defined(ARM)
@@ -2822,7 +2826,7 @@ enum {
     EFLAGS_ARITH = EFLAGS_CF|EFLAGS_PF|EFLAGS_AF|EFLAGS_ZF|EFLAGS_SF|EFLAGS_OF,
 };
 
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 # define EFLAGS_READ_N      0x00000001 /**< Reads N (negative flag). */
 # define EFLAGS_READ_Z      0x00000002 /**< Reads Z (zero flag). */
 # define EFLAGS_READ_C      0x00000004 /**< Reads C (carry flag). */

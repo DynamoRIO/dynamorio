@@ -417,7 +417,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     gencode->do_syscall = pc;
     pc = emit_do_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
                          true/*shared*/, 0, &gencode->do_syscall_offs);
-# ifdef ARM
+# if defined(ARM) || defined(AARCH64)
     /* ARM has no thread-private gencode, so our clone syscall is shared */
     gencode->do_clone_syscall = pc;
     pc = emit_do_clone_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
@@ -559,7 +559,7 @@ shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void))
     protect_generated_code(gencode, READONLY);
 }
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 /* Called during a reset when all threads are suspended */
 void
 arch_reset_stolen_reg(void)
@@ -570,6 +570,9 @@ arch_reset_stolen_reg(void)
      */
     dr_isa_mode_t old_mode;
     dcontext_t *dcontext;
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#endif
     if (DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset) == dr_reg_stolen)
         return;
     SYSLOG_INTERNAL_INFO("swapping stolen reg from %s to %s",
@@ -595,6 +598,9 @@ arch_reset_stolen_reg(void)
 void
 arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#endif
     /* Put the app value in the old stolen reg */
     *(reg_t*)(((byte *)mc) +
               opnd_get_reg_dcontext_offs(DR_REG_R0 + INTERNAL_OPTION(steal_reg))) =
@@ -664,7 +670,7 @@ arch_init(void)
     ASSERT(syscall_method != SYSCALL_METHOD_UNINITIALIZED);
 #endif
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     dr_reg_stolen = DR_REG_R0 + DYNAMO_OPTION(steal_reg);
     ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX)
 #endif
@@ -1104,7 +1110,7 @@ arch_thread_init(dcontext_t *dcontext)
     return;
 #endif
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     /* Store addresses we access via TLS from exit stubs and gencode. */
     get_local_state_extended()->spill_space.fcache_return =
         PC_AS_JMP_TGT(isa_mode, fcache_return_shared_routine());
@@ -2837,7 +2843,7 @@ hook_vsyscall(dcontext_t *dcontext)
     instr_free(dcontext, &instr);
     return res;
 # undef CHECK
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     /* No vsyscall support needed for our ARM targets */
     ASSERT_NOT_REACHED();
     return false;
@@ -2870,7 +2876,7 @@ unhook_vsyscall(void)
         ASSERT(res);
     }
     return true;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
     return false;
 #endif /* X86/ARM */
@@ -2892,7 +2898,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
     else if (instr_get_opcode(instr) == OP_call_ind)
         new_method = SYSCALL_METHOD_WOW64;
 # endif
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     if (instr_get_opcode(instr) == OP_svc)
         new_method = SYSCALL_METHOD_SVC;
 #endif /* X86/ARM */
@@ -3262,7 +3268,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                , context->r8,  context->r9,  context->r10,  context->r11,
                context->r12, context->r13, context->r14,  context->r15
 # endif /* X64 */
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
                context->r0,  context->r1,  context->r2,  context->r3,
                context->r4,  context->r5,  context->r6,  context->r7,
                context->r8,  context->r9,  context->r10, context->r11,
@@ -3324,7 +3330,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                context->xflags, context->pc);
 }
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 reg_t
 get_stolen_reg_val(priv_mcontext_t *mc)
 {

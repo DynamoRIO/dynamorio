@@ -180,7 +180,7 @@ enum {
     DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
 
     /****************************************************************************/
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
     /* 64-bit general purpose */
     DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
@@ -257,11 +257,13 @@ enum {
     DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
     DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
 
+# ifndef X64
     /* Coprocessor registers */
     DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
     DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
     DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
     DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
+# endif
 
     /* We decided against DR_REG_RN_TH (top half), DR_REG_RN_BH (bottom half
      * for 32-bit as we have the W versions for 64-bit), and DR_REG_RN_BB
@@ -282,7 +284,11 @@ enum {
      * OP_mrs and OP_msr to distinguish them and make things clearer.
      */
 # endif
+# ifdef X64
+    DR_REG_NZCV, DR_REG_FPCR, DR_REG_FPSR,
+# else
     DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
+# endif
 
     /* AArch32 Thread Registers */
     DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
@@ -336,8 +342,10 @@ enum {
     DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
     DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
     DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
+# ifndef X64
     /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
     DR_REG_APSR = DR_REG_CPSR,
+# endif
 
     /* AArch64 Thread Registers */
     /** Thread Pointer/ID Register, EL0. */
@@ -459,7 +467,7 @@ extern const reg_id_t dr_reg_fixer[];
 #ifdef X86
 # define REG_START_SPILL   DR_REG_XAX
 # define REG_STOP_SPILL    DR_REG_XDI
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 /* We only normally use r0-r3 but we support more in translation code */
 # define REG_START_SPILL   DR_REG_R0
 # define REG_STOP_SPILL    DR_REG_R10 /* r10 might be used in syscall mangling */
@@ -2241,7 +2249,7 @@ enum {
     REGPARM_END_ALIGN    = sizeof(XSP_SZ),
 #  endif
 # endif /* 64/32 */
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     REGPARM_0            = DR_REG_R0,
     REGPARM_1            = DR_REG_R1,
     REGPARM_2            = DR_REG_R2,
@@ -2265,7 +2273,7 @@ extern const reg_id_t regparms[];
 /* arch-specific */
 uint opnd_immed_float_arch(uint opcode);
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 # define DR_REG_STOLEN_MIN  DR_REG_R8 /* no syscall regs */
 # define DR_REG_STOLEN_MAX  IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
 /* DR's stolen register for TLS access */

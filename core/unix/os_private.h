@@ -59,6 +59,10 @@
 #  define ASM_XBP "ebp"
 #  define ASM_XSP "esp"
 # endif /* 64/32-bit */
+#elif defined(AARCH64)
+# define ASM_R0 "x0"
+# define ASM_R1 "x1"
+# define ASM_XSP "sp"
 #elif defined(ARM)
 # define ASM_R0 "r0"
 # define ASM_R1 "r1"

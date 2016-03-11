@@ -106,17 +106,13 @@ typedef struct _our_modify_ldt_t {
     ASSERT(sizeof(val) == sizeof(reg_t));                               \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
-#elif defined(ARM)
-# ifdef X64
-#  error NYI on AArch64
-# else
-#  define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
-#  define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
-# endif /* 64/32-bit */
+#elif defined(ARM) || defined(AARCH64)
+# define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
+# define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 # define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
 #endif /* X86/ARM */
 
-static inline uint
+static inline ptr_uint_t
 read_thread_register(reg_id_t reg)
 {
     uint sel;
@@ -135,7 +131,7 @@ read_thread_register(reg_id_t reg)
      * is_segment_register_initialized().
      */
     sel &= 0xffff;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     if (reg == DR_REG_TPIDRURO) {
         IF_X64_ELSE({
             asm volatile("mrs %0, tpidrro_el0" : "=r"(sel));
@@ -236,7 +232,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment);
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 byte **
 get_dr_tls_base_addr(void);
 #endif

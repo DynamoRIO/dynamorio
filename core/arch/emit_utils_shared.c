@@ -792,8 +792,8 @@ coarse_indirect_stub_jmp_target(cache_pc stub)
     ASSERT(*prefix_tgt == JMP_OPCODE);
     tgt = (cache_pc) PC_RELATIVE_TARGET(prefix_tgt+1);
     return tgt;
-#elif defined(ARM)
-    /* FIXMED i#1551: NYI on ARM */
+#elif defined(ARM) || defined(AARCH64)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 #endif /* X86/ARM */
@@ -1871,9 +1871,13 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
     } else {
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
+#ifdef AARCH64
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
             APP(ilist,
                 XINST_CREATE_jump_mem(dcontext,
                                       OPND_TLS_FIELD(FCACHE_ENTER_TARGET_SLOT)));
+#endif
 
         } else {
 #ifdef WINDOWS
@@ -2421,7 +2425,11 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
      * so if our hook suspends all other threads to protect vs cross-thread
      * attacks, the dstack is not perfectly protected.
      */
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSP, DSTACK_OFFSET));
+#endif
 
     append_save_clear_xflags(dcontext, ilist, absolute);
     instr_targets = append_call_enter_dr_hook(dcontext, ilist, ibl_end, absolute) ||
@@ -2994,9 +3002,13 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
         /* FIXME: do we want this?  seems to be a problem, I'm disabling:
          * ASSERT(!collision || start_pc_offset == FRAGMENT_START_PC_OFFS);  // c \imply FRAGMENT
          */
+#ifdef AARCH64
+        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
         APP(ilist, XINST_CREATE_jump_mem(dcontext,
                                          OPND_CREATE_MEMPTR(SCRATCH_REG2,
                                                             start_pc_offset)));
+#endif
     } else {
         /* There is no prefix so we must restore all and jmp through memory:
          *     mov      start_pc_offset(%xcx), %xcx
@@ -3017,11 +3029,15 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
                                             MANGLE_XCX_SPILL_SLOT));
             else
                 APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG2, SCRATCH_REG2_OFFS));
+#ifdef AARCH64
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
             APP(ilist, XINST_CREATE_jump_mem(dcontext,
                                              OPND_DC_FIELD(absolute,
                                                            dcontext,
                                                            OPSZ_PTR,
                                                            SCRATCH_REG2_OFFS)));
+#endif
 #elif defined(ARM)
             /* FIXMED i#1551: NYI on ARM */
             ASSERT_NOT_REACHED();
@@ -3035,9 +3051,13 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
 #endif
                 APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG2,
                                             MANGLE_XCX_SPILL_SLOT));
+#ifdef AARCH64
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
             APP(ilist,
                 XINST_CREATE_jump_mem(dcontext,
                                       OPND_TLS_FIELD(INDIRECT_STUB_SPILL_SLOT)));
+#endif
         }
     }
 
@@ -3334,7 +3354,7 @@ instr_t *
 create_syscall_instr(dcontext_t *dcontext)
 {
     int method = get_syscall_method();
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     if (method == SYSCALL_METHOD_SVC || method == SYSCALL_METHOD_UNINITIALIZED) {
         return INSTR_CREATE_svc(dcontext, opnd_create_immed_int((char)0x0, OPSZ_1));
     }
@@ -5124,6 +5144,9 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
         APP(&ilist, nop_inst);
     }
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_tgt)));
+#elif defined(AARCH64)
+    (void)ibl_tgt;
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #elif defined(ARM)
     APP(&ilist, INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_PC),
                                  OPND_TLS_FIELD(get_ibl_entry_tls_offs
@@ -5205,8 +5228,10 @@ byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
     instrlist_t ilist;
-#ifdef ARM
-    /* FIXME i#1551: NYI on ARM (no assert here, it's in get_clean_call_save()) */
+#if defined(ARM) || defined(AARCH64)
+    /* FIXME i#1551, i#1569:
+     * NYI on ARM/AArch64 (no assert here, it's in get_clean_call_save())
+     */
     return pc;
 #endif
 
