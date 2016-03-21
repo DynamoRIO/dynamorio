@@ -1040,6 +1040,9 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     if (pt->aflags.in_use)
         return DRREG_ERROR_IN_USE;
     if (!TESTANY(EFLAGS_READ_ARITH, aflags)) {
+        /* If the flags were not yet lazily restored and are now dead, clear the slot */
+        if (!pt->aflags.native)
+            pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
         pt->aflags.in_use = true;
         pt->aflags.native = true;
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": aflags are dead\n",
