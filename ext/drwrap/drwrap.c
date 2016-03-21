@@ -559,7 +559,7 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
                  * trap flag or other flags so instead of zeroing we copy cur flags
                  * (xref i#806).
                  */
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
                 wrapcxt->mc->xflags = 0; /*0 is fine for ARM */
 #else
 # ifdef WINDOWS
@@ -625,7 +625,7 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER); /* already have xsp */
 
     switch (wrapcxt->callconv) {
-#ifdef ARM /* registers are platform-exclusive */
+#if defined(ARM) || defined(AARCH64) /* registers are platform-exclusive */
     case DRWRAP_CALLCONV_ARM:
         switch (arg) {
         case 0: return &wrapcxt->mc->r0;
@@ -1190,7 +1190,7 @@ drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
     replace_native_t *rn;
     if (stack_adjust > max_stack_adjust ||
         !ALIGNED(stack_adjust, sizeof(void*))
-        IF_ARM(|| stack_adjust != 0))
+        IF_NOT_X86(|| stack_adjust != 0))
         return false;
     if (replacement == NULL)
         rn = NULL;
@@ -1270,7 +1270,7 @@ drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
                                    ptr_int_t pushval, opnd_size_t stacksz
                                    _IF_X86_64(bool x86))
 {
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     instr_t *mov1, *mov2;
     instrlist_insert_mov_immed_ptrsz(drcontext, pushval, opnd_create_reg(DR_REG_LR),
                                      bb, NULL, &mov1, &mov2);
@@ -1752,7 +1752,7 @@ drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
 
 /* called via clean call at the top of callee */
 static void
-drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
+drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
@@ -1787,7 +1787,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
     NOTIFY(2, "%s: level %d function "PFX"\n", __FUNCTION__, pt->wrap_level+1, pc);
 
     drwrap_context_init(drcontext, &wrapcxt, pc, &mc, DRWRAP_WHERE_PRE_FUNC,
-                        IF_ARM_ELSE((app_pc)lr, get_retaddr_at_entry(xsp)));
+                        IF_X86_ELSE(get_retaddr_at_entry(xsp), (app_pc)lr));
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);
 
@@ -2172,7 +2172,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
                                 OPND_CREATE_INTPTR((ptr_int_t)arg1),
                                 /* pass in xsp to avoid dr_get_mcontext */
                                 opnd_create_reg(DR_REG_XSP)
-                                _IF_ARM(opnd_create_reg(DR_REG_LR)));
+                                _IF_NOT_X86(opnd_create_reg(DR_REG_LR)));
     }
     dr_recurlock_unlock(wrap_lock);
 

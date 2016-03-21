@@ -95,7 +95,7 @@ drutil_exit(void)
 static bool
 drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch);
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 static bool
 drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch);
@@ -119,7 +119,7 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
 {
 #ifdef X86
     return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch);
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch);
 #endif
 }
@@ -221,7 +221,7 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
     }
     return true;
 }
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 static bool
 instr_has_opnd(instr_t *instr, opnd_t opnd)
 {
@@ -277,7 +277,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 {
     if (!opnd_is_base_disp(memref))
         return false;
-    if (opnd_get_base(memref) == DR_REG_PC) {
+    if (IF_ARM_ELSE(opnd_get_base(memref) == DR_REG_PC, false)) {
         app_pc target;
         instr_t *first, *second;
         /* We need the app instr for getting the rel_addr_target.

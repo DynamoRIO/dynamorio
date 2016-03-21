@@ -150,8 +150,8 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
     }
     instr_free(dcontext, &instr);
     return fixup;
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(ARM) || defined(AARCH64)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 #endif /* X86/ARM */

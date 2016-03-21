@@ -192,16 +192,14 @@ frag_flags_from_isa_mode(dr_isa_mode_t mode)
     ASSERT(mode == DR_ISA_IA32);
     return 0;
 # endif
-#elif defined(ARM)
-# ifdef X64
+#elif defined(AARCH64)
     ASSERT(mode == DR_ISA_ARM_A64);
     return 0;
-# else
+#elif defined(ARM)
     if (mode == DR_ISA_ARM_THUMB)
         return FRAG_THUMB;
     ASSERT(mode == DR_ISA_ARM_A32);
     return 0;
-# endif
 #endif
 }
 

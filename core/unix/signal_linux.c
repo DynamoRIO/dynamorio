@@ -227,7 +227,7 @@ sysnum_is_not_restartable(int sysnum)
             IF_X86_64(sysnum == SYS_epoll_wait_old ||)
             sysnum == SYS_epoll_wait || sysnum == SYS_epoll_pwait ||
             sysnum == SYS_poll || sysnum == SYS_ppoll ||
-            IF_NOT_ARM(sysnum == SYS_select ||)
+            IF_X86(sysnum == SYS_select ||)
             sysnum == SYS_pselect6 ||
 #ifdef X64
             sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||

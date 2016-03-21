@@ -1925,6 +1925,7 @@ instr_writes_memory(instr_t *instr)
     return false;
 }
 
+#ifdef X86
 bool
 instr_zeroes_ymmh(instr_t *instr)
 {
@@ -1943,6 +1944,7 @@ instr_zeroes_ymmh(instr_t *instr)
     }
     return false;
 }
+#endif /* X86 */
 
 #if defined(X64) || defined(ARM)
 /* PR 251479: support general re-relativization.  If INSTR_RIP_REL_VALID is set and
@@ -3074,8 +3076,13 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
 instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return 0;
+#else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     return XINST_CREATE_jump_mem(dcontext, memopnd);
+#endif
 }
 
 /* there is no corresponding save routine since we no longer support
@@ -3122,8 +3129,8 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
          /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
          *(pc+2) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 6/*rm*/) &&
          *((uint*)(pc+4)) == os_tls_offset(offs));
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(ARM) || defined(AARCH64)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif /* X86/ARM */
@@ -3161,7 +3168,7 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
         opnd_is_far_base_disp(memop) &&
         opnd_get_segment(memop) == SEG_TLS &&
         opnd_is_abs_base_disp(memop)
-#elif defined (ARM)
+#elif defined (ARM) || defined(AARCH64)
         opnd_is_base_disp(memop) &&
         opnd_get_base(memop) == dr_reg_stolen &&
         opnd_get_index(memop) == DR_REG_NULL
@@ -3216,8 +3223,8 @@ instr_is_tls_xcx_spill(instr_t *instr)
                                       REG_ECX, MANGLE_XCX_SPILL_SLOT);
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(ARM) || defined(AARCH64)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif
@@ -3416,6 +3423,9 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
 # elif defined(ARM)
     /* FIXME i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
     return OP_vmov;
+# elif defined(AARCH64)
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return 0;
 # endif /* X86/ARM */
 }
 

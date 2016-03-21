@@ -209,9 +209,10 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         if (INTERNAL_OPTION(private_loader) &&
             ((elf_header.e_version != 1) ||
              (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
-             (memory && elf_header.e_machine != IF_ARM_ELSE(EM_ARM,
-                                                            IF_X64_ELSE(EM_X86_64,
-                                                                        EM_386)))))
+             (memory && elf_header.e_machine != IF_X86_ELSE(IF_X64_ELSE(EM_X86_64,
+                                                                        EM_386),
+                                                            IF_X64_ELSE(EM_AARCH64,
+                                                                        EM_ARM)))))
             return false;
 #endif
         /* FIXME - should we add any of these to the check? For real
@@ -221,9 +222,10 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
                          elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
         ASSERT_CURIOSITY(!memory ||
-                         elf_header.e_machine == IF_ARM_ELSE(EM_ARM,
-                                                             IF_X64_ELSE(EM_X86_64,
-                                                                         EM_386)));
+                         elf_header.e_machine == IF_X86_ELSE(IF_X64_ELSE(EM_X86_64,
+                                                                         EM_386),
+                                                             IF_X64_ELSE(EM_AARCH64,
+                                                                         EM_ARM)));
         return true;
     }
     return false;
@@ -993,9 +995,14 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
     ASSERT(offsetof(Elf64_Ehdr, e_machine) ==
            offsetof(Elf32_Ehdr, e_machine));
     switch (elf_header.elf64.e_machine) {
-    case EM_X86_64: *platform = DR_PLATFORM_64BIT; break;
+    case EM_X86_64:
+#ifdef EM_AARCH64
+    case EM_AARCH64:
+#endif
+        *platform = DR_PLATFORM_64BIT; break;
     case EM_386:
-    case EM_ARM:    *platform = DR_PLATFORM_32BIT; break;
+    case EM_ARM:
+        *platform = DR_PLATFORM_32BIT; break;
     default:
         return false;
     }
