@@ -363,12 +363,14 @@ app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 #define VSYSCALL_PAGE_START_HARDCODED ((app_pc)(ptr_uint_t) 0xffffe000)
 #ifdef X64
-/* i#430, in Red Hat Enterprise Server 5.6, vysycall region is marked
+/* i#430, in Red Hat Enterprise Server 5.6, vsyscall region is marked
  * not executable
  * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0  [vsyscall]
  */
 # define VSYSCALL_REGION_MAPS_NAME "[vsyscall]"
 #endif
+/* i#1908: vdso and vsyscall are now split */
+app_pc vdso_page_start = NULL;
 
 #if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* The pthreads library keeps errno in its pthread_descr data structure,
@@ -7041,7 +7043,9 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
                                         &last_seg_end,
                                         NULL, NULL)) {
             ASSERT_CURIOSITY(size == (ALIGN_FORWARD(first_seg_end, PAGE_SIZE) -
-                                      (ptr_uint_t)first_seg_base));
+                                      (ptr_uint_t)first_seg_base) ||
+                             base == vdso_page_start ||
+                             base == vsyscall_page_start);
             mod_size = ALIGN_FORWARD(last_seg_end, PAGE_SIZE) -
                 (ptr_uint_t)first_seg_base;
         }
@@ -7079,7 +7083,7 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
             if (iter.vm_start == vsyscall_page_start) {
                 ASSERT_CURIOSITY(!at_map);
             } else {
-                ASSERT_CURIOSITY(iter.inode != 0);
+                ASSERT_CURIOSITY(iter.inode != 0 || base == vdso_page_start);
                 ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
                 /* XREF 307599 on rounding module end to the next PAGE boundary */
                 ASSERT_CURIOSITY((iter.vm_end - iter.vm_start ==
@@ -7094,7 +7098,7 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
     memquery_iterator_stop(&iter);
 #ifdef HAVE_MEMINFO
     /* barring weird races we should find this map except [vdso] */
-    ASSERT_CURIOSITY(found_map || base == vsyscall_page_start);
+    ASSERT_CURIOSITY(found_map || base == vsyscall_page_start || base == vdso_page_start);
 #else /* HAVE_MEMINFO */
     /* Without /proc/maps or other memory querying interface available at
      * library map time, there is no way to find out the name of the file
@@ -8235,12 +8239,12 @@ find_executable_vm_areas(void)
             image = true;
 #endif
         } else if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
-                    strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0
-            IF_X64_ELSE(|| strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
-                                   strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
+                           strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0 ||
+                   IF_X64_ELSE(strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
+                                       strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
             /* Older kernels do not label it as "[vdso]", but it is hardcoded there */
             /* 32-bit */
-                        || iter.vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
+                               iter.vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
 # ifndef X64
             /* We assume no vsyscall page for x64; thus, checking the
              * hardcoded address shouldn't have any false positives.
@@ -8256,6 +8260,8 @@ find_executable_vm_areas(void)
              */
             DODEBUG({ map_type = "VDSO"; });
             vsyscall_page_start = iter.vm_start;
+            if (vdso_page_start == NULL)
+                vdso_page_start = vsyscall_page_start; /* assume identical for now */
             LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
                 vsyscall_page_start, iter.comment);
 # else
@@ -8271,6 +8277,13 @@ find_executable_vm_areas(void)
              */
             if (!TESTALL((PROT_READ|PROT_EXEC), iter.prot))
                 iter.prot |= (PROT_READ|PROT_EXEC);
+            /* i#1908: vdso and vsyscall pages are now split */
+            if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
+                        strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0)
+                vdso_page_start = iter.vm_start;
+            else if (strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
+                             strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
+                vsyscall_page_start = iter.vm_start;
 # endif
         } else if (mmap_check_for_module_overlap(iter.vm_start, size,
                                                  TEST(MEMPROT_READ, iter.prot),
