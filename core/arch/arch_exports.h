@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1416,6 +1416,9 @@ bool fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
 # define MAX_PAD_SIZE 0
+
+/* i#1906: alignment needed for the source address of data to load into the PC */
+# define PC_LOAD_ADDR_ALIGN 4
 
 #endif /* ARM */
 /****************************************************************************/

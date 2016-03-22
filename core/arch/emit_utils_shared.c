@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5148,6 +5148,8 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
     (void)ibl_tgt;
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #elif defined(ARM)
+    /* i#1906: loads to PC must use word-aligned addresses */
+    ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_tgt), PC_LOAD_ADDR_ALIGN));
     APP(&ilist, INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_PC),
                                  OPND_TLS_FIELD(get_ibl_entry_tls_offs
                                                 (dcontext, ibl_tgt))));
