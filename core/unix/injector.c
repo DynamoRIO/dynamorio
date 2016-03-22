@@ -71,6 +71,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#include <sys/uio.h> /* for struct iovec */
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -858,12 +859,6 @@ static const enum_name_pair_t pt_req_map[] = {
     {0}
 };
 
-#ifdef AARCH64
-/* FIXME i#1569: must use GETREGSET/SETREGSET instead of GETREGS/SETREGS */
-#define PTRACE_GETREGS PTRACE_GETREGSET
-#define PTRACE_SETREGS PTRACE_SETREGSET
-#endif
-
 /* Ptrace syscall wrapper, for logging.
  * XXX: We could call libc's ptrace instead of using dynamorio_syscall.
  * Initially I used the raw syscall to avoid adding a libc import, but calling
@@ -892,6 +887,34 @@ our_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
     return r;
 }
 #define ptrace DO_NOT_USE_ptrace_USE_our_ptrace
+
+/* We use these wrappers because PTRACE_GETREGS and PTRACE_SETREGS are not
+ * present on all architectures, while the alternatives, PTRACE_GETREGSET
+ * and PTRACE_SETREGSET, are present only since Linux 2.6.34.
+ * Red Hat Enterprise 6.6 has Linux 2.6.32.
+ */
+
+static long
+our_ptrace_getregs(pid_t pid, struct USER_REGS_TYPE *regs)
+{
+#ifdef AARCH64
+    struct iovec iovec = { regs, sizeof(*regs) };
+    return our_ptrace(PTRACE_GETREGSET, pid, (void *)NT_PRSTATUS, &iovec);
+#else
+    return our_ptrace(PTRACE_GETREGS, pid, NULL, regs);
+#endif
+}
+
+static long
+our_ptrace_setregs(pid_t pid, struct USER_REGS_TYPE *regs)
+{
+#ifdef AARCH64
+    struct iovec iovec = { regs, sizeof(*regs) };
+    return our_ptrace(PTRACE_SETREGSET, pid, (void *)NT_PRSTATUS, &iovec);
+#else
+    return our_ptrace(PTRACE_SETREGS, pid, NULL, regs);
+#endif
+}
 
 /* Copies memory from traced process into parent.
  */
@@ -1053,12 +1076,8 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     long r;
     ptr_int_t failure = -EUNATCH;  /* Unlikely to be used by most syscalls. */
 
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
-
     /* Get register state before executing the shellcode. */
-    r = our_ptrace(PTRACE_GETREGS, info->pid, NULL, &regs);
+    r = our_ptrace_getregs(info->pid, &regs);
     if (r < 0)
         return r;
 
@@ -1107,7 +1126,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     /* Put back original code and registers. */
     if (!ptrace_write_memory(info->pid, pc, orig_code, code_size))
         return failure;
-    r = our_ptrace(PTRACE_SETREGS, info->pid, NULL, &regs);
+    r = our_ptrace_setregs(info->pid, &regs);
     if (r < 0)
         return r;
 
@@ -1346,10 +1365,6 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     int status;
     int signal;
 
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
-
     /* Attach to the process in question. */
     r = our_ptrace(PTRACE_ATTACH, info->pid, NULL, NULL);
     if (r < 0) {
@@ -1408,7 +1423,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injected_dr_start = (app_pc) loader.ehdr->e_entry + loader.load_delta;
     elf_loader_destroy(&loader);
 
-    our_ptrace(PTRACE_GETREGS, info->pid, NULL, &regs);
+    our_ptrace_getregs(info->pid, &regs);
 
     /* Create an injection context and "push" it onto the stack of the injectee.
      * If you need to pass more info to the injected child process, this is a
@@ -1436,7 +1451,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
 #endif
 
     regs.REG_PC_FIELD = (ptr_int_t) injected_dr_start;
-    our_ptrace(PTRACE_SETREGS, info->pid, NULL, &regs);
+    our_ptrace_setregs(info->pid, &regs);
 
     if (op_exec_gdb) {
         detach_and_exec_gdb(info->pid, library_path);
