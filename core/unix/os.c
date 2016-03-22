@@ -1298,6 +1298,16 @@ os_timeout(int time_in_milliseconds)
     ASSERT(sizeof(var) == sizeof(void*));            \
     asm volatile("mov %"ASM_SEG":%c1, %0" : "=r"(var) : "i"(imm));
 
+# define WRITE_TLS_INT_SLOT_IMM(imm, var)                            \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                           \
+    ASSERT(sizeof(var) == sizeof(int));                              \
+    asm volatile("movl %0, %"ASM_SEG":%c1" : : "r"(var), "i"(imm));
+
+# define READ_TLS_INT_SLOT_IMM(imm, var)             \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());           \
+    ASSERT(sizeof(var) == sizeof(int));              \
+    asm volatile("movl %"ASM_SEG":%c1, %0" : "=r"(var) : "i"(imm));
+
 /* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
 # define WRITE_TLS_SLOT(offs, var)                          \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                  \
@@ -1327,6 +1337,8 @@ os_timeout(int time_in_milliseconds)
       : "=r" (var)                   \
       : "i" (imm)                    \
       : ASM_R3);
+# define WRITE_TLS_INT_SLOT_IMM WRITE_TLS_SLOT_IMM /* b/c 32-bit */
+# define READ_TLS_INT_SLOT_IMM READ_TLS_SLOT_IMM /* b/c 32-bit */
 # define WRITE_TLS_SLOT(offs, var)           \
     __asm__ __volatile__(                    \
       READ_TP_TO_R3                          \
@@ -2382,15 +2394,14 @@ static void
 replace_thread_id(thread_id_t old, thread_id_t new)
 {
 #ifdef HAVE_TLS
-    ptr_int_t new_tid = new; /* can't use thread_id_t since it's 32-bits */
+    thread_id_t new_tid = new;
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
-        ptr_int_t old_tid; /* can't use thread_id_t since it's 32-bits */
-        READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
-        IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(old_tid)));
+        thread_id_t old_tid;
+        READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
         ASSERT(old_tid == old);
     });
-    WRITE_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
+    WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
 #else
     int i;
     mutex_lock(&tls_lock);
