@@ -281,6 +281,16 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF OFF "")
+  testbuild_ex("arm-debug-internal-64" OFF "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+    " OFF OFF "")
+  testbuild_ex("arm-release-external-64" OFF "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+    " OFF OFF "")
 
   # Android cross-compilation and running of tests using "adb shell"
   find_program(ADB adb DOC "adb Android utility")
