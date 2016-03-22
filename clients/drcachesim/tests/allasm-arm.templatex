@@ -13,7 +13,7 @@ Core #0 \(1 thread\(s\)\)
     Flushes:                             1
     Prefetch hits:                       1
     Prefetch misses:                     1
-    Miss rate:                        0[,\.]99%
+    Miss rate:                        [01][,\.]..%
   L1D stats:
     Hits:                               1[0-9]
     Misses:                              [1-9]
