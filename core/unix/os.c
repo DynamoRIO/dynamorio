@@ -7946,7 +7946,7 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#ifdef SYS_readlink
+#if defined(LINUX) && defined(SYS_readlink)
     case SYS_readlink:
         if (success && DYNAMO_OPTION(early_inject)) {
             /* i#907: /proc/self/exe is a symlink to libdynamorio.so.  We need
