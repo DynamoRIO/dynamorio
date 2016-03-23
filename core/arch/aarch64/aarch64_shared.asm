@@ -37,10 +37,25 @@
 #include "../asm_defines.asm"
 START_FILE
 
+/*
+ * ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
+ *
+ * Linux arm64 system call:
+ * - x8: syscall number
+ * - x0..x6: syscall arguments
+ */
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
-        END_FUNC(dynamorio_syscall)
+        mov      x8,x0
+        mov      x0,x2
+        mov      x1,x3
+        mov      x2,x4
+        mov      x3,x5
+        mov      x4,x6
+        mov      x5,x7
+        ldr      x6,[sp]
+        svc      #0
+        ret
 
 #define FUNCNAME dr_fpu_exception_init
         DECLARE_FUNC(FUNCNAME)

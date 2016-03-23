@@ -41,7 +41,7 @@ START_FILE
 #define FUNCNAME replace_native_xfer
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569 */
+        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
@@ -52,14 +52,14 @@ DECLARE_GLOBAL(replace_native_ret_imms_end)
 GLOBAL_LABEL(FUNCNAME:)
 ADDRTAKEN_LABEL(replace_native_ret_imms:)
 ADDRTAKEN_LABEL(replace_native_ret_imms_end:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569 */
+        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
 #define FUNCNAME get_cur_xsp
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569 */
+        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
         END_FUNC(FUNCNAME)
 
 END_FILE
