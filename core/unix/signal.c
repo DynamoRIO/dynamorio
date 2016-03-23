@@ -776,10 +776,13 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         LOG(THREAD, LOG_ASYNCH, 1,
             "parent tid is "TIDFMT", parent sysnum is %d(%s), clone flags="PIFX"\n",
             record->caller_id, record->clone_sysnum,
+#ifdef SYS_vfork
             (record->clone_sysnum == SYS_vfork) ? "vfork" :
+#endif
             (IF_LINUX(record->clone_sysnum == SYS_clone ? "clone" :)
              IF_MACOS(record->clone_sysnum == SYS_bsdthread_create ? "bsdthread_create":)
              "unexpected"), record->clone_flags);
+#ifdef SYS_vfork
         if (record->clone_sysnum == SYS_vfork) {
             /* The above clone_flags argument is bogus.
                SYS_vfork doesn't have a free register to keep the hardcoded value
@@ -787,6 +790,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             /* CHECK: is this the only place real clone flags are needed? */
             record->clone_flags = CLONE_VFORK | CLONE_VM | SIGCHLD;
         }
+#endif
 
         /* handlers are either inherited or shared */
         if (TEST(CLONE_SIGHAND, record->clone_flags)) {

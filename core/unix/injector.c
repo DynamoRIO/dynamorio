@@ -1142,11 +1142,18 @@ injectee_open(dr_inject_info_t *info, const char *path, int flags, mode_t mode)
     opnd_t args[MAX_SYSCALL_ARGS];
     int num_args = 0;
     gen_push_string(dc, ilist, path);
+#ifndef SYS_open
+    args[num_args++] = OPND_CREATE_INTPTR(AT_FDCWD);
+#endif
     args[num_args++] = OPND_CREATE_MEMPTR(REG_XSP, 0);
     args[num_args++] = OPND_CREATE_INTPTR(flags);
     args[num_args++] = OPND_CREATE_INTPTR(mode);
     ASSERT(num_args <= MAX_SYSCALL_ARGS);
+#ifdef SYS_open
     gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_open), num_args, args);
+#else
+    gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_openat), num_args, args);
+#endif
     return injectee_run_get_retval(info, dc, ilist);
 }
 
