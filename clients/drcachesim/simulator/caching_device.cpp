@@ -162,7 +162,7 @@ caching_device_t::replace_which_way(int block_idx)
     // The base caching device class only implements LFU.
     // A subclass can override this and access_update() to implement
     // some other scheme.
-    int min_counter;
+    int min_counter = 0; /* avoid "may be used uninitialized" with GCC 4.4.7 */
     int min_way = 0;
     for (int way = 0; way < associativity; ++way) {
         if (get_caching_device_block(block_idx, way).tag == TAG_INVALID) {
