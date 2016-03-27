@@ -93,7 +93,17 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
     *ret = false;
     euid = geteuid();
     /* It is assumed that (S_IRWXU >> 6) == DRFRONT_READ | DRFRONT_WRITE | DRFRONT_EXEC */
-    if (euid == st.st_uid) {
+    if (euid == 0) {
+        /* XXX DrMi#1857: we assume that euid == 0 means +rw access to any file,
+         * and +x access to any file with at least one +x bit set.  This is
+         * usually true but not always.
+         */
+        if (TEST(DRFRONT_EXEC, mode)) {
+            *ret = TESTANY((DRFRONT_EXEC << 6) | (DRFRONT_EXEC << 3) | DRFRONT_EXEC,
+                           st.st_mode);
+        } else
+            *ret = true;
+    } else if (euid == st.st_uid) {
         /* Check owner permissions */
         *ret = TESTALL(mode << 6, st.st_mode);
     } else {

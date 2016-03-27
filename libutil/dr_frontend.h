@@ -121,6 +121,9 @@ typedef enum {
  * DRFRONT_WRITE, this function additionally attempts to create a
  * temporary file (by calling drfront_dir_try_writable()) to ensure
  * that the filesystem is not mounted read-only.
+ * On Linux or Mac, if the current effective user is 0, this routine assumes
+ * that the user has read and write access to every file and has execute
+ * access to any file with at least one execute bit set.
  *
  * \note DRFRONT_EXEC is ignored on Windows because _waccess doesn't test it.
  *
