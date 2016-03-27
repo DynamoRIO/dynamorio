@@ -665,9 +665,11 @@ typedef struct _instr_t instr_t;
 
 #ifdef ANDROID
 # define IF_ANDROID(x) x
+# define IF_ANDROID_ELSE(x, y) x
 # define IF_NOT_ANDROID(x)
 #else
 # define IF_ANDROID(x)
+# define IF_ANDROID_ELSE(x, y) y
 # define IF_NOT_ANDROID(x) x
 #endif
 

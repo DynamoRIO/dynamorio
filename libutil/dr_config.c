@@ -488,7 +488,15 @@ get_config_file_name(const char *process_name,
 #else
     {
         struct stat st;
-        mkdir(fname, 0770);
+        /* DrMi#1857: with both native and wrapped Android apps using the same
+         * config dir but running as different users, we need the dir to be
+         * world-writable (this is when SELinux is disabled and a common config
+         * dir is used).
+         */
+        mkdir(fname, IF_ANDROID_ELSE(0777,0770));
+# ifdef ANDROID
+        chmod(fname, 0777); /* umask probably stripped out o+w, so we chmod */
+# endif
         if (stat(fname, &st) != 0 || !S_ISDIR(st.st_mode)) {
             DO_ASSERT(false && "failed to create subdir: check permissions");
             return false;
