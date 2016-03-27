@@ -147,6 +147,12 @@ write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_LIB})
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCOV_CONFIG})
 register_tool_file("drcov")
 
+# We provide a version of genhtml that has Windows support
+DR_install(FILES "${PROJECT_SOURCE_DIR}/third_party/lcov/genhtml"
+  DESTINATION ${INSTALL_CLIENTS_BIN}
+  PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+  WORLD_READ WORLD_EXECUTE)
+
 ##################################################
 # Documentation
 
