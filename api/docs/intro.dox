@@ -504,6 +504,51 @@ An alternative method to run an application under DynamoRIO is the \ref
 sec_startstop "app_start()/app_stop()" interface, which requires modifying
 application source code.
 
+\section android_deploy Android Deployment
+
+Android deployment is generally the same as \ref lin_deploy except for the
+following differences.
+
+For pure native applications, the default configuration file location (if
+<tt>DYNAMORIO_CONFIGDIR</tt> is not explicitly set) is usually (depending
+on whether <tt>$HOME</tt> happens to be writable) <tt>/data/local/tmp</tt>.
+
+For Android applications on recent versions of Android, SELinux prevents
+writing to <tt>/data/local/tmp</tt>.  The application's data directory
+should be pointed at in the \p TMPDIR or <tt>DYNAMORIO_CONFIGDIR</tt>
+environment variables, as shown below in the example wrapper script.  We
+recommend using \p TMPDIR as its value will also be used by tools such as
+Dr. Memory for their log files.
+
+To launch an Android application under DynamoRIO, use a wrapper script and
+point at the script via the \p logwrapper property set on your
+application's name prefixed by \p <tt>wrap.</tt>.  For example, if your
+application's name is <tt>com.myco.appname</tt>, set the property for
+<tt>wrap.com.myco.appname</tt>, truncating to 31 characters:
+
+\code
+setprop wrap.com.myco.appname "logwrapper /system/xbin/wrap.sh"
+\endcode
+
+The wrapper shell script should contain the command line prefix you wish to
+use to launch your application under DynamoRIO:
+
+\code
+#!/system/bin/sh
+export TMPDIR=/data/data/com.myco.appname
+exec /system/xbin/dynamorio/bin32/drrun -- $@
+\endcode
+
+Be sure to place the DynamoRIO binaries and the wrapper script in an
+executable location, such as <tt>/system/xbin</tt>.  Alternatively, disable
+SELinux via <tt>setenforce 0</tt>.
+
+If you run into problems with configuration files being created due to
+SELinux denials (look in the logs for such denials), it may be simplest to
+disable SELinux via <tt>setenforce 0</tt>.  We have attempted to get
+everything to work without this step, but we are not able to test on all
+versions or configurations of Android.
+
 \endif
 
 \section client_ops Passing Options to Clients

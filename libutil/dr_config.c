@@ -402,6 +402,7 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
     } else {
         /* DYNAMORIO_CONFIGDIR takes precedence, and we do not check for
          * is_config_dir_valid() b/c the user explicitly asked for it.
+         * The user can set TMPDIR if checks are desired.
          */
         if (!env_var_exists(DYNAMORIO_VAR_CONFIGDIR, dir, BUFFER_SIZE_ELEMENTS(dir))) {
             if (!env_var_exists(LOCAL_CONFIG_ENV, dir, BUFFER_SIZE_ELEMENTS(dir)) ||
@@ -425,6 +426,10 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
 # ifdef ANDROID
                     /* This dir is not always present, but often is.
                      * We can't easily query the Java layer for the "cache dir".
+                     * DrMi#1857: for Android apps, this is disallowed by SELinux
+                     * (and we found no way to chcon to fix that), which does allow
+                     * /sdcard but it's not world-writable.  We have to rely on the
+                     * user setting TMPDIR to the app's data dir.
                      */
 #  define TMP_DIR "/data/local/tmp"
 # else
