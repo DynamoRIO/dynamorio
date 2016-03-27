@@ -135,7 +135,9 @@ clients.
 
 The changes between version \DR_VERSION and 6.1.0 include:
 
- - Nothing yet.
+ - Fixed problems with configuration directories on Android.  This involved
+   changing drfront_access() to attempt to create a file by calling a new
+   routine that is also exported, drfront_dir_try_writable().
 
 **************************************************
 <hr>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -374,8 +374,6 @@ is_config_dir_valid(const char *dir)
 {
     /* i#1701 Android support: on Android devices (and in some cases ChromeOS),
      * $HOME is read-only.  Thus we want to check for writability.
-     * This is not a perfect test: better to actually try to write, but we don't
-     * want to go that far on each dir we try.
      */
     bool ret = false;
     return drfront_access(dir, DRFRONT_WRITE, &ret) == DRFRONT_SUCCESS && ret;
