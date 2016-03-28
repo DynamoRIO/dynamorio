@@ -388,7 +388,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
      * os_module_update_dynamic_info() will be called later when .dynamic is
      * accessible.
      */
-    if (at_map && (app_pc)dyn > base+view_size)
+    if ((app_pc)dyn > base+view_size)
         return false;
 #endif
 
