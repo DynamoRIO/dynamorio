@@ -384,7 +384,11 @@ static bool
 get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
 {
     char dir[MAXIMUM_PATH];
-    const char *subdir;
+    const char *subdir = "";
+    bool res = false;
+    /* We return the last-tried dir on failure */
+    NULL_TERMINATE_BUFFER(dir);
+    fname[0] = '\0';
     if (global) {
 #ifdef WINDOWS
         _snprintf(dir, BUFFER_SIZE_ELEMENTS(dir), TSTR_FMT, get_dynamorio_home());
@@ -403,7 +407,7 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
             if (!env_var_exists(LOCAL_CONFIG_ENV, dir, BUFFER_SIZE_ELEMENTS(dir)) ||
                 !is_config_dir_valid(dir)) {
                 if (!find_temp)
-                    return false;
+                    goto get_config_dir_done;
                 /* Attempt to make things work for non-interactive users (i#939) */
                 if ((!env_var_exists("TMP", dir, BUFFER_SIZE_ELEMENTS(dir)) ||
                      !is_config_dir_valid(dir)) &&
@@ -416,7 +420,7 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
                      * on Windows.  But for that reason even a sandbox will leave
                      * TMP and/or TEMP set so we don't expect to hit this case.
                      */
-                    return false;
+                    goto get_config_dir_done;
 #else
 # ifdef ANDROID
                     /* This dir is not always present, but often is.
@@ -434,8 +438,14 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
                          * (e.g., on Android, it's in "adb shell" but not child)
                          */
                         (getcwd(dir, BUFFER_SIZE_ELEMENTS(dir)) == NULL ||
-                         !is_config_dir_valid(dir)))
-                        return false;
+                         !is_config_dir_valid(dir))) {
+# ifdef ANDROID
+                        /* Put back TMP_DIR for better error msg in caller */
+                        strncpy(dir, TMP_DIR, BUFFER_SIZE_ELEMENTS(dir));
+                        NULL_TERMINATE_BUFFER(dir);
+# endif
+                        goto get_config_dir_done;
+                    }
 #endif
                 }
             }
@@ -444,17 +454,22 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
              */
 #ifdef WINDOWS
             if (!SetEnvironmentVariableA(DYNAMORIO_VAR_CONFIGDIR, dir))
-                return false;
+                goto get_config_dir_done;
 #else
             if (setenv(DYNAMORIO_VAR_CONFIGDIR, dir, 1/*replace*/) != 0)
-                return false;
+                goto get_config_dir_done;
 #endif
         }
         subdir = LOCAL_CONFIG_SUBDIR;
     }
+    res = true;
+ get_config_dir_done:
+    /* On failure, we still want to copy the last-tried dir out so drdeploy can have a
+     * nicer error msg.
+     */
     _snprintf(fname, fname_len, "%s/%s", dir, subdir);
     fname[fname_len - 1] = '\0';
-    return true;
+    return res;
 }
 
 /* No support yet here to create some types of files the core supports:
