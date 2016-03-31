@@ -70,6 +70,7 @@ static app_pc addr_replace;
 static app_pc addr_replace2;
 static app_pc addr_replace_callsite;
 
+static app_pc addr_skip_flags;
 static app_pc addr_level0;
 static app_pc addr_level1;
 static app_pc addr_level2;
@@ -227,6 +228,10 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
             CHECK(ok, "wrap failed");
         }
 #endif
+        /* test leaner wrapping */
+        if (load_count == 2)
+            drwrap_set_global_flags(DRWRAP_NO_FRILLS | DRWRAP_FAST_CLEANCALLS);
+        wrap_addr(&addr_skip_flags, "skip_flags", mod, true, false);
     }
 }
 
@@ -243,6 +248,7 @@ module_unload_event(void *drcontext, const module_data_t *mod)
         ok = drwrap_replace_native(addr_replace_callsite, NULL, false, 0, NULL, true);
         CHECK(ok, "un-replace_native failed");
 
+        unwrap_addr(addr_skip_flags, "skip_flags", mod, true, false);
         unwrap_addr(addr_level0, "level0", mod, true, true);
         unwrap_addr(addr_level1, "level1", mod, true, true);
         unwrap_addr(addr_level2, "level2", mod, true, true);
@@ -358,7 +364,10 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
 {
     bool ok;
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
-    if (drwrap_get_func(wrapcxt) == addr_level0) {
+    if (drwrap_get_func(wrapcxt) == addr_skip_flags) {
+        CHECK(drwrap_get_arg(wrapcxt, 0) == (void *) 1, "get_arg wrong");
+        CHECK(drwrap_get_arg(wrapcxt, 1) == (void *) 2, "get_arg wrong");
+    } else if (drwrap_get_func(wrapcxt) == addr_level0) {
         dr_fprintf(STDERR, "  <pre-level0>\n");
         CHECK(drwrap_get_arg(wrapcxt, 0) == (void *) 37, "get_arg wrong");
         ok = drwrap_set_arg(wrapcxt, 0, (void *) 42);

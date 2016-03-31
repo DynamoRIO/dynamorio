@@ -40,7 +40,13 @@
 .code 16
 .syntax unified
 
+        .align   6
 _start:
+        // Align stack pointer to cache line.
+        mov      r0, sp
+        bic      r0, r0, #63
+        mov      sp, r0
+
         mov      r3, #4
 1:
         mov      r0, #1            // stdout
@@ -105,6 +111,7 @@ separate_bb:
         stm      r10!, {r0-r9}
         b        4f
 4:
+        mov      r10, sp
         ldm      r10!, {r0-r9}
         smlalbb  r0, r1, r2, r3  // reads all 4 scratch regs
 
@@ -302,6 +309,7 @@ _callee_ARM:
         .word    0xe12fff1e        // bx lr
 
         .data
+        .align   6
 hello:
         .ascii   "Hello world!\n"
 alldone:

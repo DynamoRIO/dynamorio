@@ -72,10 +72,12 @@
 # define DR_FPSTATE_BUF_SIZE 512
 #elif defined(ARM)
 # define DR_FPSTATE_BUF_SIZE (32*64)
+#elif defined(AARCH64)
+# define DR_FPSTATE_BUF_SIZE (32*128)
 #endif
 
 /** The alignment requirements of floating point state buffer. */
-#ifdef X86
+#if defined(X86) || defined(AARCH64)
 # define DR_FPSTATE_ALIGN  16
 #elif defined(ARM)
 # define DR_FPSTATE_ALIGN  4

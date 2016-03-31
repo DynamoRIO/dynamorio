@@ -4021,7 +4021,6 @@ DR_API
  * Even after calling this routine, there are significant limitations
  * to console printing support in DR:
  *
- *  - On Windows 8.1, it does not work for graphical applications.
  *  - On Windows versions prior to Vista, and for WOW64 applications
  *    on Vista, it does not work from the exit event.  Once the
  *    application terminates its state with csrss (toward the very end

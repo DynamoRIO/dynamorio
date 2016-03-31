@@ -198,7 +198,13 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                           SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
     dstack_offs += NUM_SIMD_SLOTS*sizeof(dr_simd_t);
     /* pc and aflags */
-    if (!cci->skip_save_aflags) {
+    if (cci->skip_save_aflags) {
+        /* even if we skip flag saves we want to keep mcontext shape */
+        int offs_beyond_xmm = 2 * XSP_SZ;
+        dstack_offs += offs_beyond_xmm;
+        PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
+                                           OPND_CREATE_INT(offs_beyond_xmm)));
+    } else {
         uint slot = TLS_REG0_SLOT;
         bool spill = scratch == REG_NULL;
         if (spill) {
@@ -245,7 +251,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          * sp from the stack swap so we can leave this empty.
          */
         PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
-                                           OPND_CREATE_INT8(XSP_SZ)));
+                                           OPND_CREATE_INT(XSP_SZ)));
         PRE(ilist, instr, INSTR_CREATE_stmdb_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
                                                 DR_REG_LIST_LENGTH_T32, DR_REG_LIST_T32));
     } else {
@@ -286,17 +292,22 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                           DR_REG_LIST_LENGTH_T32, DR_REG_LIST_T32));
     /* We don't want the sp value */
     PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
-                                       OPND_CREATE_INT8(XSP_SZ)));
+                                       OPND_CREATE_INT(XSP_SZ)));
     PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_LR)));
 #endif
 
     /* pc and aflags */
-    if (!cci->skip_save_aflags) {
+    if (cci->skip_save_aflags) {
+        /* even if we skip flag saves we still keep mcontext shape */
+        int offs_beyond_xmm = 2 * XSP_SZ;
+        PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                                           OPND_CREATE_INT(offs_beyond_xmm)));
+    } else {
         reg_id_t scratch = DR_REG_R0;
         uint slot = TLS_REG0_SLOT;
         /* just throw pc slot away */
         PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
-                                           OPND_CREATE_INT8(XSP_SZ)));
+                                           OPND_CREATE_INT(XSP_SZ)));
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch, slot));
         PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(scratch)));
         PRE(ilist, instr, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_CPSR),

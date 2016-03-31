@@ -283,7 +283,7 @@
 #ifdef KSTATS
     /* turn on kstats by default for debug builds */
     /* For ARM we have no cheap tsc so we disable by default (i#1581) */
-    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(IF_ARM_ELSE(false, true)),
+    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(IF_X86_ELSE(true, false)),
                    "enable path timing statistics")
 #endif
 
@@ -518,8 +518,8 @@
      * All the optimizations assume that clean callee will not be changed
      * later.
      */
-    /* FIXME i#1551: NYI on ARM */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_ARM_ELSE(0, 2),
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, 0),
                             "optimization level on optimizing clean call sequences")
     /* Assuming the client's clean call does not rely on the cleared eflags,
      * i.e., initialize the eflags before using it, we can skip the eflags
@@ -567,7 +567,7 @@
                    "Optimize ibl code with extra 64-bit registers in x86_to_x64 mode.")
 #endif
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     /* we only allow register between r8 and r12(A32)/r29(A64) to be used */
     OPTION_DEFAULT_INTERNAL(uint, steal_reg, IF_X64_ELSE(28/*r28*/, 10/*r10*/),
                             "the register stolen/used by DynamoRIO")
@@ -772,14 +772,14 @@
      * turn them on.
      * We mark as pcache-affecting though we have other explicit checks
      */
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_COMMAND(bool, disable_traces, IF_ARM_ELSE(true, false), "disable_traces", {
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_COMMAND(bool, disable_traces, IF_X86_ELSE(false, true), "disable_traces", {
         if (options->disable_traces) { /* else leave alone */
             DISABLE_TRACES(options);
         }
      }, "disable trace creation (block fragments only)", STATIC, OP_PCACHE_GLOBAL)
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_COMMAND(bool, enable_traces, IF_ARM_ELSE(false, true), "enable_traces", {
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_COMMAND(bool, enable_traces, IF_X86_ELSE(true, false), "enable_traces", {
         if (options->enable_traces) { /* else leave alone */
             REENABLE_TRACES(options);
         }
@@ -815,8 +815,8 @@
      * off -shared_traces to avoid tripping over un-initialized ibl tables
      * PR 361894: if no TLS available, we fall back to thread-private
      */
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(IF_X86_ELSE(true, false), false),
                    "shared_traces", {
         /* for -no_shared_traces, set options back to defaults for private traces: */
         IF_NOT_X64_OR_ARM(options->private_ib_in_tls = options->shared_traces;)
@@ -898,9 +898,9 @@
 
     /* XXX i#1611: for ARM, our far links go through the stub and hence can't
      * be shared with an unlinked fall-through.  If we switch to allowing
-     * "ldr pc, [pc + X]" as an exit cti we can turn this back on.
+     * "ldr pc, [pc + X]" as an exit cti we can turn this back on for 32-bit ARM.
      */
-    OPTION_DEFAULT_INTERNAL(bool, cbr_single_stub, IF_ARM_ELSE(false, true),
+    OPTION_DEFAULT_INTERNAL(bool, cbr_single_stub, IF_X86_ELSE(true, false),
         "both sides of a cbr share a single stub")
 
     /* PR 210990: Improvement is in the noise for spec2k on P4, but is noticeable on
@@ -911,7 +911,7 @@
      * avoid a stub unless we use "ldr pc, [r10+offs]" as an exit cti, which
      * complicates the code that handles exit ctis and doesn't work for A64.
      */
-    OPTION_COMMAND(bool, indirect_stubs, IF_ARM_ELSE(true, false), "indirect_stubs", {
+    OPTION_COMMAND(bool, indirect_stubs, IF_X86_ELSE(false, true), "indirect_stubs", {
         /* we put inlining back in place if we have stubs, for private,
          * though should re-measure whether inlining is worthwhile */
         if (options->thread_private && options->indirect_stubs) {
@@ -949,8 +949,8 @@
     OPTION_DEFAULT(bool, ibl_table_in_tls, IF_HAVE_TLS_ELSE(true, false),
         "use TLS to hold IBL table addresses & masks")
 
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_DEFAULT(bool, bb_ibl_targets, IF_ARM_ELSE(true, false), "enable BB to BB IBL")
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_DEFAULT(bool, bb_ibl_targets, IF_X86_ELSE(false, true), "enable BB to BB IBL")
 
      /* IBL code cannot target both single restore prefix and full prefix frags
       * simultaneously since the restore of %eax in the former case means that the
@@ -1000,9 +1000,9 @@
     /* control sharing of indirect branch lookup routines */
     /* Default TRUE as it's needed for shared_traces (which is on by default) */
     /* PR 361894: if no TLS available, we fall back to thread-private */
-    /* FIXME i#1551: enable traces on ARM once we have them working */
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
     OPTION_DEFAULT(bool, shared_trace_ibl_routine,
-                   IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
+                   IF_HAVE_TLS_ELSE(IF_X86_ELSE(true, false), false),
                    "share ibl routine for traces")
     OPTION_DEFAULT(bool, speculate_last_exit, false,
         "enable speculative linking of trace last IB exit")
@@ -1325,7 +1325,7 @@
     /* FIXME i#1674: enable on ARM once bugs are fixed, along with all the
      * reset_* trigger options as well.
      */
-    OPTION_COMMAND(bool, enable_reset, IF_ARM_ELSE(false, true), "enable_reset", {
+    OPTION_COMMAND(bool, enable_reset, IF_X86_ELSE(true, false), "enable_reset", {
         if (!options->enable_reset) {
             DISABLE_RESET(options);
         }
@@ -1344,28 +1344,28 @@
         "if we hit the reset_at_vmm_*_limit switch to requesting from the os (so we'll "
         "only actually reset once the os is out and we're at the limit)")
     OPTION_DEFAULT(bool, reset_at_switch_to_os_at_vmm_limit,
-        IF_ARM_ELSE(false, true), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(true, false), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "schedule a reset the first (and only the first) time we switch to the os "
         "allocations from -switch_to_os_at_vmm_reset_limit above")
     OPTION_DEFAULT(uint, reset_at_vmm_percent_free_limit,
-        IF_ARM_ELSE(0, 10), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(10, 0), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all when vmm heap % free is < reset_at_vmm_percent_free (0 disables)")
     OPTION_DEFAULT(uint_size, reset_at_vmm_free_limit, 0,
         "reset all when vmm heap has less then reset_at_vmm_free free memory remaining")
     OPTION_DEFAULT(uint, report_reset_vmm_threshold, 3,
         "syslog one thrash warning message after this many resets at low vmm heap free")
     OPTION_DEFAULT(bool, reset_at_vmm_full,
-        IF_ARM_ELSE(false, true), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(true, false), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches the first time vmm heap runs out of space")
     OPTION_DEFAULT(uint, reset_at_commit_percent_free_limit, 0,
-        "reset all less then this % of the commit limit remains free (0 disables)")
+        "reset all less than this % of the commit limit remains free (0 disables)")
     OPTION_DEFAULT(uint_size, reset_at_commit_free_limit,
-        IF_ARM_ELSE(0, (32 * 1024 * 1024)), /* i#1674: re-enable once ARM bugs fixed */
+        IF_X86_ELSE((32 * 1024 * 1024), 0), /* i#1674: re-enable once ARM bugs fixed */
         "reset all when less then this much free committable memory remains")
     OPTION_DEFAULT(uint, report_reset_commit_threshold, 3,
         "syslog one thrash warning message after this many resets at low commit")
     OPTION_DEFAULT(uint, reset_every_nth_pending,
-        IF_ARM_ELSE(0, 35), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(35, 0), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches when pending deletion has this many entries")
     /* the reset-by-unit options focus on filled units and not created units
      * to avoid being triggered by new, empty, private units for new threads
@@ -1975,7 +1975,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 #ifdef WINDOWS
     PC_OPTION_INTERNAL(bool, noasynch, "disable asynchronous event interceptions")
 #endif
-    PC_OPTION_DEFAULT_INTERNAL(bool, hw_cache_consistency, IF_ARM_ELSE(false, true),
+    PC_OPTION_DEFAULT_INTERNAL(bool, hw_cache_consistency, IF_X86_ELSE(true, false),
         "keep code cache consistent in face of hardware implicit icache sync")
     OPTION_DEFAULT_INTERNAL(bool, sandbox_writes, true, "check each sandboxed write for selfmod?")
     /* FIXME: off by default until dll load perf issues are solved: case 3559 */
@@ -2207,7 +2207,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
       * these don't affect pcaches since the trampoline bbs won't be coarse-grain.
       */
     /* XXX i#1582: add ARM support for native_exec */
-    OPTION_DEFAULT(bool, native_exec, IF_ARM_ELSE(false, true),
+    OPTION_DEFAULT(bool, native_exec, IF_X86_ELSE(true, false),
                    "attempt to execute certain libraries natively (WARNING: lots of issues with this, use at own risk)")
      /* initially populated w/ all dlls we've needed to get .NET, MS JVM, Sun JVM,
       * Symantec JVM, and Panda AV working, but with very limited workload testing so far

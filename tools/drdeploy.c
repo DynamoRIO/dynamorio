@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -561,6 +561,9 @@ bool register_proc(const char *process,
                 dr_get_config_dir(global, true/*tmp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
                 error("process %s registration failed: check config dir %s permissions",
                       process == NULL ? "<null>" : process, buf);
+#ifdef ANDROID
+                error("for Android apps, set TMPDIR to /data/data/com.your.app");
+#endif
             } else {
                 error("process %s registration failed",
                       process == NULL ? "<null>" : process);
@@ -1521,6 +1524,10 @@ int main(int argc, char *argv[])
     }
 
 #ifdef DRCONFIG
+    if (verbose) {
+        dr_get_config_dir(global, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
+        info("configuration directory is \"%s\"", buf);
+    }
     if (action == action_register) {
         if (!register_proc(process, 0, global, dr_root, dr_mode,
                            use_debug, dr_platform, extra_ops))
@@ -1623,6 +1630,7 @@ int main(int argc, char *argv[])
     if (!global) {
         /* i#939: attempt to work w/o any HOME/USERPROFILE by using a temp dir */
         dr_get_config_dir(global, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
+        info("configuration directory is \"%s\"", buf);
     }
 # ifdef UNIX
     /* i#1676: detect whether under gdb */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -125,7 +125,7 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 typedef struct _ibl_entry_pc_t {
     byte *ibl;
     byte *unlinked;
@@ -140,13 +140,13 @@ typedef struct _spill_state_t {
     /* Four registers are used in the indirect branch lookup routines */
 #ifdef X86
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
-#elif defined (ARM)
+#elif defined (ARM) || defined(AARCH64)
     reg_t r0, r1, r2, r3;
     reg_t reg_stolen;            /* slot for the stolen register */
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
@@ -184,7 +184,7 @@ typedef struct _local_state_extended_t {
 # define SCRATCH_REG1             DR_REG_XBX
 # define SCRATCH_REG2             DR_REG_XCX
 # define SCRATCH_REG3             DR_REG_XDX
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 # define TLS_REG0_SLOT            ((ushort)offsetof(spill_state_t, r0))
 # define TLS_REG1_SLOT            ((ushort)offsetof(spill_state_t, r1))
 # define TLS_REG2_SLOT            ((ushort)offsetof(spill_state_t, r2))
@@ -198,7 +198,7 @@ typedef struct _local_state_extended_t {
 #define IBL_TARGET_REG           SCRATCH_REG2
 #define IBL_TARGET_SLOT          TLS_REG2_SLOT
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 # define TLS_FCACHE_RETURN_SLOT  ((ushort)offsetof(spill_state_t, fcache_return))
 #endif
 
@@ -485,7 +485,39 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 #  define SET_FLAG(cc, flag) __asm__ __volatile__("set"#cc " %0" :"=qm" (flag) )
 #  define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #  define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
+
+# elif defined(AARCH64)
+
+/* FIXME i#1569: NYI */
+#  define AARCH64_NYI do { ASSERT_NOT_IMPLEMENTED(false); } while (0)
+
+#  define ATOMIC_INC_int(var) do { AARCH64_NYI; ++var; } while (0)
+#  define ATOMIC_INC_int64(var) do { AARCH64_NYI; ++var; } while (0)
+#  define ATOMIC_DEC_int(var) do { AARCH64_NYI; --var; } while (0)
+#  define ATOMIC_DEC_int64(var) do { AARCH64_NYI; --var; } while (0)
+#  define ATOMIC_ADD_int(var, val) do { AARCH64_NYI; var += val; } while (0)
+#  define ATOMIC_ADD_int64(var, val) do { AARCH64_NYI; var += val; } while (0)
+#  define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
+    do { AARCH64_NYI; res = *var; *var += val; } while (0)
+#  define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
+    do { AARCH64_NYI; res = *var; *var += val; } while (0)
+#  define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) AARCH64_NYI
+#  define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) AARCH64_NYI
+#  define ATOMIC_EXCHANGE(var, newval, result) \
+    do { AARCH64_NYI; result = var; var = newval; } while (0)
+#  define SPINLOCK_PAUSE() AARCH64_NYI
+uint64 proc_get_timestamp(void);
+#  define RDTSC_LL(llval) AARCH64_NYI
+
+#  define GET_FRAME_PTR(var) asm volatile("mov %0, x29" : "=r"(var))
+#  define GET_STACK_PTR(var) asm volatile("mov %0, sp" : "=r"(var))
+
+#  define SET_FLAG(cc, flag) do { AARCH64_NYI; flag = 0; } while (0)
+#  define SET_IF_NOT_ZERO(flag) SET_FLAG(ne, flag)
+#  define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
+
 # else /* ARM */
+
 #  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
      ASSERT(sizeof(value) == 4);                                      \
      /* Load and store instructions are atomic on ARM if aligned. */  \
@@ -825,7 +857,7 @@ void arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callb
 void arch_thread_profile_exit(dcontext_t *dcontext);
 void arch_profile_exit(void);
 #endif
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 void arch_reset_stolen_reg(void);
 void arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc);
 #endif
@@ -843,7 +875,7 @@ priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
 priv_mcontext_t *get_priv_mcontext_from_dstack(dcontext_t *dcontext);
 void dr_mcontext_init(dr_mcontext_t *mc);
 void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 reg_t get_stolen_reg_val(priv_mcontext_t *context);
 void set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
 #endif
@@ -1323,7 +1355,7 @@ decode_init(void);
 # define MAX_PAD_SIZE 3
 
 /****************************************************************************/
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 
 # ifdef X64
 #  define FRAG_IS_THUMB(flags) false
@@ -1384,6 +1416,9 @@ bool fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
 # define MAX_PAD_SIZE 0
+
+/* i#1906: alignment needed for the source address of data to load into the PC */
+# define PC_LOAD_ADDR_ALIGN 4
 
 #endif /* ARM */
 /****************************************************************************/
@@ -1573,6 +1608,13 @@ enum {
     CTI_IAT_LENGTH     = 6, /* FF 15 38 10 80 7C call dword ptr ds:[7C801038h] */
     CTI_FAR_ABS_LENGTH = 7, /* 9A 1B 07 00 34 39 call 0739:3400071B            */
                             /* 07                                              */
+#elif defined(AARCH64)
+    MAX_INSTR_LENGTH = 4,
+    CBR_LONG_LENGTH  = 4,
+    JMP_LONG_LENGTH  = 4,
+    JMP_SHORT_LENGTH = 4,
+    CBR_SHORT_REWRITE_LENGTH = 4,
+    SVC_LENGTH = 4,
 #elif defined(ARM)
     MAX_INSTR_LENGTH = ARM_INSTR_SIZE,
     CBR_LONG_LENGTH  = ARM_INSTR_SIZE,
@@ -1946,7 +1988,9 @@ typedef struct dr_jmp_buf_t {
     reg_t r8, r9, r10, r11, r12, r13, r14, r15;
 # endif
 #elif defined(ARM) /* for arm.asm */
-    reg_t regs[IF_X64_ELSE(32, 16)/*DR_NUM_GPR_REGS*/];
+    reg_t regs[16/*DR_NUM_GPR_REGS*/];
+#elif defined(AARCH64) /* for aarch64.asm */
+    reg_t regs[22]; /* callee-save regs: X19-X30, (gap), SP, D8-D15 */
 #endif /* X86/ARM */
 #if defined(UNIX) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the

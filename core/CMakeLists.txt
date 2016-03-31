@@ -604,7 +604,9 @@ if (UNIX)
 
   string(REGEX REPLACE
     "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
-  if (NOT APPLE) # FIXME i#1374: versioning causing problems
+  # FIXME i#1374: versioning causing problems on Mac
+  # On Android "adb push" doesn't support symlinks, so it's simpler to avoid them.
+  if (NOT APPLE AND NOT ANDROID)
     set_target_properties(dynamorio PROPERTIES
       VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
     if (NOT STATIC_LIBRARY)
@@ -612,7 +614,7 @@ if (UNIX)
       # If they don't we need additional calls here.
       generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
     endif ()
-  endif (NOT APPLE)
+  endif ()
 
   if (LINUX) # No checks for MacOS
     # Note that we can't locate readelf inside CMake_readelf.cmake as that

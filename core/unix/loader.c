@@ -72,8 +72,10 @@ extern size_t wcslen(const wchar_t *str); /* in string.c */
  */
 #define SYSTEM_LIBRARY_PATH_VAR "LD_LIBRARY_PATH"
 char *ld_library_path = NULL;
-static const char *system_lib_paths[] = {
+static const char *const system_lib_paths[] = {
+#ifdef X86
     "/lib/tls/i686/cmov",
+#endif
     "/usr/lib",
     "/lib",
     "/usr/local/lib",       /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
@@ -95,12 +97,19 @@ static const char *system_lib_paths[] = {
     "/usr/lib/arm-linux-gnueabi",
 # endif
 #else
+    /* 64-bit Ubuntu */
+# ifdef X86
     "/lib64/tls/i686/cmov",
+# endif
     "/usr/lib64",
     "/lib64",
-    /* 64-bit Ubuntu */
+# ifdef X86
     "/lib/x86_64-linux-gnu",     /* /etc/ld.so.conf.d/x86_64-linux-gnu.conf */
     "/usr/lib/x86_64-linux-gnu", /* /etc/ld.so.conf.d/x86_64-linux-gnu.conf */
+# elif defined(AARCH64)
+    "/lib/aarch64-linux-gnu",
+    "/usr/lib/aarch64-linux-gnu",
+# endif
 #endif
 };
 #define NUM_SYSTEM_LIB_PATHS \
@@ -1549,9 +1558,10 @@ privload_mem_is_elf_so_header(byte *mem)
     if (elf_hdr->e_type != ET_DYN)
         return false;
     /* ARM or X86 */
-    if (elf_hdr->e_machine != IF_ARM_ELSE(EM_ARM,
-                                          IF_X64_ELSE(EM_X86_64,
-                                                      EM_386)))
+    if (elf_hdr->e_machine != IF_X86_ELSE(IF_X64_ELSE(EM_X86_64,
+                                                      EM_386),
+                                          IF_X64_ELSE(EM_AARCH64,
+                                                      EM_ARM)))
         return false;
     if (elf_hdr->e_ehsize != sizeof(ELF_HEADER_TYPE))
         return false;

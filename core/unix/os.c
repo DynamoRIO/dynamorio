@@ -115,44 +115,21 @@ struct compat_rlimit {
 # define F_DUPFD_CLOEXEC 1030
 #endif
 
-/* Cross arch syscall nums for use with struct stat64. */
-#ifdef X64
-# define SYSNUM_STAT SYS_stat
-# define SYSNUM_FSTAT SYS_fstat
-#else
-# define SYSNUM_STAT SYS_stat64
-# define SYSNUM_FSTAT SYS_fstat64
-#endif
-
-#ifdef MACOS
-# define SYSNUM_EXIT_PROCESS SYS_exit
-# define SYSNUM_EXIT_THREAD SYS_bsdthread_terminate
-#else
-# define SYSNUM_EXIT_PROCESS SYS_exit_group
-# define SYSNUM_EXIT_THREAD SYS_exit
-#endif
-
-#ifdef ANDROID
-/* Custom prctl flags specific to Android (xref i#1861) */
-# define PR_SET_VMA   0x53564d41
-# define PR_SET_VMA_ANON_NAME    0
-#endif
-
 /* This is not always sufficient to identify a syscall return value.
  * For example, MacOS has some 32-bit syscalls that return 64-bit
  * values in xdx:xax.
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
-#ifdef ARM
-# ifdef X64
-#  define ASM_R3 "x3"
-#  define READ_TP_TO_R3  "NYI on ARM" /* FIXME i#1551: NYI on ARM */
-# else
-#  define ASM_R3 "r3"
-#  define READ_TP_TO_R3 \
+#if defined(AARCH64)
+# define ASM_R3 "x3"
+# define READ_TP_TO_R3 \
+      "mrs "ASM_R3", tpidr_el0\n\t" \
+      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
+#elif defined(ARM)
+# define ASM_R3 "r3"
+# define READ_TP_TO_R3 \
       "mrc p15, 0, "ASM_R3", c13, c0, "STRINGIFY(USR_TLS_REG_OPCODE)" \n\t" \
       "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
-# endif /* 64/32-bit */
 #endif /* ARM */
 
 /* Prototype for all functions in .init_array. */
@@ -202,6 +179,31 @@ char **our_environ;
 
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
+#endif
+
+/* Cross arch syscall nums for use with struct stat64. */
+#ifdef X64
+# ifdef SYS_stat
+#  define SYSNUM_STAT SYS_stat
+# endif
+# define SYSNUM_FSTAT SYS_fstat
+#else
+# define SYSNUM_STAT SYS_stat64
+# define SYSNUM_FSTAT SYS_fstat64
+#endif
+
+#ifdef MACOS
+# define SYSNUM_EXIT_PROCESS SYS_exit
+# define SYSNUM_EXIT_THREAD SYS_bsdthread_terminate
+#else
+# define SYSNUM_EXIT_PROCESS SYS_exit_group
+# define SYSNUM_EXIT_THREAD SYS_exit
+#endif
+
+#ifdef ANDROID
+/* Custom prctl flags specific to Android (xref i#1861) */
+# define PR_SET_VMA   0x53564d41
+# define PR_SET_VMA_ANON_NAME    0
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -363,12 +365,14 @@ app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 #define VSYSCALL_PAGE_START_HARDCODED ((app_pc)(ptr_uint_t) 0xffffe000)
 #ifdef X64
-/* i#430, in Red Hat Enterprise Server 5.6, vysycall region is marked
+/* i#430, in Red Hat Enterprise Server 5.6, vsyscall region is marked
  * not executable
  * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0  [vsyscall]
  */
 # define VSYSCALL_REGION_MAPS_NAME "[vsyscall]"
 #endif
+/* i#1908: vdso and vsyscall are now split */
+app_pc vdso_page_start = NULL;
 
 #if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* The pthreads library keeps errno in its pthread_descr data structure,
@@ -1296,6 +1300,16 @@ os_timeout(int time_in_milliseconds)
     ASSERT(sizeof(var) == sizeof(void*));            \
     asm volatile("mov %"ASM_SEG":%c1, %0" : "=r"(var) : "i"(imm));
 
+# define WRITE_TLS_INT_SLOT_IMM(imm, var)                            \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                           \
+    ASSERT(sizeof(var) == sizeof(int));                              \
+    asm volatile("movl %0, %"ASM_SEG":%c1" : : "r"(var), "i"(imm));
+
+# define READ_TLS_INT_SLOT_IMM(imm, var)             \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());           \
+    ASSERT(sizeof(var) == sizeof(int));              \
+    asm volatile("movl %"ASM_SEG":%c1, %0" : "=r"(var) : "i"(imm));
+
 /* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
 # define WRITE_TLS_SLOT(offs, var)                          \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                  \
@@ -1311,7 +1325,7 @@ os_timeout(int time_in_milliseconds)
     asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((offs)) : ASM_XAX); \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 # define WRITE_TLS_SLOT_IMM(imm, var) \
     __asm__ __volatile__(             \
       READ_TP_TO_R3                   \
@@ -1325,6 +1339,8 @@ os_timeout(int time_in_milliseconds)
       : "=r" (var)                   \
       : "i" (imm)                    \
       : ASM_R3);
+# define WRITE_TLS_INT_SLOT_IMM WRITE_TLS_SLOT_IMM /* b/c 32-bit */
+# define READ_TLS_INT_SLOT_IMM READ_TLS_SLOT_IMM /* b/c 32-bit */
 # define WRITE_TLS_SLOT(offs, var)           \
     __asm__ __volatile__(                    \
       READ_TP_TO_R3                          \
@@ -1371,7 +1387,7 @@ is_thread_tls_initialized(void)
     }
 # endif
     return false;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
@@ -1557,7 +1573,7 @@ get_segment_base(uint seg)
 # else
     return (byte *) POINTER_MAX;
  #endif /* HAVE_TLS */
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     /* XXX i#1551: should we rename/refactor to avoid "segment"? */
     return (byte *) read_thread_register(seg);
 #endif
@@ -2154,7 +2170,7 @@ os_should_swap_state(void)
     /* -private_loader currently implies -mangle_app_seg, but let's be safe. */
     return (INTERNAL_OPTION(mangle_app_seg) &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     /* FIXME i#1551: we may need swap TLS for private libraries */
     return false;
 #endif
@@ -2373,23 +2389,23 @@ set_thread_private_dcontext(dcontext_t *dcontext)
 #endif
 }
 
+#ifdef SYS_fork
 /* replaces old with new
  * use for forking: child should replace parent's id with its own
  */
 static void
 replace_thread_id(thread_id_t old, thread_id_t new)
 {
-#ifdef HAVE_TLS
-    ptr_int_t new_tid = new; /* can't use thread_id_t since it's 32-bits */
+# ifdef HAVE_TLS
+    thread_id_t new_tid = new;
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
-        ptr_int_t old_tid; /* can't use thread_id_t since it's 32-bits */
-        READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
-        IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(old_tid)));
+        thread_id_t old_tid;
+        READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
         ASSERT(old_tid == old);
     });
-    WRITE_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
-#else
+    WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
+# else
     int i;
     mutex_lock(&tls_lock);
     for (i=0; i<MAX_THREADS; i++) {
@@ -2399,8 +2415,9 @@ replace_thread_id(thread_id_t old, thread_id_t new)
         }
     }
     mutex_unlock(&tls_lock);
-#endif
+# endif
 }
+#endif
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
@@ -3263,7 +3280,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp="PFX" dstack="PFX"\n",
         xsp, get_clone_record_dstack(crec));
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL,
-                                         IF_ARM_ELSE(NULL, IF_X64_ELSE(NULL, &desc)),
+                                         IF_X86_ELSE(IF_X64_ELSE(NULL, &desc), NULL),
                                          NULL, client_thread_run);
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
@@ -3466,12 +3483,22 @@ llseek_syscall(int fd, int64 offset, int origin, int64 *result)
 #endif
 }
 
+static ptr_int_t
+dynamorio_syscall_stat(const char *fname, struct stat64 *st)
+{
+#ifdef SYSNUM_STAT
+    return dynamorio_syscall(SYSNUM_STAT, 2, fname, st);
+#else
+    return dynamorio_syscall(SYS_fstatat, 4, AT_FDCWD, fname, st, 0);
+#endif
+}
+
 bool
 os_file_exists(const char *fname, bool is_dir)
 {
     /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
     struct stat64 st;
-    ptr_int_t res = dynamorio_syscall(SYSNUM_STAT, 2, fname, &st);
+    ptr_int_t res = dynamorio_syscall_stat(fname, &st);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
         return false;
@@ -3485,12 +3512,12 @@ bool
 os_files_same(const char *path1, const char *path2)
 {
     struct stat64 st1, st2;
-    ptr_int_t res = dynamorio_syscall(SYSNUM_STAT, 2, path1, &st1);
+    ptr_int_t res = dynamorio_syscall_stat(path1, &st1);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
         return false;
     }
-    res = dynamorio_syscall(SYSNUM_STAT, 2, path2, &st2);
+    res = dynamorio_syscall_stat(path2, &st2);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
         return false;
@@ -3503,7 +3530,7 @@ os_get_file_size(const char *file, uint64 *size)
 {
     /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
     struct stat64 st;
-    ptr_int_t res = dynamorio_syscall(SYSNUM_STAT, 2, file, &st);
+    ptr_int_t res = dynamorio_syscall_stat(file, &st);
     if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n", __func__, res);
         return false;
@@ -3535,7 +3562,11 @@ bool
 os_create_dir(const char *fname, create_directory_flags_t create_dir_flags)
 {
     bool require_new = TEST(CREATE_DIR_REQUIRE_NEW, create_dir_flags);
+#ifdef SYS_mkdir
     int rc = dynamorio_syscall(SYS_mkdir, 2, fname, S_IRWXU|S_IRWXG);
+#else
+    int rc = dynamorio_syscall(SYS_mkdirat, 3, AT_FDCWD, fname, S_IRWXU|S_IRWXG);
+#endif
     ASSERT(create_dir_flags == CREATE_DIR_REQUIRE_NEW ||
            create_dir_flags == CREATE_DIR_ALLOW_EXISTING);
     return (rc == 0 || (!require_new && rc == -EEXIST));
@@ -3544,14 +3575,24 @@ os_create_dir(const char *fname, create_directory_flags_t create_dir_flags)
 bool
 os_delete_dir(const char *name)
 {
+#ifdef SYS_rmdir
     return (dynamorio_syscall(SYS_rmdir, 1, name) == 0);
+#else
+    return (dynamorio_syscall(SYS_unlinkat, 3,
+                              AT_FDCWD, name, AT_REMOVEDIR) == 0);
+#endif
 }
 
 int
 open_syscall(const char *file, int flags, int mode)
 {
     ASSERT(file != NULL);
+#ifdef SYS_open
     return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_open), 3, file, flags, mode);
+#else
+    return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_openat), 4,
+                             AT_FDCWD, file, flags, mode);
+#endif
 }
 
 int
@@ -3853,7 +3894,11 @@ os_tell(file_t f)
 bool
 os_delete_file(const char *name)
 {
+#ifdef SYS_unlink
     return (dynamorio_syscall(SYS_unlink, 1, name) == 0);
+#else
+    return (dynamorio_syscall(SYS_unlinkat, 2, AT_FDCWD, name) == 0);
+#endif
 }
 
 bool
@@ -3864,7 +3909,7 @@ os_rename_file(const char *orig_name, const char *new_name, bool replace)
         /* SYS_rename replaces so we must test beforehand => could have race */
         /* _LARGEFILE64_SOURCE should make libc struct match kernel (see top of file) */
         struct stat64 st;
-        ptr_int_t res = dynamorio_syscall(SYSNUM_STAT, 2, new_name, &st);
+        ptr_int_t res = dynamorio_syscall_stat(new_name, &st);
         if (res == 0)
             return false;
         else if (res != -ENOENT) {
@@ -3872,7 +3917,12 @@ os_rename_file(const char *orig_name, const char *new_name, bool replace)
             return false;
         }
     }
+#ifdef SYS_rename
     res = dynamorio_syscall(SYS_rename, 2, orig_name, new_name);
+#else
+    res = dynamorio_syscall(SYS_renameat, 4,
+                            AT_FDCWD, orig_name, AT_FDCWD, new_name);
+#endif
     if (res != 0)
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s \"%s\" to \"%s\" failed: "PIFX"\n",
             __func__, orig_name, new_name, res);
@@ -4513,8 +4563,12 @@ ignorable_system_call_normalized(int num)
     case SYS_bsdthread_create:
     case SYS_posix_spawn:
 #endif
+#ifdef SYS_fork
     case SYS_fork:
+#endif
+#ifdef SYS_vfork
     case SYS_vfork:
+#endif
     case SYS_kill:
 #if defined(SYS_tkill)
     case SYS_tkill:
@@ -4540,7 +4594,9 @@ ignorable_system_call_normalized(int num)
     case SYS_rt_sigtimedwait:
     case SYS_rt_sigqueueinfo:
     case SYS_rt_sigsuspend:
+#ifdef SYS_signalfd
     case SYS_signalfd:
+#endif
     case SYS_signalfd4:
 #endif
     case SYS_sigaltstack:
@@ -4554,7 +4610,9 @@ ignorable_system_call_normalized(int num)
     case SYS_close_nocancel:
 #endif
     case SYS_close:
+#ifdef SYS_dup2
     case SYS_dup2:
+#endif
 #ifdef LINUX
     case SYS_dup3:
 #endif
@@ -4569,7 +4627,7 @@ ignorable_system_call_normalized(int num)
     case SYS_ugetrlimit:
 #endif
     case SYS_setrlimit:
-#if defined(LINUX) && !defined(ARM)
+#if defined(LINUX) && defined(X86)
     /* i#784: app may have behavior relying on SIGALRM */
     case SYS_alarm:
 #endif
@@ -4590,7 +4648,7 @@ ignorable_system_call_normalized(int num)
     case SYS_cacheflush:
 #endif
         return false;
-#ifdef LINUX
+#ifdef SYS_readlink
     case SYS_readlink:
         return !DYNAMO_OPTION(early_inject);
 #endif
@@ -4638,17 +4696,13 @@ const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS] = {
     DR_REG_EDI,
     DR_REG_EBP
 # endif /* 64/32-bit */
-#elif defined(ARM)
-# ifdef X64
-#  error AArch64 syscall not supported
-# else
+#elif defined(ARM) || defined(AARCH64)
     DR_REG_R0,
     DR_REG_R1,
     DR_REG_R2,
     DR_REG_R3,
     DR_REG_R4,
     DR_REG_R5,
-# endif /* 64/32-bit */
 #endif /* X86/ARM */
 };
 
@@ -4931,8 +4985,15 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
      */
     return (sysnum == SYS_bsdthread_create || sysnum == SYS_vfork);
 #else
-    return (sysnum == SYS_vfork
-            IF_LINUX(|| (sysnum == SYS_clone && TEST(CLONE_VM, flags))));
+# ifdef SYS_vfork
+    if (sysnum == SYS_vfork)
+        return true;
+# endif
+# ifdef LINUX
+    if (sysnum == SYS_clone && TEST(CLONE_VM, flags))
+        return true;
+# endif
+    return false;
 #endif
 }
 
@@ -5929,7 +5990,10 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2,
         "%s %s: set_tls swap success=%d for thread "TIDFMT"\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, get_thread_id());
-#endif /* X86/ARM */
+#elif defined(AARCH64)
+    (void)os_tls;
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#endif /* X86/ARM/AARCH64 */
     return res;
 }
 
@@ -6279,6 +6343,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+# ifdef SYS_uselib
     case SYS_uselib: {
         /* Used to get the kernel to load a share library (legacy system call).
          * Was primarily used when statically linking to dynamically loaded shared
@@ -6288,6 +6353,7 @@ pre_system_call(dcontext_t *dcontext)
         ASSERT_NOT_IMPLEMENTED(false);
         break;
     }
+# endif
 #endif
 
     /****************************************************************************/
@@ -6368,6 +6434,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 #endif
 
+#ifdef SYS_vfork
     case SYS_vfork: {
         /* treat as if sys_clone with flags just as sys_vfork does */
         /* in /usr/src/linux/arch/i386/kernel/process.c */
@@ -6384,11 +6451,11 @@ pre_system_call(dcontext_t *dcontext)
          */
         IF_LINUX(ASSERT(is_thread_create_syscall(dcontext)));
         dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
-#ifdef MACOS
+# ifdef MACOS
         create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL);
-#else
+# else
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
-#endif
+# endif
 
         /* We switch the lib tls segment back to app's segment.
          * Please refer to comment on os_switch_lib_tls.
@@ -6398,12 +6465,15 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#endif
 
+#ifdef SYS_fork
     case SYS_fork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork\n");
         os_fork_pre(dcontext);
         break;
     }
+#endif
 
     case SYS_execve: {
         handle_execve(dcontext);
@@ -6530,7 +6600,9 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #ifdef LINUX
+# ifdef SYS_signalfd
     case SYS_signalfd:         /* 282/321 */
+# endif
     case SYS_signalfd4: {      /* 289 */
         /* int signalfd (int fd, const sigset_t *mask, size_t sizemask) */
         /* int signalfd4(int fd, const sigset_t *mask, size_t sizemask, int flags) */
@@ -6538,9 +6610,11 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         dcontext->sys_param2 = sys_param(dcontext, 2);
+# ifdef SYS_signalfd
         if (dcontext->sys_num == SYS_signalfd)
             dcontext->sys_param3 = 0;
         else
+# endif
             dcontext->sys_param3 = sys_param(dcontext, 3);
         new_result =
             handle_pre_signalfd(dcontext, (int) dcontext->sys_param0,
@@ -6621,7 +6695,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         break;
-#if defined(LINUX) && !defined(ARM)
+#if defined(LINUX) && defined(X86)
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         dcontext->sys_param0 = sys_param(dcontext, 0);
         handle_pre_alarm(dcontext, (unsigned int) dcontext->sys_param0);
@@ -6700,6 +6774,7 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
+#ifdef SYS_dup2
     case SYS_dup2:
     IF_LINUX(case SYS_dup3:) {
         file_t newfd = (file_t) sys_param(dcontext, 1);
@@ -6716,6 +6791,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#endif
 
 #ifdef MACOS
     case SYS_fcntl_nocancel:
@@ -6818,6 +6894,7 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 
 #ifdef LINUX
+# ifdef SYS_readlink
     case SYS_readlink:
         if (DYNAMO_OPTION(early_inject)) {
             dcontext->sys_param0 = sys_param(dcontext, 0);
@@ -6825,6 +6902,7 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param2 = sys_param(dcontext, 2);
         }
         break;
+# endif
 
     /* i#107 syscalls that might change/query app's segment */
 
@@ -6905,10 +6983,12 @@ pre_system_call(dcontext_t *dcontext)
 # ifdef MACOS
     case SYS_open_nocancel:
 # endif
+# ifdef SYS_open
     case SYS_open: {
         dcontext->sys_param0 = sys_param(dcontext, 0);
         break;
     }
+# endif
 #endif
 
     default: {
@@ -7042,7 +7122,9 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
                                         &last_seg_end,
                                         NULL, NULL)) {
             ASSERT_CURIOSITY(size == (ALIGN_FORWARD(first_seg_end, PAGE_SIZE) -
-                                      (ptr_uint_t)first_seg_base));
+                                      (ptr_uint_t)first_seg_base) ||
+                             base == vdso_page_start ||
+                             base == vsyscall_page_start);
             mod_size = ALIGN_FORWARD(last_seg_end, PAGE_SIZE) -
                 (ptr_uint_t)first_seg_base;
         }
@@ -7080,7 +7162,7 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
             if (iter.vm_start == vsyscall_page_start) {
                 ASSERT_CURIOSITY(!at_map);
             } else {
-                ASSERT_CURIOSITY(iter.inode != 0);
+                ASSERT_CURIOSITY(iter.inode != 0 || base == vdso_page_start);
                 ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
                 /* XREF 307599 on rounding module end to the next PAGE boundary */
                 ASSERT_CURIOSITY((iter.vm_end - iter.vm_start ==
@@ -7095,7 +7177,7 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
     memquery_iterator_stop(&iter);
 #ifdef HAVE_MEMINFO
     /* barring weird races we should find this map except [vdso] */
-    ASSERT_CURIOSITY(found_map || base == vsyscall_page_start);
+    ASSERT_CURIOSITY(found_map || base == vsyscall_page_start || base == vdso_page_start);
 #else /* HAVE_MEMINFO */
     /* Without /proc/maps or other memory querying interface available at
      * library map time, there is no way to find out the name of the file
@@ -7355,16 +7437,17 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
+#ifdef SYS_fork
     /* handle fork, try to do it early before too much logging occurs */
     if (sysnum == SYS_fork
         IF_LINUX(|| (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)))) {
         if (result == 0) {
             /* we're the child */
             thread_id_t child = get_sys_thread_id();
-#ifdef DEBUG
+# ifdef DEBUG
             thread_id_t parent = get_parent_id();
             SYSLOG_INTERNAL_INFO("-- parent %d forked child %d --", parent, child);
-#endif
+# endif
             /* first, fix TLS of dcontext */
             ASSERT(parent != 0);
             /* change parent pid to our pid */
@@ -7387,6 +7470,7 @@ post_system_call(dcontext_t *dcontext)
             os_fork_post(dcontext, true/*parent*/);
         }
     }
+#endif
 
 
     LOG(THREAD, LOG_SYSCALLS, 2,
@@ -7402,6 +7486,7 @@ post_system_call(dcontext_t *dcontext)
 # ifdef MACOS
     case SYS_open_nocancel:
 # endif
+# ifdef SYS_open
     case SYS_open: {
         if (success) {
             /* useful for figuring out what module was loaded that then triggers
@@ -7412,6 +7497,7 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+# endif
 #endif
 
 #if defined(LINUX) && !defined(X64) && !defined(ARM)
@@ -7666,12 +7752,15 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
+#ifdef SYS_fork
     case SYS_fork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n",
             MCXT_SYSCALL_RES(mc));
         break;
     }
+#endif
 
+#ifdef SYS_vfork
     case SYS_vfork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n",
             MCXT_SYSCALL_RES(mc));
@@ -7694,6 +7783,7 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#endif
 
     case SYS_execve: {
         /* if we get here it means execve failed (doesn't return on success) */
@@ -7772,7 +7862,7 @@ post_system_call(dcontext_t *dcontext)
         handle_post_getitimer(dcontext, success, (int) dcontext->sys_param0,
                               (struct itimerval *) dcontext->sys_param1);
         break;
-#if defined(LINUX) && !defined(ARM)
+#if defined(LINUX) && defined(X86)
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         handle_post_alarm(dcontext, success, (unsigned int) dcontext->sys_param0);
         break;
@@ -7790,14 +7880,16 @@ post_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* FILES */
 
+#ifdef SYS_dup2
     case SYS_dup2:
     IF_LINUX(case SYS_dup3:) {
-#ifdef LINUX
+# ifdef LINUX
         if (success)
             signal_handle_dup(dcontext, (file_t) sys_param(dcontext, 1), (file_t) result);
-#endif
+# endif
         break;
     }
+#endif
 
 #ifdef MACOS
     case SYS_fcntl_nocancel:
@@ -7854,7 +7946,7 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#ifdef LINUX
+#if defined(LINUX) && defined(SYS_readlink)
     case SYS_readlink:
         if (success && DYNAMO_OPTION(early_inject)) {
             /* i#907: /proc/self/exe is a symlink to libdynamorio.so.  We need
@@ -8041,8 +8133,13 @@ read_proc_self_exe(bool ignore_cache)
         ASSERT(len > 0);
         NULL_TERMINATE_BUFFER(exepath);
         /* i#960: readlink does not null terminate, so we do it. */
+# ifdef SYS_readlink
         res = dynamorio_syscall(SYS_readlink, 3, exepath, exepath,
                                 BUFFER_SIZE_ELEMENTS(exepath)-1);
+# else
+        res = dynamorio_syscall(SYS_readlinkat, 4, AT_FDCWD, exepath, exepath,
+                                BUFFER_SIZE_ELEMENTS(exepath)-1);
+# endif
         ASSERT(res < BUFFER_SIZE_ELEMENTS(exepath));
         exepath[MAX(res, 0)] = '\0';
         NULL_TERMINATE_BUFFER(exepath);
@@ -8236,12 +8333,12 @@ find_executable_vm_areas(void)
             image = true;
 #endif
         } else if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
-                    strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0
-            IF_X64_ELSE(|| strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
-                                   strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
+                           strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0 ||
+                   IF_X64_ELSE(strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
+                                       strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
             /* Older kernels do not label it as "[vdso]", but it is hardcoded there */
             /* 32-bit */
-                        || iter.vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
+                               iter.vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
 # ifndef X64
             /* We assume no vsyscall page for x64; thus, checking the
              * hardcoded address shouldn't have any false positives.
@@ -8257,6 +8354,8 @@ find_executable_vm_areas(void)
              */
             DODEBUG({ map_type = "VDSO"; });
             vsyscall_page_start = iter.vm_start;
+            if (vdso_page_start == NULL)
+                vdso_page_start = vsyscall_page_start; /* assume identical for now */
             LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
                 vsyscall_page_start, iter.comment);
 # else
@@ -8272,6 +8371,13 @@ find_executable_vm_areas(void)
              */
             if (!TESTALL((PROT_READ|PROT_EXEC), iter.prot))
                 iter.prot |= (PROT_READ|PROT_EXEC);
+            /* i#1908: vdso and vsyscall pages are now split */
+            if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
+                        strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0)
+                vdso_page_start = iter.vm_start;
+            else if (strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
+                             strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
+                vsyscall_page_start = iter.vm_start;
 # endif
         } else if (mmap_check_for_module_overlap(iter.vm_start, size,
                                                  TEST(MEMPROT_READ, iter.prot),
@@ -8805,13 +8911,19 @@ wait_for_event(event_t e)
  * that as the next entry.
  */
 struct linux_dirent {
-    long           d_ino;       /* Inode number. */
-    off_t          d_off;       /* Offset to next linux_dirent. */
-    unsigned short d_reclen;    /* Length of this linux_dirent. */
-    char           d_name[];    /* File name, null-terminated. */
-#if 0  /* Has to be #if 0 because it's after the flexible array. */
-    char           d_pad;       /* Always zero? */
-    char           d_type;      /* File type, since Linux 2.6.4. */
+#ifdef SYS_getdents
+    /* Adapted from struct old_linux_dirent in linux/fs/readdir.c: */
+    unsigned long  d_ino;
+    unsigned long  d_off;
+    unsigned short d_reclen;
+    char           d_name[];
+#else
+    /* Adapted from struct linux_dirent64 in linux/include/linux/dirent.h: */
+    uint64         d_ino;
+    int64          d_off;
+    unsigned short d_reclen;
+    unsigned char  d_type;
+    char           d_name[];
 #endif
 };
 
@@ -8848,8 +8960,13 @@ os_dir_iterator_next(dir_iterator_t *iter)
          * the example code that this is based on.
          */
         iter->off = 0;
+# ifdef SYS_getdents
         iter->end = dynamorio_syscall(SYS_getdents, 3, iter->fd, iter->buf,
                                       sizeof(iter->buf));
+# else
+        iter->end = dynamorio_syscall(SYS_getdents64, 3, iter->fd, iter->buf,
+                                      sizeof(iter->buf));
+# endif
         ASSERT(iter->end <= sizeof(iter->buf));
         if (iter->end <= 0) {  /* No more dents, or error. */
             iter->name = NULL;

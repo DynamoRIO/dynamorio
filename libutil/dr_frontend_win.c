@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -119,6 +119,15 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
         if (GetLastError() == EACCES)
             return DRFRONT_SUCCESS;
         return DRFRONT_ERROR;
+    } else if (TEST(DRFRONT_WRITE, mode)) {
+        DWORD file_attrs = GetFileAttributes(wfname);
+        if (file_attrs != INVALID_FILE_ATTRIBUTES &&
+            TEST(file_attrs, FILE_ATTRIBUTE_DIRECTORY)) {
+            /* We use an actual write try, to avoid failing on a read-only filesystem
+             * (DrMi#1857).
+             */
+            return drfront_dir_try_writable(fname, ret);
+        }
     }
 
     *ret = true;
@@ -713,6 +722,48 @@ drfront_dir_exists(const char *path, OUT bool *is_dir)
             *is_dir = true;
         else
             *is_dir = false;
+    }
+    return DRFRONT_SUCCESS;
+}
+
+drfront_status_t
+drfront_dir_try_writable(const char *path, OUT bool *is_writable)
+{
+    HANDLE f;
+    TCHAR wpath[MAX_PATH];
+    TCHAR tmpname[MAX_PATH];
+    drfront_status_t res;
+
+    if (is_writable == NULL)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+
+    res = drfront_char_to_tchar(path, wpath, BUFFER_SIZE_ELEMENTS(wpath));
+    if (res != DRFRONT_SUCCESS) {
+        *is_writable = false;
+        return res;
+    }
+    /* We don't care about races here: one-time creation success is all we care about */
+#   define TMP_FILE_NAME _T(".__drfrontendlib_tmp")
+    _sntprintf(tmpname, BUFFER_SIZE_ELEMENTS(tmpname), _T("%s/%s"), wpath, TMP_FILE_NAME);
+    NULL_TERMINATE_BUFFER(tmpname);
+
+    f = CreateFile(tmpname, GENERIC_READ|GENERIC_WRITE,
+                   /* Let another thread delete it */
+                   FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+                   NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) {
+        drfront_status_t res;
+        bool is_dir;
+        *is_writable = false;
+        res = drfront_dir_exists(path, &is_dir);
+        if (res != DRFRONT_SUCCESS)
+            return res;
+        if (!is_dir)
+            return DRFRONT_ERROR_INVALID_PATH;
+    } else {
+        *is_writable = true;
+        CloseHandle(f);
+        DeleteFile(tmpname);
     }
     return DRFRONT_SUCCESS;
 }

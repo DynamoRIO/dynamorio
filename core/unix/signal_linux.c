@@ -221,13 +221,22 @@ sysnum_is_not_restartable(int sysnum)
      * + Socket interfaces: supposed to restart if no timeout has been set
      *   but we never restart for simplicity for now.
      */
-    return (sysnum == SYS_pause ||
+    return (
+#ifdef SYS_pause
+            sysnum == SYS_pause ||
+#endif
             sysnum == SYS_rt_sigsuspend ||
             sysnum == SYS_rt_sigtimedwait ||
             IF_X86_64(sysnum == SYS_epoll_wait_old ||)
-            sysnum == SYS_epoll_wait || sysnum == SYS_epoll_pwait ||
-            sysnum == SYS_poll || sysnum == SYS_ppoll ||
-            IF_NOT_ARM(sysnum == SYS_select ||)
+#ifdef SYS_epoll_wait
+            sysnum == SYS_epoll_wait ||
+#endif
+            sysnum == SYS_epoll_pwait ||
+#ifdef SYS_poll
+            sysnum == SYS_poll ||
+#endif
+            sysnum == SYS_ppoll ||
+            IF_X86(sysnum == SYS_select ||)
             sysnum == SYS_pselect6 ||
 #ifdef X64
             sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||

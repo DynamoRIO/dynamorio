@@ -3228,13 +3228,23 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
 
         if (should_inject_into_process(dcontext, process_handle,
                                        &rununder_mask, &should_inject)) {
-            injected = true; /* attempted, at least */
-            ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject));
-            /* FIXME : if not -early_inject, we are going to read and write
-             * to cxt, which may be unsafe */
-            if (inject_into_process(dcontext, process_handle, cxt,
-                                    should_inject)) {
-                check_for_run_once(process_handle, rununder_mask);
+            if (cxt == NULL && !DYNAMO_OPTION(early_inject)) {
+                /* On Vista+ a legacy NtCreateProcess* syscall is being used, and
+                 * without -early_inject and without a context we're forced to
+                 * wait and assume NtCreateThread will be called later.
+                 * FIXME i#1898: on win10 for heap crash handling we hit this, and
+                 * we are currently missing the child.
+                 */
+                SYSLOG_INTERNAL_WARNING("legacy process creation detected: may miss child");
+            } else {
+                injected = true; /* attempted, at least */
+                ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject));
+                /* FIXME : if not -early_inject, we are going to read and write
+                 * to cxt, which may be unsafe */
+                if (inject_into_process(dcontext, process_handle, cxt,
+                                        should_inject)) {
+                    check_for_run_once(process_handle, rununder_mask);
+                }
             }
         }
     }

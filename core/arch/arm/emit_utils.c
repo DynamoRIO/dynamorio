@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -75,11 +75,15 @@
  *     Linked, target > 32MB away (or > 1MB for T32 cbr):
  *         b stub
  *       stub:
- *         ldr pc, [pc + 12]
+ *         ldr pc, [pc + 12 or 14]
  *         movw r0, #bottom-half-&linkstub
  *         movt r0, #top-half-&linkstub
  *         ldr pc, [r10, #fcache-return-offs]
  *         <target>
+ *
+ * i#1906: the addresses from which data is loaded into the PC must be
+ * 4-byte-aligned.  We arrange this by padding the body of a Thumb fragment
+ * to ensure the stubs start on a 4-byte alignment.
  *
  * XXX i#1611: improve on this by allowing load-into-PC exit ctis,
  * which would give us back -indirect_stubs and -cbr_single_stub.
@@ -130,6 +134,7 @@ static byte *
 insert_ldr_tls_to_pc(byte *pc, uint frag_flags, uint offs)
 {
     /* ldr pc, [r10, #offs] */
+    ASSERT(ALIGNED(offs, PC_LOAD_ADDR_ALIGN)); /* unpredictable unless aligned: i#1906 */
     if (FRAG_IS_THUMB(frag_flags)) {
         *(ushort*)pc = 0xf8d0 | (dr_reg_stolen - DR_REG_R0);
         pc += THUMB_SHORT_INSTR_SIZE;
@@ -317,7 +322,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
      * indirect branch from there:
      *        b stub
      *      stub:
-     *        ldr pc, [pc + 10 or 12]
+     *        ldr pc, [pc + 12 or 14]
      *        movw r0, #bottom-half-&linkstub
      *        movt r0, #top-half-&linkstub
      *        ldr pc, [r10, #fcache-return-offs]
@@ -335,6 +340,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
         cache_pc tgt = stub_pc + DIRECT_EXIT_STUB_INSTR_COUNT * THUMB_LONG_INSTR_SIZE;
         uint offs = tgt - decode_cur_pc(stub_pc, FRAG_ISA_MODE(f->flags), OP_ldr, NULL);
         uint word2 = 0xf000 | offs;
+        ASSERT(ALIGNED(tgt, PC_LOAD_ADDR_ALIGN)); /* unpredictable unless: i#1906 */
         /* We assume this is atomic */
         *(uint*)stub_pc = (word2 << 16) | word1; /* little-endian */
     } else {

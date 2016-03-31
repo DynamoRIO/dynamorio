@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,6 +48,7 @@
 #include "emit.h"
 #include "instrlist.h"
 #include "instr.h"
+#include "instr_create.h"
 #include "monitor.h"
 #include "translate.h"
 #include <string.h> /* memcpy */
@@ -513,6 +514,19 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
 #endif
         }
     }
+
+#ifdef ARM
+    /* i#1906: we must 4-align the start of direct stubs */
+    if (num_direct_stubs > 0) {
+        if (!ALIGNED(offset, PC_LOAD_ADDR_ALIGN)) {
+            extra_jmp_padding_body += 2;
+            instrlist_append(ilist, INSTR_CREATE_nop(dcontext));
+            ASSERT(instr_length(dcontext, instrlist_last(ilist)) == 2);
+            instr_set_note(instrlist_last(ilist), (void *)(ptr_uint_t)offset);
+        }
+        ASSERT(ALIGNED(offset+extra_jmp_padding_body, PC_LOAD_ADDR_ALIGN));
+    }
+#endif
 
     DOSTATS({
         if (!TEST(FRAG_IS_TRACE, flags)) {

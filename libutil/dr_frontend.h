@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,7 +116,14 @@ typedef enum {
 } drfront_access_mode_t;
 
 /**
- * Checks \p fname for the permssions specified by \p mode.
+ * Checks \p fname for the permssions specified by \p mode for the
+ * current effective user.  If \p fname is a directory and \p mode includes \p
+ * DRFRONT_WRITE, this function additionally attempts to create a
+ * temporary file (by calling drfront_dir_try_writable()) to ensure
+ * that the filesystem is not mounted read-only.
+ * On Linux or Mac, if the current effective user is 0, this routine assumes
+ * that the user has read and write access to every file and has execute
+ * access to any file with at least one execute bit set.
  *
  * \note DRFRONT_EXEC is ignored on Windows because _waccess doesn't test it.
  *
@@ -455,6 +462,16 @@ drfront_remove_dir(const char *dir);
  */
 drfront_status_t
 drfront_dir_exists(const char *path, OUT bool *is_dir);
+
+/**
+ * This routine checks whether a file can be created inside the
+ * directory specified by \p path.
+ *
+ * @param[in]  path         The path to be checked
+ * @param[out] is_writable  Returns whether files can be created in \p path.
+ */
+drfront_status_t
+drfront_dir_try_writable(const char *path, OUT bool *is_writable);
 
 #ifdef __cplusplus
 }

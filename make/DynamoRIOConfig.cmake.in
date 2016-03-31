@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -124,10 +124,12 @@
 #
 #  set(DynamoRIO_RPATH ON)
 #
-# In addition to setting DT_RPATH for ELF files, on Windows this will create a
-# <client_basename>.drpath text file that contains a list of paths.  At runtime,
-# DynamoRIO's loader will parse this file and add each newline-separated path
-# to its list of search paths.
+# In addition to setting DT_RPATH for ELF files, on Windows or Android this will
+# create a <client_basename>.drpath text file that contains a list of paths.  At
+# runtime, DynamoRIO's loader will parse this file and add each newline-separated
+# path to its list of search paths.  On Android, it is up to the caller to
+# convert the build directory paths to remote paths appropriate for the target
+# device.
 #
 # If you are not exporting all global symbols in your Linux client,
 # this file tries to automatically determine that and explicitly mark
@@ -258,6 +260,13 @@ elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
 else ()
   set(X86 1) # This means IA-32 or AMD64
 endif ()
+
+if (WIN32 OR ANDROID)
+  set(USE_DRPATH ON)
+else ()
+  set(USE_DRPATH OFF)
+endif ()
+
 
 ###########################################################################
 #
@@ -781,7 +790,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
   endif (DEFINED DynamoRIO_RPATH)
   if (use_rpath)
     DynamoRIO_add_rel_rpaths(${target} dynamorio)
-    if (WIN32 AND is_client) # doesn't make sense for standalone
+    if (USE_DRPATH AND is_client) # doesn't make sense for standalone
       # Create the .drpath file our loader uses
       get_target_property(libpath dynamorio LOCATION${_DR_location_suffix})
       get_filename_component(libdir ${libpath} PATH)
@@ -1014,7 +1023,7 @@ function (use_DynamoRIO_extension target extname)
 
   if (DynamoRIO_RPATH AND NOT DynamoRIO_EXT_${extname}_NOLIB)
     DynamoRIO_add_rel_rpaths(${target} ${extname})
-    if (WIN32)
+    if (USE_DRPATH)
       get_target_property(libpath ${extname} LOCATION${_DR_location_suffix})
       get_filename_component(libdir ${libpath} PATH)
       _DR_get_drpath_name(drpath_file ${target})
@@ -1030,7 +1039,7 @@ function (use_DynamoRIO_extension target extname)
           file(APPEND ${drpath_file} "${libdir}\n")
         endif ()
       endif ()
-    endif (WIN32)
+    endif (USE_DRPATH)
   else ()
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
   endif ()

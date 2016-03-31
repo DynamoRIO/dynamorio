@@ -187,7 +187,7 @@ enum {
      */
 #ifdef X86
     OPSZ_NA = DR_REG_INVALID+1, /**< Sentinel value: not a valid size. */ /* = 140 */
-#elif defined(ARM)
+#else
     OPSZ_NA = 0, /**< Sentinel value: not a valid size. */
 #endif
     OPSZ_FIRST = OPSZ_NA,
@@ -402,7 +402,9 @@ enum {
 # define OPSZ_STATS OPSZ_4
 #endif
 
-#define IT_BLOCK_MAX_INSTRS 4
+#ifdef ARM
+# define IT_BLOCK_MAX_INSTRS 4
+#endif
 
 /* in encode.c, not exported to non-arch/ files */
 const instr_info_t * get_encoding_info(instr_t *instr);
@@ -432,7 +434,7 @@ bool is_isa_mode_legal(dr_isa_mode_t mode);
  * Later, if needed, we can introduce a new field in dcontext_t (xref i#862).
  */
 # define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) IF_X64(|| DYNAMO_OPTION(x86_to_x64)))
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
 # define X64_MODE_DC(dc) IF_X64_ELSE(true, false)
 # define X64_CACHE_MODE_DC(dc) IF_X64_ELSE(true, false)
 #endif

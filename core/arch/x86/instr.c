@@ -387,12 +387,18 @@ instr_is_return(instr_t *instr)
 /*** WARNING!  The following rely on ordering of opcodes! ***/
 
 bool
-instr_is_cbr_arch(instr_t *instr)      /* conditional branch */
+opc_is_cbr_arch(int opc)
 {
-    int opc = instr->opcode; /* caller ensures opcode is valid */
     return ((opc >= OP_jo && opc <= OP_jnle) ||
             (opc >= OP_jo_short && opc <= OP_jnle_short) ||
             (opc >= OP_loopne && opc <= OP_jecxz));
+}
+
+bool
+instr_is_cbr_arch(instr_t *instr)      /* conditional branch */
+{
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return opc_is_cbr_arch(opc);
 }
 
 bool

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -192,7 +192,8 @@
 
 /**
  * This platform-independent macro creates an instr_t for an indirect
- * jump through memory instruction.
+ * jump through memory instruction.  For AArch32, the memory address
+ * must be aligned to 4.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The memory opnd holding the target.
  */

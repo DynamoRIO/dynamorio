@@ -206,11 +206,13 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
-add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg")
+if (NOT AARCH64) # FIXME i#1569: port to AArch64
+  add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg")
+endif ()
 add_sample_client(bbsize      "bbsize.c"        "drmgr")
 add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drutil;drx")
-if (NOT ARM) # FIXME i#1551: port to ARM
+if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg")
   add_sample_client(cbr         "cbr.c"           "drmgr")
   add_sample_client(countcalls  "countcalls.c"    "")
@@ -227,13 +229,15 @@ if (NOT ARM) # FIXME i#1551: port to ARM
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
   # dr_insert_cbr_instrument_ex is NYI
   add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drx")
-endif (NOT ARM)
+endif (X86)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(inline      "inline.c"        "")
 add_sample_client(inscount    "inscount.c"      "drmgr")
-add_sample_client(opcodes     "opcodes.c"       "drx")
+if (NOT AARCH64) # FIXME i#1569: port to AArch64
+  add_sample_client(opcodes     "opcodes.c"       "drx")
+endif ()
 add_sample_client(stl_test    "stl_test.cpp"    "")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC

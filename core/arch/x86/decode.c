@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1104,8 +1104,14 @@ read_instruction(byte *pc, byte *orig_pc,
         if (report_invalid &&
             ((di->rep_prefix &&
               /* case 6861: AMD64 opt: "rep ret" used if br tgt or after cbr */
-              (pc != di->start_pc+2 || *(di->start_pc+1) != RAW_OPCODE_ret))
-             || di->repne_prefix)) {
+              (pc != di->start_pc+2 || *(di->start_pc+1) != RAW_OPCODE_ret)) ||
+             (di->repne_prefix &&
+              /* i#1899: MPX puts repne prior to branches.  We ignore here until we have
+               * full MPX decoding support (i#1312).
+               */
+              info->type != OP_call && info->type != OP_call_ind && info->type != OP_ret &&
+              info->type != OP_jmp && info->type != OP_jmp_short &&
+              !opc_is_cbr_arch(info->type)))) {
             char bytes[17*3];
             int i;
             dcontext_t *dcontext = get_thread_private_dcontext();

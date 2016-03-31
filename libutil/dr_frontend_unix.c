@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,6 +51,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include "dr_frontend.h"
 
 extern bool
@@ -92,12 +93,29 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
     *ret = false;
     euid = geteuid();
     /* It is assumed that (S_IRWXU >> 6) == DRFRONT_READ | DRFRONT_WRITE | DRFRONT_EXEC */
-    if (euid == st.st_uid) {
+    if (euid == 0) {
+        /* XXX DrMi#1857: we assume that euid == 0 means +rw access to any file,
+         * and +x access to any file with at least one +x bit set.  This is
+         * usually true but not always.
+         */
+        if (TEST(DRFRONT_EXEC, mode)) {
+            *ret = TESTANY((DRFRONT_EXEC << 6) | (DRFRONT_EXEC << 3) | DRFRONT_EXEC,
+                           st.st_mode);
+        } else
+            *ret = true;
+    } else if (euid == st.st_uid) {
         /* Check owner permissions */
         *ret = TESTALL(mode << 6, st.st_mode);
     } else {
         /* Check other permissions */
         *ret = TESTALL(mode, st.st_mode);
+    }
+
+    if (*ret && S_ISDIR(st.st_mode) && TEST(DRFRONT_WRITE, mode)) {
+        /* We use an actual write try, to avoid failing on a read-only filesystem
+         * (DrMi#1857).
+         */
+        return drfront_dir_try_writable(fname, ret);
     }
 
     return DRFRONT_SUCCESS;
@@ -125,7 +143,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
     /* Windows searches the current directory first. */
     /* XXX: realpath resolves symlinks, which we may not want. */
     if (realpath(fname, realpath_buf) != NULL) {
-        status_check = drfront_access(realpath_buf, 0, &access_ret);
+        status_check = drfront_access(realpath_buf, DRFRONT_EXIST, &access_ret);
         if (status_check != DRFRONT_SUCCESS) {
             *ret = false;
             return status_check;
@@ -147,7 +165,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
         NULL_TERMINATE_BUFFER(tmp);
         /* realpath checks for existence too. */
         if (realpath(tmp, realpath_buf) != NULL) {
-            status_check = drfront_access(realpath_buf, 0, &access_ret);
+            status_check = drfront_access(realpath_buf, DRFRONT_EXIST, &access_ret);
             if (status_check != DRFRONT_SUCCESS) {
                 *ret = false;
                 return status_check;
@@ -319,6 +337,38 @@ drfront_dir_exists(const char *path, OUT bool *is_dir)
             *is_dir = true;
         else
             *is_dir = false;
+    }
+    return DRFRONT_SUCCESS;
+}
+
+drfront_status_t
+drfront_dir_try_writable(const char *path, OUT bool *is_writable)
+{
+    /* It would be convenient to use O_TMPFILE but not all filesystems support it */
+    int fd;
+    char tmpname[PATH_MAX];
+    /* We actually don't care about races w/ other threads or processes running
+     * this same code: each syscall should succeed and truncate whatever is there.
+     */
+#   define TMP_FILE_NAME ".__drfrontendlib_tmp"
+    if (is_writable == NULL)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+    snprintf(tmpname, BUFFER_SIZE_ELEMENTS(tmpname), "%s/%s", path, TMP_FILE_NAME);
+    NULL_TERMINATE_BUFFER(tmpname);
+    fd = creat(tmpname, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+        drfront_status_t res;
+        bool is_dir;
+        *is_writable = false;
+        res = drfront_dir_exists(path, &is_dir);
+        if (res != DRFRONT_SUCCESS)
+            return res;
+        if (!is_dir)
+            return DRFRONT_ERROR_INVALID_PATH;
+    } else {
+        *is_writable = true;
+        close(fd);
+        unlink(tmpname);
     }
     return DRFRONT_SUCCESS;
 }

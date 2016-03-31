@@ -8,12 +8,12 @@ All done
 ---- <application exited with code 0> ----
 Core #0 \(1 thread\(s\)\)
   L1I stats:
-    Hits:                              497
-    Misses:                              9
+    Hits:                              [45][90][0-9]
+    Misses:                              [5-9]
     Flushes:                             1
     Prefetch hits:                       1
     Prefetch misses:                     1
-    Miss rate:                        1[,\.]78%
+    Miss rate:                        [01][,\.]..%
   L1D stats:
     Hits:                               1[0-9]
     Misses:                              [1-9]
@@ -25,10 +25,10 @@ Core #2 \(0 thread\(s\)\)
 Core #3 \(0 thread\(s\)\)
 LL stats:
     Hits:                                1
-    Misses:                             1[0-9]
+    Misses:                             [ 1][0-9]
     Flushes:                             1
     Prefetch hits:                       1
     Prefetch misses:                     1
-    Local miss rate:                 9.[,\.]..%
+    Local miss rate:                 [89].[,\.]..%
     Child hits:                        51[0-9]
-    Total miss rate:                  2[,\.]..%
+    Total miss rate:                  [12][,\.]..%
