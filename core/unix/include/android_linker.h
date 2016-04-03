@@ -67,8 +67,9 @@ enum {
 #define ANDROID_RESERVED_KEYS 12
 #define ANDROID_PTHREAD_KEYS_MAX 128
 #define ANDROID_PTHREAD_KEYS_TOT (ANDROID_RESERVED_KEYS + ANDROID_PTHREAD_KEYS_MAX)
+#define ANDROID_DLERROR_BUFFER_SIZE 512
 
-typedef struct _android_pthread_internal_t {
+typedef struct _android_v5_pthread_internal_t {
     struct _pthread_internal_t* next;
     struct _pthread_internal_t* prev;
     pid_t tid;
@@ -85,9 +86,37 @@ typedef struct _android_pthread_internal_t {
     /* The TLS register points here, to slot #0 (ANDROID_TLS_SLOT_SELF) */
     void *tls[ANDROID_BIONIC_TLS_SLOTS];
     int /* really pthread_key_t */ pthread_keys[ANDROID_PTHREAD_KEYS_TOT];
-    /* We use this to store the DR TLS base */
+    char dlerror_buffer[ANDROID_DLERROR_BUFFER_SIZE];
+    /* We use this to store the DR TLS base.  We assume its distance from tls[]
+     * is the same for all versions.
+     */
     void *dr_tls_base;
-} android_pthread_internal_t;
+} android_v5_pthread_internal_t;
+
+typedef struct _android_v6_pthread_internal_t {
+    struct _pthread_internal_t* next;
+    struct _pthread_internal_t* prev;
+    pid_t tid;
+    pid_t cached_pid_;
+    android_pthread_attr_t attr;
+    int /* really std::atomic<ThreadJoinState> */ join_state;
+    void *cleanup_stack;
+    void *(*start_routine)(void*);
+    void *start_routine_arg;
+    void *return_value;
+    void *alternate_signal_stack;
+    android_pthread_mutex_t startup_handshake_mutex;
+    size_t mmap_size;
+    void *thread_local_dtors;
+    /* The TLS register points here, to slot #0 (ANDROID_TLS_SLOT_SELF) */
+    void *tls[ANDROID_BIONIC_TLS_SLOTS];
+    int /* really pthread_key_t */ pthread_keys[ANDROID_PTHREAD_KEYS_TOT];
+    char dlerror_buffer[ANDROID_DLERROR_BUFFER_SIZE];
+    /* We use this to store the DR TLS base.  We assume its distance from tls[]
+     * is the same for all versions.
+     */
+    void *dr_tls_base;
+} android_v6_pthread_internal_t;
 
 
 /* Adapated from class KernelArgumentBlock */

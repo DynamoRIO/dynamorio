@@ -107,7 +107,11 @@
 #if defined(ARM) || defined(AARCH64)
 # ifdef ANDROID
 /* We have our own slot at the end of our instance of Android's pthread_internal_t */
-#  define DR_TLS_BASE_OFFSET   IF_X64_ELSE(616, 588)
+#  ifdef AARCH64
+#   error NYI
+#  else
+#   define DR_TLS_BASE_OFFSET  1100
+#  endif
 # else
 /* The TLS slot for DR's TLS base.
  * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base,
