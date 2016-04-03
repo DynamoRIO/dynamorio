@@ -6275,7 +6275,8 @@ pre_system_call(dcontext_t *dcontext)
         app_pc addr  = (void *) sys_param(dcontext, 0);
         size_t len  = (size_t) sys_param(dcontext, 1);
         uint prot = (uint) sys_param(dcontext, 2);
-        uint old_memprot, new_memprot;
+        uint old_memprot = MEMPROT_NONE, new_memprot;
+        bool exists = true;
         /* save params in case an undo is needed in post_system_call */
         dcontext->sys_param0 = (reg_t) addr;
         dcontext->sys_param1 = len;
@@ -6284,29 +6285,16 @@ pre_system_call(dcontext_t *dcontext)
             "syscall: mprotect addr="PFX" size="PFX" prot=%s\n",
             addr, len, memprot_string(osprot_to_memprot(prot)));
 
-        /* PR 413109 - fail mprotect if start region is unknown; seen in hostd.
-         * XXX: get_memory_info_from_os() should be used instead of
-         *      vmvector_lookup_data() to catch mprotect failure cases on shared
-         *      memory allocated by another process.  However, till PROC_MAPS
-         *      are implemented on visor, get_memory_info_from_os() can't
-         *      distinguish between inaccessible and unallocated, so it doesn't
-         *      work.  Once PROC_MAPS is available on visor use
-         *      get_memory_info_from_os() and resolve case.
-         *
-         * XXX: Failing mprotect if addr isn't allocated doesn't help if there
-         *      are unallocated pages in the middle of the the mprotect region.
-         *      As it will be expensive to do page wise check for each mprotect
-         *      syscall just to guard against a corner case, it might be better
-         *      to let the system call fail and recover in post_system_call().
-         *      See PR 410921.
-         */
         if (!get_memory_info(addr, NULL, IF_DEBUG_ELSE(&size, NULL), &old_memprot)) {
+            exists = false;
+            /* Xref PR 413109, PR 410921: if the start, or any page, is not mapped,
+             * this should fail with ENOMEM.  We used to force-fail it to avoid
+             * asserts in our own allmem update code, but there are cases where a
+             * seemingly unmapped page succeeds (i#1912: next page of grows-down
+             * initial stack).  Thus we let it go through.
+             */
             LOG(THREAD, LOG_SYSCALLS, 2,
-                "\t"PFX" isn't mapped; aborting mprotect\n", addr);
-            execute_syscall = false;
-            set_failure_return_val(dcontext, ENOMEM);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            break;
+                "\t"PFX" isn't mapped: probably mprotect will fail\n", addr);
         } else {
             /* If mprotect region spans beyond the end of the vmarea then it
              * spans 2 or more vmareas with dissimilar protection (xref
@@ -6332,7 +6320,7 @@ pre_system_call(dcontext_t *dcontext)
         else {
             /* FIXME Store state for undo if the syscall fails. */
             IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, new_memprot,
-                                                  -1/*type unchanged*/, true/*exists*/));
+                                                  -1/*type unchanged*/, exists));
         }
         break;
     }
