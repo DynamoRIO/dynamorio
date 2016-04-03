@@ -6027,10 +6027,12 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
 /* WARNING: All registers are IN values, but NOT OUT values --
  * must set mcontext's register for that.
  */
-/* Returns false if system call should NOT be executed
+
+/* Returns false if system call should NOT be executed (in which case,
+ * post_system_call() will *not* be called!).
  * Returns true if system call should go ahead
  */
-/* FIXME: split out specific handlers into separate routines
+/* XXX: split out specific handlers into separate routines
  */
 bool
 pre_system_call(dcontext_t *dcontext)
@@ -6518,6 +6520,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param3 = (reg_t) sigsetsize;
         execute_syscall = handle_sigaction(dcontext, sig, act, oact, sigsetsize);
         if (!execute_syscall) {
+            handle_post_sigaction(dcontext, sig, act, oact, sigsetsize);
             set_success_return_val(dcontext, 0);
         }
         break;
@@ -6534,8 +6537,10 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param1 = (reg_t) act;
         dcontext->sys_param2 = (reg_t) oact;
         execute_syscall = handle_old_sigaction(dcontext, sig, act, oact);
-        if (!execute_syscall)
+        if (!execute_syscall) {
+            handle_post_old_sigaction(dcontext, sig, act, oact);
             set_success_return_val(dcontext, 0);
+        }
         break;
     }
 #endif
@@ -7411,10 +7416,10 @@ handle_app_brk(dcontext_t *dcontext, byte *lowest_brk/*if known*/,
 }
 #endif
 
-/* Returns false if system call should NOT be executed
- * Returns true if system call should go ahead
+/* This routine is *not* called is pre_system_call() returns false to skip
+ * the syscall.
  */
-/* FIXME: split out specific handlers into separate routines
+/* XXX: split out specific handlers into separate routines
  */
 void
 post_system_call(dcontext_t *dcontext)
