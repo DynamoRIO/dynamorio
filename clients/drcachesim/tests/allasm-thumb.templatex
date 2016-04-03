@@ -8,9 +8,9 @@ All done
 ---- <application exited with code 0> ----
 Core #0 \(1 thread\(s\)\)
   L1I stats:
-    Hits:                              63[67]
-    Misses:                             10
-    Miss rate:                        1[,\.]55%
+    Hits:                              63.
+    Misses:                             11
+    Miss rate:                        1[,\.]69%
   L1D stats:
     Hits:                               3[0-9]
     Misses:                             *[0-9]*

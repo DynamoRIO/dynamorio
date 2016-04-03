@@ -1,5 +1,5 @@
- /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+/* **********************************************************
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -263,7 +263,14 @@ _jmp_target:
         vmov.f32 s0, #2.0
         vmov.f64 d0, #1.0
 
-// indirect jump combined with stolen reg write in IT block:
+// i#1919: test mangle corner case
+        b        addpc_bb
+addpc_bb:
+        eor      r12, r12
+        add      pc, r12
+        nop
+
+// indirect jump to _exit combined with stolen reg write in IT block:
         adr      r0, _exit
         add      r0, r0, #1          // keep it Thumb
         str      r0, [sp, #-4]

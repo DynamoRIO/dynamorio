@@ -1118,6 +1118,13 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 src = instr_get_src(instr, 0);
                 remove_instr = true;
             }
+            if (instr_get_opcode(instr) == OP_add) {
+                /* We need to add shift immeds: easiest to create a new add (i#1919) */
+                PRE(ilist, instr,
+                    INSTR_CREATE_add(dcontext, instr_get_dst(instr, 0),
+                                     instr_get_src(instr, 0), instr_get_src(instr, 1)));
+                remove_instr = true;
+            }
             /* We want this before any mangle_rel_addr mangling */
             POST(ilist, instr,
                 INSTR_CREATE_orr(dcontext, opnd_create_reg(IBL_TARGET_REG), src,
