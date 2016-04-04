@@ -465,22 +465,41 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
       # We want the committer date (not author date) (xref i#1565).  We request UNIX
       # timestamp format and then divide down to days to get a small enough number
       # for the Windows resource limits.
-      #
-      # XXX i#1565: to support building when not in a git repo (e.g., from a source
-      # tarball) we should add support for a local file holding the version.
       execute_process(COMMAND ${GIT} log -n 1 --format=%ct
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE git_out)
       if (git_result OR git_err)
-        message(FATAL_ERROR "*** ${GIT} log failed: ***\n${git_err}")
+        message("*** ${GIT} log failed: ***\n${git_err}")
+      else (git_result OR git_err)
+        math(EXPR daycount "${git_out} / (60*60*24)")
       endif (git_result OR git_err)
-      math(EXPR daycount "${git_out} / (60*60*24)")
-      if (daycount)
-        set(VERSION_NUMBER_PATCHLEVEL "${daycount}")
-      endif ()
     endif (GIT)
+    if (NOT daycount)
+      # XXX i#1565: to support building when not in a git repo (e.g., from a source
+      # tarball) we use date to get current time for timestamp.
+      # This is not ideal as it confuses the build timestamp with the commit
+      # timestamp.  We should add support for a local file holding the version.
+      find_program(DATE date DOC "system date")
+      if (DATE)
+        execute_process(COMMAND ${DATE} +%s
+          RESULT_VARIABLE date_result
+          ERROR_VARIABLE date_err
+          OUTPUT_VARIABLE date_out)
+        if (date_result OR date_err)
+          message("*** ${DATE} failed: ***\n${date_err}")
+        else (date_result OR date_err)
+          math(EXPR daycount "${date_out} / (60*60*24)")
+        endif (date_result OR date_err)
+      endif (DATE)
+    endif (NOT daycount)
+    if (NOT daycount)
+      # set a much further date in the future to avoid confusing
+      # this fake date with the real date from git log
+      set(daycount 33333)
+    endif (NOT daycount)
+    set(VERSION_NUMBER_PATCHLEVEL "${daycount}")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
