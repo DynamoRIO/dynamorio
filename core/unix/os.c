@@ -2171,7 +2171,11 @@ os_should_swap_state(void)
     return (INTERNAL_OPTION(mangle_app_seg) &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
 #elif defined(ARM) || defined(AARCH64)
-    /* FIXME i#1551: we may need swap TLS for private libraries */
+    /* FIXME i#1582: this should return true, but there is a lot of complexity
+     * getting os_switch_seg_to_context() to do the right then when called
+     * at main thread init, secondary thread init, early and late injection,
+     * and thread exit, since it is fragile with its writes to app TLS.
+     */
     return false;
 #endif
 }
@@ -2203,6 +2207,20 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 {
     if (os_should_swap_state())
         os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
+}
+
+void
+os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags)
+{
+#ifdef ARM
+    /* FIXME i#1582: remove this routine once os_should_swap_state()
+     * is not disabled and we can actually call
+     * os_swap_context_go_native() safely from multiple places.
+     */
+    os_switch_seg_to_context(dcontext, LIB_SEG_TLS, true/*to app*/);
+#else
+    os_swap_context(dcontext, true/*to app*/, flags);
+#endif
 }
 
 void
@@ -6948,6 +6966,8 @@ pre_system_call(dcontext_t *dcontext)
 # endif /* X86 */
 # ifdef ARM
     case SYS_set_tls: {
+        LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 2,
+            "syscall: set_tls "PFX"\n", sys_param(dcontext, 0));
         if (os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)sys_param(dcontext, 0))) {
             execute_syscall = false;
             set_success_return_val(dcontext, 0);
@@ -6965,7 +6985,7 @@ pre_system_call(dcontext_t *dcontext)
         app_pc start = (app_pc) sys_param(dcontext, 0);
         app_pc end = (app_pc) sys_param(dcontext, 1);
         LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 2,
-            "explicit icache flush of "PFX"-"PFX"\n", start, end);
+            "syscall: cacheflush "PFX"-"PFX"\n", start, end);
         flush_fragments_from_region(dcontext, start, end - start,
                                     /* An unlink flush should be fine: the app must
                                      * use synch to ensure other threads see the

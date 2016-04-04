@@ -148,6 +148,7 @@ void os_tls_pre_init(int gdt_index);
 ushort os_get_app_tls_base_offset(ushort/*reg_id_t*/ seg);
 ushort os_get_app_tls_reg_offset(ushort/*reg_id_t*/ seg);
 void *os_get_app_tls_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
+void os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags);
 
 #ifdef DEBUG
 void os_enter_dynamorio(void);
@@ -373,8 +374,12 @@ set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record);
 
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
+
 void
 signal_fork_init(dcontext_t *dcontext);
+
+void
+signal_remove_handlers(dcontext_t *dcontext);
 
 bool
 set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,

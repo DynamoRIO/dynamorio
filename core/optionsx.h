@@ -261,6 +261,9 @@
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
     OPTION_INTERNAL(uint, log_at_fragment_count,
         "start execution at loglevel 1 and raise to the specified -loglevel at this fragment count")
+    /* For debugging purposes.  The bb count is distinct from the fragment count. */
+    OPTION_INTERNAL(uint, go_native_at_bb_count,
+        "once this count is reached, each thread will go native when creating a new bb")
     /* Note that these are not truly DYNAMIC, and they don't get synchronized before each LOG */
     OPTION_DEFAULT(uint, checklevel, 2, "level of asserts/consistency checks (PR 211887)")
 

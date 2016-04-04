@@ -120,6 +120,10 @@ volatile bool bb_lock_start;
 file_t bbdump_file = INVALID_FILE;
 #endif
 
+#ifdef DEBUG
+DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
+#endif
+
 /* initialization */
 void
 interp_init()
@@ -4057,6 +4061,24 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     mangle_pre_client(dcontext, bb);
 #endif /* DR_APP_EXPORTS */
 
+#ifdef DEBUG
+    /* This is a special debugging feature */
+    if (bb->for_cache && INTERNAL_OPTION(go_native_at_bb_count) > 0 &&
+        debug_bb_count++ >= INTERNAL_OPTION(go_native_at_bb_count)) {
+        SYSLOG_INTERNAL_INFO("thread "TIDFMT" is going native @%d bbs to "PFX,
+                             get_thread_id(), debug_bb_count-1, bb->start_pc);
+        /* we leverage the existing native_exec mechanism */
+        dcontext->native_exec_postsyscall = bb->start_pc;
+        dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
+        dynamo_thread_not_under_dynamo(dcontext);
+        /* i#1582: required for now on ARM */
+        IF_UNIX(os_swap_context_go_native(dcontext, 0));
+        /* i#1921: for now we do not support re-attach, so remove handlers */
+        IF_UNIX(signal_remove_handlers(dcontext));
+        bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
+        return;
+    }
+#endif
 #ifdef CLIENT_INTERFACE
     if (!client_process_bb(dcontext, bb)) {
         bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);

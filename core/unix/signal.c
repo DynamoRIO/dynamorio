@@ -1106,6 +1106,37 @@ sigsegv_handler_is_ours(void)
 }
 #endif /* DEBUG */
 
+/* i#1921: For proper native execution with re-takeover we need to propagate
+ * signals.  For now we only support going completely native in this thread but
+ * without a full detach, so we abandon our signal handlers w/o freeing memory
+ * up front.
+ */
+void
+signal_remove_handlers(dcontext_t *dcontext)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int i;
+    kernel_sigaction_t act;
+    memset(&act, 0, sizeof(act));
+    act.handler = (handler_t) SIG_DFL;
+    kernel_sigemptyset(&act.mask);
+    for (i = 1; i <= MAX_SIGNUM; i++) {
+        if (info->app_sigaction[i] != NULL) {
+            /* restore to old handler, but not if exiting whole
+             * process: else may get itimer during cleanup, so we
+             * set to SIG_IGN (we'll have to fix once we impl detach)
+             */
+            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
+                info->app_sigaction[i]->handler, i);
+            sigaction_syscall(i, info->app_sigaction[i], NULL);
+        } else if (info->we_intercept[i]) {
+            /* restore to default */
+            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
+            sigaction_syscall(i, &act, NULL);
+        }
+    }
+}
+
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread)
 {
@@ -3974,6 +4005,7 @@ master_signal_handler_C(byte *xsp)
     kernel_ucontext_t *ucxt = frame->puc;
 #endif /* !X64 */
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+    thread_record_t *tr;
 #ifdef DEBUG
     uint level = 2;
 # if !defined(HAVE_MEMINFO)
@@ -4067,11 +4099,18 @@ master_signal_handler_C(byte *xsp)
     ENTERING_DR();
     if (dcontext == GLOBAL_DCONTEXT) {
         local = false;
+        tr = thread_lookup(get_sys_thread_id());
     } else {
+        tr = dcontext->thread_record;
         local = local_heap_protected(dcontext);
         if (local)
             SELF_PROTECT_LOCAL(dcontext, WRITABLE);
     }
+    /* i#1921: For proper native execution with re-takeover we need to propagate
+     * signals to app handlers while native.  For now we do not support re-takeover
+     * and we give up our handles via signal_remove_handlers().
+     */
+    ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext));
 
     LOG(THREAD, LOG_ASYNCH, level, "\nmaster_signal_handler: sig=%d, retaddr="PFX"\n",
         sig, *((byte **)xsp));
