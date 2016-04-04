@@ -892,6 +892,7 @@ cache_pc get_reset_exit_stub(dcontext_t *dcontext);
 
 typedef linkstub_t * (* fcache_enter_func_t) (dcontext_t *dcontext);
 fcache_enter_func_t get_fcache_enter_private_routine(dcontext_t *dcontext);
+fcache_enter_func_t get_fcache_enter_gonative_routine(dcontext_t *dcontext);
 
 cache_pc get_unlinked_entry(dcontext_t *dcontext, cache_pc linked_entry);
 cache_pc get_linked_entry(dcontext_t *dcontext, cache_pc unlinked_entry);

@@ -156,6 +156,10 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                 print_file(file, "fcache_return:\n");
             else if (last_pc == code->do_syscall)
                 print_file(file, "do_syscall:\n");
+# ifdef ARM
+            else if (last_pc == code->fcache_enter_gonative)
+                print_file(file, "fcache_enter_gonative:\n");
+# endif
 # ifdef WINDOWS
             else if (last_pc == code->fcache_enter_indirect)
                 print_file(file, "fcache_enter_indirect:\n");
@@ -385,6 +389,12 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->new_thread_dynamo_start = pc;
     pc = emit_new_thread_dynamo_start(GLOBAL_DCONTEXT, pc);
+#endif
+
+#ifdef ARM
+    pc = check_size_and_cache_line(isa_mode, gencode, pc);
+    gencode->fcache_enter_gonative = pc;
+    pc = emit_fcache_enter_gonative(GLOBAL_DCONTEXT, gencode, pc);
 #endif
 
 #if defined(X86) && defined(X64)
@@ -1704,6 +1714,17 @@ fcache_enter_func_t
 get_fcache_enter_private_routine(dcontext_t *dcontext)
 {
     return fcache_enter_routine(dcontext);
+}
+
+fcache_enter_func_t
+get_fcache_enter_gonative_routine(dcontext_t *dcontext)
+{
+#ifdef ARM
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    return (fcache_enter_func_t) convert_data_to_function(code->fcache_enter_gonative);
+#else
+    return fcache_enter_routine(dcontext);
+#endif
 }
 
 cache_pc

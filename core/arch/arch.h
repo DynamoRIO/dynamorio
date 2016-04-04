@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -783,6 +783,9 @@ typedef struct _generated_code_t {
 #endif
     byte *do_syscall;
     uint do_syscall_offs; /* offs of pc after actual syscall instr */
+#ifdef ARM
+    byte *fcache_enter_gonative;
+#endif
 #ifdef WINDOWS
     byte *fcache_enter_indirect;
     byte *do_callback_return;
@@ -1034,6 +1037,10 @@ void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X86_64(gencode_mo
 byte * emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                        byte *fcache_return_pc, bool thread_shared, int interrupt,
                        uint *syscall_offs /*OUT*/);
+
+#ifdef ARM
+byte * emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *pc);
+#endif
 
 #ifdef WINDOWS
 /* PR 282576: These separate routines are ugly, but less ugly than adding param to

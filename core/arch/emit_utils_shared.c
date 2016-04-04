@@ -4632,6 +4632,69 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     return pc;
 }
 
+#ifdef ARM
+byte *
+emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code,
+                           byte *pc)
+{
+    int len;
+    instrlist_t ilist;
+    patch_list_t patch;
+    bool absolute = false;
+    bool shared = true;
+
+    init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_XDI);
+    instrlist_init(&ilist);
+
+    append_fcache_enter_prologue(dcontext, &ilist, absolute);
+    append_setup_fcache_target(dcontext, &ilist, absolute, shared);
+    append_call_exit_dr_hook(dcontext, &ilist, absolute, shared);
+
+    /* restore the original register state */
+    append_restore_xflags(dcontext, &ilist, absolute);
+    append_restore_simd_reg(dcontext, &ilist, absolute);
+    append_restore_gpr(dcontext, &ilist, absolute);
+
+    /* We need to restore the stolen reg, but we have no scratch registers.
+     * We are forced to use the stack here.  We assume a go-native point is
+     * a clean ABI point where the stack is valid and there is no app state
+     * beyond TOS.
+     */
+    /* spill r0 */
+    APP(&ilist, INSTR_CREATE_str
+        (dcontext, OPND_CREATE_MEM32(DR_REG_SP, -XSP_SZ),
+         opnd_create_reg(DR_REG_R0)));
+    /* get target PC */
+    APP(&ilist, INSTR_CREATE_ldr
+        (dcontext, opnd_create_reg(DR_REG_R0),
+         OPND_CREATE_MEM32(dr_reg_stolen, 0)));
+    /* store target PC */
+    APP(&ilist, INSTR_CREATE_str
+        (dcontext, OPND_CREATE_MEM32(DR_REG_SP, -2*XSP_SZ),
+         opnd_create_reg(DR_REG_R0)));
+    /* restore r0 */
+    APP(&ilist, INSTR_CREATE_ldr
+        (dcontext, opnd_create_reg(DR_REG_R0),
+         OPND_CREATE_MEM32(DR_REG_SP, -XSP_SZ)));
+    /* restore stolen reg */
+    APP(&ilist,
+        instr_create_restore_from_tls(dcontext, dr_reg_stolen, TLS_REG_STOLEN_SLOT));
+    /* go to stored target PC */
+    APP(&ilist, INSTR_CREATE_ldr
+        (dcontext, opnd_create_reg(DR_REG_PC),
+         OPND_CREATE_MEM32(DR_REG_SP, -2*XSP_SZ)));
+
+    /* now encode the instructions */
+    len = encode_with_patch_list(dcontext, &patch, &ilist, pc);
+    ASSERT(len != 0);
+
+    /* free the instrlist_t elements */
+    instrlist_clear(dcontext, &ilist);
+
+    return pc + len;
+}
+#endif /* ARM */
+
 #ifdef WINDOWS
 /* like fcache_enter but indirects the dcontext passed in through edi */
 byte *

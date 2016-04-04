@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -598,7 +598,9 @@ dispatch_enter_native(dcontext_t *dcontext)
     /* The new fcache_enter's clean dstack design makes it usable for
      * entering native execution as well as the fcache.
      */
-    fcache_enter_func_t go_native = get_fcache_enter_private_routine(dcontext);
+    fcache_enter_func_t go_native = (fcache_enter_func_t) convert_data_to_function
+        (PC_AS_JMP_TGT(DEFAULT_ISA_MODE,
+                       (app_pc)get_fcache_enter_gonative_routine(dcontext)));
     set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
     ASSERT_OWN_NO_LOCKS();
     if (dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL) {
@@ -625,7 +627,8 @@ dispatch_enter_native(dcontext_t *dcontext)
         ASSERT(dcontext->native_exec_postsyscall != NULL);
         LOG(THREAD, LOG_ASYNCH, 1, "Returning to native "PFX" after a syscall\n",
             dcontext->native_exec_postsyscall);
-        dcontext->next_tag = dcontext->native_exec_postsyscall;
+        dcontext->next_tag = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext),
+                                           dcontext->native_exec_postsyscall);
         dcontext->native_exec_postsyscall = NULL;
         LOG(THREAD, LOG_DISPATCH, 2, "Entry into native_exec after intercepted syscall\n");
         /* restore state as though never came out for syscall */
