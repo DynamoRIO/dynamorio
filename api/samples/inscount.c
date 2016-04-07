@@ -39,10 +39,14 @@
  * Illustrates how to perform performant clean calls.
  * Demonstrates effect of clean call optimization and auto-inlining with
  * different -opt_cleancall values.
+ *
+ * The runtime options for this client include:
+ * -only_from_app  Do not count instructions in shared libraries
  */
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include <string.h>
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -52,7 +56,10 @@
 
 #define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
 
-
+/* Runtime option: If set, only count instructions in the application itself */
+static bool only_from_app = false;
+/* Application module */
+static app_pc exe_start;
 /* we only have a global count */
 static uint64 global_count;
 /* A simple clean call that will be automatically inlined because it has only
@@ -74,7 +81,27 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'inscount'",
                        "http://dynamorio.org/issues");
+
+    /* Options */
+    int i;
+    for (i = 1/*skip client*/; i < argc; i++) {
+        if (strcmp(argv[i], "-only_from_app") == 0) {
+            only_from_app = true;
+        } else {
+            dr_fprintf(STDERR, "UNRECOGNIZED OPTION: \"%s\"\n", argv[i]);
+            DR_ASSERT_MSG(false, "invalid option");
+        }
+    }
     drmgr_init();
+
+    /* Get main module address */
+    if (only_from_app) {
+        module_data_t *exe = dr_get_main_module();
+        if (exe != NULL)
+            exe_start = exe->start;
+        dr_free_module_data(exe);
+    }
+
     /* register events */
     dr_register_exit_event(event_exit);
     drmgr_register_bb_instrumentation_event(event_bb_analysis,
@@ -124,7 +151,19 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 # endif
 #endif
-
+    /* Only count in app BBs */
+    if (only_from_app) {
+        module_data_t *mod = dr_lookup_module(dr_fragment_app_pc(tag));
+        if (mod != NULL) {
+            bool from_exe = (mod->start == exe_start);
+            dr_free_module_data(mod);
+            if (!from_exe) {
+                *user_data = NULL;
+                return DR_EMIT_DEFAULT;
+            }
+        }
+    }
+    /* Count instructions */
     for (instr = instrlist_first_app(bb), num_instrs = 0;
          instr != NULL;
          instr = instr_get_next_app(instr)) {
@@ -146,6 +185,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     uint num_instrs;
     if (!drmgr_is_first_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
+    /* Only insert calls for in-app BBs */
+    if (user_data == NULL)
+        return DR_EMIT_DEFAULT;
+    /* Insert clean call */
     num_instrs = (uint)(ptr_uint_t)user_data;
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb),
                          (void *)inscount, false /* save fpstate */, 1,
