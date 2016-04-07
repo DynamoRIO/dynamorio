@@ -608,7 +608,7 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
         count--; /* The prior was already added */
     first_reg = opnd_get_reg(array[*counter-1]);
     array[(*counter)-1] = opnd_add_flags(array[(*counter)-1], DR_OPND_IN_LIST);
-    di->reglist_sz = 0;
+    di->reglist_sz = opnd_size_in_bytes(downsz);
     for (i = 0; i < count; i++) {
         LOG(THREAD_GET, LOG_INTERP, 5, "reglist: first=%s, new=%s\n",
             reg_names[first_reg], reg_names[first_reg + i]);
