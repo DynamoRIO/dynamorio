@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -79,11 +79,11 @@ static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag,
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    int i;
     dr_set_client_name("DynamoRIO Sample Client 'inscount'",
                        "http://dynamorio.org/issues");
 
     /* Options */
-    int i;
     for (i = 1/*skip client*/; i < argc; i++) {
         if (strcmp(argv[i], "-only_from_app") == 0) {
             only_from_app = true;
