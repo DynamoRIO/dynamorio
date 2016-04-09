@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2519,7 +2519,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
         STATS_INC(float_pc_from_cache);
 
         /* Replace the stored code cache pc with the original app pc.
-         * If the app memory is unwritable, instr  would have already crashed.
+         * If the app memory is unwritable, instr would have already crashed.
          */
         if (op == OP_fnsave || op == OP_fnstenv) {
             opnd_set_disp(&memop, opnd_get_disp(memop) + FNSAVE_PC_OFFS);
@@ -2545,7 +2545,9 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
          * XXX: we can't recover the loss of coarse-grained: we live with that.
          */
         exit_is_normal = true;
-        ASSERT(!TEST(FRAG_CANNOT_BE_TRACE, *flags));
+        ASSERT_CURIOSITY(!TEST(FRAG_CANNOT_BE_TRACE, *flags) ||
+                         /* i#1562: it could be marked as no-trace for other reasons */
+                         TEST(FRAG_SELFMOD_SANDBOXED, *flags));
     } else {
         int reason = 0;
         CLIENT_ASSERT(!TEST(FRAG_IS_TRACE, *flags),
