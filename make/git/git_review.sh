@@ -54,6 +54,7 @@ hashurl="https://github.com/DynamoRIO/dynamorio/commit/"
 # after we sync on the master branch.
 base="HEAD^"
 tokfile=$HOME/.codereview_dr_token
+PYTHON=$(which python2 &> /dev/null && echo python2 || echo python)
 
 while getopts ":ucqtr:s:b:" opt; do
   case $opt in
@@ -142,7 +143,7 @@ if [ "$mode" = "upload" ]; then
     exec 9>&1
     # Pass -u to avoid python's buffering from preventing any output while
     # python script sits there waiting for input.
-    output=$(python -u ${root}/make/upload.py -y -e "${user}" ${reviewer} ${issue} \
+    output=$(${PYTHON} -u ${root}/make/upload.py -y -e "${user}" ${reviewer} ${issue} \
         --oauth2 ${token} -t "${subject}" -m "${msg}" ${email} "${base}".. \
         | tee >(cat - >&9))
     exec 9>&-
@@ -167,7 +168,7 @@ elif [ "$mode" = "commit" ]; then
         hash=$(git log -n 1 --format=%H)
         msg=$(echo -e "Committed as ${hashurl}${hash}\n\nFinal commit log:" \
             "\n---------------\n${log}\n---------------")
-        python -u ${root}/make/upload.py -y -e "${user}" -i ${issue} \
+        ${PYTHON} -u ${root}/make/upload.py -y -e "${user}" -i ${issue} \
             --oauth2 ${token} -t "${subject}" -m "${msg}" ${email} HEAD^
         # Remove the issue marker
         git config --unset branch.${branch}.rietveldissue
