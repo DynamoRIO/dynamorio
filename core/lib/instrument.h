@@ -3957,7 +3957,11 @@ dr_messagebox(const char *fmt, ...);
 DR_API
 /**
  * Stdout printing that won't interfere with the
- * application's own printing.  Currently non-buffered.
+ * application's own printing.
+ * It is not buffered, which means that it should not be used for
+ * very frequent, small print amounts: for that the client should either
+ * do its own buffering or it should use printf from the C library
+ * via DR's private loader.
  * \note On Windows 7 and earlier, this routine is not able to print
  * to the \p cmd window
  * unless dr_enable_console_printing() is called ahead of time, and
@@ -3979,7 +3983,11 @@ dr_printf(const char *fmt, ...);
 DR_API
 /**
  * Printing to a file that won't interfere with the
- * application's own printing.  Currently non-buffered.
+ * application's own printing.
+ * It is not buffered, which means that it should not be used for
+ * very frequent, small print amounts: for that the client should either
+ * do its own buffering or it should use printf from the C library
+ * via DR's private loader.
  * \note On Windows 7 and earlier, this routine is not able to print to STDOUT or
  * STDERR in the \p cmd window unless dr_enable_console_printing() is
  * called ahead of time, and even then there are limitations: see
