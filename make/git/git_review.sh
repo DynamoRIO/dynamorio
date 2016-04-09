@@ -170,8 +170,12 @@ elif [ "$mode" = "commit" ]; then
             "\n---------------\n${log}\n---------------")
         ${PYTHON} -u ${root}/make/upload.py -y -e "${user}" -i ${issue} \
             --oauth2 ${token} -t "${subject}" -m "${msg}" ${email} HEAD^
-        # Remove the issue marker
-        git config --unset branch.${branch}.rietveldissue
+        # Remove the issue marker on success
+        if [ "$?" -eq 0 ]; then
+            git config --unset branch.${branch}.rietveldissue
+        else
+            exit 1
+        fi
     else
         echo "WARNING: this branch is not associated with any review."
         # Keep exit status 0
