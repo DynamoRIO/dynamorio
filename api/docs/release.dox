@@ -135,7 +135,8 @@ clients.
 
 The changes between version \DR_VERSION and 6.1.0 include:
 
- - Nothing yet: TBD.
+ - Added instruction trace samples instrace_simple, instrace_x86_text, and
+   instrace_x86_binary.
 
 **************************************************
 <hr>

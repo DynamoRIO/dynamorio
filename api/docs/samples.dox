@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -86,6 +86,18 @@ entire callees into traces.
 The sample <a href="../../samples/inscount.c">inscount.c</a>
 reports the dynamic count of the total number of instructions executed via
 inserting performant clean calls which are auto-inlined by DynamoRIO.
+
+The sample <a href="../../samples/instrace_simple.c">instrace_simple.c</a>
+is provided as an example client that illustrates how to gather an instruction
+trace in a simple, cross-platform way.  It is much slower than
+instrace_x86_binary, however.
+
+The sample <a href="../../samples/instrace_x86.c">instrace_x86.c</a> is
+provided as an example client that illustrates how to create a private code
+cache and perform lean procedure calls to generate an instruction trace in
+a performant manner.  It is compiled into two different libraries:
+instrace_x86_text, which produces a readable, text-mode trace, but is much
+slower than instrace_x86_binary, which produces a binary-format trace file.
 
 The sample <a href="../../samples/instrcall.c">instrcall.c</a>
 demonstrates how to instrument direct calls, indirect calls and returns.
