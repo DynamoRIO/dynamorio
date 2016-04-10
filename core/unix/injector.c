@@ -80,6 +80,15 @@
 # include <crt_externs.h> /* _NSGetEnviron() */
 #endif
 
+/* i#1925: we need to support executing a shell script so we distinguish a
+ * non-image from a not-found or unreadable file.
+ */
+typedef enum {
+    PLATFORM_SUCCESS,
+    PLATFORM_ERROR_CANNOT_OPEN,
+    PLATFORM_UNKNOWN,
+} platform_status_t;
+
 #ifdef MACOS
 /* The type is just "int", and the values are different, so we use the Linux
  * type name to match the Linux constant names.
@@ -411,14 +420,20 @@ create_inject_info(const char *exe, const char **argv)
     return info;
 }
 
-static bool
+static platform_status_t
 module_get_platform_path(const char *exe_path, dr_platform_t *platform,
                          dr_platform_t *alt_platform)
 {
     file_t fd = os_open(exe_path, OS_OPEN_READ);
-    bool res = false;
-    if (fd != INVALID_FILE) {
-        res = module_get_platform(fd, platform, alt_platform);
+    platform_status_t res = PLATFORM_SUCCESS;
+    if (fd == INVALID_FILE)
+        res = PLATFORM_ERROR_CANNOT_OPEN;
+    else {
+        if (!module_get_platform(fd, platform, alt_platform)) {
+            /* It may be a shell script so we try it. */
+            res = PLATFORM_UNKNOWN;
+            *platform = IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT);
+        }
         os_close(fd);
     }
     return res;
@@ -428,11 +443,12 @@ static bool
 exe_is_right_bitwidth(const char *exe, int *errcode)
 {
     dr_platform_t platform, alt_platform;
-    if (!module_get_platform_path(exe, &platform, &alt_platform)) {
+    if (module_get_platform_path(exe, &platform, &alt_platform) ==
+        PLATFORM_ERROR_CANNOT_OPEN) {
         *errcode = errno;
         if (*errcode == 0)
             *errcode = ESRCH;
-        return false;
+        return true;//false;
     }
     /* Check if the executable is the right bitwidth and set errcode to be
      * special code WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE if not.
@@ -462,7 +478,8 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
 
 #if defined(MACOS) && !defined(X64)
     dr_platform_t platform, alt_platform;
-    if (!module_get_platform_path(info->exe, &platform, &alt_platform))
+    if (module_get_platform_path(info->exe, &platform, &alt_platform) ==
+        PLATFORM_ERROR_CANNOT_OPEN)
         return false; /* couldn't read header */
     if (platform == DR_PLATFORM_64BIT) {
         /* The target app is a universal binary and we're on a 64-bit kernel,
@@ -598,7 +615,8 @@ dr_inject_process_inject(void *data, bool force_injection,
     char dr_ops[MAX_OPTIONS_STRING];
     dr_platform_t platform, alt_platform;
 
-    if (!module_get_platform_path(info->exe, &platform, &alt_platform))
+    if (module_get_platform_path(info->exe, &platform, &alt_platform) ==
+        PLATFORM_ERROR_CANNOT_OPEN)
         return false; /* couldn't read header */
 
 #if defined(MACOS) && !defined(X64)

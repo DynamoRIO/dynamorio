@@ -1744,7 +1744,11 @@ int main(int argc, char *argv[])
 # endif
 
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
+# ifdef DRRUN
+        error("unable to inject: exec of |%s| failed", drlib_path);
+# else
         error("unable to inject: did you forget to run drconfig first?");
+# endif
         goto error;
     }
 
