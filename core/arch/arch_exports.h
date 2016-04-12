@@ -427,10 +427,12 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
      __asm__ __volatile__("lock inc" suffix " %0" : "=m" (var) : : "memory")
 #  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("l", var)
 #  define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
+#  define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #  define ATOMIC_DEC_suffix(suffix, var) \
      __asm__ __volatile__("lock dec" suffix " %0" : "=m" (var) : : "memory")
 #  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
 #  define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
+#  define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 /* with just "r" gcc will put $0 from PROBE_WRITE_PC into %eax
  * and then complain that "lock addq" can't take %eax!
  * so we use "ri":
@@ -440,6 +442,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
                          : "=m" (var) : "ri" (value) : "memory")
 #  define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("l", var, val)
 #  define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
+#  define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 /* Not safe for general use, just for atomic_add_exchange(), undefed below */
 #  define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result) \
     __asm__ __volatile__("lock xadd" suffix " %1, %0"            \
@@ -488,35 +491,130 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 
 # elif defined(AARCH64)
 
-/* FIXME i#1569: NYI */
-#  define AARCH64_NYI do { ASSERT_NOT_IMPLEMENTED(false); } while (0)
+#  define DEF_ATOMIC_incdec(fname, type, r, op)                       \
+static inline void fname(volatile type *var)                          \
+{                                                                     \
+    type tmp1;                                                        \
+    int tmp2;                                                         \
+    asm volatile(                                                     \
+      "1: ldxr  %"r"0, [%x2]           \n\t"                          \
+      "  "op"   %"r"0, %"r"0, #1       \n\t"                          \
+      "   stxr  %w1, %"r"0, [%x2]      \n\t"                          \
+      "   cbnz  %w1, 1b                \n\t"                          \
+      : "=&r" (tmp1), "=&r" (tmp2)                                    \
+      : "r" (var));                                                   \
+}
+DEF_ATOMIC_incdec(ATOMIC_INC_int  , int  , "w", "add")
+DEF_ATOMIC_incdec(ATOMIC_INC_int64, int64, "x", "add")
+DEF_ATOMIC_incdec(ATOMIC_DEC_int  , int  , "w", "sub")
+DEF_ATOMIC_incdec(ATOMIC_DEC_int64, int64, "x", "sub")
+#  undef DEF_ATOMIC_incdec
 
-#  define ATOMIC_INC_int(var) do { AARCH64_NYI; ++var; } while (0)
-#  define ATOMIC_INC_int64(var) do { AARCH64_NYI; ++var; } while (0)
-#  define ATOMIC_DEC_int(var) do { AARCH64_NYI; --var; } while (0)
-#  define ATOMIC_DEC_int64(var) do { AARCH64_NYI; --var; } while (0)
-#  define ATOMIC_ADD_int(var, val) do { AARCH64_NYI; var += val; } while (0)
-#  define ATOMIC_ADD_int64(var, val) do { AARCH64_NYI; var += val; } while (0)
-#  define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
-    do { AARCH64_NYI; res = *var; *var += val; } while (0)
-#  define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
-    do { AARCH64_NYI; res = *var; *var += val; } while (0)
-#  define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) AARCH64_NYI
-#  define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) AARCH64_NYI
-#  define ATOMIC_EXCHANGE(var, newval, result) \
-    do { AARCH64_NYI; result = var; var = newval; } while (0)
-#  define SPINLOCK_PAUSE() AARCH64_NYI
+#  define ATOMIC_INC(type, var) ATOMIC_INC_##type(&var)
+#  define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(&var)
+
+#  define DEF_ATOMIC_ADD(fname, type, r)                              \
+static inline void fname(volatile type *var, type val)                \
+{                                                                     \
+    type tmp1;                                                        \
+    int tmp2;                                                         \
+    asm volatile(                                                     \
+      "1: ldxr  %"r"0, [%x2]           \n\t"                          \
+      "   add   %"r"0, %"r"0, %"r"3    \n\t"                          \
+      "   stxr  %w1, %"r"0, [%x2]      \n\t"                          \
+      "   cbnz  %w1, 1b                \n\t"                          \
+      : "=&r" (tmp1), "=&r" (tmp2)                                    \
+      : "r" (var), "r" (val));                                        \
+}
+DEF_ATOMIC_ADD(ATOMIC_ADD_int  , int  , "w")
+DEF_ATOMIC_ADD(ATOMIC_ADD_int64, int64, "x")
+#  undef DEF_ATOMIC_ADD
+
+#  define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(&var, val)
+
+#  define DEF_atomic_add_exchange(fname, type, r)                     \
+static inline type fname(volatile type *var, type val)                \
+{                                                                     \
+    type tmp1, ret;                                                   \
+    int tmp2;                                                         \
+    asm volatile(                                                     \
+      "1: ldxr  %"r"0, [%x3]           \n\t"                          \
+      "   add   %"r"0, %"r"0, %"r"4    \n\t"                          \
+      "   stxr  %w1, %"r"0, [%x3]      \n\t"                          \
+      "   cbnz  %w1, 1b                \n\t"                          \
+      "   sub   %"r"2, %"r"0, %"r"4    \n\t"                          \
+      : "=&r" (tmp1), "=&r" (tmp2), "=r" (ret)                        \
+      : "r" (var), "r" (val));                                        \
+    return ret;                                                       \
+}
+DEF_atomic_add_exchange(atomic_add_exchange_int  , int  , "w")
+DEF_atomic_add_exchange(atomic_add_exchange_int64, int64, "x")
+#  undef DEF_atomic_add_exchange
+
+#  define atomic_add_exchange atomic_add_exchange_int
+
+#  define DEF_atomic_compare_exchange(fname, type, r)                 \
+static inline bool fname(volatile type *var,                          \
+                         type compare, type exchange)                 \
+{                                                                     \
+    type tmp1;                                                        \
+    int tmp2;                                                         \
+    bool ret;                                                         \
+    asm volatile(                                                     \
+      "1: ldxr  %"r"0, [%x3]           \n\t"                          \
+      "   cmp   %"r"0, %"r"4           \n\t"                          \
+      "   b.ne  2f                     \n\t"                          \
+      "   stxr  %w1, %"r"5, [%x3]      \n\t"                          \
+      "   cbnz  %w1, 1b                \n\t"                          \
+      "   cmp   %"r"0, %"r"4           \n\t"                          \
+      "2: clrex                        \n\t"                          \
+      "   cset  %w2, eq                \n\t"                          \
+      : "=&r" (tmp1), "=&r" (tmp2), "=r" (ret)                        \
+      : "r" (var), "r" (compare), "r" (exchange));                    \
+    return ret;                                                       \
+}
+DEF_atomic_compare_exchange(atomic_compare_exchange_int  , int  , "w")
+DEF_atomic_compare_exchange(atomic_compare_exchange_int64, int64, "x")
+#  undef DEF_atomic_compare_exchange
+
+static inline int
+atomic_exchange_int(volatile int *var, int newval)
+{
+    int tmp, ret;
+    asm volatile(
+      "1: ldxr  %w0, [%x2]             \n\t"
+      "   stxr  %w1, %w3, [%x2]        \n\t"
+      "   cbnz  %w1, 1b                \n\t"
+      : "=&r" (ret), "=&r" (tmp)
+      : "r" (var), "r" (newval));
+    return ret;
+}
+
+#  define SPINLOCK_PAUSE() \
+    do { asm volatile("wfi"); } while (0) /* wait for interrupt */
+
 uint64 proc_get_timestamp(void);
-#  define RDTSC_LL(llval) AARCH64_NYI
+#  define RDTSC_LL(llval) do { (llval) = proc_get_timestamp(); } while (0)
 
 #  define GET_FRAME_PTR(var) asm volatile("mov %0, x29" : "=r"(var))
 #  define GET_STACK_PTR(var) asm volatile("mov %0, sp" : "=r"(var))
 
-#  define SET_FLAG(cc, flag) do { AARCH64_NYI; flag = 0; } while (0)
-#  define SET_IF_NOT_ZERO(flag) SET_FLAG(ne, flag)
-#  define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
+static inline bool atomic_inc_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, 1) == -1;
+}
 
-# else /* ARM */
+static inline bool atomic_dec_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == 0;
+}
+
+static inline bool atomic_dec_becomes_zero(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == 1;
+}
+
+# elif defined(ARM)
 
 #  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
      ASSERT(sizeof(value) == 4);                                      \
@@ -562,6 +660,7 @@ uint64 proc_get_timestamp(void);
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("", var)
 #  define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("d", var)
+#  define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #  define ATOMIC_DEC_suffix(suffix, var)                              \
      __asm__ __volatile__(                                            \
        "1: ldrex" suffix " r2, %0         \n\t"                       \
@@ -574,6 +673,7 @@ uint64 proc_get_timestamp(void);
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("", var)
 #  define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("d", var)
+#  define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 #  define ATOMIC_ADD_suffix(suffix, var, value)                       \
      __asm__ __volatile__(                                            \
        "1: ldrex" suffix " r2, %0         \n\t"                       \
@@ -587,6 +687,7 @@ uint64 proc_get_timestamp(void);
        : "cc", "memory", "r2", "r3");
 #  define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("", var, val)
 #  define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
+#  define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 /* Not safe for general use, just for atomic_add_exchange(), undefed below */
 #  define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result)      \
      __asm__ __volatile__(                                            \
@@ -653,9 +754,6 @@ uint64 proc_get_timestamp(void);
 #  define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
 # endif /* X86/ARM */
 
-# define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
-# define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
-# define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 # ifdef X64
 #  define ATOMIC_ADD_PTR(type, var, val) ATOMIC_ADD_int64(var, val)
 # else
@@ -668,6 +766,7 @@ uint64 proc_get_timestamp(void);
 #  define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 # endif
 
+# ifndef AARCH64
 /* Atomically increments *var by 1
  * Returns true if the resulting value is zero, otherwise returns false
  */
@@ -713,7 +812,6 @@ static inline bool atomic_dec_becomes_zero(volatile int *var)
     return c == 0;
 }
 
-
 /* returns true if var was equal to compare, and now is equal to exchange,
    otherwise returns false
  */
@@ -739,7 +837,7 @@ atomic_exchange_int(volatile int *var, int newval)
     return result;
 }
 
-#ifdef X64
+#  ifdef X64
 /* returns true if var was equal to compare, and now is equal to exchange,
    otherwise returns false
  */
@@ -756,7 +854,7 @@ static inline bool atomic_compare_exchange_int64(volatile int64 *var,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }
-#endif
+#  endif
 
 /* atomically adds value to memory location var and returns the sum */
 static inline int atomic_add_exchange_int(volatile int *var, int value)
@@ -771,11 +869,11 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value)
     ATOMIC_ADD_EXCHANGE_int64(var, value, temp);
     return (temp + value);
 }
-# define atomic_add_exchange atomic_add_exchange_int
-# undef ATOMIC_ADD_EXCHANGE_suffix
-# undef ATOMIC_ADD_EXCHANGE_int
-# undef ATOMIC_ADD_EXCHANGE_int64
-
+#  define atomic_add_exchange atomic_add_exchange_int
+#  undef ATOMIC_ADD_EXCHANGE_suffix
+#  undef ATOMIC_ADD_EXCHANGE_int
+#  undef ATOMIC_ADD_EXCHANGE_int64
+# endif /* !AARCH64 */
 
 #endif /* UNIX */
 
