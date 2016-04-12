@@ -856,7 +856,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!ipc_pipe.set_fd(fd))
         DR_ASSERT(false);
     if (!ipc_pipe.maximize_buffer())
-        DR_ASSERT(false);
+        NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
 
     if (!drmgr_init() || !drutil_init())
         DR_ASSERT(false);

@@ -43,6 +43,11 @@
 // This is the max size an unprivileged process can request.
 #define PIPE_BUF_MAX_SIZE 1048576
 
+#if defined(LINUX) && !defined(F_SETPIPE_SZ)
+// F_SETPIPE_SZ appeared in Linux 2.6.35.
+# define F_SETPIPE_SZ 1031
+#endif
+
 // Atomic pipe write buffer size
 #ifndef PIPE_BUF
 # ifdef LINUX
