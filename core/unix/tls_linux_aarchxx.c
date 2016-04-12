@@ -31,24 +31,26 @@
  */
 
 /*
- * tls_linux_arm.c - TLS support on ARM
+ * tls_linux_arm.c - thread-local storage for arm and arm64 Linux
  */
 
 #include <stddef.h> /* offsetof */
 #include "../globals.h"
 #include "tls.h"
-#include "include/syscall.h"
+#ifndef AARCH64
+# include "include/syscall.h"
+#endif
 
 #ifndef LINUX
 # error Linux-only
 #endif
 
-#ifndef ARM
-# error ARM-only
+#if !(defined(ARM) || defined(AARCH64))
+# error ARM/AArch64-only
 #endif
 
 #ifndef CLIENT_INTERFACE
-# error CLIENT_INTERFACE build only for TLS mangling on ARM
+# error CLIENT_INTERFACE build only for TLS mangling on ARM/AArch64
 #endif
 
 byte **
@@ -67,7 +69,12 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     LOG(GLOBAL, LOG_THREADS, 2,
         "tls_thread_init: cur priv lib tls base is "PFX"\n",
         os_tls->os_seg_info.priv_lib_tls_base);
+#ifdef AARCH64
+    asm volatile("msr tpidr_el0, %0" : :
+                 "r"(os_tls->os_seg_info.priv_lib_tls_base));
+#else
     dynamorio_syscall(SYS_set_tls, 1, os_tls->os_seg_info.priv_lib_tls_base);
+#endif
     ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
     ASSERT(*get_dr_tls_base_addr() == NULL);
     *get_dr_tls_base_addr() = segment;
