@@ -243,9 +243,9 @@ GLOBAL_LABEL(dr_setjmp:)
         stp      d12, d13, [ARG1, #144]
         stp      d14, d15, [ARG1, #160]
 # ifdef UNIX
-        mov      x19, x30
+        str      x30, [sp, #-16]! /* save link register */
         bl       GLOBAL_REF(dr_setjmp_sigmask)
-        mov      x30, x19
+        ldr      x30, [sp], #16
 # endif
         mov      w0, #0
         ret
