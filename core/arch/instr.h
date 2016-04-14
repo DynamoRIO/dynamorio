@@ -2738,6 +2738,11 @@ bool instr_reads_thread_register(instr_t *instr);
 bool instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
 #endif
 
+#ifdef AARCH64
+bool instr_reads_thread_register(instr_t *instr);
+bool instr_writes_thread_register(instr_t *instr);
+#endif
+
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other
  * then TLS_XAX_SLOT unless the client has specified a slot to use as we let the
  * client use the rest. */

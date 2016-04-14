@@ -775,9 +775,6 @@ instr_reads_thread_register(instr_t *instr)
 {
     opnd_t opnd;
 
-#ifdef X64
-# error NYI on AArch64
-#else
     /* mrc p15, 0, reg_base, c13, c0, 3 */
     if (instr_get_opcode(instr) != OP_mrc)
         return false;
@@ -797,7 +794,6 @@ instr_reads_thread_register(instr_t *instr)
     opnd = instr_get_src(instr, 4);
     if (!opnd_is_immed_int(opnd) || opnd_get_immed_int(opnd) != USR_TLS_REG_OPCODE)
         return false;
-#endif /* 64/32 */
     return true;
 }
 

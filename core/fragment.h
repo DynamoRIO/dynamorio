@@ -204,7 +204,12 @@ frag_flags_from_isa_mode(dr_isa_mode_t mode)
 }
 
 /* to save space size field is a ushort => maximum fragment size */
+#ifndef AARCH64
 enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
+#else
+/* On AArch64, TBNZ/TBZ has a range of +/- 32 KiB. */
+enum { MAX_FRAGMENT_SIZE = 0x8000 };
+#endif
 
 /* fragment structure used for basic blocks and traces
  * this is the core structure shared by everything

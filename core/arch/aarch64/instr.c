@@ -37,22 +37,21 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    return (mode == DR_ISA_ARM_A64);
 }
 
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
+    return DR_ISA_ARM_A64;
 }
 
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
+    if (instr_get_opcode(instr) == OP_LABEL)
+        return 0;
+    return AARCH64_INSTR_SIZE;
 }
 
 bool
@@ -65,8 +64,26 @@ opc_is_not_a_real_memory_load(int opc)
 uint
 instr_branch_type(instr_t *cti_instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
+    int opcode = instr_get_opcode(cti_instr);
+    switch (opcode) {
+    case OP_b:
+    case OP_bcond:
+    case OP_cbnz:
+    case OP_cbz:
+    case OP_tbnz:
+    case OP_tbz:
+        return LINK_DIRECT|LINK_JMP;
+    case OP_bl:
+        return LINK_DIRECT|LINK_CALL;
+    case OP_blr:
+        return LINK_INDIRECT|LINK_CALL;
+    case OP_br:
+        return LINK_INDIRECT|LINK_JMP;
+    case OP_ret:
+        return LINK_INDIRECT|LINK_RETURN;
+    }
+    CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
+    return LINK_INDIRECT;
 }
 
 bool
@@ -79,106 +96,106 @@ instr_is_mov(instr_t *instr)
 bool
 instr_is_call_arch(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return (opc == OP_bl || opc == OP_blr);
 }
 
 bool
 instr_is_call_direct(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_bl);
 }
 
 bool
 instr_is_near_call_direct(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_bl);
 }
 
 bool
 instr_is_call_indirect(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_blr);
 }
 
 bool
 instr_is_return(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_ret);
 }
 
 bool
 instr_is_cbr_arch(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return (opc == OP_bcond ||
+            opc == OP_cbnz || opc ==  OP_cbz ||
+            opc == OP_tbnz || opc ==  OP_tbz);
 }
 
 bool
 instr_is_mbr_arch(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return (opc == OP_blr || opc == OP_br || opc == OP_ret);
 }
 
 bool
 instr_is_far_cti(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
 bool
 instr_is_ubr_arch(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return (opc == OP_b);
 }
 
 bool
 instr_is_near_ubr(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    return instr_is_ubr(instr);
 }
 
 bool
 instr_is_cti_short(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* The branch with smallest reach is TBNZ/TBZ, with range +/- 32 KiB.
+     * We have restricted MAX_FRAGMENT_SIZE on AArch64 accordingly.
+     */
     return false;
 }
 
 bool
 instr_is_cti_loop(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
 bool
 instr_is_interrupt(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_svc);
 }
 
 bool
 instr_is_syscall(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_svc);
 }
 
 bool
@@ -197,7 +214,6 @@ bool instr_is_prefetch(instr_t *instr)
 bool
 instr_saves_float_pc(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
@@ -238,15 +254,17 @@ instr_predicate_writes_eflags(dr_pred_type_t pred)
 bool
 instr_predicate_is_cond(dr_pred_type_t pred)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* Currently there are no predicated instructions as we treat the
+     * condition in "B.cond label" as a second operand: "B label, cond".
+     */
     return false;
 }
 
 bool
 reg_is_gpr(reg_id_t reg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    return ((DR_REG_X0 <= reg && reg <= DR_REG_X30) ||
+            (DR_REG_W0 <= reg && reg <= DR_REG_W30));
 }
 
 bool
@@ -259,14 +277,12 @@ reg_is_ymm(reg_id_t reg)
 bool
 reg_is_xmm(reg_id_t reg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
 bool
 reg_is_mmx(reg_id_t reg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
@@ -287,8 +303,7 @@ instr_is_nop(instr_t *inst)
 bool
 opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    return (s1 == s2);
 }
 
 instr_t *
@@ -296,4 +311,28 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return NULL;
+}
+
+bool
+instr_reads_thread_register(instr_t *instr)
+{
+    /* FIXME i#1569: Handle MRS instances other than MRS Xt, TPIDR_EL0. */
+    int opcode = instr_get_opcode(instr);
+    return (opcode == OP_mrs);
+}
+
+bool
+instr_writes_thread_register(instr_t *instr)
+{
+    /* FIXME i#1569: Handle MSR instances other than MSR TPIDR_EL0, Xt. */
+    int opcode = instr_get_opcode(instr);
+    return (opcode == OP_msr);
+}
+
+DR_API
+bool
+instr_is_exclusive_store(instr_t *instr)
+{
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return false;
 }
