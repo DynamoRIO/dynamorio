@@ -1469,22 +1469,29 @@ decode_init(void);
 # define PC_AS_LOAD_TGT(isa_mode, pc) \
     ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) & ~0x1) : pc)
 
-# define FRAGMENT_BASE_PREFIX_SIZE(flags) \
+# ifdef AARCH64
+#  define AARCH64_INSTR_SIZE 4
+#  define FRAGMENT_BASE_PREFIX_SIZE(flags) AARCH64_INSTR_SIZE
+#  define DIRECT_EXIT_STUB_SIZE(flags) \
+    (7 * AARCH64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+#  define DIRECT_EXIT_STUB_DATA_SZ 0
+# else
+#  define FRAGMENT_BASE_PREFIX_SIZE(flags) \
     (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)
-
 /* exported for DYNAMO_OPTION(separate_private_stubs) */
-# define ARM_INSTR_SIZE 4
-# define THUMB_SHORT_INSTR_SIZE 2
-# define THUMB_LONG_INSTR_SIZE 4
-# define DIRECT_EXIT_STUB_INSTR_COUNT 4
+#  define ARM_INSTR_SIZE 4
+#  define THUMB_SHORT_INSTR_SIZE 2
+#  define THUMB_LONG_INSTR_SIZE 4
+#  define DIRECT_EXIT_STUB_INSTR_COUNT 4
 /* for far linking we need a target stored in the stub */
-# define DIRECT_EXIT_STUB_DATA_SZ sizeof(app_pc)
+#  define DIRECT_EXIT_STUB_DATA_SZ sizeof(app_pc)
 /* all instrs are wide in the Thumb version */
-# define DIRECT_EXIT_STUB_SIZE(flags) \
+#  define DIRECT_EXIT_STUB_SIZE(flags) \
     ((FRAG_IS_THUMB(flags) ?                                \
       (DIRECT_EXIT_STUB_INSTR_COUNT*THUMB_LONG_INSTR_SIZE) : \
       (DIRECT_EXIT_STUB_INSTR_COUNT*ARM_INSTR_SIZE)) + \
      DIRECT_EXIT_STUB_DATA_SZ)
+# endif
 
 /* FIXME i#1575: implement coarse-grain support */
 # define STUB_COARSE_DIRECT_SIZE(flags) \

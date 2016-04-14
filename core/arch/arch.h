@@ -602,6 +602,7 @@ enum {
     DIRECT_STUB_SPILL_SLOT      = TLS_REG0_SLOT,
     MANGLE_RIPREL_SPILL_SLOT    = TLS_REG0_SLOT,
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
+    DIRECT_STUB_SPILL_SLOT2     = TLS_REG1_SLOT, /* used on AArch64 */
     INDIRECT_STUB_SPILL_SLOT    = TLS_REG1_SLOT,
     MANGLE_FAR_SPILL_SLOT       = TLS_REG1_SLOT,
     /* i#698: float_pc handling stores the mem addr of the float state here.  We
