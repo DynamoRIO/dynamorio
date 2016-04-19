@@ -1512,8 +1512,13 @@ privload_get_os_privmod_data(app_pc base, OUT os_privmod_data_t *opd)
                                              elf_hdr->e_phnum, NULL, &mod_end);
     /* delta from preferred address, used for calcuate real address */
     opd->load_delta = base - mod_base;
-    if (opd->load_delta == 0)
-        return false;
+
+    /* At this point one could consider returning false if the load_delta
+     * is zero. However, this optimisation was found to give only a small
+     * benefit, and is not safe if RELA relocations are in use. In particular,
+     * it did not work on AArch64 when libdynamorio.so was built with the BFD
+     * linker from Debian's binutils 2.26-8.
+     */
 
     /* walk program headers to get dynamic section pointer */
     prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)(base + elf_hdr->e_phoff);
