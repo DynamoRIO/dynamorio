@@ -95,6 +95,14 @@
      * \note This field is not always set or read by all API routines.
      */
     byte *pc;
+    union {
+        uint xflags; /**< The platform-independent name for condition flags. */
+        struct {
+            uint nzcv; /**< Condition flags (status register). */
+            uint fpcr; /**< Floating-Point Control Register. */
+            uint fpsr; /**< Floating-Point Status Register. */
+        }; /**< AArch64 flag registers. */
+    }; /**< The anonymous union of alternative names for flag registers. */
 # else /* 32-bit */
     union {
         reg_t r13; /**< The r13 register. */
@@ -113,12 +121,12 @@
         reg_t r15; /**< The r15 register. */
         byte *pc;  /**< The program counter. */
     };
-# endif /* 64/32-bit */
     union {
         uint xflags; /**< The platform-independent name for full APSR register. */
         uint apsr; /**< The application program status registers in AArch32. */
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
+# endif /* 64/32-bit */
     /**
      * The SIMD registers.  We would probably be ok if we did not preserve the
      * callee-saved registers (q4-q7 == d8-d15) but to be safe we preserve them
