@@ -68,6 +68,13 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 #endif /* UNIX */
 
+/* All CPU ID registers are accessible only in privileged modes. */
+        DECLARE_FUNC(cpuid_supported)
+GLOBAL_LABEL(cpuid_supported:)
+        mov      w0, #0
+        ret
+        END_FUNC(cpuid_supported)
+
 /* void call_switch_stack(dcontext_t *dcontext,       // REG_X0
  *                        byte *stack,                // REG_X1
  *                        void (*func)(dcontext_t *), // REG_X2
