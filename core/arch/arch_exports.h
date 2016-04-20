@@ -491,12 +491,31 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 
 # elif defined(AARCH64)
 
+#  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
+     ASSERT(sizeof(value) == 4);                                      \
+     /* Not currently used to write code */                           \
+     ASSERT_CURIOSITY(!hot_patch);                                    \
+     /* Aligned load/store instructions are atomic on AArch64. */     \
+     ASSERT(ALIGNED(target, 4));                                      \
+     __asm__ __volatile__("str %0, [%1]"                              \
+                          : : "r"  (value), "r" (target) : "memory"); \
+   } while (0)
+#  define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {           \
+     ASSERT(sizeof(value) == 8);                                      \
+     /* Not currently used to write code */                           \
+     ASSERT_CURIOSITY(!hot_patch);                                    \
+     /* Aligned load/store instructions are atomic on AArch64. */     \
+     ASSERT(ALIGNED(target, 8));                                      \
+     __asm__ __volatile__("str %0, [%1]"                              \
+                          : : "r"  (value), "r" (target) : "memory"); \
+   } while (0)
+
 #  define DEF_ATOMIC_incdec(fname, type, r, op)                       \
 static inline void fname(volatile type *var)                          \
 {                                                                     \
     type tmp1;                                                        \
     int tmp2;                                                         \
-    asm volatile(                                                     \
+    __asm__ __volatile__(                                             \
       "1: ldxr  %"r"0, [%x2]           \n\t"                          \
       "  "op"   %"r"0, %"r"0, #1       \n\t"                          \
       "   stxr  %w1, %"r"0, [%x2]      \n\t"                          \
@@ -518,7 +537,7 @@ static inline void fname(volatile type *var, type val)                \
 {                                                                     \
     type tmp1;                                                        \
     int tmp2;                                                         \
-    asm volatile(                                                     \
+    __asm__ __volatile__(                                             \
       "1: ldxr  %"r"0, [%x2]           \n\t"                          \
       "   add   %"r"0, %"r"0, %"r"3    \n\t"                          \
       "   stxr  %w1, %"r"0, [%x2]      \n\t"                          \
@@ -537,7 +556,7 @@ static inline type fname(volatile type *var, type val)                \
 {                                                                     \
     type tmp1, ret;                                                   \
     int tmp2;                                                         \
-    asm volatile(                                                     \
+    __asm__ __volatile__(                                             \
       "1: ldxr  %"r"0, [%x3]           \n\t"                          \
       "   add   %"r"0, %"r"0, %"r"4    \n\t"                          \
       "   stxr  %w1, %"r"0, [%x3]      \n\t"                          \
@@ -560,7 +579,7 @@ static inline bool fname(volatile type *var,                          \
     type tmp1;                                                        \
     int tmp2;                                                         \
     bool ret;                                                         \
-    asm volatile(                                                     \
+    __asm__ __volatile__(                                             \
       "1: ldxr  %"r"0, [%x3]           \n\t"                          \
       "   cmp   %"r"0, %"r"4           \n\t"                          \
       "   b.ne  2f                     \n\t"                          \
@@ -581,7 +600,7 @@ static inline int
 atomic_exchange_int(volatile int *var, int newval)
 {
     int tmp, ret;
-    asm volatile(
+    __asm__ __volatile__(
       "1: ldxr  %w0, [%x2]             \n\t"
       "   stxr  %w1, %w3, [%x2]        \n\t"
       "   cbnz  %w1, 1b                \n\t"
@@ -591,13 +610,13 @@ atomic_exchange_int(volatile int *var, int newval)
 }
 
 #  define SPINLOCK_PAUSE() \
-    do { asm volatile("wfi"); } while (0) /* wait for interrupt */
+    do { __asm__ __volatile__("wfi"); } while (0) /* wait for interrupt */
 
 uint64 proc_get_timestamp(void);
 #  define RDTSC_LL(llval) do { (llval) = proc_get_timestamp(); } while (0)
 
-#  define GET_FRAME_PTR(var) asm volatile("mov %0, x29" : "=r"(var))
-#  define GET_STACK_PTR(var) asm volatile("mov %0, sp" : "=r"(var))
+#  define GET_FRAME_PTR(var) __asm__ __volatile__("mov %0, x29" : "=r"(var))
+#  define GET_STACK_PTR(var) __asm__ __volatile__("mov %0, sp" : "=r"(var))
 
 static inline bool atomic_inc_and_test(volatile int *var)
 {
@@ -625,21 +644,7 @@ static inline bool atomic_dec_becomes_zero(volatile int *var)
                           : : "r"  (value), "r" (target)              \
                           : "memory");                                \
    } while (0)
-#  ifdef X64
-#   define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {          \
-      ASSERT(sizeof(value) == 8);                                     \
-      /* Not currently used to write code */                          \
-      ASSERT_CURIOSITY(!hot_patch);                                   \
-      /* test that we aren't crossing a cache line boundary */        \
-      CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
-      /* Load and store instructions are atomic on ARM if aligned */  \
-     /* FIXME i#1551: we need patch the whole instruction instead. */ \
-     ASSERT(ALIGNED(target, 4));                                      \
-      __asm__ __volatile__("strd %0, [%1]"                            \
-                           : : "r" (value), "r" (target)              \
-                           : "memory");                               \
-    } while (0)
-#  endif /* X64 */
+
 /* OP_swp is deprecated and OP_ldrex and OP_strex are introduced in
  * ARMv6 for ARM synchronization primitives
  */
