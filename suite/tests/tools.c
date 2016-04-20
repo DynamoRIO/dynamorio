@@ -562,6 +562,24 @@ GLOBAL_LABEL(code_self_mod:)
         bne      repeat1
         mov      r0, r1
         bx       lr
+#elif defined(AARCH64)
+        adr      x1, tomodify
+        ldr      w2, [x1]
+        bfi      w2, w0, #5, #16 /* insert new immediate operand */
+        str      w2, [x1]
+        dc       cvau, x1 /* Data Cache Clean by VA to PoU */
+        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
+        ic       ivau, x1 /* Instruction Cache Invalidate by VA to PoU */
+        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
+        isb      /* Instruction Synchronization Barrier */
+      tomodify:
+        movz     w1, #0x1234 /* this instr's immed operand gets overwritten */
+        mov      w0, #0 /* counter for diagnostics */
+      repeat1:
+        add      w0, w0, #1
+        sub      w1, w1, #1
+        cbnz     w1, repeat1
+        ret
 #else
 # error NYI
 #endif
@@ -605,6 +623,10 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      r1, ARG1
         mov      r0, lr
         bx       r1
+#elif defined(AARCH64)
+        mov      x1, ARG1
+        mov      x0, x30
+        br       x1
 #else
 # error NYI
 #endif

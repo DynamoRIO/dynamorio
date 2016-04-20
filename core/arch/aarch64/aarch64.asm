@@ -380,7 +380,7 @@ GLOBAL_LABEL(cache_sync_asm:)
         sub      w4, w2, #1
         bic      x4, x0, x4 /* aligned beg */
         b        2f
-1:      dc       cvau, x4 /* Data or unified Cache line Clean by VA to PoC */
+1:      dc       cvau, x4 /* Data Cache Clean by VA to PoU */
         add      x4, x4, x2
 2:      cmp      x4, x1
         b.cc     1b
@@ -388,7 +388,7 @@ GLOBAL_LABEL(cache_sync_asm:)
         sub      w4, w3, #1
         bic      x4, x0, x4 /* aligned beg */
         b        4f
-3:      ic       ivau, x4 /* Instruction Cache line Invalidate by VA to PoU */
+3:      ic       ivau, x4 /* Instruction Cache Invalidate by VA to PoU */
         add      x4, x4, x3
 4:      cmp      x4, x1
         b.cc     3b
