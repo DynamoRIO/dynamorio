@@ -112,13 +112,32 @@ static uint encode_common(byte *pc, instr_t *i)
         ASSERT(i->num_dsts == 1 && i->num_srcs == 1 &&
                i->dsts[0].kind == REG_kind && i->dsts[0].size == 0 &&
                i->src0.kind == BASE_DISP_kind &&
-               (i->src0.size == OPSZ_4 || i->src0.size == OPSZ_8) &&
                i->src0.value.base_disp.index_reg == DR_REG_NULL);
-        return ((i->src0.size == OPSZ_8 ? 0xf9400000 : 0xb9400000 ) |
-                (i->dsts[0].value.reg - DR_REG_X0) |
-                (i->src0.value.base_disp.base_reg - DR_REG_X0) << 5 |
-                i->src0.value.base_disp.disp >>
-                (i->src0.size == OPSZ_8 ? 3 : 2 ) << 10);
+        if (reg_is_gpr(i->dsts[0].value.reg)) {
+            uint rt = (i->dsts[0].value.reg -
+                       (i->src0.size == OPSZ_8 ? DR_REG_X0 : DR_REG_W0));
+            ASSERT(i->src0.size == OPSZ_4 || i->src0.size == OPSZ_8);
+            ASSERT(rt < 31);
+            return ((i->src0.size == OPSZ_8 ? 0xf9400000 : 0xb9400000 ) |
+                    rt |
+                    (i->src0.value.base_disp.base_reg - DR_REG_X0) << 5 |
+                    i->src0.value.base_disp.disp >>
+                    (i->src0.size == OPSZ_8 ? 3 : 2 ) << 10);
+        } else {
+            uint rt = (i->dsts[0].value.reg -
+                       (i->src0.size == OPSZ_4 ? DR_REG_S0 :
+                        i->src0.size == OPSZ_8 ? DR_REG_D0 : DR_REG_Q0));
+            ASSERT(i->src0.size == OPSZ_4 || i->src0.size == OPSZ_8 ||
+                   i->src0.size == OPSZ_16);
+            ASSERT(rt < 32);
+            return ((i->src0.size == OPSZ_4 ? 0xbd400000 :
+                     i->src0.size == OPSZ_8 ? 0xfd400000 : 0x3dc00000) |
+                    rt |
+                    (i->src0.value.base_disp.base_reg - DR_REG_X0) << 5 |
+                    i->src0.value.base_disp.disp >>
+                    (i->src0.size == OPSZ_4 ? 2 :
+                     i->src0.size == OPSZ_8 ? 3 : 4 ) << 10);
+         }
     case OP_mov:
         ASSERT(i->num_dsts == 1 && i->num_srcs == 1 &&
                i->dsts[0].kind == REG_kind && i->dsts[0].size == 0 &&
