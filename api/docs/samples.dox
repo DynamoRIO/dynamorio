@@ -352,6 +352,14 @@ CFLAGS=-m32 CXXFLAGS=-m32 cmake -DDynamoRIO_DIR=$DYNAMORIO_HOME/cmake $DYNAMORIO
 make instrcalls
 \endcode
 
+To build using the Android toolchain, use:
+
+\code
+mkdir build
+cd build
+cmake -DCMAKE_TOOLCHAIN_FILE=$DYNAMORIO_HOME/make/toolchain-android.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 $DYNAMORIO_HOME/api/samples/
+\endcode
+
 The result is a shared library instrcalls.dll or libinstrcalls.so. To
 invoke the client library, follow the instructions under \ref page_deploy.
 
