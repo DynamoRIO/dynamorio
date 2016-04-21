@@ -1567,13 +1567,13 @@ tobuild(common.broadfun common/broadfun.c)
 if (NOT ANDROID) # We do not support -no_early_inject on Android (i#1873).
   tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
 endif ()
-if (NOT ARM) # FIXME i#1551: port asm to ARM
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.decode-bad common/decode-bad.c)
   # FIXME i#105: get this working for 32-bit linux
   if (X64 OR WIN32)
     tobuild(common.decode common/decode.c)
   endif (X64 OR WIN32)
-endif (NOT ARM)
+endif (X86)
 # FIXME i#1025: get working on Linux
 if (WIN32)
   # We build all tests before running so decode will be built before
@@ -1582,7 +1582,7 @@ if (WIN32)
   torunonly(common.decode-stress common.decode common/decode.c
     "-stress_recreate_state" "")
 endif (WIN32)
-if (NOT ARM) # FIXME i#1551: port asm to ARM
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.eflags common/eflags.c)
   tobuild(common.floatpc common/floatpc.c)
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
@@ -1637,7 +1637,7 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
     tobuild_ops(common.protect-dstack common/protect-dstack.c
       "-no_mangle_app_seg" "")
   endif ()
-endif (NOT ARM)
+endif (X86)
 
 if (NOT ANDROID) # FIXME i#1874: failing on Android
   tobuild(common.segfault common/segfault.c)
@@ -1688,7 +1688,7 @@ if (CLIENT_INTERFACE)
   include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
     tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
     if (NOT MACOS) # FIXME i#1360: implement Mach-O export iterator
@@ -1697,8 +1697,8 @@ if (CLIENT_INTERFACE)
       # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
       append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
     endif ()
-  endif (NOT ARM)
-  if (NOT ARM) # FIXME i#1551: port to ARM
+  endif (X86)
+  if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
     if (UNIX)
@@ -1716,7 +1716,7 @@ if (CLIENT_INTERFACE)
       client-interface/count-ctis.c "" "-opt_cleancall 0" "")
     tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
     tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
-  endif (NOT ARM)
+  endif (X86)
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
   if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
     if (NOT ANDROID) # XXX i#1874: get working on Android
@@ -1852,7 +1852,7 @@ if (CLIENT_INTERFACE)
     # XXX i#1246: Make partial_module_map work for Windows as well.
     tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
   endif ()
-  if (LINUX AND NOT ARM)
+  if (LINUX AND X86)
     # XXX i#1833: once i#1833 is fixed, enable code in mbr_instrumentation_segment.dll.c
     tobuild_ci(client.mbr_instrumentation_segment
       client-interface/mbr_instrumentation_segment.c "" "" "")
@@ -1904,11 +1904,11 @@ if (CLIENT_INTERFACE)
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
     endif (NOT ARM)
-    if (NOT ARM) # FIXME i#1551: port asm to ARM
+    if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
       tobuild_ci(client.signal client-interface/signal.c "" "" "")
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-    endif (NOT ARM)
+    endif (X86)
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")
@@ -1937,7 +1937,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.loader client-interface/loader.c "" "" "")
     target_link_libraries(client.loader.dll "shlwapi")
   endif (UNIX)
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
+  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.file_io client-interface/file_io.c
       "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
     if (DEBUG) # FIXME i#1806: fails in release
@@ -1948,7 +1948,7 @@ if (CLIENT_INTERFACE)
     tobuild_appdll(client.thread client-interface/thread.c)
     tobuild_ci(client.strace client-interface/strace.c "" "" "")
     use_DynamoRIO_extension(client.strace.dll drmgr)
-  endif (NOT ARM)
+  endif (X86)
   # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
   #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
   if (PROGRAM_SHEPHERDING)
@@ -1968,14 +1968,14 @@ if (CLIENT_INTERFACE)
       "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
   endif (NOT ARM)
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
+  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
     # i#1801: optimize client.inline.dll to make sure that compiler_inscount
     # is simple enough to be inlined
     if (CMAKE_COMPILER_IS_CLANG)
       optimize(client.inline.dll)
     endif ()
-  endif (NOT ARM)
+  endif (X86)
 
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
@@ -2007,34 +2007,36 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drmgr-test ${libpthread})
   endif ()
 
-  tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
-  use_DynamoRIO_extension(client.drreg-test.dll drmgr)
-  use_DynamoRIO_extension(client.drreg-test.dll drreg)
-  target_include_directories(client.drreg-test PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  if (NOT AARCH64) # FIXME i#1569: port to AArch64
+    tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
+    use_DynamoRIO_extension(client.drreg-test.dll drmgr)
+    use_DynamoRIO_extension(client.drreg-test.dll drreg)
+    target_include_directories(client.drreg-test PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
-  tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
-  use_DynamoRIO_extension(client.drx-test.dll drx)
+    tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+    use_DynamoRIO_extension(client.drx-test.dll drx)
 
-  tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
-  use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
-  use_DynamoRIO_extension(client.drxmgr-test.dll drx)
-  use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
+    tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
+    use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
+    use_DynamoRIO_extension(client.drxmgr-test.dll drx)
+    use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
-  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-  get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll)
-  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
-  use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
-  tochcon(client.drwrap-test.appdll textrel_shlib_t)
-  if (WIN32)
-    # export from asm code
-    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
-  endif (WIN32)
-  if (NOT ANDROID) # XXX i#1874: get working on Android
-    tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
-      "" "" "")
-    use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
-  endif ()
+    tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+    get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll)
+    tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+    use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
+    tochcon(client.drwrap-test.appdll textrel_shlib_t)
+    if (WIN32)
+      # export from asm code
+      append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
+    endif (WIN32)
+    if (NOT ANDROID) # XXX i#1874: get working on Android
+      tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
+        "" "" "")
+      use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
+    endif ()
+  endif (NOT AARCH64)
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
@@ -2053,7 +2055,9 @@ if (CLIENT_INTERFACE)
     endif (dbghelp_path)
   endif ()
 
-  if (NOT ANDROID) # XXX i#1874: get working on Android
+  if (NOT ANDROID AND NOT AARCH64)
+    # XXX i#1874: get working on Android
+    # FIXME i#1569: get working on AArch64
     tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
     get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll)
     tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
@@ -2092,7 +2096,7 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drutil-test ${libpthread})
   endif ()
 
-  if (NOT ARM) # FIXME i#1551: port to ARM
+  if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # We need to load w/ the same base so the test passes
     set(DynamoRIO_SET_PREFERRED_BASE ON)
     set(PREFERRED_BASE 0x6f000000)
@@ -2112,14 +2116,16 @@ if (CLIENT_INTERFACE)
     set(client.pcache-use_expectbase "pcache-use")
     # when running tests in parallel: have to generate pcaches first
     set(client.pcache-use_depends client.pcache)
-  endif (NOT ARM)
+  endif (X86)
 
   if (ARM)
     set(sfx "arm")
   else ()
     set(sfx "x86")
   endif ()
-  if (NOT ANDROID) # XXX i#1874: get working on Android
+  if (NOT ANDROID AND NOT AARCH64)
+    # XXX i#1874: get working on Android
+    # FIXME i#1569: get working on AArch64
     tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF)
     # XXX i#1686: add ARM's headers too once they are all created
     if (NOT ARM AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
@@ -2166,15 +2172,17 @@ if (CLIENT_INTERFACE)
     # XXX i#1512: api.startstop is FLAKY
     tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
   endif (NOT ARM)
-  if (NOT ARM) # FIXME i#1551: port to ARM
+  if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # test static decoder library
     tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON)
-  endif (NOT ARM)
+  endif (X86)
 
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
       tobuild_api(api.static api/static_arm.c "" "" ON)
     endif ()
+  elseif (AARCH64)
+    # FIXME i#1569: get working on AArch64
   else ()
     tobuild_api(api.static api/static_x86.c "" "" ON)
   endif ()
@@ -2200,14 +2208,14 @@ if (CLIENT_INTERFACE)
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
     tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
     use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
-  endif (NOT ARM)
+  endif (X86)
 
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
+  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
-  endif (NOT ARM)
+  endif (X86)
 
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
@@ -2368,7 +2376,7 @@ if (CLIENT_INTERFACE)
       endif ()
     endif ()
 
-    if (NOT ARM) # i#1732: no ARM support for drcpusim yet
+    if (X86) # i#1732: no ARM/AArch64 support for drcpusim yet
       torunonly_ci(tool.drcpusim.simple ${ci_shared_app} drcpusim
         client-interface/${ci_shared_app} # for .expect
         "" "" "")
@@ -2429,7 +2437,7 @@ if (CLIENT_INTERFACE)
       endif ()
       # XXX i#1732: add more tests.  However, we don't want the suite to fail
       # b/c our tests have too-new instrs for older machines.
-    endif (NOT ARM)
+    endif (X86)
   endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)
@@ -2508,9 +2516,9 @@ if (UNIX)
       "-vm_base 0x100000000 -no_vm_base_near_app" "")
   endif ()
 
-  if (NOT ARM) # FIXME i#1551: port asm to ARM
+  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild(linux.infinite linux/infinite.c)
-  endif (NOT ARM)
+  endif (X86)
   tobuild(linux.longjmp linux/longjmp.c)
   if (NOT APPLE)
     tobuild(linux.prctl linux/prctl.c)
@@ -2541,9 +2549,9 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
-  # FIXME i#1551: port asm to ARM
+  # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#58: port test to MacOS
-  if (NOT ARM AND NOT APPLE)
+  if (NOT ARM AND NOT AARCH64 AND NOT APPLE)
     tobuild(linux.sigcontext linux/sigcontext.c)
   endif ()
   if (NOT APPLE)
@@ -2873,12 +2881,12 @@ endif (UNIX)
 tobuild(security-common.codemod security-common/codemod.c)
 tochcon(security-common.codemod execmem_exec_t)
 mark_execstack(security-common.codemod)
-if (NOT ARM) # FIXME i#1551: port asm to ARM
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
   tochcon(security-common.decode-bad-stack execmem_exec_t)
   mark_execstack(security-common.decode-bad-stack)
   tobuild(security-common.retexisting security-common/retexisting.c)
-endif (NOT ARM)
+endif (X86)
 if (VPS) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
   tochcon(security-common.jmp_from_trace textrel_shlib_t)
@@ -2893,7 +2901,7 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild(security-common.retnonexisting security-common/retnonexisting.c)
   endif ()
 endif (NOT ARM)
-if (NOT ARM) # FIXME i#1551: port asm to ARM
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
   if (NOT APPLE) # XXX i#58: port test to MacOS
@@ -2906,7 +2914,7 @@ if (NOT ARM) # FIXME i#1551: port asm to ARM
     # FIXME i#125
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
-endif (NOT ARM)
+endif (X86)
 if (X64)
   # Reachability tests
 
