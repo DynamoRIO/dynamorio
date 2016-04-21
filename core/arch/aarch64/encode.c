@@ -51,6 +51,38 @@ const char * const reg_names[] = {
 const reg_id_t dr_reg_fixer[] = {
     REG_NULL,
     REG_NULL,
+
+#define XREGS \
+    DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,  \
+    DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,  \
+    DR_REG_X8,  DR_REG_X9,   DR_REG_X10,  DR_REG_X11, \
+    DR_REG_X12, DR_REG_X13,  DR_REG_X14,  DR_REG_X15, \
+    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19, \
+    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23, \
+    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27, \
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
+XREGS /* X0-X31 */
+XREGS /* W0-W31 */
+#undef XREGS
+
+#define QREGS \
+    DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,  \
+    DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,  \
+    DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11, \
+    DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15, \
+    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19, \
+    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23, \
+    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27, \
+    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
+QREGS /* Q0-Q31*/
+QREGS /* D0-D31 */
+QREGS /* S0-S31 */
+QREGS /* H0-H31 */
+QREGS /* B0-B31 */
+#undef QREGS
+
+    DR_REG_NZCV, DR_REG_FPCR, DR_REG_FPSR,
+    DR_REG_TPIDR_EL0, DR_REG_TPIDRRO_EL0
 };
 
 #ifdef DEBUG

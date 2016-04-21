@@ -587,6 +587,15 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
                              instr_t *instr, instr_t *next_instr);
 #endif /* ARM */
 
+#ifdef AARCH64
+instr_t *
+mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
+                             instr_t *instr, instr_t *next_instr);
+instr_t *
+mangle_writes_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
+                              instr_t *instr, instr_t *next_instr);
+#endif /* AARCH64 */
+
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
     /* ok for this guy to overlap w/ others since he is pre-cache */

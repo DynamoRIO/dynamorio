@@ -244,6 +244,12 @@ else ()
   message(FATAL_ERROR "Unknown architecture target")
 endif ()
 
+if (ARM OR AARCH64)
+  set(ARCH_NAME_SHARED aarchxx)
+else ()
+  set(ARCH_NAME_SHARED ${ARCH_NAME})
+endif ()
+
 # The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
 # Whether 64-bit is expected to be selected by user setting up compiler
 # prior to invoking CMake: it has to be that way for Windows, and for

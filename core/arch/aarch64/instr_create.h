@@ -255,7 +255,7 @@
   opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
   opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
 
-/* FIXME i#1569: placeholder for undecoded instructions */
+/* FIXME i#1569: replace all uses of this when there is a proper encoder */
 #define INSTR_CREATE_xx(dc, enc) \
   instr_create_0dst_1src((dc), OP_xx, OPND_CREATE_INT32(enc))
 

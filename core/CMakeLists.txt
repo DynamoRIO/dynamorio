@@ -203,7 +203,7 @@ set(ARCH_SRCS
   arch/proc_shared.c
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
-  arch/${ARCH_NAME}/mangle.c
+  arch/${ARCH_NAME_SHARED}/mangle.c
   arch/${ARCH_NAME}/clean_call_opt.c
   arch/steal_reg.c
   arch/x86_code.c
@@ -267,11 +267,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)
     set(OS_SRCS ${OS_SRCS} unix/module_elf.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
-    if (ARM OR AARCH64)
-      set(OS_SRCS ${OS_SRCS} unix/tls_linux_aarchxx.c)
-    else ()
-      set(OS_SRCS ${OS_SRCS} unix/tls_linux_${ARCH_NAME}.c)
-    endif ()
+    set(OS_SRCS ${OS_SRCS} unix/tls_linux_${ARCH_NAME_SHARED}.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux_${ARCH_NAME}.c)
     set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
@@ -449,7 +445,7 @@ copy_target_to_device(${PRELOAD_NAME})
 # static decoding library
 add_library(drdecode
   ${DECODER_SRCS}
-  arch/${ARCH_NAME}/mangle.c
+  arch/${ARCH_NAME_SHARED}/mangle.c
   arch/decodelib.c
   )
 set_target_properties(drdecode PROPERTIES

@@ -1,6 +1,7 @@
-/* ******************************************************************************
+/* **********************************************************
  * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
- * ******************************************************************************/
+ * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -13,14 +14,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of ARM Limited nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL Google, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -29,8 +30,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-
-/* file "mangle.c" */
 
 #include "../globals.h"
 #include "arch.h"
@@ -44,8 +43,8 @@
 #define POST instrlist_meta_postinsert
 #define PRE  instrlist_meta_preinsert
 
-/* For ARM, we always use TLS and never use hardcoded dcontext
- * (xref USE_SHARED_GENCODE_ALWAYS() and -private_ib_in_tls).
+/* For ARM and AArch64, we always use TLS and never use hardcoded
+ * dcontext (xref USE_SHARED_GENCODE_ALWAYS() and -private_ib_in_tls).
  * Thus we use instr_create_{save_to,restore_from}_tls() directly.
  */
 
@@ -53,6 +52,10 @@ byte *
 remangle_short_rewrite(dcontext_t *dcontext,
                        instr_t *instr, byte *pc, app_pc target)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return NULL;
+#else
     uint mangled_sz = CTI_SHORT_REWRITE_LENGTH;
     uint raw_jmp;
     ASSERT(instr_is_cti_short_rewrite(instr, pc));
@@ -66,11 +69,16 @@ remangle_short_rewrite(dcontext_t *dcontext,
     instr_set_raw_word(instr, CTI_SHORT_REWRITE_B_OFFS, raw_jmp);
     instr_set_operands_valid(instr, true);
     return (pc+mangled_sz);
+#endif
 }
 
 instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return NULL;
+#else
     int opcode = instr_get_opcode(instr);
     if (opcode == OP_b_short) {
         instr_set_opcode(instr, OP_b);
@@ -156,6 +164,7 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     }
     ASSERT_NOT_REACHED();
     return instr;
+#endif
 }
 
 /***************************************************************************/
@@ -165,7 +174,12 @@ void
 insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr)
 {
+
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
     /* There is no DF on ARM, so we do not need clear xflags. */
+#endif
 }
 
 /* Pushes not only the GPRs but also simd regs, xip, and xflags, in
@@ -184,6 +198,12 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
                           uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/)
 {
+#ifdef AARCH64
+    /* FIXME i#1569: NYI */
+    /* Random unallocated encoding to detect if code is excecuted: */
+    PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0x76d30c));
+    return sizeof(priv_mcontext_t);
+#else
     uint dstack_offs = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -237,10 +257,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         dstack_offs += XSP_SZ;
     }
 
-#ifdef X64
-    /* FIXME i#1569: NYI on AArch64 */
-    ASSERT_NOT_IMPLEMENTED(false);
-#else
     /* We rely on dr_get_mcontext_priv() to fill in the app's stolen reg value
      * and sp value.
      */
@@ -260,12 +276,12 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                   DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
     }
     dstack_offs += 15 * XSP_SZ;
-#endif
     ASSERT(cci->skip_save_aflags   ||
            cci->num_xmms_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
     return dstack_offs;
+#endif
 }
 
 /* User should pass the alignment from insert_push_all_registers: i.e., the
@@ -277,12 +293,11 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
                          uint alignment)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
     if (cci == NULL)
         cci = &default_clean_call_info;
-#ifdef X64
-    /* FIXME i#1569: NYI on AArch64 */
-    ASSERT_NOT_IMPLEMENTED(false);
-#else
     /* We rely on dr_set_mcontext_priv() to set the app's stolen reg value,
      * and the stack swap to set the sp value: we assume the stolen reg on
      * the stack still has our TLS base in it.
@@ -294,7 +309,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
                                        OPND_CREATE_INT(XSP_SZ)));
     PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_LR)));
-#endif
 
     /* pc and aflags */
     if (cci->skip_save_aflags) {
@@ -320,17 +334,16 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                            SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
     PRE(ilist, instr, INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
                                            SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
+#endif
 }
 
+#ifndef AARCH64
 reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg)
 {
-#ifdef X64
-    /* FIXME i#1569: NYI on AArch64 */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
     return regular;
 }
+#endif /* !AARCH64 */
 
 uint
 insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -341,7 +354,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     PRE(ilist, instr, mark);
 
     ASSERT(num_args == 0 || args != NULL);
-    /* FIXME i#1551: we only support limited number of args for now. */
+    /* FIXME i#1551, i#1569: we only support limited number of args for now. */
     ASSERT_NOT_IMPLEMENTED(num_args <= NUM_REGPARM);
     for (i = 0; i < num_args; i++) {
         if (opnd_is_immed_int(args[i])) {
@@ -351,19 +364,23 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         } else if (opnd_is_reg(args[i])) {
             ASSERT_NOT_IMPLEMENTED(opnd_get_size(args[i]) == OPSZ_PTR);
             if (opnd_get_reg(args[i]) == DR_REG_XSP) {
+#ifdef AARCH64
+                ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
                 instr_t *loc = instr_get_next(mark);
                 PRE(ilist, loc, instr_create_save_to_tls
                     (dcontext, regparms[i], TLS_REG0_SLOT));
                 insert_get_mcontext_base(dcontext, ilist, loc, regparms[i]);
                 PRE(ilist, loc, instr_create_restore_from_dc_via_reg
                     (dcontext, regparms[i], regparms[i], XSP_OFFSET));
+#endif
             } else if (opnd_get_reg(args[i]) != regparms[i]) {
                 POST(ilist, mark, XINST_CREATE_move(dcontext,
                                                     opnd_create_reg(regparms[i]),
                                                     args[i]));
             }
         } else {
-            /* FIXME i#1551: we only implement naive parameter preparation,
+            /* FIXME i#1551, i#1569: we only implement naive parameter preparation,
              * where args are all regs or immeds and do not conflict with param regs.
              */
             ASSERT_NOT_IMPLEMENTED(false);
@@ -391,16 +408,25 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                            opnd_create_reg(scratch), ilist, where, NULL, NULL);
     /* even if a call and not a jmp, we can skip this if it doesn't return */
     if (!jmp && returns) {
+#ifdef AARCH64
+        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
         /* Trying to compute cur pc ourselves is fragile b/c for Thumb it
          * varies due to the back-align so we use an instr.
          */
         insert_mov_instr_addr(dcontext, post_call, encode_pc,
                               opnd_create_reg(DR_REG_LR), ilist, where, NULL, NULL);
+#endif
     }
     /* mov target from scratch register to pc */
+#ifdef AARCH64
+    PRE(ilist, where, INSTR_CREATE_xx(dcontext, 0xd61f0000 | /* br x(scratch) */
+                                      (scratch - DR_REG_X0) << 5));
+#else
     PRE(ilist, where, INSTR_CREATE_mov(dcontext,
                                        opnd_create_reg(DR_REG_PC),
                                        opnd_create_reg(scratch)));
+#endif
     PRE(ilist, where, post_call);
     return false /* an ind branch */;
 }
@@ -409,8 +435,7 @@ int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr, bool save)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
     return 0;
 }
 
@@ -419,6 +444,8 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
  *
  *   M A N G L I N G   R O U T I N E S
  */
+
+#ifndef AARCH64
 
 /* forward declaration */
 static void
@@ -633,12 +660,39 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
     });
 }
 
+#endif /* !AARCH64 */
+
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst,
                       instrlist_t *ilist, instr_t *instr,
                       instr_t **first, instr_t **second)
 {
+#ifdef AARCH64
+    /* XXX: Generates MOVZ and some MOVKs. It could easily be improved. */
+    uint rt;
+    int i;
+
+    ASSERT(first == NULL && second == NULL);
+    CLIENT_ASSERT(opnd_is_reg(dst),
+                  "AArch64 cannot store an immediate direct to memory");
+    rt = opnd_get_reg(dst) - DR_REG_X0;
+    ASSERT(rt < 31);
+    if (src_inst != NULL)
+        val = (ptr_int_t)encode_estimate;
+
+    /* movz x(rt), #(val & 0xffff) */
+    PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0xd2800000 |
+                                      rt | (val & 0xffff) << 5));
+    for (i = 1; i < 4; i++) {
+        if ((val >> (16 * i) & 0xffff) != 0) {
+            /* movk x(rt), #(val >> sh & 0xffff), lsl #(sh) */
+            PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0xf2800000 | rt |
+                                              ((val >> 16 * i) & 0xffff) << 5 |
+                                              i << 21));
+        }
+    }
+#else
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
         val = (ptr_int_t) encode_estimate;
@@ -677,6 +731,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
         *first = mov1;
     if (second != NULL)
         *second = mov2;
+#endif
 }
 
 void
@@ -684,25 +739,30 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        instr_t **first, instr_t **second)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
 }
 
 /* Used for fault translation */
 bool
 instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return false;
+#else
     ASSERT(xsp_adjust != NULL);
     /* No current ARM mangling splits an atomic push/pop into emulated pieces:
      * the OP_ldm/OP_stm splits shouldn't need special translation handling.
      */
     return false;
+#endif
 }
 
 void
 mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     instr_t *instr, instr_t *next_instr)
 {
+#ifndef AARCH64 /* FIXME i#1569: NYI */
     /* inlined conditional system call mangling is not supported */
     ASSERT(!instr_is_predicated(instr));
 
@@ -749,6 +809,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
     }
+#endif /* !AARCH64 */
 }
 
 #ifdef UNIX
@@ -757,9 +818,10 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
  * Assumes that instructions exist beyond instr in ilist.
  */
 void
-mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
-                         _IF_X64(gencode_mode_t mode))
+mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
+                         instr_t *instr)
 {
+# ifndef AARCH64 /* FIXME i#1569: NYI */
     /*    svc 0
      *    cbnz r0, parent
      *    jmp new_thread_dynamo_start
@@ -773,11 +835,12 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         INSTR_CREATE_cbnz(dcontext, opnd_create_instr(parent),
                           opnd_create_reg(DR_REG_R0)));
     insert_reachable_cti(dcontext, ilist, in, vmcode_get_start(),
-                         (byte *) get_new_thread_start(dcontext _IF_X64(mode)),
+                         (byte *) get_new_thread_start(dcontext),
                          true/*jmp*/, false/*!returns*/, false/*!precise*/,
                          DR_REG_R0/*scratch*/, NULL);
     instr_set_meta(instr_get_prev(in));
     PRE(ilist, in, parent);
+# endif /* !AARCH64 */
 }
 #endif /* UNIX */
 
@@ -785,9 +848,10 @@ void
 mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
 }
+
+#ifndef AARCH64
 
 /* Adds a mov of the fall-through address into IBL_TARGET_REG, predicated
  * with the inverse of instr's predicate.
@@ -843,10 +907,25 @@ app_instr_is_in_it_block(dcontext_t *dcontext, instr_t *instr)
             instr_is_predicated(instr));
 }
 
+#endif /* !AARCH64 */
+
 instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
+#ifdef AARCH64
+    ptr_int_t target, retaddr;
+
+    ASSERT(instr_get_opcode(instr) == OP_bl);
+    ASSERT(opnd_is_pc(instr_get_target(instr)));
+    target = (ptr_int_t)opnd_get_pc(instr_get_target(instr));
+    retaddr = get_call_return_address(dcontext, ilist, instr);
+    insert_mov_immed_ptrsz(dcontext, retaddr,
+                           opnd_create_reg(DR_REG_X30), ilist, instr, 0, 0);
+    instrlist_remove(ilist, instr); /* remove OP_bl */
+    instr_destroy(dcontext, instr);
+    return next_instr;
+#else
     /* Strategy: replace OP_bl with 2-step mov immed into lr + OP_b */
     ptr_uint_t retaddr;
     uint opc = instr_get_opcode(instr);
@@ -907,12 +986,37 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (in_it)
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
     return next_instr;
+#endif
 }
 
 instr_t *
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
+#ifdef AARCH64
+    ASSERT(instr_get_opcode(instr) == OP_blr);
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    ASSERT(opnd_is_reg(instr_get_target(instr)));
+    if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
+        /* if the target reg is dr_reg_stolen, the app value is in TLS */
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext,
+                                          IBL_TARGET_REG,
+                                          TLS_REG_STOLEN_SLOT));
+    } else {
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                              instr_get_target(instr)));
+    }
+    insert_mov_immed_ptrsz(dcontext,
+                           get_call_return_address(dcontext, ilist, instr),
+                           opnd_create_reg(DR_REG_X30),
+                           ilist, next_instr, 0, 0);
+    instrlist_remove(ilist, instr); /* remove OP_blr */
+    instr_destroy(dcontext, instr);
+    return next_instr;
+#else
     ptr_uint_t retaddr;
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
@@ -954,6 +1058,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (in_it)
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
     return next_instr;
+#endif
 }
 
 void
@@ -968,6 +1073,27 @@ instr_t *
 mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags)
 {
+#ifdef AARCH64
+    ASSERT(instr_get_opcode(instr) == OP_br ||
+           instr_get_opcode(instr) == OP_ret);
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    ASSERT(opnd_is_reg(instr_get_target(instr)));
+    if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
+        /* if the target reg is dr_reg_stolen, the app value is in TLS */
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext,
+                                          IBL_TARGET_REG,
+                                          TLS_REG_STOLEN_SLOT));
+    } else {
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                              instr_get_target(instr)));
+    }
+    instrlist_remove(ilist, instr); /* remove OP_br or OP_ret */
+    instr_destroy(dcontext, instr);
+    return next_instr;
+#else
     bool remove_instr = false;
     int opc = instr_get_opcode(instr);
     dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
@@ -997,7 +1123,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         opnd_set_size(&memop, OPSZ_VAR_REGLIST);
         instr_set_src(instr, 0, memop);
         instr_set_dst(instr, 0, opnd_create_reg(IBL_TARGET_REG));
-#ifdef CLIENT_INTERFACE
+# ifdef CLIENT_INTERFACE
         /* We target only the typical return instructions: multi-pop here */
         if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldmia) {
             bool writeback = instr_num_srcs(instr) > 1;
@@ -1012,7 +1138,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      XINST_CREATE_store(dcontext, memop, opnd_create_reg(dr_reg_stolen)));
             } /* else not a pop */
         }
-#endif
+# endif
     } else if (opc == OP_bx || opc ==  OP_bxj) {
         ASSERT(opnd_is_reg(instr_get_target(instr)));
         if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
@@ -1136,7 +1262,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             mangle_stolen_reg(dcontext, ilist, instr, immed_next, remove_instr);
         }
-#ifdef CLIENT_INTERFACE
+# ifdef CLIENT_INTERFACE
         /* We target only the typical return instructions: single pop here */
         if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldr) {
             bool writeback = instr_num_srcs(instr) > 1;
@@ -1148,7 +1274,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      XINST_CREATE_store(dcontext, memop, opnd_create_reg(dr_reg_stolen)));
             } /* else not a pop */
         }
-#endif
+# endif
     }
     if (instr_is_predicated(instr)) {
         mangle_add_predicated_fall_through(dcontext, ilist, instr, next_instr,
@@ -1162,7 +1288,10 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (in_it)
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
     return next_instr;
+#endif
 }
+
+#ifndef AARCH64
 
 /* Local single-instr-window scratch reg picker.  Only considers r0-r3, so the
  * caller must split up any GPR reg list first.  Assumes we only care about instrs
@@ -1237,13 +1366,52 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
     return reg;
 }
 
-/* Should return NULL if it destroys "instr".  We don't support both destroying
- * (done only for x86) and changing next_instr (done only for ARM).
- */
+#endif /* !AARCH64 */
+
+/* Should return NULL if it destroys "instr". */
 instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
+#ifdef AARCH64
+    uint opc = instr_get_opcode(instr);
+    opnd_t dst = instr_get_dst(instr, 0);
+    app_pc tgt;
+    ASSERT(opc == OP_adr || opc == OP_adrp || opc == OP_ldr);
+    ASSERT(instr_has_rel_addr_reference(instr));
+    instr_get_rel_addr_target(instr, &tgt);
+    ASSERT(opnd_is_reg(dst));
+    ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
+    ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == tgt);
+    if (opc == OP_ldr && reg_is_gpr(dst.value.reg)) {
+        reg_id_t xreg = reg_to_pointer_sized(opnd_get_reg(dst));
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, opnd_create_reg(xreg),
+                               ilist, next_instr, 0, 0);
+        PRE(ilist, next_instr,
+            XINST_CREATE_load(dcontext, dst,
+                              opnd_create_base_disp(xreg, REG_NULL,
+                                                    0, 0, opnd_get_size(dst))));
+    } else if (opc == OP_ldr) {
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt,
+                               opnd_create_reg(DR_REG_X0),
+                               ilist, next_instr, 0, 0);
+        PRE(ilist, next_instr,
+            XINST_CREATE_load(dcontext, dst,
+                              opnd_create_base_disp(DR_REG_X0, REG_NULL,
+                                                    0, 0, opnd_get_size(dst))));
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+    } else {
+        /* OP_adr, OP_adrp */
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst,
+                               ilist, next_instr, 0, 0);
+    }
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    return NULL;
+#else
     /* Compute the value of r15==pc for orig app instr */
     ptr_int_t r15 = (ptr_int_t)
         decode_cur_pc(instr_get_raw_bits(instr), instr_get_isa_mode(instr),
@@ -1312,9 +1480,11 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
     }
     return next_instr;
+#endif
 }
 
-#ifndef X64
+#ifndef AARCH64
+
 /* mangle simple pc read, pc read in gpr_list is handled in mangle_gpr_list_read */
 static void
 mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1347,7 +1517,6 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (should_restore)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
 }
-#endif /* !X64 */
 
 /* save tls_base from dr_reg_stolen to reg and load app value to dr_reg_stolen */
 static void
@@ -1472,11 +1641,24 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, tmp, slot));
 }
 
+#endif /* !AARCH64 */
+
 /* replace thread register read instruction with a TLS load instr */
 instr_t *
 mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
                              instr_t *instr, instr_t *next_instr)
 {
+#ifdef AARCH64
+    reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
+    ASSERT(instr->opcode == OP_mrs);
+    ASSERT_NOT_IMPLEMENTED(reg != dr_reg_stolen); /* FIXME i#1569 */
+    PRE(ilist, instr,
+        instr_create_restore_from_tls(dcontext, reg,
+                                      os_get_app_tls_base_offset(TLS_REG_LIB)));
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    return next_instr;
+#else
     opnd_t opnd;
     reg_id_t reg;
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
@@ -1520,7 +1702,27 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
     if (in_it)
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, next_instr);
     return next_instr;
+#endif
 }
+
+#ifdef AARCH64
+instr_t *
+mangle_writes_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
+                              instr_t *instr, instr_t *next_instr)
+{
+    reg_id_t reg = opnd_get_reg(instr_get_src(instr, 0));
+    ASSERT(instr->opcode == OP_msr);
+    ASSERT_NOT_IMPLEMENTED(reg != dr_reg_stolen); /* FIXME i#1569 */
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, reg,
+                                 os_get_app_tls_base_offset(TLS_REG_LIB)));
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    return next_instr;
+}
+#endif
+
+#ifndef AARCH64
 
 static void
 store_reg_to_memlist(dcontext_t *dcontext,
@@ -2098,10 +2300,8 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         finished = true;
     }
 
-#ifndef X64
     if (!finished && instr_reads_from_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_ALL))
         mangle_pc_read(dcontext, ilist, instr, next_instr);
-#endif /* !X64 */
 
     /* mangle_stolen_reg must happen after mangle_pc_read to avoid reg conflict */
     if (!finished && instr_uses_reg(instr, dr_reg_stolen) && !instr_is_mbr(instr))
@@ -2113,10 +2313,12 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     return next_instr;
 }
 
+#endif /* !AARCH64 */
+
 void
 float_pc_update(dcontext_t *dcontext)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* FIXME i#1551, i#1569: NYI on ARM */
     ASSERT_NOT_REACHED();
 }
 
