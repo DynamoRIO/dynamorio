@@ -358,6 +358,7 @@ To build using the Android toolchain, use:
 mkdir build
 cd build
 cmake -DCMAKE_TOOLCHAIN_FILE=$DYNAMORIO_HOME/make/toolchain-android.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 $DYNAMORIO_HOME/api/samples/
+make instrcalls
 \endcode
 
 The result is a shared library instrcalls.dll or libinstrcalls.so. To
