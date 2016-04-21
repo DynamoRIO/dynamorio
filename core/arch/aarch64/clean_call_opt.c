@@ -35,10 +35,24 @@
 
 #ifdef CLIENT_INTERFACE
 
+static void
+callee_info_init(callee_info_t *ci)
+{
+    memset(ci, 0, sizeof(*ci));
+    ci->bailout = true;
+    /* to be conservative */
+    ci->has_locals   = true;
+    ci->write_aflags = true;
+    ci->read_aflags  = true;
+    ci->tls_used     = true;
+}
+
 void
 clean_call_opt_init(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* FIXME i#1569: NYI on AArch64 */
+    ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);
+    callee_info_init(&default_callee_info);
 }
 
 void

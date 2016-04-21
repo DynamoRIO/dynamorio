@@ -822,15 +822,23 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif /* X64 || ARM */
 
-#ifdef ARM
-# ifdef X64
-#  error NYI on AArch64 for writing thread register
-# endif
+#if defined(ARM) || defined(AARCH64)
         if (!instr_is_meta(instr) && instr_reads_thread_register(instr)) {
             next_instr = mangle_reads_thread_register(dcontext, ilist,
                                                       instr, next_instr);
             continue;
         }
+#endif /* ARM || AARCH64 */
+
+#ifdef AARCH64
+        if (!instr_is_meta(instr) && instr_writes_thread_register(instr)) {
+            next_instr = mangle_writes_thread_register(dcontext, ilist,
+                                                       instr, next_instr);
+            continue;
+        }
+#endif /* AARCH64 */
+
+#ifdef ARM
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
          */

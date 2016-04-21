@@ -37,7 +37,7 @@
 void
 proc_init_arch(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* FIXME i#1569: NYI */
 }
 
 bool
@@ -50,7 +50,7 @@ proc_has_feature(feature_bit_t f)
 void
 machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    cache_sync_asm(pc_start, pc_end);
 }
 
 DR_API

@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,14 +14,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of ARM Limited nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -39,8 +40,7 @@ reg_id_t dr_reg_stolen = DR_REG_NULL;
 uint
 opnd_immed_float_arch(uint opcode)
 {
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
     return 0;
 }
 
@@ -48,14 +48,23 @@ DR_API
 bool
 reg_is_stolen(reg_id_t reg)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return false;
+#else
     if (dr_reg_fixer[reg] == dr_reg_stolen && dr_reg_fixer[reg] != DR_REG_NULL)
         return true;
     return false;
+#endif
 }
 
 int
 opnd_get_reg_dcontext_offs(reg_id_t reg)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return 0;
+#else
     switch (reg) {
     case DR_REG_R0:  return  R0_OFFSET;
     case DR_REG_R1:  return  R1_OFFSET;
@@ -76,9 +85,9 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
         return -1;
     }
+#endif
 }
 
-/****************************************************************************/
 #ifndef STANDALONE_DECODER
 
 opnd_t
@@ -88,4 +97,3 @@ opnd_create_sized_tls_slot(int offs, opnd_size_t size)
 }
 
 #endif /* !STANDALONE_DECODER */
-/****************************************************************************/

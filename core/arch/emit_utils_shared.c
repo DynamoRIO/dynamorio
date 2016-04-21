@@ -1872,7 +1872,17 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
 #ifdef AARCH64
-            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+            /* Load next_tag from FCACHE_ENTER_TARGET_SLOT (TLS_REG0_SLOT):
+             * ldr x0, [x28]
+             */
+            APP(ilist, INSTR_CREATE_xx(dcontext, 0xf9400380));
+            /* Subtract 4 to include the fragment prefix,
+             * which restores X0 from TLS_REG1_SLOT:
+             * sub x0, x0, #4
+             */
+            APP(ilist, INSTR_CREATE_xx(dcontext, 0xd1000000 | 4 << 10));
+            /* br x0 */
+            APP(ilist, INSTR_CREATE_xx(dcontext, 0xd61f0000));
 #else
             APP(ilist,
                 XINST_CREATE_jump_mem(dcontext,
@@ -2052,6 +2062,12 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code,
     /* i#249: isolate the PEB and TEB */
     preinsert_swap_peb(dcontext, &ilist, NULL, absolute, SCRATCH_REG5,
                        SCRATCH_REG0/*scratch*/, false/*to app*/);
+#endif
+
+#ifdef AARCH64
+    /* Put app's X0 in TLS_REG1_SLOT: */
+    APP(&ilist, INSTR_CREATE_xx(dcontext, 0xf94000a0)); /* ldr x0, [x5] */
+    APP(&ilist, INSTR_CREATE_xx(dcontext, 0xf9000780)); /* str x0, [x28, #8] */
 #endif
 
     /* restore the original register state */
@@ -2426,7 +2442,8 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
      * attacks, the dstack is not perfectly protected.
      */
 #ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_X1, DSTACK_OFFSET));
+    APP(ilist, INSTR_CREATE_xx(dcontext, 0x9100001f | 1 << 5)); /* mov sp, x1 */
 #else
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSP, DSTACK_OFFSET));
 #endif
@@ -5209,7 +5226,8 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_tgt)));
 #elif defined(AARCH64)
     (void)ibl_tgt;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* Random unallocated encoding to detect if code is excecuted: */
+    APP(&ilist, INSTR_CREATE_xx(dcontext, 0x801e04));
 #elif defined(ARM)
     /* i#1906: loads to PC must use word-aligned addresses */
     ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_tgt), PC_LOAD_ADDR_ALIGN));
