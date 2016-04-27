@@ -39,9 +39,6 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-#ifdef X64
-    return (mode == DR_ISA_ARM_A64);
-#else
     if (mode == DR_ISA_ARM_THUMB)
         instr->flags |= INSTR_THUMB_MODE;
     else if (mode == DR_ISA_ARM_A32)
@@ -49,17 +46,12 @@ instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
     else
         return false;
     return true;
-#endif
 }
 
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-#ifdef X64
-    return DR_ISA_ARM_A64;
-#else
     return TEST(INSTR_THUMB_MODE, instr->flags) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
-#endif
 }
 
 int

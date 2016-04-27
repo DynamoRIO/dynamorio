@@ -166,11 +166,7 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-#ifdef X64
-    return (mode == DR_ISA_ARM_A64);
-#else
     return (mode == DR_ISA_ARM_THUMB || DR_ISA_ARM_A32);
-#endif
 }
 
 /* We need to call canonicalize_pc_target() on all next_tag-writing
@@ -2613,8 +2609,7 @@ decode_next_pc(dcontext_t *dcontext, byte *pc)
 }
 
 int
-decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
-              _IF_X64(uint *rip_rel_pos))
+decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes)
 {
     /* XXX: check for invalid opcodes, though maybe it's fine to never do so
      * (xref i#1685).
@@ -2628,7 +2623,7 @@ byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
     /* XXX i#1551: set isa_mode of instr once we add that feature */
-    int sz = decode_sizeof(dcontext, pc, NULL _IF_X64(NULL));
+    int sz = decode_sizeof(dcontext, pc, NULL);
     if (sz == 0) {
         /* invalid instruction! */
         instr_set_opcode(instr, OP_INVALID);

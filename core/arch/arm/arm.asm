@@ -79,10 +79,6 @@ DECL_EXTERN(initstack_mutex)
 # error Non-Unix is not supported
 #endif
 
-#ifdef X64
-#  error AArch64 is not supported
-#endif
-
 #ifdef UNIX
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
@@ -272,9 +268,6 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         mrs      REG_R0, cpsr /* r0 is scratch */
         push     {REG_R0}
         /* We can't push all regs w/ writeback */
-#ifdef X64
-# error NYI
-#endif
         stmdb    sp, {REG_R0-r15}
         str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
         /* we need the sp at function entry */
@@ -531,9 +524,6 @@ GLOBAL_LABEL(dr_try_start:)
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-#ifdef X64
-# error NYI on AArch64
-#endif
         /* we do not have to save r0 (return value) or r15 (pc) */
         /* optimization: can we trust callee-saved regs r0-r3 and not save them? */
         push     {lr}
@@ -547,9 +537,6 @@ GLOBAL_LABEL(dr_setjmp:)
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-#ifdef X64
-# error NYI on AArch64
-#endif
         mov      REG_R2, ARG1
         mov      REG_R0, ARG2
         ldm      REG_R2, {REG_R1-REG_R12, sp, lr}
@@ -628,13 +615,9 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
  */
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-#ifdef X64
-# error NYI: i#1569
-#else
         mov      r0, #0 /* exit code: hardcoded */
         mov      r7, #SYS_exit
         svc      0
-#endif
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
@@ -645,9 +628,6 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
  */
         DECLARE_FUNC(dynamorio_futex_wake_and_exit)
 GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
-#ifdef X64
-# error NYI: i#1569
-#else
         mov      r5, #0 /* arg6 */
         mov      r4, #0 /* arg5 */
         mov      r3, #0 /* arg4 */
@@ -656,7 +636,6 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
         /* arg1 = &futex, already in r0 */
         mov      r7, #240 /* SYS_futex */
         svc      0
-#endif
         b        GLOBAL_REF(dynamorio_sys_exit)
         END_FUNC(dynamorio_futex_wake_and_exit)
 

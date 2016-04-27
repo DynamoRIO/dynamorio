@@ -107,12 +107,10 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
     DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
-#ifndef X64
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
     DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-#endif
     /* q0-q31 */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
@@ -129,16 +127,6 @@ const reg_id_t dr_reg_fixer[] = {
      * But for AArch32, the smaller ones are compressed such that
      * they refer to the top and bottom.  B and H are AArch64-only.
      */
-#ifdef X64
-    DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
-    DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
-    DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
-    DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
-    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
-    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
-    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
-#else
     DR_REG_Q0,  DR_REG_Q0,   DR_REG_Q1,   DR_REG_Q1,
     DR_REG_Q2,  DR_REG_Q2,   DR_REG_Q3,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q4,   DR_REG_Q5,   DR_REG_Q5,
@@ -147,18 +135,7 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_Q10, DR_REG_Q10,  DR_REG_Q11,  DR_REG_Q11,
     DR_REG_Q12, DR_REG_Q12,  DR_REG_Q13,  DR_REG_Q13,
     DR_REG_Q14, DR_REG_Q14,  DR_REG_Q15,  DR_REG_Q15,
-#endif
     /* s0-s31 */
-#ifdef X64
-    DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
-    DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
-    DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
-    DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
-    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
-    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
-    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
-#else
     DR_REG_Q0,  DR_REG_Q0,   DR_REG_Q0,   DR_REG_Q0,
     DR_REG_Q1,  DR_REG_Q1,   DR_REG_Q1,   DR_REG_Q1,
     DR_REG_Q2,  DR_REG_Q2,   DR_REG_Q2,   DR_REG_Q2,
@@ -167,39 +144,24 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_Q5,  DR_REG_Q5,   DR_REG_Q5,   DR_REG_Q5,
     DR_REG_Q6,  DR_REG_Q6,   DR_REG_Q6,   DR_REG_Q6,
     DR_REG_Q7,  DR_REG_Q7,   DR_REG_Q7,   DR_REG_Q7,
-#endif
     /* h0-h31: AArch64-only */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
     DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-#ifdef X64
-    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
-    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
-    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
-    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
-#else
     DR_REG_D16, DR_REG_D17,  DR_REG_D18,  DR_REG_D19,
     DR_REG_D20, DR_REG_D21,  DR_REG_D22,  DR_REG_D23,
     DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
     DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
-#endif
     /* b0-b31: AArch64-only */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
     DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-#ifdef X64
-    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
-    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
-    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
-    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
-#else
     DR_REG_D16, DR_REG_D17,  DR_REG_D18,  DR_REG_D19,
     DR_REG_D20, DR_REG_D21,  DR_REG_D22,  DR_REG_D23,
     DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
     DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
-#endif
     DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
     DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
     DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,

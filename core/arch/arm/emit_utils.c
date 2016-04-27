@@ -213,7 +213,7 @@ get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry)
     ibl_type_t ibl_type = {0};
     /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
     DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, ibl_entry, &ibl_type _IF_X64(NULL));
+        get_ibl_routine_type_ex(dcontext, ibl_entry, &ibl_type);
     ASSERT(is_ibl);
     /* FIXME i#1575: coarse-grain NYI on ARM */
     ASSERT(ibl_type.source_fragment_type != IBL_COARSE_SHARED);
@@ -481,7 +481,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     cache_pc exit_target;
     ibl_type_t ibl_type = {0};
     DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type _IF_X64(NULL));
+        get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type);
     ASSERT(is_ibl);
     if (IS_IBL_LINKED(ibl_type.link_state))
         exit_target = target_tag;
@@ -619,9 +619,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 /***************************************************************************/
 /*             THREAD-PRIVATE/SHARED ROUTINE GENERATION                    */
 /***************************************************************************/
-#ifdef X64
-# error NYI on AArch64
-#endif
 
 /* helper functions for emit_fcache_enter_common */
 
@@ -847,7 +844,7 @@ append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64_ibl_opt))
+                   uint flags, bool tls, bool absolute)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -855,8 +852,7 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                      uint flags, bool tls, bool absolute
-                      _IF_X64(bool x86_to_x64_ibl_opt))
+                      uint flags, bool tls, bool absolute)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
