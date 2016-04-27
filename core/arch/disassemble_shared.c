@@ -1449,7 +1449,7 @@ instrlist_disassemble(dcontext_t *dcontext,
                 level = 3;
             else if (instr_opcode_valid(instr))
                 level = 2;
-            else if (decode_sizeof(dcontext, addr, NULL _IF_X64(NULL)) == len)
+            else if (decode_sizeof(dcontext, addr, NULL _IF_X86_64(NULL)) == len)
                 level = 1;
             else
                 level = 0;

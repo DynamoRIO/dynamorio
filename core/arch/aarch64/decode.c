@@ -226,8 +226,7 @@ decode_next_pc(dcontext_t *dcontext, byte *pc)
 }
 
 int
-decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
-              _IF_X64(uint *rip_rel_pos))
+decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;

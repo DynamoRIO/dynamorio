@@ -1292,7 +1292,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     CLIENT_ASSERT(!instr_operands_valid(instr), "instr_expand: opnds are already valid");
     CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_expand: raw bits are invalid");
     curbytes = instr->bytes;
-    if ((uint)decode_sizeof(dcontext, curbytes, NULL _IF_X64(NULL)) == instr->length) {
+    if ((uint)decode_sizeof(dcontext, curbytes, NULL _IF_X86_64(NULL)) == instr->length) {
         dr_set_isa_mode(dcontext, old_mode, NULL);
         return instr; /* Level 1 */
     }
@@ -1383,7 +1383,7 @@ instr_is_level_0(instr_t *instr)
     CLIENT_ASSERT(instr_raw_bits_valid(instr),
                   "instr_is_level_0: raw bits are invalid");
     dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
-    if ((uint)decode_sizeof(dcontext, instr->bytes, NULL _IF_X64(NULL)) ==
+    if ((uint)decode_sizeof(dcontext, instr->bytes, NULL _IF_X86_64(NULL)) ==
         instr->length) {
         dr_set_isa_mode(dcontext, old_mode, NULL);
         return false; /* Level 1 */

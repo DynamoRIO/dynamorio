@@ -4967,10 +4967,10 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  */
                 ASSERT(sc_orig != NULL);
                 instr_sz = decode_sizeof(dcontext, (byte *) sc_orig->SC_XIP,
-                                         NULL _IF_X64(NULL));
+                                         NULL _IF_X86_64(NULL));
                 if (instr_sz != 0 &&
                     pc != NULL && /* avoid crash on xl8 failure (i#1699) */
-                    instr_sz == decode_sizeof(dcontext, pc, NULL _IF_X64(NULL)) &&
+                    instr_sz == decode_sizeof(dcontext, pc, NULL _IF_X86_64(NULL)) &&
                     memcmp(pc, (byte *) sc_orig->SC_XIP, instr_sz) == 0) {
                     /* the app instr matches the cache instr; cleanup and raise the
                      * the signal in the app context
