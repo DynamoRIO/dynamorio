@@ -910,6 +910,7 @@ os_init(void)
 
     ntdll_init();
     callback_init();
+    syscall_interception_init();
 
     eventlog_init(); /* os dependent and currently Windows specific */
 
@@ -1202,6 +1203,7 @@ os_slow_exit(void)
                   TLS_NUM_SLOTS);
     ASSERT(res);
 
+    syscall_interception_exit();
     aslr_exit();
     eventlog_slow_exit();
     os_take_over_exit();

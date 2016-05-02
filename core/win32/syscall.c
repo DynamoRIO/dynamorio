@@ -980,6 +980,87 @@ syscall_uses_edx_param_base()
 #define SET_RETURN_VAL(dc, val) \
   get_mcontext(dc)->xax = (reg_t) (val)
 
+/****************************************************************************
+ * Thread-handle-to-id table for DrMi#1884.
+ *
+ * A handle from the app may not have THREAD_QUERY_INFORMATION privileges, so
+ * we are forced to maintain a translation table.
+ */
+
+static generic_table_t *handle2tid_table;
+#define INIT_HTABLE_SIZE_TID 6 /* should remain small */
+
+/* Returns 0 == INVALID_THREAD_ID on failure */
+static thread_id_t
+handle_to_tid_lookup(HANDLE thread_handle)
+{
+    thread_id_t tid;
+    TABLE_RWLOCK(handle2tid_table, read, lock);
+    tid = (thread_id_t) generic_hash_lookup(GLOBAL_DCONTEXT, handle2tid_table,
+                                            (ptr_uint_t)thread_handle);
+    TABLE_RWLOCK(handle2tid_table, read, unlock);
+    return tid;
+}
+
+static bool
+handle_to_tid_add(HANDLE thread_handle, thread_id_t tid)
+{
+    TABLE_RWLOCK(handle2tid_table, write, lock);
+    generic_hash_add(GLOBAL_DCONTEXT, handle2tid_table,
+                     (ptr_uint_t)thread_handle, (void *)tid);
+    LOG(GLOBAL, LOG_VMAREAS, 2,
+        "handle_to_tid: thread "PFX" => %d\n", thread_handle, tid);
+    TABLE_RWLOCK(handle2tid_table, write, unlock);
+    return true;
+}
+
+static bool
+handle_to_tid_remove(HANDLE thread_handle)
+{
+    bool found = false;
+    TABLE_RWLOCK(handle2tid_table, write, lock);
+    found = generic_hash_remove(GLOBAL_DCONTEXT, handle2tid_table,
+                                (ptr_uint_t)thread_handle);
+    TABLE_RWLOCK(handle2tid_table, write, unlock);
+    return found;
+}
+
+static thread_id_t
+thread_handle_to_tid(HANDLE thread_handle)
+{
+    thread_id_t tid = handle_to_tid_lookup(thread_handle);
+    if (tid == INVALID_THREAD_ID)
+        tid = thread_id_from_handle(thread_handle);
+    return tid;
+}
+
+static process_id_t
+thread_handle_to_pid(HANDLE thread_handle, thread_id_t tid/*optional*/)
+{
+    if (tid == INVALID_THREAD_ID)
+        tid = handle_to_tid_lookup(thread_handle);
+    if (tid != INVALID_THREAD_ID) {
+        /* Get a handle with more privileges */
+        thread_handle = thread_handle_from_id(tid);
+    }
+    return process_id_from_thread_handle(thread_handle);
+}
+
+void
+syscall_interception_init(void)
+{
+    handle2tid_table = generic_hash_create
+        (GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TID, 80 /* not perf-critical */,
+         HASHTABLE_SHARED | HASHTABLE_PERSISTENT, NULL
+         _IF_DEBUG("section-to-file table"));
+}
+
+void
+syscall_interception_exit(void)
+{
+    generic_hash_destroy(GLOBAL_DCONTEXT, handle2tid_table);
+}
+
 /***************************************************************************
  * PRE SYSTEM CALL
  *
@@ -1494,8 +1575,8 @@ static void
 presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
 {
     HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
-    thread_id_t tid = thread_id_from_handle(thread_handle);
-    process_id_t pid = process_id_from_thread_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
+    process_id_t pid = thread_handle_to_pid(thread_handle, tid);
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
         "syscall: NtResumeThread pid=%d tid=%d\n", pid, tid);
     if (DYNAMO_OPTION(follow_children) && pid != POINTER_MAX && !is_pid_me(pid)) {
@@ -1666,8 +1747,9 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
     ASSERT(tr != NULL);
     if (thread_handle == 0)
         thread_handle = NT_CURRENT_THREAD;
-    tid = thread_id_from_handle(thread_handle);
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1, "syscall: NtTerminateThread tid=%d\n", tid);
+    tid = thread_handle_to_tid(thread_handle);
+    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
+        "syscall: NtTerminateThread "PFX" => tid=%d\n", thread_handle, tid);
 
     if (tid == 0xFFFFFFFF) {
         /* probably invalid handle, do nothing for now */
@@ -1693,7 +1775,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
                 * considered exited just before it is signaled, but is ok
                 * for an assert. */
                is_thread_exited(thread_handle) == THREAD_EXITED ||
-               !is_pid_me(process_id_from_thread_handle(thread_handle)));
+               !is_pid_me(thread_handle_to_pid(thread_handle, tid)));
         copy_mcontext(&mcontext, mc);
     } else {
         /* case 9347 - racy early thread, yet primary is not yet 'known' */
@@ -1732,7 +1814,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     CONTEXT *cxt = (CONTEXT *) sys_param(dcontext, param_base, 1);
-    thread_id_t tid = thread_id_from_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
     bool intercept = true;
     bool execute_syscall = true;
     /* FIXME : we are going to read and write to cxt, which may be unsafe */
@@ -2534,12 +2616,16 @@ presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
 static void
 presys_Close(dcontext_t *dcontext, reg_t *param_base)
 {
+    HANDLE handle = (HANDLE) sys_param(dcontext, param_base, 0);
     if (DYNAMO_OPTION(track_module_filenames)) {
-        HANDLE handle = (HANDLE) sys_param(dcontext, param_base, 0);
         if (section_to_file_remove(handle)) {
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
                 "syscall: NtClose of section handle "PFX"\n", handle);
         }
+    }
+    if (handle_to_tid_remove(handle)) {
+        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+            "syscall: NtClose of thread handle "PFX"\n", handle);
     }
 }
 
@@ -2684,7 +2770,7 @@ pre_system_call(dcontext_t *dcontext)
     }
     else if (sysnum == syscalls[SYS_SuspendThread]) {
         HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtSuspendThread tid=%d\n", tid);
         if (SELF_PROTECT_ON_CXT_SWITCH) {
@@ -2702,7 +2788,7 @@ pre_system_call(dcontext_t *dcontext)
 #ifdef DEBUG
     else if (sysnum == syscalls[SYS_AlertResumeThread]) {
         HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtAlertResumeThread tid=%d\n", tid);
     }
@@ -2937,7 +3023,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
     CONTEXT *cxt = (CONTEXT *) postsys_param(dcontext, param_base, 1);
     thread_record_t *trec;
-    thread_id_t tid = thread_id_from_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
     char buf[MAX_CONTEXT_SIZE];
     CONTEXT *alt_cxt;
     CONTEXT *xlate_cxt;
@@ -2962,7 +3048,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
          * for either case we do nothing for now
          */
         DODEBUG({
-            process_id_t pid = process_id_from_thread_handle(thread_handle);
+            process_id_t pid = thread_handle_to_pid(thread_handle, tid);
             if (!is_pid_me(pid)) {
                 IPC_ALERT("Warning: NtGetContextThread called on thread "
                           "tid="PFX" in different process, pid="PFX,
@@ -3083,7 +3169,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle= (HANDLE) postsys_param(dcontext, param_base, 0);
     /* ignoring 2nd argument (OUT PULONG PreviousSuspendCount OPTIONAL) */
-    thread_id_t tid = thread_id_from_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
     process_id_t pid;
 
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
@@ -3098,7 +3184,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     if (!success || tid == get_thread_id())
         return;
 
-    pid = process_id_from_thread_handle(thread_handle);
+    pid = thread_handle_to_pid(thread_handle, tid);
     if (!is_pid_me(pid)) {
         /* (FIXME : IPC) */
         IPC_ALERT("Warning: SuspendThread called on thread in "
@@ -3230,8 +3316,8 @@ postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool suc
     THREADINFOCLASS class = (THREADINFOCLASS) postsys_param(dcontext, param_base, 1);
     if (success && class == ThreadAmILastThread) {
         HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
-        process_id_t pid = process_id_from_thread_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
+        process_id_t pid = thread_handle_to_pid(thread_handle, tid);
         if (pid != POINTER_MAX && is_pid_me(pid) &&
             get_num_client_threads() > 0 && is_last_app_thread()) {
             PVOID info = (PVOID) postsys_param(dcontext, param_base, 2);
@@ -3246,6 +3332,20 @@ postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool suc
     }
 }
 #endif
+
+/* NtOpenThread */
+static void
+postsys_OpenThread(dcontext_t *dcontext, reg_t *param_base, bool success)
+{
+    if (success) {
+        HANDLE *handle = (HANDLE*) postsys_param(dcontext, param_base, 0);
+        CLIENT_ID *cid = (CLIENT_ID *) postsys_param(dcontext, param_base, 3);
+        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
+            "syscall: NtOpenThread "PFX"=>"PFX" "PFX"=>"TIDFMT"\n",
+            handle, *handle, cid, cid->UniqueThread);
+        handle_to_tid_add(*handle, (thread_id_t)cid->UniqueThread);
+    }
+}
 
 /* NtAllocateVirtualMemory */
 static void
@@ -3972,7 +4072,7 @@ void post_system_call(dcontext_t *dcontext)
     }
     else if (sysnum == syscalls[SYS_SetContextThread]) {
         HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
         ASSERT(tid != 0xFFFFFFFF);
         /* FIXME : we modified the passed in context, we should restore it
          * to app state (same for SYS_Continue though is more difficult there)
@@ -3986,6 +4086,9 @@ void post_system_call(dcontext_t *dcontext)
             nt_thread_resume(thread_handle, NULL);
         }
         mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
+    }
+    else if (sysnum == syscalls[SYS_OpenThread]) {
+        postsys_OpenThread(dcontext, param_base, success);
     }
 #ifdef CLIENT_INTERFACE
     else if (sysnum == syscalls[SYS_QueryInformationThread]) {
@@ -4093,8 +4196,8 @@ void post_system_call(dcontext_t *dcontext)
         HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
         ASSERT(thread_handle != 0); /* 0 => current thread */
         if (thread_handle != 0) {
-            thread_id_t tid = thread_id_from_handle(thread_handle);
-            process_id_t pid = process_id_from_thread_handle(thread_handle);
+            thread_id_t tid = thread_handle_to_tid(thread_handle);
+            process_id_t pid = thread_handle_to_pid(thread_handle, tid);
             ASSERT(tid != get_thread_id()); /* not current thread */
             /* FIXME : if is thread in this process and syscall fails then
              * no way to recover since we already cleaned up the thread */

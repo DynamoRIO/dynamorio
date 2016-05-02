@@ -297,6 +297,12 @@ postsys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 }
 
 void
+syscall_interception_init(void);
+
+void
+syscall_interception_exit(void);
+
+void
 init_syscall_trampolines(void);
 
 void
