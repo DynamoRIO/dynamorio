@@ -102,9 +102,17 @@ slower than instrace_x86_binary, which produces a binary-format trace file.
 The sample <a href="../../samples/instrcall.c">instrcall.c</a>
 demonstrates how to instrument direct calls, indirect calls and returns.
 
-The sample <a href="../../samples/memtrace.c">memtrace.c</a>
+The sample <a href="../../samples/memtrace_simple.c">memtrace_simple.c</a>
+is provided as an example client that illustrates how to gather a memory
+trace in a simple, cross-platform way.  It is much slower than
+memtrace_x86_binary, however.
+
+The sample <a href="../../samples/memtrace_x86.c">memtrace_x86.c</a>
 is provided as an example client that illustrates how to create a private
-code cache and perform lean procedure calls.
+code cache and perform lean procedure calls.  It is compiled into two
+different libraries: memtrace_x86_text, which produces a readable,
+text-mode trace, but is much slower than memtrace_x86_binary, which
+produces a binary-format trace file.
 
 The sample <a href="../../samples/modxfer.c">modxfer.c</a>
 reports the control flow transfers between modules.

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -36,21 +36,27 @@
  *
  * Collects the instruction address, data address, and size of every
  * memory reference and dumps the results to a file.
+ * This is an x86-specific implementation of a memory tracing client.
+ * For a simpler (and slower) arch-independent version, please see memtrace_simple.c.
  *
- * Illustrates how to create own code cache and perform lean procedure call.
- * (1) It fills a buffer and dumps the buffer when it is full.
- * (2) It inlines the buffer filling code to avoid full context switch.
- * (3) It uses lean procedure calling clean call to reduce code cache size.
+ * Illustrates how to create generated code in a local code cache and
+ * perform a lean procedure call to that generated code.
+ *
+ * (1) Fills a buffer and dumps the buffer when it is full.
+ * (2) Inlines the buffer filling code to avoid a full context switch.
+ * (3) Uses a lean procedure call for clean calls to reduce code cache size.
  *
  * Illustrates the use of drutil_expand_rep_string() to expand string
  * loops to obtain every memory reference and of
  * drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
  * memory references.
  *
- * This is an x86 specific implementation of memory tracing client sample,
- * xref memtrace_simple.c for a simple arch-independent implementation.
+ * The OUTPUT_TEXT define controls the format of the trace: text or binary.
+ * Creating a text trace file makes the tool an order of magnitude (!) slower
+ * than creating a binary file; thus, the default is binary.
  */
 
+#include <stdio.h>
 #include <string.h> /* for memset */
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
@@ -68,8 +74,6 @@ typedef struct _mem_ref_t {
     app_pc pc;
 } mem_ref_t;
 
-/* Control the format of memory trace: readable or hexl */
-#define READABLE_TRACE
 /* Max number of mem_ref a buffer can have */
 #define MAX_NUM_MEM_REFS 8192
 /* The size of memory buffer for holding mem_refs. When it fills up,
@@ -85,6 +89,9 @@ typedef struct {
     ptr_int_t buf_end;
     void   *cache;
     file_t  log;
+#if OUTPUT_TEXT
+    FILE *logf;
+#endif
     uint64  num_refs;
 } per_thread_t;
 
@@ -216,6 +223,11 @@ event_thread_init(void *drcontext)
                               DR_FILE_CLOSE_ON_FORK |
 #endif
                               DR_FILE_ALLOW_LARGE);
+#if OUTPUT_TEXT
+    data->logf = log_stream_from_file(data->log);
+    fprintf(data->logf,
+            "Format: <instr address>,<(r)ead/(w)rite>,<data size>,<data address>\n");
+#endif
 }
 
 
@@ -229,7 +241,11 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
+#ifdef OUTPUT_TEXT
+    log_stream_close(data->logf); /* closes fd too */
+#else
     log_file_close(data->log);
+#endif
     dr_thread_free(drcontext, data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
@@ -294,7 +310,7 @@ memtrace(void *drcontext)
     per_thread_t *data;
     int num_refs;
     mem_ref_t *mem_ref;
-#ifdef READABLE_TRACE
+#ifdef OUTPUT_TEXT
     int i;
 #endif
 
@@ -302,12 +318,15 @@ memtrace(void *drcontext)
     mem_ref   = (mem_ref_t *)data->buf_base;
     num_refs  = (int)((mem_ref_t *)data->buf_ptr - mem_ref);
 
-#ifdef READABLE_TRACE
-    dr_fprintf(data->log,
-               "Format: <instr address>,<(r)ead/(w)rite>,<data size>,<data address>\n");
+#ifdef OUTPUT_TEXT
+    /* We use libc's fprintf as it is buffered and much faster than dr_fprintf
+     * for repeated printing that dominates performance, as the printing does here.
+     */
     for (i = 0; i < num_refs; i++) {
-        dr_fprintf(data->log, PFX",%c,%d,"PFX"\n",
-                   mem_ref->pc, mem_ref->write ? 'w' : 'r', mem_ref->size, mem_ref->addr);
+        /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
+        fprintf(data->logf, PIFX",%c,%d,"PIFX"\n", (ptr_uint_t)mem_ref->pc,
+                mem_ref->write ? 'w' : 'r', (int)mem_ref->size,
+                (ptr_uint_t)mem_ref->addr);
         ++mem_ref;
     }
 #else

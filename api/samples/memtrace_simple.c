@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 /* Code Manipulation API Sample:
- * memtrace-simple.c
+ * memtrace_simple.c
  *
  * Collects the memory reference information and dumps it to a file.
  *
@@ -55,6 +55,7 @@
  * without instrumentation optimization.
  */
 
+#include <stdio.h>
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
 #include "drmgr.h"
@@ -88,6 +89,7 @@ typedef struct {
     byte      *seg_base;
     mem_ref_t *buf_base;
     file_t     log;
+    FILE      *logf;
     uint64     num_refs;
 } per_thread_t;
 
@@ -120,11 +122,15 @@ memtrace(void *drcontext)
      *   0x00007f59c2d002d3:  5, call
      *   0x00007ffeacab0ec8:  8, w
      */
+    /* We use libc's fprintf as it is buffered and much faster than dr_fprintf
+     * for repeated printing that dominates performance, as the printing does here.
+     */
     for (mem_ref = (mem_ref_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
-        dr_fprintf(data->log, ""PFX": %2d, %s\n", mem_ref->addr, mem_ref->size,
-                   (mem_ref->type > REF_TYPE_WRITE) ?
-                   decode_opcode_name(mem_ref->type) /* opcode for instr */ :
-                   (mem_ref->type == REF_TYPE_WRITE ? "w" : "r"));
+        /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
+        fprintf(data->logf, ""PIFX": %2d, %s\n", (ptr_uint_t)mem_ref->addr, mem_ref->size,
+                (mem_ref->type > REF_TYPE_WRITE) ?
+                decode_opcode_name(mem_ref->type) /* opcode for instr */ :
+                (mem_ref->type == REF_TYPE_WRITE ? "w" : "r"));
         data->num_refs++;
     }
     BUF_PTR(data->seg_base) = data->buf_base;
@@ -308,12 +314,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* insert code to call clean_call for processing the buffer */
-    if (/* XXX i#1702: it is ok to skip a few clean calls on predicated instructions,
+    if (/* XXX i#1702: We cannot insert a clean call inside an IT block.
+         * It is ok to skip a few clean calls on predicated instructions,
          * since the buffer will be dumped later by other clean calls.
          */
         IF_X86_ELSE(true, !instr_is_predicated(instr))
         /* FIXME i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
+         * As we're only inserting instrumentation on a memory reference, and the
+         * app should be avoiding memory accesses in between the ldrex...strex,
+         * the only problematic point should be before the strex.
          * However, there is still a chance that the instrumentation code may clear the
          * exclusive monitor state.
          */
@@ -368,17 +378,21 @@ event_thread_init(void *drcontext)
                               DR_FILE_CLOSE_ON_FORK |
 #endif
                               DR_FILE_ALLOW_LARGE);
+    data->logf = log_stream_from_file(data->log);
+    fprintf(data->logf,
+            "Format: <data address>: <data size>, <(r)ead/(w)rite/opcode>\n");
 }
 
 static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
+    clean_call(); /* dump any remaining buffer entries */
     data = drmgr_get_tls_field(drcontext, tls_idx);
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    log_file_close(data->log);
+    log_stream_close(data->logf); /* closes fd too */
     dr_raw_mem_free(data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
