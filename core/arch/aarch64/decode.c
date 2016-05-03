@@ -101,10 +101,10 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     }
     else if ((enc & 0xff000010) == 0x54000000) {
         instr_set_opcode(instr, OP_bcond);
-        instr_set_num_opnds(dcontext, instr, 0, 2);
+        instr_set_num_opnds(dcontext, instr, 0, 1);
         instr->src0 = opnd_create_pc(pc + ((enc >> 5 & 0x3ffff) << 2) -
                                      ((enc >> 5 & 0x40000) << 2));
-        instr->srcs[0] = OPND_CREATE_INT8(enc & 15);
+        instr_set_predicate(instr, enc & 0xf);
     }
     else if ((enc & 0x7e000000) == 0x34000000) {
         instr_set_opcode(instr, TEST(1 << 24, enc) ? OP_cbnz : OP_cbz);

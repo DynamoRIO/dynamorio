@@ -121,12 +121,11 @@ static uint encode_common(byte *pc, instr_t *i)
         return (0x14000000 | (uint)(i->opcode == OP_bl) << 31 |
                 (0x3ffffff & (uint)(i->src0.value.pc - pc) >> 2));
     case OP_bcond:
-        ASSERT(i->num_dsts == 0 && i->num_srcs == 2 &&
-               i->src0.kind == PC_kind &&
-               i->srcs[0].kind == IMMED_INTEGER_kind);
+        ASSERT(i->num_dsts == 0 && i->num_srcs == 1 &&
+               i->src0.kind == PC_kind);
         return (0x54000000 |
                 (0x001fffff & (uint)(i->src0.value.pc - pc)) >> 2 << 5 |
-                (i->srcs[0].value.immed_int & 15));
+                (instr_get_predicate(i) & 0xf));
     case OP_cbnz:
     case OP_cbz:
         ASSERT(i->num_dsts == 0 && i->num_srcs == 2 &&

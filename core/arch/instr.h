@@ -257,7 +257,7 @@ typedef enum _dr_pred_type_t {
      * unconditionally written, unlike regular destination operands.
      */
     DR_PRED_COMPLEX,
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
     DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
     DR_PRED_CS, /**< ARM condition: 0010 Carry set               (C == 1)           */
@@ -273,7 +273,11 @@ typedef enum _dr_pred_type_t {
     DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
     DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
     DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
+# ifdef AARCH64
+    DR_PRED_NV, /**< ARM condition: 1111 Never, meaning always                     */
+# else
     DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
+# endif
     /* Aliases */
     DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
     DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */

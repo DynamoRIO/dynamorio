@@ -247,17 +247,13 @@ instr_predicate_reads_srcs(dr_pred_type_t pred)
 bool
 instr_predicate_writes_eflags(dr_pred_type_t pred)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
 bool
 instr_predicate_is_cond(dr_pred_type_t pred)
 {
-    /* Currently there are no predicated instructions as we treat the
-     * condition in "B.cond label" as a second operand: "B label, cond".
-     */
-    return false;
+    return pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_NV;
 }
 
 bool
