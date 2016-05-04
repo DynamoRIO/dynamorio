@@ -42,6 +42,11 @@ START_FILE
 # error Non-Unix is not supported
 #endif
 
+/* offsetof(dcontext_t, dstack) */
+#define dstack_OFFSET     0x360
+/* offsetof(dcontext_t, is_exiting) */
+#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+
 #ifndef X64
 # error X64 must be defined
 #endif
@@ -139,16 +144,117 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
         END_FUNC(dynamorio_app_take_over)
 
+/*
+ * cleanup_and_terminate(dcontext_t *dcontext,     // X0 -> X19
+ *                       int sysnum,               // W1 -> W20 = syscall #
+ *                       int sys_arg1/param_base,  // W2 -> W21 = arg1 for syscall
+ *                       int sys_arg2,             // W3 -> W22 = arg2 for syscall
+ *                       bool exitproc,            // W4 -> W23
+ *                       (2 more args that are ignored: Mac-only))
+ *
+ * See decl in arch_exports.h for description.
+ */
         DECLARE_FUNC(cleanup_and_terminate)
 GLOBAL_LABEL(cleanup_and_terminate:)
+        /* move argument registers to callee saved registers */
+        mov      x19, x0  /* dcontext ptr size */
+        mov      w20, w1  /* sysnum 32-bit int */
+        mov      w21, w2  /* sys_arg1 32-bit int */
+        mov      w22, w3  /* sys_arg2 32-bit int */
+        mov      w23, w4  /* exitproc 32-bit int */
+                          /* x24 reserved for dstack ptr */
+                          /* x25 reserved for syscall ptr */
+
+        /* inc exiting_thread_count to avoid being killed once off all_threads list */
+        adrp     x0, :got:exiting_thread_count
+        ldr      x0, [x0, #:got_lo12:exiting_thread_count]
+        CALLC2(atomic_add, x0, #1)
+
+        /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
+        mov      w1, #1
+        mov      x2, #(is_exiting_OFFSET)
+        str      w1, [x19, x2] /* dcontext->is_exiting = 1 */
+        CALLC1(GLOBAL_REF(is_currently_on_dstack), x19)
+        cbnz     w0, cat_save_dstack
+        mov      x24, #0
+        b        cat_done_saving_dstack
+cat_save_dstack:
+        mov      x2, #(dstack_OFFSET)
+        ldr      x24, [x19, x2]
+cat_done_saving_dstack:
+        CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
+        mov      x25, x0
+        cbz      w23, cat_thread_only
+        CALLC0(GLOBAL_REF(dynamo_process_exit))
+        b        cat_no_thread
+cat_thread_only:
+        CALLC0(GLOBAL_REF(dynamo_thread_exit))
+cat_no_thread:
+        /* switch to initstack for cleanup of dstack */
+        adrp     x26, :got:initstack_mutex
+        ldr      x26, [x26, #:got_lo12:initstack_mutex]
+cat_spin:
+        CALLC2(atomic_xchg, x26, #1)
+        /* atomic_xchg */
+        cbz      w0, cat_have_lock
+        yield
+        b        cat_spin
+
+cat_have_lock:
+        /* switch stack */
+        adrp     x0, :got:initstack
+        ldr      x0, [x0, #:got_lo12:initstack]
+        ldr      x0, [x0]
+        mov      sp, x0
+
+        /* free dstack and call the EXIT_DR_HOOK */
+        CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
+
+        /* give up initstack mutex */
+        adrp     x0, :got:initstack_mutex
+        ldr      x0, [x0, #:got_lo12:initstack_mutex]
+        mov      x1, #0
+        str      x1, [x0]
+
+        /* dec exiting_thread_count (allows another thread to kill us) */
+        adrp     x0, :got:exiting_thread_count
+        ldr      x0, [x0, #:got_lo12:exiting_thread_count]
+        CALLC2(atomic_add, x0, #-1)
+
+        /* put system call number in x8 */
+        mov      w0, w21 /* sys_arg1 32-bit int */
+        mov      w1, w22 /* sys_arg2 32-bit int */
+        mov      w8, w20 /* int sys_call */
+
+        br       x25  /* go do the syscall! */
         bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
         END_FUNC(cleanup_and_terminate)
 
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
 
+        /* void atomic_add(int *adr, int val) */
+        DECLARE_FUNC(atomic_add)
+GLOBAL_LABEL(atomic_add:)
+1:      ldxr     w2, [x0]
+        add      w2, w2, w1
+        stxr     w3, w2, [x0]
+        cbnz     w3, 1b
+        ret
+
+        /* int atomic_xchg(int *adr, int val) */
+        DECLARE_FUNC(atomic_xchg)
+GLOBAL_LABEL(atomic_xchg:)
+1:      ldxr     w2, [x0]
+        stxr     w3, w1, [x0]
+        cbnz     w3, 1b
+        mov      w0, w2
+        ret
+
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        /* FIXME i#1569: NYI on AArch64 */
+        svc      #0
+        bl       GLOBAL_REF(unexpected_return)
         END_FUNC(global_do_syscall_int)
 
 DECLARE_GLOBAL(safe_read_asm_pre)

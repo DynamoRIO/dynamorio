@@ -58,7 +58,8 @@ clean_call_opt_init(void)
 void
 clean_call_opt_exit(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* FIXME i#1569: NYI on AArch64 */
+    ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);
 }
 
 bool
