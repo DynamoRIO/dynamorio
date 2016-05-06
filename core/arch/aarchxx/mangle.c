@@ -445,12 +445,12 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
  *   M A N G L I N G   R O U T I N E S
  */
 
-#ifndef AARCH64
-
 /* forward declaration */
 static void
 mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
                   instr_t *instr, instr_t *next_instr, bool instr_to_be_removed);
+
+#ifndef AARCH64
 
 /* i#1662 optimization: we try to pick the same scratch register during
  * mangling to provide more opportunities for optimization,
@@ -485,11 +485,17 @@ find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *p
     return NULL;
 }
 
+#endif /* !AARCH64 */
+
 /* optimized spill: only if not immediately spilled already */
 static void
 insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
                                 instr_t *where, reg_id_t reg, ushort slot)
 {
+#ifdef AARCH64
+    /* FIXME i#1569: not yet optimized */
+    PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
+#else
     instr_t *prev;
     reg_id_t prior_reg;
     DEBUG_DECLARE(bool tls;)
@@ -509,7 +515,10 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist,
     } else {
         PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
     }
+#endif
 }
+
+#ifndef AARCH64
 
 /* If instr is inside an IT block, removes it from the block and
  * leaves it as an isolated (un-encodable) predicated instr, with any
@@ -1291,8 +1300,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
 }
 
-#ifndef AARCH64
-
 /* Local single-instr-window scratch reg picker.  Only considers r0-r3, so the
  * caller must split up any GPR reg list first.  Assumes we only care about instrs
  * that read or write regs outside of r0-r3, so we'll only fail on instrs that
@@ -1312,6 +1319,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
     if (should_restore != NULL)
         *should_restore = true;
 
+#ifndef AARCH64 /* FIXME i#1569: not yet optimized */
     if (find_prior_scratch_reg_restore(dcontext, instr, &reg) != NULL &&
         reg != REG_NULL && !instr_uses_reg(instr, reg) &&
         /* Ensure no conflict in scratch regs for PC or stolen reg
@@ -1326,6 +1334,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
             LOG(THREAD, LOG_INTERP, 4, "use last scratch reg %s\n", reg_names[reg]);
         });
     } else
+#endif
         reg = REG_NULL;
 
     if (reg == REG_NULL) {
@@ -1366,8 +1375,6 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
     return reg;
 }
 
-#endif /* !AARCH64 */
-
 /* Should return NULL if it destroys "instr". */
 instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1383,6 +1390,13 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(opnd_is_reg(dst));
     ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
     ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == tgt);
+
+    if (instr_uses_reg(instr, dr_reg_stolen)) {
+        dst = opnd_create_reg(reg_resize_to_opsz(DR_REG_X0, opnd_get_size(dst)));
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+    }
+
     if (opc == OP_ldr && reg_is_gpr(dst.value.reg)) {
         reg_id_t xreg = reg_to_pointer_sized(opnd_get_reg(dst));
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, opnd_create_reg(xreg),
@@ -1408,6 +1422,15 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst,
                                ilist, next_instr, 0, 0);
     }
+
+    if (instr_uses_reg(instr, dr_reg_stolen)) {
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(dcontext,
+                                     DR_REG_X0, TLS_REG_STOLEN_SLOT));
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+    }
+
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
     return NULL;
@@ -1517,6 +1540,8 @@ mangle_pc_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (should_restore)
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
 }
+
+#endif /* !AARCH64 */
 
 /* save tls_base from dr_reg_stolen to reg and load app value to dr_reg_stolen */
 static void
@@ -1641,8 +1666,6 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
         PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, tmp, slot));
 }
 
-#endif /* !AARCH64 */
-
 /* replace thread register read instruction with a TLS load instr */
 instr_t *
 mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
@@ -1651,10 +1674,21 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
 #ifdef AARCH64
     reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
     ASSERT(instr->opcode == OP_mrs);
-    ASSERT_NOT_IMPLEMENTED(reg != dr_reg_stolen); /* FIXME i#1569 */
-    PRE(ilist, instr,
-        instr_create_restore_from_tls(dcontext, reg,
-                                      os_get_app_tls_base_offset(TLS_REG_LIB)));
+    if (reg != dr_reg_stolen) {
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext, reg,
+                                          os_get_app_tls_base_offset(TLS_REG_LIB)));
+    } else {
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_X0,
+                                          os_get_app_tls_base_offset(TLS_REG_LIB)));
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG_STOLEN_SLOT));
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+    }
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
     return next_instr;
@@ -1712,10 +1746,21 @@ mangle_writes_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
 {
     reg_id_t reg = opnd_get_reg(instr_get_src(instr, 0));
     ASSERT(instr->opcode == OP_msr);
-    ASSERT_NOT_IMPLEMENTED(reg != dr_reg_stolen); /* FIXME i#1569 */
-    PRE(ilist, instr,
-        instr_create_save_to_tls(dcontext, reg,
-                                 os_get_app_tls_base_offset(TLS_REG_LIB)));
+    if (reg != dr_reg_stolen) {
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, reg,
+                                     os_get_app_tls_base_offset(TLS_REG_LIB)));
+    } else {
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG_STOLEN_SLOT));
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, DR_REG_X0,
+                                     os_get_app_tls_base_offset(TLS_REG_LIB)));
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+    }
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
     return next_instr;
@@ -2258,6 +2303,8 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     return next_instr;
 }
 
+#endif /* !AARCH64 */
+
 /* On ARM, we need mangle app instr accessing registers pc and dr_reg_stolen.
  * We use this centralized mangling routine here to handle complex issues with
  * more efficient mangling code.
@@ -2266,6 +2313,11 @@ instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr)
 {
+#ifdef AARCH64
+    if (instr_uses_reg(instr, dr_reg_stolen) && !instr_is_mbr(instr))
+        mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
+    return next_instr;
+#else
     bool finished = false;
     bool in_it = instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
         instr_is_predicated(instr);
@@ -2311,9 +2363,8 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         mangle_reinstate_it_blocks(dcontext, ilist, bound_start, bound_end);
     }
     return next_instr;
+#endif
 }
-
-#endif /* !AARCH64 */
 
 void
 float_pc_update(dcontext_t *dcontext)

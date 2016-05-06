@@ -491,7 +491,7 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 /* mangle instructions that use pc or dr_reg_stolen */
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
