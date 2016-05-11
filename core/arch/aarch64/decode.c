@@ -174,7 +174,11 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         instr_set_num_opnds(dcontext, instr, 0, 1);
         instr->src0 = opnd_create_reg(DR_REG_X0 + (enc & 31));
     }
-    else {
+    else if ((enc & 0xffe0001f) == 0xd4000001) {
+        instr_set_opcode(instr, OP_svc);
+        instr_set_num_opnds(dcontext, instr, 0, 1);
+        instr->src0 = OPND_CREATE_INT16(enc >> 5 & 0xffff);
+    } else {
         /* We use OP_xx for instructions not yet handled by the decoder.
          * If an A64 instruction accesses a general-purpose register
          * (except X30) then the number of that register appears in one

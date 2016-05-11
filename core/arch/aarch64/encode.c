@@ -187,6 +187,10 @@ static uint encode_common(byte *pc, instr_t *i)
                 (i->dsts[0].value.base_disp.base_reg - DR_REG_X0) << 5 |
                 i->dsts[0].value.base_disp.disp >>
                 (i->dsts[0].size == OPSZ_8 ? 3 : 2 ) << 10);
+    case OP_svc:
+        ASSERT(i->num_dsts == 0 && i->num_srcs == 1 &&
+               i->src0.kind == IMMED_INTEGER_kind);
+        return (0xd4000001 | (i->src0.value.immed_int & 0xffff) << 5);
     case OP_tbnz:
     case OP_tbz:
         ASSERT(i->num_dsts == 0 && i->num_srcs == 3 &&
@@ -205,7 +209,6 @@ static uint encode_common(byte *pc, instr_t *i)
     default:
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     case OP_add:
-    case OP_svc:
         /* FIXME i#1569: These are encoded but never executed. */
         return i->opcode;
     }
