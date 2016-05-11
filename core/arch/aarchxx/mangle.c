@@ -2305,6 +2305,71 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 #endif /* !AARCH64 */
 
+#ifdef AARCH64
+/* We mangle a conditional branch that uses the stolen register like this:
+ *
+ *     cbz   x28, target     # x28 is stolen register
+ * =>
+ *     str   x0, [x28]       # spill x0
+ *     ldr   x0, [x28, #32]  # x28 in memory loaded to x0
+ *     cbnz  x0, fall
+ *     ldr   x0, [x28]       # restore x0 (original branch taken)
+ *     b     target
+ * fall:
+ *     ldr   x0, [x28]       # restore x0 (original branch not taken)
+ *
+ * The CBNZ will need special handling when we decode from the cache for
+ * traces (i#1668).
+ */
+static void
+mangle_cbr_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                      instr_t *instr, instr_t *next_instr)
+{
+    instr_t *fall = INSTR_CREATE_label(dcontext);
+    int opcode = instr_get_opcode(instr);
+    reg_id_t reg = DR_REG_X0;
+    ushort slot = TLS_REG0_SLOT;
+    opnd_t opnd;
+
+    PRE(ilist, instr, instr_create_save_to_tls(dcontext, reg, slot));
+    PRE(ilist, instr, instr_create_restore_from_tls(dcontext, reg,
+                                                    TLS_REG_STOLEN_SLOT));
+    switch (opcode) {
+    case OP_cbnz:
+    case OP_cbz:
+        opnd = instr_get_src(instr, 1);
+        opnd = opnd_create_reg(reg_resize_to_opsz(reg, opnd_get_size(opnd)));
+        PRE(ilist, instr,
+            instr_create_0dst_2src(dcontext,
+                                   (opcode == OP_cbz ? OP_cbnz : OP_cbz),
+                                   opnd_create_instr(fall), opnd));
+        break;
+    case OP_tbnz:
+    case OP_tbz:
+        PRE(ilist, instr,
+            instr_create_0dst_3src(dcontext,
+                                   (opcode == OP_tbz ? OP_tbnz : OP_tbz),
+                                   opnd_create_instr(fall),
+                                   opnd_create_reg(reg),
+                                   instr_get_src(instr, 2)));
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+    PRE(ilist, instr, instr_create_restore_from_tls(dcontext, reg, slot));
+
+    /* Replace original instruction with unconditional branch. */
+    opnd = instr_get_src(instr, 0);
+    instr_reset(dcontext, instr);
+    instr_set_opcode(instr, OP_b);
+    instr_set_num_opnds(dcontext, instr, 0, 1);
+    instr_set_src(instr, 0, opnd);
+
+    PRE(ilist, next_instr, fall);
+    PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
+}
+#endif /* AARCH64 */
+
 /* On ARM, we need mangle app instr accessing registers pc and dr_reg_stolen.
  * We use this centralized mangling routine here to handle complex issues with
  * more efficient mangling code.
@@ -2314,7 +2379,11 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                          instr_t *next_instr)
 {
 #ifdef AARCH64
-    if (instr_uses_reg(instr, dr_reg_stolen) && !instr_is_mbr(instr))
+    if (!instr_uses_reg(instr, dr_reg_stolen))
+        return next_instr;
+    if (instr_is_cbr(instr))
+        mangle_cbr_stolen_reg(dcontext, ilist, instr, instr_get_next(instr));
+    else if (!instr_is_mbr(instr))
         mangle_stolen_reg(dcontext, ilist, instr, instr_get_next(instr), false);
     return next_instr;
 #else

@@ -112,6 +112,7 @@ decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
  */
 static uint encode_common(byte *pc, instr_t *i)
 {
+    ptr_uint_t off;
     ASSERT(((ptr_int_t)pc & 3) == 0);
     switch (i->opcode) {
     case OP_b:
@@ -129,13 +130,16 @@ static uint encode_common(byte *pc, instr_t *i)
     case OP_cbnz:
     case OP_cbz:
         ASSERT(i->num_dsts == 0 && i->num_srcs == 2 &&
-               i->src0.kind == PC_kind &&
+               (i->src0.kind == PC_kind || i->src0.kind == INSTR_kind) &&
                i->srcs[0].kind == REG_kind && i->srcs[0].size == 0 &&
                ((uint)(i->srcs[0].value.reg - DR_REG_W0) < 32 ||
                 (uint)(i->srcs[0].value.reg - DR_REG_X0) < 32));
+        off = ((i->src0.kind == PC_kind) ?
+               (uint)(i->src0.value.pc - pc) :
+               (ptr_int_t)(opnd_get_instr(i->src0)->note - i->note));
         return (0x34000000 | (i->opcode == OP_cbnz) << 24 |
                 (uint)((uint)(i->srcs[0].value.reg - DR_REG_X0) < 32) << 31 |
-                (0x001fffff & (uint)(i->src0.value.pc - pc)) >> 2 << 5 |
+                (0x001fffff & off) >> 2 << 5 |
                 ((i->srcs[0].value.reg - DR_REG_X0) < 32 ?
                  (i->srcs[0].value.reg - DR_REG_X0) :
                  (i->srcs[0].value.reg - DR_REG_W0)));
@@ -194,12 +198,15 @@ static uint encode_common(byte *pc, instr_t *i)
     case OP_tbnz:
     case OP_tbz:
         ASSERT(i->num_dsts == 0 && i->num_srcs == 3 &&
-               i->src0.kind == PC_kind &&
+               (i->src0.kind == PC_kind || i->src0.kind == INSTR_kind) &&
                i->srcs[0].kind == REG_kind && i->srcs[0].size == 0 &&
                (uint)(i->srcs[0].value.reg - DR_REG_X0) < 32 &&
                i->srcs[1].kind == IMMED_INTEGER_kind);
+        off = ((i->src0.kind == PC_kind) ?
+               (uint)(i->src0.value.pc - pc) :
+               (ptr_int_t)(opnd_get_instr(i->src0)->note - i->note));
         return (0x36000000 | (i->opcode == OP_tbnz) << 24 |
-                (0xffff & (uint)(i->src0.value.pc - pc)) >> 2 << 5 |
+                (0xffff & off) >> 2 << 5 |
                 (i->srcs[0].value.reg - DR_REG_X0) |
                 (i->srcs[1].value.immed_int & 31) << 19 |
                 (i->srcs[1].value.immed_int & 32) << 26);
