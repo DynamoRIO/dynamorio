@@ -2223,7 +2223,7 @@ void *_dynamorio_runtime_resolve(void);
 # define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
 #endif /* X86/ARM */
 
-#define MCXT_SYSNUM_REG(mc)       ((mc)->IF_X86_ELSE(xax, r7))
+#define MCXT_SYSNUM_REG(mc)       ((mc)->IF_X86_ELSE(xax, IF_ARM_ELSE(r7, r8)))
 #define MCXT_FIRST_REG_FIELD(mc)  ((mc)->IF_X86_ELSE(xdi, r0))
 
 static inline
@@ -2238,19 +2238,17 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
         reg = mc->xbp;
         break;
 #elif defined(ARM)
-# ifdef X64
-    case DR_ISA_ARM_A64:
-        reg = mc->r29;
-        break;
-# else
     case DR_ISA_ARM_THUMB:
         reg = mc->r7;
         break;
     case DR_ISA_ARM_A32:
         reg = mc->r11;
         break;
-# endif /* 64/32-bit */
-#endif /* X86/ARM */
+#elif defined(AARCH64)
+    case DR_ISA_ARM_A64:
+        reg = mc->r29;
+        break;
+#endif /* X86/ARM/AARCH64 */
     default:
         ASSERT_NOT_REACHED();
         reg = 0;
