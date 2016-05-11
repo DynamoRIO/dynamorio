@@ -312,17 +312,17 @@ GLOBAL_LABEL(dynamorio_clone:)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        mov      w8, #SYS_rt_sigreturn
+        svc      #0
+        bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
-
-        DECLARE_FUNC(dynamorio_nonrt_sigreturn)
-GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
-        END_FUNC(dynamorio_nonrt_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        mov      w0, #0 /* exit code: hardcoded */
+        mov      w8, #SYS_exit
+        svc      #0
+        bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
         DECLARE_FUNC(dynamorio_futex_wake_and_exit)
@@ -337,7 +337,8 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
 #  endif
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        mov      ARG4, sp /* pass as extra arg */
+        b        GLOBAL_REF(master_signal_handler_C) /* chain call */
         END_FUNC(master_signal_handler)
 
 # endif /* NOT_DYNAMORIO_CORE_PROPER */
