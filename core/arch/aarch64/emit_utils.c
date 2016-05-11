@@ -148,14 +148,35 @@ bool
 exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f,
                         linkstub_t *l, cache_pc target_pc)
 {
-    cache_pc stub_pc = (cache_pc)EXIT_STUB_PC(dcontext, f, l);
-    uint64 disp = target_pc - stub_pc;
-    return (disp + 0x8000000 < 0x10000000);
+    cache_pc branch_pc = EXIT_CTI_PC(f, l);
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
+    uint enc = *(uint *)branch_pc;
+    ASSERT(ALIGNED(branch_pc, 4) && ALIGNED(target_pc, 4));
+    if ((enc & 0xfc000000) == 0x14000000) /* B (OP_b)*/
+        return (off + 0x8000000 < 0x10000000);
+    else if ((enc & 0xff000010) == 0x54000000 ||
+             (enc & 0x7e000000) == 0x34000000) /* B.cond, CBNZ, CBZ */
+        return (off + 0x40000 < 0x80000);
+    else if ((enc & 0x7e000000) == 0x36000000) /* TBNZ, TBZ */
+        return (off + 0x2000 < 0x4000);
+    ASSERT(false);
+    return false;
 }
 
 void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 {
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)stub_pc;
+    if (off + 0x8000000 < 0x10000000) {
+        /* We can get there with a B (OP_b, 26-bit signed immediate offset). */
+        *(uint *)stub_pc = (0x14000000 | (0x03ffffff & off >> 2));
+        if (hot_patch)
+            machine_cache_sync(stub_pc, stub_pc + 4, true);
+        return;
+    }
+    /* We must use an indirect branch. */
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
 
@@ -176,10 +197,11 @@ void
 patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
              bool hot_patch)
 {
-    size_t off = target_pc - branch_pc;
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
     uint *p = (uint *)branch_pc;
     uint enc = *p;
-    ASSERT((((ptr_int_t)branch_pc | (ptr_int_t)target_pc) & 3) == 0);
+    ASSERT(ALIGNED(branch_pc, 4) && ALIGNED(target_pc, 4));
     if ((enc & 0xfc000000) == 0x14000000) { /* B */
         ASSERT(off + 0x8000000 < 0x10000000);
         *p = (0x14000000 | (0x03ffffff & off >> 2));
