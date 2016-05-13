@@ -640,7 +640,10 @@ decode_br(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
 static inline uint
 encode_br(byte *pc, instr_t *i, uint enc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    uint xn;
+    if (encode_opnums(i, 0, 1) &&
+        encode_xregz(&xn, instr_get_src(i, 0)))
+        return (enc | xn << 5);
     return ENCFAIL;
 }
 

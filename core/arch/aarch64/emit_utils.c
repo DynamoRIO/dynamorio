@@ -606,25 +606,171 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 {
     bool absolute = false;
     instrlist_t ilist;
-    byte *pc1;
     instrlist_init(&ilist);
+    patch_list_t *patch = &ibl_code->ibl_patch;
+    init_patch_list(patch, PATCH_TYPE_INDIRECT_TLS);
 
+    instr_t *load_tag = INSTR_CREATE_label(dc);
+    instr_t *compare_tag = INSTR_CREATE_label(dc);
+    instr_t *try_next = INSTR_CREATE_label(dc);
+    instr_t *miss = INSTR_CREATE_label(dc);
+    instr_t *not_hit = INSTR_CREATE_label(dc);
+    instr_t *target_delete_entry = INSTR_CREATE_label(dc);
+    instr_t *unlinked = INSTR_CREATE_label(dc);
+
+    /* FIXME i#1569: Use INSTR_CREATE macros when encoder is implemented. */
+
+    /* On entry we expect:
+     *     x0: link_stub entry
+     *     x1: scratch reg, arrived from br x1
+     *     x2: indirect branch target
+     *     TLS_REG0_SLOT: app's x0
+     *     TLS_REG1_SLOT: app's x1
+     *     TLS_REG2_SLOT: app's x2
+     *     TLS_REG3_SLOT: scratch space
+     * There are three entries with the same context:
+     *     indirect_branch_lookup
+     *     target_delete_entry
+     *     unlink_stub_entry
+     * On miss exit we output:
+     *     x0: the dcontext->last_exit
+     *     x1: br x1
+     *     x2: app's x2
+     *     TLS_REG0_SLOT: app's x0 (recovered by fcache_return)
+     *     TLS_REG1_SLOT: app's x1 (recovered by fcache_return)
+     * On hit exit we output:
+     *     x0: fragment_start_pc (points to the fragment prefix)
+     *     x1: app's x1
+     *     x2: app's x2
+     *     TLS_REG1_SLOT: app's x0 (recovered by fragment_prefix)
+     */
+
+    /* Spill x0. */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG3_SLOT));
+    /* Load hash mask and base. */
+    /* ldp x1, x0, [x28, hash_mask] */
+    APP(&ilist, INSTR_CREATE_xx(dc, 0xa9400000 | 1 | 0 << 10 |
+                                (dr_reg_stolen - DR_REG_X0) << 5 |
+                                TLS_MASK_SLOT(ibl_code->branch_type) >> 3 << 15));
+    /* and x1, x1, x2 */
+    APP(&ilist, XINST_CREATE_and(dc, opnd_create_reg(DR_REG_X1),
+                                 opnd_create_reg(DR_REG_X2)));
+    /* Get table entry. */
+    /* add x1, x0, x1, LSL #4 */
+    APP(&ilist, INSTR_CREATE_add_shift
+        (dc, opnd_create_reg(DR_REG_X1),
+         opnd_create_reg(DR_REG_X0),
+         opnd_create_reg(DR_REG_X1),
+         OPND_CREATE_INT8(DR_SHIFT_LSL),
+         OPND_CREATE_INT8(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type))));
+    /* x1 now holds the fragment_entry_t* in the hashtable. */
+    APP(&ilist, load_tag);
+    /* Load tag from fragment_entry_t* in the hashtable to x0. */
+    /* ldr x0, [x1, #tag_fragment_offset] */
+    APP(&ilist,
+        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
+                         OPND_CREATE_MEM64(DR_REG_X1,
+                                           offsetof(fragment_entry_t, tag_fragment))));
+    /* Did we hit? */
+    APP(&ilist, compare_tag);
+    /* cbz x0, not_hit */
+    APP(&ilist, INSTR_CREATE_cbz(dc, opnd_create_instr(not_hit),
+                                 opnd_create_reg(DR_REG_X0)));
+    /* sub x0, x0, x2 */
+    APP(&ilist, XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0),
+                                 opnd_create_reg(DR_REG_X2)));
+    /* cbnz x0, try_next */
+    APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next),
+                                  opnd_create_reg(DR_REG_X0)));
+
+    /* Hit path: load the app's original value of x0 and x1. */
+    /* ldp x0, x2, [x28] */
+    APP(&ilist, INSTR_CREATE_xx(dc, 0xa9400000 | 0 | 2 << 10 |
+                                (dr_reg_stolen - DR_REG_X0) << 5 |
+                                TLS_REG0_SLOT >> 3 << 15));
+    /* Store x0 in TLS_REG1_SLOT as requied in the fragment prefix. */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG1_SLOT));
+    /* ldr x0, [x1, #start_pc_fragment_offset] */
+    APP(&ilist, INSTR_CREATE_ldr
+        (dc, opnd_create_reg(DR_REG_X0),
+         OPND_CREATE_MEM64(DR_REG_X1,
+                           offsetof(fragment_entry_t, start_pc_fragment))));
+    /* mov x1, x2 */
+    APP(&ilist, XINST_CREATE_move(dc, opnd_create_reg(DR_REG_X1),
+                                  opnd_create_reg(DR_REG_X2)));
+    /* Recover app's original x2. */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+    /* br x0 */
+    APP(&ilist, INSTR_CREATE_br(dc, opnd_create_reg(DR_REG_X0)));
+
+    APP(&ilist, try_next);
+
+    /* Try next entry, in case of collision. No wraparound check is needed
+     * because of the sentinel at the end.
+     * ldr x0, [x1, #tag_fragment_offset]! */
+    APP(&ilist, INSTR_CREATE_xx(dc, 0xf8400000 | 0 | (1 << 5) | (3 << 10) |
+                                (sizeof(fragment_entry_t) << 12)));
+    /* b compare_tag */
+    APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(compare_tag)));
+
+    APP(&ilist, not_hit);
+
+    if (INTERNAL_OPTION(ibl_sentinel_check)) {
+        /* Load start_pc from fragment_entry_t* in the hashtable to x0. */
+        /* ldr x0, [x1, #start_pc_fragment] */
+        APP(&ilist, INSTR_CREATE_xx
+            (dc, 0xf9400000 | 0 | (1 << 5) |
+             (offsetof(fragment_entry_t, start_pc_fragment)) >> 3 << 10));
+        /* To compare with an arbitrary constant we'd need a 4th scratch reg.
+         * Instead we rely on the sentinel start PC being 1.
+         */
+        ASSERT(HASHLOOKUP_SENTINEL_START_PC == (cache_pc)PTR_UINT_1);
+        /* sub x0, x0, #1 */
+        APP(&ilist, XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0),
+                                     OPND_CREATE_INT8(1)));
+        /* cbnz x0, miss */
+        APP(&ilist, INSTR_CREATE_cbnz(dc, opnd_create_instr(miss),
+                                      opnd_create_reg(DR_REG_R0)));
+        /* Point at the first table slot and then go load and compare its tag */
+        /* ldr x1, [x28, #table_base] */
+        APP(&ilist, INSTR_CREATE_xx
+            (dc, 0xf9400000 | 1 | (dr_reg_stolen - DR_REG_R0) << 5 |
+             (TLS_TABLE_SLOT(ibl_code->branch_type)) >> 3 << 10 ));
+        /* branch to load_tag */
+        APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(load_tag)));
+    }
+
+    APP(&ilist, miss);
+    /* Recover the dcontext->last_exit to x0 */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R0, TLS_REG3_SLOT));
+
+    /* Target delete entry */
+    APP(&ilist, target_delete_entry);
+    add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
+                     0 /* beginning of instruction */,
+                     (ptr_uint_t*)&ibl_code->target_delete_entry);
+
+    /* Unlink path: entry from stub */
+    APP(&ilist, unlinked);
+    add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
+                     0 /* beginning of instruction */,
+                     (ptr_uint_t*)&ibl_code->unlinked_ibl_entry);
+
+    /* Put ib tgt into dcontext->next_tag */
     insert_shared_get_dcontext(dc, &ilist, NULL, true);
     APP(&ilist, SAVE_TO_DC(dc, DR_REG_R2, NEXT_TAG_OFFSET));
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R5, DCONTEXT_BASE_SPILL_SLOT));
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
 
     /* ldr x1, [x(stolen), #(offs)] */
-    APP(&ilist, INSTR_CREATE_xx(dc, 0xf9400000 | 1 | (dr_reg_stolen - DR_REG_R0) << 5 |
-                                get_fcache_return_tls_offs(dc, 0) >>
-                                3 << 10));
+    APP(&ilist, INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X1),
+                                 OPND_TLS_FIELD(TLS_FCACHE_RETURN_SLOT)));
     /* br x1 */
-    APP(&ilist, INSTR_CREATE_xx(dc, 0xd61f0000 | 1 << 5));
+    APP(&ilist, INSTR_CREATE_br(dc, opnd_create_reg(DR_REG_X1)));
 
-    pc1 = instrlist_encode(dc, &ilist, pc, false);
+    ibl_code->ibl_routine_length = encode_with_patch_list(dc, patch, &ilist, pc);
     instrlist_clear(dc, &ilist);
-    ibl_code->ibl_routine_length = pc1 - pc;
-    return pc1;
+    return pc + ibl_code->ibl_routine_length;
 }
 
 void
