@@ -2407,14 +2407,13 @@ set_thread_private_dcontext(dcontext_t *dcontext)
 #endif
 }
 
-#ifdef SYS_fork
 /* replaces old with new
  * use for forking: child should replace parent's id with its own
  */
 static void
 replace_thread_id(thread_id_t old, thread_id_t new)
 {
-# ifdef HAVE_TLS
+#ifdef HAVE_TLS
     thread_id_t new_tid = new;
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
@@ -2423,7 +2422,7 @@ replace_thread_id(thread_id_t old, thread_id_t new)
         ASSERT(old_tid == old);
     });
     WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
-# else
+#else
     int i;
     mutex_lock(&tls_lock);
     for (i=0; i<MAX_THREADS; i++) {
@@ -2433,9 +2432,8 @@ replace_thread_id(thread_id_t old, thread_id_t new)
         }
     }
     mutex_unlock(&tls_lock);
-# endif
-}
 #endif
+}
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
@@ -7450,9 +7448,11 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#ifdef SYS_fork
     /* handle fork, try to do it early before too much logging occurs */
-    if (sysnum == SYS_fork
+    if (false
+# ifdef SYS_fork
+        || sysnum == SYS_fork
+# endif
         IF_LINUX(|| (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)))) {
         if (result == 0) {
             /* we're the child */
@@ -7483,7 +7483,6 @@ post_system_call(dcontext_t *dcontext)
             os_fork_post(dcontext, true/*parent*/);
         }
     }
-#endif
 
 
     LOG(THREAD, LOG_SYSCALLS, 2,
