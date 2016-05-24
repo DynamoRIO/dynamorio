@@ -304,14 +304,14 @@ fragment_ibt_prefix_size(uint flags)
 void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
+    /* Always use prefix on AArch64 as there is no load to PC. */
     byte *pc = (byte *)f->start_pc;
     ASSERT(f->prefix_size == 0);
-    if (use_ibt_prefix(f->flags)) {
-        /* ldr x0, [x(stolen), #(off)] */
-        *(uint *)pc = (0xf9400000 | 0 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                       TLS_REG1_SLOT >> 3 << 10);
-        pc += 4;
-    }
+    /* ldr x0, [x(stolen), #(off)] */
+    *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
+                   (dr_reg_stolen - DR_REG_X0) << 5 |
+                   ENTRY_PC_SPILL_SLOT >> 3 << 10);
+    pc += 4;
     f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }

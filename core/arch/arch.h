@@ -628,7 +628,16 @@ enum {
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
+#ifdef AARCH64
+    /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
+    ENTRY_PC_SPILL_SLOT         = TLS_REG1_SLOT,
+#endif
 };
+
+#ifdef AARCH64
+/* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
+# define ENTRY_PC_REG        DR_REG_X0
+#endif
 
 /* in interp.c but not exported to non-x86 files */
 bool must_not_be_inlined(app_pc pc);

@@ -1876,11 +1876,6 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
              * ldr x0, [x28]
              */
             APP(ilist, INSTR_CREATE_xx(dcontext, 0xf9400380));
-            /* Subtract 4 to include the fragment prefix,
-             * which restores X0 from TLS_REG1_SLOT:
-             * sub x0, x0, #4
-             */
-            APP(ilist, INSTR_CREATE_xx(dcontext, 0xd1000000 | 4 << 10));
             /* br x0 */
             APP(ilist, INSTR_CREATE_xx(dcontext, 0xd61f0000));
 #else
@@ -4577,6 +4572,12 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 
     /* initialize the ilist */
     instrlist_init(&ilist);
+
+#ifdef AARCH64
+    /* We will call this from handle_system_call, so need prefix on AArch64. */
+    APP(&ilist, instr_create_restore_from_tls(dcontext, ENTRY_PC_REG,
+                                              ENTRY_PC_SPILL_SLOT));
+#endif
 
 #ifdef ARM
     /* We have to save r0 in case the syscall is interrupted.  We can't
