@@ -4664,8 +4664,11 @@ ignorable_system_call_normalized(int num)
     case SYS_cacheflush:
 #endif
         return false;
-#ifdef SYS_readlink
+#ifdef LINUX
+# ifdef SYS_readlink
     case SYS_readlink:
+# endif
+    case SYS_readlinkat:
         return !DYNAMO_OPTION(early_inject);
 #endif
     default:
@@ -6905,13 +6908,16 @@ pre_system_call(dcontext_t *dcontext)
 #ifdef LINUX
 # ifdef SYS_readlink
     case SYS_readlink:
+# endif
+    case SYS_readlinkat:
         if (DYNAMO_OPTION(early_inject)) {
             dcontext->sys_param0 = sys_param(dcontext, 0);
             dcontext->sys_param1 = sys_param(dcontext, 1);
             dcontext->sys_param2 = sys_param(dcontext, 2);
+            if (dcontext->sys_num == SYS_readlinkat)
+                dcontext->sys_param3 = sys_param(dcontext, 3);
         }
         break;
-# endif
 
     /* i#107 syscalls that might change/query app's segment */
 
@@ -7958,18 +7964,25 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#if defined(LINUX) && defined(SYS_readlink)
+#ifdef LINUX
+# ifdef SYS_readlink
     case SYS_readlink:
+# endif
+    case SYS_readlinkat:
         if (success && DYNAMO_OPTION(early_inject)) {
+            bool is_at = (sysnum == SYS_readlinkat);
             /* i#907: /proc/self/exe is a symlink to libdynamorio.so.  We need
              * to fix it up if the app queries.  Any thread id can be passed to
              * /proc/%d/exe, so we have to check.  We could instead look for
              * libdynamorio.so in the result but we've tweaked our injector
              * in the past to exec different binaries so this seems more robust.
              */
-            if (symlink_is_self_exe((const char *)dcontext->sys_param0)) {
-                char *tgt = (char *) dcontext->sys_param1;
-                size_t tgt_sz = (size_t) dcontext->sys_param2;
+            if (symlink_is_self_exe((const char *)(is_at ? dcontext->sys_param1 :
+                                                   dcontext->sys_param0))) {
+                char *tgt = (char *) (is_at ? dcontext->sys_param2 :
+                                      dcontext->sys_param1);
+                size_t tgt_sz = (size_t) (is_at ? dcontext->sys_param3 :
+                                          dcontext->sys_param2);
                 int len = snprintf(tgt, tgt_sz, "%s", get_application_name());
                 if (len > 0)
                     set_success_return_val(dcontext, len);
