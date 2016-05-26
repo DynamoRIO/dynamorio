@@ -4620,6 +4620,12 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     else
         APP(&ilist, instr_create_save_to_dcontext(dcontext, SCRATCH_REG0,
                                                   SCRATCH_REG0_OFFS));
+
+#ifdef AARCH64
+    /* Save X1 as this is used for the indirect branch in the exit stub. */
+    APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
+#endif
+
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)get_syscall_linkstub(),
                            opnd_create_reg(SCRATCH_REG0), &ilist, NULL, NULL, NULL);
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(fcache_return_pc)));
