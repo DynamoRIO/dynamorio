@@ -182,6 +182,8 @@ enum {
     /****************************************************************************/
 #elif defined(ARM) || defined(AARCH64)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
+
+# ifdef AARCH64
     /* 64-bit general purpose */
     DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
     DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
@@ -190,7 +192,9 @@ enum {
     DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31_INVALID,
+    DR_REG_XZR, /* zero register */
+    DR_REG_XSP, /* stack pointer */
 
     /* 32-bit general purpose */
     DR_REG_W0,  DR_REG_W1,   DR_REG_W2,   DR_REG_W3,
@@ -200,9 +204,10 @@ enum {
     DR_REG_W16, DR_REG_W17,  DR_REG_W18,  DR_REG_W19,
     DR_REG_W20, DR_REG_W21,  DR_REG_W22,  DR_REG_W23,
     DR_REG_W24, DR_REG_W25,  DR_REG_W26,  DR_REG_W27,
-    DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31,
-
-# ifndef X64
+    DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31_INVALID,
+    DR_REG_WZR, /* zero register */
+    DR_REG_WSP, /* bottom half of stack pointer */
+# else
     /* 32-bit general purpose */
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
@@ -257,7 +262,7 @@ enum {
     DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
     DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
 
-# ifndef X64
+# ifndef AARCH64
     /* Coprocessor registers */
     DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
     DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
@@ -284,7 +289,7 @@ enum {
      * OP_mrs and OP_msr to distinguish them and make things clearer.
      */
 # endif
-# ifdef X64
+# ifdef AARCH64
     DR_REG_NZCV, DR_REG_FPCR, DR_REG_FPSR,
 # else
     DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
@@ -296,7 +301,7 @@ enum {
 
     /* Aliases below here: */
 
-# ifdef X64
+# ifdef AARCH64
     DR_REG_R0  = DR_REG_X0,  /**< Alias for the x0 register. */
     DR_REG_R1  = DR_REG_X1,  /**< Alias for the x1 register. */
     DR_REG_R2  = DR_REG_X2,  /**< Alias for the x2 register. */
@@ -328,12 +333,8 @@ enum {
     DR_REG_R28 = DR_REG_X28, /**< Alias for the x28 register. */
     DR_REG_R29 = DR_REG_X29, /**< Alias for the x29 register. */
     DR_REG_R30 = DR_REG_X30, /**< Alias for the x30 register. */
-    DR_REG_R31 = DR_REG_X31, /**< Alias for the x31 register. */
-    DR_REG_SP  = DR_REG_X31, /**< The stack pointer register. */
+    DR_REG_SP  = DR_REG_XSP, /**< The stack pointer register. */
     DR_REG_LR  = DR_REG_X30, /**< The link register. */
-    DR_REG_XZR = DR_REG_X31, /**< The 64-bit zero register. */
-    DR_REG_WSP = DR_REG_W31, /**< The bottom half of the stack pointer register. */
-    DR_REG_WZR = DR_REG_W31, /**< The 32-bit zero register. */
 # else
     DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
     DR_REG_LR = DR_REG_R14, /**< The link register. */
@@ -342,7 +343,7 @@ enum {
     DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
     DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
     DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
-# ifndef X64
+# ifndef AARCH64
     /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
     DR_REG_APSR = DR_REG_CPSR,
 # endif
@@ -356,27 +357,29 @@ enum {
     DR_REG_CP15_C13_2  = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
     DR_REG_CP15_C13_3  = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
 
-    DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
-
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO, /**< Last value of register enums */
 
+# ifdef AARCH64
     DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
-    DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
-# ifdef X64
-    DR_REG_START_GPR = DR_REG_X0,  /**< Start of general register registers */
-    DR_REG_STOP_GPR  = DR_REG_X31, /**< End of general register registers */
+    DR_REG_STOP_64   = DR_REG_XSP, /**< End of 64-bit general register enum values */
     DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
-    DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
+    DR_REG_STOP_32   = DR_REG_WSP, /**< End of 32-bit general register enum values */
+    DR_REG_START_GPR = DR_REG_X0,  /**< Start of full-size general-purpose registers */
+    DR_REG_STOP_GPR  = DR_REG_XSP, /**< End of full-size general-purpose registers */
 # else
-    DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
-    DR_REG_STOP_GPR  = DR_REG_R15, /**< End of general register registers */
     DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
+    DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
+    DR_REG_STOP_GPR  = DR_REG_R15, /**< End of general register registers */
 # endif
 
+    DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1,
+
+# ifndef AARCH64
     /** Platform-independent way to refer to stack pointer. */
     DR_REG_XSP       = DR_REG_SP,
+# endif
 
 #endif /* X86/ARM */
 };
@@ -477,8 +480,10 @@ extern const reg_id_t dr_reg_fixer[];
 /* DR_API EXPORT VERBATIM */
 #define REG_NULL            DR_REG_NULL
 #define REG_INVALID         DR_REG_INVALID
-#define REG_START_64        DR_REG_START_64
-#define REG_STOP_64         DR_REG_STOP_64
+#ifndef ARM
+# define REG_START_64       DR_REG_START_64
+# define REG_STOP_64        DR_REG_STOP_64
+#endif
 #define REG_START_32        DR_REG_START_32
 #define REG_STOP_32         DR_REG_STOP_32
 #define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM

@@ -822,7 +822,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         if (*counter <= 0 || !opnd_is_reg(array[(*counter)-1]))
             return false;
         reg = opnd_get_reg(array[(*counter)-1]);
-        if (reg == DR_REG_STOP_32 || reg == DR_REG_STOP_64)
+        if (reg == DR_REG_STOP_32)
             return false;
         array[(*counter)++] = opnd_create_reg_ex(reg + 1, downsz, 0);
         return true;

@@ -60,9 +60,10 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19, \
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23, \
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27, \
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
-XREGS /* X0-X31 */
-XREGS /* W0-W31 */
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31_INVALID, \
+    DR_REG_XZR, DR_REG_XSP,
+XREGS /* X0-XSP */
+XREGS /* W0-WSP */
 #undef XREGS
 
 #define QREGS \

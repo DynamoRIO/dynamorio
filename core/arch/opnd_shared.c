@@ -135,6 +135,7 @@ reg_is_32bit(reg_id_t reg)
     return (reg >= REG_START_32 && reg <= REG_STOP_32);
 }
 
+#if defined(X86) || defined(AARCH64)
 bool
 opnd_is_reg_64bit(opnd_t opnd)
 {
@@ -148,6 +149,7 @@ reg_is_64bit(reg_id_t reg)
 {
     return (reg >= REG_START_64 && reg <= REG_STOP_64);
 }
+#endif /* !ARM */
 
 bool
 opnd_is_reg_pointer_sized(opnd_t opnd)

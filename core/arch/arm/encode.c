@@ -47,18 +47,8 @@
 const char * const reg_names[] = {
     "<NULL>",
     "<invalid>",
-    "x0",  "x1",   "x2",   "x3",    "x4",  "x5",   "x6",   "x7",
-    "x8",  "x9",   "x10",  "x11",  "x12", "x13",  "x14",  "x15",
-    "x16", "x17",  "x18",  "x19",  "x20", "x21",  "x22",  "x23",
-    "x24", "x25",  "x26",  "x27",  "x28", "x29",  "lr",   "sp", /* sometimes "xzr" */
-    "w0",  "w1",   "w2",   "w3",    "w4",  "w5",   "w6",   "w7",
-    "w8",  "w9",   "w10",  "w11",  "w12", "w13",  "w14",  "w15",
-    "w16", "w17",  "w18",  "w19",  "w20", "w21",  "w22",  "w23",
-    "w24", "w25",  "w26",  "w27",  "w28", "w29",  "w30",  "w31", /* sometimes "wzr" */
-#ifndef X64
     "r0",  "r1",   "r2",   "r3",    "r4",  "r5",   "r6",   "r7",
     "r8",  "r9",   "r10",  "r11",  "r12",  "sp",   "lr",   "pc",
-#endif
     "q0",  "q1",   "q2",   "q3",    "q4",  "q5",   "q6",   "q7",
     "q8",  "q9",   "q10",  "q11",  "q12", "q13",  "q14",  "q15",
     "q16", "q17",  "q18",  "q19",  "q20", "q21",  "q22",  "q23",
@@ -91,22 +81,6 @@ const char * const reg_names[] = {
 const reg_id_t dr_reg_fixer[] = {
     REG_NULL,
     REG_NULL,
-    DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
-    DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
-    DR_REG_X8,  DR_REG_X9,   DR_REG_X10,  DR_REG_X11,
-    DR_REG_X12, DR_REG_X13,  DR_REG_X14,  DR_REG_X15,
-    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
-    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
-    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
-    DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
-    DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
-    DR_REG_X8,  DR_REG_X9,   DR_REG_X10,  DR_REG_X11,
-    DR_REG_X12, DR_REG_X13,  DR_REG_X14,  DR_REG_X15,
-    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
-    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
-    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
