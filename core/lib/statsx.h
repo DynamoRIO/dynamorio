@@ -529,6 +529,8 @@
               num_ibt_exit_src_unlinked_frag_deleted)
     STATS_DEF("Extra exits due to src unlinked (shadowed)",
               num_ibt_exit_src_unlinked_shadowed)
+    STATS_DEF("Extra exits due to src unlinked (signal)",
+              num_ibt_exit_src_unlinked_signal)
     STATS_DEF("Extra exits due to shared syscall targetting BB",
               num_ibt_exit_src_trace_shared_syscall)
     STATS_DEF("Extra IBT exits due to -no_link_ibl", num_ibt_exit_nolink)
