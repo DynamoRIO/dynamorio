@@ -60,7 +60,10 @@ GLOBAL_LABEL(dynamorio_syscall:)
 #define FUNCNAME dr_fpu_exception_init
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        mov      x0, #0
+        msr      fpcr, x0
+        msr      fpsr, x0
+        ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 

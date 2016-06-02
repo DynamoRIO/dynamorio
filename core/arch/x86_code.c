@@ -444,7 +444,8 @@ safe_read_resume_pc(void)
 
 # define CONST_BYTE      0x1f
 # define TEST_STACK_SIZE PAGE_SIZE
-byte test_stack[TEST_STACK_SIZE];
+/* Align stack to 16 bytes: sufficient for all current architectures. */
+byte ALIGN_VAR(16) test_stack[TEST_STACK_SIZE];
 static dcontext_t *static_dc;
 
 static void
