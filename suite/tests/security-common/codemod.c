@@ -36,34 +36,41 @@
 #define ON_STACK 1
 
 #if !ON_STACK
-char buf[32];
+unsigned int buf[8];
 #endif
 
 int
 main()
 {
 #if ON_STACK
-    char buf[32];
+    unsigned int buf[8];
 #endif
-    char *foo = buf;
+    void (*foo)(void) = (void *)buf;
 
     INIT();
     print("starting up\n");
 
-#ifdef X86
-    buf[0] = 0xc3; /* ret */
+#if defined(X86)
+    *(unsigned char *)buf = 0xc3; /* ret */
+#elif defined(ARM)
+    buf[0] = 0xe12fff1e; /* bx lr */
+#elif defined(AARCH64)
+    buf[0] = 0xd65f03c0; /* ret */
 #else
-    /* XXX i#1639: this results in SIGILL natively even though we have
-     * execstack and this is a transition to ARM.  This runs fine under
-     * DR but apparently that's a transparency violation as it should crash
-     * for reasons unknown.
-     */
-    *(int*)buf = 0xe12fff1e; /* bx lr */
+# error NYI
 #endif
-    ((void (*)(void)) foo)();
+
+#ifndef X86
+    /* The call to __clear_cache is not required on Intel, and the function
+     * may not be provided by all compilers.
+     */
+    __clear_cache(buf, buf + sizeof(buf));
+#endif
+
+    foo();
 
     print("about to exit\n");
 
-    buf[1] = 0xc3; /* ret */
+    ((unsigned char *)buf)[1] = 0xc3;
     return 0;
 }
