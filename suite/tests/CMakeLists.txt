@@ -2892,9 +2892,8 @@ if (VPS) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
   tochcon(security-common.jmp_from_trace textrel_shlib_t)
 endif (VPS)
+tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
-
   # FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on
   # jumping to an invalid address!  For now we disable for VS2013 x64.
   # It also seems to fail on win8 x64 with VS2012.

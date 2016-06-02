@@ -620,13 +620,20 @@ GLOBAL_LABEL(FUNCNAME:)
         xchg     REG_XAX, ARG1       /* Swap with function pointer in arg1. */
         jmp      REG_XAX             /* Call function, now with &retaddr as arg1. */
 #elif defined(ARM)
-        mov      r1, ARG1
-        mov      r0, lr
-        bx       r1
+        push     {r7, lr}
+        add      r7, sp, #0
+        mov      lr, r0
+        add      r0, sp, #4          /* Make pointer to return address on stack. */
+        blx      lr                  /* Call function, with &retaddr as arg1. */
+        pop      {r7, pc}            /* Return to possibly modified return address. */
 #elif defined(AARCH64)
-        mov      x1, ARG1
-        mov      x0, x30
-        br       x1
+        stp      x29, x30, [sp, #-16]!
+        mov      x29, sp
+        mov      x30, x0
+        add      x0, sp, #8          /* Make pointer to return address on stack. */
+        blr      x30                 /* Call function, with &retaddr as arg1. */
+        ldp      x29, x30, [sp], #16
+        ret                          /* Return to possibly modified return address. */
 #else
 # error NYI
 #endif

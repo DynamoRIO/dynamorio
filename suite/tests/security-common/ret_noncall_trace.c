@@ -42,9 +42,8 @@
  *   with default optimization on Linux.
  *
  * Notes: If the compilers change, their default optimization levels are
- *   changed or if this code is optimized, the offset 6, used in next_num() for
+ *   changed or if this code is optimized, the OFFSET, used in next_num() for
  *   saved_eip will change.  The change may be different on Windows and Linux.
- *   The offset value in the code has to be modified.
  */
 
 #include "tools.h"
@@ -52,6 +51,14 @@
 #define NUM_TIMES 100
 #define INNER_LOOP_COUNT 4
 #define MAX_SUM (NUM_TIMES * (NUM_TIMES + 1) / 2 * INNER_LOOP_COUNT)
+
+#if defined(ARM) || defined(AARCH64)
+# define OFFSET 8
+#elif defined(X86)
+# define OFFSET 6
+#else
+# error NYI
+#endif
 
 static ptr_uint_t saved_eip;
 
@@ -62,7 +69,7 @@ next_num(void **retaddr_p)
 
   counter++;
   saved_eip = (ptr_uint_t)*retaddr_p;
-  saved_eip += 6;                /* Set rp to main()'s do-while loop. */
+  saved_eip += OFFSET;           /* Set rp to main()'s do-while loop. */
   return counter;
 }
 
