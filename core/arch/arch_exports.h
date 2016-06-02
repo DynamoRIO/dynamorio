@@ -1741,9 +1741,15 @@ enum {
 #endif
 
     /* Not under defines so we can have code that is less cluttered */
+#ifdef AARCH64
+    INT_LENGTH = 4,
+    SYSCALL_LENGTH = 4,
+    SYSENTER_LENGTH = 4,
+#else
     INT_LENGTH = 2,
     SYSCALL_LENGTH = 2,
     SYSENTER_LENGTH = 2,
+#endif
 };
 
 #define REL32_REACHABLE_OFFS(offs) ((offs) <= INT_MAX && (offs) >= INT_MIN)

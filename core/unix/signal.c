@@ -3237,7 +3237,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     }
 #ifdef X86
     sc->SC_SYSNUM_REG = sysnum;
-#elif defined(ARM)
+#elif defined(ARM) || defined(AARCH64)
     /* We just need to restore the app's arg to the syscall into r0, which
      * the kernel clobbered with -EINTR.  We stored r0 into TLS.
      */

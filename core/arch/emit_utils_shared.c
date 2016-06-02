@@ -4577,15 +4577,17 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     /* We will call this from handle_system_call, so need prefix on AArch64. */
     APP(&ilist, instr_create_restore_from_tls(dcontext, ENTRY_PC_REG,
                                               ENTRY_PC_SPILL_SLOT));
+    /* XXX: should have a proper patch list entry */
+    *syscall_offs += AARCH64_INSTR_SIZE;
 #endif
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
     /* We have to save r0 in case the syscall is interrupted.  We can't
      * easily do this from dispatch b/c fcache_enter clobbers some TLS slots.
      */
     APP(&ilist, instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
     /* XXX: should have a proper patch list entry */
-    *syscall_offs += THUMB_LONG_INSTR_SIZE;
+    *syscall_offs += IF_X64_ELSE(AARCH64_INSTR_SIZE, THUMB_LONG_INSTR_SIZE);
 #endif
 
     /* system call itself -- using same method we've observed OS using */
