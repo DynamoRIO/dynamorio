@@ -3209,16 +3209,16 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
         instr_init(dcontext, &instr);
         pc = FCACHE_ENTRY_PC(f);
         do {
+            ptr_int_t val;
             DOLOG(3, LOG_ASYNCH, {
                 disassemble_with_bytes(dcontext, pc, THREAD);
             });
             instr_reset(dcontext, &instr);
             pc = decode(dcontext, pc, &instr);
-            if (instr_get_opcode(&instr) == IF_X86_ELSE(OP_mov_imm, OP_mov) &&
+            if (instr_is_mov_constant(&instr, &val) &&
                 opnd_is_reg(instr_get_dst(&instr, 0)) &&
-                opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_SYSNUM &&
-                opnd_is_immed_int(instr_get_src(&instr, 0))) {
-                sysnum = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
+                opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_SYSNUM) {
+                sysnum = (int) val;
                 /* don't break: find last one before syscall */
             }
         } while (pc != NULL && instr_valid(&instr) && !instr_is_syscall(&instr) &&
