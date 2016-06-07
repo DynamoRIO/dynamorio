@@ -311,17 +311,18 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 bool
 instr_reads_thread_register(instr_t *instr)
 {
-    /* FIXME i#1569: Handle MRS instances other than MRS Xt, TPIDR_EL0. */
-    int opcode = instr_get_opcode(instr);
-    return (opcode == OP_mrs);
+    return (instr_get_opcode(instr) == OP_mrs &&
+            opnd_is_reg(instr_get_src(instr, 0)) &&
+            opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_TPIDR_EL0);
 }
 
 bool
 instr_writes_thread_register(instr_t *instr)
 {
-    /* FIXME i#1569: Handle MSR instances other than MSR TPIDR_EL0, Xt. */
-    int opcode = instr_get_opcode(instr);
-    return (opcode == OP_msr);
+    return (instr_get_opcode(instr) == OP_msr &&
+            instr_num_dsts(instr) == 1 &&
+            opnd_is_reg(instr_get_dst(instr, 0)) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_TPIDR_EL0);
 }
 
 DR_API

@@ -1549,9 +1549,9 @@ restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
                                 instr_t *instr, reg_id_t reg, ushort slot)
 {
     insert_save_to_tls_if_necessary(dcontext, ilist, instr, reg, slot);
-    PRE(ilist, instr, INSTR_CREATE_mov(dcontext,
-                                       opnd_create_reg(reg),
-                                       opnd_create_reg(dr_reg_stolen)));
+    PRE(ilist, instr, XINST_CREATE_move(dcontext,
+                                        opnd_create_reg(reg),
+                                        opnd_create_reg(dr_reg_stolen)));
     /* We always read the app value to make sure we write back
      * the correct value in the case of predicated execution.
      */
@@ -1594,9 +1594,9 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
         });
     }
     /* restore stolen reg from spill reg */
-    PRE(ilist, next_instr, INSTR_CREATE_mov(dcontext,
-                                            opnd_create_reg(dr_reg_stolen),
-                                            opnd_create_reg(reg)));
+    PRE(ilist, next_instr, XINST_CREATE_move(dcontext,
+                                             opnd_create_reg(dr_reg_stolen),
+                                             opnd_create_reg(reg)));
 }
 
 /* XXX: merge with or refactor out old STEAL_REGISTER x86 code? */
@@ -1620,6 +1620,7 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
      */
     ASSERT(!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen));
 
+#ifndef AARCH64 /* FIXME i#1569: recognise "move" on AArch64 */
     /* optimization, convert simple mov to ldr/str:
      * - "mov r0  -> r10"  ==> "str r0 -> [r10_slot]"
      * - "mov r10 -> r0"   ==> "ldr [r10_slot] -> r0"
@@ -1651,6 +1652,7 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist,
             ASSERT_NOT_REACHED();
         }
     }
+#endif
 
     /* move stolen reg value into tmp reg for app instr execution */
     tmp = pick_scratch_reg(dcontext, instr, false, &slot, &should_restore);
@@ -2257,9 +2259,9 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, SCRATCH_REG1,
                                             TLS_REG1_SLOT);
             /* mov r0 => r1, */
-            mov = INSTR_CREATE_mov(dcontext,
-                                   opnd_create_reg(SCRATCH_REG1),
-                                   opnd_create_reg(SCRATCH_REG0));
+            mov = XINST_CREATE_move(dcontext,
+                                    opnd_create_reg(SCRATCH_REG1),
+                                    opnd_create_reg(SCRATCH_REG0));
             instr_set_predicate(mov, instr_get_predicate(instr));
             PRE(ilist, instr, mov);
             /* We will only come to here iff instr is "ldm r0, {r0-rx}",

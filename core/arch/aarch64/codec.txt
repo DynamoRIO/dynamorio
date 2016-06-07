@@ -1,0 +1,71 @@
+# **********************************************************
+# Copyright (c) 2016 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Data read by "codec.py" and used to generate "codec_gen.h" and "opcode.h".
+# After changing this file, run "codec.py" in this directory.
+
+# Columns are:
+# - "fixed"    : bits that are fixed for this encoding
+# - "variable" : operand bits handled by encoder/decoder functions
+# - "opcode"   : mnemonic
+# - "type"     : name (suffix) of encoder/decoder functions
+#
+# Constraints:
+# - Variable bits are zero in "fixed": (fixed & variable) == 0
+# - No overlaps: ((fixed_1 ^ fixed_2) & ~variable_1 & ~variable_2) != 0
+# - Consistent variable bits: type_1 != type_2 || variable_1 == variable_2
+
+11000000 807fffff add add_imm
+10000000 60ffffff adr adr
+90000000 60ffffff adrp adr
+14000000 03ffffff b b
+54000000 00ffffef bcond bcond
+94000000 03ffffff bl b
+d63f0000 000003e0 blr br
+d61f0000 000003e0 br br
+d4200000 001fffe0 brk svc
+35000000 80ffffff cbnz cbz
+34000000 80ffffff cbz cbz
+b9400000 403fffff ldr ldr_imm
+3d400000 c0bfffff ldr ldr_imm_simd
+18000000 40ffffff ldr ldr_literal
+1c000000 c0ffffff ldr ldr_literal_simd
+d5300000 000fffff mrs mrs
+d5100000 000fffff msr msr
+d503201f 00000000 nop nop
+2a000000 80dfffff orr and_reg
+d65f0000 000003e0 ret br
+b9000000 403fffff str str_imm
+39000000 003fffff strb strb_imm
+79000000 003fffff strh strb_imm
+51000000 807fffff sub add_imm
+d4000001 001fffe0 svc svc
+37000000 80ffffff tbnz tbz
+36000000 80ffffff tbz tbz

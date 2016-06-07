@@ -315,10 +315,10 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                  opnd_create_reg(dst),
                                  opnd_create_reg(base),
                                  OPND_CREATE_INT(disp)) :
-                INSTR_CREATE_add(drcontext,
-                                 opnd_create_reg(dst),
-                                 opnd_create_reg(base),
-                                 OPND_CREATE_INT(disp));
+                XINST_CREATE_add_2src(drcontext,
+                                      opnd_create_reg(dst),
+                                      opnd_create_reg(base),
+                                      OPND_CREATE_INT(disp));
             if (instr_is_encoding_possible(instr)) {
                 PRE(bb, where, instr);
                 return true;
@@ -352,9 +352,9 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                        OPND_CREATE_INT(amount));
             PRE(bb, where, instr);
         } else if (base != dst) {
-            PRE(bb, where, INSTR_CREATE_mov(drcontext,
-                                            opnd_create_reg(dst),
-                                            opnd_create_reg(base)));
+            PRE(bb, where, XINST_CREATE_move(drcontext,
+                                             opnd_create_reg(dst),
+                                             opnd_create_reg(base)));
         }
     }
     return true;

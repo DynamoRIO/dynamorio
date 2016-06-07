@@ -192,6 +192,9 @@ elseif (ARM)
     arch/${ARCH_NAME}/table_t32_coproc.c
     arch/${ARCH_NAME}/table_t32_16.c
     arch/${ARCH_NAME}/table_t32_16_it.c)
+elseif (AARCH64)
+  set(DECODER_SRCS ${DECODER_SRCS}
+    arch/${ARCH_NAME}/codec.c)
 endif ()
 
 set(ARCH_SRCS

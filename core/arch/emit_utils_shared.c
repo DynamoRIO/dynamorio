@@ -4910,6 +4910,7 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
         if (instr_num_dsts(&instr) > 0 &&
             opnd_is_reg(instr_get_dst(&instr, 0)) &&
             opnd_get_reg(instr_get_dst(&instr, 0)) == SCRATCH_REG0) {
+#ifndef AARCH64 /* FIXME i#1569: recognise "move" on AArch64 */
             if (instr_get_opcode(&instr) == IF_X86_ELSE(OP_mov_imm, OP_mov)) {
                 IF_X64(ASSERT_TRUNCATE(int, int,
                                        opnd_get_immed_int(instr_get_src(&instr, 0))));
@@ -4917,6 +4918,7 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
                 LOG(GLOBAL, LOG_EMIT, 3, "\tfound syscall num: 0x%x\n", syscall);
                 break;
             } else
+#endif
                 break; /* give up gracefully */
         }
     }

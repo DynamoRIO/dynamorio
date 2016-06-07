@@ -328,8 +328,8 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
     /* Load TLS base from user-mode thread pointer/ID register:
      * mrs reg_base, tpidr_el0
      */
-    PRE(ilist, where, INSTR_CREATE_xx(dcontext,
-                                      0xd53bd040 | (reg_base - DR_REG_X0)));
+    PRE(ilist, where, INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg_base),
+                                       opnd_create_reg(DR_REG_TPIDR_EL0)));
     /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
     PRE(ilist, where, INSTR_CREATE_xx(dcontext, 0xf9400000 |
                                       (dr_reg_stolen - DR_REG_X0) |
@@ -352,7 +352,8 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
     /* Grab gen routine's parameter dcontext and put it into REG_DCXT:
      * mov x(dxct), x0
      */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xaa0003e0 | (REG_DCXT - DR_REG_X0)));
+    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
+                                 opnd_create_reg(DR_REG_X0)));
     /* set up stolen reg */
     insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
 }
@@ -371,9 +372,12 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_W0, XFLAGS_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_W1, XFLAGS_OFFSET + 4));
     APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_W2, XFLAGS_OFFSET + 8));
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xd51b4200)); /* msr nzcv,x0 */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xd51b4401)); /* msr fpcr,x1 */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xd51b4422)); /* msr fpsr,x2 */
+    APP(ilist, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV),
+                                opnd_create_reg(DR_REG_X0)));
+    APP(ilist, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPCR),
+                                opnd_create_reg(DR_REG_X1)));
+    APP(ilist, INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPSR),
+                                opnd_create_reg(DR_REG_X2)));
 }
 
 /* dcontext is in REG_DCXT; other registers can be used as scratch.
@@ -514,9 +518,12 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xd53b4201)); /* mrs x1, nzcv */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xd53b4402)); /* mrs x2, fpcr */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xd53b4423)); /* mrs x3, fpsr */
+    APP(ilist, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
+                                opnd_create_reg(DR_REG_NZCV)));
+    APP(ilist, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X2),
+                                opnd_create_reg(DR_REG_FPCR)));
+    APP(ilist, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X3),
+                                opnd_create_reg(DR_REG_FPSR)));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_W1, XFLAGS_OFFSET));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_W2, XFLAGS_OFFSET + 4));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_W3, XFLAGS_OFFSET + 8));

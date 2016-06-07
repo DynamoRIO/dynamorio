@@ -65,7 +65,7 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 #define XINST_CREATE_debug_instr(dc) \
-  INSTR_CREATE_brk((dc), OPND_CREATE_INT16(1))
+  INSTR_CREATE_brk((dc), OPND_CREATE_INT16(0))
 
 /**
  * This platform-independent macro creates an instr_t for a 4-byte
@@ -101,7 +101,15 @@
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
-#define XINST_CREATE_move(dc, d, s) INSTR_CREATE_mov((dc), (d), (s))
+#define XINST_CREATE_move(dc, d, s) \
+  ((opnd_get_reg(d) == DR_REG_XSP || opnd_get_reg(s) == DR_REG_XSP || \
+    opnd_get_reg(d) == DR_REG_WSP || opnd_get_reg(s) == DR_REG_WSP) ? \
+   instr_create_1dst_4src((dc), OP_add, (d), (s), \
+                          OPND_CREATE_INT16(0), \
+                          OPND_CREATE_INT8(DR_SHIFT_LSL), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_4src((dc), OP_orr, (d), \
+     opnd_create_reg(opnd_get_size(d) == OPSZ_8 ? DR_REG_XZR : DR_REG_WZR), \
+                     (s), OPND_CREATE_INT8(DR_SHIFT_LSL), OPND_CREATE_INT8(0)))
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -128,7 +136,8 @@
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
-#define XINST_CREATE_load_int(dc, r, i) INSTR_CREATE_mov((dc), (r), (i))
+#define XINST_CREATE_load_int(dc, r, i) \
+  ((void)(r), (void)(i), INSTR_CREATE_xx((dc), 0xf36d19)) /* FIXME i#1569 */
 
 /**
  * This platform-independent macro creates an instr_t for a return instruction.
@@ -176,7 +185,9 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add(dc, d, s) INSTR_CREATE_add((dc), (d), (d), (s))
+#define XINST_CREATE_add(dc, d, s) \
+  INSTR_CREATE_add((dc), (d), (d), (s), \
+    OPND_CREATE_INT8(DR_SHIFT_LSL), OPND_CREATE_INT8(0))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -190,7 +201,8 @@
  * can be either a register or an immediate integer.
  */
 #define XINST_CREATE_add_2src(dc, d, s1, s2) \
-  INSTR_CREATE_add((dc), (d), (s1), (s2))
+  INSTR_CREATE_add((dc), (d), (s1), (s2), \
+    OPND_CREATE_INT8(DR_SHIFT_LSL), OPND_CREATE_INT8(0))
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -211,21 +223,20 @@
  * Manually-added ARM-specific INSTR_CREATE_* macros
  */
 
-#define INSTR_CREATE_add(dc, Rd, Rn, Rm_or_imm) \
-  (opnd_is_reg(Rm_or_imm) ? \
-   INSTR_CREATE_add_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
-     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
-   instr_create_1dst_2src((dc), OP_add, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_add(dc, Rd, Rn, Rm_or_imm, sht, sha) \
+  instr_create_1dst_4src((dc), OP_add, (Rd), (Rn), (Rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_b(dc, pc) \
   instr_create_0dst_1src((dc), OP_b, (pc))
 #define INSTR_CREATE_br(dc, Xn) \
   instr_create_0dst_1src((dc), OP_br, (Xn))
 #define INSTR_CREATE_brk(dc, imm) \
   instr_create_0dst_1src((dc), OP_brk, (imm))
+#define INSTR_CREATE_cbnz(dc, pc, reg) \
+  instr_create_0dst_2src((dc), OP_cbnz, (pc), (reg))
+#define INSTR_CREATE_cbz(dc, pc, reg) \
+  instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
 #define INSTR_CREATE_ldr(dc, Rd, mem) \
   instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
-#define INSTR_CREATE_mov(dc, Rd, Rm_or_imm) \
-  instr_create_1dst_1src((dc), OP_mov, (Rd), (Rm_or_imm))
 #define INSTR_CREATE_mrs(dc, Xt, sysreg) \
   instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
 #define INSTR_CREATE_msr(dc, sysreg, Xt) \
@@ -246,6 +257,7 @@
 #define INSTR_CREATE_svc(dc, imm) \
   instr_create_0dst_1src((dc), OP_svc, (imm))
 
+/* FIXME i#1569: these two are probably wrong */
 #define INSTR_CREATE_add_shimm(dc, Rd, Rn, Rm, shift, imm) \
   instr_create_1dst_4src((dc), OP_add, (Rd), (Rn), \
   opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \

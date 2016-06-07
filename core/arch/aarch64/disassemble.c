@@ -34,7 +34,6 @@
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
-#include "decode_private.h"
 #include "disassemble.h"
 #include <string.h>
 

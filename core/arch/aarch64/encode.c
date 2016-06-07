@@ -35,7 +35,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "disassemble.h"
-#include "decode_private.h"
+#include "codec.h"
 
 /* Extra logging for encoding */
 #define ENC_LEVEL 6
@@ -105,121 +105,6 @@ void
 decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-}
-
-/* FIXME i#1569: Very incomplete encoder.
- * Temporary solution until a proper (table-driven) encoder is implemented.
- * SP (stack pointer) and ZR (zero register) may be confused.
- */
-static uint encode_common(byte *pc, instr_t *i)
-{
-    ptr_uint_t off;
-    ASSERT(((ptr_int_t)pc & 3) == 0);
-    switch (i->opcode) {
-    case OP_b:
-    case OP_bl:
-        ASSERT(i->num_dsts == 0 && i->num_srcs == 1 &&
-               i->src0.kind == PC_kind);
-        return (0x14000000 | (uint)(i->opcode == OP_bl) << 31 |
-                (0x3ffffff & (uint)(i->src0.value.pc - pc) >> 2));
-    case OP_bcond:
-        ASSERT(i->num_dsts == 0 && i->num_srcs == 1 &&
-               i->src0.kind == PC_kind);
-        return (0x54000000 |
-                (0x001fffff & (uint)(i->src0.value.pc - pc)) >> 2 << 5 |
-                (instr_get_predicate(i) & 0xf));
-    case OP_cbnz:
-    case OP_cbz:
-        ASSERT(i->num_dsts == 0 && i->num_srcs == 2 &&
-               (i->src0.kind == PC_kind || i->src0.kind == INSTR_kind) &&
-               i->srcs[0].kind == REG_kind && i->srcs[0].size == 0 &&
-               ((uint)(i->srcs[0].value.reg - DR_REG_W0) < 32 ||
-                (uint)(i->srcs[0].value.reg - DR_REG_X0) < 32));
-        off = ((i->src0.kind == PC_kind) ?
-               (uint)(i->src0.value.pc - pc) :
-               (ptr_int_t)(opnd_get_instr(i->src0)->note - i->note));
-        return (0x34000000 | (i->opcode == OP_cbnz) << 24 |
-                (uint)((uint)(i->srcs[0].value.reg - DR_REG_X0) < 32) << 31 |
-                (0x001fffff & off) >> 2 << 5 |
-                ((i->srcs[0].value.reg - DR_REG_X0) < 32 ?
-                 (i->srcs[0].value.reg - DR_REG_X0) :
-                 (i->srcs[0].value.reg - DR_REG_W0)));
-    case OP_load:
-        ASSERT(i->num_dsts == 1 && i->num_srcs == 1 &&
-               i->dsts[0].kind == REG_kind && i->dsts[0].size == 0 &&
-               i->src0.kind == BASE_DISP_kind &&
-               i->src0.value.base_disp.index_reg == DR_REG_NULL);
-        if (reg_is_gpr(i->dsts[0].value.reg)) {
-            uint rt = (i->dsts[0].value.reg -
-                       (i->src0.size == OPSZ_8 ? DR_REG_X0 : DR_REG_W0));
-            ASSERT(i->src0.size == OPSZ_4 || i->src0.size == OPSZ_8);
-            ASSERT(rt < 31);
-            return ((i->src0.size == OPSZ_8 ? 0xf9400000 : 0xb9400000 ) |
-                    rt |
-                    (i->src0.value.base_disp.base_reg - DR_REG_X0) << 5 |
-                    i->src0.value.base_disp.disp >>
-                    (i->src0.size == OPSZ_8 ? 3 : 2 ) << 10);
-        } else {
-            uint rt = (i->dsts[0].value.reg -
-                       (i->src0.size == OPSZ_4 ? DR_REG_S0 :
-                        i->src0.size == OPSZ_8 ? DR_REG_D0 : DR_REG_Q0));
-            ASSERT(i->src0.size == OPSZ_4 || i->src0.size == OPSZ_8 ||
-                   i->src0.size == OPSZ_16);
-            ASSERT(rt < 32);
-            return ((i->src0.size == OPSZ_4 ? 0xbd400000 :
-                     i->src0.size == OPSZ_8 ? 0xfd400000 : 0x3dc00000) |
-                    rt |
-                    (i->src0.value.base_disp.base_reg - DR_REG_X0) << 5 |
-                    i->src0.value.base_disp.disp >>
-                    (i->src0.size == OPSZ_4 ? 2 :
-                     i->src0.size == OPSZ_8 ? 3 : 4 ) << 10);
-         }
-    case OP_mov:
-        ASSERT(i->num_dsts == 1 && i->num_srcs == 1 &&
-               i->dsts[0].kind == REG_kind && i->dsts[0].size == 0 &&
-               i->src0.kind == REG_kind && i->src0.size == 0);
-        return (0xaa0003e0 |
-                (i->dsts[0].value.reg - DR_REG_X0) |
-                (i->src0.value.reg - DR_REG_X0) << 16);
-    case OP_store:
-        ASSERT(i->num_dsts == 1 && i->num_srcs == 1 &&
-               i->src0.kind == REG_kind && i->src0.size == 0 &&
-               i->dsts[0].kind == BASE_DISP_kind &&
-               (i->dsts[0].size == OPSZ_4 || i->dsts[0].size == OPSZ_8) &&
-               i->dsts[0].value.base_disp.index_reg == DR_REG_NULL);
-        return ((i->dsts[0].size == OPSZ_8 ? 0xf9000000 : 0xb9000000 ) |
-                (i->src0.value.reg - DR_REG_X0) |
-                (i->dsts[0].value.base_disp.base_reg - DR_REG_X0) << 5 |
-                i->dsts[0].value.base_disp.disp >>
-                (i->dsts[0].size == OPSZ_8 ? 3 : 2 ) << 10);
-    case OP_svc:
-        ASSERT(i->num_dsts == 0 && i->num_srcs == 1 &&
-               i->src0.kind == IMMED_INTEGER_kind);
-        return (0xd4000001 | (i->src0.value.immed_int & 0xffff) << 5);
-    case OP_tbnz:
-    case OP_tbz:
-        ASSERT(i->num_dsts == 0 && i->num_srcs == 3 &&
-               (i->src0.kind == PC_kind || i->src0.kind == INSTR_kind) &&
-               i->srcs[0].kind == REG_kind && i->srcs[0].size == 0 &&
-               (uint)(i->srcs[0].value.reg - DR_REG_X0) < 32 &&
-               i->srcs[1].kind == IMMED_INTEGER_kind);
-        off = ((i->src0.kind == PC_kind) ?
-               (uint)(i->src0.value.pc - pc) :
-               (ptr_int_t)(opnd_get_instr(i->src0)->note - i->note));
-        return (0x36000000 | (i->opcode == OP_tbnz) << 24 |
-                (0xffff & off) >> 2 << 5 |
-                (i->srcs[0].value.reg - DR_REG_X0) |
-                (i->srcs[1].value.immed_int & 31) << 19 |
-                (i->srcs[1].value.immed_int & 32) << 26);
-    case OP_xx:
-        return i->src0.value.immed_int;
-
-    default:
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    case OP_add:
-        /* FIXME i#1569: These are encoded but never executed. */
-        return i->opcode;
-    }
 }
 
 byte *
