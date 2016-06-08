@@ -355,6 +355,17 @@ ASSUME fs:_DATA @N@\
 # define ARG8_NORETADDR  ARG8
 # define ARG9_NORETADDR  ARG9
 # define ARG10_NORETADDR ARG10
+
+# ifndef AARCH64
+#  define FP r11
+#  define INDJMP bx
+#  define REG_PRESERVED_1 r4
+# else
+#  define FP x29
+#  define INDJMP br
+#  define REG_PRESERVED_1 x19
+# endif
+
 #else /* Intel X86 */
 # ifdef X64
 #  ifdef WINDOWS

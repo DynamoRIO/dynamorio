@@ -79,56 +79,6 @@ DECL_EXTERN(initstack_mutex)
 # error Non-Unix is not supported
 #endif
 
-#ifdef UNIX
-# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
-        DECLARE_FUNC(_start)
-GLOBAL_LABEL(_start:)
-        /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address.
-         * We call this here to ensure it's safe to access globals once in C code
-         * (xref i#1865).
-         */
-        CALLC2(GLOBAL_REF(relocate_dynamorio), #0, #0)
-
-        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr */
-        eor      ARG2, ARG2
-        eor      ARG3, ARG3
-
-        /* Entry from xfer_to_new_libdr is here.  It has set up 2nd & 3rd args already. */
-.L_start_invoke_C:
-        eor      r11, r11  /* clear frame ptr for stack trace bottom */
-        mov      r0, sp    /* 1st arg to privload_early_inject */
-        blx      GLOBAL_REF(privload_early_inject)
-        /* shouldn't return */
-        bl       GLOBAL_REF(unexpected_return)
-        END_FUNC(_start)
-
-/* i#1227: on a conflict with the app we reload ourselves.
- * xfer_to_new_libdr(entry, init_sp, cur_dr_map, cur_dr_size)
- * =>
- * Invokes entry after setting sp to init_sp and placing the current (old)
- * libdr bounds in registers for the new libdr to unmap.
- */
-        DECLARE_FUNC(xfer_to_new_libdr)
-GLOBAL_LABEL(xfer_to_new_libdr:)
-        mov     r5, ARG1
-        /* Restore sp */
-        mov     sp, ARG2
-        /* Skip prologue that calls relocate_dynamorio() and clears args 2+3 by
-         * adjusting the _start in the reloaded DR by the same distance as in
-         * the current DR, but w/o clobbering ARG3 or ARG4.
-         */
-        adr     r0, .L_start_invoke_C
-        adr     r1, _start
-        sub     r0, r0, r1
-        add     r5, r5, r0
-        /* _start expects these as 2nd & 3rd args */
-        mov     ARG2, ARG3
-        mov     ARG3, ARG4
-        bx      r5
-        END_FUNC(xfer_to_new_libdr)
-# endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
-#endif /* UNIX */
-
 /* all of the CPUID registers are only accessible in privileged modes */
         DECLARE_FUNC(cpuid_supported)
 GLOBAL_LABEL(cpuid_supported:)

@@ -65,6 +65,11 @@ set(asm_deps
   "${PROJECT_BINARY_DIR}/configure.h")
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
+if (NOT "${ARCH_NAME}" STREQUAL "${ARCH_NAME_SHARED}")
+  add_asm_target(arch/${ARCH_NAME_SHARED}/${ARCH_NAME_SHARED}.asm
+    archshared_core_asm_src archshared_core_asm_tgt
+    "_core" "" "${asm_deps}")
+endif ()
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
@@ -211,6 +216,7 @@ set(ARCH_SRCS
   arch/steal_reg.c
   arch/x86_code.c
   ${arch_core_asm_src}
+  ${archshared_core_asm_src}
   arch/${ARCH_NAME}/optimize.c
   arch/sideline.c
   arch/retcheck.c
@@ -409,6 +415,7 @@ endif ()
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # For VS generators, we also need one for our asm custom commands.
   add_dependencies(dynamorio ${arch_core_asm_tgt})
+  add_dependencies(dynamorio ${archshared_core_asm_tgt})
 endif ()
 
 target_link_libraries(dynamorio drhelper)
@@ -921,7 +928,8 @@ if (BUILD_TESTS)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(unit_tests ${arch_core_asm_tgt} ntdll_imports)
+    add_dependencies(unit_tests ${arch_core_asm_tgt} ${archshared_core_asm_tgt}
+      ntdll_imports)
   endif ()
   set(unit_tests_extra_flags "")
   if (UNIX AND NOT DEBUG)

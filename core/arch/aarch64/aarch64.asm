@@ -42,6 +42,9 @@ START_FILE
 # error Non-Unix is not supported
 #endif
 
+/* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
+#define PRIV_MCONTEXT_SIZE 800
+
 /* offsetof(dcontext_t, dstack) */
 #define dstack_OFFSET     0x360
 /* offsetof(dcontext_t, is_exiting) */
@@ -54,24 +57,6 @@ START_FILE
 #if defined(UNIX)
 DECL_EXTERN(dr_setjmp_sigmask)
 #endif
-
-#ifdef UNIX
-# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
-        DECLARE_FUNC(_start)
-GLOBAL_LABEL(_start:)
-        mov      x29, #0   /* clear frame ptr for stack trace bottom */
-        CALLC2(GLOBAL_REF(relocate_dynamorio), #0, #0)
-        CALLC3(GLOBAL_REF(privload_early_inject), sp, #0, #0)
-        /* shouldn't return */
-        bl       GLOBAL_REF(unexpected_return)
-        END_FUNC(_start)
-
-        DECLARE_FUNC(xfer_to_new_libdr)
-GLOBAL_LABEL(xfer_to_new_libdr:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
-        END_FUNC(xfer_to_new_libdr)
-# endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
-#endif /* UNIX */
 
 /* All CPU ID registers are accessible only in privileged modes. */
         DECLARE_FUNC(cpuid_supported)
@@ -138,9 +123,6 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
         bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
         END_FUNC(dr_app_running_under_dynamorio)
 #endif /* DR_APP_EXPORTS */
-
-/* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
-#define PRIV_MCONTEXT_SIZE 800
 
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
