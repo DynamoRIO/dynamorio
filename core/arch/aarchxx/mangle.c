@@ -400,7 +400,6 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr)
 {
-    instr_t *post_call = INSTR_CREATE_label(dcontext);
     ASSERT(scratch != REG_NULL); /* required */
     /* load target into scratch register */
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
@@ -411,23 +410,16 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 #ifdef AARCH64
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #else
-        /* Trying to compute cur pc ourselves is fragile b/c for Thumb it
-         * varies due to the back-align so we use an instr.
-         */
-        insert_mov_instr_addr(dcontext, post_call, encode_pc,
-                              opnd_create_reg(DR_REG_LR), ilist, where, NULL, NULL);
+        PRE(ilist, where, INSTR_CREATE_blx_ind(dcontext, opnd_create_reg(scratch)));
+#endif
+    } else {
+#ifdef AARCH64
+        PRE(ilist, where, INSTR_CREATE_xx(dcontext, 0xd61f0000 | /* br x(scratch) */
+                                          (scratch - DR_REG_X0) << 5));
+#else
+        PRE(ilist, where, INSTR_CREATE_bx(dcontext, opnd_create_reg(scratch)));
 #endif
     }
-    /* mov target from scratch register to pc */
-#ifdef AARCH64
-    PRE(ilist, where, INSTR_CREATE_xx(dcontext, 0xd61f0000 | /* br x(scratch) */
-                                      (scratch - DR_REG_X0) << 5));
-#else
-    PRE(ilist, where, INSTR_CREATE_mov(dcontext,
-                                       opnd_create_reg(DR_REG_PC),
-                                       opnd_create_reg(scratch)));
-#endif
-    PRE(ilist, where, post_call);
     return false /* an ind branch */;
 }
 
