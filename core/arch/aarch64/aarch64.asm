@@ -45,8 +45,10 @@ START_FILE
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
 #define PRIV_MCONTEXT_SIZE 800
 
+/* offsetof(priv_mcontext_t, simd) */
+#define simd_OFFSET (16 * ARG_SZ*2 + 32)
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x360
+#define dstack_OFFSET     0x368
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
@@ -154,7 +156,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         str      w1, [sp, #(16 * ARG_SZ*2 + 8)]
         str      w2, [sp, #(16 * ARG_SZ*2 + 12)]
         str      w3, [sp, #(16 * ARG_SZ*2 + 16)]
-        add      x4, sp, #(16 * ARG_SZ*2 + 20) /* offsetof(priv_mcontext_t, simd) */
+        add      x4, sp, #simd_OFFSET
         st1      {v0.2d-v3.2d}, [x4], #64
         st1      {v4.2d-v7.2d}, [x4], #64
         st1      {v8.2d-v11.2d}, [x4], #64
