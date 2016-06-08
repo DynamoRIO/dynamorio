@@ -89,4 +89,25 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 #endif /* UNIX */
 
+/* we need to call futex_wakeall without using any stack, to support
+ * THREAD_SYNCH_TERMINATED_AND_CLEANED.
+ * takes int* futex in r0.
+ */
+        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
+GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
+        mov      REG_R5, #0 /* arg6 */
+        mov      REG_R4, #0 /* arg5 */
+        mov      REG_R3, #0 /* arg4 */
+        mov      REG_R2, #0x7fffffff /* arg3 = INT_MAX */
+        mov      REG_R1, #1 /* arg2 = FUTEX_WAKE */
+        /* arg1 = &futex, already in r0 */
+#ifdef AARCH64
+        mov      w8, #98 /* SYS_futex */
+#else
+        mov      r7, #240 /* SYS_futex */
+#endif
+        svc      #0
+        b        GLOBAL_REF(dynamorio_sys_exit)
+        END_FUNC(dynamorio_futex_wake_and_exit)
+
 END_FILE

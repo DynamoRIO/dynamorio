@@ -457,11 +457,6 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
-        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
-GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
-        END_FUNC(dynamorio_futex_wake_and_exit)
-
 # ifndef NOT_DYNAMORIO_CORE_PROPER
 
 #  ifndef HAVE_SIGALTSTACK

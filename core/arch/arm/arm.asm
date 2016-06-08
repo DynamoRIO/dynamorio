@@ -572,24 +572,6 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
         END_FUNC(dynamorio_sys_exit)
 
 
-/* we need to call futex_wakeall without using any stack, to support
- * THREAD_SYNCH_TERMINATED_AND_CLEANED.
- * takes int* futex in r0.
- */
-        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
-GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
-        mov      r5, #0 /* arg6 */
-        mov      r4, #0 /* arg5 */
-        mov      r3, #0 /* arg4 */
-        mov      r2, #0x7fffffff /* arg3 = INT_MAX */
-        mov      r1, #1 /* arg2 = FUTEX_WAKE */
-        /* arg1 = &futex, already in r0 */
-        mov      r7, #240 /* SYS_futex */
-        svc      0
-        b        GLOBAL_REF(dynamorio_sys_exit)
-        END_FUNC(dynamorio_futex_wake_and_exit)
-
-
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 #ifndef HAVE_SIGALTSTACK

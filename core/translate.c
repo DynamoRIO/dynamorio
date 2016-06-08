@@ -120,13 +120,16 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
     return (instr_get_opcode(inst) == OP_jmp_short &&
             opnd_is_instr(instr_get_target(inst)));
 # elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    return (instr_get_opcode(inst) == OP_b &&
+            opnd_is_instr(instr_get_target(inst)));
 # elif defined(ARM)
     return ((instr_get_opcode(inst) == OP_b_short ||
              /* A32 uses a regular jump */
              instr_get_opcode(inst) == OP_b) &&
             opnd_is_instr(instr_get_target(inst)));
+# else
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
 # endif /* X86/ARM */
 }
 
