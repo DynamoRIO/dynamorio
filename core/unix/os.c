@@ -1464,7 +1464,7 @@ get_os_tls_from_dc(dcontext_t *dcontext)
     return (os_local_state_t *)(local_state - offsetof(os_local_state_t, state));
 }
 
-#ifdef ARM
+#if defined(ARM) || defined(AARCH64)
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
 {

@@ -115,8 +115,8 @@ typedef struct _our_modify_ldt_t {
 static inline ptr_uint_t
 read_thread_register(reg_id_t reg)
 {
-    uint sel;
 #ifdef X86
+    uint sel;
     if (reg == SEG_FS) {
         asm volatile("movl %%fs, %0" : "=r"(sel));
     } else if (reg == SEG_GS) {
@@ -132,6 +132,7 @@ read_thread_register(reg_id_t reg)
      */
     sel &= 0xffff;
 #elif defined(ARM) || defined(AARCH64)
+    ptr_uint_t sel;
     if (reg == DR_REG_TPIDRURO) {
         IF_X64_ELSE({
             asm volatile("mrs %0, tpidrro_el0" : "=r"(sel));
@@ -154,9 +155,19 @@ read_thread_register(reg_id_t reg)
         ASSERT_NOT_REACHED();
         return 0;
     }
+#else
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif
     return sel;
 }
+
+#ifdef AARCH64
+static inline void
+write_thread_register(void *val)
+{
+    asm volatile("msr tpidr_el0, %0" : : "r"(val));
+}
+#endif
 
 #if defined(LINUX) && defined(X86) && defined(X64) && !defined(ARCH_SET_GS)
 #  define ARCH_SET_GS 0x1001
