@@ -222,8 +222,7 @@ cat_no_thread:
         adrp     x26, :got:initstack_mutex
         ldr      x26, [x26, #:got_lo12:initstack_mutex]
 cat_spin:
-        CALLC2(atomic_xchg, x26, #1)
-        /* atomic_xchg */
+        CALLC2(atomic_swap, x26, #1)
         cbz      w0, cat_have_lock
         yield
         b        cat_spin
@@ -267,15 +266,6 @@ GLOBAL_LABEL(atomic_add:)
         add      w2, w2, w1
         stxr     w3, w2, [x0]
         cbnz     w3, 1b
-        ret
-
-        /* int atomic_xchg(int *adr, int val) */
-        DECLARE_FUNC(atomic_xchg)
-GLOBAL_LABEL(atomic_xchg:)
-1:      ldxr     w2, [x0]
-        stxr     w3, w1, [x0]
-        cbnz     w3, 1b
-        mov      w0, w2
         ret
 
         DECLARE_FUNC(global_do_syscall_int)
@@ -413,9 +403,14 @@ GLOBAL_LABEL(dr_longjmp:)
         br       x30
         END_FUNC(dr_longjmp)
 
+        /* int atomic_swap(int *adr, int val) */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+1:      ldxr     w2, [x0]
+        stxr     w3, w1, [x0]
+        cbnz     w3, 1b
+        mov      w0, w2
+        ret
         END_FUNC(atomic_swap)
 
 #endif /* CLIENT_INTERFACE */

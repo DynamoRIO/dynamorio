@@ -280,14 +280,14 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to initstack for cleanup of dstack */
-        /* we use r6, r7, and r8 here so that atomic_xchg doesn't clobber them */
+        /* we use r6, r7, and r8 here so that atomic_swap doesn't clobber them */
         mov      REG_R6, #1
         ldr      REG_R8, .Lgot1
         add      REG_R8, REG_R8, pc
         ldr      REG_R7, .Linitstack_mutex
 .LPIC1: ldr      REG_R7, [REG_R7, REG_R8]
 cat_spin:
-        CALLC2(atomic_xchg, REG_R7, REG_R6)
+        CALLC2(atomic_swap, REG_R7, REG_R6)
         cmp      REG_R0, #0
         beq      cat_have_lock
         yield
@@ -354,17 +354,6 @@ GLOBAL_LABEL(atomic_add:)
         bne      1b
         bx       lr
         END_FUNC(atomic_add)
-
-/* Pass in the memory address in ARG1 and register w/ value in ARG2. */
-        DECLARE_FUNC(atomic_xchg)
-GLOBAL_LABEL(atomic_xchg:)
-1:      ldrex    REG_R2, [ARG1]
-        strex    REG_R3, ARG2, [ARG1]
-        cmp      REG_R3, #0
-        bne      1b
-        mov      REG_R0, REG_R2
-        bx       lr
-        END_FUNC(atomic_xchg)
 
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
@@ -493,7 +482,7 @@ GLOBAL_LABEL(dr_longjmp:)
         bx       lr
         END_FUNC(dr_longjmp)
 
-/* uint atomic_swap(uint *addr, uint value)
+/* int atomic_swap(volatile int *addr, int value)
  * return current contents of addr and replace contents with value.
  */
         DECLARE_FUNC(atomic_swap)
