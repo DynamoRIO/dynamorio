@@ -235,8 +235,8 @@ typedef enum _dr_pred_type_t {
 #ifdef X86
     DR_PRED_O,   /**< x86 condition: overflow (OF=1). */
     DR_PRED_NO,  /**< x86 condition: no overflow (OF=0). */
-    DR_PRED_B,   /**< x86 condition: below (CF=0). */
-    DR_PRED_NB,  /**< x86 condition: not below (CF=1). */
+    DR_PRED_B,   /**< x86 condition: below (CF=1). */
+    DR_PRED_NB,  /**< x86 condition: not below (CF=0). */
     DR_PRED_Z,   /**< x86 condition: zero (ZF=1). */
     DR_PRED_NZ,  /**< x86 condition: not zero (ZF=0). */
     DR_PRED_BE,  /**< x86 condition: below or equal (CF=1 or ZF=1). */
