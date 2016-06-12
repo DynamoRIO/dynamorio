@@ -4009,7 +4009,7 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID,     0xf2380018, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x380018, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,     0xf3380018, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpshufb,   0x66380018, "vpshufb",   Vx, xx, Wx, xx, xx, mrm|vex, x, END_LIST},
+    {OP_vpshufb,   0x66380018, "vpshufb",   Vx, xx, Hx, Wx, xx, mrm|vex, x, END_LIST},
     {INVALID,     0xf2380018, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
   },
   { /* prefix extension 119 */

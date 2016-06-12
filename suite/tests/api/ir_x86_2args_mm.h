@@ -119,7 +119,6 @@ OPCODE(vmovdqa_ld, vmovdqa, vmovdqa, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(vmovdqu_st, vmovdqu, vmovdqu, 0, MEMARG(OPSZ_16), REGARG(XMM0))
 OPCODE(vmovdqa_st, vmovdqa, vmovdqa, 0, MEMARG(OPSZ_16), REGARG(XMM0))
 OPCODE(vlddqu, vlddqu, vlddqu, 0, REGARG(XMM0), MEMARG(OPSZ_16))
-OPCODE(vpshufb, vpshufb, vpshufb, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(vpmovsxbw, vpmovsxbw, vpmovsxbw, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(vpmovsxbd, vpmovsxbd, vpmovsxbd, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(vpmovsxbq, vpmovsxbq, vpmovsxbq, 0, REGARG(XMM0), MEMARG(OPSZ_16))
@@ -185,7 +184,6 @@ OPCODE(vbroadcastf128, vbroadcastf128, vbroadcastf128, 0, REGARG(YMM0), MEMARG(O
 
 /* AVX2 256-bit */
 OPCODE(vpmovmskb_256, vpmovmskb, vpmovmskb, 0, REGARG(EAX), REGARG(YMM0))
-OPCODE(vpshufb_256, vpshufb, vpshufb, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vpmovsxbw_256, vpmovsxbw, vpmovsxbw, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vpmovsxbd_256, vpmovsxbd, vpmovsxbd, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vpmovsxbq_256, vpmovsxbq, vpmovsxbq, 0, REGARG(YMM0), MEMARG(OPSZ_32))

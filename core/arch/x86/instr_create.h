@@ -1387,8 +1387,6 @@
   instr_create_1dst_1src((dc), OP_vmovdqa, (d), (s))
 #define INSTR_CREATE_vlddqu(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vlddqu, (d), (s))
-#define INSTR_CREATE_vpshufb(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_vpshufb, (d), (s))
 #define INSTR_CREATE_vpmovsxbw(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vpmovsxbw, (d), (s))
 #define INSTR_CREATE_vpmovsxbd(dc, d, s) \
@@ -2061,6 +2059,8 @@
   instr_create_1dst_2src((dc), OP_vaddsubpd, (d), (s1), (s2))
 #define INSTR_CREATE_vaddsubps(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vaddsubps, (d), (s1), (s2))
+#define INSTR_CREATE_vpshufb(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshufb, (d), (s1), (s2))
 #define INSTR_CREATE_vphaddw(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vphaddw, (d), (s1), (s2))
 #define INSTR_CREATE_vphaddd(dc, d, s1, s2) \
