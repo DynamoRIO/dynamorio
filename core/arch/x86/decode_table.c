@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1257,6 +1257,10 @@ const instr_info_t * const op_instr[] =
     /* OP_vpsravd       */   &third_byte_38[114],
     /* OP_vpsrlvd       */   &vex_W_extensions[72][0],
     /* OP_vpsrlvq       */   &vex_W_extensions[72][1],
+    /* OP_vpbroadcastb  */   &third_byte_38[116],
+    /* OP_vpbroadcastw  */   &third_byte_38[117],
+    /* OP_vpbroadcastd  */   &third_byte_38[118],
+    /* OP_vpbroadcastq  */   &third_byte_38[119],
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
@@ -1342,6 +1346,8 @@ const instr_info_t * const op_instr[] =
 #define Uq_dq TYPE_V_MODRM, OPSZ_8_of_16
 #define Wq  TYPE_W, OPSZ_8
 #define Wdq TYPE_W, OPSZ_16
+#define Wb_dq TYPE_W, OPSZ_1_of_16
+#define Ww_dq TYPE_W, OPSZ_2_of_16
 #define Wd_dq TYPE_W, OPSZ_4_of_16
 #define Wq_dq TYPE_W, OPSZ_8_of_16
 #define Wps TYPE_W, OPSZ_16
@@ -4859,9 +4865,9 @@ const byte third_byte_38_index[256] = {
     20, 21, 22, 23,  24, 25,  0,  0,  26, 27, 28, 29,  92, 93, 94, 95,  /* 2 */
     30, 31, 32, 33,  34, 35,112, 36,  37, 38, 39, 40,  41, 42, 43, 44,  /* 3 */
     45, 46,  0,  0,   0,113,114,115,   0,  0,  0,  0,   0,  0,  0,  0,  /* 4 */
-     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,108,  0,   0,  0,  0,  0,  /* 5 */
+     0,  0,  0,  0,   0,  0,  0,  0, 118,119,108,  0,   0,  0,  0,  0,  /* 5 */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
-     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 7 */
+     0,  0,  0,  0,   0,  0,  0,  0, 116,117,  0,  0,   0,  0,  0,  0,  /* 7 */
     49, 50,103,  0,   0,  0,  0,  0,   0,  0,  0,  0, 109,  0,110,  0,  /* 8 */
    104,105,106,107,   0,  0, 58, 59,  60, 61, 62, 63,  64, 65, 66, 67,  /* 9 */
      0,  0,  0,  0,   0,  0, 68, 69,  70, 71, 72, 73,  74, 75, 76, 77,  /* A */
@@ -5008,6 +5014,10 @@ const instr_info_t third_byte_38[] = {
   {VEX_W_EXT, 0x66384518, "(vex_W ext 72)", xx,xx,xx,xx,xx, mrm|vex|reqp, x, 72},/*113*/
   {OP_vpsravd,0x66384618, "vpsravd", Vx,xx,Hx,Wx,xx, mrm|vex|reqp, x, END_LIST}, /*114*/
   {VEX_W_EXT, 0x66384718, "(vex_W ext 73)", xx,xx,xx,xx,xx, mrm|vex|reqp, x, 73},/*115*/
+  {OP_vpbroadcastb, 0x66387818, "vpbroadcastb", Vx, xx, Wb_dq, xx, xx, mrm|vex|reqp, x, END_LIST},/*116*/
+  {OP_vpbroadcastw, 0x66387918, "vpbroadcastw", Vx, xx, Ww_dq, xx, xx, mrm|vex|reqp, x, END_LIST},/*117*/
+  {OP_vpbroadcastd, 0x66385818, "vpbroadcastd", Vx, xx, Wd_dq, xx, xx, mrm|vex|reqp, x, END_LIST},/*118*/
+  {OP_vpbroadcastq, 0x66385918, "vpbroadcastq", Vx, xx, Wq_dq, xx, xx, mrm|vex|reqp, x, END_LIST},/*119*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed

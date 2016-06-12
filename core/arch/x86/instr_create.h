@@ -1503,6 +1503,14 @@
 /* AVX2 */
 #define INSTR_CREATE_vbroadcasti128(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vbroadcasti128, (d), (s))
+#define INSTR_CREATE_vpbroadcastb(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastb, (d), (s))
+#define INSTR_CREATE_vpbroadcastw(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastw, (d), (s))
+#define INSTR_CREATE_vpbroadcastd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastd, (d), (s))
+#define INSTR_CREATE_vpbroadcastq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastq, (d), (s))
 
 /* @} */ /* end doxygen group */
 
