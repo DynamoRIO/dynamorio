@@ -80,13 +80,6 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
     return TLS_FCACHE_RETURN_SLOT;
 }
 
-size_t
-get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
-}
-
 /* Generate move (immediate) of a 64-bit value using 4 instructions. */
 static uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
@@ -126,8 +119,9 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* br x1 */
         *pc++ = 0xd61f0000 | 1 << 5;
     } else {
-        spill_state_t state;
-        size_t ibl_offs = (byte *)&state.bb_ibl[IBL_INDJMP].ibl - (byte *)&state;
+        /* Stub starts out unlinked. */
+        cache_pc exit_target = get_unlinked_entry(dcontext,
+                                                  EXIT_TARGET_TAG(dcontext, f, l));
         /* stp x0, x1, [x(stolen), #(offs)] */
         *pc++ = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  TLS_REG0_SLOT >> 3 << 15);
@@ -135,7 +129,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                 ibl_offs >> 3 << 10);
+                 get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
         /* br x1 */
         *pc++ = 0xd61f0000 | 1 << 5;
     }
@@ -190,7 +184,11 @@ stub_is_patched(fragment_t *f, cache_pc stub_pc)
 void
 unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* Restore the stp x0, x1, [x28] instruction. */
+    *(uint *)stub_pc = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
+                        TLS_REG0_SLOT >> 3 << 15);
+    if (hot_patch)
+        machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
 }
 
 void
@@ -241,11 +239,28 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
                         app_pc target_tag)
 {
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-    byte *pc = stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - 4;
-    *(uint *)pc = 0xd61f0000 | 1 << 5; /* br x1 */
-    /* XXX: since we need to sync, we should start out linked */
+    uint *pc;
+    cache_pc exit_target;
+    ibl_type_t ibl_type = {0};
+    DEBUG_DECLARE(bool is_ibl = )
+        get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type);
+    ASSERT(is_ibl);
+    if (IS_IBL_LINKED(ibl_type.link_state))
+        exit_target = target_tag;
+    else
+        exit_target = get_linked_entry(dcontext, target_tag);
+
+    pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
+                  (2 * AARCH64_INSTR_SIZE));
+
+    /* ldr x1, [x(stolen), #(offs)] */
+    pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+             get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
+    /* br x1 */
+    pc[1] = 0xd61f0000 | 1 << 5;
+
     if (hot_patch)
-        machine_cache_sync(pc, pc + 4, true);
+        machine_cache_sync(pc, pc + 2, true);
 }
 
 cache_pc
@@ -268,7 +283,28 @@ cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 void
 unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
+    uint *pc;
+    cache_pc exit_target;
+    ibl_code_t *ibl_code = NULL;
+    ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
+    ASSERT(LINKSTUB_INDIRECT(l->flags));
+    /* Target is always the same, so if it's already unlinked, this is a nop. */
+    if (!TEST(LINK_LINKED, l->flags))
+        return;
+    ibl_code = get_ibl_routine_code(dcontext,
+                                    extract_branchtype(l->flags), f->flags);
+    exit_target = ibl_code->unlinked_ibl_entry;
+
+    pc = (uint *)(stub_pc +
+                  exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
+                                 f->flags) - (2 * AARCH64_INSTR_SIZE));
+
+    /* ldr x1, [x(stolen), #(offs)] */
+    *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+           get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
+
+    machine_cache_sync(pc, pc + 1, true);
 }
 
 /*******************************************************************************

@@ -205,33 +205,6 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
     }
 }
 
-size_t
-get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry)
-{
-    spill_state_t state;
-    byte *local;
-    ibl_type_t ibl_type = {0};
-    /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
-    DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, ibl_entry, &ibl_type);
-    ASSERT(is_ibl);
-    /* FIXME i#1575: coarse-grain NYI on ARM */
-    ASSERT(ibl_type.source_fragment_type != IBL_COARSE_SHARED);
-    if (IS_IBL_TRACE(ibl_type.source_fragment_type)) {
-        if (IS_IBL_LINKED(ibl_type.link_state))
-            local = (byte *) &state.trace_ibl[ibl_type.branch_type].ibl;
-        else
-            local = (byte *) &state.trace_ibl[ibl_type.branch_type].unlinked;
-    } else {
-        ASSERT(IS_IBL_BB(ibl_type.source_fragment_type));
-        if (IS_IBL_LINKED(ibl_type.link_state))
-            local = (byte *) &state.bb_ibl[ibl_type.branch_type].ibl;
-        else
-            local = (byte *) &state.bb_ibl[ibl_type.branch_type].unlinked;
-    }
-    return (local - (byte *) &state);
-}
-
 /* Emit code for the exit stub at stub_pc.  Return the size of the
  * emitted code in bytes.  This routine assumes that the caller will
  * take care of any cache synchronization necessary (though none is
