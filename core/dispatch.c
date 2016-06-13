@@ -484,14 +484,15 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
                  /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
                  convert_data_to_function
                  (PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
-                 PC_AS_JMP_TGT(FRAG_ISA_MODE(targetf->flags),
 #ifdef AARCH64
-                               /* Entry to fcache requires indirect branch. */
-                               FCACHE_PREFIX_ENTRY_PC(targetf)
+                 /* Entry to fcache requires indirect branch. */
+                 PC_AS_JMP_TGT(FRAG_ISA_MODE(targetf->flags),
+                               FCACHE_PREFIX_ENTRY_PC(targetf))
 #else
-                               FCACHE_ENTRY_PC(targetf)
+                 PC_AS_JMP_TGT(FRAG_ISA_MODE(targetf->flags),
+                               FCACHE_ENTRY_PC(targetf))
 #endif
-                               ));
+                 );
     ASSERT_NOT_REACHED();
     return true;
 }
