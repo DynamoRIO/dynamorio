@@ -2756,6 +2756,20 @@ unhook_vsyscall(void)
  * that 1) we don't have to allocate any memory and 2) we don't have
  * to do any extra work in dispatch, which will naturally go to the
  * post-system-call-instr pc.
+ * Unfortunately the 4.4.8 kernel removed the nops (i#1939) so for
+ * recent kernels we instead copy into the padding area:
+ *     0xf77c6be0:  push   %ecx
+ *     0xf77c6be1:  push   %edx
+ *     0xf77c6be2:  push   %ebp
+ *     0xf77c6be3:  mov    %esp,%ebp
+ *     0xf77c6be5:  sysenter
+ *     0xf77c6be7:  int    $0x80
+ *   normal return point:
+ *     0xf77c6be9:  pop    %ebp
+ *     0xf77c6bea:  pop    %edx
+ *     0xf77c6beb:  pop    %ecx
+ *     0xf77c6bec:  ret
+ *     0xf77c6bed+:  <padding>
  *
  * Using a hook is much simpler than clobbering the retaddr, which is what
  * Windows does and then has to spend a lot of effort juggling transparency
@@ -2800,8 +2814,6 @@ hook_vsyscall(dcontext_t *dcontext)
     }                                                 \
 } while (0);
 
-    CHECK(num_nops >= VSYS_DISPLACED_LEN);
-
     /* Only now that we've set vsyscall_sysenter_return_pc do we check writability */
     if (!DYNAMO_OPTION(hook_vsyscall)) {
         res = false;
@@ -2843,10 +2855,27 @@ hook_vsyscall(dcontext_t *dcontext)
 
     CHECK(pc - vsyscall_sysenter_return_pc == VSYS_DISPLACED_LEN);
     ASSERT(pc + 1/*nop*/ - vsyscall_sysenter_return_pc == JMP_LONG_LENGTH);
-    CHECK(num_nops >= pc - vsyscall_sysenter_return_pc);
-    memcpy(vsyscall_syscall_end_pc, vsyscall_sysenter_return_pc,
-           /* we don't copy the 5th byte to preserve nop for nice disassembly */
-           pc - vsyscall_sysenter_return_pc);
+    if (num_nops >= VSYS_DISPLACED_LEN) {
+        CHECK(num_nops >= pc - vsyscall_sysenter_return_pc);
+        memcpy(vsyscall_syscall_end_pc, vsyscall_sysenter_return_pc,
+               /* we don't copy the 5th byte to preserve nop for nice disassembly */
+               pc - vsyscall_sysenter_return_pc);
+        vsyscall_sysenter_displaced_pc = vsyscall_syscall_end_pc;
+    } else {
+        /* i#1939: the 4.4.8 kernel removed the nops.  It might be safer
+         * to place the bytes in our own memory somewhere but that requires
+         * extra logic to mark it as executable and to map the PC for
+         * dr_fragment_app_pc() and dr_app_pc_for_decoding(), so we go for the
+         * easier-to-implement route and clobber the padding garbage after the ret.
+         * We assume it is large enough for the 1 byte from the jmp32 and the
+         * 4 bytes of displacement.  Technically we should map the PC back
+         * here as well but it's close enough.
+         */
+        pc += 1; /* skip 5th byte of to-be-inserted jmp */
+        CHECK(PAGE_START(pc) == PAGE_START(pc + VSYS_DISPLACED_LEN));
+        memcpy(pc, vsyscall_sysenter_return_pc, VSYS_DISPLACED_LEN);
+        vsyscall_sysenter_displaced_pc = pc;
+    }
     insert_relative_jump(vsyscall_sysenter_return_pc,
                          /* we require a thread-shared fcache_return */
                          after_do_shared_syscall_addr(dcontext),

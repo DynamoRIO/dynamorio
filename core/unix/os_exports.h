@@ -266,6 +266,8 @@ extern app_pc vsyscall_page_start;
 extern app_pc vsyscall_syscall_end_pc;
 /* pc where kernel returns control after sysenter vsyscall */
 extern app_pc vsyscall_sysenter_return_pc;
+/* pc where our hook-displaced code was copied */
+extern app_pc vsyscall_sysenter_displaced_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
 
 bool is_thread_create_syscall(dcontext_t *dcontext);

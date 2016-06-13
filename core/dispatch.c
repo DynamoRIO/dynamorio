@@ -1662,7 +1662,8 @@ adjust_syscall_continuation(dcontext_t *dcontext)
      * point to go to post-do-vsyscall.  So we end up here w/o any extra
      * work pre-syscall; and since we put the hook-displaced code in the nop
      * space immediately after the sysenter instr, which is our normal
-     * continuation pc, we have no work to do here either!
+     * continuation pc, we have no work to do here either (except for
+     * 4.4.8+ kernels: i#1939)!
      */
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
 # ifdef MACOS
@@ -1677,7 +1678,12 @@ adjust_syscall_continuation(dcontext_t *dcontext)
 # else
         /* we still see some int syscalls (for SYS_clone in particular) */
         ASSERT(dcontext->sys_was_int ||
-               dcontext->asynch_target == vsyscall_syscall_end_pc);
+               dcontext->asynch_target == vsyscall_syscall_end_pc ||
+               /* dr_syscall_invoke_another() hits this */
+               dcontext->asynch_target == vsyscall_sysenter_displaced_pc);
+        /* i#1939: we do need to adjust for 4.4.8+ kernels */
+        if (!dcontext->sys_was_int && vsyscall_sysenter_displaced_pc != NULL)
+            dcontext->asynch_target = vsyscall_sysenter_displaced_pc;
 # endif
     } else if (vsyscall_syscall_end_pc != NULL &&
                /* PR 341469: 32-bit apps (LOL64) on AMD hardware have

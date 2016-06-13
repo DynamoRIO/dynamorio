@@ -363,6 +363,8 @@ app_pc vsyscall_page_start = NULL;
 app_pc vsyscall_syscall_end_pc = NULL;
 /* pc where kernel returns control after sysenter vsyscall */
 app_pc vsyscall_sysenter_return_pc = NULL;
+/* pc where our hook-displaced code was copied */
+app_pc vsyscall_sysenter_displaced_pc = NULL;
 #define VSYSCALL_PAGE_START_HARDCODED ((app_pc)(ptr_uint_t) 0xffffe000)
 #ifdef X64
 /* i#430, in Red Hat Enterprise Server 5.6, vsyscall region is marked
