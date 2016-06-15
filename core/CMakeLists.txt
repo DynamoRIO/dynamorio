@@ -414,8 +414,7 @@ if (WIN32)
 endif ()
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # For VS generators, we also need one for our asm custom commands.
-  add_dependencies(dynamorio ${arch_core_asm_tgt})
-  add_dependencies(dynamorio ${archshared_core_asm_tgt})
+  add_dependencies(dynamorio ${arch_core_asm_tgt} ${archshared_core_asm_tgt})
 endif ()
 
 target_link_libraries(dynamorio drhelper)
