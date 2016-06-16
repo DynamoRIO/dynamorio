@@ -1049,8 +1049,14 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "<label>");
         return;
     } else if (instr_opcode_valid(instr)) {
+#ifdef AARCH64
+        /* We do not use instr_info_t encoding info on AArch64. */
+        info = NULL;
+        name = get_opcode_name(instr_get_opcode(instr));
+#else
         info = instr_get_instr_info(instr);
         name = info->name;
+#endif
     } else
         name = "<RAW>";
 

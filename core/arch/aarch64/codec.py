@@ -191,6 +191,28 @@ def generate_opcodes(encodings):
           '#endif /* OPCODE_H */']
     return '\n'.join(c) + '\n'
 
+def generate_opcode_names(encodings):
+    mns = dict()
+    for e in encodings:
+        mns[e[2]] = 1
+    c = ['#ifndef OPCODE_NAMES_H',
+         '#define OPCODE_NAMES_H 1',
+         '',
+         'const char *opcode_names[] = {',
+         '/*   0 */ "<invalid>",',
+         '/*   1 */ "<undecoded>",',
+         '/*   2 */ "<contd>",',
+         '/*   3 */ "<label>",']
+    i = 4
+    for mn in sorted(mns):
+        c.append('/*%4d */ "%s",' % (i, mn))
+        i += 1
+    c += ['          "xx",',
+          '};',
+          '',
+          '#endif /* OPCODE_NAMES_H */']
+    return '\n'.join(c) + '\n'
+
 def write_if_changed(file, data):
     try:
         if open(file, 'r').read() == data:
@@ -221,6 +243,8 @@ def main():
                      '\n' + generate_encoder(encodings))
     write_if_changed('opcode.h',
                      header + generate_opcodes(encodings))
+    write_if_changed('opcode_names.h',
+                     header + generate_opcode_names(encodings))
 
 if __name__ == "__main__":
     main()

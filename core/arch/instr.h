@@ -2684,6 +2684,9 @@ bool instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_s
                                 dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
                                 OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
 uint instr_branch_type(instr_t *cti_instr);
+#ifdef AARCH64
+const char *get_opcode_name(int opc);
+#endif
 /* these routines can assume that instr's opcode is valid */
 bool instr_is_call_arch(instr_t *instr);
 bool instr_is_cbr_arch(instr_t *instr);

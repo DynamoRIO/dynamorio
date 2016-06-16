@@ -321,7 +321,7 @@ entrance_stub_jmp(cache_pc stub)
 bool
 coarse_is_entrance_stub(cache_pc stub)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* FIXME i#1575: coarse-grain NYI on AArch64 */
     return false;
 }
 

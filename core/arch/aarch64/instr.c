@@ -34,6 +34,8 @@
 #include "instr.h"
 #include "decode.h"
 
+#include "opcode_names.h"
+
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
@@ -84,6 +86,12 @@ instr_branch_type(instr_t *cti_instr)
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
+}
+
+const char *
+get_opcode_name(int opc)
+{
+    return opcode_names[opc];
 }
 
 bool

@@ -165,7 +165,8 @@ decode_first_opcode_byte(int opcode)
 const instr_info_t *
 opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* We do not use instr_info_t encoding info on AArch64. */
+    ASSERT_NOT_REACHED();
     return NULL;
 }
 

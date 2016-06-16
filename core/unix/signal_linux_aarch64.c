@@ -56,7 +56,12 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    int i;
+    for (i = 0; i <= DR_REG_X30 - DR_REG_X0; i++)
+        LOG(THREAD, LOG_ASYNCH, 1, "\tx%-2d    = "PFX"\n", i, sc->regs[i]);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tsp     = "PFX"\n", sc->sp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpc     = "PFX"\n", sc->pc);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpstate = "PFX"\n", sc->pstate);
 }
 #endif /* DEBUG */
 

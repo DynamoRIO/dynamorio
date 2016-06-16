@@ -60,10 +60,6 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-#ifdef X64
-  /* FIXME i#1569: NYI */
-# error NYI
-#endif
     LOG(THREAD, LOG_ASYNCH, 1, "\tr0  ="PFX"\n", sc->SC_R0);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr1  ="PFX"\n", sc->SC_R1);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr2  ="PFX"\n", sc->SC_R2);
