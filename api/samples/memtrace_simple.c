@@ -59,6 +59,7 @@
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drreg.h"
 #include "drutil.h"
 #include "utils.h"
 
@@ -235,15 +236,15 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
 static void
 instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XCX, DR_REG_R1);
-    reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XBX, DR_REG_R2);
-    ushort  slot_ptr = SPILL_SLOT_2;
-    ushort  slot_tmp = SPILL_SLOT_3;
-
     /* We need two scratch registers */
-    dr_save_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_save_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
-
+    reg_id_t reg_ptr, reg_tmp;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr) !=
+        DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
+        DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        return;
+    }
     insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)instr_get_opcode(where));
@@ -252,9 +253,10 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(where));
     insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(mem_ref_t));
-    /* restore scratch registers */
-    dr_restore_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_restore_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
+    /* Restore scratch registers */
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 }
 
 /* insert inline code to add a memory reference info entry into the buffer */
@@ -262,15 +264,15 @@ static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
                opnd_t ref, bool write)
 {
-    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XCX, DR_REG_R1);
-    reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XBX, DR_REG_R2);
-    ushort  slot_ptr = SPILL_SLOT_2;
-    ushort  slot_tmp = SPILL_SLOT_3;
-
     /* We need two scratch registers */
-    dr_save_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_save_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
-
+    reg_id_t reg_ptr, reg_tmp;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr) !=
+        DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
+        DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        return;
+    }
     /* save_addr should be called first as reg_ptr or reg_tmp maybe used in ref */
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
@@ -278,10 +280,10 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)drutil_opnd_mem_size_in_bytes(ref, where));
     insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(mem_ref_t));
-
-    /* restore scratch registers */
-    dr_restore_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_restore_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
+    /* Restore scratch registers */
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 }
 
 /* For each memory reference app instr, we insert inline code to fill the buffer
@@ -410,7 +412,8 @@ event_exit(void)
         !drmgr_unregister_thread_init_event(event_thread_init) ||
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
         !drmgr_unregister_bb_app2app_event(event_bb_app2app) ||
-        !drmgr_unregister_bb_insertion_event(event_app_instruction))
+        !drmgr_unregister_bb_insertion_event(event_app_instruction) ||
+        drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     dr_mutex_destroy(mutex);
@@ -421,9 +424,11 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
+    drreg_options_t ops = {sizeof(ops), 3, false};
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || !drutil_init())
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init())
         DR_ASSERT(false);
 
     /* register events */

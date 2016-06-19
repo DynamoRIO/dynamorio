@@ -108,7 +108,8 @@ static void instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
+    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
+    drreg_options_t ops = {sizeof(ops), 3, false};
     /* Specify priority relative to other instrumentation operations: */
     drmgr_priority_t priority = {
         sizeof(priority), /* size of struct */

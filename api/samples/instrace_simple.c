@@ -313,7 +313,8 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
+    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
+    drreg_options_t ops = {sizeof(ops), 3, false};
     dr_set_client_name("DynamoRIO Sample Client 'instrace'",
                        "http://dynamorio.org/issues");
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)

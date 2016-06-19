@@ -61,6 +61,7 @@
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drreg.h"
 #include "drutil.h"
 #include "utils.h"
 
@@ -107,10 +108,6 @@ static void event_thread_exit(void *drcontext);
 static dr_emit_flags_t event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
                                         bool for_trace, bool translating);
 
-static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         OUT void **user_data);
-
 static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
                                        instr_t *instr, bool for_trace, bool translating,
                                        void *user_data);
@@ -128,6 +125,8 @@ static void instrument_mem(void        *drcontext,
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
+    drreg_options_t ops = {sizeof(ops), 3, false};
     /* Specify priority relative to other instrumentation operations: */
     drmgr_priority_t priority = {
         sizeof(priority), /* size of struct */
@@ -144,11 +143,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_exit_event(event_exit);
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
-        !drmgr_register_bb_app2app_event(event_bb_app2app,
-                                         &priority) ||
-        !drmgr_register_bb_instrumentation_event(event_bb_analysis,
-                                                 event_bb_insert,
-                                                 &priority)) {
+        !drmgr_register_bb_app2app_event(event_bb_app2app, &priority) ||
+        !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert, &priority) ||
+        drreg_init(&ops) != DRREG_SUCCESS) {
         /* something is wrong: can't continue */
         DR_ASSERT(false);
         return;
@@ -186,7 +183,14 @@ event_exit()
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     code_cache_exit();
-    drmgr_unregister_tls_field(tls_index);
+
+    if (!drmgr_unregister_tls_field(tls_index) ||
+        !drmgr_unregister_thread_init_event(event_thread_init) ||
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        !drmgr_unregister_bb_insertion_event(event_bb_insert) ||
+        drreg_exit() != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
     dr_mutex_destroy(mutex);
     drutil_exit();
     drmgr_exit();
@@ -262,17 +266,6 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
-    return DR_EMIT_DEFAULT;
-}
-
-/* our operations here only need to see a single-instruction window so
- * we do not need to do any whole-bb analysis
- */
-static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating,
-                  OUT void **user_data)
-{
     return DR_EMIT_DEFAULT;
 }
 
@@ -394,19 +387,26 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     instr_t *instr, *call, *restore, *first, *second;
     opnd_t   ref, opnd1, opnd2;
-    reg_id_t reg1 = DR_REG_XBX; /* We can optimize it by picking dead reg */
-    reg_id_t reg2 = DR_REG_XCX; /* reg2 must be ECX or RCX for jecxz */
+    reg_id_t reg1, reg2;
+    drvector_t allowed;
     per_thread_t *data;
     app_pc pc;
 
     data = drmgr_get_tls_field(drcontext, tls_index);
 
-    /* Steal the register for memory reference address *
-     * We can optimize away the unnecessary register save and restore
-     * by analyzing the code and finding the register is dead.
+    /* Steal two scratch registers.
+     * reg2 must be ECX or RCX for jecxz.
      */
-    dr_save_reg(drcontext, ilist, where, reg1, SPILL_SLOT_2);
-    dr_save_reg(drcontext, ilist, where, reg2, SPILL_SLOT_3);
+    drreg_init_and_fill_vector(&allowed, false);
+    drreg_set_vector_entry(&allowed, DR_REG_XCX, true);
+    if (drreg_reserve_register(drcontext, ilist, where, &allowed, &reg2) !=
+        DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) != DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        drvector_delete(&allowed);
+        return;
+    }
+    drvector_delete(&allowed);
 
     if (write)
        ref = instr_get_dst(where, pos);
@@ -524,8 +524,9 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     instr = INSTR_CREATE_jmp(drcontext, opnd1);
     instrlist_meta_preinsert(ilist, where, instr);
 
-    /* restore %reg */
+    /* Restore scratch registers */
     instrlist_meta_preinsert(ilist, where, restore);
-    dr_restore_reg(drcontext, ilist, where, reg1, SPILL_SLOT_2);
-    dr_restore_reg(drcontext, ilist, where, reg2, SPILL_SLOT_3);
+    if (drreg_unreserve_register(drcontext, ilist, where, reg1) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg2) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 }

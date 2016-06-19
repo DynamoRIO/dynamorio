@@ -123,6 +123,7 @@ typedef struct _drreg_options_t {
      * across application instructions, an additional slot must be
      * requested for adjusting the saved application value with
      * respect to application reads and writes.
+     * drreg always reserves one slot for use in preserving the arithmetic flags.
      */
     uint num_spill_slots;
     /**
