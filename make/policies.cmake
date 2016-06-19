@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,12 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
+
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.3" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.3")
+  # XXX i#1955: update our code to satisfy the changes in 3.3
+  cmake_policy(SET CMP0058 OLD)
+endif ()
 
 if ("${CMAKE_VERSION}" VERSION_EQUAL "3.1" OR
     "${CMAKE_VERSION}" VERSION_GREATER "3.1")
