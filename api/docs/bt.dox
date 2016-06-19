@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,6 +51,7 @@ following sections:
  - \ref sec_reg_stolen
  - \ref sec_translation
  - \ref sec_predication
+ - \ref sec_ldrex
  - \ref sec_pcache
  - \ref bt_examples
  - \ref sec_startstop
@@ -1185,6 +1186,34 @@ API routines that operate on raw instruction information, such as
 instr_num_dsts(), include all possible operands.  Clients should explicitly
 query instr_is_predicated() when using API routines that do not take in
 #dr_opnd_query_flags_t.
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_ldrex Exclusive Monitor Instrumentation Constraints
+
+On ARM, a ldrex..strex pair of instructions has some constraints that make inserting
+instrumentation in between the pair challenging.  ARM hardware requires
+that an application minimize memory operations in between the ldrex and
+strex and minimize the total number of instructions in between.  Violating
+this can result in failure to acquire the desired exclusive monitor, which
+is always done in a loop and can result in a non-terminating loop when the
+application is run with instrumentation.
+
+Empirically, inserting a few memory references in between a ldrex..strex
+pair generally works fine, but inserting something heavyweight like a clean
+call is not recommended.
+
+We recommend using inlined instrumentation with at most a few memory
+references in such regions, rather than clean calls.  In general, this is
+the best performing strategy anyway for heavyweight tools that want to
+instrument every instruction.  Take a look at the memtrace_simple and
+instrace_simple samples, which check for instr_is_exclusive_store() to
+avoid a clean call in between.
 
 \ifnot vmsafe
 ***************************************************************************
