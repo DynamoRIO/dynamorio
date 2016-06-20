@@ -539,6 +539,22 @@ event_init(void)
     return DRCOVLIB_SUCCESS;
 }
 
+dr_signal_action_t drcov_signal_handler(void *drcontext, dr_siginfo_t *siginfo)
+{
+	void* param = NULL;
+	
+	if(siginfo->sig == options.dump_signal)	{
+		NOTIFY(1,"Dumping coverage data for signal %d\n",siginfo->sig);
+		if (drcov_per_thread) {
+			NOTIFY(1,"Dumping coverage data this thread only: %d\n",((_dcontext_t*)drcontext)->owning_thread);
+			param = drcontext;
+		}
+		drcovlib_dump(param);
+		return DR_SIGNAL_SUPPRESS;
+	}
+	return DR_SIGNAL_DELIVER;
+}
+
 drcovlib_status_t
 drcovlib_init(drcovlib_options_t *ops)
 {
@@ -584,6 +600,9 @@ drcovlib_init(drcovlib_options_t *ops)
     dr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
 #ifdef UNIX
+	if (ops->dump_signal)
+		drmgr_register_signal_event(drcov_signal_handler);
+
     dr_register_fork_init_event(event_fork);
 #endif
 
