@@ -95,6 +95,13 @@ typedef struct _drcovlib_options_t {
      * option, is created.  This option only works under Windows.
      */
     int native_until_thread;
+    /**
+    * This option is for Linux. When used, drcovlib listens to this signal
+    * and dumps current coverage data to file. This is used for scenarios
+    * involving coverage data from daemons or other applications that have
+    * ongoing work.
+    */
+    int dump_signal;
 } drcovlib_options_t;
 
 /***************************************************************************
