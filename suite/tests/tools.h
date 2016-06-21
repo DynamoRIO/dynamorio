@@ -68,6 +68,12 @@
 # define NT_SUCCESS(status) (status >= 0)
 #endif
 
+#if defined(AARCH64) && SIGSTKSZ < 16384
+/* SIGSTKSZ was incorrectly defined in Linux releases before 4.3. */
+# undef SIGSTKSZ
+# define SIGSTKSZ 16384
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
