@@ -551,24 +551,23 @@ DEF_ATOMIC_ADD(ATOMIC_ADD_int64, int64, "x")
 
 #  define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(&var, val)
 
-#  define DEF_atomic_add_exchange(fname, type, r)                     \
+#  define DEF_ATOMIC_ADD_EXCHANGE(fname, type, reg)                   \
 static inline type fname(volatile type *var, type val)                \
 {                                                                     \
-    type tmp1, ret;                                                   \
-    int tmp2;                                                         \
+    type ret;                                                         \
+    int tmp;                                                          \
     __asm__ __volatile__(                                             \
-      "1: ldxr  %"r"0, [%x3]           \n\t"                          \
-      "   add   %"r"0, %"r"0, %"r"4    \n\t"                          \
-      "   stxr  %w1, %"r"0, [%x3]      \n\t"                          \
-      "   cbnz  %w1, 1b                \n\t"                          \
-      "   sub   %"r"2, %"r"0, %"r"4    \n\t"                          \
-      : "=&r" (tmp1), "=&r" (tmp2), "=r" (ret)                        \
+      "1: ldxr  %"reg"1, [%x2]             \n\t"                      \
+      "   add   %"reg"1, %"reg"1, %"reg"3  \n\t"                      \
+      "   stxr  %w0, %"reg"1, [%x2]        \n\t"                      \
+      "   cbnz  %w0, 1b                    \n\t"                      \
+      : "=&r" (tmp), "=&r" (ret)                                      \
       : "r" (var), "r" (val));                                        \
     return ret;                                                       \
 }
-DEF_atomic_add_exchange(atomic_add_exchange_int  , int  , "w")
-DEF_atomic_add_exchange(atomic_add_exchange_int64, int64, "x")
-#  undef DEF_atomic_add_exchange
+DEF_ATOMIC_ADD_EXCHANGE(atomic_add_exchange_int  , int  , "w")
+DEF_ATOMIC_ADD_EXCHANGE(atomic_add_exchange_int64, int64, "x")
+#  undef DEF_ATOMIC_ADD_EXCHANGE
 
 #  define atomic_add_exchange atomic_add_exchange_int
 
@@ -620,17 +619,17 @@ uint64 proc_get_timestamp(void);
 
 static inline bool atomic_inc_and_test(volatile int *var)
 {
-    return atomic_add_exchange_int(var, 1) == -1;
+    return atomic_add_exchange_int(var, 1) == 0;
 }
 
 static inline bool atomic_dec_and_test(volatile int *var)
 {
-    return atomic_add_exchange_int(var, -1) == 0;
+    return atomic_add_exchange_int(var, -1) == -1;
 }
 
 static inline bool atomic_dec_becomes_zero(volatile int *var)
 {
-    return atomic_add_exchange_int(var, -1) == 1;
+    return atomic_add_exchange_int(var, -1) == 0;
 }
 
 # elif defined(ARM)
