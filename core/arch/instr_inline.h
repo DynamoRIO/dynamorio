@@ -154,7 +154,7 @@ opnd_is_far_rel_addr(opnd_t opnd)
     return IF_X86_ELSE(opnd.kind == REL_ADDR_kind && opnd.aux.segment != DR_REG_NULL,
                        false);
 }
-# elif defined(ARM) || defined(AARCH64)
+# elif defined(AARCHXX)
 #  ifdef ARM
 #   define OPND_IS_REL_ADDR(op) \
     ((op).kind == REL_ADDR_kind || \
@@ -258,7 +258,7 @@ opnd_create_pc(app_pc pc)
      opnd_is_immed_int(opnd), \
      "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") \
      0)
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 # define OPND_GET_FLAGS(opnd) \
     (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || \
      opnd_is_immed_int(opnd), \
@@ -293,7 +293,7 @@ opnd_create_pc(app_pc pc)
                            opnd_is_rel_addr(opnd)), \
                     "opnd_get_segment called on invalid opnd type") \
      (opnd).aux.segment)
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 # define OPND_GET_SEGMENT(opnd) DR_REG_NULL
 #endif
 #define opnd_get_segment OPND_GET_SEGMENT

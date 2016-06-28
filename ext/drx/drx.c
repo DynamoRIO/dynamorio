@@ -179,7 +179,7 @@ drx_aflags_are_dead(instr_t *where)
  * INSTRUMENTATION
  */
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 /* XXX i#1603: add liveness analysis and pick dead regs */
 # define SCRATCH_REG0 DR_REG_R0
 # define SCRATCH_REG1 DR_REG_R1
@@ -236,7 +236,7 @@ drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
         instr = INSTR_CREATE_setcc(drcontext, OP_seto, opnd_create_reg(DR_REG_AL));
         MINSERT(ilist, where, instr);
     }
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
     if (save_reg) {
         ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
@@ -295,7 +295,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
             dr_restore_reg(drcontext, ilist, where, DR_REG_XAX, slot);
         }
     }
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
     instr = INSTR_CREATE_mrs(drcontext, opnd_create_reg(reg),
                              opnd_create_reg(DR_REG_CPSR));
@@ -390,7 +390,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     bool use_drreg = false;
 #ifdef X86
     bool save_aflags = true;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     bool save_regs = true;
     reg_id_t reg1, reg2;
 #endif
@@ -477,7 +477,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     slot, DR_REG_NULL);
         }
     }
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1551: implement 64-bit counter support */
     ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented");
 

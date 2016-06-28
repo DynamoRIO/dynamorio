@@ -39,7 +39,7 @@
  */
 /* START INCLUDE */
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 # ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */

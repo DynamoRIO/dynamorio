@@ -3129,7 +3129,7 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
          /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
          *(pc+2) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 6/*rm*/) &&
          *((uint*)(pc+4)) == os_tls_offset(offs));
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
@@ -3168,7 +3168,7 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
         opnd_is_far_base_disp(memop) &&
         opnd_get_segment(memop) == SEG_TLS &&
         opnd_is_abs_base_disp(memop)
-#elif defined (ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
         opnd_is_base_disp(memop) &&
         opnd_get_base(memop) == dr_reg_stolen &&
         opnd_get_index(memop) == DR_REG_NULL
@@ -3223,7 +3223,7 @@ instr_is_tls_xcx_spill(instr_t *instr)
                                       REG_ECX, MANGLE_XCX_SPILL_SLOT);
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;

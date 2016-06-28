@@ -1465,7 +1465,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     strncpy(args.home_dir, getenv("HOME"), BUFFER_SIZE_ELEMENTS(args.home_dir));
     NULL_TERMINATE_BUFFER(args.home_dir);
 
-#if defined(X86) || defined(ARM) || defined(AARCH64)
+#if defined(X86) || defined(AARCHXX)
     regs.REG_SP_FIELD -= REDZONE_SIZE;  /* Need to preserve x64 red zone. */
     regs.REG_SP_FIELD -= sizeof(args);  /* Allocate space for args. */
     regs.REG_SP_FIELD = ALIGN_BACKWARD(regs.REG_SP_FIELD, REGPARM_END_ALIGN);

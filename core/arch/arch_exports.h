@@ -125,7 +125,7 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 typedef struct _ibl_entry_pc_t {
     byte *ibl;
     byte *unlinked;
@@ -140,13 +140,13 @@ typedef struct _spill_state_t {
     /* Four registers are used in the indirect branch lookup routines */
 #ifdef X86
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
-#elif defined (ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     reg_t r0, r1, r2, r3;
     reg_t reg_stolen;            /* slot for the stolen register */
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
@@ -184,7 +184,7 @@ typedef struct _local_state_extended_t {
 # define SCRATCH_REG1             DR_REG_XBX
 # define SCRATCH_REG2             DR_REG_XCX
 # define SCRATCH_REG3             DR_REG_XDX
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 # define TLS_REG0_SLOT            ((ushort)offsetof(spill_state_t, r0))
 # define TLS_REG1_SLOT            ((ushort)offsetof(spill_state_t, r1))
 # define TLS_REG2_SLOT            ((ushort)offsetof(spill_state_t, r2))
@@ -198,7 +198,7 @@ typedef struct _local_state_extended_t {
 #define IBL_TARGET_REG           SCRATCH_REG2
 #define IBL_TARGET_SLOT          TLS_REG2_SLOT
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 # define TLS_FCACHE_RETURN_SLOT  ((ushort)offsetof(spill_state_t, fcache_return))
 #endif
 
@@ -959,7 +959,7 @@ void arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callb
 void arch_thread_profile_exit(dcontext_t *dcontext);
 void arch_profile_exit(void);
 #endif
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 void arch_reset_stolen_reg(void);
 void arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc);
 #endif
@@ -977,7 +977,7 @@ priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
 priv_mcontext_t *get_priv_mcontext_from_dstack(dcontext_t *dcontext);
 void dr_mcontext_init(dr_mcontext_t *mc);
 void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 reg_t get_stolen_reg_val(priv_mcontext_t *context);
 void set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
 #endif
@@ -1462,7 +1462,7 @@ decode_init(void);
 # define MAX_PAD_SIZE 3
 
 /****************************************************************************/
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 
 # ifdef X64
 #  define FRAG_IS_THUMB(flags) false

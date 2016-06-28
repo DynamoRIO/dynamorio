@@ -2515,7 +2515,7 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
     bb->exit_target = target;
     *elide_continue = false;    /* matching, but should stop bb */
     return true;               /* matching */
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
@@ -2626,7 +2626,7 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
      */
     *elide_continue = false;    /* matching, but should stop bb */
     return true;                /* converted indirect to direct */
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
@@ -5724,7 +5724,7 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         instr_get_opcode(inst) == OP_jmp
 # endif
         ;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;

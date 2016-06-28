@@ -52,7 +52,7 @@
 #define INNER_LOOP_COUNT 4
 #define MAX_SUM (NUM_TIMES * (NUM_TIMES + 1) / 2 * INNER_LOOP_COUNT)
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 # define OFFSET 8
 #elif defined(X86)
 # define OFFSET 6

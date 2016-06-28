@@ -180,7 +180,7 @@ enum {
     DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
 
     /****************************************************************************/
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
 
 # ifdef AARCH64
@@ -470,7 +470,7 @@ extern const reg_id_t dr_reg_fixer[];
 #ifdef X86
 # define REG_START_SPILL   DR_REG_XAX
 # define REG_STOP_SPILL    DR_REG_XDI
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 /* We only normally use r0-r3 but we support more in translation code */
 # define REG_START_SPILL   DR_REG_R0
 # define REG_STOP_SPILL    DR_REG_R10 /* r10 might be used in syscall mangling */
@@ -2254,7 +2254,7 @@ enum {
     REGPARM_END_ALIGN    = sizeof(XSP_SZ),
 #  endif
 # endif /* 64/32 */
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     REGPARM_0            = DR_REG_R0,
     REGPARM_1            = DR_REG_R1,
     REGPARM_2            = DR_REG_R2,
@@ -2278,7 +2278,7 @@ extern const reg_id_t regparms[];
 /* arch-specific */
 uint opnd_immed_float_arch(uint opcode);
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 # define DR_REG_STOLEN_MIN  DR_REG_R8 /* no syscall regs */
 # define DR_REG_STOLEN_MAX  IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
 /* DR's stolen register for TLS access */

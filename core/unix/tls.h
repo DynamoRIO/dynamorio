@@ -106,7 +106,7 @@ typedef struct _our_modify_ldt_t {
     ASSERT(sizeof(val) == sizeof(reg_t));                               \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 # define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
 # define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 # define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
@@ -131,7 +131,7 @@ read_thread_register(reg_id_t reg)
      * is_segment_register_initialized().
      */
     sel &= 0xffff;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     ptr_uint_t sel;
     if (reg == DR_REG_TPIDRURO) {
         IF_X64_ELSE({
@@ -243,7 +243,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment);
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 byte **
 get_dr_tls_base_addr(void);
 #endif

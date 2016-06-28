@@ -162,7 +162,7 @@ typedef struct _tcb_head_t {
 
 #ifdef X86
 # define TLS_PRE_TCB_SIZE 0
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 /* FIXME i#1569: This may be wrong for AArch64! */
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
@@ -187,7 +187,7 @@ typedef struct _dr_pthread_t {
  * (i#46), we need to copy this data from before the thread pointer.
  */
 # define APP_LIBC_TLS_SIZE 0x400
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 /* FIXME i#1551, i#1569: investigate the difference between ARM and X86 on TLS.
  * On ARM, it seems that TLS variables are not put before the thread pointer
  * as they are on X86.
@@ -254,7 +254,7 @@ privload_tls_init(void *app_tp)
         __FUNCTION__, app_tp);
     dr_tp = heap_mmap(max_client_tls_size);
     ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= max_client_tls_size);
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
      * the size and member locations match to avoid gdb crash.
      */
@@ -284,7 +284,7 @@ privload_tls_init(void *app_tp)
         LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed, tcb was 0x%lx bytes "
             "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
             APP_LIBC_TLS_SIZE, tcb_size);
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     } else {
         dr_pthread_t *dp =
             (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE);
@@ -303,7 +303,7 @@ privload_tls_init(void *app_tp)
     dr_tcb->self = dr_tcb;
     /* i#555: replace app's vsyscall with DR's int0x80 syscall */
     dr_tcb->sysinfo = (ptr_uint_t)client_int_syscall;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     dr_tcb->dtv = NULL;
     dr_tcb->private = NULL;
 #endif

@@ -257,7 +257,7 @@ typedef enum _dr_pred_type_t {
      * unconditionally written, unlike regular destination operands.
      */
     DR_PRED_COMPLEX,
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
     DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
     DR_PRED_CS, /**< ARM condition: 0010 Carry set               (C == 1)           */
@@ -2838,7 +2838,7 @@ enum {
     EFLAGS_ARITH = EFLAGS_CF|EFLAGS_PF|EFLAGS_AF|EFLAGS_ZF|EFLAGS_SF|EFLAGS_OF,
 };
 
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 # define EFLAGS_READ_N      0x00000001 /**< Reads N (negative flag). */
 # define EFLAGS_READ_Z      0x00000002 /**< Reads Z (zero flag). */
 # define EFLAGS_READ_C      0x00000004 /**< Reads C (carry flag). */

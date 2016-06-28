@@ -208,7 +208,7 @@ typedef struct _clone_record_t {
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
     void *pcprofile_info;
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     /* To ensure we have the right value as of the point of the clone, we
      * store it here (we'll have races if we try to get it during new thread
      * init).
@@ -561,7 +561,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
     record->parent_info = (thread_sig_info_t *) dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     record->app_stolen_value = get_stolen_reg_val(get_mcontext(dcontext));
 # ifndef AARCH64
     record->isa_mode = dr_get_isa_mode(dcontext);
@@ -672,7 +672,7 @@ get_clone_record_dstack(void *record)
     return ((clone_record_t *) record)->dstack;
 }
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 reg_t
 get_clone_record_stolen_value(void *record)
 {
@@ -2072,7 +2072,7 @@ mcontext_to_ucontext(kernel_ucontext_t *uc, priv_mcontext_t *mc)
     mcontext_to_sigcontext(&sc_full, mc);
 }
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 static void
 set_sigcxt_stolen_reg(sigcontext_t *sc, reg_t val)
 {
@@ -2812,7 +2812,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
      * still go to the private fcache_return for simplicity.
      */
     sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     /* We do not have to set dr_reg_stolen in dcontext's mcontext here
      * because dcontext's mcontext is stale and we used the mcontext
      * created from recreate_app_state_internal with the original sigcontext.
@@ -3260,7 +3260,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     }
 #ifdef X86
     sc->SC_SYSNUM_REG = sysnum;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* We just need to restore the app's arg to the syscall into r0, which
      * the kernel clobbered with -EINTR.  We stored r0 into TLS.
      */
@@ -4532,7 +4532,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     sc->SC_XDI = sig;
     sc->SC_XSI = (reg_t) &((sigframe_rt_t *)xsp)->info;
     sc->SC_XDX = (reg_t) &((sigframe_rt_t *)xsp)->uc;
-#elif defined(AARCH64) || defined(ARM)
+#elif defined(AARCHXX)
     sc->SC_R0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
         sc->SC_R1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
@@ -4745,7 +4745,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     mcontext->xdi = sig;
     mcontext->xsi = (reg_t) &((sigframe_rt_t *)xsp)->info;
     mcontext->xdx = (reg_t) &((sigframe_rt_t *)xsp)->uc;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     mcontext->r0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
         mcontext->r1 = (reg_t) &((sigframe_rt_t *)xsp)->info;
@@ -5310,7 +5310,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
-# if defined(ARM) || defined(AARCH64)
+# ifdef AARCHXX
     set_stolen_reg_val(get_mcontext(dcontext), get_sigcxt_stolen_reg(sc));
     set_sigcxt_stolen_reg(sc, (reg_t) *get_dr_tls_base_addr());
 #  ifdef AARCH64
@@ -6098,7 +6098,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
             asm("movl $1,(%"ASM_XAX")");
             asm("jmp dynamorio_futex_wake_and_exit");
 # endif
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
             asm("ldr "ASM_R0", %0" : : "m"(term));
             asm("mov "ASM_R1", #1");
             asm("str "ASM_R1",["ASM_R0"]");

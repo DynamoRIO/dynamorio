@@ -211,7 +211,7 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 #  else
 #   define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 #  endif
-# elif defined(ARM) || defined(AARCH64)
+# elif defined(AARCHXX)
 /* Make sure to mark LR/X30 as clobbered to avoid functions like
  * client-interface/call-retarget.c:main() being interpreted as a leaf
  * function that does not need the link register preserved.

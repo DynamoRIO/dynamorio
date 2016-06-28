@@ -1327,7 +1327,7 @@ os_timeout(int time_in_milliseconds)
     asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((offs)) : ASM_XAX); \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 # define WRITE_TLS_SLOT_IMM(imm, var) \
     __asm__ __volatile__(             \
       READ_TP_TO_R3                   \
@@ -1389,7 +1389,7 @@ is_thread_tls_initialized(void)
     }
 # endif
     return false;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
@@ -1466,7 +1466,7 @@ get_os_tls_from_dc(dcontext_t *dcontext)
     return (os_local_state_t *)(local_state - offsetof(os_local_state_t, state));
 }
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
 {
@@ -1575,7 +1575,7 @@ get_segment_base(uint seg)
 # else
     return (byte *) POINTER_MAX;
  #endif /* HAVE_TLS */
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* XXX i#1551: should we rename/refactor to avoid "segment"? */
     return (byte *) read_thread_register(seg);
 #endif
@@ -2172,7 +2172,7 @@ os_should_swap_state(void)
     /* -private_loader currently implies -mangle_app_seg, but let's be safe. */
     return (INTERNAL_OPTION(mangle_app_seg) &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1582: this should return true, but there is a lot of complexity
      * getting os_switch_seg_to_context() to do the right then when called
      * at main thread init, secondary thread init, early and late injection,
@@ -4717,7 +4717,7 @@ const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS] = {
     DR_REG_EDI,
     DR_REG_EBP
 # endif /* 64/32-bit */
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     DR_REG_R0,
     DR_REG_R1,
     DR_REG_R2,

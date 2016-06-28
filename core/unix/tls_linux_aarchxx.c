@@ -45,7 +45,7 @@
 # error Linux-only
 #endif
 
-#if !(defined(ARM) || defined(AARCH64))
+#ifndef AARCHXX
 # error ARM/AArch64-only
 #endif
 

@@ -83,7 +83,7 @@
 #  define LIB_SEG_TLS SEG_GS /* libc+loader tls */
 #  define LIB_ASM_SEG "%gs"
 # endif
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
 /* The SEG_TLS is not preserved by all kernels (older 32-bit, or all 64-bit), so we
  * end up having to steal the app library TPID register for priv lib use.
  * When in DR state, we steal a field inside the priv lib TLS to store the DR base.
@@ -104,7 +104,7 @@
 
 #define DR_REG_SYSNUM IF_X86_ELSE(REG_EAX/* not XAX */, DR_REG_R7)
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 # ifdef ANDROID
 /* We have our own slot at the end of our instance of Android's pthread_internal_t */
 #  ifdef AARCH64
@@ -212,7 +212,7 @@ bool disable_env(const char *name);
 #  define DECLARE_DATA_SECTION(name, wx) \
      asm(".section "name", \"a"wx"\", @progbits"); \
      asm(".align 0x1000");
-# elif defined(ARM) || defined(AARCH64)
+# elif defined(AARCHXX)
 #  define DECLARE_DATA_SECTION(name, wx) \
      asm(".section "name", \"a"wx"\""); \
      asm(".align 12"); /* 2^12 */
@@ -236,7 +236,7 @@ bool disable_env(const char *name);
      asm(".section .data"); \
      asm(".align 0x1000"); \
      asm(".text");
-# elif defined(ARM) || defined(AARCH64)
+# elif defined(AARCHXX)
 #  define END_DATA_SECTION_DECLARATIONS() \
      asm(".section .data"); \
      asm(".align 12"); \
@@ -364,7 +364,7 @@ get_clone_record_app_xsp(void *record);
 byte *
 get_clone_record_dstack(void *record);
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 reg_t
 get_clone_record_stolen_value(void *record);
 

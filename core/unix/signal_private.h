@@ -243,7 +243,7 @@ typedef struct rt_sigframe {
     char retcode[RETCODE_SIZE];
 #  endif
     /* In 2.6.28+, fpstate/xstate goes here */
-# elif defined(ARM) || defined(AARCH64)
+# elif defined(AARCHXX)
     siginfo_t info;
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];

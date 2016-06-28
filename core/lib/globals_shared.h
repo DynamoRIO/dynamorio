@@ -1783,7 +1783,7 @@ typedef union _dr_ymm_t {
     reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 /**
  * 128-bit ARM SIMD Vn register.
  * In AArch64, align to 16 bytes for better performance.

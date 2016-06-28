@@ -822,7 +822,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif /* X64 || ARM */
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
         if (!instr_is_meta(instr) && instr_reads_thread_register(instr)) {
             next_instr = mangle_reads_thread_register(dcontext, ilist,
                                                       instr, next_instr);

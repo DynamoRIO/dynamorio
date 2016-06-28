@@ -559,7 +559,7 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
                  * trap flag or other flags so instead of zeroing we copy cur flags
                  * (xref i#806).
                  */
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
                 wrapcxt->mc->xflags = 0; /*0 is fine for ARM */
 #else
 # ifdef WINDOWS
@@ -625,7 +625,7 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER); /* already have xsp */
 
     switch (wrapcxt->callconv) {
-#if defined(ARM) || defined(AARCH64) /* registers are platform-exclusive */
+#if defined(AARCHXX) /* registers are platform-exclusive */
     case DRWRAP_CALLCONV_ARM:
         switch (arg) {
         case 0: return &wrapcxt->mc->r0;
@@ -1270,7 +1270,7 @@ drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
                                    ptr_int_t pushval, opnd_size_t stacksz
                                    _IF_X86_64(bool x86))
 {
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     instr_t *mov1, *mov2;
     instrlist_insert_mov_immed_ptrsz(drcontext, pushval, opnd_create_reg(DR_REG_LR),
                                      bb, NULL, &mov1, &mov2);

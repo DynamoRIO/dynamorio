@@ -792,7 +792,7 @@ coarse_indirect_stub_jmp_target(cache_pc stub)
     ASSERT(*prefix_tgt == JMP_OPCODE);
     tgt = (cache_pc) PC_RELATIVE_TARGET(prefix_tgt+1);
     return tgt;
-#elif defined(ARM) || defined(AARCH64)
+#elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
@@ -3366,7 +3366,7 @@ instr_t *
 create_syscall_instr(dcontext_t *dcontext)
 {
     int method = get_syscall_method();
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     if (method == SYSCALL_METHOD_SVC || method == SYSCALL_METHOD_UNINITIALIZED) {
         return INSTR_CREATE_svc(dcontext, opnd_create_immed_int((char)0x0, OPSZ_1));
     }
@@ -4581,7 +4581,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     *syscall_offs += AARCH64_INSTR_SIZE;
 #endif
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     /* We have to save r0 in case the syscall is interrupted.  We can't
      * easily do this from dispatch b/c fcache_enter clobbers some TLS slots.
      */
@@ -5145,7 +5145,7 @@ special_ibl_xfer_is_thread_private(void)
 #endif
 }
 
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
 size_t
 get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry)
 {
@@ -5351,7 +5351,7 @@ byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
     instrlist_t ilist;
-#if defined(ARM) || defined(AARCH64)
+#ifdef AARCHXX
     /* FIXME i#1551, i#1569:
      * NYI on ARM/AArch64 (no assert here, it's in get_clean_call_save())
      */
