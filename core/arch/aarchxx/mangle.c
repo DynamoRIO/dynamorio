@@ -198,19 +198,124 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
                           uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/)
 {
-#ifdef AARCH64
-    /* FIXME i#1569: NYI */
-    /* Random unallocated encoding to detect if code is excecuted: */
-    PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0x76d30c));
-    return sizeof(priv_mcontext_t);
-#else
     uint dstack_offs = 0;
+#ifdef AARCH64
+    uint max_offs;
+    reg_id_t i;
+#endif
     if (cci == NULL)
         cci = &default_clean_call_info;
     if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
     }
     /* FIXME i#1551: once we have cci->num_xmms_skip, skip this if possible */
+
+#ifdef AARCH64
+
+    max_offs = ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
+
+    /* sub sp, sp, #sizeof(priv_mcontext_t) */
+    PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
+                                       OPND_CREATE_INT16(max_offs)));
+
+    /* Save general-purpose registers first. */
+    for (i = DR_REG_X0; i < DR_REG_X30; i += 2) {
+        /* stp x(i), x(i+1), [sp, #xi_offset] */
+        PRE(ilist, instr,
+            INSTR_CREATE_xx(dcontext, 0xa9000000 |
+                            (i - DR_REG_X0) | (i + 1 - DR_REG_X0) << 10 | 31 << 5 |
+                            REG_OFFSET(i) >> 3 << 15));
+    }
+
+    dstack_offs += 32 * XSP_SZ;
+
+    /* mov x0, sp */
+    PRE(ilist, instr,
+        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
+                          opnd_create_reg(DR_REG_SP)));
+    /* stp x30, x0, [sp, #x30_offset] */
+    PRE(ilist, instr,
+        INSTR_CREATE_xx(dcontext, 0xa9000000 | 30 | 0 << 10 | 31 << 5 |
+                        REG_OFFSET(DR_REG_X30) >> 3 << 15));
+
+    /* add x0, x0, #dstack_offs */
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
+                         OPND_CREATE_INT16(dstack_offs)));
+
+    /* save the push_pc operand to the priv_mcontext_t.pc field */
+    if (!(cci->skip_save_aflags)) {
+        if (opnd_is_immed_int(push_pc)) {
+            PRE(ilist, instr,
+                XINST_CREATE_load_int(dcontext, opnd_create_reg(DR_REG_X1), push_pc));
+        } else {
+            ASSERT(opnd_is_reg(push_pc));
+            reg_id_t push_pc_reg = opnd_get_reg(push_pc);
+            /* push_pc opnd is already pushed on the stack */
+            /* ldr x1, [sp, #push_pc_offset] */
+            PRE(ilist, instr,
+                INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_X1),
+                                 OPND_CREATE_MEM64(DR_REG_SP,
+                                                   REG_OFFSET(push_pc_reg))));
+        }
+
+        /* str x1, [sp, #dstack_offset] */
+        PRE(ilist, instr,
+            INSTR_CREATE_str(dcontext,
+                             OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                             opnd_create_reg(DR_REG_X1)));
+    }
+
+    dstack_offs += XSP_SZ;
+
+    /* Move flag values into x1, x2, x3. */
+    /* mrs x1, nzcv */
+    PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
+                                       opnd_create_reg(DR_REG_NZCV)));
+    /* mrs x2, fpcr */
+    PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X2),
+                                       opnd_create_reg(DR_REG_FPCR)));
+    /* mrs x3, fpsr */
+    PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X3),
+                                       opnd_create_reg(DR_REG_FPSR)));
+    /* stp w1, w2, [x0, #8] */
+    PRE(ilist, instr,
+        INSTR_CREATE_xx(dcontext, 0x29000000 | 1 | 2 << 10 | 0 << 5 | 8 >> 2 << 15));
+    /* str w3, [x0, #16] */
+    PRE(ilist, instr,
+        INSTR_CREATE_str(dcontext,
+                         OPND_CREATE_MEM32(DR_REG_X0, 16),
+                         opnd_create_reg(DR_REG_W3)));
+
+    /* The three flag registers take 12 bytes. */
+    dstack_offs += 12;
+
+    /* The SIMD register data is 16-byte-aligned. */
+    dstack_offs = ALIGN_FORWARD(dstack_offs, 16);
+
+    /* add x0, x0, #(dstack_offs - prev_dstack_offs) */
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
+                         OPND_CREATE_INT16(dstack_offs - 32 * XSP_SZ)));
+    /* Save all SIMD registers. */
+    for (i = DR_REG_Q0; i < DR_REG_Q31; i += 4) {
+        /* st1 {v(i).2d-v(i + 3).2d}, [x0], #64 */
+        PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0x4c9f2c00 + (i - DR_REG_Q0)));
+    }
+
+    dstack_offs += (NUM_SIMD_SLOTS * sizeof(dr_simd_t));
+
+    /* Restore the registers we used. */
+    /* ldp x0, x1, [sp] */
+    PRE(ilist, instr,
+        INSTR_CREATE_xx(dcontext, 0xa9400000 | 0 | 1 << 10 | 31 << 5));
+    /* ldp x2, x3, [sp, #x2_offset] */
+    PRE(ilist, instr,
+        INSTR_CREATE_xx(dcontext, 0xa9400000 | 2 | 3 << 10 | 31 << 5 |
+                        REG_OFFSET(DR_REG_X2) >> 3 << 15));
+
+#else
+
     /* vstmdb always does writeback */
     PRE(ilist, instr, INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
                                           SIMD_REG_LIST_LEN, SIMD_REG_LIST_16_31));
@@ -280,8 +385,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
            cci->num_xmms_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
-    return dstack_offs;
 #endif
+    return dstack_offs;
 }
 
 /* User should pass the alignment from insert_push_all_registers: i.e., the
@@ -294,7 +399,77 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          uint alignment)
 {
 #ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    int i, current_offs;
+    /* mov x0, sp */
+    PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
+                                        opnd_create_reg(DR_REG_SP)));
+
+    current_offs = sizeof(priv_mcontext_t) -
+                   NUM_SIMD_SLOTS * sizeof(dr_simd_t);
+
+    /* add x0, x0, current_offs */
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
+                         OPND_CREATE_INT32(current_offs)));
+
+    /* FIXME i#1569, instr_create macro for LD1, ST1 */
+    for (i = DR_REG_Q0; i < DR_REG_Q31; i += 4) {
+        /* ld1 {v(i).2d-v(i + 3).2d}, [x0], #64 */
+        PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0x4cdf2c00 + (i - DR_REG_Q0)));
+    }
+
+    /* mov x0, sp */
+    PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
+                                        opnd_create_reg(DR_REG_SP)));
+
+    /* point x0 to push_pc field */
+    current_offs = (32 * XSP_SZ);
+
+    /* add x0, x0, #gpr_size */
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
+                         OPND_CREATE_INT32(current_offs)));
+
+    /* load pc and flags */
+    if(!(cci->skip_save_aflags)) {
+        /* ldp w1, w2, [x0, #8] */
+        PRE(ilist, instr,
+            INSTR_CREATE_xx(dcontext, 0x29400000 | 1 | 2 << 10 | 0 << 5 | 8 >> 2 << 15));
+        /* ldr w3, [x0, #16] */
+        PRE(ilist, instr,
+            INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_W3),
+                             OPND_CREATE_MEM32(DR_REG_X0,16)));
+        /* msr nzcv, w1 */
+        PRE(ilist, instr,
+            INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV),
+                             opnd_create_reg(DR_REG_X1)));
+        /* msr fpcr, w2 */
+        PRE(ilist, instr,
+            INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPCR),
+                             opnd_create_reg(DR_REG_X2)));
+        /* msr fpsr, w3 */
+        PRE(ilist, instr,
+            INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPSR),
+                             opnd_create_reg(DR_REG_X3)));
+    }
+
+    /* Pop all GPRs */
+    for (i = DR_REG_X0; i < DR_REG_X30; i += 2) {
+        /* ldp x(i), x(i+1), [sp, #xi_offset] */
+        PRE(ilist, instr,
+            INSTR_CREATE_xx(dcontext, 0xa9400000 |
+                            (i - DR_REG_X0) | (i + 1 - DR_REG_X0) << 10 | 31 << 5 |
+                            REG_OFFSET(i) >> 3 << 15));
+    }
+
+    /* Recover x30 */
+    /* ldr w3, [x0, #16] */
+    PRE(ilist, instr,
+        INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_X30),
+                         OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_X30))));
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                         OPND_CREATE_INT32(sizeof(priv_mcontext_t))));
 #else
     if (cci == NULL)
         cci = &default_clean_call_info;
