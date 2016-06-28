@@ -4961,6 +4961,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
                                         * a race w/ the parent's use of it!
                                         */
                                        SCRATCH_REG0);
+#ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == sizeof(priv_mcontext_t));
     APP(&ilist, XINST_CREATE_add_2src
@@ -4970,7 +4971,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         (dcontext, OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xsp)),
          opnd_create_reg(SCRATCH_REG0)));
 
-#ifdef X86
+# ifdef X86
     /* We avoid get_thread_id syscall in get_thread_private_dcontext()
      * by clearing the segment register here (cheaper check than syscall)
      * (xref PR 192231).  If we crash prior to this point though, the
@@ -4981,12 +4982,19 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         (dcontext, opnd_create_reg(REG_AX), OPND_CREATE_INT16(0)));
     APP(&ilist, INSTR_CREATE_mov_seg
         (dcontext, opnd_create_reg(SEG_TLS), opnd_create_reg(REG_AX)));
-#endif
+# endif
 
     /* stack grew down, so priv_mcontext_t at tos */
     APP(&ilist, XINST_CREATE_move
         (dcontext, opnd_create_reg(SCRATCH_REG0), opnd_create_reg(REG_XSP)));
-
+#else
+    /* For AArch64, SP was already saved by insert_push_all_registers and
+     * pointing to priv_mcontext_t. Move sp to the first argument:
+     * mov x0, sp
+     */
+    APP(&ilist, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
+                                  opnd_create_reg(DR_REG_XSP)));
+#endif
     dr_insert_call_noreturn(dcontext, &ilist, NULL, (void *)new_thread_setup,
                             1, opnd_create_reg(SCRATCH_REG0));
 

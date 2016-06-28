@@ -277,7 +277,7 @@ new_thread_setup(priv_mcontext_t *mc)
     mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
-#ifdef ARM
+#ifdef AARCHXX
     /* set the stolen register's app value */
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
     /* set the thread register if necessary */
@@ -289,7 +289,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-#ifdef ARM
+#ifdef AARCHXX
     set_app_lib_tls_base_from_clone_record(dcontext, crec);
 #endif
     /* set up sig handlers before starting itimer in thread_starting() (PR 537743)

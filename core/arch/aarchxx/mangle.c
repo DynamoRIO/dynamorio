@@ -992,7 +992,6 @@ void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *instr)
 {
-# ifndef AARCH64 /* FIXME i#1569: NYI */
     /*    svc 0
      *    cbnz r0, parent
      *    jmp new_thread_dynamo_start
@@ -1011,7 +1010,6 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                          DR_REG_R0/*scratch*/, NULL);
     instr_set_meta(instr_get_prev(in));
     PRE(ilist, in, parent);
-# endif /* !AARCH64 */
 }
 #endif /* UNIX */
 
