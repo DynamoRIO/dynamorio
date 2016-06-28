@@ -20,30 +20,39 @@ enum {
 /*   2 */     OP_CONTD,    /* NULL, */ /**< CONTD opcode */
 /*   3 */     OP_LABEL,    /* NULL, */ /**< LABEL opcode */
 
-/*   4 */     OP_add,             /**< ARM add opcode.*/
-/*   5 */     OP_adr,             /**< ARM adr opcode.*/
-/*   6 */     OP_adrp,            /**< ARM adrp opcode.*/
-/*   7 */     OP_b,               /**< ARM b opcode.*/
-/*   8 */     OP_bcond,           /**< ARM bcond opcode.*/
-/*   9 */     OP_bl,              /**< ARM bl opcode.*/
-/*  10 */     OP_blr,             /**< ARM blr opcode.*/
-/*  11 */     OP_br,              /**< ARM br opcode.*/
-/*  12 */     OP_brk,             /**< ARM brk opcode.*/
-/*  13 */     OP_cbnz,            /**< ARM cbnz opcode.*/
-/*  14 */     OP_cbz,             /**< ARM cbz opcode.*/
-/*  15 */     OP_ldr,             /**< ARM ldr opcode.*/
-/*  16 */     OP_mrs,             /**< ARM mrs opcode.*/
-/*  17 */     OP_msr,             /**< ARM msr opcode.*/
-/*  18 */     OP_nop,             /**< ARM nop opcode.*/
-/*  19 */     OP_orr,             /**< ARM orr opcode.*/
-/*  20 */     OP_ret,             /**< ARM ret opcode.*/
-/*  21 */     OP_str,             /**< ARM str opcode.*/
-/*  22 */     OP_strb,            /**< ARM strb opcode.*/
-/*  23 */     OP_strh,            /**< ARM strh opcode.*/
-/*  24 */     OP_sub,             /**< ARM sub opcode.*/
-/*  25 */     OP_svc,             /**< ARM svc opcode.*/
-/*  26 */     OP_tbnz,            /**< ARM tbnz opcode.*/
-/*  27 */     OP_tbz,             /**< ARM tbz opcode.*/
+/*   4 */     OP_add,             /**< AArch64 add opcode.*/
+/*   5 */     OP_adds,            /**< AArch64 adds opcode.*/
+/*   6 */     OP_adr,             /**< AArch64 adr opcode.*/
+/*   7 */     OP_adrp,            /**< AArch64 adrp opcode.*/
+/*   8 */     OP_and,             /**< AArch64 and opcode.*/
+/*   9 */     OP_ands,            /**< AArch64 ands opcode.*/
+/*  10 */     OP_b,               /**< AArch64 b opcode.*/
+/*  11 */     OP_bcond,           /**< AArch64 bcond opcode.*/
+/*  12 */     OP_bic,             /**< AArch64 bic opcode.*/
+/*  13 */     OP_bics,            /**< AArch64 bics opcode.*/
+/*  14 */     OP_bl,              /**< AArch64 bl opcode.*/
+/*  15 */     OP_blr,             /**< AArch64 blr opcode.*/
+/*  16 */     OP_br,              /**< AArch64 br opcode.*/
+/*  17 */     OP_brk,             /**< AArch64 brk opcode.*/
+/*  18 */     OP_cbnz,            /**< AArch64 cbnz opcode.*/
+/*  19 */     OP_cbz,             /**< AArch64 cbz opcode.*/
+/*  20 */     OP_eon,             /**< AArch64 eon opcode.*/
+/*  21 */     OP_eor,             /**< AArch64 eor opcode.*/
+/*  22 */     OP_ldr,             /**< AArch64 ldr opcode.*/
+/*  23 */     OP_mrs,             /**< AArch64 mrs opcode.*/
+/*  24 */     OP_msr,             /**< AArch64 msr opcode.*/
+/*  25 */     OP_nop,             /**< AArch64 nop opcode.*/
+/*  26 */     OP_orn,             /**< AArch64 orn opcode.*/
+/*  27 */     OP_orr,             /**< AArch64 orr opcode.*/
+/*  28 */     OP_ret,             /**< AArch64 ret opcode.*/
+/*  29 */     OP_str,             /**< AArch64 str opcode.*/
+/*  30 */     OP_strb,            /**< AArch64 strb opcode.*/
+/*  31 */     OP_strh,            /**< AArch64 strh opcode.*/
+/*  32 */     OP_sub,             /**< AArch64 sub opcode.*/
+/*  33 */     OP_subs,            /**< AArch64 subs opcode.*/
+/*  34 */     OP_svc,             /**< AArch64 svc opcode.*/
+/*  35 */     OP_tbnz,            /**< AArch64 tbnz opcode.*/
+/*  36 */     OP_tbz,             /**< AArch64 tbz opcode.*/
 
     OP_xx, /* placeholder for undecoded instructions */
 

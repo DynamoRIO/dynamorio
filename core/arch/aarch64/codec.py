@@ -164,7 +164,7 @@ def generate_opcodes(encodings):
     for mn in sorted(mns):
         t = '/*%4d */     OP_%s,' % (i, mn)
         t += ' ' * max(0, 34 - len(t))
-        c.append(t + '/**< ARM %s opcode.*/' % mn)
+        c.append(t + '/**< AArch64 %s opcode.*/' % mn)
         i += 1
     c += ['',
           '    OP_xx, /* placeholder for undecoded instructions */',

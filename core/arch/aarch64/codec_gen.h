@@ -3,107 +3,31 @@
 static bool
 decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
 {
-    if ((enc >> 24 & 1) == 0) {
-        if ((enc >> 25 & 1) == 0) {
-            if ((enc >> 31 & 1) == 0) {
-                if ((enc >> 26 & 1) == 0) {
+    if ((enc >> 25 & 1) == 0) {
+        if ((enc >> 26 & 1) == 0) {
+            if ((enc >> 27 & 1) == 0) {
+                if ((enc >> 24 & 1) == 0) {
                     if ((enc & 0x9f000000) == 0x10000000)
                         return decode_adr(enc, dc, pc, instr, OP_adr);
+                    if ((enc & 0x9f000000) == 0x90000000)
+                        return decode_adr(enc, dc, pc, instr, OP_adrp);
+                } else {
+                    if ((enc >> 29 & 1) == 0) {
+                        if ((enc & 0x7f800000) == 0x11000000)
+                            return decode_arith_imm(enc, dc, pc, instr, OP_add);
+                        if ((enc & 0x7f800000) == 0x51000000)
+                            return decode_arith_imm(enc, dc, pc, instr, OP_sub);
+                    } else {
+                        if ((enc & 0x7f800000) == 0x31000000)
+                            return decode_arith_imm(enc, dc, pc, instr, OP_adds);
+                        if ((enc & 0x7f800000) == 0x71000000)
+                            return decode_arith_imm(enc, dc, pc, instr, OP_subs);
+                    }
+                }
+            } else {
+                if ((enc >> 31 & 1) == 0) {
                     if ((enc & 0xbf000000) == 0x18000000)
                         return decode_ldr_literal(enc, dc, pc, instr, OP_ldr);
-                } else {
-                    if ((enc >> 27 & 1) == 0) {
-                        if ((enc & 0xfc000000) == 0x14000000)
-                            return decode_b(enc, dc, pc, instr, OP_b);
-                        if ((enc & 0xff000010) == 0x54000000)
-                            return decode_bcond(enc, dc, pc, instr, OP_bcond);
-                        if ((enc & 0x7f000000) == 0x34000000)
-                            return decode_cbz(enc, dc, pc, instr, OP_cbz);
-                    } else {
-                        if ((enc & 0x3f000000) == 0x1c000000)
-                            return decode_ldr_literal_simd(enc, dc, pc, instr, OP_ldr);
-                    }
-                }
-            } else {
-                if ((enc >> 30 & 1) == 0) {
-                    if ((enc >> 26 & 1) == 0) {
-                        if ((enc & 0x9f000000) == 0x90000000)
-                            return decode_adr(enc, dc, pc, instr, OP_adrp);
-                    } else {
-                        if ((enc & 0xfc000000) == 0x94000000)
-                            return decode_b(enc, dc, pc, instr, OP_bl);
-                        if ((enc & 0x7f000000) == 0x34000000)
-                            return decode_cbz(enc, dc, pc, instr, OP_cbz);
-                        if ((enc & 0x3f000000) == 0x1c000000)
-                            return decode_ldr_literal_simd(enc, dc, pc, instr, OP_ldr);
-                    }
-                } else {
-                    if ((enc >> 0 & 1) == 0) {
-                        if ((enc & 0x9f000000) == 0x90000000)
-                            return decode_adr(enc, dc, pc, instr, OP_adrp);
-                        if ((enc & 0xffe0001f) == 0xd4200000)
-                            return decode_svc(enc, dc, pc, instr, OP_brk);
-                        if ((enc & 0x3f000000) == 0x1c000000)
-                            return decode_ldr_literal_simd(enc, dc, pc, instr, OP_ldr);
-                    } else {
-                        if ((enc & 0x9f000000) == 0x90000000)
-                            return decode_adr(enc, dc, pc, instr, OP_adrp);
-                        if ((enc & 0x3f000000) == 0x1c000000)
-                            return decode_ldr_literal_simd(enc, dc, pc, instr, OP_ldr);
-                        if ((enc & 0xffe0001f) == 0xd4000001)
-                            return decode_svc(enc, dc, pc, instr, OP_svc);
-                    }
-                }
-            }
-        } else {
-            if ((enc >> 30 & 1) == 0) {
-                if ((enc >> 29 & 1) == 0) {
-                    if ((enc & 0xfc000000) == 0x14000000)
-                        return decode_b(enc, dc, pc, instr, OP_b);
-                    if ((enc & 0xfc000000) == 0x94000000)
-                        return decode_b(enc, dc, pc, instr, OP_bl);
-                } else {
-                    if ((enc & 0x7f200000) == 0x2a000000)
-                        return decode_and_reg(enc, dc, pc, instr, OP_orr);
-                    if ((enc & 0x7f000000) == 0x36000000)
-                        return decode_tbz(enc, dc, pc, instr, OP_tbz);
-                }
-            } else {
-                if ((enc & 0xfffffc1f) == 0xd63f0000)
-                    return decode_br(enc, dc, pc, instr, OP_blr);
-                if ((enc & 0xfffffc1f) == 0xd61f0000)
-                    return decode_br(enc, dc, pc, instr, OP_br);
-                if ((enc & 0xfffffc1f) == 0xd65f0000)
-                    return decode_br(enc, dc, pc, instr, OP_ret);
-            }
-        }
-    } else {
-        if ((enc >> 29 & 1) == 0) {
-            if ((enc >> 30 & 1) == 0) {
-                if ((enc & 0x7f800000) == 0x11000000)
-                    return decode_add_imm(enc, dc, pc, instr, OP_add);
-                if ((enc & 0xfc000000) == 0x14000000)
-                    return decode_b(enc, dc, pc, instr, OP_b);
-                if ((enc & 0xfc000000) == 0x94000000)
-                    return decode_b(enc, dc, pc, instr, OP_bl);
-            } else {
-                if ((enc >> 20 & 1) == 0) {
-                    if ((enc & 0xffffffff) == 0xd503201f)
-                        return decode_nop(enc, dc, pc, instr, OP_nop);
-                    if ((enc & 0x7f800000) == 0x51000000)
-                        return decode_add_imm(enc, dc, pc, instr, OP_sub);
-                } else {
-                    if ((enc & 0xfff00000) == 0xd5300000)
-                        return decode_mrs(enc, dc, pc, instr, OP_mrs);
-                    if ((enc & 0xfff00000) == 0xd5100000)
-                        return decode_msr(enc, dc, pc, instr, OP_msr);
-                    if ((enc & 0x7f800000) == 0x51000000)
-                        return decode_add_imm(enc, dc, pc, instr, OP_sub);
-                }
-            }
-        } else {
-            if ((enc >> 26 & 1) == 0) {
-                if ((enc >> 31 & 1) == 0) {
                     if ((enc & 0xffc00000) == 0x39000000)
                         return decode_strb_imm(enc, dc, pc, instr, OP_strb);
                     if ((enc & 0xffc00000) == 0x79000000)
@@ -114,13 +38,134 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                     if ((enc & 0xbfc00000) == 0xb9000000)
                         return decode_str_imm(enc, dc, pc, instr, OP_str);
                 }
+            }
+        } else {
+            if ((enc >> 24 & 1) == 0) {
+                if ((enc >> 30 & 1) == 0) {
+                    if ((enc >> 27 & 1) == 0) {
+                        if ((enc & 0xfc000000) == 0x14000000)
+                            return decode_b(enc, dc, pc, instr, OP_b);
+                        if ((enc & 0xfc000000) == 0x94000000)
+                            return decode_b(enc, dc, pc, instr, OP_bl);
+                        if ((enc & 0x7f000000) == 0x34000000)
+                            return decode_cbz(enc, dc, pc, instr, OP_cbz);
+                    } else {
+                        if ((enc & 0x3f000000) == 0x1c000000)
+                            return decode_ldr_literal_simd(enc, dc, pc, instr, OP_ldr);
+                    }
+                } else {
+                    if ((enc >> 0 & 1) == 0) {
+                        if ((enc & 0xff000010) == 0x54000000)
+                            return decode_bcond(enc, dc, pc, instr, OP_bcond);
+                        if ((enc & 0xffe0001f) == 0xd4200000)
+                            return decode_svc(enc, dc, pc, instr, OP_brk);
+                        if ((enc & 0x3f000000) == 0x1c000000)
+                            return decode_ldr_literal_simd(enc, dc, pc, instr, OP_ldr);
+                    } else {
+                        if ((enc & 0xff000010) == 0x54000000)
+                            return decode_bcond(enc, dc, pc, instr, OP_bcond);
+                        if ((enc & 0x3f000000) == 0x1c000000)
+                            return decode_ldr_literal_simd(enc, dc, pc, instr, OP_ldr);
+                        if ((enc & 0xffe0001f) == 0xd4000001)
+                            return decode_svc(enc, dc, pc, instr, OP_svc);
+                    }
+                }
             } else {
-                if ((enc & 0x7f000000) == 0x35000000)
-                    return decode_cbz(enc, dc, pc, instr, OP_cbnz);
-                if ((enc & 0x3f400000) == 0x3d400000)
-                    return decode_ldr_imm_simd(enc, dc, pc, instr, OP_ldr);
-                if ((enc & 0x7f000000) == 0x37000000)
-                    return decode_tbz(enc, dc, pc, instr, OP_tbnz);
+                if ((enc >> 30 & 1) == 0) {
+                    if ((enc >> 29 & 1) == 0) {
+                        if ((enc & 0xfc000000) == 0x14000000)
+                            return decode_b(enc, dc, pc, instr, OP_b);
+                        if ((enc & 0xfc000000) == 0x94000000)
+                            return decode_b(enc, dc, pc, instr, OP_bl);
+                    } else {
+                        if ((enc & 0x7f000000) == 0x35000000)
+                            return decode_cbz(enc, dc, pc, instr, OP_cbnz);
+                        if ((enc & 0x3f400000) == 0x3d400000)
+                            return decode_ldr_imm_simd(enc, dc, pc, instr, OP_ldr);
+                    }
+                } else {
+                    if ((enc >> 20 & 1) == 0) {
+                        if ((enc & 0x3f400000) == 0x3d400000)
+                            return decode_ldr_imm_simd(enc, dc, pc, instr, OP_ldr);
+                        if ((enc & 0xffffffff) == 0xd503201f)
+                            return decode_nop(enc, dc, pc, instr, OP_nop);
+                    } else {
+                        if ((enc & 0x3f400000) == 0x3d400000)
+                            return decode_ldr_imm_simd(enc, dc, pc, instr, OP_ldr);
+                        if ((enc & 0xfff00000) == 0xd5300000)
+                            return decode_mrs(enc, dc, pc, instr, OP_mrs);
+                        if ((enc & 0xfff00000) == 0xd5100000)
+                            return decode_msr(enc, dc, pc, instr, OP_msr);
+                    }
+                }
+            }
+        }
+    } else {
+        if ((enc >> 27 & 1) == 0) {
+            if ((enc >> 30 & 1) == 0) {
+                if ((enc >> 29 & 1) == 0) {
+                    if ((enc & 0x7f800000) == 0x12000000)
+                        return decode_logic_imm(enc, dc, pc, instr, OP_and);
+                    if ((enc & 0xfc000000) == 0x14000000)
+                        return decode_b(enc, dc, pc, instr, OP_b);
+                    if ((enc & 0xfc000000) == 0x94000000)
+                        return decode_b(enc, dc, pc, instr, OP_bl);
+                } else {
+                    if ((enc & 0x7f800000) == 0x32000000)
+                        return decode_logic_imm(enc, dc, pc, instr, OP_orr);
+                    if ((enc & 0x7f000000) == 0x37000000)
+                        return decode_tbz(enc, dc, pc, instr, OP_tbnz);
+                    if ((enc & 0x7f000000) == 0x36000000)
+                        return decode_tbz(enc, dc, pc, instr, OP_tbz);
+                }
+            } else {
+                if ((enc >> 26 & 1) == 0) {
+                    if ((enc & 0x7f800000) == 0x72000000)
+                        return decode_logic_imm(enc, dc, pc, instr, OP_ands);
+                    if ((enc & 0x7f800000) == 0x52000000)
+                        return decode_logic_imm(enc, dc, pc, instr, OP_eor);
+                } else {
+                    if ((enc & 0xfffffc1f) == 0xd63f0000)
+                        return decode_br(enc, dc, pc, instr, OP_blr);
+                    if ((enc & 0xfffffc1f) == 0xd61f0000)
+                        return decode_br(enc, dc, pc, instr, OP_br);
+                    if ((enc & 0xfffffc1f) == 0xd65f0000)
+                        return decode_br(enc, dc, pc, instr, OP_ret);
+                }
+            }
+        } else {
+            if ((enc >> 29 & 1) == 0) {
+                if ((enc >> 30 & 1) == 0) {
+                    if ((enc & 0x7f200000) == 0x0b000000)
+                        return decode_arith_reg(enc, dc, pc, instr, OP_add);
+                    if ((enc & 0x7f200000) == 0x0a000000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_and);
+                    if ((enc & 0x7f200000) == 0x0a200000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_bic);
+                } else {
+                    if ((enc & 0x7f200000) == 0x4a200000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_eon);
+                    if ((enc & 0x7f200000) == 0x4a000000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_eor);
+                    if ((enc & 0x7f200000) == 0x4b000000)
+                        return decode_arith_reg(enc, dc, pc, instr, OP_sub);
+                }
+            } else {
+                if ((enc >> 30 & 1) == 0) {
+                    if ((enc & 0x7f200000) == 0x2b000000)
+                        return decode_arith_reg(enc, dc, pc, instr, OP_adds);
+                    if ((enc & 0x7f200000) == 0x2a200000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_orn);
+                    if ((enc & 0x7f200000) == 0x2a000000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_orr);
+                } else {
+                    if ((enc & 0x7f200000) == 0x6a000000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_ands);
+                    if ((enc & 0x7f200000) == 0x6a200000)
+                        return decode_logic_reg(enc, dc, pc, instr, OP_bics);
+                    if ((enc & 0x7f200000) == 0x6b000000)
+                        return decode_arith_reg(enc, dc, pc, instr, OP_subs);
+                }
             }
         }
     }
@@ -134,15 +179,33 @@ encoder(byte *pc, instr_t *i)
     (void)enc;
     switch (i->opcode) {
     case OP_add:
-        return encode_add_imm(pc, i, 0x11000000);
+        if ((enc = encode_arith_imm(pc, i, 0x11000000)) != ENCFAIL)
+            return enc;
+        return encode_arith_reg(pc, i, 0x0b000000);
+    case OP_adds:
+        if ((enc = encode_arith_imm(pc, i, 0x31000000)) != ENCFAIL)
+            return enc;
+        return encode_arith_reg(pc, i, 0x2b000000);
     case OP_adr:
         return encode_adr(pc, i, 0x10000000);
     case OP_adrp:
         return encode_adr(pc, i, 0x90000000);
+    case OP_and:
+        if ((enc = encode_logic_imm(pc, i, 0x12000000)) != ENCFAIL)
+            return enc;
+        return encode_logic_reg(pc, i, 0x0a000000);
+    case OP_ands:
+        if ((enc = encode_logic_imm(pc, i, 0x72000000)) != ENCFAIL)
+            return enc;
+        return encode_logic_reg(pc, i, 0x6a000000);
     case OP_b:
         return encode_b(pc, i, 0x14000000);
     case OP_bcond:
         return encode_bcond(pc, i, 0x54000000);
+    case OP_bic:
+        return encode_logic_reg(pc, i, 0x0a200000);
+    case OP_bics:
+        return encode_logic_reg(pc, i, 0x6a200000);
     case OP_bl:
         return encode_b(pc, i, 0x94000000);
     case OP_blr:
@@ -155,6 +218,12 @@ encoder(byte *pc, instr_t *i)
         return encode_cbz(pc, i, 0x35000000);
     case OP_cbz:
         return encode_cbz(pc, i, 0x34000000);
+    case OP_eon:
+        return encode_logic_reg(pc, i, 0x4a200000);
+    case OP_eor:
+        if ((enc = encode_logic_imm(pc, i, 0x52000000)) != ENCFAIL)
+            return enc;
+        return encode_logic_reg(pc, i, 0x4a000000);
     case OP_ldr:
         if ((enc = encode_ldr_imm(pc, i, 0xb9400000)) != ENCFAIL)
             return enc;
@@ -169,8 +238,12 @@ encoder(byte *pc, instr_t *i)
         return encode_msr(pc, i, 0xd5100000);
     case OP_nop:
         return encode_nop(pc, i, 0xd503201f);
+    case OP_orn:
+        return encode_logic_reg(pc, i, 0x2a200000);
     case OP_orr:
-        return encode_and_reg(pc, i, 0x2a000000);
+        if ((enc = encode_logic_imm(pc, i, 0x32000000)) != ENCFAIL)
+            return enc;
+        return encode_logic_reg(pc, i, 0x2a000000);
     case OP_ret:
         return encode_br(pc, i, 0xd65f0000);
     case OP_str:
@@ -180,7 +253,13 @@ encoder(byte *pc, instr_t *i)
     case OP_strh:
         return encode_strb_imm(pc, i, 0x79000000);
     case OP_sub:
-        return encode_add_imm(pc, i, 0x51000000);
+        if ((enc = encode_arith_imm(pc, i, 0x51000000)) != ENCFAIL)
+            return enc;
+        return encode_arith_reg(pc, i, 0x4b000000);
+    case OP_subs:
+        if ((enc = encode_arith_imm(pc, i, 0x71000000)) != ENCFAIL)
+            return enc;
+        return encode_arith_reg(pc, i, 0x6b000000);
     case OP_svc:
         return encode_svc(pc, i, 0xd4000001);
     case OP_tbnz:

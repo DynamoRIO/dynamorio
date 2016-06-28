@@ -39,6 +39,8 @@
 
 #include "codec.h"
 
+#define ENCFAIL (uint)0 /* a value that is not a valid instruction */
+
 /* The functions instr_set_0dst_0src, etc. could perhaps be moved to instr.h
  * where instr_create_0dst_0src, etc. are declared.
  */
@@ -133,6 +135,91 @@ instr_set_1dst_4src(dcontext_t *dc, instr_t *instr, int op,
     instr_set_src(instr, 1, src1);
     instr_set_src(instr, 2, src2);
     instr_set_src(instr, 3, src3);
+}
+
+/* Returns zero if the encoding is invalid. */
+static ptr_uint_t
+decode_bitmask(uint enc)
+{
+    uint pos = enc >> 6 & 63;
+    uint len = enc & 63;
+    ptr_uint_t x;
+
+    if (TEST(1U << 12, enc)) {
+        if (len == 63)
+            return 0;
+        x = ((ptr_uint_t)1 << (len + 1)) - 1;
+        return x >> pos | x << 1 << (63 - pos);
+    } else {
+        uint i, t = 32;
+
+        while ((t & len) != 0)
+            t >>= 1;
+        if (t < 2)
+            return 0;
+        x = len & (t - 1);
+        if (x == t - 1)
+            return 0;
+        x = ((ptr_uint_t)1 << (x + 1)) - 1;
+        pos &= t - 1;
+        x = x >> pos | x << (t - pos);
+        for (i = 2; i < 64; i *= 2) {
+            if (t <= i)
+                x |= x << i;
+        }
+        return x;
+    }
+}
+
+/* Returns -1 if the value cannot be encoded. */
+static int
+encode_bitmask(ptr_uint_t x)
+{
+    int neg, rep, pos, len;
+
+    neg = 0;
+    if ((x & 1) != 0)
+        neg = 1, x = ~x;
+    if (x == 0)
+        return -1;
+
+    if (x >> 2 == (x & (((ptr_uint_t)1 << (64 - 2)) - 1)))
+        rep =  2, x &= ((ptr_uint_t)1 <<  2) - 1;
+    else if (x >> 4 == (x & (((ptr_uint_t)1 << (64 - 4)) - 1)))
+        rep =  4, x &= ((ptr_uint_t)1 <<  4) - 1;
+    else if (x >> 8 == (x & (((ptr_uint_t)1 << (64 - 8)) - 1)))
+        rep =  8, x &= ((ptr_uint_t)1 <<  8) - 1;
+    else if (x >> 16 == (x & (((ptr_uint_t)1 << (64 - 16)) - 1)))
+        rep = 16, x &= ((ptr_uint_t)1 << 16) - 1;
+    else if (x >> 32 == (x & (((ptr_uint_t)1 << (64 - 32)) - 1)))
+        rep = 32, x &= ((ptr_uint_t)1 << 32) - 1;
+    else
+        rep = 64;
+
+    pos = 0;
+    (x & (((ptr_uint_t)1 << 32) - 1)) != 0 ? 0 : (x >>= 32, pos += 32);
+    (x & (((ptr_uint_t)1 << 16) - 1)) != 0 ? 0 : (x >>= 16, pos += 16);
+    (x & (((ptr_uint_t)1 <<  8) - 1)) != 0 ? 0 : (x >>=  8, pos +=  8);
+    (x & (((ptr_uint_t)1 <<  4) - 1)) != 0 ? 0 : (x >>=  4, pos +=  4);
+    (x & (((ptr_uint_t)1 <<  2) - 1)) != 0 ? 0 : (x >>=  2, pos +=  2);
+    (x & (((ptr_uint_t)1 <<  1) - 1)) != 0 ? 0 : (x >>=  1, pos +=  1);
+
+    len = 0;
+    (~x & (((ptr_uint_t)1 << 32) - 1)) != 0 ? 0 : (x >>= 32, len += 32);
+    (~x & (((ptr_uint_t)1 << 16) - 1)) != 0 ? 0 : (x >>= 16, len += 16);
+    (~x & (((ptr_uint_t)1 <<  8) - 1)) != 0 ? 0 : (x >>=  8, len +=  8);
+    (~x & (((ptr_uint_t)1 <<  4) - 1)) != 0 ? 0 : (x >>=  4, len +=  4);
+    (~x & (((ptr_uint_t)1 <<  2) - 1)) != 0 ? 0 : (x >>=  2, len +=  2);
+    (~x & (((ptr_uint_t)1 <<  1) - 1)) != 0 ? 0 : (x >>=  1, len +=  1);
+
+    if (x != 0)
+        return -1;
+    if (neg) {
+        pos = (pos + len) & (rep - 1);
+        len = rep - len;
+    }
+    return (0x1000 & rep << 6) | (((rep - 1) ^ 31) << 1 & 63) |
+        ((rep - pos) & (rep - 1)) << 6 | (len - 1);
 }
 
 static inline ptr_int_t
@@ -406,10 +493,29 @@ encode_base_imm(opnd_size_t *x, uint *rn, uint *imm, int bits, bool signd, opnd_
  * Functions for decoding and encoding each "type" of instruction.
  */
 
-#define ENCFAIL (uint)0 /* a value that is not a valid instruction */
+static inline bool
+decode_adr(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
+{
+    ptr_int_t off = (((enc >> 3 & 0xffffc) | (enc >> 29 & 3)) -
+                     (ptr_int_t)(enc >> 3 & 0x100000));
+    ptr_int_t x = op == OP_adrp ?
+        ((ptr_int_t)pc >> 12 << 12) + (off << 12) :
+        (ptr_int_t)pc + off;
+    instr_set_1dst_1src(dc, instr, op,
+                        decode_xregz(enc & 31),
+                        opnd_create_rel_addr((void *)x, OPSZ_0));
+    return true;
+}
+
+static inline uint
+encode_adr(byte *pc, instr_t *i, uint enc)
+{
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return ENCFAIL;
+}
 
 static inline bool
-decode_add_imm(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
+decode_arith_imm(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
 {
     bool x = TEST(1U << 31, enc);
     instr_set_1dst_4src(dc, instr, op,
@@ -422,12 +528,14 @@ decode_add_imm(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
 }
 
 static inline uint
-encode_add_imm(byte *pc, instr_t *i, uint enc)
+encode_arith_imm(byte *pc, instr_t *i, uint enc)
 {
     uint rd, rn, imm12, shift_type, shift_amount;
+    int opc = instr_get_opcode(i);
     opnd_size_t x = OPSZ_NA;
     if (encode_opnums(i, 1, 4) &&
-        encode_rregsp(&x, &rd, instr_get_dst(i, 0)) &&
+        (opc == OP_add || opc == OP_sub ? encode_rregsp : encode_rregz)
+        (&x, &rd, instr_get_dst(i, 0)) &&
         encode_rregsp(&x, &rn, instr_get_src(i, 0)) &&
         encode_imm(&imm12, 12, instr_get_src(i, 1)) &&
         encode_shift(&shift_type, instr_get_src(i, 2)) &&
@@ -439,32 +547,12 @@ encode_add_imm(byte *pc, instr_t *i, uint enc)
 }
 
 static inline bool
-decode_adr(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
-{
-    ptr_int_t off = (((enc >> 3 & 0xffffc) | (enc >> 29 & 3)) -
-                     (ptr_int_t)(enc >> 3 & 0x100000));
-    ptr_int_t x = op == OP_adrp ?
-        ((ptr_int_t)pc >> 12 << 12) + (off << 12) :
-        (ptr_int_t)pc + off;
-    instr_set_1dst_1src(dc, instr, op,
-                        decode_xregz(enc & 31),
-                        opnd_create_rel_addr((void *)x, OPSZ_8));
-    return true;
-}
-
-static inline uint
-encode_adr(byte *pc, instr_t *i, uint enc)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return ENCFAIL;
-}
-
-static inline bool
-decode_and_reg(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
+decode_arithlogic_reg(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op,
+                      bool arith)
 {
     bool x = TEST(1U << 31, enc);
     uint imm6 = enc >> 10 & 63;
-    if (!x && imm6 >= 32)
+    if ((arith && (enc >> 22 & 3) == 3) || (!x && imm6 >= 32))
         return false;
     instr_set_1dst_4src(dc, instr, op,
                         decode_rregz(x, enc & 31),
@@ -476,7 +564,7 @@ decode_and_reg(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
 }
 
 static inline uint
-encode_and_reg(byte *pc, instr_t *i, uint enc)
+encode_arithlogic_reg(byte *pc, instr_t *i, uint enc, bool arith)
 {
     uint rd, rn, rm, sh, imm6;
     opnd_size_t x = OPSZ_NA;
@@ -485,10 +573,23 @@ encode_and_reg(byte *pc, instr_t *i, uint enc)
         encode_rregz(&x, &rn, instr_get_src(i, 0)) &&
         encode_rregz(&x, &rm, instr_get_src(i, 1)) &&
         encode_shift(&sh, instr_get_src(i, 2)) &&
+        !(arith && sh == 3) &&
         encode_imm(&imm6, (x ? 6 : 5), instr_get_src(i, 3)))
         return (enc | (uint)(x == OPSZ_8) << 31 |
                 rd | rn << 5 | rm << 16 | sh << 22 | imm6 << 10);
     return ENCFAIL;
+}
+
+static inline bool
+decode_arith_reg(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
+{
+    return decode_arithlogic_reg(enc, dc, pc, instr, op, true);
+}
+
+static inline uint
+encode_arith_reg(byte *pc, instr_t *i, uint enc)
+{
+    return encode_arithlogic_reg(pc, i, enc, true);
 }
 
 static inline bool
@@ -652,6 +753,65 @@ encode_ldr_literal_simd(byte *pc, instr_t *i, uint enc)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return ENCFAIL;
+}
+
+static inline bool
+decode_logic_imm(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
+{
+    bool x = TEST(1U << 31, enc);
+    uint imm_enc = extract_uint(enc, 10, 13); /* encoding of bitmask */
+    ptr_uint_t imm_val = decode_bitmask(imm_enc); /* value of bitmask */
+    if (imm_val == 0 || (!x && TEST(1U << 12, imm_enc)))
+        return false;
+    instr_set_1dst_3src(dc, instr, op,
+                        decode_rregsp(x, enc & 31),
+                        decode_rregsp(x, enc >> 5 & 31),
+                        opnd_create_immed_uint(imm_val, OPSZ_8),
+                        opnd_create_immed_uint(imm_enc, OPSZ_2));
+    return true;
+
+}
+
+static inline uint
+encode_logic_imm(byte *pc, instr_t *i, uint enc)
+{
+    uint rd, rn;
+    opnd_size_t x = OPSZ_NA;
+    if (encode_opnums(i, 1, 2) &&
+        encode_rregsp(&x, &rd, instr_get_dst(i, 0)) &&
+        encode_rregsp(&x, &rn, instr_get_src(i, 0)) &&
+        opnd_is_immed_int(instr_get_src(i, 1))) {
+        ptr_uint_t imm_val = opnd_get_immed_int(instr_get_src(i, 1));
+        int imm_enc = encode_bitmask(imm_val);
+        if (imm_enc == -1 || (x != OPSZ_8 && TEST(1U << 12, imm_enc)))
+            return ENCFAIL;
+        return (enc | (uint)(x == OPSZ_8) << 31 | rd | rn << 5 | imm_enc << 10);
+    }
+    if (encode_opnums(i, 1, 3) &&
+        encode_rregsp(&x, &rd, instr_get_dst(i, 0)) &&
+        encode_rregsp(&x, &rn, instr_get_src(i, 0)) &&
+        opnd_is_immed_int(instr_get_src(i, 1)) &&
+        opnd_is_immed_int(instr_get_src(i, 2))) {
+        ptr_uint_t imm_val = opnd_get_immed_int(instr_get_src(i, 1));
+        ptr_uint_t imm_enc = opnd_get_immed_int(instr_get_src(i, 2));
+        if (imm_val != decode_bitmask(imm_enc) ||
+            (x != OPSZ_8 && TEST(1U << 12, imm_enc)))
+            return ENCFAIL;
+        return (enc | (uint)(x == OPSZ_8) << 31 | rd | rn << 5 | imm_enc << 10);
+    }
+    return ENCFAIL;
+}
+
+static inline bool
+decode_logic_reg(uint enc, dcontext_t *dc, byte *pc, instr_t *instr, int op)
+{
+    return decode_arithlogic_reg(enc, dc, pc, instr, op, false);
+}
+
+static inline uint
+encode_logic_reg(byte *pc, instr_t *i, uint enc)
+{
+    return encode_arithlogic_reg(pc, i, enc, false);
 }
 
 static inline bool
