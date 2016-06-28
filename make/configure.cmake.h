@@ -47,6 +47,7 @@
 #cmakedefine X86
 #cmakedefine ARM
 #cmakedefine AARCH64
+#cmakedefine AARCHXX
 #cmakedefine X64
 #cmakedefine WINDOWS
 #cmakedefine LINUX

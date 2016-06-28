@@ -76,11 +76,13 @@
 # endif
 #elif defined(ARM_32)
 # define ARM
+# define AARCHXX
 # if defined(X86_32) || defined(X86_64) || defined(ARM_64)
 #  error Target architecture over-specified: must define only one
 # endif
 #elif defined(ARM_64)
 # define AARCH64
+# define AARCHXX
 # if defined(X86_32) || defined(X86_64) || defined(ARM_32)
 #  error Target architecture over-specified: must define only one
 # endif
@@ -661,6 +663,38 @@ typedef struct _instr_t instr_t;
 # define _IF_ARM(x)
 # define IF_NOT_ARM(x) x
 # define _IF_NOT_ARM(x) , x
+#endif
+
+#ifdef AARCH64
+# define IF_AARCH64(x) x
+# define IF_AARCH64_ELSE(x, y) x
+# define IF_AARCH64_(x) x,
+# define _IF_AARCH64(x) , x
+# define IF_NOT_AARCH64(x)
+# define _IF_NOT_AARCH64(x)
+#else
+# define IF_AARCH64(x)
+# define IF_AARCH64_ELSE(x, y) y
+# define IF_AARCH64_(x)
+# define _IF_AARCH64(x)
+# define IF_NOT_AARCH64(x) x
+# define _IF_NOT_AARCH64(x) , x
+#endif
+
+#ifdef AARCHXX
+# define IF_AARCHXX(x) x
+# define IF_AARCHXX_ELSE(x, y) x
+# define IF_AARCHXX_(x) x,
+# define _IF_AARCHXX(x) , x
+# define IF_NOT_AARCHXX(x)
+# define _IF_NOT_AARCHXX(x)
+#else
+# define IF_AARCHXX(x)
+# define IF_AARCHXX_ELSE(x, y) y
+# define IF_AARCHXX_(x)
+# define _IF_AARCHXX(x)
+# define IF_NOT_AARCHXX(x) x
+# define _IF_NOT_AARCHXX(x) , x
 #endif
 
 #ifdef ANDROID

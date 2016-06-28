@@ -245,6 +245,7 @@ else ()
 endif ()
 
 if (ARM OR AARCH64)
+  set(AARCHXX 1)
   set(ARCH_NAME_SHARED aarchxx)
 else ()
   set(ARCH_NAME_SHARED ${ARCH_NAME})

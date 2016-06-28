@@ -57,6 +57,10 @@
 # define ARM
 #endif
 
+#if (defined(ARM_32) || defined(ARM_64)) && !defined(AARCHXX)
+# define AARCHXX
+#endif
+
 #if (defined(ARM) && defined(X64)) || (defined(AARCH64) && !defined(X64))
 # error ARM is only 32-bit; AARCH64 is 64-bit
 #endif

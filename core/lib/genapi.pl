@@ -264,7 +264,7 @@ sub keep_define($)
     my ($def) = @_;
     return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "UNIX" ||
             $def eq "MACOS" || $def eq "X64" || $def eq "CLANG" ||
-            $def eq "X86" || $def eq "AARCH64" || $def eq "ARM" ||
+            $def eq "X86" || $def eq "AARCH64" || $def eq "AARCHXX" || $def eq "ARM" ||
             $def eq "X86_32" || $def eq "X86_64" ||
             $def eq "ANDROID" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR" || $def eq "__cplusplus" || $def eq "PAGE_SIZE");
