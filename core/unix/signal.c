@@ -3267,7 +3267,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     sc->SC_R0 = (reg_t) get_tls(os_tls_offset(TLS_REG0_SLOT));
     LOG(THREAD, LOG_ASYNCH, 2, "%s: restored r0 to "PFX"\n", __FUNCTION__, sc->SC_R0);
 #else
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+# error NYI
 #endif
 
     /* Now adjust the pc to point at the syscall instruction instead of after it,

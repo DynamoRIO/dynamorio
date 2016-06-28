@@ -62,8 +62,10 @@ int
 opnd_get_reg_dcontext_offs(reg_id_t reg)
 {
 #ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
+    if (DR_REG_R0 <= reg && reg <= DR_REG_R30)
+        return R0_OFFSET + (R1_OFFSET - R0_OFFSET) * (reg - DR_REG_R0);
+    CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
+    return -1;
 #else
     switch (reg) {
     case DR_REG_R0:  return  R0_OFFSET;

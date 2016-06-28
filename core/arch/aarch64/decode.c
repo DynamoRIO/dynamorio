@@ -102,15 +102,13 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 byte *
 decode_next_pc(dcontext_t *dcontext, byte *pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return NULL;
+    return pc + AARCH64_INSTR_SIZE;
 }
 
 int
 decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
+    return AARCH64_INSTR_SIZE;
 }
 
 byte *

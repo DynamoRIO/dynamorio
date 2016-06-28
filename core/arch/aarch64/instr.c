@@ -59,8 +59,7 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 bool
 opc_is_not_a_real_memory_load(int opc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    return (opc == OP_adr || opc == OP_adrp);
 }
 
 uint
