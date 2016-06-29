@@ -293,8 +293,9 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
 
     /* mov $linkstub_ptr,%xbx */
 #ifdef X64
-    if (!FRAG_IS_32(f->flags))
+    if (!FRAG_IS_32(f->flags)) {
         *pc = REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG; pc++;
+    }
 #endif
     *pc = MOV_IMM2XBX_OPCODE; pc++;
 #ifdef WINDOWS
