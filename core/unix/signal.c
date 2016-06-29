@@ -2833,6 +2833,10 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
     /* x64 always uses shared gencode */
     get_local_state_extended()->spill_space.IF_X86_ELSE(xax, r0) =
         sc->IF_X86_ELSE(SC_XAX, SC_R0);
+# ifdef AARCH64
+    /* X1 needs to be spilled because of br x1 in exit stubs. */
+    get_local_state_extended()->spill_space.r1 = sc->SC_R1;
+# endif
 #else
     get_mcontext(dcontext)->IF_X86_ELSE(xax, r0) = sc->IF_X86_ELSE(SC_XAX, SC_R0);
 #endif

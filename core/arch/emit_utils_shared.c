@@ -4581,13 +4581,21 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
     *syscall_offs += AARCH64_INSTR_SIZE;
 #endif
 
-#ifdef AARCHXX
+#if defined(ARM)
     /* We have to save r0 in case the syscall is interrupted.  We can't
      * easily do this from dispatch b/c fcache_enter clobbers some TLS slots.
      */
     APP(&ilist, instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
     /* XXX: should have a proper patch list entry */
-    *syscall_offs += IF_X64_ELSE(AARCH64_INSTR_SIZE, THUMB_LONG_INSTR_SIZE);
+    *syscall_offs += THUMB_LONG_INSTR_SIZE;
+#elif defined(AARCH64)
+    /* For AArch64, we need to save both x0 and x1 into SLOT 0 and SLOT 1
+     * in case the syscall is interrupted. See append_save_gpr.
+     * stp x0, x1, [x28]
+     */
+    APP(&ilist, INSTR_CREATE_xx(dcontext, 0xa9000000 | 0 | 1 << 10 |
+                                (dr_reg_stolen - DR_REG_X0) << 5));
+    *syscall_offs += AARCH64_INSTR_SIZE;
 #endif
 
     /* system call itself -- using same method we've observed OS using */

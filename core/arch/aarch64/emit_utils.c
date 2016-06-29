@@ -480,8 +480,9 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 
 /* Append instructions to save gpr on fcache return, called after
  * append_fcache_return_prologue.
- * Assuming the execution comes from an exit stub,
+ * Assuming the execution comes from an exit stub via br DR_REG_X1,
  * dcontext base is held in REG_DCXT, and exit stub in X0.
+ * App's x0 and x1 is stored in TLS_REG0_SLOT and TLS_REG1_SLOT
  * - store all registers into dcontext's mcontext
  * - restore REG_DCXT app value from TLS slot to mcontext
  * - restore dr_reg_stolen app value from TLS slot to mcontext
@@ -492,7 +493,13 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
 {
     int i;
 
-    for (i = 0; i < 30; i += 2) {
+    /* X0 and X1 will always have been saved in TLS slots before executing
+     * the code generated here. See, for example:
+     * emit_do_syscall_common, emit_indirect_branch_lookup, handle_sigreturn,
+     * insert_exit_stub_other_flags, execute_handler_from_{cache,dispatch},
+     * transfer_from_sig_handler_to_fcache_return
+     */
+    for (i = 2; i < 30; i += 2) {
         /* stp x(i), x(i+1), [x(dcxt), #xi_offset] */
         APP(ilist, INSTR_CREATE_xx(dcontext,
                                    0xa9000000 | i | (i + 1) << 10 |
@@ -507,19 +514,18 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
                                (REG_DCXT - DR_REG_X0) << 5 |
                                REG_OFFSET(DR_REG_X30) >> 3 << 15));
 
-    /* It would be a bit more efficient to use LDP + STP here:
-     * app's x0 was spilled to DIRECT_STUB_SPILL_SLOT by exit stub.
+    /* ldp x1, x2, [x(stolen)]
+     * stp x1, x2, [x(dcxt)]
      */
-    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, DIRECT_STUB_SPILL_SLOT));
+    APP(ilist, INSTR_CREATE_xx(dcontext, 0xa9400000 | 1 | 2 << 10 |
+                               (dr_reg_stolen - DR_REG_X0) << 5));
+    APP(ilist, INSTR_CREATE_xx(dcontext, 0xa9000000 | 1 | 2 << 10 |
+                               (REG_DCXT - DR_REG_X0) << 5));
+
     if (linkstub != NULL) {
         /* FIXME i#1575: NYI for coarse-grain stub */
         ASSERT_NOT_IMPLEMENTED(false);
-    } else {
-        APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, R0_OFFSET));
     }
-    /* App's x1 was spilled to DIRECT_STUB_SPILL_SLOT2. */
-    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, DIRECT_STUB_SPILL_SLOT2));
-    APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, R1_OFFSET));
 
     /* REG_DCXT's app value is stored in DCONTEXT_BASE_SPILL_SLOT by
      * append_prepare_fcache_return, so copy it to mcontext.
