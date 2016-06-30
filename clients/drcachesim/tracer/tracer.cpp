@@ -179,7 +179,7 @@ memtrace(void *drcontext)
                     // - vsyscall/kernel page,
                     // - wild access (NULL or very large bogus address) by app
                     NOTIFY(1, "virtual2physical translation failure for "
-                           "<%2d, %2d, "PFX">\n",
+                           "<%2d, %2d, " PFX">\n",
                            mem_ref->type, mem_ref->size, mem_ref->addr);
                 }
             }
@@ -809,7 +809,7 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-    dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: "SZFMT"\n", num_refs);
+    dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
     ipc_pipe.close();
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);

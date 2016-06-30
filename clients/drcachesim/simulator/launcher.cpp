@@ -229,7 +229,7 @@ _tmain(int argc, const TCHAR *targv[])
         simulator = new tlb_simulator_t;
     else {
         ERROR("Usage error: unsupported simulator type. "
-              "Please choose "CPU_CACHE" or "TLB".\n");
+              "Please choose " CPU_CACHE" or " TLB".\n");
         return false;
     }
 

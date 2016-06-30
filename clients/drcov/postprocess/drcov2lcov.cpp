@@ -405,8 +405,8 @@ line_table_create(const char *file)
     chunk->first_num  = 1;
     chunk->last_num   = chunk->first_num + chunk->num_lines - 1;
     chunk->next       = NULL;
-    PRINT(5, "line table "PFX" added\n", (ptr_uint_t)table);
-    PRINT(7, "Init chunk %u-%u (%u) for "PFX" @"PFX"\n",
+    PRINT(5, "line table " PFX" added\n", (ptr_uint_t)table);
+    PRINT(7, "Init chunk %u-%u (%u) for " PFX" @" PFX"\n",
           chunk->first_num, chunk->last_num, chunk->num_lines,
           (ptr_uint_t)table, (ptr_uint_t)chunk);
     return table;
@@ -417,7 +417,7 @@ line_table_delete(void *p)
 {
     line_table_t *table = (line_table_t *)p;
     line_chunk_t *chunk, *next;
-    PRINT(5, "line table "PFX" delete\n", (ptr_uint_t)table);
+    PRINT(5, "line table " PFX" delete\n", (ptr_uint_t)table);
     for (chunk = table->chunk; chunk != NULL; chunk = next) {
         next = chunk->next;
         line_chunk_free(chunk);
@@ -453,7 +453,7 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
         chunk             = tmp;
         line_table->chunk = chunk;
         line_table->num_chunks++;
-        PRINT(7, "New chunk %u-%u (%u) for "PFX" @"PFX"\n",
+        PRINT(7, "New chunk %u-%u (%u) for " PFX" @" PFX"\n",
               chunk->first_num, chunk->last_num, chunk->num_lines,
               (ptr_uint_t)line_table, (ptr_uint_t)chunk);
     }
@@ -543,7 +543,7 @@ static void
 module_table_delete(void *p)
 {
     module_table_t *table = (module_table_t *)p;
-    PRINT(3, "Delete module table "PFX"\n", (ptr_uint_t)table);
+    PRINT(3, "Delete module table " PFX"\n", (ptr_uint_t)table);
     if (table != MODULE_TABLE_IGNORE) {
         free(table->bb_table.bitmap);
         if (op_test_pattern.specified())
@@ -576,7 +576,7 @@ bb_bitmap_add(module_table_t *table, bb_entry_t *entry)
     if (TEST(BITMAP_MASK(offs), bm[idx]))
         return false;
     /* now we add a new bb */
-    PRINT(6, "Add "PFX"-"PFX" in table "PFX"\n",
+    PRINT(6, "Add " PFX"-" PFX" in table " PFX"\n",
           (ptr_uint_t)entry->start,
           (ptr_uint_t)entry->start + entry->size,
           (ptr_uint_t)table);
@@ -639,7 +639,7 @@ bb_array_add(module_table_t *table, bb_entry_t *entry)
 static int
 module_table_bb_lookup(module_table_t *table, uint addr, const char **info)
 {
-    PRINT(5, "lookup "PFX" in module table "PFX"\n",
+    PRINT(5, "lookup " PFX" in module table " PFX"\n",
           (ptr_uint_t)addr, (ptr_uint_t)table);
     /* We see this and it seems to be erroneous data from the pdb,
      * xref drsym_enumerate_lines() from drsyms.
@@ -658,7 +658,7 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
     if (table == MODULE_TABLE_IGNORE)
         return false;
     if (table->size <= entry->start + entry->size) {
-        WARN(3, "Wrong range "PFX"-"PFX" or table size "PFX" for table "PFX"\n",
+        WARN(3, "Wrong range " PFX"-" PFX" or table size " PFX" for table " PFX"\n",
              (ptr_uint_t)entry->start, (ptr_uint_t)entry->start + entry->size,
              (ptr_uint_t)table->size,  (ptr_uint_t)table);
         return false;
@@ -678,7 +678,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         char *name = (char *) malloc(strlen(info->name) + 1);
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
-        PRINT(5, "function %s: "PFX"-"PFX"\n",
+        PRINT(5, "function %s: " PFX"-" PFX"\n",
               name, (ptr_uint_t)info->start_offs, (ptr_uint_t)info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
@@ -776,10 +776,10 @@ read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
 
         /* assuming the string is something like:  "0, 2207744, /bin/ls" */
         /* XXX: i#1143: we do not use dr_sscanf since it does not support %[] */
-        if (sscanf(buf, " %u, %"INT64_FORMAT"u, %[^\n\r]", &mod_id, &mod_size, path) != 3)
+        if (sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]", &mod_id, &mod_size, path) != 3)
             ASSERT(false, "Failed to read module table");
         buf = move_to_next_line(buf);
-        PRINT(5, "Module: %u, "PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
+        PRINT(5, "Module: %u, " PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
         mod_table = (module_table_t *) hashtable_lookup(&module_htable, path);
         if (mod_table == NULL) {
             modpath = path;
@@ -814,7 +814,7 @@ read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
                 }
                 mod_table = module_table_create(modpath, (size_t)mod_size);
             }
-            PRINT(4, "Create module table "PFX" for module %s\n",
+            PRINT(4, "Create module table " PFX" for module %s\n",
                   (ptr_uint_t)mod_table, modpath);
             num_module_htable_entries++;
             if (!hashtable_add(&module_htable, (void *)modpath, mod_table))
@@ -840,7 +840,7 @@ read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
         cur_test = non_test;
     }
     for (i = 0, entry = (bb_entry_t *)buf; i < num_bbs; i++, entry++) {
-        PRINT(6, "BB: "PFX", %u, %u\n",
+        PRINT(6, "BB: " PFX", %u, %u\n",
               (ptr_uint_t)entry->start, entry->size, entry->mod_id);
         /* we could have mod id USHRT_MAX for unknown module e.g., [vdso] */
         if (entry->mod_id < num_mods)
@@ -1148,10 +1148,10 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         line_table_add(line_table, (uint)info->line,
                        (byte)SOURCE_LINE_STATUS_SKIP, test_info);
     } else {
-        WARN(2, "Invalid bb lookup, Table: "PFX", Addr: "PFX"\n",
+        WARN(2, "Invalid bb lookup, Table: " PFX", Addr: " PFX"\n",
              (ptr_uint_t)table, (ptr_uint_t)info->line);
     }
-    PRINT(5, "%s, %s, %llu, "PFX"\n",
+    PRINT(5, "%s, %s, %llu, " PFX"\n",
           info->cu_name, info->file, (unsigned long long)info->line,
           (ptr_uint_t)info->line_addr);
     return true;

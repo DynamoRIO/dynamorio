@@ -742,12 +742,12 @@ report_invalid_opcode(int opc, app_pc pc)
         }
         // It would be nice to share pieces of the msg but we'd want to
         // build up a buffer to ensure a single atomic print.
-        NOTIFY(0, "<Invalid %s instruction \"%s\" @ %s+"PIFX".  %s.>\n",
+        NOTIFY(0, "<Invalid %s instruction \"%s\" @ %s+" PIFX".  %s.>\n",
                op_cpu.get_value().c_str(), decode_opcode_name(opc),
                modname, pc - mod->start,
                op_continue.get_value() ? "Continuing" : "Aborting");
     } else {
-        NOTIFY(0, "<Invalid %s instruction \"%s\" @ "PFX".  %s.>\n",
+        NOTIFY(0, "<Invalid %s instruction \"%s\" @ " PFX".  %s.>\n",
                op_cpu.get_value().c_str(), decode_opcode_name(opc), pc,
                op_continue.get_value() ? "Continuing" : "Aborting");
     }

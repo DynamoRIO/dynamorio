@@ -238,6 +238,6 @@ cache_simulator_t::create_cache(std::string policy)
 
     // undefined replacement policy
     ERROR("Usage error: undefined replacement policy. "
-          "Please choose "REPLACE_POLICY_LRU" or "REPLACE_POLICY_LFU".\n");
+          "Please choose " REPLACE_POLICY_LRU" or " REPLACE_POLICY_LFU".\n");
     return NULL;
 }
