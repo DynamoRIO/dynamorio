@@ -368,8 +368,10 @@ get_clone_record_dstack(void *record);
 reg_t
 get_clone_record_stolen_value(void *record);
 
+# ifndef AARCH64
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record);
+# endif
 
 void
 set_thread_register_from_clone_record(void *record);

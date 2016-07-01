@@ -696,13 +696,8 @@ set_thread_register_from_clone_record(void *record)
      * thread did not setup TLS for the child, and we need clear the
      * thread register.
      */
-    if (((clone_record_t *)record)->app_lib_tls_base != NULL) {
-#ifdef AARCH64
-        write_thread_register(0);
-#else
-        dynamorio_syscall(SYS_set_tls, 1, NULL);
-#endif
-    }
+    if (((clone_record_t *)record)->app_lib_tls_base != NULL)
+        write_thread_register(NULL);
 }
 
 void

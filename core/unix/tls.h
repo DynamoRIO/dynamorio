@@ -45,6 +45,9 @@
 #define _OS_TLS_H_ 1
 
 #include "os_private.h"  /* ASM_XAX */
+#if defined(ARM) && defined(LINUX)
+# include "include/syscall.h" /* SYS_set_tls */
+#endif
 
 /* We support 3 different methods of creating a segment (see os_tls_init()) */
 typedef enum {
@@ -161,11 +164,16 @@ read_thread_register(reg_id_t reg)
     return sel;
 }
 
-#ifdef AARCH64
-static inline void
+#ifdef AARCHXX
+static inline bool
 write_thread_register(void *val)
 {
+# ifdef AARCH64
     asm volatile("msr tpidr_el0, %0" : : "r"(val));
+    return true;
+# else
+    return (dynamorio_syscall(SYS_set_tls, 1, val) == 0);
+# endif
 }
 #endif
 

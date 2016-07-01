@@ -2214,7 +2214,7 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 void
 os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags)
 {
-#ifdef ARM
+#ifdef AARCHXX
     /* FIXME i#1582: remove this routine once os_should_swap_state()
      * is not disabled and we can actually call
      * os_swap_context_go_native() safely from multiple places.
@@ -5963,7 +5963,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         return false;
     }
     ASSERT(BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
-#elif defined(ARM)
+#elif defined(AARCHXX)
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(INTERNAL_OPTION(private_loader));
     if (to_app) {
@@ -5987,7 +5987,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         *app_lib_tls_swap_slot = dr_tls_base;
         LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting coproc reg to 0x%x\n",
             __FUNCTION__, (to_app ? "app" : "dr"), os_tls->app_lib_tls_base);
-        res = dynamorio_syscall(SYS_set_tls, 1, os_tls->app_lib_tls_base) == 0;
+        res = write_thread_register(os_tls->app_lib_tls_base);
     } else {
         /* Restore the app's TLS slot that we used for storing DR's TLS base,
          * and put DR's TLS base back to privlib's TLS slot.
@@ -6006,7 +6006,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting coproc reg to 0x%x\n",
             __FUNCTION__, (to_app ? "app" : "dr"),
             ostd->priv_lib_tls_base);
-        res = dynamorio_syscall(SYS_set_tls, 1, ostd->priv_lib_tls_base) == 0;
+        res = write_thread_register(ostd->priv_lib_tls_base);
     }
     LOG(THREAD, LOG_LOADER, 2,
         "%s %s: set_tls swap success=%d for thread "TIDFMT"\n",

@@ -69,12 +69,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     LOG(GLOBAL, LOG_THREADS, 2,
         "tls_thread_init: cur priv lib tls base is "PFX"\n",
         os_tls->os_seg_info.priv_lib_tls_base);
-#ifdef AARCH64
-    asm volatile("msr tpidr_el0, %0" : :
-                 "r"(os_tls->os_seg_info.priv_lib_tls_base));
-#else
-    dynamorio_syscall(SYS_set_tls, 1, os_tls->os_seg_info.priv_lib_tls_base);
-#endif
+    write_thread_register(os_tls->os_seg_info.priv_lib_tls_base);
     ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
     ASSERT(*get_dr_tls_base_addr() == NULL);
     *get_dr_tls_base_addr() = segment;
