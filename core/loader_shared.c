@@ -100,6 +100,7 @@ loader_init(void)
 {
     uint i;
     privmod_t *mod;
+    app_pc base;
 
     acquire_recursive_lock(&privload_lock);
     VMVECTOR_ALLOC_VECTOR(modlist_areas, GLOBAL_DCONTEXT,
@@ -109,6 +110,18 @@ loader_init(void)
                           modlist_areas);
     /* os specific loader initialization prologue before finalize the load */
     os_loader_init_prologue();
+
+    /* Find and load drdbg */
+    if (INTERNAL_OPTION(appdebug)) {
+        base = locate_and_load_private_library("libdrdbg.so", true);
+        if (base == NULL) {
+            SYSLOG_INTERNAL_ERROR("Failed to load drdbg library!");
+            os_terminate(NULL, TERMINATE_PROCESS);
+            ASSERT_NOT_REACHED();
+        }
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: Loaded libdrdbg.so @ %p\n",
+            __FUNCTION__, base);
+    }
 
     /* Process client libs we loaded early but did not finalize */
     for (i = 0; i < privmod_static_idx; i++) {

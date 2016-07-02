@@ -238,6 +238,8 @@
     OPTION_INTERNAL(bool, bbdump_tags, "dump tags, sizes, and sharedness of all bbs")
     OPTION_INTERNAL(bool, gendump, "dump generated code")
     OPTION_DEFAULT(bool, global_rstats, true, "enable global release-build statistics")
+    OPTION_INTERNAL(bool, appdebug, "debug application with internal gdb server")
+    OPTION_DEFAULT(uint, appdebug_port, 1234, "port that drdbg will listen on")
 
     /* this takes precedence over the DYNAMORIO_VAR_LOGDIR config var */
     OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING,

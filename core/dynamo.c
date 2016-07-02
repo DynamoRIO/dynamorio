@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,6 +64,8 @@
 #include "synch.h"
 #include "native_exec.h"
 #include "jit_opt.h"
+
+#include "../ext/drdbg/drdbg.h"
 
 #ifdef ANNOTATIONS
 # include "annotations.h"
@@ -364,6 +366,8 @@ DYNAMORIO_EXPORT int
 dynamorio_app_init(void)
 {
     int size;
+    app_pc faddr;
+    privmod_t *mod;
 
     if (!dynamo_initialized /* we do enter if nullcalls is on */) {
 
@@ -707,7 +711,29 @@ dynamorio_app_init(void)
         wait_for_event(never_signaled);
         destroy_event(never_signaled);
     }
-
+    /* Initialize drdbg */
+    if (INTERNAL_OPTION(appdebug)) {
+        acquire_recursive_lock(&privload_lock);
+        mod = privload_lookup("libdrdbg.so");
+        release_recursive_lock(&privload_lock);
+        if (mod == NULL) {
+            SYSLOG_INTERNAL_ERROR("Failed to locate drdbg library!");
+            os_terminate(NULL, TERMINATE_PROCESS);
+            ASSERT_NOT_REACHED();
+        }
+        faddr = get_private_library_address(mod->base, "drdbg_init");
+        if (faddr == NULL) {
+            SYSLOG_INTERNAL_ERROR("Failed to locate drdbg_init!");
+            os_terminate(NULL, TERMINATE_PROCESS);
+            ASSERT_NOT_REACHED();
+        }
+        LOG(GLOBAL, LOG_TOP, 1, "%s: Found drdbg_init @ %p\n",
+            __FUNCTION__, faddr);
+        /* XXX: Add options */
+        drdbg_options_t opts;
+        opts.port = DYNAMO_OPTION(appdebug_port);
+        ((generic_func_t)faddr)(&opts);
+    }
     return SUCCESS;
 }
 

@@ -121,6 +121,10 @@ add_subdirectory(drsyms)
 add_subdirectory(drutil)
 add_subdirectory(droption)
 add_subdirectory(drcovlib)
+if (UNIX)
+# XXX: Uses unix sockets only right now
+add_subdirectory(drdbg)
+endif ()
 
 # documentation is put into main DR docs/ dir
 
