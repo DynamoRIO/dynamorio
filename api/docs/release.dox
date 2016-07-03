@@ -139,6 +139,8 @@ The changes between version \DR_VERSION and 6.1.0 include:
    memtrace_x86_binary to highlight the huge performance difference.
  - Added instruction trace samples instrace_simple, instrace_x86_text, and
    instrace_x86_binary.
+ - Added better drreg support for intra-bb control flow by adding
+   drreg_set_bb_properties().
 
 **************************************************
 <hr>

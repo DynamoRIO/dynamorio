@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,7 @@ finalized.
 
  - \ref sec_drreg_setup
  - \ref sec_drreg_usage
+ - \ref sec_drreg_linear
 
 \section sec_drreg_setup Setup
 
@@ -79,5 +80,37 @@ automatically restore or re-spill application values, when the intervening
 application instruction reads or writes that register, while still
 preserving the client's value in that register for use after the
 application instruction.
+
+\section sec_drreg_linear Linear Control Flow
+
+The \p drreg API was designed for linear control flow.  The API assumes
+that it can safely wait to restore an unreserved scratch register across
+application instructions.  If a client inserts internal control flow inside
+a basic block that crosses application instructions, and the client is not
+explicitly ensuring that each forward jump contains the same set of saved
+scratch registers at its source and target (typically done by saving all
+scratch registers that will be needed inside control flow prior to any
+forward branches), the client should tell \p drreg to disable its
+optimizations.  This is done by calling drreg_set_bb_properties() and
+passing #DRREG_CONTAINS_SPANNING_CONTROL_FLOW either prior to the drmgr
+insertion phase or as early as possible in the insertion phase.  Setting
+this property causes application instructions to become barriers to spilled
+scratch registers that have been unreserved but have not yet been lazily
+restored.  Such scratch registers are then restored prior to each
+application instruction.  \p drreg will still collapse adjacent
+spill+restore pairs for the same app instr.
+
+For control flow added during the app2app phase (such as by
+drutil_expand_rep_string()), \p drreg is able to identify and act on its
+own.  Normally, drreg disables optimizations if it sees any kind of
+internal control flow (viz., a branch with an instr_t target) while
+examining code during the analysis phase.  If the client is certain that
+all app2app internal control flow that it and any libraries it uses either
+do not cross application instructions or satisfy the property that each
+forward jump contains the same set of saved scratch registers at its source
+as at its target (typically done by saving all scratch registers needed
+inside control flow prior to any forward branches), then the client can
+call drreg_set_bb_properties() and pass #DRREG_IGNORE_CONTROL_FLOW in order
+to enable full lazy restores by \p drreg.
 
 */

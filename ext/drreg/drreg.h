@@ -239,6 +239,42 @@ drreg_are_aflags_dead(void *drcontext, instr_t *inst, bool *dead);
  * SCRATCH REGISTERS
  */
 
+/** Flags passed to drreg_set_bb_properties(). */
+typedef enum {
+    /**
+     * drreg was designed for linear control flow and assumes that it can safely
+     * wait to restore an unreserved scratch register across application
+     * instructions.  If a client inserts internal control flow that crosses
+     * application instructions (hence "spanning"), and the client is not
+     * explicitly ensuring that each forward jump contains the same set of saved
+     * scratch registers at its source and target (typically done by saving all
+     * scratch registers needed inside control flow prior to any forward
+     * branches), the client should set this property either prior to the drmgr
+     * insertion phase or as early as possible in the insertion phase.  Setting
+     * this property causes application instructions to become barriers to spilled
+     * scratch registers that have been unreserved but have not yet been lazily
+     * restored.  drreg will still collapse adjacent spill+restore pairs for the
+     * same app instr.
+     */
+    DRREG_CONTAINS_SPANNING_CONTROL_FLOW = 0x001,
+    /**
+     * drreg was designed for linear control flow.  Normally, drreg disables
+     * optimizations if it sees any kind of internal control flow (viz., a branch
+     * with an instr_t target) that was added during drmgr's app2app phase, which
+     * includes flow added by drutil_expand_rep_string().  The primary consequence
+     * of disabling optimizations means that application instructions become
+     * barriers to spilled scratch registers that have been unreserved but have
+     * not yet been lazily restored, which are restored prior to each application
+     * instruction.  If this flag is set, drreg assumes that internal control flow
+     * either does not cross application instructions or that the client is
+     * ensuring that each forward jump contains the same set of saved scratch
+     * registers at its source and target (typically done by saving all scratch
+     * registers needed inside control flow prior to any forward branches).  Such
+     * scratch registers are then restored prior to each application instruction.
+     */
+    DRREG_IGNORE_CONTROL_FLOW            = 0x002,
+} drreg_bb_properties_t;
+
 DR_EXPORT
 /**
  * Requests exclusive use of an application register, spilling the
@@ -374,6 +410,16 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead);
+
+DR_EXPORT
+/**
+ * May only be called during drmgr's app2app, analysis, or insertion phase.
+ * Sets the given properties for the current basic block being instrumented.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_set_bb_properties(void *drcontext, drreg_bb_properties_t flags);
 
 
 /*@}*/ /* end doxygen group */

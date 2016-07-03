@@ -2014,6 +2014,11 @@ if (CLIENT_INTERFACE)
     target_include_directories(client.drreg-test PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
+    tobuild_ci(client.drreg-flow client-interface/drreg-flow.c "" "" "")
+    use_DynamoRIO_extension(client.drreg-flow.dll drmgr)
+    use_DynamoRIO_extension(client.drreg-flow.dll drreg)
+    use_DynamoRIO_extension(client.drreg-flow.dll drutil)
+
     tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
     use_DynamoRIO_extension(client.drx-test.dll drx)
 
