@@ -319,13 +319,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          * since the buffer will be dumped later by other clean calls.
          */
         IF_X86_ELSE(true, !instr_is_predicated(instr))
-        /* FIXME i#1698: there are constraints for code between ldrex/strex pairs,
+        /* XXX i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
          * As we're only inserting instrumentation on a memory reference, and the
          * app should be avoiding memory accesses in between the ldrex...strex,
          * the only problematic point should be before the strex.
          * However, there is still a chance that the instrumentation code may clear the
          * exclusive monitor state.
+         * Using a fault to handle a full buffer should be more robust, and the
+         * forthcoming buffer filling API (i#513) will provide that.
          */
         IF_ARM(&& !instr_is_exclusive_store(instr)))
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
