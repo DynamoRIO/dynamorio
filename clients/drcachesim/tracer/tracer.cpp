@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -45,6 +45,7 @@
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drreg.h"
 #include "drutil.h"
 #include "droption.h"
 #include "physaddr.h"
@@ -103,9 +104,6 @@ static named_pipe_t ipc_pipe;
 static client_id_t client_id;
 static void  *mutex;    /* for multithread support */
 static uint64 num_refs; /* keep a global memory reference count */
-
-static dr_spill_slot_t slot_ptr = SPILL_SLOT_2; /* TLS slot for reg_ptr */
-static dr_spill_slot_t slot_tmp = SPILL_SLOT_3; /* TLS slot for reg_tmp/reg_addr */
 
 /* virtual to physical translation */
 static bool have_phys;
@@ -348,9 +346,9 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     bool ok;
     int disp = adjust + offsetof(trace_entry_t, addr);
     if (opnd_uses_reg(ref, reg_ptr))
-        dr_restore_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
+        drreg_get_app_value(drcontext, ilist, where, reg_ptr, reg_ptr);
     if (opnd_uses_reg(ref, reg_addr))
-        dr_restore_reg(drcontext, ilist, where, reg_addr, slot_tmp);
+        drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
     /* we use reg_ptr as scratch to get addr */
     ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_ptr);
     DR_ASSERT(ok);
@@ -522,6 +520,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
         instr_t *noskip = INSTR_CREATE_label(drcontext);
         /* XXX: clean call is too long to use cbz to skip. */
+        DR_ASSERT(reg_ptr <= DR_REG_R7); /* cbnz can't take r8+ */
         MINSERT(ilist, where,
                 INSTR_CREATE_cbnz(drcontext,
                                  opnd_create_instr(noskip),
@@ -562,11 +561,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
                       instr_t *instr, bool for_trace,
                       bool translating, void *user_data)
 {
-    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XCX, DR_REG_R1);
-    reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XBX, DR_REG_R2);
     int i, adjust = 0;
     user_data_t *ud = (user_data_t *) user_data;
     dr_pred_type_t pred;
+    reg_id_t reg_ptr, reg_tmp;
+    drvector_t rvec;
 
     if (!instr_is_app(instr) ||
         /* Skip identical app pc, which happens with rep str expansion.
@@ -605,9 +604,21 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
     pred = instr_get_predicate(instr);
     /* opt: save/restore reg per instr instead of per entry */
-    /* We need two scratch registers */
-    dr_save_reg(drcontext, bb, instr, reg_ptr, slot_ptr);
-    dr_save_reg(drcontext, bb, instr, reg_tmp, slot_tmp);
+    /* We need two scratch registers.
+     * reg_ptr must be ECX or RCX for jecxz on x86, and must be <= r7 for cbnz on ARM.
+     */
+#ifdef X86
+    drreg_init_and_fill_vector(&rvec, false);
+    drreg_set_vector_entry(&rvec, DR_REG_XCX, true);
+#else
+    drreg_init_and_fill_vector(&rvec, false);
+    for (reg_ptr = DR_REG_R0; reg_ptr <= DR_REG_R7; reg_ptr++)
+        drreg_set_vector_entry(&rvec, reg_ptr, true);
+#endif
+    if (drreg_reserve_register(drcontext, bb, instr, &rvec, &reg_ptr) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+    drvector_delete(&rvec);
     /* load buf ptr into reg_ptr */
     insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
 
@@ -680,8 +691,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         instrument_clean_call(drcontext, bb, instr, reg_ptr, reg_tmp);
 
     /* restore scratch registers */
-    dr_restore_reg(drcontext, bb, instr, reg_ptr, slot_ptr);
-    dr_restore_reg(drcontext, bb, instr, reg_tmp, slot_tmp);
+    if (drreg_unreserve_register(drcontext, bb, instr, reg_ptr) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
     return DR_EMIT_DEFAULT;
 }
 
@@ -821,7 +833,8 @@ event_exit(void)
         !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
                                                       event_bb_analysis,
                                                       event_app_instruction,
-                                                      event_bb_instru2instru))
+                                                      event_bb_instru2instru) ||
+        drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     dr_mutex_destroy(mutex);
@@ -832,6 +845,9 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
+    drreg_options_t ops = {sizeof(ops), 3, false};
+
     dr_set_client_name("DynamoRIO Cache Simulator Tracer",
                        "http://dynamorio.org/issues");
 
@@ -858,7 +874,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!ipc_pipe.maximize_buffer())
         NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
 
-    if (!drmgr_init() || !drutil_init())
+    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     /* register events */

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -70,6 +70,7 @@ if (UNIX)
     )
   configure_DynamoRIO_client(drmemtrace)
   use_DynamoRIO_extension(drmemtrace drmgr)
+  use_DynamoRIO_extension(drmemtrace drreg)
   use_DynamoRIO_extension(drmemtrace drutil)
   use_DynamoRIO_extension(drmemtrace drx)
   use_DynamoRIO_extension(drmemtrace droption)
