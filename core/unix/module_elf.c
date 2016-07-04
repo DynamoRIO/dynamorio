@@ -1667,6 +1667,14 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 
 #endif /* CLIENT_INTERFACE */
 
+static size_t
+tlsdesc_resolver(void *arg)
+{
+    /* FIXME i#1961: TLS descriptors are not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+}
+
 /* This routine is duplicated in privload_relocate_symbol for relocating
  * dynamorio symbols in a bootstrap stage. Any update here should be also
  * updated in privload_relocate_symbol.
@@ -1745,8 +1753,8 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
         break;
 #ifndef ANDROID
     case ELF_R_TLS_DESC:
-        /* FIXME: TLS descriptor, not implemented */
-        ASSERT_NOT_IMPLEMENTED(false);
+        /* FIXME i#1961: TLS descriptors are not implemented */
+        *((size_t (**)(void *))r_addr) = tlsdesc_resolver;
         break;
 # ifndef X64
     case R_386_TLS_TPOFF32:
