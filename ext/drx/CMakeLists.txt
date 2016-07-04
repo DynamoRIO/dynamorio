@@ -39,6 +39,7 @@ set(DynamoRIO_USE_LIBC OFF)
 
 set(srcs
   drx.c
+  drx_buf.c
   # add more here
   )
 

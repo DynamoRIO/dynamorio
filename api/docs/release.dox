@@ -143,6 +143,8 @@ The changes between version \DR_VERSION and 6.1.0 include:
    drreg_set_bb_properties().
  - Added priority-controlled drmgr_register_thread_init_event_ex() and
    drmgr_register_thread_exit_event_ex().
+ - Added \ref sec_drx_buf to drx: drx_buf_create_circular_buffer(),
+   drx_buf_create_trace_buffer(), and more.
 
 **************************************************
 <hr>

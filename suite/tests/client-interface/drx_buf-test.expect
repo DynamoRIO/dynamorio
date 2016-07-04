@@ -1,0 +1,5 @@
+Starting drx_buf threaded test
+Ending drx_buf threaded test
+Starting drx_buf signal test
+drx_buf signal test PASS
+Ending drx_buf signal test
