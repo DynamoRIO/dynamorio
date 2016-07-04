@@ -47,13 +47,13 @@ const char * const reg_names[] = {
     "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7",
     "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15",
     "x16", "x17", "x18", "x19", "x20", "x21", "x22", "x23",
-    "x24", "x25", "x26", "x27", "x28", "x29", "x30", "x31_invalid",
-    "xzr", "sp",
+    "x24", "x25", "x26", "x27", "x28", "x29", "x30",
+    "sp", "xzr",
     "w0", "w1", "w2", "w3", "w4", "w5", "w6", "w7",
     "w8", "w9", "w10", "w11", "w12", "w13", "w14", "w15",
     "w16", "w17", "w18", "w19", "w20", "w21", "w22", "w23",
-    "w24", "w25", "w26", "w27", "w28", "w29", "w30", "w31_invalid",
-    "wzr", "wsp",
+    "w24", "w25", "w26", "w27", "w28", "w29", "w30",
+    "wsp", "wzr",
     "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
     "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15",
     "q16", "q17", "q18", "q19", "q20", "q21", "q22", "q23",
@@ -92,8 +92,8 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19, \
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23, \
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27, \
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31_INVALID, \
-    DR_REG_XZR, DR_REG_XSP,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30, \
+    DR_REG_XSP, DR_REG_XZR,
 XREGS /* X0-XSP */
 XREGS /* W0-WSP */
 #undef XREGS

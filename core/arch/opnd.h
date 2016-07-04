@@ -192,9 +192,9 @@ enum {
     DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31_INVALID,
-    DR_REG_XZR, /* zero register */
-    DR_REG_XSP, /* stack pointer */
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,
+    DR_REG_XSP, /* stack pointer: the last GPR */
+    DR_REG_XZR, /* zero register: pseudo-register not included in GPRs */
 
     /* 32-bit general purpose */
     DR_REG_W0,  DR_REG_W1,   DR_REG_W2,   DR_REG_W3,
@@ -204,9 +204,9 @@ enum {
     DR_REG_W16, DR_REG_W17,  DR_REG_W18,  DR_REG_W19,
     DR_REG_W20, DR_REG_W21,  DR_REG_W22,  DR_REG_W23,
     DR_REG_W24, DR_REG_W25,  DR_REG_W26,  DR_REG_W27,
-    DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31_INVALID,
-    DR_REG_WZR, /* zero register */
+    DR_REG_W28, DR_REG_W29,  DR_REG_W30,
     DR_REG_WSP, /* bottom half of stack pointer */
+    DR_REG_WZR, /* zero register */
 # else
     /* 32-bit general purpose */
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
