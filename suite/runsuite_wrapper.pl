@@ -42,7 +42,9 @@ use Cwd 'abs_path';
 use File::Basename;
 my $mydir = dirname(abs_path($0));
 
-my $res = `ctest -S ${mydir}/runsuite.cmake 2>&1`;
+# We have no way to access the log files, so we use -VV to ensure
+# we can diagnose failures.
+my $res = `ctest -VV -S ${mydir}/runsuite.cmake 2>&1`;
 
 my @lines = split('\n', $res);
 my $should_print = 0;
@@ -66,4 +68,8 @@ foreach my $line (@lines) {
     }
     print "$line\n" if ($should_print);
 }
+
+print "\n\n==================================================\nDETAILS\n\n";
+print $res;
+
 exit $exit_code;
