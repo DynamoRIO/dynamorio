@@ -1667,6 +1667,7 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 
 #endif /* CLIENT_INTERFACE */
 
+#ifndef ANDROID
 static size_t
 tlsdesc_resolver(void *arg)
 {
@@ -1674,6 +1675,7 @@ tlsdesc_resolver(void *arg)
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
+#endif
 
 /* This routine is duplicated in privload_relocate_symbol for relocating
  * dynamorio symbols in a bootstrap stage. Any update here should be also
