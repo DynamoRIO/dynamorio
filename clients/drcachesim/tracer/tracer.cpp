@@ -564,7 +564,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     int i, adjust = 0;
     user_data_t *ud = (user_data_t *) user_data;
     dr_pred_type_t pred;
-    reg_id_t reg_ptr, reg_tmp;
+    reg_id_t reg_ptr, reg_tmp = DR_REG_NULL;
     drvector_t rvec;
 
     if (!instr_is_app(instr) ||
@@ -616,8 +616,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         drreg_set_vector_entry(&rvec, reg_ptr, true);
 #endif
     if (drreg_reserve_register(drcontext, bb, instr, &rvec, &reg_ptr) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tmp) != DRREG_SUCCESS)
-        DR_ASSERT(false);
+        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tmp) != DRREG_SUCCESS) {
+        // We can't recover.
+        NOTIFY(0, "Fatal error: failed to reserve scratch registers");
+        dr_abort();
+    }
     drvector_delete(&rvec);
     /* load buf ptr into reg_ptr */
     insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
