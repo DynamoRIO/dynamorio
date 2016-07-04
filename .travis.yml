@@ -47,8 +47,8 @@ compiler:
 install:
   - uname -a
   - if [[ "`uname`" == "Darwin" ]]; then brew install nasm; fi
-  # XXX: I expect to need this but disabling until tested.
-  #- if [[ "`uname`" == "Linux" ]]; then sudo apt-get install transfig; fi
+  # ImageMagick is present but these are not:
+  - if [[ "`uname`" == "Linux" ]]; then sudo apt-get install g++-multilib doxygen transfig; fi
 
 script:
   - suite/runsuite_wrapper.pl
