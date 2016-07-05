@@ -61,4 +61,4 @@ install:
   - if [[ "`uname`" == "Linux" ]]; then sudo apt-get -y install g++-multilib doxygen transfig; fi
 
 script:
-  - suite/runsuite_wrapper.pl
+  - suite/runsuite_wrapper.pl travis

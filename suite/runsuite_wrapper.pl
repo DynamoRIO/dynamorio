@@ -42,6 +42,16 @@ use Cwd 'abs_path';
 use File::Basename;
 my $mydir = dirname(abs_path($0));
 
+# Forward args to runsuite.cmake:
+my $args = '';
+for (my $i = 0; $i <= $#ARGV; $i++) {
+    if ($i == 0) {
+        $args .= ",$ARGV[$i]";
+    } else {
+        $args .= "\\;$ARGV[$i]";
+    }
+}
+
 # We have no way to access the log files, so we use -VV to ensure
 # we can diagnose failures.
 # We tee to stdout to provide incremental output and avoid the 10-min
@@ -58,7 +68,7 @@ if ($child) {
     }
     close(CHILD);
 } else {
-    system("ctest -VV -S ${mydir}/runsuite.cmake 2>&1");
+    system("ctest -VV -S ${mydir}/runsuite.cmake${args} 2>&1");
 }
 
 my @lines = split('\n', $res);

@@ -44,7 +44,21 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 
 # extra args (note that runsuite_common_pre.cmake has already walked
 # the list and did not remove its args so be sure to avoid conflicts).
-# none at this time.
+set(arg_travis OFF)
+foreach (arg ${CTEST_SCRIPT_ARG})
+  if (${arg} STREQUAL "travis")
+    set(arg_travis ON)
+  endif ()
+endforeach (arg)
+
+if (arg_travis)
+  # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
+  # fixed, our Travis clang suite only builds and does not run tests.
+  if ($ENV{CC} MATCHES "clang")
+    set(run_tests OFF)
+    message("Detected a Travis clang suite: disabling running of tests")
+  endif ()
+endif()
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
@@ -306,6 +320,7 @@ if (UNIX AND ARCH_IS_X86)
   else ()
     message("adb not found: NOT running Android tests")
   endif ()
+  set(prev_run_tests ${run_tests})
   if (ADB)
     set(android_extra_dbg "DR_COPY_TO_DEVICE:BOOL=ON")
     if (TEST_LONG)
@@ -329,7 +344,7 @@ if (UNIX AND ARCH_IS_X86)
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
     ${android_extra_rel}
     " OFF OFF "")
-  set(run_tests ON)
+  set(run_tests ${prev_run_tests})
 
   set(optional_cross_compile OFF)
   set(ARCH_IS_X86 ON)
