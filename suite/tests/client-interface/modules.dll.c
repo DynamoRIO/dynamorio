@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,6 +41,9 @@ static bool verbose = false;
 
 #ifdef WINDOWS
 static bool found_ordinal_import = false;
+# define LIB_TO_LOOK_FOR "COMDLG32.dll"
+#else
+# define LIB_TO_LOOK_FOR "libclient.modules.appdll.so"
 #endif
 
 #define INFO(msg, ...) do { \
@@ -95,8 +98,7 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
                    data->full_path);
     }
 #endif
-    if (string_match(data->names.module_name,
-                     IF_WINDOWS_ELSE("COMDLG32.dll", "libz.so.1")))
+    if (string_match(data->names.module_name, LIB_TO_LOOK_FOR))
         dr_fprintf(STDERR, "LOADED MODULE: %s\n", data->names.module_name);
 
 #ifdef WINDOWS
@@ -164,8 +166,7 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
 static
 void module_unload_event(void *dcontext, const module_data_t *data)
 {
-    if (string_match(data->names.module_name,
-                     IF_WINDOWS_ELSE("COMDLG32.dll", "libz.so.1")))
+    if (string_match(data->names.module_name, LIB_TO_LOOK_FOR))
         dr_fprintf(STDERR, "UNLOADED MODULE: %s\n", data->names.module_name);
 }
 

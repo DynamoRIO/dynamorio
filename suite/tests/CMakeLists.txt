@@ -1692,8 +1692,10 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
     tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
     if (NOT MACOS) # FIXME i#1360: implement Mach-O export iterator
-      tobuild_ci(client.modules client-interface/modules.c "" "" "")
       tobuild_appdll(client.modules client-interface/modules.c)
+      get_target_property(modules_libname client.modules.appdll
+        LOCATION${location_suffix})
+      tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
       # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
       append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
     endif ()
