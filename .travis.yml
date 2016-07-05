@@ -47,12 +47,18 @@ compiler:
   - clang
   - gcc
 
+matrix:
+  exclude:
+    # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we disable:
+    - os: osx
+      compiler: gcc
+
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
   - uname -a
   - if [[ "`uname`" == "Darwin" ]]; then brew install nasm; fi
   # ImageMagick is present but these are not:
-  - if [[ "`uname`" == "Linux" ]]; then sudo apt-get install g++-multilib doxygen transfig; fi
+  - if [[ "`uname`" == "Linux" ]]; then sudo apt-get -y install g++-multilib doxygen transfig; fi
 
 script:
   - suite/runsuite_wrapper.pl
