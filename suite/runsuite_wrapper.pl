@@ -44,7 +44,22 @@ my $mydir = dirname(abs_path($0));
 
 # We have no way to access the log files, so we use -VV to ensure
 # we can diagnose failures.
-my $res = `ctest -VV -S ${mydir}/runsuite.cmake 2>&1`;
+# We tee to stdout to provide incremental output and avoid the 10-min
+# no-output timeout on Travis.
+my $res = '';
+my $child = open(CHILD, '-|');
+die "Failed to fork: $!" if (!defined($child));
+if ($child) {
+    # Parent
+    my $output;
+    while (<CHILD>) {
+        print STDOUT $_;
+        $res .= $_;
+    }
+    close(CHILD);
+} else {
+    system("ctest -VV -S ${mydir}/runsuite.cmake 2>&1");
+}
 
 my @lines = split('\n', $res);
 my $should_print = 0;
@@ -68,8 +83,5 @@ foreach my $line (@lines) {
     }
     print "$line\n" if ($should_print);
 }
-
-print "\n\n==================================================\nDETAILS\n\n";
-print $res;
 
 exit $exit_code;
