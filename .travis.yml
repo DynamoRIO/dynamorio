@@ -30,6 +30,14 @@
 
 # Travis CI configuration:
 
+notifications:
+  email:
+    # This overrides the default of sending to the committer and author.
+    recipients:
+      - dynamorio-devs@googlegroups.com
+    on_success: change
+    on_failure: always
+
 # We use Trusty to get cmake 2.8.12 instead of 2.8.7 from Precise:
 sudo: required
 dist: trusty
