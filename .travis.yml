@@ -30,6 +30,10 @@
 
 # Travis CI configuration:
 
+# We use Trusty to get cmake 2.8.12 instead of 2.8.7 from Precise:
+sudo: required
+dist: trusty
+
 language:
   - c
   - cpp
