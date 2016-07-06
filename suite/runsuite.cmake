@@ -54,7 +54,7 @@ endforeach (arg)
 if (arg_travis)
   # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
   # fixed, our Travis clang suite only builds and does not run tests.
-  if ($ENV{CC} MATCHES "clang")
+  if (NOT APPLE AND $ENV{CC} MATCHES "clang")
     set(run_tests OFF)
     message("Detected a Travis clang suite: disabling running of tests")
   endif ()
