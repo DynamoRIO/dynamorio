@@ -1173,9 +1173,10 @@ reloaded_xfer:
         mov     ARG1, REG_XSP
 # else
         mov     REG_XAX, REG_XSP
-#  ifdef MACOS
-        lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
-#  endif
+        /* We maintain 16-byte alignment not just for MacOS but also for
+         * the new Linux ABI.  Xref DrMi#1899 and i#847.
+         */
+        lea      REG_XSP, [-ARG_SZ + REG_XSP]
         push    REG_XSI
         push    REG_XDI
         push    REG_XAX
