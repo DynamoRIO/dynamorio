@@ -290,7 +290,7 @@ DECL_EXTERN(level2)
 #define FUNCNAME makes_tailcall
         DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-# if defined(UNIX) && defined(X64) && !defined(ARM)
+# if defined(UNIX) && defined(X86) && defined(X64)
         push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
         call     PTRSZ SYMREF(level2_ptr)
         pop      REG_XBP

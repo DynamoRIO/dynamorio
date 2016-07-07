@@ -2009,41 +2009,39 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drmgr-test ${libpthread})
   endif ()
 
-  if (NOT AARCH64) # FIXME i#1569: port to AArch64
-    tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
-    use_DynamoRIO_extension(client.drreg-test.dll drmgr)
-    use_DynamoRIO_extension(client.drreg-test.dll drreg)
-    target_include_directories(client.drreg-test PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-test.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-test.dll drreg)
+  target_include_directories(client.drreg-test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
-    tobuild_ci(client.drreg-flow client-interface/drreg-flow.c "" "" "")
-    use_DynamoRIO_extension(client.drreg-flow.dll drmgr)
-    use_DynamoRIO_extension(client.drreg-flow.dll drreg)
-    use_DynamoRIO_extension(client.drreg-flow.dll drutil)
+  tobuild_ci(client.drreg-flow client-interface/drreg-flow.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-flow.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-flow.dll drreg)
+  use_DynamoRIO_extension(client.drreg-flow.dll drutil)
 
-    tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
-    use_DynamoRIO_extension(client.drx-test.dll drx)
+  tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+  use_DynamoRIO_extension(client.drx-test.dll drx)
 
-    tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
-    use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
-    use_DynamoRIO_extension(client.drxmgr-test.dll drx)
-    use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
+  tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
+  use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
+  use_DynamoRIO_extension(client.drxmgr-test.dll drx)
+  use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
-    tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-    get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll)
-    tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
-    use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
-    tochcon(client.drwrap-test.appdll textrel_shlib_t)
-    if (WIN32)
-      # export from asm code
-      append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
-    endif (WIN32)
-    if (NOT ANDROID) # XXX i#1874: get working on Android
-      tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
-        "" "" "")
-      use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
-    endif ()
-  endif (NOT AARCH64)
+  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+  get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll)
+  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+  use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
+  tochcon(client.drwrap-test.appdll textrel_shlib_t)
+  if (WIN32)
+    # export from asm code
+    append_link_flags(client.drwrap-test.appdll "/export:makes_tailcall")
+  endif (WIN32)
+  if (NOT ANDROID) # XXX i#1874: get working on Android
+    tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
+      "" "" "")
+    use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
+  endif ()
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
@@ -2062,7 +2060,7 @@ if (CLIENT_INTERFACE)
     endif (dbghelp_path)
   endif ()
 
-  if (NOT ANDROID AND NOT AARCH64)
+  if (NOT ANDROID)
     # XXX i#1874: get working on Android
     # FIXME i#1569: get working on AArch64
     tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)

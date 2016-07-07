@@ -145,7 +145,7 @@ pre_stack_trace(void *wrapcxt, void **user_data)
     /* It's impossible to get frame pointers on Win x64, so we only print one
      * frame.
      */
-#if (defined(WINDOWS) && defined(X64)) || defined(ARM)
+#if (defined(WINDOWS) && defined(X64)) || defined(AARCHXX)
     frame->parent = NULL;
 #else
     frame->parent = (frame_base_t*)mc->xbp;
@@ -155,6 +155,8 @@ pre_stack_trace(void *wrapcxt, void **user_data)
 #elif defined(ARM)
     /* clear the least significant bit if thumb mode */
     frame->ret_addr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, (app_pc)mc->lr);
+#elif defined(AARCH64)
+    frame->ret_addr = (app_pc)mc->lr;
 #endif
     depth = 0;
     while (frame != NULL) {

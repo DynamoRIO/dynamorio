@@ -66,9 +66,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         return DR_EMIT_DEFAULT;
     /* Exercise drreg's adjacent increment aflags spill removal code */
     drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX+1,
-                              IF_ARM_(SPILL_SLOT_MAX+1) &counterA, 1, 0);
+                              IF_NOT_X86_(SPILL_SLOT_MAX+1) &counterA, 1, 0);
     drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX+1,
-                              IF_ARM_(SPILL_SLOT_MAX+1) &counterB, 3, 0);
+                              IF_NOT_X86_(SPILL_SLOT_MAX+1) &counterB, 3, 0);
     return DR_EMIT_DEFAULT;
 }
 

@@ -187,6 +187,34 @@ GLOBAL_LABEL(FUNCNAME:)
         b        epilog
     epilog:
         bx       lr
+#elif defined(AARCH64)
+        b        test1
+        /* Test 1: separate write and read of reserved reg */
+     test1:
+        movz     TEST_REG_ASM, DRREG_TEST_1_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_1_ASM
+        mov      TEST_REG_ASM, sp
+        ldr      x0, PTRSZ [TEST_REG_ASM]
+
+        b        test2
+        /* Test 2: same instr writes and reads reserved reg */
+     test2:
+        movz     TEST_REG_ASM, DRREG_TEST_2_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_2_ASM
+        mov      TEST_REG_ASM, sp
+        ldr      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
+
+        b        test4
+        /* Test 4: read and write of reserved aflags */
+     test4:
+        movz     TEST_REG_ASM, DRREG_TEST_4_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_4_ASM
+        csel     TEST_REG_ASM, x0, x0, gt
+        cmp      TEST_REG_ASM, x0
+
+        b        epilog
+    epilog:
+        ret
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -231,6 +259,18 @@ GLOBAL_LABEL(FUNCNAME:)
         b        epilog2
     epilog2:
         bx       lr
+#elif defined(AARCH64)
+        b        test3
+        /* Test 3: fault reg restore */
+     test3:
+        movz     TEST_REG_ASM, DRREG_TEST_3_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_3_ASM
+        nop
+        .inst 0xf36d19 /* udf */
+
+        b        epilog2
+    epilog2:
+        ret
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -281,6 +321,21 @@ GLOBAL_LABEL(FUNCNAME:)
         b        epilog3
     epilog3:
         bx       lr
+#elif defined(AARCH64)
+        b        test5
+        /* Test 5: fault aflags restore */
+     test5:
+        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        msr      nzcv, TEST_REG_ASM
+        nop
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog3
+    epilog3:
+        ret
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

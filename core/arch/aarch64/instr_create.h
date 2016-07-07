@@ -53,6 +53,9 @@
 #define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_rel_addr(addr, size)
 
+#define XINST_CREATE_cmp(dc, rn, rm_or_imm) \
+  ((void)(rn), (void)(rm_or_imm), INSTR_CREATE_xx((dc), 0xb7f3f1)) /* FIXME i#1569 */
+
 /**
  * Create an immediate integer operand. For AArch64 the size of an immediate
  * is ignored when encoding, so there is no need to specify the final size.

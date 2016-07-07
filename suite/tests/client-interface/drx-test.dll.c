@@ -84,11 +84,13 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 {
     instr_t *first = instrlist_first_app(bb);
     /* Exercise drx's adjacent increment aflags spill removal code */
-    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, IF_ARM_(SPILL_SLOT_2)
+    drx_insert_counter_update(drcontext, bb, first,
+                              SPILL_SLOT_1, IF_NOT_X86_(SPILL_SLOT_2)
                               &counterA, 1,
                               /* DRX_COUNTER_LOCK is not yet supported on ARM */
                               IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
-    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, IF_ARM_(SPILL_SLOT_2)
+    drx_insert_counter_update(drcontext, bb, first,
+                              SPILL_SLOT_1, IF_NOT_X86_(SPILL_SLOT_2)
                               &counterB, 2, IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
     return DR_EMIT_DEFAULT;
 }

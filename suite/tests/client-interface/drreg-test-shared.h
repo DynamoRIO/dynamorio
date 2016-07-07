@@ -30,19 +30,26 @@
  * DAMAGE.
  */
 
-#ifndef IF_X86_ELSE
-# ifdef X86
-#  define IF_X86_ELSE(x, y) x
-# else
-#  define IF_X86_ELSE(x, y) y
-# endif
+#ifdef X86
+# define TEST_REG DR_REG_XDX
+# define TEST_REG_ASM REG_XDX
+# define TEST_REG_ASM_LSB dl
+# define TEST_REG_CXT IF_X64_ELSE(Rdx, Edx)
+# define TEST_REG_SIG SC_XDX
 #endif
 
-#define TEST_REG IF_X86_ELSE(DR_REG_XDX, DR_REG_R4)
-#define TEST_REG_ASM IF_X86_ELSE(REG_XDX, r4)
-#define TEST_REG_ASM_LSB dl
-#define TEST_REG_CXT IF_X64_ELSE(Rdx, Edx)
-#define TEST_REG_SIG IF_X86_ELSE(SC_XDX, arm_r4)
+#ifdef ARM
+# define TEST_REG DR_REG_R4
+# define TEST_REG_ASM r4
+# define TEST_REG_SIG arm_r4
+#endif
+
+#ifdef AARCH64
+# define TEST_REG DR_REG_X4
+# define TEST_REG_ASM x4
+# define TEST_REG_SIG regs[4]
+#endif
+
 #define TEST_FLAGS_SIG SC_XFLAGS
 
 /* Immediates that we look for in the app code to identify places for
@@ -58,10 +65,18 @@
 /* Set SF,ZF,AF,PF,CF, and bit 1 is always 1 => 0xd7 */
 # define DRREG_TEST_AFLAGS_ASM MAKE_HEX_ASM(d7)
 # define DRREG_TEST_AFLAGS_C MAKE_HEX(d7)
-#else
+#endif
+
+#ifdef ARM
 /* Set N,Z,C,V,Q => 0xf8000000, and LSB is really MSB */
 # define DRREG_TEST_AFLAGS_ASM MAKE_HEX_ASM(f8000000)
 # define DRREG_TEST_AFLAGS_C MAKE_HEX(f8000000)
+#endif
+
+#ifdef AARCH64
+# define DRREG_TEST_AFLAGS_H_ASM MAKE_HEX_ASM(f000)
+# define DRREG_TEST_AFLAGS_ASM MAKE_HEX_ASM(f0000000)
+# define DRREG_TEST_AFLAGS_C MAKE_HEX(f0000000)
 #endif
 
 #define DRREG_TEST_1_ASM MAKE_HEX_ASM(DRREG_TEST_CONST(1))
