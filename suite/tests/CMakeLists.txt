@@ -1582,8 +1582,17 @@ if (WIN32)
   torunonly(common.decode-stress common.decode common/decode.c
     "-stress_recreate_state" "")
 endif (WIN32)
+
+if (X86)
+  set(control_flags "eflags")
+elseif (AARCH64)
+  set(control_flags "nzcv")
+endif ()
+if (NOT ARM) # FIXME i#1551: port eflags/nzcv to ARM
+  tobuild(common.${control_flags} common/${control_flags}.c)
+endif ()
+
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  tobuild(common.eflags common/eflags.c)
   tobuild(common.floatpc common/floatpc.c)
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
   tobuild(common.getretaddr common/getretaddr.c)
@@ -2237,17 +2246,18 @@ if (CLIENT_INTERFACE)
     if (NOT ARM) # FIXME i#1551: fix bugs on ARM
       get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
       foreach (sample ${sample_list})
-        torunonly_ci(sample.${sample} common.eflags ${sample} common/eflags.c "" "" "")
+        torunonly_ci(sample.${sample} common.${control_flags}
+          ${sample} common/${control_flags}.c "" "" "")
         if (sample STREQUAL "inscount")
           # test out-of-line clean call
-          torunonly_ci(sample.${sample}.cleancall common.eflags ${sample}
-            common/eflags.c "" "-opt_cleancall 0" "")
+          torunonly_ci(sample.${sample}.cleancall common.${control_flags} ${sample}
+            common/${control_flags}.c "" "-opt_cleancall 0" "")
           if (UNIX)
-            torunonly_ci(sample.${sample}.prof-pcs.cleancall common.eflags ${sample}
-              common/eflags.c "" "-prof_pcs -opt_cleancall 0" "")
+            torunonly_ci(sample.${sample}.prof-pcs.cleancall common.${control_flags}
+              ${sample} common/${control_flags}.c "" "-prof_pcs -opt_cleancall 0" "")
             if (NOT X64)
               torunonly_ci(sample.${sample}.prof-pcs.thread-private.cleancall
-                common.eflags ${sample} common/eflags.c ""
+                common.${control_flags} ${sample} common/${control_flags}.c ""
                 "-thread_private -prof_pcs -opt_cleancall 0" "")
             endif (NOT X64)
           endif (UNIX)
