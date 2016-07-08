@@ -89,8 +89,7 @@ decode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 byte *
 decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return NULL;
+    return decode_common(dcontext, copy_pc, orig_pc, instr);
 }
 
 byte *

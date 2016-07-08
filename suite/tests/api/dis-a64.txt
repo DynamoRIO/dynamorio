@@ -1,0 +1,138 @@
+# **********************************************************
+# Copyright (c) 2016 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Test data for DynamoRIO's AArch64 encoder, decoder and disassembler.
+
+# The script "dis-a64.pl" can generate a draft version of this file.
+
+# Field 1: Encoding.
+# Field 2: Disassembly produced by objdump (not used for testing).
+# Field 3: Disassembly produced by DynamoRIO.
+
+0a031041 : and    w1, w2, w3, lsl #4      : and    %w2 %w3 $0x00 $0x04 -> %w1
+0a231041 : bic    w1, w2, w3, lsl #4      : bic    %w2 %w3 $0x00 $0x04 -> %w1
+0a9f13ff : and    wzr, wzr, wzr, asr #4   : and    %wzr %wzr $0x02 $0x04 -> %wzr
+0abf13ff : bic    wzr, wzr, wzr, asr #4   : bic    %wzr %wzr $0x02 $0x04 -> %wzr
+0b031041 : add    w1, w2, w3, lsl #4      : add    %w2 %w3 $0x00 $0x04 -> %w1
+0b9f13ff : add    wzr, wzr, wzr, asr #4   : add    %wzr %wzr $0x02 $0x04 -> %wzr
+11000c41 : add    w1, w2, #0x3            : add    %w2 $0x0003 $0x00 $0x00 -> %w1
+11000fff : add    wsp, wsp, #0x3          : add    %wsp $0x0003 $0x00 $0x00 -> %wsp
+12000441 : and    w1, w2, #0x3            : and    %w2 $0x00000003 $0x0001 -> %w1
+14081041 : b      10204104                : b      $0x0000000010204104
+17ffffff : b      ffffffc                 : b      $0x000000000ffffffc
+18081041 : ldr    w1, 10010208            : ldr    <rel> 0x0000000010010208[4byte] -> %w1
+1c081041 : ldr    s1, 10010208            : ldr    <rel> 0x0000000010010208[4byte] -> %s1
+2a031041 : orr    w1, w2, w3, lsl #4      : orr    %w2 %w3 $0x00 $0x04 -> %w1
+2a231041 : orn    w1, w2, w3, lsl #4      : orn    %w2 %w3 $0x00 $0x04 -> %w1
+2a9f13ff : mov    wzr, wzr                : orr    %wzr %wzr $0x02 $0x04 -> %wzr
+2abf13ff : mvn    wzr, wzr, asr #4        : orn    %wzr %wzr $0x02 $0x04 -> %wzr
+2b031041 : adds   w1, w2, w3, lsl #4      : adds   %w2 %w3 $0x00 $0x04 -> %w1
+2b9f13ff : cmn    wzr, wzr, asr #4        : adds   %wzr %wzr $0x02 $0x04 -> %wzr
+31000c41 : adds   w1, w2, #0x3            : adds   %w2 $0x0003 $0x00 $0x00 -> %w1
+31000fff : cmn    wsp, #0x3               : adds   %wsp $0x0003 $0x00 $0x00 -> %wzr
+32000441 : orr    w1, w2, #0x3            : orr    %w2 $0x00000003 $0x0001 -> %w1
+34081041 : cbz    w1, 10010208            : cbz    $0x0000000010010208 %w1
+35081041 : cbnz   w1, 10010208            : cbnz   $0x0000000010010208 %w1
+36081041 : tbz    w1, #1, 10000208        : tbz    $0x0000000010000208 %x1 $0x01
+37081041 : tbnz   w1, #1, 10000208        : tbnz   $0x0000000010000208 %x1 $0x01
+4a031041 : eor    w1, w2, w3, lsl #4      : eor    %w2 %w3 $0x00 $0x04 -> %w1
+4a231041 : eon    w1, w2, w3, lsl #4      : eon    %w2 %w3 $0x00 $0x04 -> %w1
+4a9f13ff : eor    wzr, wzr, wzr, asr #4   : eor    %wzr %wzr $0x02 $0x04 -> %wzr
+4abf13ff : eon    wzr, wzr, wzr, asr #4   : eon    %wzr %wzr $0x02 $0x04 -> %wzr
+4b031041 : sub    w1, w2, w3, lsl #4      : sub    %w2 %w3 $0x00 $0x04 -> %w1
+4b9f13ff : neg    wzr, wzr, asr #4        : sub    %wzr %wzr $0x02 $0x04 -> %wzr
+51000c41 : sub    w1, w2, #0x3            : sub    %w2 $0x0003 $0x00 $0x00 -> %w1
+51000fff : sub    wsp, wsp, #0x3          : sub    %wsp $0x0003 $0x00 $0x00 -> %wsp
+52000441 : eor    w1, w2, #0x3            : eor    %w2 $0x00000003 $0x0001 -> %w1
+58ffffff : ldr    xzr, ffffffc            : ldr    <rel> 0x000000000ffffffc[8byte] -> %xzr
+6a031041 : ands   w1, w2, w3, lsl #4      : ands   %w2 %w3 $0x00 $0x04 -> %w1
+6a231041 : bics   w1, w2, w3, lsl #4      : bics   %w2 %w3 $0x00 $0x04 -> %w1
+6a9f13ff : tst    wzr, wzr, asr #4        : ands   %wzr %wzr $0x02 $0x04 -> %wzr
+6abf13ff : bics   wzr, wzr, wzr, asr #4   : bics   %wzr %wzr $0x02 $0x04 -> %wzr
+6b031041 : subs   w1, w2, w3, lsl #4      : subs   %w2 %w3 $0x00 $0x04 -> %w1
+6b9f13ff : negs   wzr, wzr, asr #4        : subs   %wzr %wzr $0x02 $0x04 -> %wzr
+71000c41 : subs   w1, w2, #0x3            : subs   %w2 $0x0003 $0x00 $0x00 -> %w1
+71000fff : cmp    wsp, #0x3               : subs   %wsp $0x0003 $0x00 $0x00 -> %wzr
+72000441 : ands   w1, w2, #0x3            : ands   %w2 $0x00000003 $0x0001 -> %w1
+8a431041 : and    x1, x2, x3, lsr #4      : and    %x2 %x3 $0x01 $0x04 -> %x1
+8a631041 : bic    x1, x2, x3, lsr #4      : bic    %x2 %x3 $0x01 $0x04 -> %x1
+8adf13ff : and    xzr, xzr, xzr, ror #4   : and    %xzr %xzr $0x03 $0x04 -> %xzr
+8aff13ff : bic    xzr, xzr, xzr, ror #4   : bic    %xzr %xzr $0x03 $0x04 -> %xzr
+8b431041 : add    x1, x2, x3, lsr #4      : add    %x2 %x3 $0x01 $0x04 -> %x1
+8b9f13ff : add    xzr, xzr, xzr, asr #4   : add    %xzr %xzr $0x02 $0x04 -> %xzr
+91000c41 : add    x1, x2, #0x3            : add    %x2 $0x0003 $0x00 $0x00 -> %x1
+91000fff : add    sp, sp, #0x3            : add    %sp $0x0003 $0x00 $0x00 -> %sp
+92400441 : and    x1, x2, #0x3            : and    %x2 $0x0000000000000003 $0x1001 -> %x1
+94081041 : bl     10204104                : bl     $0x0000000010204104
+97ffffff : bl     ffffffc                 : bl     $0x000000000ffffffc
+98081041 : ldrsw  x1, 10010208            : ldrsw  <rel> 0x0000000010010208[4byte] -> %x1
+98ffffff : ldrsw  xzr, ffffffc            : ldrsw  <rel> 0x000000000ffffffc[4byte] -> %xzr
+aa431041 : orr    x1, x2, x3, lsr #4      : orr    %x2 %x3 $0x01 $0x04 -> %x1
+aa631041 : orn    x1, x2, x3, lsr #4      : orn    %x2 %x3 $0x01 $0x04 -> %x1
+aadf13ff : mov    xzr, xzr                : orr    %xzr %xzr $0x03 $0x04 -> %xzr
+aaff13ff : mvn    xzr, xzr, ror #4        : orn    %xzr %xzr $0x03 $0x04 -> %xzr
+ab431041 : adds   x1, x2, x3, lsr #4      : adds   %x2 %x3 $0x01 $0x04 -> %x1
+ab9f13ff : cmn    xzr, xzr, asr #4        : adds   %xzr %xzr $0x02 $0x04 -> %xzr
+b1000c41 : adds   x1, x2, #0x3            : adds   %x2 $0x0003 $0x00 $0x00 -> %x1
+b1000fff : cmn    sp, #0x3                : adds   %sp $0x0003 $0x00 $0x00 -> %xzr
+b2400441 : orr    x1, x2, #0x3            : orr    %x2 $0x0000000000000003 $0x1001 -> %x1
+b4ffffff : cbz    xzr, ffffffc            : cbz    $0x000000000ffffffc %xzr
+b5ffffff : cbnz   xzr, ffffffc            : cbnz   $0x000000000ffffffc %xzr
+b6ffffff : tbz    xzr, #63, ffffffc       : tbz    $0x000000000ffffffc %xzr $0x3f
+b7ffffff : tbnz   xzr, #63, ffffffc       : tbnz   $0x000000000ffffffc %xzr $0x3f
+ca431041 : eor    x1, x2, x3, lsr #4      : eor    %x2 %x3 $0x01 $0x04 -> %x1
+ca631041 : eon    x1, x2, x3, lsr #4      : eon    %x2 %x3 $0x01 $0x04 -> %x1
+cadf13ff : eor    xzr, xzr, xzr, ror #4   : eor    %xzr %xzr $0x03 $0x04 -> %xzr
+caff13ff : eon    xzr, xzr, xzr, ror #4   : eon    %xzr %xzr $0x03 $0x04 -> %xzr
+cb431041 : sub    x1, x2, x3, lsr #4      : sub    %x2 %x3 $0x01 $0x04 -> %x1
+cb9f13ff : neg    xzr, xzr, asr #4        : sub    %xzr %xzr $0x02 $0x04 -> %xzr
+d1000c41 : sub    x1, x2, #0x3            : sub    %x2 $0x0003 $0x00 $0x00 -> %x1
+d1000fff : sub    sp, sp, #0x3            : sub    %sp $0x0003 $0x00 $0x00 -> %sp
+d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 $0x1001 -> %x1
+d4081041 : svc    #0x4082                 : svc    $0x4082
+d41fffe1 : svc    #0xffff                 : svc    $0xffff
+d4281040 : brk    #0x4082                 : brk    $0x4082
+d43fffe0 : brk    #0xffff                 : brk    $0xffff
+d503201f : nop                            : nop
+d61f0040 : br     x2                      : br     %x2
+d61f03e0 : br     xzr                     : br     %xzr
+d63f0040 : blr    x2                      : blr    %x2
+d63f03e0 : blr    xzr                     : blr    %xzr
+d65f0040 : ret    x2                      : ret    %x2
+d65f03e0 : ret    xzr                     : ret    %xzr
+ea431041 : ands   x1, x2, x3, lsr #4      : ands   %x2 %x3 $0x01 $0x04 -> %x1
+ea631041 : bics   x1, x2, x3, lsr #4      : bics   %x2 %x3 $0x01 $0x04 -> %x1
+eadf13ff : tst    xzr, xzr, ror #4        : ands   %xzr %xzr $0x03 $0x04 -> %xzr
+eaff13ff : bics   xzr, xzr, xzr, ror #4   : bics   %xzr %xzr $0x03 $0x04 -> %xzr
+eb431041 : subs   x1, x2, x3, lsr #4      : subs   %x2 %x3 $0x01 $0x04 -> %x1
+eb9f13ff : negs   xzr, xzr, asr #4        : subs   %xzr %xzr $0x02 $0x04 -> %xzr
+f1000c41 : subs   x1, x2, #0x3            : subs   %x2 $0x0003 $0x00 $0x00 -> %x1
+f1000fff : cmp    sp, #0x3                : subs   %sp $0x0003 $0x00 $0x00 -> %xzr
+f2400441 : ands   x1, x2, #0x3            : ands   %x2 $0x0000000000000003 $0x1001 -> %x1

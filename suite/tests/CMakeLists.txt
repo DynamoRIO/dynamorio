@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -2172,7 +2173,11 @@ if (CLIENT_INTERFACE)
         "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armT32-randtest.raw;-thumb" OFF)
       set(api.disT32_expectbase "dis-armT32")
     endif ()
-  else (ARM)
+  elseif (AARCH64)
+    add_api_exe(api.dis-a64 api/dis-a64.c OFF)
+    torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
+      "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF)
+  elseif (X86)
     tobuild_api(api.dis api/dis.c "-syntax_intel"
       "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
     if (X64)
