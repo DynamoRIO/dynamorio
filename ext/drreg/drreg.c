@@ -715,8 +715,10 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
                 continue;
             if (reg == dr_get_stolen_reg()
                 IF_ARM(|| reg == DR_REG_PC)
-                /* Avoid xsp, even if it appears dead in things like OP_sysenter */
-                IF_X86(|| reg == DR_REG_XSP))
+                /* Avoid xsp, even if it appears dead in things like OP_sysenter.
+                 * On AArch64 use of SP is very restricted.
+                 */
+                IF_NOT_ARM(|| reg == DR_REG_XSP))
                 continue;
             if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
                 continue;
@@ -1002,7 +1004,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
         drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
         REG_LIVE)
         restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
-#elif defined(ARM)
+#elif defined(AARCHXX)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
     res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, false, &scratch);
@@ -1046,7 +1048,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
         drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
         REG_LIVE)
         restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
-#elif defined(ARM)
+#elif defined(AARCHXX)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
     res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, false, &scratch);
