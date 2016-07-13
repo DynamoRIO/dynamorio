@@ -47,6 +47,13 @@ typedef union _elf_generic_header_t {
     Elf32_Ehdr elf32;
 } elf_generic_header_t;
 
+#ifndef ANDROID
+struct tlsdesc_t {
+    ptr_int_t (*entry)(struct tlsdesc_t *);
+    void *arg;
+};
+#endif
+
 #ifdef ANDROID
 /* The entries in the .hash table always have a size of 32 bits.  */
 typedef uint32_t Elf_Symndx;
@@ -1668,14 +1675,22 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 #endif /* CLIENT_INTERFACE */
 
 #ifndef ANDROID
-static size_t
-tlsdesc_resolver(void *arg)
+
+# ifdef AARCH64
+/* Defined in aarch64.asm. */
+ptr_int_t
+tlsdesc_resolver(struct tlsdesc_t *);
+# else
+static ptr_int_t
+tlsdesc_resolver(struct tlsdesc_t *arg)
 {
-    /* FIXME i#1961: TLS descriptors are not implemented */
+    /* FIXME i#1961: TLS descriptors are not implemented on other architectures. */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
-#endif
+# endif
+
+#endif /* !ANDROID */
 
 /* This routine is duplicated in privload_relocate_symbol for relocating
  * dynamorio symbols in a bootstrap stage. Any update here should be also
@@ -1754,10 +1769,17 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
             *r_addr = sym->st_value + addend;
         break;
 #ifndef ANDROID
-    case ELF_R_TLS_DESC:
-        /* FIXME i#1961: TLS descriptors are not implemented */
-        *((size_t (**)(void *))r_addr) = tlsdesc_resolver;
+    case ELF_R_TLS_DESC: {
+        /* Provided the client does not invoke dr_load_aux_library after the
+         * app has started and might have called clone, TLS descriptors can be
+         * resolved statically.
+         */
+        struct tlsdesc_t *tlsdesc = (void *)r_addr;
+        ASSERT(is_rela);
+        tlsdesc->entry = tlsdesc_resolver;
+        tlsdesc->arg = (void *)(sym->st_value + addend - pd->tls_offset);
         break;
+    }
 # ifndef X64
     case R_386_TLS_TPOFF32:
         /* offset is positive, backward from the thread pointer */

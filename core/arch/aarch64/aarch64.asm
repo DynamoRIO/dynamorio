@@ -51,6 +51,8 @@ START_FILE
 #define dstack_OFFSET     0x368
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+/* offsetof(struct tlsdesc_t, arg */
+#define tlsdesc_arg_OFFSET 8
 
 #ifndef X64
 # error X64 must be defined
@@ -521,5 +523,19 @@ GLOBAL_LABEL(cache_sync_asm:)
         isb      /* Instruction Synchronization Barrier */
         ret
         END_FUNC(cache_sync_asm)
+
+/* A static resolver for TLS descriptors, implemented in assembler as
+ * it does not use the standard calling convention. In C, it could be:
+ *
+ * ptrdiff_t
+ * tlsdesc_resolver(struct tlsdesc_t *tlsdesc)
+ * {
+ *     return (ptrdiff_t)tlsdesc->arg;
+ * }
+ */
+        DECLARE_FUNC(tlsdesc_resolver)
+GLOBAL_LABEL(tlsdesc_resolver:)
+        ldr     x0,[x0,#tlsdesc_arg_OFFSET]
+        ret
 
 END_FILE
