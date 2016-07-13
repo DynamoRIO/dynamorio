@@ -287,6 +287,24 @@ string(REGEX REPLACE "/lib([36])" "/ext/lib\\1"
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+
+function (set_per_config_ouput_to_match_single_config)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # we don't want to support the Debug and Release subdirs so
+    # we rely on cmake 2.8.2's control over their names
+    # (up above we require 2.8.2+ for VS generators)
+    foreach (config ${CMAKE_CONFIGURATION_TYPES})
+      string(TOUPPER "${config}" config_upper)
+      set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config_upper}
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" PARENT_SCOPE)
+      set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${config_upper}
+        "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}" PARENT_SCOPE)
+      set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${config_upper}
+        "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" PARENT_SCOPE)
+    endforeach ()
+  endif ()
+endfunction (set_per_config_ouput_to_match_single_config)
+
 set_per_config_ouput_to_match_single_config()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}) # tools.h
