@@ -256,6 +256,20 @@
   instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
 #define INSTR_CREATE_ldr(dc, Rd, mem) \
   instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
+/* FIXME i#1569: This is a temporary hack (like all uses of _xx). */
+#define INSTR_CREATE_movx(dc, t, rt, imm16, lsl) \
+  INSTR_CREATE_xx(dc, 0x12800000 | t << 29 | \
+                  ((uint)(opnd_get_reg(rt) - DR_REG_W0) < 31 ? \
+                   (opnd_get_reg(rt) - DR_REG_W0) : \
+                   (opnd_get_reg(rt) - DR_REG_X0) | 1U << 31) | \
+                  (opnd_get_immed_int(imm16) & 0xffff) << 5 | \
+                  (opnd_get_immed_int(lsl) >> 4 & 3) << 21)
+#define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
+  INSTR_CREATE_movx(dc, 3, rt, imm16, lsl)
+#define INSTR_CREATE_movn(dc, rt, imm16, lsl) \
+  INSTR_CREATE_movx(dc, 0, rt, imm16, lsl)
+#define INSTR_CREATE_movz(dc, rt, imm16, lsl) \
+  INSTR_CREATE_movx(dc, 2, rt, imm16, lsl)
 #define INSTR_CREATE_mrs(dc, Xt, sysreg) \
   instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
 #define INSTR_CREATE_msr(dc, sysreg, Xt) \

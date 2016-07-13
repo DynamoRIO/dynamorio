@@ -303,6 +303,20 @@ insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
                 XINST_CREATE_store(drcontext,
                                    OPND_CREATE_MEM32(base, disp),
                                    opnd_create_reg(scratch)));
+#elif defined(AARCH64)
+        scratch = reg_resize_to_opsz(scratch, OPSZ_4);
+        /* MOVZ scratch, #type */
+        MINSERT(ilist, where,
+                INSTR_CREATE_movz(drcontext, opnd_create_reg(scratch),
+                                  OPND_CREATE_INT(type), OPND_CREATE_INT8(0)));
+        /* MOVK scratch, #size, LSL #16 */
+        MINSERT(ilist, where,
+                INSTR_CREATE_movk(drcontext, opnd_create_reg(scratch),
+                                  OPND_CREATE_INT(size), OPND_CREATE_INT8(16)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store(drcontext,
+                                   OPND_CREATE_MEM32(base, disp),
+                                   opnd_create_reg(scratch)));
 #endif
     }
 }
@@ -544,6 +558,11 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                                                       opnd_create_instr(skip_call)),
                                     DR_PRED_EQ));
     }
+#elif defined(AARCH64)
+    MINSERT(ilist, where,
+            INSTR_CREATE_cbz(drcontext,
+                             opnd_create_instr(skip_call),
+                             opnd_create_reg(reg_ptr)));
 #endif
     dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
     MINSERT(ilist, where, skip_call);
