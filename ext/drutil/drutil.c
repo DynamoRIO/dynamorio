@@ -117,7 +117,7 @@ bool
 drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                            opnd_t memref, reg_id_t dst, reg_id_t scratch)
 {
-#ifdef X86
+#if defined(X86)
     return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch);
 #elif defined(AARCHXX)
     return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch);
@@ -222,6 +222,8 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
     return true;
 }
 #elif defined(AARCHXX)
+
+# ifdef ARM
 static bool
 instr_has_opnd(instr_t *instr, opnd_t opnd)
 {
@@ -259,6 +261,7 @@ instrlist_find_app_instr(instrlist_t *ilist, instr_t *where, opnd_t opnd)
     }
     return NULL;
 }
+# endif /* ARM */
 
 static reg_id_t
 replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where,
@@ -275,9 +278,10 @@ static bool
 drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch)
 {
-    if (!opnd_is_base_disp(memref))
+    if (!opnd_is_base_disp(memref) IF_AARCH64(&& !opnd_is_rel_addr(memref)))
         return false;
-    if (IF_ARM_ELSE(opnd_get_base(memref) == DR_REG_PC, false)) {
+# ifdef ARM
+    if (opnd_get_base(memref) == DR_REG_PC) {
         app_pc target;
         instr_t *first, *second;
         /* We need the app instr for getting the rel_addr_target.
@@ -294,12 +298,23 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         instr_set_meta(first);
         if (second != NULL)
             instr_set_meta(second);
-    } else {
+    }
+# else /* AARCH64 */
+    if (opnd_is_rel_addr(memref)) {
+        instrlist_insert_mov_immed_ptrsz(drcontext,
+                                         (ptr_int_t)opnd_get_addr(memref),
+                                         opnd_create_reg(dst), bb, where,
+                                         NULL, NULL);
+        return true;
+    }
+# endif /* ARM/AARCH64 */
+    else {
         instr_t *instr;
         uint amount;
         dr_shift_type_t shift;
         reg_id_t base   = opnd_get_base(memref);
         reg_id_t index  = opnd_get_index(memref);
+        /* disp is non-negative; DR_OPND_NEGATED specifies sign. */
         int      disp   = opnd_get_disp(memref);
         reg_id_t stolen = dr_get_stolen_reg();
         if (dst == stolen || scratch == stolen)
@@ -319,7 +334,9 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                       opnd_create_reg(dst),
                                       opnd_create_reg(base),
                                       OPND_CREATE_INT(disp));
-            if (instr_is_encoding_possible(instr)) {
+#           define MAX_ADD_IMM_DISP (1 << 12)
+            if (IF_ARM_ELSE(instr_is_encoding_possible(instr),
+                            disp < MAX_ADD_IMM_DISP)) {
                 PRE(bb, where, instr);
                 return true;
             }
@@ -359,7 +376,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
     }
     return true;
 }
-#endif /* X86/ARM */
+#endif /* X86/AARCHXX */
 
 DR_EXPORT
 uint

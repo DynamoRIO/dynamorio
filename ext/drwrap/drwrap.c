@@ -96,7 +96,7 @@ replace_native_ret_imms(void);
 void
 replace_native_ret_imms_end(void);
 
-#ifdef ARM
+#ifdef AARCHXX
 byte *
 get_cur_xsp(void);
 #endif
@@ -625,7 +625,7 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER); /* already have xsp */
 
     switch (wrapcxt->callconv) {
-#if defined(AARCHXX) /* registers are platform-exclusive */
+#if defined(ARM)
     case DRWRAP_CALLCONV_ARM:
         switch (arg) {
         case 0: return &wrapcxt->mc->r0;
@@ -633,6 +633,19 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         case 2: return &wrapcxt->mc->r2;
         case 3: return &wrapcxt->mc->r3;
         default: return drwrap_stack_arg_addr(wrapcxt, arg, 4, 0);
+        }
+#elif defined(AARCH64)
+    case DRWRAP_CALLCONV_AARCH64:
+        switch (arg) {
+        case 0: return &wrapcxt->mc->r0;
+        case 1: return &wrapcxt->mc->r1;
+        case 2: return &wrapcxt->mc->r2;
+        case 3: return &wrapcxt->mc->r3;
+        case 4: return &wrapcxt->mc->r4;
+        case 5: return &wrapcxt->mc->r5;
+        case 6: return &wrapcxt->mc->r6;
+        case 7: return &wrapcxt->mc->r7;
+        default: return drwrap_stack_arg_addr(wrapcxt, arg, 8, 0);
         }
 #else /* Intel x86 or x64 */
 # ifdef X64 /* registers are platform-exclusive */
@@ -1385,12 +1398,19 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
         drwrap_replace_native_push_retaddr(drcontext, bb, pc, (ptr_int_t) topush,
                                            stacksz _IF_X86_64(x86));
     }
+#ifdef AARCH64
+    /* We clobber CALL_POINT_SCRATCH_REG, which is scratch in most call conventions. */
+    instrlist_meta_append(bb, XINST_CREATE_move
+                          (drcontext, opnd_create_reg(CALL_POINT_SCRATCH_REG),
+                           opnd_create_reg(DR_REG_XSP)));
+#endif
     instrlist_meta_append(bb, XINST_CREATE_store
                           (drcontext, dr_reg_spill_slot_opnd
                            (drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT),
-                           opnd_create_reg(DR_REG_XSP)));
+                           opnd_create_reg(IF_AARCH64_ELSE(CALL_POINT_SCRATCH_REG,
+                                                           DR_REG_XSP))));
     /* We go ahead and use the 3rd fast spill slot for storage */
-#ifdef ARM
+#ifdef AARCHXX
     /* We don't support non-zero stack_adjust, so we use the slot to store LR. */
     instrlist_meta_append(bb, XINST_CREATE_store
                           (drcontext, dr_reg_spill_slot_opnd
@@ -1516,7 +1536,7 @@ replace_native_xfer_target(void)
 {
     /* Retrieve the data stored in the bb and in fini */
     void *drcontext = dr_get_current_drcontext();
-#ifdef ARM
+#ifdef AARCHXX
     byte *target = replace_native_ret_stub(0);
 #else
     uint stack_adjust = (uint)
@@ -1552,11 +1572,11 @@ drwrap_replace_native_fini(void *drcontext)
      */
     volatile app_pc app_retaddr;
     byte *xsp = (byte *) dr_read_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT);
-#ifdef ARM
+#ifdef AARCHXX
     byte *cur_xsp = get_cur_xsp();
 #endif
     ASSERT(xsp != NULL, "did client clobber TLS slot?");
-#ifdef ARM
+#ifdef AARCHXX
     app_retaddr = (app_pc) dr_read_saved_reg(drcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT);
 #else
     app_retaddr = *(app_pc *)xsp;
@@ -1565,7 +1585,7 @@ drwrap_replace_native_fini(void *drcontext)
     dr_write_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT, (reg_t)app_retaddr);
 
     /* Redirect */
-#ifdef ARM
+#ifdef AARCHXX
     /* We assume the replacement routine pushed LR on the stack.
      * We need to scan the stack until we find app_retaddr and then overwrite
      * that slot.
@@ -1769,7 +1789,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
     mc.size = sizeof(mc);
     /* we use a passed-in xsp to avoid dr_get_mcontext */
     mc.xsp = xsp;
-#ifdef ARM
+#ifdef AARCHXX
     /* ditto */
     mc.lr = lr;
 #endif

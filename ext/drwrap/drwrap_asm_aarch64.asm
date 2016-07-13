@@ -41,7 +41,15 @@ START_FILE
 #define FUNCNAME replace_native_xfer
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        stp     x0, x30, [sp, #-16]!
+        bl      GLOBAL_REF(replace_native_xfer_app_retaddr)
+        /* Store return address to x30 position. */
+        str     x0, [sp, #8]
+        bl      GLOBAL_REF(replace_native_xfer_target)
+        mov     x1, x0
+        ldp     x0, x30, [sp], #16
+        br      x1
+        /* never reached */
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
@@ -50,16 +58,18 @@ DECLARE_GLOBAL(replace_native_ret_imms_end)
 #define FUNCNAME replace_native_rets
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ret
 ADDRTAKEN_LABEL(replace_native_ret_imms:)
 ADDRTAKEN_LABEL(replace_native_ret_imms_end:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        nop
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
 #define FUNCNAME get_cur_xsp
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        mov      x0, sp
+        ret
         END_FUNC(FUNCNAME)
 
 END_FILE
