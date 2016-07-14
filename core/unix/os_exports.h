@@ -102,7 +102,15 @@
 #define TLS_REG_LIB  LIB_SEG_TLS  /* TLS reg commonly used by libraries in Linux */
 #define TLS_REG_ALT  SEG_TLS      /* spare TLS reg, used by DR in X86 Linux */
 
-#define DR_REG_SYSNUM IF_X86_ELSE(REG_EAX/* not XAX */, DR_REG_R7)
+#ifdef X86
+# define DR_REG_SYSNUM REG_EAX /* not XAX */
+#elif defined(ARM)
+# define DR_REG_SYSNUM DR_REG_R7
+#elif defined(AARCH64)
+# define DR_REG_SYSNUM DR_REG_X8
+#else
+# error NYI
+#endif
 
 #ifdef AARCHXX
 # ifdef ANDROID
