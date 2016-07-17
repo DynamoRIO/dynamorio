@@ -3092,6 +3092,7 @@ if (APPLE)
   set_tests_properties(
     samples_proj
     code_api|common.broadfun
+    code_api|common.decode-bad
     code_api|common.fib
     code_api|common.floatpc
     code_api|common.floatpc_xl8all

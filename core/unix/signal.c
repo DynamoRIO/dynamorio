@@ -2563,15 +2563,19 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         LOG(THREAD, LOG_ASYNCH, level+1, "\tno fpstate needed\n");
     }
     LOG(THREAD, LOG_ASYNCH, level, "\tretaddr = "PFX"\n", f_new->pretcode);
-#  ifdef RETURN_AFTER_CALL
+# ifdef RETURN_AFTER_CALL
     info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
-#  endif
+# endif
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
-# elif defined(MACOS)
+#elif defined(MACOS)
+# ifndef X64
+    f_new->pinfo = &(f_new->info);
+    f_new->puc = &(f_new->uc);
+# endif
     f_new->puc->uc_mcontext = (IF_X64_ELSE(_STRUCT_MCONTEXT64, _STRUCT_MCONTEXT32) *)
         &f_new->mc;
-    LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", handler="PFX"\n", f_new, &f_new->handler);
+    LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", &handler="PFX"\n", f_new, &f_new->handler);
     ASSERT(!for_app || ALIGNED(&f_new->handler, 16));
 #endif /* X86 && LINUX */
 }
@@ -5180,11 +5184,20 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         /* The initial frame fields on the stack are messed up due to
          * params to handler from tramp, so use params to syscall.
          * XXX: we don't have signal # though: so we have to rely on app
-         * not clobbering the param field.
+         * not clobbering the sig param field.
          */
         sig = *(int*)xsp;
         LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d\n", sig);
         ucxt = (kernel_ucontext_t *) ucxt_param;
+        if (ucxt == NULL) {
+            /* On Mac the kernel seems to store state on whether the process is
+             * on the altstack, so longjmp calls _sigunaltstack() which issues a
+             * sigreturn syscall telling the kernel about the altstack change,
+             * with a NULL context.
+             */
+            LOG(THREAD, LOG_ASYNCH, 3, "\tsigunalstack sigreturn: no context\n");
+            return true;
+        }
         sc = SIGCXT_FROM_UCXT(ucxt);
 #endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && IS_RT_FOR_APP(info, sig));
@@ -5220,18 +5233,18 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
-#ifdef AARCH64
+# ifdef AARCH64
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
+# else
         prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
         if (_NSIG_WORDS > 1) {
             memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
                    sizeof(prevset.sig[1]));
         }
-#endif
+# endif
         set_blocked(dcontext, &prevset, true/*absolute*/);
     }
-#endif
+#endif /* LINUX */
 
     /* Make sure we deliver pending signals that are now unblocked.
      */
