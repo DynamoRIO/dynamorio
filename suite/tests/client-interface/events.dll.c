@@ -432,12 +432,13 @@ bool exception_event_redirect(void *dcontext, dr_exception_t *excpt)
         dr_fprintf(STDERR, "Couldn't find function redirect in "EVENTS".exe\n");
         return true;
     }
-#ifdef X64
+# ifdef X86_64
     /* align properly in case redirect function relies on conventions (i#419) */
     mcontext.xsp = ALIGN_BACKWARD(mcontext.xsp, 16) - sizeof(void*);
-#endif
+# endif
     dr_redirect_execution(&mcontext);
-    dr_fprintf(STDERR, "should not be reached, dr_redirect_execution() should not return\n");
+    dr_fprintf(STDERR,
+               "should not be reached, dr_redirect_execution() should not return\n");
     return true;
 }
 
@@ -485,10 +486,10 @@ dr_signal_action_t signal_event_redirect(void *dcontext, dr_siginfo_t *info)
             dr_fprintf(STDERR, "Couldn't find function redirect in client."EVENTS"\n");
             return DR_SIGNAL_DELIVER;
         }
-#ifdef X64
+# ifdef X86_64
         /* align properly in case redirect function relies on conventions (i#384) */
         info->mcontext->xsp = ALIGN_BACKWARD(info->mcontext->xsp, 16) - sizeof(void*);
-#endif
+# endif
         info->mcontext->pc = addr;
         return DR_SIGNAL_REDIRECT;
     }

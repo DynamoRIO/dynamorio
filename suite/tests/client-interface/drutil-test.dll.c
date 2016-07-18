@@ -97,12 +97,12 @@ event_exit(void)
 static bool
 instr_is_stringop_loop(instr_t *inst)
 {
-#ifdef X86
+#if defined(X86)
     int opc = instr_get_opcode(inst);
     return (opc == OP_rep_ins || opc == OP_rep_outs || opc == OP_rep_movs ||
             opc == OP_rep_stos || opc == OP_rep_lods || opc == OP_rep_cmps ||
             opc == OP_repne_cmps || opc == OP_rep_scas || opc == OP_repne_scas);
-#elif defined(ARM)
+#elif defined(AARCHXX)
     return false;
 #endif
 }
