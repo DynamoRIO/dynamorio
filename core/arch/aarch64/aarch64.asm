@@ -362,7 +362,9 @@ GLOBAL_LABEL(dr_try_start:)
         b        GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 
-/* We save only the callee-save registers: X19-X30, (gap), SP, D8-D15.
+/* We save only the callee-saved registers: X19-X30, (gap), SP, D8-D15:
+ * a total of 22 reg_t (64-bit) slots. See definition of dr_jmp_buf_t.
+ * The gap is for better alignment of the D registers.
  *
  * int dr_setjmp(dr_jmp_buf_t *buf);
  */

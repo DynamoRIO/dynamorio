@@ -2108,10 +2108,12 @@ typedef struct dr_jmp_buf_t {
     reg_t r8, r9, r10, r11, r12, r13, r14, r15;
 # endif
 #elif defined(ARM) /* for arm.asm */
-    reg_t regs[16/*DR_NUM_GPR_REGS*/];
+# define       REGS_IN_JMP_BUF 26 /* See dr_setjmp and dr_longjmp. */
+    reg_t regs[REGS_IN_JMP_BUF];
 #elif defined(AARCH64) /* for aarch64.asm */
-    reg_t regs[22]; /* callee-save regs: X19-X30, (gap), SP, D8-D15 */
-#endif /* X86/ARM */
+# define       REGS_IN_JMP_BUF 22 /* See dr_setjmp and dr_longjmp. */
+    reg_t regs[REGS_IN_JMP_BUF];
+#endif /* X86/AARCH64/ARM */
 #if defined(UNIX) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug

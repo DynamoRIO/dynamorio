@@ -459,26 +459,32 @@ GLOBAL_LABEL(dr_try_start:)
         b        GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 
-/* int cdecl dr_setjmp(dr_jmp_buf *buf);
+/* We save only the callee-saved registers: R4-R11, SP, LR, D8-D15:
+ * a total of 26 reg_t (32-bit) slots. See definition of dr_jmp_buf_t.
+ *
+ * int dr_setjmp(dr_jmp_buf_t *buf);
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-        /* we do not have to save r0 (return value) or r15 (pc) */
-        /* optimization: can we trust callee-saved regs r0-r3 and not save them? */
-        push     {lr}
-        stm      ARG1, {REG_R1-REG_R12, sp, lr}
+        mov      REG_R2, ARG1
+        stm      REG_R2!, {REG_R4-REG_R11, sp, lr}
+        vst1.64  {d8-d11},[REG_R2]!
+        vst1.64  {d12-d15},[REG_R2]!
+        push     {r12,lr} /* save two registers for SP-alignment */
         CALLC1(GLOBAL_REF(dr_setjmp_sigmask), ARG1)
         mov      REG_R0, #0
-        pop      {pc}
+        pop      {r12,pc}
         END_FUNC(dr_setjmp)
 
-/* int cdecl dr_longjmp(dr_jmp_buf *buf, int retval);
+/* int dr_longjmp(dr_jmp_buf *buf, int retval);
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
         mov      REG_R2, ARG1
         mov      REG_R0, ARG2
-        ldm      REG_R2, {REG_R1-REG_R12, sp, lr}
+        ldm      REG_R2!, {REG_R4-REG_R11, sp, lr}
+        vld1.64  {d8-d11},[REG_R2]!
+        vld1.64  {d12-d15},[REG_R2]!
         bx       lr
         END_FUNC(dr_longjmp)
 
