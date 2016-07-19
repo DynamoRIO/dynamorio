@@ -3034,8 +3034,8 @@ instr_create_save_immedN_to_dcontext(dcontext_t *dcontext, opnd_size_t sz,
     opnd_t memopnd = opnd_create_dcontext_field_sz(dcontext, offs, sz);
     /* PR 244737: thread-private scratch space needs to fixed for x64 */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    /* there is no immed to mem instr on ARM */
-    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
+    /* There is no immed to mem instr on ARM/AArch64. */
+    IF_AARCHXX(ASSERT_NOT_IMPLEMENTED(false));
     return XINST_CREATE_store(dcontext, memopnd, immed_op);
 }
 

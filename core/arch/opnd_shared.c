@@ -1789,10 +1789,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
 #ifdef X86
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
-#elif defined(AARCH64)
-        (void)index;
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#elif defined(ARM)
+#elif defined(AARCHXX)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
         reg_t index_val = reg_get_value_priv(index, mc);
@@ -1800,6 +1797,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         case DR_SHIFT_LSL:
             scaled_index = index_val << amount;
             break;
+# ifndef AARCH64
         case DR_SHIFT_LSR:
             scaled_index = index_val >> amount;
             break;
@@ -1814,6 +1812,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
             scaled_index = (index_val >> 1) ||
                 (TEST(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t)*8-1)) : 0);
             break;
+# endif
         default:
             scaled_index = index_val;
         }
@@ -1925,9 +1924,9 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     if (sz == OPSZ_4)
         return reg;
     else if (sz == OPSZ_2)
-        return IF_ARM_ELSE(reg, reg_32_to_16(reg));
+        return IF_AARCHXX_ELSE(reg, reg_32_to_16(reg));
     else if (sz == OPSZ_1)
-        return IF_ARM_ELSE(reg, reg_32_to_8(reg));
+        return IF_AARCHXX_ELSE(reg, reg_32_to_8(reg));
 #ifdef X64
     else if (sz == OPSZ_8)
         return reg_32_to_64(reg);

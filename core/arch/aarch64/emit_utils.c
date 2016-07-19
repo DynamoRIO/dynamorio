@@ -784,7 +784,33 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
                         ibl_entry_point_type_t entry_type,
                         ibl_branch_type_t ibl_type)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    generated_code_t *code;
+    byte *ibl_tgt;
+    uint *pc;
+    if (dcontext == GLOBAL_DCONTEXT) {
+        ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
+    } else {
+        ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = THREAD_GENCODE(dcontext);
+    }
+    if (code == NULL) /* thread private that we don't need */
+        return;
+    ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
+    ASSERT(code->special_ibl_xfer[index] != NULL);
+    pc = (uint *)(code->special_ibl_xfer[index] + code->special_ibl_unlink_offs[index]);
+
+    protect_generated_code(code, WRITABLE);
+
+    /* ldr x1, [x(stolen), #(offs)] */
+    pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+             get_ibl_entry_tls_offs(dcontext, ibl_tgt) >> 3 << 10);
+
+    /* br x1 */
+    pc[1] = 0xd61f0000 | 1 << 5;
+
+    machine_cache_sync(pc, pc + 2, true);
+    protect_generated_code(code, READONLY);
 }
 
 bool

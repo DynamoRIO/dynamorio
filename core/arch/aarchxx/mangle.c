@@ -842,14 +842,16 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst,
                       instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second)
+                      OUT instr_t **first, OUT instr_t **second)
 {
 #ifdef AARCH64
-    /* XXX: Generates MOVZ and some MOVKs. It could easily be improved. */
+    /* FIXME i#1977: AArch64 may generate more than two instructions.
+     * We set "second" to point at the last emitted instruction.
+     */
+    instr_t *mov;
     uint rt;
     int i;
 
-    ASSERT(first == NULL && second == NULL);
     CLIENT_ASSERT(opnd_is_reg(dst),
                   "AArch64 cannot store an immediate direct to memory");
     rt = opnd_get_reg(dst) - DR_REG_X0;
@@ -858,16 +860,20 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
         val = (ptr_int_t)encode_estimate;
 
     /* movz x(rt), #(val & 0xffff) */
-    PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0xd2800000 |
-                                      rt | (val & 0xffff) << 5));
+    mov = INSTR_CREATE_xx(dcontext, 0xd2800000 | rt | (val & 0xffff) << 5);
+    PRE(ilist, instr, mov);
+    if (first != NULL)
+        *first = mov;
     for (i = 1; i < 4; i++) {
         if ((val >> (16 * i) & 0xffff) != 0) {
             /* movk x(rt), #(val >> sh & 0xffff), lsl #(sh) */
-            PRE(ilist, instr, INSTR_CREATE_xx(dcontext, 0xf2800000 | rt |
-                                              ((val >> 16 * i) & 0xffff) << 5 |
-                                              i << 21));
+            mov = INSTR_CREATE_xx(dcontext, 0xf2800000 | rt |
+                                  ((val >> 16 * i) & 0xffff) << 5 | i << 21);
+            PRE(ilist, instr, mov);
         }
     }
+    if (second != NULL)
+        *second = mov;
 #else
     instr_t *mov1, *mov2;
     if (src_inst != NULL)

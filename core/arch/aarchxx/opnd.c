@@ -48,22 +48,21 @@ DR_API
 bool
 reg_is_stolen(reg_id_t reg)
 {
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
-#else
     if (dr_reg_fixer[reg] == dr_reg_stolen && dr_reg_fixer[reg] != DR_REG_NULL)
         return true;
     return false;
-#endif
 }
 
 int
 opnd_get_reg_dcontext_offs(reg_id_t reg)
 {
 #ifdef AARCH64
-    if (DR_REG_R0 <= reg && reg <= DR_REG_R30)
-        return R0_OFFSET + (R1_OFFSET - R0_OFFSET) * (reg - DR_REG_R0);
+    if (DR_REG_X0 <= reg && reg <= DR_REG_X30)
+        return R0_OFFSET + (R1_OFFSET - R0_OFFSET) * (reg - DR_REG_X0);
+    if (DR_REG_W0 <= reg && reg <= DR_REG_W30)
+        return R0_OFFSET + (R1_OFFSET - R0_OFFSET) * (reg - DR_REG_W0);
+    if (reg == DR_REG_XSP || reg == DR_REG_WSP)
+        return XSP_OFFSET;
     CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
     return -1;
 #else
