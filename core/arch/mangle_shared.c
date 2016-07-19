@@ -165,12 +165,30 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
             (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
-
         insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
-
+#ifdef AARCH64
+        /* We need an addtional scratch register for saving the SP.
+         * TLS_REG1_SLOT is not safe since it may be used by clients.
+         * Instead we save it to dcontext.mcontext.x0, which is not
+         * used by dr_save_reg (see definition of SPILL_SLOT_MC_REG).
+         */
+        PRE(ilist, instr,
+            XINST_CREATE_store(dcontext,
+                               OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                               opnd_create_reg(SCRATCH_REG1)));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(SCRATCH_REG1),
+                              opnd_create_reg(DR_REG_XSP)));
+        PRE(ilist, instr,
+            XINST_CREATE_store(dcontext,
+                               opnd_create_dcontext_field_via_reg_sz
+                                   (dcontext, SCRATCH_REG0,
+                                    XSP_OFFSET, OPSZ_PTR),
+                               opnd_create_reg(SCRATCH_REG1)));
+#else
         PRE(ilist, instr, instr_create_save_to_dc_via_reg
-            (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
-
+             (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
+#endif
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
          * work right.  FIXME - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
@@ -189,14 +207,30 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
                                REG_XAX/*dc*/, REG_XSP/*scratch*/, true/*to priv*/);
         }
 #endif
+#ifdef AARCH64
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext,
+                              opnd_create_reg(SCRATCH_REG1),
+                              opnd_create_dcontext_field_via_reg_sz
+                                  (dcontext, SCRATCH_REG0,
+                                   DSTACK_OFFSET, OPSZ_PTR)));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_XSP),
+                              opnd_create_reg(SCRATCH_REG1)));
+        /* Restore scratch_reg from dcontext.mcontext.x0. */
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                              OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+#else
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
             (dcontext, SCRATCH_REG0, REG_XSP, DSTACK_OFFSET));
-
-        /* restore xax before pushing the context on the dstack */
+#endif
+        /* Restore SCRATCH_REG0 before pushing the context on the dstack. */
         PRE(ilist, instr, instr_create_restore_from_tls
             (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     }
     else {
+        IF_AARCH64(ASSERT_NOT_REACHED());
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
 #ifdef WINDOWS
         if (!cci->out_of_line_swap) {
@@ -316,13 +350,36 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         }
 #endif
 
+#ifdef AARCH64
+        /* TLS_REG1_SLOT is not safe since it may be used by clients.
+         * We save it to dcontext.mcontext.x0.
+         */
+        PRE(ilist, instr,
+            XINST_CREATE_store(dcontext,
+                               OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                               opnd_create_reg(SCRATCH_REG1)));
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext,
+                              opnd_create_reg(SCRATCH_REG1),
+                               opnd_create_dcontext_field_via_reg_sz
+                                   (dcontext, SCRATCH_REG0,
+                                    XSP_OFFSET, OPSZ_PTR)));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_XSP),
+                              opnd_create_reg(SCRATCH_REG1)));
+        /* Restore scratch_reg from dcontext.mcontext.x0. */
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                              OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+#else
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
-            (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
-
+             (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
+#endif
         PRE(ilist, instr, instr_create_restore_from_tls
             (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     }
     else {
+        IF_AARCH64(ASSERT_NOT_REACHED());
 #ifdef WINDOWS
         if (!cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
@@ -365,10 +422,30 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              * which specifies that the caller must save xax (and xcx and xdx)
              */
             insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
+# ifdef AARCH64
+            /* TLS_REG1_SLOT is not safe since it may be used by clients.
+             * We save it to dcontext.mcontext.x0.
+             */
+            PRE(ilist, instr,
+                XINST_CREATE_store(dcontext,
+                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                                   opnd_create_reg(SCRATCH_REG1)));
+            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)WHERE_CLEAN_CALLEE,
+                                             opnd_create_reg(SCRATCH_REG1),
+                                             ilist, instr, NULL, NULL);
+            PRE(ilist, instr,
+                instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, SCRATCH_REG1,
+                                                WHEREAMI_OFFSET));
+            /* Restore scratch_reg from dcontext.mcontext.x0. */
+            PRE(ilist, instr,
+                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+# else
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
                                                       WHEREAMI_OFFSET,
                                                       (uint) WHERE_CLEAN_CALLEE, OPSZ_4));
+# endif
         } else {
             PRE(ilist, instr, XINST_CREATE_store(dcontext,
                 opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
@@ -410,9 +487,29 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (SCRATCH_ALWAYS_TLS()) {
             /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */
             insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
+# ifdef AARCH64
+            /* TLS_REG1_SLOT is not safe since it may be used by clients.
+             * We save it to dcontext.mcontext.x0.
+             */
+            PRE(ilist, instr,
+                XINST_CREATE_store(dcontext,
+                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                                   opnd_create_reg(SCRATCH_REG1)));
+            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)whereami,
+                                             opnd_create_reg(SCRATCH_REG1),
+                                             ilist, instr, NULL, NULL);
+            PRE(ilist, instr,
+                instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, SCRATCH_REG1,
+                                                WHEREAMI_OFFSET));
+            /* Restore scratch_reg from dcontext.mcontext.x0. */
+            PRE(ilist, instr,
+                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+# else
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
                                                       WHEREAMI_OFFSET, whereami, OPSZ_4));
+# endif
         } else {
             PRE(ilist, instr, XINST_CREATE_store(dcontext,
                 opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),

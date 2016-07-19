@@ -66,7 +66,9 @@ bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
                    void *callee, bool save_fpstate, uint num_args, opnd_t *args)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* FIXME i#1569: NYI on AArch64 */
+    ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);
+    clean_call_info_init(cci, callee, save_fpstate, num_args);
     return false;
 }
 

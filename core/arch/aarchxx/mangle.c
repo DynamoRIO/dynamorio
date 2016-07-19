@@ -539,16 +539,12 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         } else if (opnd_is_reg(args[i])) {
             ASSERT_NOT_IMPLEMENTED(opnd_get_size(args[i]) == OPSZ_PTR);
             if (opnd_get_reg(args[i]) == DR_REG_XSP) {
-#ifdef AARCH64
-                ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
                 instr_t *loc = instr_get_next(mark);
                 PRE(ilist, loc, instr_create_save_to_tls
                     (dcontext, regparms[i], TLS_REG0_SLOT));
                 insert_get_mcontext_base(dcontext, ilist, loc, regparms[i]);
                 PRE(ilist, loc, instr_create_restore_from_dc_via_reg
                     (dcontext, regparms[i], regparms[i], XSP_OFFSET));
-#endif
             } else if (opnd_get_reg(args[i]) != regparms[i]) {
                 POST(ilist, mark, XINST_CREATE_move(dcontext,
                                                     opnd_create_reg(regparms[i]),
@@ -582,18 +578,12 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                            opnd_create_reg(scratch), ilist, where, NULL, NULL);
     /* even if a call and not a jmp, we can skip this if it doesn't return */
     if (!jmp && returns) {
-#ifdef AARCH64
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
-        PRE(ilist, where, INSTR_CREATE_blx_ind(dcontext, opnd_create_reg(scratch)));
-#endif
+        PRE(ilist, where,
+            IF_AARCH64_ELSE(INSTR_CREATE_blr, INSTR_CREATE_blx_ind)
+                      (dcontext, opnd_create_reg(scratch)));
     } else {
-#ifdef AARCH64
-        PRE(ilist, where, INSTR_CREATE_xx(dcontext, 0xd61f0000 | /* br x(scratch) */
-                                          (scratch - DR_REG_X0) << 5));
-#else
-        PRE(ilist, where, INSTR_CREATE_bx(dcontext, opnd_create_reg(scratch)));
-#endif
+        PRE(ilist, where,
+            XINST_CREATE_jump_reg(dcontext, opnd_create_reg(scratch)));
     }
     return false /* an ind branch */;
 }

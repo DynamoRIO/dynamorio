@@ -246,8 +246,10 @@
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 #define INSTR_CREATE_b(dc, pc) \
   instr_create_0dst_1src((dc), OP_b, (pc))
-#define INSTR_CREATE_br(dc, Xn) \
-  instr_create_0dst_1src((dc), OP_br, (Xn))
+#define INSTR_CREATE_br(dc, xn) \
+  instr_create_0dst_1src((dc), OP_br, (xn))
+#define INSTR_CREATE_blr(dc, xn) \
+  instr_create_0dst_1src((dc), OP_blr, (xn))
 #define INSTR_CREATE_brk(dc, imm) \
   instr_create_0dst_1src((dc), OP_brk, (imm))
 #define INSTR_CREATE_cbnz(dc, pc, reg) \
