@@ -103,9 +103,46 @@ call_dispatch_alt_stack_no_free:
         END_FUNC(call_switch_stack)
 
 #ifdef CLIENT_INTERFACE
+/*
+ * Calls the specified function 'func' after switching to the DR stack
+ * for the thread corresponding to 'drcontext'.
+ * Passes in 8 arguments.  Uses the C calling convention, so 'func' will work
+ * just fine even if if takes fewer than 8 args.
+ * Swaps the stack back upon return and returns the value returned by 'func'.
+ *
+ * void * dr_call_on_clean_stack(void *drcontext,
+ *                               void *(*func)(arg1...arg8),
+ *                               void *arg1,
+ *                               void *arg2,
+ *                               void *arg3,
+ *                               void *arg4,
+ *                               void *arg5,
+ *                               void *arg6,
+ *                               void *arg7,
+ *                               void *arg8)
+ */
         DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
 GLOBAL_LABEL(dr_call_on_clean_stack:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        /* We know that there are two arguments on stack. */
+        stp      x29, x30, [sp, #-16]! /* Save frame pointer and link register. */
+        mov      x29, sp /* Save sp across the call. */
+        /* Swap stacks. */
+        ldr      x30, [x0, #dstack_OFFSET]
+        mov      sp, x30
+        /* Set up args. */
+        mov      x30, x1 /* void *(*func)(arg1...arg8) */
+        mov      x0, x2  /* void *arg1 */
+        mov      x1, x3  /* void *arg2 */
+        mov      x2, x4  /* void *arg3 */
+        mov      x3, x5  /* void *arg4 */
+        mov      x4, x6  /* void *arg5 */
+        mov      x5, x7  /* void *arg6 */
+        ldp      x6, x7, [x29, #(2 * ARG_SZ)]   /* void *arg7, *arg8 */
+        blr      x30
+        /* Swap stacks. */
+        mov      sp, x29
+        ldp      x29, x30, [sp], #16
+        ret
         END_FUNC(dr_call_on_clean_stack)
 #endif /* CLIENT_INTERFACE */
 
