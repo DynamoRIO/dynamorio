@@ -1014,7 +1014,7 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst,
                       instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second)
+                      OUT instr_t **first, OUT instr_t **last)
 {
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
@@ -1075,8 +1075,8 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 #endif
     if (first != NULL)
         *first = mov1;
-    if (second != NULL)
-        *second = mov2;
+    if (last != NULL)
+        *last = mov2;
 }
 
 
@@ -1088,7 +1088,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+                       OUT instr_t **first, OUT instr_t **last)
 {
     instr_t *push, *mov;
     if (src_inst != NULL)
@@ -1130,8 +1130,8 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
 #endif
     if (first != NULL)
         *first = push;
-    if (second != NULL)
-        *second = mov;
+    if (last != NULL)
+        *last = mov;
 }
 
 /* Far calls and rets have double total size */

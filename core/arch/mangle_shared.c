@@ -539,37 +539,37 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 void
 insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+                       OUT instr_t **first, OUT instr_t **last)
 {
     insert_mov_immed_arch(dcontext, NULL, NULL, val, dst,
-                          ilist, instr, first, second);
+                          ilist, instr, first, last);
 }
 
 void
 insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
                       opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second)
+                      OUT instr_t **first, OUT instr_t **last)
 {
     insert_mov_immed_arch(dcontext, src, encode_estimate, 0, dst,
-                          ilist, instr, first, second);
+                          ilist, instr, first, last);
 }
 
 void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
                         instrlist_t *ilist, instr_t *instr,
-                        instr_t **first, instr_t **second)
+                        OUT instr_t **first, OUT instr_t **last)
 {
     insert_push_immed_arch(dcontext, NULL, NULL, val,
-                           ilist, instr, first, second);
+                           ilist, instr, first, last);
 }
 
 void
 insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+                       OUT instr_t **first, OUT instr_t **last)
 {
     insert_push_immed_arch(dcontext, src_inst, encode_estimate, 0,
-                           ilist, instr, first, second);
+                           ilist, instr, first, last);
 }
 
 app_pc

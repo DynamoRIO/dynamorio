@@ -7593,37 +7593,37 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
 DR_API
 /* Create instructions for storing pointer-size integer val to dst,
  * and then insert them into ilist prior to where.
- * The created instructions are returned in first and second.
+ * The "first" and "last" created instructions are returned.
  */
 void
 instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
                                  instrlist_t *ilist, instr_t *where,
-                                 instr_t **first OUT, instr_t **second OUT)
+                                 OUT instr_t **first, OUT instr_t **last)
 {
     CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
     insert_mov_immed_ptrsz((dcontext_t *)drcontext, val, dst,
-                           ilist, where, first, second);
+                           ilist, where, first, last);
 }
 
 DR_API
 /* Create instructions for pushing pointer-size integer val on the stack,
  * and then insert them into ilist prior to where.
- * The created instructions are returned in first and second.
+ * The "first" and "last" created instructions are returned.
  */
 void
 instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
                                   instrlist_t *ilist, instr_t *where,
-                                  instr_t **first OUT, instr_t **second OUT)
+                                  OUT instr_t **first, OUT instr_t **last)
 {
     insert_push_immed_ptrsz((dcontext_t *)drcontext, val, ilist, where,
-                            first, second);
+                            first, last);
 }
 
 DR_API
 void
 instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
                                 opnd_t dst, instrlist_t *ilist, instr_t *where,
-                                instr_t **first OUT, instr_t **second OUT)
+                                OUT instr_t **first, OUT instr_t **last)
 {
     CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
     if (encode_pc == NULL) {
@@ -7634,14 +7634,14 @@ instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode
         encode_pc = vmcode_get_end();
     }
     insert_mov_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, dst,
-                           ilist, where, first, second);
+                           ilist, where, first, last);
 }
 
 DR_API
 void
 instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
                                  instrlist_t *ilist, instr_t *where,
-                                 instr_t **first OUT, instr_t **second OUT)
+                                 OUT instr_t **first, OUT instr_t **last)
 {
     if (encode_pc == NULL) {
         /* Pass highest code cache address.
@@ -7651,7 +7651,7 @@ instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encod
         encode_pc = vmcode_get_end();
     }
     insert_push_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc,
-                           ilist, where, first, second);
+                           ilist, where, first, last);
 }
 
 

@@ -1246,7 +1246,7 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
                   app_pc pc, app_pc replace)
 {
 #if defined(ARM) || defined(X64)
-    instr_t *mov1, *mov2;
+    instr_t *first, *last;
 #endif
     /* remove the rest of the bb and replace w/ jmp to target.
      * with i#427 we'd call instrlist_clear(drcontext, bb)
@@ -1262,12 +1262,12 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)replace,
                                      opnd_create_reg(CALL_POINT_SCRATCH_REG),
-                                     bb, NULL, &mov1, &mov2);
-    instr_set_app(mov1);
-    instr_set_translation(mov1, pc);
-    if (mov2 != NULL) {
-        instr_set_app(mov2);
-        instr_set_translation(mov2, pc);
+                                     bb, NULL, &first, &last);
+    for (;; first = instr_get_next(first)) {
+        instr_set_app(first);
+        instr_set_translation(first, pc);
+        if (last == NULL || first == last)
+            break;
     }
     instrlist_append(bb, INSTR_XL8
                      (XINST_CREATE_jump_reg
@@ -1284,14 +1284,14 @@ drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
                                    _IF_X86_64(bool x86))
 {
 #ifdef AARCHXX
-    instr_t *mov1, *mov2;
+    instr_t *first, *last;
     instrlist_insert_mov_immed_ptrsz(drcontext, pushval, opnd_create_reg(DR_REG_LR),
-                                     bb, NULL, &mov1, &mov2);
-    instr_set_app(mov1);
-    instr_set_translation(mov1, pc);
-    if (mov2 != NULL) {
-        instr_set_app(mov2);
-        instr_set_translation(mov2, pc);
+                                     bb, NULL, &first, &last);
+    for (;; first = instr_get_next(first)) {
+        instr_set_app(first);
+        instr_set_translation(first, pc);
+        if (last == NULL || first == last)
+            break;
     }
 #else
     if (stacksz == OPSZ_4 IF_X64(&& x86)) {

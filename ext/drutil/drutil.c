@@ -283,7 +283,6 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 # ifdef ARM
     if (opnd_get_base(memref) == DR_REG_PC) {
         app_pc target;
-        instr_t *first, *second;
         /* We need the app instr for getting the rel_addr_target.
          * XXX: add drutil_insert_get_mem_addr_ex to let client provide app instr.
          */
@@ -294,10 +293,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             return false;
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)target,
                                          opnd_create_reg(dst), bb, where,
-                                         &first, &second);
-        instr_set_meta(first);
-        if (second != NULL)
-            instr_set_meta(second);
+                                         NULL, NULL);
     }
 # else /* AARCH64 */
     if (opnd_is_rel_addr(memref)) {

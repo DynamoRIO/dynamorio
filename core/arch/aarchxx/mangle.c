@@ -832,12 +832,9 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst,
                       instrlist_t *ilist, instr_t *instr,
-                      OUT instr_t **first, OUT instr_t **second)
+                      OUT instr_t **first, OUT instr_t **last)
 {
 #ifdef AARCH64
-    /* FIXME i#1977: AArch64 may generate more than two instructions.
-     * We set "second" to point at the last emitted instruction.
-     */
     instr_t *mov;
     uint rt;
     int i;
@@ -862,8 +859,8 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
             PRE(ilist, instr, mov);
         }
     }
-    if (second != NULL)
-        *second = mov;
+    if (last != NULL)
+        *last = mov;
 #else
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
@@ -901,15 +898,15 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
     }
     if (first != NULL)
         *first = mov1;
-    if (second != NULL)
-        *second = mov2;
+    if (last != NULL)
+        *last = mov2;
 #endif
 }
 
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+                       OUT instr_t **first, OUT instr_t **last)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
 }
@@ -1036,7 +1033,7 @@ mangle_add_predicated_fall_through(dcontext_t *dcontext, instrlist_t *ilist,
      */
     dr_pred_type_t pred = instr_get_predicate(instr);
     ptr_int_t fall_through = get_call_return_address(dcontext, ilist, instr);
-    instr_t *mov_imm, *mov_imm2;
+    instr_t *first, *last;
     ASSERT(instr_is_predicated(instr)); /* caller should check */
 
     /* Mark the taken mangling as predicated.  We are starting after our r2
@@ -1058,10 +1055,12 @@ mangle_add_predicated_fall_through(dcontext_t *dcontext, instrlist_t *ilist,
                            PC_AS_JMP_TGT(instr_get_isa_mode(instr),
                                          (app_pc)fall_through),
                            opnd_create_reg(IBL_TARGET_REG), ilist, next_instr,
-                           &mov_imm, &mov_imm2);
-    instr_set_predicate(mov_imm, instr_invert_predicate(pred));
-    if (mov_imm2 != NULL)
-        instr_set_predicate(mov_imm2, instr_invert_predicate(pred));
+                           &first, &last);
+    for (;; first = instr_get_next(first)) {
+        instr_set_predicate(first, instr_invert_predicate(pred));
+        if (last == NULL || first == last)
+            break;
+    }
 }
 
 static inline bool
@@ -1086,7 +1085,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     target = (ptr_int_t)opnd_get_pc(instr_get_target(instr));
     retaddr = get_call_return_address(dcontext, ilist, instr);
     insert_mov_immed_ptrsz(dcontext, retaddr,
-                           opnd_create_reg(DR_REG_X30), ilist, instr, 0, 0);
+                           opnd_create_reg(DR_REG_X30), ilist, instr, NULL, NULL);
     instrlist_remove(ilist, instr); /* remove OP_bl */
     instr_destroy(dcontext, instr);
     return next_instr;
@@ -1095,7 +1094,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ptr_uint_t retaddr;
     uint opc = instr_get_opcode(instr);
     ptr_int_t target;
-    instr_t *mov_imm, *mov_imm2;
+    instr_t *first, *last;
     bool in_it = app_instr_is_in_it_block(dcontext, instr);
     instr_t *bound_start = INSTR_CREATE_label(dcontext);
     if (in_it) {
@@ -1109,13 +1108,15 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     retaddr = get_call_return_address(dcontext, ilist, instr);
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
                            PC_AS_JMP_TGT(instr_get_isa_mode(instr), (app_pc)retaddr),
-                           opnd_create_reg(DR_REG_LR), ilist, instr, &mov_imm, &mov_imm2);
+                           opnd_create_reg(DR_REG_LR), ilist, instr, &first, &last);
     if (opc == OP_bl) {
         /* OP_blx predication is handled below */
         if (instr_is_predicated(instr)) {
-            instr_set_predicate(mov_imm, instr_get_predicate(instr));
-            if (mov_imm2 != NULL)
-                instr_set_predicate(mov_imm2, instr_get_predicate(instr));
+            for (;; first = instr_get_next(first)) {
+                instr_set_predicate(first, instr_get_predicate(instr));
+                if (last == NULL || first == last)
+                    break;
+            }
             /* Add exit cti for taken direction b/c we're removing the OP_bl */
             instrlist_preinsert
                 (ilist, instr, INSTR_PRED
@@ -1177,7 +1178,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     insert_mov_immed_ptrsz(dcontext,
                            get_call_return_address(dcontext, ilist, instr),
                            opnd_create_reg(DR_REG_X30),
-                           ilist, next_instr, 0, 0);
+                           ilist, next_instr, NULL, NULL);
     instrlist_remove(ilist, instr); /* remove OP_blr */
     instr_destroy(dcontext, instr);
     return next_instr;
@@ -1556,7 +1557,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (opc == OP_ldr && reg_is_gpr(dst.value.reg)) {
         reg_id_t xreg = reg_to_pointer_sized(opnd_get_reg(dst));
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, opnd_create_reg(xreg),
-                               ilist, next_instr, 0, 0);
+                               ilist, next_instr, NULL, NULL);
         PRE(ilist, next_instr,
             XINST_CREATE_load(dcontext, dst,
                               opnd_create_base_disp(xreg, REG_NULL,
@@ -1566,7 +1567,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt,
                                opnd_create_reg(DR_REG_X0),
-                               ilist, next_instr, 0, 0);
+                               ilist, next_instr, NULL, NULL);
         PRE(ilist, next_instr,
             XINST_CREATE_load(dcontext, dst,
                               opnd_create_base_disp(DR_REG_X0, REG_NULL,
@@ -1576,7 +1577,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     } else {
         /* OP_adr, OP_adrp */
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst,
-                               ilist, next_instr, 0, 0);
+                               ilist, next_instr, NULL, NULL);
     }
 
     if (instr_uses_reg(instr, dr_reg_stolen)) {

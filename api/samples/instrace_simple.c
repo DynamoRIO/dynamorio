@@ -166,14 +166,9 @@ static void
 insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                reg_id_t base, reg_id_t scratch, app_pc pc)
 {
-    instr_t *mov1, *mov2;
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      opnd_create_reg(scratch),
-                                     ilist, where, &mov1, &mov2);
-    DR_ASSERT(mov1 != NULL);
-    instr_set_meta(mov1);
-    if (mov2 != NULL)
-        instr_set_meta(mov2);
+                                     ilist, where, NULL, NULL);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(base,

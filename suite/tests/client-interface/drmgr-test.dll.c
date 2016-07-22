@@ -321,17 +321,13 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
         dr_restore_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
     }
     if (freq % 300 == 0 && inst == (instr_t*)user_data/*first instr*/) {
-        instr_t *first, *second;
         /* test write from cache */
         dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
         dr_save_reg(drcontext, bb, inst, reg2, SPILL_SLOT_2);
         instrlist_insert_mov_immed_ptrsz(drcontext,
                                          (ptr_int_t)MAGIC_NUMBER_FROM_CACHE,
                                          opnd_create_reg(reg1),
-                                         bb, inst, &first, &second);
-        instr_set_meta(first);
-        if (second != NULL)
-            instr_set_meta(second);
+                                         bb, inst, NULL, NULL);
         drmgr_insert_write_tls_field(drcontext, tls_idx, bb, inst, reg1, reg2);
         dr_insert_clean_call(drcontext, bb, inst, (void *)check_tls_write_from_cache,
                              false, 0);
