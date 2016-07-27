@@ -5207,6 +5207,11 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
     instrlist_t ilist;
     patch_list_t patch;
     instr_t *in;
+    /* For AArch64 the linkstub has to be in X0 and the app's X0 has to be
+     * spilled in TLS_REG0_SLOT before calling the ibl routine.
+     */
+    reg_id_t stub_reg = IF_AARCH64_ELSE(SCRATCH_REG0, SCRATCH_REG1);
+    int stub_slot = IF_AARCH64_ELSE(TLS_REG0_SLOT, TLS_REG1_SLOT);
     IF_X86(size_t len;)
     byte *ibl_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
     bool absolute = !code->thread_shared;
@@ -5219,9 +5224,9 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
         const linkstub_t *linkstub =
             get_special_ibl_linkstub(ibl_type,
                                      DYNAMO_OPTION(disable_traces) ? false : true);
-        APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
+        APP(&ilist, SAVE_TO_TLS(dcontext, stub_reg, stub_slot));
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)linkstub,
-                               opnd_create_reg(SCRATCH_REG1),
+                               opnd_create_reg(stub_reg),
                                &ilist, NULL, NULL, NULL);
     }
 
@@ -5281,9 +5286,10 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
     }
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_tgt)));
 #elif defined(AARCH64)
-    (void)ibl_tgt;
-    /* Random unallocated encoding to detect if code is excecuted: */
-    APP(&ilist, INSTR_CREATE_xx(dcontext, 0x801e04));
+    APP(&ilist, INSTR_CREATE_ldr(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                 OPND_TLS_FIELD(get_ibl_entry_tls_offs
+                                                (dcontext, ibl_tgt))));
+    APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
 #elif defined(ARM)
     /* i#1906: loads to PC must use word-aligned addresses */
     ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_tgt), PC_LOAD_ADDR_ALIGN));
