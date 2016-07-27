@@ -926,7 +926,6 @@ void
 mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     instr_t *instr, instr_t *next_instr)
 {
-#ifndef AARCH64 /* FIXME i#1569: NYI */
     /* inlined conditional system call mangling is not supported */
     ASSERT(!instr_is_predicated(instr));
 
@@ -935,26 +934,16 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      * If we get here, we're dealing with an ignorable syscall.
      */
 
-    /* We assume we do not have to restore the stolen reg value, as it's
-     * r8+ and so there will be no syscall arg or number stored in it.
-     * We assume the kernel won't read it.
+    /* We assume that the stolen register will, in effect, be neither
+     * read nor written by a system call as it is above the highest
+     * register used for the syscall arguments or number. This assumption
+     * currently seems to be valid on arm/arm64 Linux, which only writes the
+     * return value (with system calls that return). When other kernels are
+     * supported it may be necessary to move the stolen register value to a
+     * safer register (one that is "callee-saved" and not used by the gateway
+     * mechanism) before the system call, and restore it afterwards.
      */
     ASSERT(DR_REG_STOLEN_MIN > DR_REG_SYSNUM);
-
-    /* We do need to save the stolen reg if it is caller-saved.
-     * For now we assume that the kernel honors the calling convention
-     * and won't clobber callee-saved regs.
-     */
-    /* The instructions inserted here are checked in instr_is_DR_reg_spill_or_restore
-     * and translate_walk_restore, so any update here must be sync-ed there too.
-     */
-    if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
-        PRE(ilist, instr,
-            instr_create_save_to_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
-        PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R10),
-                              opnd_create_reg(dr_reg_stolen)));
-    }
 
     /* We have to save r0 in case the syscall is interrupted.  To restart
      * it, we need to replace the kernel's -EINTR in r0 with the original
@@ -964,16 +953,6 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      */
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
-
-    /* Post-syscall: */
-    if (dr_reg_stolen != DR_REG_R10 && dr_reg_stolen != DR_REG_R11) {
-        PRE(ilist, next_instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen),
-                              opnd_create_reg(DR_REG_R10)));
-        PRE(ilist, next_instr,
-            instr_create_restore_from_tls(dcontext, DR_REG_R10, TLS_REG1_SLOT));
-    }
-#endif /* !AARCH64 */
 }
 
 #ifdef UNIX

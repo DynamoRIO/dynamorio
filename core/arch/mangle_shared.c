@@ -1132,10 +1132,6 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     /* Allow either eax or rax for x86_64 */
     reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
 
-#ifdef AARCH64
-    return -1; /* FIXME i#1569: not yet optimized */
-#endif
-
     if (prev != NULL) {
         prev = instr_get_prev_expanded(dcontext, ilist, instr);
         /* walk backwards looking for "mov imm->xax"

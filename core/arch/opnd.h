@@ -2279,7 +2279,7 @@ extern const reg_id_t regparms[];
 uint opnd_immed_float_arch(uint opcode);
 
 #ifdef AARCHXX
-# define DR_REG_STOLEN_MIN  DR_REG_R8 /* no syscall regs */
+# define DR_REG_STOLEN_MIN  IF_X64_ELSE(DR_REG_X9, DR_REG_R8) /* DR_REG_SYSNUM + 1 */
 # define DR_REG_STOLEN_MAX  IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
 /* DR's stolen register for TLS access */
 extern reg_id_t dr_reg_stolen;

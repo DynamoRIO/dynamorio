@@ -3165,7 +3165,7 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
             nxt_pc = decode(dcontext, pc - syslen, &instr);
             if (nxt_pc != NULL && instr_valid(&instr) &&
                 instr_is_syscall(&instr)) {
-#if !defined(ARM) && !defined(MACOS)
+#if defined(X86) && !defined(MACOS)
                 /* decoding backward so check for exit cti jmp prior
                  * to syscall to ensure no mismatch
                  */
@@ -3243,7 +3243,8 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
             pc = decode(dcontext, pc, &instr);
             if (instr_is_mov_constant(&instr, &val) &&
                 opnd_is_reg(instr_get_dst(&instr, 0)) &&
-                opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_SYSNUM) {
+                reg_to_pointer_sized(opnd_get_reg(instr_get_dst(&instr, 0))) ==
+                reg_to_pointer_sized(DR_REG_SYSNUM)) {
                 sysnum = (int) val;
                 /* don't break: find last one before syscall */
             }
