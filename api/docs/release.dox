@@ -141,6 +141,8 @@ The changes between version \DR_VERSION and 6.1.0 include:
    instrace_x86_binary.
  - Added better drreg support for intra-bb control flow by adding
    drreg_set_bb_properties().
+ - Added priority-controlled drmgr_register_thread_init_event_ex() and
+   drmgr_register_thread_exit_event_ex().
 
 **************************************************
 <hr>

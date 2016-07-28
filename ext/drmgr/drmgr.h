@@ -772,6 +772,16 @@ drmgr_register_thread_init_event(void (*func)(void *drcontext));
 
 DR_EXPORT
 /**
+ * Registers a callback function for the thread initialization event,
+ * ordered by \p priority. drmgr calls \p func whenever the application
+ * creates a new thread. \return whether successful.
+ */
+bool
+drmgr_register_thread_init_event_ex(void (*func)(void *drcontext),
+                                    drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
  * Unregister a callback function for the thread initialization event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
@@ -787,6 +797,17 @@ DR_EXPORT
  */
 bool
 drmgr_register_thread_exit_event(void (*func)(void *drcontext));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the thread exit event, ordered by \p priority.
+ * drmgr calls \p func whenever DR would, when an application thread exits. All
+ * the constraints of dr_register_thread_event_exit() apply. \return whether
+ * successful.
+ */
+bool
+drmgr_register_thread_exit_event_ex(void (*func)(void *drcontext),
+                                    drmgr_priority_t *priority);
 
 DR_EXPORT
 /**
