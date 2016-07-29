@@ -3399,9 +3399,9 @@ set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval)
 #ifdef UNIX
 __inline__ uint64 get_time()
 {
-    uint64 x;
-    __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
-    return x;
+    uint64 res;
+    RDTSC_LL(res);
+    return res;
 }
 #else /* WINDOWS */
 uint64 get_time()
