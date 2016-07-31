@@ -2030,6 +2030,11 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drreg-flow.dll drreg)
   use_DynamoRIO_extension(client.drreg-flow.dll drutil)
 
+  tobuild_ci(client.drreg-cross client-interface/drreg-cross.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-cross.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-cross.dll drreg)
+  use_DynamoRIO_extension(client.drreg-cross.dll drutil)
+
   tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
   use_DynamoRIO_extension(client.drx-test.dll drx)
 

@@ -533,8 +533,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             }
         } else if (!pt->reg[GPR_IDX(reg)].native &&
                    instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) {
-            /* For an unreserved reg that's written, just drop the slot */
-            ASSERT(!pt->reg[GPR_IDX(reg)].ever_spilled, "reg was dead");
+            /* For an unreserved reg that's written, just drop the slot, even
+             * if it was spilled at an earlier reservation point.
+             */
+            if (pt->reg[GPR_IDX(reg)].ever_spilled)
+                pt->reg[GPR_IDX(reg)].ever_spilled = false; /* no need to restore */
             res = drreg_restore_reg_now(drcontext, bb, inst, pt, reg);
             if (res != DRREG_SUCCESS)
                 drreg_report_error(res, "slot release on app write failed");

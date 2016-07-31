@@ -79,7 +79,8 @@ extend across application instructions, in which case \p drreg will
 automatically restore or re-spill application values, when the intervening
 application instruction reads or writes that register, while still
 preserving the client's value in that register for use after the
-application instruction.
+application instruction.  Reservations may not extend beyond the end of a
+basic block.
 
 \section sec_drreg_linear Linear Control Flow
 
