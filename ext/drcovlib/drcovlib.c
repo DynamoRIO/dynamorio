@@ -213,7 +213,7 @@ static void
 dump_drcov_data(void *drcontext, per_thread_t *data)
 {
     version_print(data->log);
-    module_table_print(module_table, data->log, false);
+    module_table_print(module_table, data->log, options.verbose_module_table);
     bb_table_print(drcontext, data);
 }
 

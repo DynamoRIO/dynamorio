@@ -95,6 +95,10 @@ typedef struct _drcovlib_options_t {
      * option, is created.  This option only works under Windows.
      */
     int native_until_thread;
+    /**
+     * By default, information like base module address are omitted.
+     */
+    bool verbose_module_table;
 } drcovlib_options_t;
 
 /***************************************************************************

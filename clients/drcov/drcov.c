@@ -156,6 +156,7 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
             if (dr_sscanf(token, "%u", &verbose) != 1) {
                 USAGE_CHECK(false, "invalid -verbose number");
             }
+            ops->verbose_module_table = true;
         }
         else {
             NOTIFY(0, "UNRECOGNIZED OPTION: \"%s\"\n", token);
