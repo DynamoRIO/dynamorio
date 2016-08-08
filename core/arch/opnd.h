@@ -823,20 +823,18 @@ struct _opnd_t {
             /* to get cl to not align to 4 bytes we can't use uint here
              * when we have reg_id_t elsewhere: it won't combine them
              * (gcc will). alternative is all uint and no reg_id_t.
-             */
-            /* We would use a union and struct to separate the scale from the 2
-             * shift fields as they are mutually exclusive, but that would
-             * require packing the struct or living with a larger size and perf
-             * hit on copying it.  We also have to use byte and not dr_shift_type_t
+             * We also have to use byte and not dr_shift_type_t
              * to get cl to not align.
              */
-            byte/*dr_shift_type_t*/ shift_type : 3; /* ARM-only */
-            byte shift_amount_minus_1 : 5; /* ARM-only, 1..31 so we store (val - 1) */
-            byte scale : SCALE_SPECIFIER_BITS; /* x86-only */
-            /* These 3 are all x86-only: */
+# if defined(ARM)
+            byte/*dr_shift_type_t*/ shift_type : 3;
+            byte shift_amount_minus_1 : 5; /* 1..31 so we store (val - 1) */
+# elif defined(X86)
+            byte scale : SCALE_SPECIFIER_BITS;
             byte/*bool*/ encode_zero_disp : 1;
             byte/*bool*/ force_full_disp : 1; /* don't use 8-bit even w/ 8-bit value */
             byte/*bool*/ disp_short_addr : 1; /* 16-bit (32 in x64) addr (disp-only) */
+# endif
         } base_disp;            /* BASE_DISP_kind */
         void *addr;             /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
@@ -1063,7 +1061,7 @@ DR_API
  * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
  *
  * On x86, three boolean parameters give control over encoding optimizations
- * (these are ignored on ARM):
+ * (these are ignored on other architectures):
  * - If \p encode_zero_disp, a zero value for disp will not be omitted;
  * - If \p force_full_disp, a small value for disp will not occupy only one byte.
  * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
@@ -1132,6 +1130,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                              bool encode_zero_disp, bool force_full_disp,
                              bool disp_short_addr);
 
+#ifdef ARM
 DR_API
 /**
  * Returns a memory reference operand that refers to either a base
@@ -1150,11 +1149,13 @@ DR_API
  * value with #DR_OPND_NEGATED set in opnd_get_flags().
  * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
  *
+ * \note ARM-only.
  */
 opnd_t
 opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
                           dr_shift_type_t shift_type, uint shift_amount, int disp,
                           dr_opnd_flags_t flags, opnd_size_t size);
+#endif
 
 DR_API
 /**
@@ -1668,6 +1669,7 @@ DR_API
 reg_id_t
 opnd_get_segment(opnd_t opnd);
 
+#ifdef ARM
 DR_API
 /**
  * Assumes \p opnd is a (near or far) base+disp memory reference.
@@ -1675,6 +1677,7 @@ DR_API
  * Returns the shift type and \p amount if the index register is shifted (this
  * shift will occur prior to being added to or subtracted from the base
  * register).
+ * \note ARM-only.
  */
 dr_shift_type_t
 opnd_get_index_shift(opnd_t opnd, uint *amount OUT);
@@ -1685,11 +1688,11 @@ DR_API
  * Sets the index register to be shifted by \p amount according to \p shift.
  * Returns whether successful.
  * If the shift amount is out of allowed ranges, returns false.
- * \note On non-ARM platforms where shifted index registers do not exist, this
- * routine will always fail.
+ * \note ARM-only.
  */
 bool
 opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount);
+#endif /* ARM */
 
 DR_API
 /**
@@ -1989,23 +1992,23 @@ DR_API
 void
 opnd_set_disp(opnd_t *opnd, int disp);
 
+#ifdef X86
 DR_API
 /**
- * Set the displacement and, on x86, the encoding controls of a memory
- * reference operand (the controls are ignored on ARM):
+ * Set the displacement and the encoding controls of a memory
+ * reference operand:
  * - If \p encode_zero_disp, a zero value for \p disp will not be omitted;
  * - If \p force_full_disp, a small value for \p disp will not occupy only one byte.
  * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
- *    use the desired short registers for base and/or index).  This is only
- *    honored on x86.
- * On ARM, a negative value for \p disp will be converted into a positive
- * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ *    use the desired short registers for base and/or index).
+ * \note x86-only.
  */
 void
 opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_disp,
                  bool disp_short_addr);
+#endif
 
 DR_API
 /**
