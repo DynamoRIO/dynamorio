@@ -453,6 +453,10 @@ drx_buf_insert_buf_store_1byte(void *drcontext, drx_buf_t *buf, instrlist_t *ili
             (drcontext,
              OPND_CREATE_MEM8(buf_ptr, offset),
              opnd_create_reg(scratch));
+#else
+        /* FIXME i#1569: NYI */
+        DR_ASSERT(false);
+        instr = NULL;
 #endif
     } else {
         instr = XINST_CREATE_store_1byte
@@ -487,6 +491,10 @@ drx_buf_insert_buf_store_2bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
             (drcontext,
              OPND_CREATE_MEM16(buf_ptr, offset),
              opnd_create_reg(scratch));
+#else
+        /* FIXME i#1569: NYI */
+        DR_ASSERT(false);
+        instr = NULL;
 #endif
     } else {
         instr = XINST_CREATE_store_2bytes
@@ -566,6 +574,12 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
                  opnd_create_reg(scratch));
         INSTR_XL8(instr, instr_get_app_pc(where));
         MINSERT(ilist, where, instr);
+#else
+        /* FIXME i#1569: NYI */
+        DR_ASSERT(false);
+        first = NULL;
+        last = NULL;
+        immed = 0;
 #endif
     } else {
         instr_t *instr = XINST_CREATE_store

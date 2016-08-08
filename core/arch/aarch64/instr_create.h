@@ -89,6 +89,16 @@
 #define XINST_CREATE_store(dc, m, r) INSTR_CREATE_str((dc), (m), (r))
 
 /**
+ * This platform-independent macro creates an instr_t for a 1-byte
+ * memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define XINST_CREATE_store_1byte(dc, m, r) \
+  ((void)(m), (void)(r), INSTR_CREATE_xx((dc), 0x25865b)) /* FIXME i#1569 */
+
+/**
  * This platform-independent macro creates an instr_t for a 2-byte
  * memory store instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
