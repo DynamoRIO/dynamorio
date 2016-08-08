@@ -510,14 +510,14 @@ opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp
 static inline void
 opnd_set_disp_helper(opnd_t *opnd, int disp)
 {
-    IF_X86_ELSE({
-        opnd->value.base_disp.disp = disp;
-    }, {
+    IF_ARM_ELSE({
         if (disp < 0) {
             opnd->aux.flags |= DR_OPND_NEGATED;
             opnd->value.base_disp.disp = -disp;
         } else
             opnd->value.base_disp.disp = disp;
+    }, {
+        opnd->value.base_disp.disp = disp;
     });
 }
 

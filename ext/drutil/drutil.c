@@ -310,9 +310,15 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         dr_shift_type_t shift;
         reg_id_t base   = opnd_get_base(memref);
         reg_id_t index  = opnd_get_index(memref);
-        /* disp is non-negative; DR_OPND_NEGATED specifies sign. */
+        bool negated    = TEST(DR_OPND_NEGATED, opnd_get_flags(memref));
         int      disp   = opnd_get_disp(memref);
         reg_id_t stolen = dr_get_stolen_reg();
+        /* On ARM, disp is never negative; on AArch64, we do not use DR_OPND_NEGATED. */
+        ASSERT(IF_ARM_ELSE(disp >= 0, !negated), "DR_OPND_NEGATED internal error");
+        if (disp < 0) {
+            disp = -disp;
+            negated = !negated;
+        }
         if (dst == stolen || scratch == stolen)
             return false;
         if (base == stolen)
@@ -321,7 +327,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch);
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
             /* first try "add dst, base, #disp" */
-            instr = TEST(DR_OPND_NEGATED, opnd_get_flags(memref)) ?
+            instr = negated ?
                 INSTR_CREATE_sub(drcontext,
                                  opnd_create_reg(dst),
                                  opnd_create_reg(base),
@@ -350,7 +356,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         }
         if (index != REG_NULL) {
             shift = opnd_get_index_shift(memref, &amount);
-            instr = TEST(DR_OPND_NEGATED, opnd_get_flags(memref)) ?
+            instr = negated ?
                 INSTR_CREATE_sub_shimm(drcontext,
                                        opnd_create_reg(dst),
                                        opnd_create_reg(base),
