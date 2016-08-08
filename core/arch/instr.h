@@ -364,8 +364,8 @@ struct _instr_t {
     uint    flags;
 
     /* raw bits of length length are pointed to by the bytes field */
-    byte    *bytes;
     uint    length;
+    byte    *bytes;
 
     /* translation target for this instr */
     app_pc  translation;
