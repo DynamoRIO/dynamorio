@@ -71,6 +71,9 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#if defined(LINUX) && defined(AARCH64)
+# include <linux/ptrace.h> /* for struct user_pt_regs */
+#endif
 #include <sys/uio.h> /* for struct iovec */
 #include <sys/user.h>
 #include <sys/wait.h>
@@ -821,7 +824,7 @@ enum { MAX_SHELL_CODE = 4096 };
 /* On ARM, all reg args are also reg retvals. */
 # define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
 #elif defined(AARCH64)
-# define USER_REGS_TYPE user_regs_struct
+# define USER_REGS_TYPE user_pt_regs
 # define REG_PC_FIELD pc
 # define REG_SP_FIELD sp
 # define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */
