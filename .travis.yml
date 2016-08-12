@@ -60,15 +60,25 @@ matrix:
     # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we disable:
     - os: osx
       compiler: gcc
+  include:
+    - os: linux
+    - compiler: gcc
+    - env: CROSS=yes
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
   - uname -a
   - if [[ "`uname`" == "Darwin" ]]; then brew install nasm; fi
   # ImageMagick is present but these are not:
-  - if [[ "`uname`" == "Linux" ]]; then sudo apt-get -y install g++-multilib doxygen transfig; fi
-  # Test cross-compiling with GCC for ARM and AArch64:
-  - if [[ "`uname`" == "Linux" ]]; then sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
+  - if [[ "`uname`" == "Linux" ]]; then sudo apt-get -y install doxygen transfig; fi
+  # Install multilib for non-cross-compiling build:
+  - >
+      if [[ "`uname`" == "Linux" && $CROSS != yes ]]; then
+      sudo apt-get -y install g++-multilib; fi
+  # Install cross-compilers for cross-compiling build:
+  - >
+      if [[ "`uname`" == "Linux" && $CROSS == yes ]]; then
+      sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
 
 script:
   - suite/runsuite_wrapper.pl travis
