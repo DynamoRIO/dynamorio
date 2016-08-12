@@ -44,7 +44,6 @@ dist: trusty
 
 language:
   - c
-  - cpp
 
 os:
   - linux
@@ -55,15 +54,22 @@ compiler:
   - clang
   - gcc
 
+# With or without cross-compiling:
+env:
+  - CROSS=yes
+  - CROSS=no
+
 matrix:
   exclude:
     # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we disable:
     - os: osx
       compiler: gcc
-  include:
-    - os: linux
-    - compiler: gcc
-    - env: CROSS=yes
+    # Cross-compile only on Linux:
+    - os: osx
+      env: CROSS=yes
+    # Cross-compile only with GCC:
+    - compiler: clang
+      env: CROSS=yes
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
@@ -71,11 +77,11 @@ install:
   - if [[ "`uname`" == "Darwin" ]]; then brew install nasm; fi
   # ImageMagick is present but these are not:
   - if [[ "`uname`" == "Linux" ]]; then sudo apt-get -y install doxygen transfig; fi
-  # Install multilib for non-cross-compiling build:
+  # Install multilib for non-cross-compiling Linux builds:
   - >
-      if [[ "`uname`" == "Linux" && $CROSS != yes ]]; then
+      if [[ "`uname`" == "Linux" && $CROSS == no ]]; then
       sudo apt-get -y install g++-multilib; fi
-  # Install cross-compilers for cross-compiling build:
+  # Install cross-compilers for cross-compiling Linux build:
   - >
       if [[ "`uname`" == "Linux" && $CROSS == yes ]]; then
       sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
