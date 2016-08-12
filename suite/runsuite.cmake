@@ -45,9 +45,13 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 # extra args (note that runsuite_common_pre.cmake has already walked
 # the list and did not remove its args so be sure to avoid conflicts).
 set(arg_travis OFF)
+set(cross_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "travis")
     set(arg_travis ON)
+    if ($ENV{CROSS} MATCHES "yes")
+      set(cross_only ON)
+    endif()
   endif ()
 endforeach (arg)
 
@@ -180,103 +184,105 @@ endif ()
 # (since building takes forever on windows): so we only turn
 # on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
 
-# For cross-arch execve test we need to "make install"
-testbuild_ex("debug-internal-32" OFF "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  BUILD_TESTS:BOOL=ON
-  ${install_path_cache}
-  " OFF ON "${install_build_args}")
-testbuild_ex("debug-internal-64" ON "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  BUILD_TESTS:BOOL=ON
-  ${install_path_cache}
-  TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
-  " OFF ON "${install_build_args}")
-# we don't really support debug-external anymore
-if (DO_ALL_BUILDS_NOT_SUPPORTED)
-  testbuild("debug-external-64" ON "
+if (NOT cross_only)
+  # For cross-arch execve test we need to "make install"
+  testbuild_ex("debug-internal-32" OFF "
     DEBUG:BOOL=ON
-    INTERNAL:BOOL=OFF
-    ")
-  testbuild("debug-external-32" OFF "
+    INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
+    ${install_path_cache}
+    " OFF ON "${install_build_args}")
+  testbuild_ex("debug-internal-64" ON "
     DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
+    ${install_path_cache}
+    TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+    " OFF ON "${install_build_args}")
+  # we don't really support debug-external anymore
+  if (DO_ALL_BUILDS_NOT_SUPPORTED)
+    testbuild("debug-external-64" ON "
+      DEBUG:BOOL=ON
+      INTERNAL:BOOL=OFF
+      ")
+    testbuild("debug-external-32" OFF "
+      DEBUG:BOOL=ON
+      INTERNAL:BOOL=OFF
+      ")
+  endif ()
+  testbuild_ex("release-external-32" OFF "
+    DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
-    ")
-endif ()
-testbuild_ex("release-external-32" OFF "
-  DEBUG:BOOL=OFF
-  INTERNAL:BOOL=OFF
-  ${install_path_cache}
-  " OFF OFF "${install_build_args}")
-testbuild_ex("release-external-64" ON "
-  DEBUG:BOOL=OFF
-  INTERNAL:BOOL=OFF
-  ${install_path_cache}
-  TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
-  " OFF OFF "${install_build_args}")
-if (DO_ALL_BUILDS)
-  # we rarely use internal release builds but keep them working in long
-  # suite (not much burden) in case we need to tweak internal options
-  testbuild("release-internal-32" OFF "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=ON
     ${install_path_cache}
-    ")
-  testbuild("release-internal-64" ON "
+    " OFF OFF "${install_build_args}")
+  testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
-    INTERNAL:BOOL=ON
+    INTERNAL:BOOL=OFF
     ${install_path_cache}
-    ")
-endif (DO_ALL_BUILDS)
-# non-official-API builds but not all are in pre-commit suite on Windows
-# where building is slow: we'll rely on bots to catch breakage in most of these
-# builds on Windows
-if (ARCH_IS_X86 AND NOT APPLE)
-  # we do not bother to support these on ARM
-  if (UNIX OR DO_ALL_BUILDS)
-    testbuild("vmsafe-debug-internal-32" OFF "
+    TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+    " OFF OFF "${install_build_args}")
+  if (DO_ALL_BUILDS)
+    # we rarely use internal release builds but keep them working in long
+    # suite (not much burden) in case we need to tweak internal options
+    testbuild("release-internal-32" OFF "
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=ON
+      ${install_path_cache}
+      ")
+    testbuild("release-internal-64" ON "
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=ON
+      ${install_path_cache}
+      ")
+  endif (DO_ALL_BUILDS)
+  # non-official-API builds but not all are in pre-commit suite on Windows
+  # where building is slow: we'll rely on bots to catch breakage in most of these
+  # builds on Windows
+  if (ARCH_IS_X86 AND NOT APPLE)
+    # we do not bother to support these on ARM
+    if (UNIX OR DO_ALL_BUILDS)
+      testbuild("vmsafe-debug-internal-32" OFF "
+        VMAP:BOOL=OFF
+        VMSAFE:BOOL=ON
+        DEBUG:BOOL=ON
+        INTERNAL:BOOL=ON
+        ${install_path_cache}
+        ")
+    endif ()
+    if (DO_ALL_BUILDS)
+      testbuild("vmsafe-release-external-32" OFF "
+        VMAP:BOOL=OFF
+        VMSAFE:BOOL=ON
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=OFF
+        ${install_path_cache}
+        ")
+    endif (DO_ALL_BUILDS)
+    testbuild("vps-debug-internal-32" OFF "
       VMAP:BOOL=OFF
-      VMSAFE:BOOL=ON
+      VPS:BOOL=ON
       DEBUG:BOOL=ON
       INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
-  endif ()
-  if (DO_ALL_BUILDS)
-    testbuild("vmsafe-release-external-32" OFF "
-      VMAP:BOOL=OFF
-      VMSAFE:BOOL=ON
-      DEBUG:BOOL=OFF
-      INTERNAL:BOOL=OFF
-      ${install_path_cache}
-      ")
-  endif (DO_ALL_BUILDS)
-  testbuild("vps-debug-internal-32" OFF "
-    VMAP:BOOL=OFF
-    VPS:BOOL=ON
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    ${install_path_cache}
-    ")
-  if (DO_ALL_BUILDS)
-    testbuild("vps-release-external-32" OFF "
-      VMAP:BOOL=OFF
-      VPS:BOOL=ON
-      DEBUG:BOOL=OFF
-      INTERNAL:BOOL=OFF
-      ${install_path_cache}
-      ")
-    # Builds we'll keep from breaking but not worth running many tests
-    testbuild("callprof-32" OFF "
-      CALLPROF:BOOL=ON
-      DEBUG:BOOL=OFF
-      INTERNAL:BOOL=OFF
-      ${install_path_cache}
-      ")
-  endif (DO_ALL_BUILDS)
-endif (ARCH_IS_X86 AND NOT APPLE)
+    if (DO_ALL_BUILDS)
+      testbuild("vps-release-external-32" OFF "
+        VMAP:BOOL=OFF
+        VPS:BOOL=ON
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=OFF
+        ${install_path_cache}
+        ")
+      # Builds we'll keep from breaking but not worth running many tests
+      testbuild("callprof-32" OFF "
+        CALLPROF:BOOL=ON
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=OFF
+        ${install_path_cache}
+        ")
+    endif (DO_ALL_BUILDS)
+  endif (ARCH_IS_X86 AND NOT APPLE)
+endif (NOT cross_only)
 
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
