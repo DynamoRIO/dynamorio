@@ -43,6 +43,7 @@ that use the DR API for memory allocation and synchronization.
  - \ref sec_drcontainers_hashtable
  - \ref sec_drcontainers_vector
  - \ref sec_drcontainers_table
+ - \ref sec_drcontainers_queue
 
 \section sec_drcontainers_setup Setup
 
@@ -67,5 +68,13 @@ The DrVector is a simple resizable array.
 
 The DrTable is a resizable array that does not relocate data,
 enabling a user to use pointers to access array entries directly.
+
+\section sec_drcontainers_queue DrQueue
+
+The DrQueue is a simple, resizable, circular, queue.
+
+\section sec_drcontainers_list DrList
+
+The DrList is a simple linked list.
 
 */

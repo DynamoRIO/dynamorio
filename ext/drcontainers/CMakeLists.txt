@@ -42,6 +42,8 @@ add_library(drcontainers STATIC
   hashtable.c
   drvector.c
   drtable.c
+  drqueue.c
+  drlist.c
   # add more here
   )
 configure_DynamoRIO_client(drcontainers)
@@ -52,3 +54,5 @@ configure_extension(drcontainers ON)
 install_ext_header(hashtable.h)
 install_ext_header(drvector.h)
 install_ext_header(drtable.h)
+install_ext_header(drqueue.h)
+install_ext_header(drlist.h)
