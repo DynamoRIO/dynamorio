@@ -8017,7 +8017,7 @@ enum {
  *   0:000> dds 12fdb4
  *   0012fdb4  0012fe2c
  *   0012fdb8  77f3b744 KERNEL32!_except_handler3
- *   0012fdbc  77f3d308 KERNEL32!ntdll_NULL_THUNK_DATA+0xebc
+ *   0012fdbc  77f3d308 KERNEL32!ntdll_NULL_THUNK_DATA+0xebc
  *
  *   and the handler is the instr after the push immed:
  *   0:000> dds 77f3d308
