@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -78,8 +78,6 @@ DR_APP_API int dr_app_cleanup(void);
  * may fail if the main thread has quit.  DR also assumes the threads all share
  * signal handlers, as is the case for pthreads.  Violating these assumptions
  * will lead to unpredictable behavior.
- *
- * \warning Windows does not yet attempt to take over existing threads.
  */
 DR_APP_API void dr_app_start(void);
 
