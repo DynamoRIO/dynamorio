@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,18 +31,70 @@
  */
 
 #include "configure.h"
+#include "dr_api.h"
+#include "tools.h"
+#include <math.h>
 
-/* We can't get this from tools.h, or we'll be linked against tools.c which uses
- * libc.
+/* FIXME i#975: also add an api.static_takeover test that uses drrun
+ * -static instead of calling dr_app_*.
  */
-#ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
-#else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
-#endif
 
-EXPORT
-void
-foo_export(void)
+static int num_bbs;
+
+static dr_emit_flags_t
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+         bool translating)
 {
+    num_bbs++;
+    return DR_EMIT_DEFAULT;
+}
+
+static void
+event_exit(void)
+{
+    dr_printf("Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
+}
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    /* FIXME i#975: we don't reach here yet b/c DR is not yet looking for
+     * clients w/o a runtime option pointing at them.
+     */
+    print("in dr_client_main\n");
+    dr_register_bb_event(event_bb);
+    dr_register_exit_event(event_exit);
+}
+
+static int
+do_some_work(void)
+{
+    static int iters = 8192;
+    int i;
+    double val = num_bbs;
+    for (i = 0; i < iters; ++i) {
+        val += sin(val);
+    }
+    return (val > 0);
+}
+
+int
+main(int argc, const char *argv[])
+{
+    print("pre-DR init\n");
+    dr_app_setup();
+    assert(!dr_app_running_under_dynamorio());
+
+    print("pre-DR start\n");
+    dr_app_start();
+    assert(dr_app_running_under_dynamorio());
+
+    if (do_some_work() < 0)
+        print("error in computation\n");
+
+    print("pre-DR stop\n");
+    dr_app_stop();
+    dr_app_cleanup();
+    print("all done\n");
+    return 0;
 }

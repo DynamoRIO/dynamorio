@@ -3475,6 +3475,10 @@ find_dynamo_library_vm_areas()
                 ((app_pc)mbi.BaseAddress) + mbi.RegionSize,
                 prot_string(mbi.Protect));
             num_regions++;
+#ifndef STATIC_LIBRARY
+            /* For static library builds, DR's code is in the exe and isn't considered
+             * to be a DR area.
+             */
             add_dynamo_vm_area(mbi.BaseAddress,
                                ((app_pc)mbi.BaseAddress) + mbi.RegionSize,
                                osprot_to_memprot(mbi.Protect),
@@ -3486,6 +3490,7 @@ find_dynamo_library_vm_areas()
                    data_sections_enclose_region((app_pc)mbi.BaseAddress,
                                                 ((app_pc)mbi.BaseAddress) +
                                                 mbi.RegionSize));
+#endif
         }
         if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
             break;
@@ -5087,6 +5092,14 @@ os_countdown_messagebox(char *message, int time_in_milliseconds) {
 shlib_handle_t
 load_shared_library(const char *name, bool client)
 {
+# ifdef STATIC_LIBRARY
+    if (strcmp(name, get_application_name()) == 0) {
+        wchar_t wname[MAX_PATH];
+        snwprintf(wname, BUFFER_SIZE_ELEMENTS(wname), L"%hs", name);
+        NULL_TERMINATE_BUFFER(wname);
+        return get_module_handle(wname);
+    }
+# endif
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         /* We call locate_and_load_private_library() to support searching for
          * a pathless name.
@@ -9109,7 +9122,9 @@ open_trusted_cache_root_directory(void)
     }
     if (!param_ok ||
         double_strchr(base_directory, DIRSEP, ALT_DIRSEP) == NULL) {
+#ifndef STATIC_LIBRARY
         SYSLOG_INTERNAL_WARNING("%s not correctly set!", DYNAMORIO_VAR_CACHE_ROOT);
+#endif
         return INVALID_HANDLE_VALUE;
     }
     NULL_TERMINATE_BUFFER(base_directory);

@@ -1014,7 +1014,8 @@
 
     /* FIXME: case 8023 covers re-enabling on linux */
     OPTION_DEFAULT(uint, protect_mask,
-        IF_WINDOWS_ELSE(0x101 /* SELFPROT_DATA_RARE | SELFPROT_GENCODE */, 0/*NYI*/),
+        IF_STATIC_LIBRARY_ELSE(0,
+            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/, 0/*NYI*/)),
         "which memory regions to protect")
     OPTION_INTERNAL(bool, single_privileged_thread, "suspend all other threads when one is out of cache")
 

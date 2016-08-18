@@ -296,17 +296,6 @@ if (VPS)
   endif (WIN32)
 endif (VPS)
 
-# i#975: revived support for STATIC_LIBRARY.
-# FIXME: we need to implement takeover on Windows with .CRT$XCU.
-# i#1793: the tests do not build anymore: abandoning official support,
-# but leaving the code in the repo as we may want to revive it again later.
-option(STATIC_LIBRARY "build DR statically (not fully supported)")
-if (STATIC_LIBRARY)
-  set(SHARED_OR_STATIC STATIC)
-else ()
-  set(SHARED_OR_STATIC SHARED)
-endif ()
-
 # temporary: once build+support issues fixed, remove and add HOT_PATCHING_INTERFACE
 # to VMAP by default
 option(PROBE "enable not-yet-supported Probe API")

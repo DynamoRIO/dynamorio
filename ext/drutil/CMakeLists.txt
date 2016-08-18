@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drutil: DynamoRIO Function Wrapping and Replacing Extension
@@ -42,7 +42,7 @@ if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 endif ()
 
-add_library(drutil ${libtype} ${srcs})
+add_library(drutil SHARED ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x75000000)
@@ -54,10 +54,8 @@ use_DynamoRIO_extension(drutil drmgr)
 # use this same extension.
 # We do provide the static library for those who are ok w/ the license and who
 # are building an end tool.
-if (NOT STATIC_LIBRARY)
-  add_library(drutil_static STATIC ${srcs_static})
-  configure_extension(drutil_static ON)
-  use_DynamoRIO_extension(drutil_static drmgr_static)
-endif ()
+add_library(drutil_static STATIC ${srcs_static})
+configure_extension(drutil_static ON)
+use_DynamoRIO_extension(drutil_static drmgr_static)
 
 install_ext_header(drutil.h)

@@ -579,11 +579,12 @@ function(add_exe test source)
     SKIP_BUILD_RPATH ON)
   if (UNIX)
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
-    if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static")
+    if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
+        AND NOT ${test} MATCHES "drdecode")
       target_link_libraries(${test} ${libmath} ${libdl})
     endif ()
     if (NOT ANDROID) # pthreads is inside Bionic on Android
-      if ("${test}" MATCHES "^pthread|startstop_FLAKY")
+      if ("${test}" MATCHES "^pthread|api.startstop_FLAKY")
         target_link_libraries(${test} ${libpthread})
       endif ()
     endif ()
@@ -596,12 +597,6 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY" AND
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${test} ${gen_asm_tgt})
-  endif ()
-
-  if (STATIC_LIBRARY AND NOT "${test}" MATCHES "api")
-    # Link DR into every test exe except the api tests, which already link
-    # against DR or the standalone decoder.
-    force_static_link(${test} dynamorio)
   endif ()
 endfunction(add_exe)
 
@@ -645,12 +640,7 @@ function(tobuild_dll test source dr_ops)
 endfunction(tobuild_dll)
 
 function(get_client_path client_path_out realclient realexe)
-  if (STATIC_LIBRARY)
-    set(tgt ${realexe})
-  else()
-    set(tgt ${realclient})
-  endif ()
-  get_target_path_for_execution(client_path ${tgt})
+  get_target_path_for_execution(client_path ${realclient})
   set(${client_path_out} "${client_path}" PARENT_SCOPE)
 endfunction(get_client_path)
 
@@ -687,17 +677,11 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
         set_target_properties(${test} PROPERTIES COMPILE_FLAGS "${tst_flags}")
       endif ()
     else ()
-      if (STATIC_LIBRARY)
-        add_exe(${test} ${ci_shared_app_src})
-      else ()
-        set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
-      endif ()
+      set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
     endif ()
-  elseif (STATIC_LIBRARY)
-    return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
   endif ()
 
-  add_library(${test}.dll ${SHARED_OR_STATIC} ${client_source})
+  add_library(${test}.dll SHARED ${client_source})
   if (NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
@@ -707,13 +691,6 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   add_dependencies(${test}.dll api_headers)
   copy_target_to_device(${test}.dll)
   get_client_path(client_path ${test}.dll ${test})
-  if (STATIC_LIBRARY)
-    # For STATIC_LIBRARY, we support a single client by linking the client into
-    # the exe.
-    force_static_link(${test} ${test}.dll)
-    # Let clients know if they're being built statically.
-    append_property_string(TARGET ${test}.dll COMPILE_FLAGS "-DSTATIC_LIBRARY")
-  endif ()
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
@@ -723,7 +700,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(tobuild_ci)
 
-function(configure_app_api_build_flags test decoder)
+function(configure_app_api_build_flags test decoder use_static_DR)
   # save property since configure_DynamoRIO_standalone will clobber it
   get_target_property(pre_lflags ${test} LINK_FLAGS)
   # disable the default rpath for standalone apps
@@ -733,6 +710,9 @@ function(configure_app_api_build_flags test decoder)
   if (decoder)
     configure_DynamoRIO_decoder(${test})
     set(extra_flags "-DSTANDALONE_DECODER")
+  elseif (use_static_DR)
+    configure_DynamoRIO_static(${test})
+    set(extra_flags "-DSTATIC_LIBRARY")
   else ()
     configure_DynamoRIO_standalone(${test})
     set(extra_flags "-DSTANDALONE")
@@ -803,7 +783,7 @@ function(tobuild_appdll test source)
     if ("${test}" MATCHES "nativeexec")
       # Link DynamoRIO for building nativeexec.appdll for using
       # dr_running_under_dynamorio and dr_native_handle_mbr_target.
-      configure_app_api_build_flags(${test}.appdll OFF)
+      configure_app_api_build_flags(${test}.appdll OFF OFF)
       add_dependencies(${test}.appdll api_headers)
     endif()
   copy_target_to_device(${test}.appdll)
@@ -857,11 +837,11 @@ function(torunonly_api test realexe source dr_ops exe_ops use_decoder)
 endfunction(torunonly_api)
 
 # client interface standalone app
-function(add_api_exe test source use_decoder)
+function(add_api_exe test source use_decoder use_static_DR)
   add_exe(${test} ${source})
-  configure_app_api_build_flags(${test} ${use_decoder})
+  configure_app_api_build_flags(${test} ${use_decoder} ${use_static_DR})
   add_dependencies(${test} api_headers)
-  if (WIN32 AND NOT use_decoder)
+  if (WIN32 AND NOT use_decoder AND NOT use_static_DR)
     # Since we can't set the working dir w/o making an external script,
     # we copy dynamorio.dll into the default dir.  If we just do a POST_BUILD
     # custom command we have races (i#810) so we use a globally unique
@@ -886,12 +866,12 @@ function(add_api_exe test source use_decoder)
       set(created_drcopy_target ON PARENT_SCOPE)
     endif ()
     add_dependencies(${test} drcopy)
-  endif (WIN32 AND NOT use_decoder)
+  endif ()
 endfunction(add_api_exe)
 
 # macro so the PARENT_SCOPE in torunonly_api will reach caller of this
-macro(tobuild_api test source dr_ops exe_ops use_decoder)
-  add_api_exe(${test} ${source} ${use_decoder})
+macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR)
+  add_api_exe(${test} ${source} ${use_decoder} ${use_static_DR})
   torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
 endmacro(tobuild_api)
 
@@ -1225,10 +1205,6 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
-  if (STATIC_LIBRARY AND NOT "${dr_ops}" MATCHES "-no_early_inject")
-    set(${added_out} OFF PARENT_SCOPE)
-    return()
-  endif ()
 
   if (DEFINED ${key}_realtest)
     set(exe ${${key}_realtest})
@@ -1476,9 +1452,6 @@ endmacro()
 
 function(torun_normal name test ops)
   strings2lists(${test} ops)
-  if (STATIC_LIBRARY AND NOT "${ops}" MATCHES "-no_early_inject")
-    return()
-  endif ()
   torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops};${ops}"
     "${${test}_exe_ops}" added)
   if (DEFINED ${test}_depends)
@@ -1504,9 +1477,6 @@ function(torun_ci name test ops)
       set(cli_ops "use_unlink")
     endif ()
   endif ("${test}" MATCHES "client\\.flush")
-  if (STATIC_LIBRARY AND NOT "${${test}_dr_ops};${ops}" MATCHES "-no_early_inject")
-    return()
-  endif ()
   # note that we cannot use double quotes as they'll be stripped out
   if (DEFINED ${test}_toolname)
     # end-user tool
@@ -1710,8 +1680,6 @@ if (CLIENT_INTERFACE)
       get_target_property(modules_libname client.modules.appdll
         LOCATION${location_suffix})
       tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
-      # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
-      append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
     endif ()
   endif (X86)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
@@ -2160,7 +2128,7 @@ if (CLIENT_INTERFACE)
   endif ()
   if (NOT ANDROID)
     # XXX i#1874: get working on Android
-    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF)
+    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
     # XXX i#1686: add ARM's headers too once they are all created
     if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
       # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
@@ -2181,10 +2149,10 @@ if (CLIENT_INTERFACE)
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
       # Helper exe, used offline to build smaller input binary to test itself:
-      add_api_exe(api.dis-create api/dis-create.c OFF)
+      add_api_exe(api.dis-create api/dis-create.c OFF OFF)
       # XXX i#1686: get -syntax_arm working and test it further here.
       # For now our template is DR syntax.
-      add_api_exe(api.dis api/dis.c OFF)
+      add_api_exe(api.dis api/dis.c OFF OFF)
       torunonly_api(api.disA32 api.dis api/dis.c ""
         "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armA32-randtest.raw;-arm" OFF)
       set(api.disA32_expectbase "dis-armA32")
@@ -2193,12 +2161,12 @@ if (CLIENT_INTERFACE)
       set(api.disT32_expectbase "dis-armT32")
     endif ()
   elseif (AARCH64)
-    add_api_exe(api.dis-a64 api/dis-a64.c OFF)
+    add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
     torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
       "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF)
   elseif (X86)
     tobuild_api(api.dis api/dis.c "-syntax_intel"
-      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF OFF)
     if (X64)
       set(api.dis_expectbase "dis-x64")
     else ()
@@ -2208,21 +2176,21 @@ if (CLIENT_INTERFACE)
 
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     # XXX i#1512: api.startstop is FLAKY
-    tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
+    tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF OFF)
   endif (NOT ARM)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # test static decoder library
-    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON)
+    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
   endif (X86)
 
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
-      tobuild_api(api.static api/static_arm.c "" "" ON)
+      tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
     endif ()
   elseif (AARCH64)
     # FIXME i#1569: get working on AArch64
   else ()
-    tobuild_api(api.static api/static_x86.c "" "" ON)
+    tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
@@ -2233,10 +2201,14 @@ if (CLIENT_INTERFACE)
       DOC "path to MinGW libstdc++-6.dll")
     if (mingwlib)
       message(STATUS "Found ${mingwlib}, enabling api.symtest")
-      tobuild_api(api.symtest api/symtest.c "" "${mingwlib}" OFF)
+      tobuild_api(api.symtest api/symtest.c "" "${mingwlib}" OFF OFF)
       use_DynamoRIO_extension(api.symtest drsyms)
     endif ()
   endif ()
+
+  # Test DR as a static library
+  tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
+  target_link_libraries(api.static_startstop ${libmath})
 
   if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM
     # i#696: Use -thread_private and small fcache units to trigger shifts.  x64
@@ -2646,13 +2618,10 @@ if (UNIX)
   endif ()
 
   # Test fully static executables, which we only support with early injection
-  # or STATIC_LIBRARY.
+  # or static DR.
   # XXX i#1874: get working on Android
   if (NOT APPLE AND NOT ANDROID) # XXX i#1285: implement private loader on MacOS
     set(fib_static_ops "-early_inject")
-    if (STATIC_LIBRARY)
-      set(fib_static_ops "")
-    endif ()
     tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
     append_property_string(TARGET linux.fib-static LINK_FLAGS
       # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,

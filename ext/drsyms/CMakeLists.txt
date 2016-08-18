@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -115,9 +115,7 @@ if (WIN32)
 
   # i#1491#2: VS generators fail if static lib has resources
   set(srcs_static ${srcs})
-  if (NOT STATIC_LIBRARY)
-    set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
-  endif ()
+  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 
   set(dwarf_dir "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-pecoff/lib${BITS}")
   set(dwarf_libpath "${dwarf_dir}/dwarf.lib")
@@ -152,7 +150,7 @@ elseif (UNIX)
   set(srcs_static ${srcs})
 endif (WIN32)
 
-add_library(drsyms ${libtype} ${srcs})
+add_library(drsyms SHARED ${srcs})
 configure_extension(drsyms OFF)
 
 macro(configure_drsyms_target target)
@@ -171,40 +169,30 @@ use_DynamoRIO_extension(drsyms drcontainers)
 
 include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
 
-if (NOT STATIC_LIBRARY)
-  # We require DynamoRIO_USE_LIBC, as there's no simple automated
-  # solution to get clients using a static drsyms to omit /noentry and
-  # link with libcmt.lib prior to linking w/ DR, unless we change
-  # configure_DynamoRIO_client() to take in a list of all extensions
-  # that will be used -- but we now have DynamoRIO_USE_LIBC ON by
-  # default.
+# We require DynamoRIO_USE_LIBC, as there's no simple automated
+# solution to get clients using a static drsyms to omit /noentry and
+# link with libcmt.lib prior to linking w/ DR, unless we change
+# configure_DynamoRIO_client() to take in a list of all extensions
+# that will be used -- but we now have DynamoRIO_USE_LIBC ON by
+# default.
 
-  # Listing the dependent libs as sources does get them combined into
-  # drsyms static lib for pre-VS2010, but VS2010 won't do that, so we go
-  # with exported separate libs to match Linux (alternative would be a custom
-  # command to combine via lib.exe).
-  add_library(drsyms_static STATIC ${srcs_static})
-  configure_extension(drsyms_static ON)
-  configure_drsyms_target(drsyms_static)
-  use_DynamoRIO_extension(drsyms_static drcontainers)
+# Listing the dependent libs as sources does get them combined into
+# drsyms static lib for pre-VS2010, but VS2010 won't do that, so we go
+# with exported separate libs to match Linux (alternative would be a custom
+# command to combine via lib.exe).
+add_library(drsyms_static STATIC ${srcs_static})
+configure_extension(drsyms_static ON)
+configure_drsyms_target(drsyms_static)
+use_DynamoRIO_extension(drsyms_static drcontainers)
+
+target_link_libraries(drsyms "${dwarf_libpath}" "${elftc_libpath}")
+if (LINUX)
+  target_link_libraries(drsyms "${elf_libpath}")
 endif ()
-
-if (STATIC_LIBRARY)
-  set(static_tgt drsyms)
-else ()
-  set(static_tgt drsyms_static)
-endif ()
-
-if (NOT STATIC_LIBRARY)
-  target_link_libraries(drsyms "${dwarf_libpath}" "${elftc_libpath}")
-  if (LINUX)
-    target_link_libraries(drsyms "${elf_libpath}")
-  endif ()
-  # i#693: CMake will try to export the path to the static libs we use via
-  # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
-  # user's machine.  Clearing this property prevents that.
-  set_target_properties(drsyms PROPERTIES LINK_INTERFACE_LIBRARIES "")
-endif (NOT STATIC_LIBRARY)
+# i#693: CMake will try to export the path to the static libs we use via
+# IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
+# user's machine.  Clearing this property prevents that.
+set_target_properties(drsyms PROPERTIES LINK_INTERFACE_LIBRARIES "")
 
 # If drsyms is built static we need to include these with an exports path
 # in DynamoRIOTarget*.cmake and not with the source path here:
@@ -212,26 +200,24 @@ add_library(dwarf STATIC IMPORTED)
 set_property(TARGET dwarf PROPERTY IMPORTED_LOCATION "${dwarf_libpath}")
 add_library(elftc STATIC IMPORTED)
 set_property(TARGET elftc PROPERTY IMPORTED_LOCATION "${elftc_libpath}")
-target_link_libraries(${static_tgt} dwarf elftc)
+target_link_libraries(drsyms_static dwarf elftc)
 if (LINUX)
   add_library(elf STATIC IMPORTED)
   set_property(TARGET elf PROPERTY IMPORTED_LOCATION "${elf_libpath}")
-  target_link_libraries(${static_tgt} elf)
+  target_link_libraries(drsyms_static elf)
 endif (LINUX)
 if (UNIX)
   # Avoid missing symbols in static library build from g++ libs when
   # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake
   # < 2.8.0 where demangle.cc is not propagated through libdrsyms.a)
-  append_property_string(TARGET ${static_tgt} COMPILE_FLAGS "-fno-exceptions")
-  if (NOT STATIC_LIBRARY)
-    # On ARM cross-compilation I'm seeing the same __gxx_personality_v0 and
-    # __cxa_end_cleanup errors, so we pass this for the .so as well:
-    append_property_string(TARGET drsyms COMPILE_FLAGS "-fno-exceptions")
-  endif ()
+  append_property_string(TARGET drsyms_static COMPILE_FLAGS "-fno-exceptions")
+  # On ARM cross-compilation I'm seeing the same __gxx_personality_v0 and
+  # __cxa_end_cleanup errors, so we pass this for the .so as well:
+  append_property_string(TARGET drsyms COMPILE_FLAGS "-fno-exceptions")
 endif (UNIX)
 
 if (WIN32)
-  append_property_string(TARGET ${static_tgt} COMPILE_FLAGS "/DSTATIC_LIB")
+  append_property_string(TARGET drsyms_static COMPILE_FLAGS "/DSTATIC_LIB")
 endif (WIN32)
 DR_install(FILES "${dwarf_libpath}" "${elf_libpath}" "${elftc_libpath}"
   DESTINATION ${INSTALL_EXT_LIB})

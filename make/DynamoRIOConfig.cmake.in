@@ -81,6 +81,16 @@
 #
 ###########
 #
+# Static DynamoRIO usage:
+#
+# If you are statically linking DynamoRIO and your client into your application,
+# use the configure_DynamoRIO_static() function:
+#
+#  add_executable(myapp myapp.c)
+#  configure_DynamoRIO_static(myapp)
+#
+###########
+#
 # Global changes:
 #
 # Due to CMake limitations, this file must set some global values:
@@ -957,6 +967,28 @@ function (configure_DynamoRIO_decoder target)
   target_link_libraries(${target} drdecode)
 
 endfunction (configure_DynamoRIO_decoder)
+
+
+function (configure_DynamoRIO_static target)
+  _DR_get_lang(${target} tgt_lang)
+  if (${tgt_lang} MATCHES CXX)
+    set(tgt_cxx ON)
+  else (${tgt_lang} MATCHES CXX)
+    set(tgt_cxx OFF)
+  endif (${tgt_lang} MATCHES CXX)
+
+  configure_DynamoRIO_global(${tgt_cxx} OFF)
+
+  get_target_property(cur_cflags ${target} COMPILE_FLAGS)
+  if (NOT cur_cflags)
+    set(cur_cflags "")
+  endif (NOT cur_cflags)
+  DynamoRIO_extra_cflags(cur_cflags "${cur_cflags}" ${tgt_cxx})
+  set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur_cflags}")
+
+  target_link_libraries(${target} dynamorio_static)
+
+endfunction (configure_DynamoRIO_static)
 
 
 function (get_DynamoRIO_defines outvar is_cxx)

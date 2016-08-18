@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -51,17 +51,15 @@ if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 endif ()
 
-add_library(drreg ${libtype} ${srcs})
+add_library(drreg SHARED ${srcs})
 set(PREFERRED_BASE 0x78000000)
 configure_extension(drreg OFF)
 use_DynamoRIO_extension(drreg drcontainers)
 use_DynamoRIO_extension(drreg drmgr)
 
-if (NOT STATIC_LIBRARY)
-  add_library(drreg_static STATIC ${srcs_static})
-  configure_extension(drreg_static ON)
-  use_DynamoRIO_extension(drreg_static drcontainers)
-  use_DynamoRIO_extension(drreg_static drmgr_static)
-endif ()
+add_library(drreg_static STATIC ${srcs_static})
+configure_extension(drreg_static ON)
+use_DynamoRIO_extension(drreg_static drcontainers)
+use_DynamoRIO_extension(drreg_static drmgr_static)
 
 install_ext_header(drreg.h)

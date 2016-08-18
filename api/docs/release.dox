@@ -134,7 +134,10 @@ provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
 The changes between version \DR_VERSION and 6.2.0 include:
- - Nothing yet: TBD.
+
+- Added a static library form of DynamoRIO for use either with
+   auto-takeover or the start/stop API.  The configure_DynamoRIO_static()
+   CMake utility facilitates this.
 
 **************************************************
 <hr>

@@ -76,13 +76,7 @@ typedef enum _action_t {
 
 static bool verbose;
 static bool quiet;
-static bool DR_dll_not_needed =
-#ifdef STATIC_LIBRARY
-    true
-#else
-    false
-#endif
-    ;
+static bool DR_dll_not_needed = false;
 static bool nocheck;
 
 #define die() exit(1)
@@ -280,6 +274,9 @@ const char *options_list_str =
     "       -mem               Print memory usage statistics.\n"
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
     "       -no_inject         Run the application natively.\n"
+    "       -static            Do not inject under the assumption that the application\n"
+    "                          is statically linked with DynamoRIO.  Instead, trigger\n"
+    "                          automated takeover.\n"
 # ifdef UNIX  /* FIXME i#725: Windows attach NYI */
 #  ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
@@ -1184,7 +1181,8 @@ _tmain(int argc, TCHAR *targv[])
         }
         else if (strcmp(argv[i], "-no_inject") == 0 ||
                  /* support old drinjectx param name */
-                 strcmp(argv[i], "-noinject") == 0) {
+                 strcmp(argv[i], "-noinject") == 0 ||
+                 strcmp(argv[i], "-static") == 0) {
             DR_dll_not_needed = true;
             inject = false;
             continue;

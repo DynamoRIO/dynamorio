@@ -623,6 +623,12 @@ typedef struct _instr_t instr_t;
 # define IF_KSTATS(x)
 #endif
 
+#ifdef STATIC_LIBRARY
+# define IF_STATIC_LIBRARY_ELSE(x,y) x
+#else
+# define IF_STATIC_LIBRARY_ELSE(x,y) y
+#endif
+
 #ifdef STANDALONE_UNIT_TEST
 # define IF_UNIT_TEST_ELSE(x,y) x
 #else

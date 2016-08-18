@@ -102,12 +102,6 @@ if (NOT DEFINED GENERATE_PDBS)
   set(GENERATE_PDBS ON)
 endif (NOT DEFINED GENERATE_PDBS)
 
-if (STATIC_LIBRARY)
-  set(libtype STATIC)
-else()
-  set(libtype SHARED)
-endif ()
-
 # i#379: We usually want to build the samples with optimizations to improve the
 # chances of inlining, but it's nice to be able to turn that off easily.  A
 # release build should already have optimizations, so this should only really
@@ -156,7 +150,7 @@ if (OPTIMIZE_SAMPLES)
 endif ()
 
 function (add_sample_client name source_file_list extension_list)
-  add_library(${name} ${libtype} ${source_file_list})
+  add_library(${name} SHARED ${source_file_list})
   configure_DynamoRIO_client(${name})
   foreach (ext ${extension_list})
     use_DynamoRIO_extension(${name} ${ext})

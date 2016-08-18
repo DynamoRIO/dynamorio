@@ -349,9 +349,10 @@ fork_suspended_child(const char *exe, dr_inject_info_t *info, int fds[2])
             pre_execve_early(info, exe);
             real_exe = arg;
         }
-#ifdef STATIC_LIBRARY
+        /* Trigger automated takeover in case DR is statically linked (yes
+         * we blindly do this rather than try to pass in a parameter).
+         */
         setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
-#endif
         execute_exec(info, real_exe);
         /* If execv returns, there was an error. */
         exit(-1);

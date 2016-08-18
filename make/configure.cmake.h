@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,7 +41,6 @@
 #cmakedefine INTERNAL
 #cmakedefine DEBUG
 #cmakedefine DRSTATS_DEMO
-#cmakedefine STATIC_LIBRARY
 
 /* target */
 #cmakedefine X86

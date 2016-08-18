@@ -59,12 +59,6 @@ disable_compiler_warnings()
 # Extensions don't include configure.h so they don't get DR defines
 add_dr_defines()
 
-if (STATIC_LIBRARY)
-  set(libtype STATIC)
-else()
-  set(libtype SHARED)
-endif ()
-
 # This lets us share common code among all extensions.  We use a macro to
 # avoid scope issues and avoid having to call configure_DynamoRIO_global().
 macro(configure_extension target is_static)
