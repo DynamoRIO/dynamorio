@@ -681,8 +681,9 @@ fault_event_helper(void *drcontext, byte *target,
     for (i = 0; i < clients.entries; ++i) {
         buf = drvector_get_entry(&clients, i);
         if (buf != NULL && buf->buf_type != DRX_BUF_CIRCULAR_FAST) {
+            byte *ro_lo;
             data = drmgr_get_tls_field(drcontext, buf->tls_idx);
-            byte *ro_lo = data->cli_base + buf->buf_size;
+            ro_lo = data->cli_base + buf->buf_size;
 
             /* we found the right client */
             if (target >= ro_lo && target < ro_lo + PAGE_SIZE) {
