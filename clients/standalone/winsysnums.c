@@ -88,6 +88,7 @@ static bool list_forwards = false;
 static bool list_Ki = false;
 static bool list_syscalls = false;
 static bool list_usercalls = false; /* NtUserCall* */
+static bool usercall_imports = false;
 static bool ignore_Zw = false;
 
 static const char * const usercall_names[] = {
@@ -100,6 +101,26 @@ static const char * const usercall_names[] = {
     "NtUserCallHwndParamLock",
     "NtUserCallTwoParam",
 };
+/* To handle win10-1607 we have to look for imports from win32u.dll.
+ * But, for 32-bit, NoParam instead calls to a local routine that invokes yet
+ * another routine that finally does the import.
+ */
+static const char * const usercall_imp_names[] = {
+    "_imp__NtUserCallNoParam", /* For 32-bit we use ALT_NOPARAM */
+    /* XXX: x64 win10-1607 is failing to find _imp__NtUserCallOneParam.
+     * I bailed on further investigation as we assume the numbers are
+     * the same across bitwidths.
+     */
+    "_imp__NtUserCallOneParam",
+    "_imp__NtUserCallHwnd",
+    "_imp__NtUserCallHwndOpt",
+    "_imp__NtUserCallHwndParam",
+    "_imp__NtUserCallHwndLock",
+    "_imp__NtUserCallHwndParamLock",
+    "_imp__NtUserCallTwoParam", /* For 32-bit we use ALT_TWOPARAM */
+};
+#define ALT_NOPARAM "Local_NtUserCallNoParam"
+#define ALT_TWOPARAM "Local_NtUserCallTwoParam"
 #define NUM_USERCALL (sizeof(usercall_names)/sizeof(usercall_names[0]))
 static byte *usercall_addr[NUM_USERCALL];
 
@@ -531,10 +552,14 @@ look_for_usercall(void *dcontext, byte *entry, const char *sym, LOADED_IMAGE *im
         }
         if (pc == NULL || !instr_valid(instr))
             break;
-        if (instr_get_opcode(instr) == OP_push_imm) {
+        /* If there are multiple push-immeds we want the outer one
+         * as the code is the last param.
+         */
+        if (!found_push_imm && instr_get_opcode(instr) == OP_push_imm) {
             found_push_imm = true;
             imm = (int) opnd_get_immed_int(instr_get_src(instr, 0));
         } else if (instr_is_call_direct(instr) && found_push_imm) {
+            /* We don't rule out usercall_imports due to Local_NtUserCallNoParam */
             app_pc tgt = opnd_get_pc(instr_get_target(instr));
             bool found = false;
             int i;
@@ -548,8 +573,27 @@ look_for_usercall(void *dcontext, byte *entry, const char *sym, LOADED_IMAGE *im
             }
             if (found)
                 break;
+            found_push_imm = false;
+        } else if (usercall_imports && instr_is_call_indirect(instr) && found_push_imm &&
+                   opnd_is_abs_addr(instr_get_target(instr))) {
+            app_pc tgt = opnd_get_addr(instr_get_target(instr));
+            bool found = false;
+            int i;
+            for (i = 0; i < NUM_USERCALL; i++) {
+                if (tgt == usercall_addr[i]) {
+                    dr_printf("Call #0x%02x to %s at %s+0x%x\n", imm, usercall_names[i],
+                              sym, pre_pc - entry);
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+                break;
+            found_push_imm = false;
         } else if (instr_is_return(instr))
             break;
+        else if (instr_is_call(instr))
+            found_push_imm = false;
         if (pc - entry > MAX_BYTES_BEFORE_USERCALL)
             break;
     }
@@ -627,17 +671,41 @@ process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
 
     if (list_usercalls) {
         int i;
+        byte *preferred = get_preferred_base(img);
         for (i = 0; i < NUM_USERCALL; i++) {
             size_t offs;
-            symres = drsym_lookup_symbol(fullpath, usercall_names[i], &offs, 0);
+            /* We have to look for the __imp first, b/c win10-1607 does have
+             * a NoParam wrapper.
+             */
+            const char *imp_name = usercall_imp_names[i];
+            if (i == 0 && !expect_x64)
+                imp_name = ALT_NOPARAM;
+            else if (i == NUM_USERCALL-1 && !expect_x64)
+                imp_name = ALT_TWOPARAM;
+            symres = drsym_lookup_symbol(fullpath, imp_name, &offs, 0);
             if (symres == DRSYM_SUCCESS) {
-                usercall_addr[i] = ImageRvaToVa(img->FileHeader, img->MappedAddress,
-                                                (ULONG)offs, NULL);
-                verbose_print("%s = %d +0x%x == "PFX"\n", usercall_names[i], symres,
-                              offs, usercall_addr[i]);
+                usercall_imports = true;
+                if (strstr(imp_name, "_imp__") == imp_name) {
+                    /* Not relocated, so use preferred */
+                    usercall_addr[i] = preferred + (ULONG)offs;
+                } else {
+                    usercall_addr[i] = ImageRvaToVa(img->FileHeader, img->MappedAddress,
+                                                    (ULONG)offs, NULL);
+                }
+                verbose_print("%s = %d +0x%x == "PFX"\n", imp_name,
+                              symres, offs, usercall_addr[i]);
             } else {
-                dr_printf("Error locating usercall %s: aborting\n", usercall_names[i]);
-                return;
+                symres = drsym_lookup_symbol(fullpath, usercall_names[i], &offs, 0);
+                if (symres == DRSYM_SUCCESS) {
+                    usercall_addr[i] = ImageRvaToVa(img->FileHeader, img->MappedAddress,
+                                                    (ULONG)offs, NULL);
+                    verbose_print("%s = %d +0x%x == "PFX"\n", usercall_names[i], symres,
+                                  offs, usercall_addr[i]);
+                } else {
+                    dr_printf("Error locating usercall %s: aborting\n",
+                              usercall_names[i]);
+                    return;
+                }
             }
         }
     }
