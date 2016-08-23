@@ -135,6 +135,8 @@ clients.
 
 The changes between version \DR_VERSION and 6.1.0 include:
 
+ - Added support for Windows 10 1607.  We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1607 to distinguish this major update.
  - Split the memory trace sample memtrace_x86 into memtrace_x86_text and
    memtrace_x86_binary to highlight the huge performance difference.
  - Added instruction trace samples instrace_simple, instrace_x86_text, and

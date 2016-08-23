@@ -577,7 +577,23 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
          * handling code below to use the most recent enum and arrays.
          */
         if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
-            if (get_proc_address(get_ntdll_base(), "NtCreateEnclave") != NULL) {
+            /* Win10 does not provide a version number so we use the presence
+             * of newly added syscall to distinguish major updates.
+             */
+            if (get_proc_address(get_ntdll_base(), "NtCreateRegistryTransaction")
+                != NULL) {
+                if (module_is_64bit(get_ntdll_base())) {
+                    syscalls = (int *) windows_10_1607_x64_syscalls;
+                    os_name = "Microsoft Windows 10-1607 x64";
+                } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_10_1607_wow64_syscalls;
+                    os_name = "Microsoft Windows 10-1607 x64";
+                } else {
+                    syscalls = (int *) windows_10_1607_x86_syscalls;
+                    os_name = "Microsoft Windows 10-1607";
+                }
+                os_version = WINDOWS_VERSION_10_1607;
+            } else if (get_proc_address(get_ntdll_base(), "NtCreateEnclave") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *) windows_10_1511_x64_syscalls;
                     os_name = "Microsoft Windows 10-1511 x64";
@@ -776,13 +792,17 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
              * the wrappers (best-effort, modulo hooks).
              */
             syscalls = windows_unknown_syscalls;
-            if (module_is_64bit(get_ntdll_base()))
-                memcpy(syscalls, windows_10_x64_syscalls, SYS_MAX*sizeof(syscalls[0]));
-            else if (is_wow64_process(NT_CURRENT_PROCESS))
-                memcpy(syscalls, windows_10_wow64_syscalls, SYS_MAX*sizeof(syscalls[0]));
-            else
-                memcpy(syscalls, windows_10_x86_syscalls, SYS_MAX*sizeof(syscalls[0]));
-            os_version = WINDOWS_VERSION_10; /* just use latest */
+            if (module_is_64bit(get_ntdll_base())) {
+                memcpy(syscalls, windows_10_1607_x64_syscalls,
+                       SYS_MAX*sizeof(syscalls[0]));
+            } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                memcpy(syscalls, windows_10_1607_wow64_syscalls,
+                       SYS_MAX*sizeof(syscalls[0]));
+            } else {
+                memcpy(syscalls, windows_10_1607_x86_syscalls,
+                       SYS_MAX*sizeof(syscalls[0]));
+            }
+            os_version = WINDOWS_VERSION_10_1607; /* just use latest */
         }
     } else if (peb->OSPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
         /* Win95 or Win98 */

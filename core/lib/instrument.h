@@ -1764,6 +1764,8 @@ dr_get_parent_id(void);
 /** Windows versions */
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx */
 typedef enum {
+    /** Windows 10 1607 major update. */
+    DR_WINDOWS_VERSION_10_1607 = 102,
     /**
      * Windows 10 TH2 1511.  For future Windows updates that change system call
      * numbers, we'll perform our own artificial minor version number update as

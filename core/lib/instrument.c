@@ -2594,6 +2594,7 @@ dr_get_os_version(dr_os_version_info_t *info)
     get_os_version_ex(&ver, &sp_major, &sp_minor);
     if (info->size > offsetof(dr_os_version_info_t, version)) {
         switch (ver) {
+        case WINDOWS_VERSION_10_1607: info->version = DR_WINDOWS_VERSION_10_1607; break;
         case WINDOWS_VERSION_10_1511: info->version = DR_WINDOWS_VERSION_10_1511; break;
         case WINDOWS_VERSION_10:    info->version = DR_WINDOWS_VERSION_10;    break;
         case WINDOWS_VERSION_8_1:   info->version = DR_WINDOWS_VERSION_8_1;   break;

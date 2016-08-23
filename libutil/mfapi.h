@@ -571,6 +571,7 @@ get_formatted_message(EVENTLOGRECORD *pevlr, WCHAR *buf, DWORD maxchars);
 #define PLATFORM_WIN_8_1       170
 #define PLATFORM_WIN_10        180
 #define PLATFORM_WIN_10_1511   190
+#define PLATFORM_WIN_10_1607   200
 
 DWORD
 get_platform(DWORD *platform);
