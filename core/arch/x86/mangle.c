@@ -2755,6 +2755,15 @@ mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr)
             ASSERT(instr_operands_valid(instr)); /* ensure will encode w/o raw bits */
             instr_set_prefixes(instr, prefixes);
         }
+    } else if (instr_get_opcode(instr) == OP_jmp &&
+               instr_length(dcontext, instr) != JMP_LONG_LENGTH) {
+        /* i#1988: remove MPX prefixes as they mess up our nop padding.
+         * i#1312 covers marking as actual prefixes, and we should keep them.
+         */
+        LOG(THREAD, LOG_INTERP, 4,
+            "\tremoving unknown jmp prefixes from "PFX"\n",
+            instr_get_raw_bits(instr));
+        instr_set_raw_bits_valid(instr, false);
     }
 }
 
