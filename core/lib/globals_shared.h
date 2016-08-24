@@ -906,7 +906,7 @@ typedef int stats_int_t;
  * there and then disallow %x, to try and avoid 64-bit printing bugs,
  * but it wouldn't be a panacea.
  */
-#define L_UINT64_FORMAT_STRING L"%"L_EXPAND_LEVEL(UINT64_FORMAT_CODE)
+#define L_UINT64_FORMAT_STRING L"%" L_EXPAND_LEVEL(UINT64_FORMAT_CODE)
 #ifdef X64
 #  define PFMT ZHEX64_FORMAT_STRING
 #  define PIFMT HEX64_FORMAT_STRING
@@ -922,9 +922,9 @@ typedef int stats_int_t;
 #  define SZFC "u"
 #  define SSZFC "d"
 #endif
-#define L_PFMT L"%016"L_EXPAND_LEVEL(INT64_FORMAT)L"x"
-#define PFX "0x"PFMT
-#define PIFX "0x"PIFMT
+#define L_PFMT L"%016" L_EXPAND_LEVEL(INT64_FORMAT)L"x"
+#define PFX "0x" PFMT
+#define PIFX "0x" PIFMT
 
 /* DR_API EXPORT BEGIN */
 /* printf codes for {thread,process}_id_t */
@@ -1026,14 +1026,14 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #define BUG_REPORT_URL "http://dynamorio.org/issues/"
 
 #ifdef BUILD_NUMBER
-#  define BUILD_NUMBER_STRING "build "STRINGIFY(BUILD_NUMBER)
+#  define BUILD_NUMBER_STRING "build " STRINGIFY(BUILD_NUMBER)
 #else
 #  define BUILD_NUMBER_STRING "custom build"
 #  define BUILD_NUMBER (0)
 #endif
 
 #ifdef VERSION_NUMBER
-#  define VERSION_NUMBER_STRING "version "STRINGIFY(VERSION_NUMBER)
+#  define VERSION_NUMBER_STRING "version " STRINGIFY(VERSION_NUMBER)
 #else
 #  define VERSION_NUMBER_STRING "internal version"
 #  define VERSION_NUMBER (0.0)
@@ -1176,7 +1176,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
 #  define EVENTLOG_REGISTRY_SUBKEY "System\\CurrentControlSet\\Services\\EventLog"
 #  define L_EVENTLOG_REGISTRY_SUBKEY L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
-#  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\"L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
+#  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\" L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
 #  define L_EVENT_LOG_KEY LCONCAT(L_EVENTLOG_REGISTRY_KEY,EVENTLOG_NAME)
 #  define L_EVENT_LOG_SUBKEY LCONCAT(L_EVENTLOG_REGISTRY_SUBKEY,EVENTLOG_NAME)
 #  define L_EVENT_LOG_NAME L_EXPAND_LEVEL(EVENTLOG_NAME)
@@ -1193,9 +1193,9 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
  * installer doesn't work yet xref case 8482).*/
 #  define L_EVENT_FILE_VALUE_NAME L"File"
 #  define L_EVENT_FILE_NAME_PRE_VISTA \
-       L"%SystemRoot%\\system32\\config\\"L_EXPAND_LEVEL(EVENTLOG_NAME)L".evt"
+       L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME)L".evt"
 #  define L_EVENT_FILE_NAME_VISTA \
-       L"%SystemRoot%\\system32\\winevt\\logs\\"L_EXPAND_LEVEL(EVENTLOG_NAME)L".elf"
+       L"%SystemRoot%\\system32\\winevt\\logs\\" L_EXPAND_LEVEL(EVENTLOG_NAME)L".elf"
 #  define L_EVENT_MAX_SIZE_NAME L"MaxSize"
 #  define EVENT_MAX_SIZE 0x500000
 #  define L_EVENT_RETENTION_NAME L"Retention"
@@ -1216,11 +1216,11 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define DYNAMORIO_SHARED_OBJECT_DIRECTORY LCONCAT(DYNAMORIO_SHARED_OBJECT_BASE, "SharedCache")
 
 /* registry */
-#  define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\"COMPANY_NAME"\\"PRODUCT_NAME
-#  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\"L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
+#  define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\" COMPANY_NAME "\\" PRODUCT_NAME
+#  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
 #  define DYNAMORIO_REGISTRY_HIVE HKEY_LOCAL_MACHINE
 #  define DYNAMORIO_REGISTRY_KEY    DYNAMORIO_REGISTRY_BASE_SUBKEY
-#  define L_DYNAMORIO_REGISTRY_KEY L"Software\\"L_EXPAND_LEVEL(COMPANY_NAME)L"\\"L_EXPAND_LEVEL(PRODUCT_NAME)
+#  define L_DYNAMORIO_REGISTRY_KEY L"Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L"\\" L_EXPAND_LEVEL(PRODUCT_NAME)
 
 #  define INJECT_ALL_HIVE    HKEY_LOCAL_MACHINE
 #  define INJECT_ALL_KEY     "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
@@ -1261,17 +1261,17 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
 /* for processview, etc */
 #  define DYNAMORIO_LIBRARY_NAME "dynamorio.dll"
-#  define DLLPATH_RELEASE    "\\lib\\release\\"DYNAMORIO_LIBRARY_NAME
-#  define DLLPATH_DEBUG      "\\lib\\debug\\"DYNAMORIO_LIBRARY_NAME
-#  define DLLPATH_PROFILE    "\\lib\\profile\\"DYNAMORIO_LIBRARY_NAME
+#  define DLLPATH_RELEASE    "\\lib\\release\\" DYNAMORIO_LIBRARY_NAME
+#  define DLLPATH_DEBUG      "\\lib\\debug\\" DYNAMORIO_LIBRARY_NAME
+#  define DLLPATH_PROFILE    "\\lib\\profile\\" DYNAMORIO_LIBRARY_NAME
 
 #  define L_DYNAMORIO_LIBRARY_NAME L_EXPAND_LEVEL(DYNAMORIO_LIBRARY_NAME)
-#  define L_DLLPATH_RELEASE    L"\\lib\\release\\"L_DYNAMORIO_LIBRARY_NAME
-#  define L_DLLPATH_DEBUG      L"\\lib\\debug\\"L_DYNAMORIO_LIBRARY_NAME
-#  define L_DLLPATH_PROFILE    L"\\lib\\profile\\"L_DYNAMORIO_LIBRARY_NAME
+#  define L_DLLPATH_RELEASE    L"\\lib\\release\\" L_DYNAMORIO_LIBRARY_NAME
+#  define L_DLLPATH_DEBUG      L"\\lib\\debug\\" L_DYNAMORIO_LIBRARY_NAME
+#  define L_DLLPATH_PROFILE    L"\\lib\\profile\\" L_DYNAMORIO_LIBRARY_NAME
 
-#  define INJECT_ALL_DLL_SUBPATH   "\\lib\\"INJECT_DLL_8_3_NAME
-#  define L_INJECT_ALL_DLL_SUBPATH   L"\\lib\\"L_EXPAND_LEVEL(INJECT_DLL_8_3_NAME)
+#  define INJECT_ALL_DLL_SUBPATH   "\\lib\\" INJECT_DLL_8_3_NAME
+#  define L_INJECT_ALL_DLL_SUBPATH   L"\\lib\\" L_EXPAND_LEVEL(INJECT_DLL_8_3_NAME)
 
 enum DLL_TYPE {
         DLL_NONE,
