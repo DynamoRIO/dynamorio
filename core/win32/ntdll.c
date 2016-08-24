@@ -514,6 +514,11 @@ syscalls_init()
      *    77ced5c7 c3              ret
      *    77ced5c8 eacfd5ce773300  jmp     0033:77CED5CF
      *    77ced5cf 41              inc     ecx
+     *   win10-1607 wow64:
+     *    ntdll!Wow64SystemServiceCall:
+     *    77c32330 ff251812cc77    jmp     dword ptr [ntdll!Wow64Transition (77cc1218)]
+     *    0:000> U poi(77cc1218)
+     *    58787000 ea097078583300  jmp     0033:58787009
      *  win10-TH2(1511) x64:
      *    00007ff9`13185630 4c8bd1          mov     r10,rcx
      *    00007ff9`13185633 b843000000      mov     eax,43h
@@ -618,7 +623,6 @@ syscalls_init()
         ASSERT(*(ushort *)(pc + 10) == 0xd2ff);
         ASSERT(is_wow64_process(NT_CURRENT_PROCESS));
         tgt = *(app_pc *)(pc + 6);
-        ASSERT(*(tgt + 0x18) == 0xea);
         dr_which_syscall_t = DR_SYSCALL_WOW64;
         set_syscall_method(SYSCALL_METHOD_WOW64);
         wow64_syscall_call_tgt = tgt;
