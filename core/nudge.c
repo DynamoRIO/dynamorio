@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -87,7 +87,7 @@ generic_nudge_target(nudge_arg_t *arg)
     volatile bool nudge_result;
 
     /* needed to make sure dr has a specific target to lookup and avoid
-     * interpreting when taking over new threads; see must_not_be_inlined().
+     * interpreting when taking over new threads; see leave_call_native().
      */
     nudge_result = generic_nudge_handler(arg);
 
@@ -199,7 +199,7 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     uint nudge_action_mask = 0;
 
 #ifdef WINDOWS
-    /* this routine is run natively via must_not_be_inlined() so there's no
+    /* this routine is run natively via leave_call_native() so there's no
      * cxt switch that swapped for us
      */
     if (dcontext != NULL)

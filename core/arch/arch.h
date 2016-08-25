@@ -639,9 +639,6 @@ enum {
 # define ENTRY_PC_REG        DR_REG_X0
 #endif
 
-/* in interp.c but not exported to non-x86 files */
-bool must_not_be_inlined(app_pc pc);
-
 /* A simple linker to give us indirection for patching after relocating structures */
 typedef struct patch_entry_t {
     union {

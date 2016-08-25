@@ -375,13 +375,25 @@ reached_image_entry_yet()
  * Whether to inline or elide callees
  */
 
-/* return true if pc is a call target that should NOT be inlined */
-#if defined(DEBUG) || !defined(WINDOWS)
-/* cl.exe non-debug won't let other modules use it if inlined */
-inline
+/* Return true if pc is a call target that should NOT be entered but should
+ * still be mangled.
+ */
+static inline bool
+must_not_be_entered(app_pc pc)
+{
+    return false
+#ifdef DR_APP_EXPORTS
+            /* i#1237: DR will change dr_app_running_under_dynamorio return value
+             * on seeing a bb starting at dr_app_running_under_dynamorio.
+             */
+            || pc == (app_pc) dr_app_running_under_dynamorio
 #endif
-bool
-must_not_be_inlined(app_pc pc)
+        ;
+}
+
+/* Return true if pc is a call target that should NOT be inlined and left native. */
+static inline bool
+leave_call_native(app_pc pc)
 {
     return (
 #ifdef INTERNAL
@@ -408,12 +420,6 @@ must_not_be_inlined(app_pc pc)
              * call whereas we'd need native_exec for the others:
              */
             || pc == (app_pc)global_heap_free
-#endif
-#ifdef DR_APP_EXPORTS
-            /* i#1237: DR will change dr_app_running_under_dynamorio return value
-             * on seeing a bb starting at dr_app_running_under_dynamorio.
-             */
-            || pc == (app_pc) dr_app_running_under_dynamorio
 #endif
         );
 }
@@ -496,7 +502,7 @@ must_escape_from(app_pc pc)
  * execution.  Makes sure its target is reachable from the code cache, which
  * is critical for jmps b/c they're native for our hooks of app code which may
  * not be reachable from the code cache.  Also needed for calls b/c in the future
- * (i#774) the DR lib (and thus our must_not_be_inlined() calls) won't be reachable
+ * (i#774) the DR lib (and thus our leave_call_native() calls) won't be reachable
  * from the cache.
  */
 static void
@@ -890,6 +896,7 @@ follow_direct_jump(dcontext_t *dcontext, build_bb_t *bb,
                    app_pc target)
 {
     if (bb->follow_direct &&
+        !must_not_be_entered(target) &&
         bb->num_elide_jmp < DYNAMO_OPTION(max_elide_jmp) &&
         (DYNAMO_OPTION(elide_back_jmps) || bb->cur_pc <= target)) {
         if (check_new_page_jmp(dcontext, bb, target)) {
@@ -974,6 +981,7 @@ bb_process_ubr(dcontext_t *dcontext, build_bb_t *bb)
         return false; /* end bb now */
     } else {
         if (bb->follow_direct &&
+            !must_not_be_entered(tgt) &&
             bb->num_elide_jmp < DYNAMO_OPTION(max_elide_jmp) &&
             (DYNAMO_OPTION(elide_back_jmps) || bb->cur_pc <= tgt)) {
             if (check_new_page_jmp(dcontext, bb, tgt)) {
@@ -1010,6 +1018,7 @@ follow_direct_call(dcontext_t *dcontext, build_bb_t *bb, app_pc callee)
      * and in bb_process_call_direct()
      */
     if (bb->follow_direct &&
+        !must_not_be_entered(callee) &&
         bb->num_elide_call < DYNAMO_OPTION(max_elide_call) &&
         (DYNAMO_OPTION(elide_back_calls) || bb->cur_pc <= callee)) {
         if (check_new_page_jmp(dcontext, bb, callee)) {
@@ -1057,8 +1066,8 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
 # endif
     STATS_INC(num_all_calls);
     BBPRINT(bb, 4, "interp: direct call at "PFX"\n", bb->instr_start);
-    if (must_not_be_inlined(callee)) {
-        BBPRINT(bb, 3, "interp: NOT inlining call to "PFX"\n", callee);
+    if (leave_call_native(callee)) {
+        BBPRINT(bb, 3, "interp: NOT inlining or mangling call to "PFX"\n", callee);
         /* Case 8711: coarse-grain can't handle non-exit cti.
          * If we allow this fragment to be coarse we must kill the freeze
          * nudge thread!
@@ -1082,6 +1091,7 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
         }
         /* FIXME: use follow_direct_call() */
         if (bb->follow_direct &&
+            !must_not_be_entered(callee) &&
             bb->num_elide_call < DYNAMO_OPTION(max_elide_call) &&
             (DYNAMO_OPTION(elide_back_calls) || bb->cur_pc <= callee)) {
             if (check_new_page_jmp(dcontext, bb, callee)) {
@@ -2212,7 +2222,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
         " indirect call from "PFX" to "PFX"\n",
         bb->instr_start, callee);
 
-    if (must_not_be_inlined(callee)) {
+    if (leave_call_native(callee) || must_not_be_entered(callee)) {
         BBPRINT(bb, 3, "   NOT inlining indirect call to "PFX"\n", callee);
         /* Case 8711: coarse-grain can't handle non-exit cti */
         bb->flags &= ~FRAG_COARSE_GRAIN;
@@ -2223,6 +2233,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
     }
 
     if (bb->follow_direct &&
+        !must_not_be_entered(callee) &&
         bb->num_elide_call < DYNAMO_OPTION(max_elide_call) &&
         (DYNAMO_OPTION(elide_back_calls) || bb->cur_pc <= callee)) {
         /* FIXME This is identical to the code for evaluating a
@@ -2568,10 +2579,10 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
      * bb_process_call_direct(dcontext, bb)
      */
 
-    if (must_not_be_inlined(target)) {
+    if (leave_call_native(target) || must_not_be_entered(target)) {
         ASSERT_NOT_TESTED();
         BBPRINT(bb, 3,
-                "   NOT inlining indirect call to must_not_be_inlined "PFX"\n", target);
+                "   NOT inlining indirect call to leave_call_native "PFX"\n", target);
         return false; /* do not convert indirect call, stop bb */
     }
 
@@ -2660,7 +2671,7 @@ instr_will_be_exit_cti(instr_t *inst)
     return (instr_is_app(inst) &&
             instr_is_cti(inst) &&
             (!instr_is_near_call_direct(inst) ||
-             !must_not_be_inlined(instr_get_branch_target_pc(inst)))
+             !leave_call_native(instr_get_branch_target_pc(inst)))
             /* PR 239470: ignore wow64 syscall, which is an ind call */
             IF_WINDOWS(&& !instr_is_wow64_syscall(inst)));
 }
@@ -3127,6 +3138,7 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
         /* i#1237: set return value to be true in dr_app_running_under_dynamorio */
         instr_t *ret = instrlist_last(bb->ilist);
         instr_t *mov = instr_get_prev(ret);
+        LOG(THREAD, LOG_INTERP, 3, "Found dr_app_running_under_dynamorio\n");
         ASSERT(ret != NULL && instr_is_return(ret) &&
                mov != NULL &&
                IF_X86(instr_get_opcode(mov) == OP_mov_imm &&)
