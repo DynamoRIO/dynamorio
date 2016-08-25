@@ -184,9 +184,9 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/globals.h",
      "$core/arch/arch_exports.h", # encode routines
      "$core/arch/proc.h",
-     "$core/os_shared.h",        # before instrument.h
-     "$core/module_shared.h",    # before instrument.h
-     "$core/lib/instrument.h",
+     "$core/os_shared.h",        # before instrument_api.h
+     "$core/module_shared.h",    # before instrument_api.h
+     "$core/lib/instrument_api.h",
      "$core/arch/x86/opcode.h",
      "$core/arch/aarch64/opcode.h",
      "$core/arch/arm/opcode.h",
