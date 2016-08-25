@@ -1139,8 +1139,7 @@ os_fast_exit(void)
                      RUNNING_WITHOUT_CODE_CACHE()
                      IF_APP_EXPORTS( || dr_api_entry)
                      /* Clients can go native.  XXX: add var for whether client did? */
-                     IF_CLIENT_INTERFACE
-                     (|| !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)));
+                     IF_CLIENT_INTERFACE(|| CLIENTS_EXIST()));
 
     DOLOG(1, LOG_TOP, { print_mem_quota(); });
     DOLOG(1, LOG_TOP, {
@@ -6651,8 +6650,7 @@ os_open(const char *fname, int os_open_flags)
 
     /* clients are allowed to open the file however they want, xref PR 227737 */
     ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) || standalone_library
-                           IF_CLIENT_INTERFACE(|| !IS_INTERNAL_STRING_OPTION_EMPTY
-                                               (client_lib))) &&
+                           IF_CLIENT_INTERFACE(|| CLIENTS_EXIST())) &&
                           "symlink risk PR 213492");
 
     return os_internal_create_file(fname, false,

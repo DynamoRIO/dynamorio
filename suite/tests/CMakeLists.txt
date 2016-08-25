@@ -2207,8 +2207,15 @@ if (CLIENT_INTERFACE)
   endif ()
 
   # Test DR as a static library
-  tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
-  target_link_libraries(api.static_startstop ${libmath})
+  # FIXME i#1996: not fully supported on Android yet
+  if (NOT ANDROID)
+    tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
+    target_link_libraries(api.static_startstop ${libmath})
+    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
+    target_link_libraries(api.static_noclient ${libmath})
+    tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
+    target_link_libraries(api.static_noinit ${libmath})
+  endif ()
 
   if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM
     # i#696: Use -thread_private and small fcache units to trigger shifts.  x64

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -300,6 +300,9 @@ has_pcache_dynamo_options(options_t *options, op_pcache_t pcache_effect);
 char *
 parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen);
 
+void
+options_enable_code_api_dependences(options_t *options);
+
 /****************************************************************************/
 #ifdef NOT_DYNAMORIO_CORE
 void
@@ -360,7 +363,7 @@ set_dynamo_options(options_t *options, const char *optstr);
 
 #if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 # define CLIENT_OR_STANDALONE() \
-    (standalone_library || !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
+    (standalone_library || CLIENTS_EXIST())
 #else
 # define CLIENT_OR_STANDALONE() false
 #endif
@@ -384,6 +387,19 @@ extern read_write_lock_t options_lock;
 #  define IS_INTERNAL_STRING_OPTION_EMPTY(op) IS_STRING_OPTION_EMPTY(op)
 #else
 #  define IS_INTERNAL_STRING_OPTION_EMPTY(op) ((default_internal_options.op)[0] == '\0')
+#endif
+
+#ifdef CLIENT_INTERFACE
+# ifdef STATIC_LIBRARY
+/* For our static model, we enable -code_api and assume that client code could
+ * be run at any time, even if there's no dr_init.
+ */
+#  define CLIENTS_EXIST() true
+# else
+#  define CLIENTS_EXIST() (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
+# endif
+#else
+# define CLIENTS_EXIST() false
 #endif
 
 /* 0=ret => 1, 1=call* => 2, 2=jmp* => 4 */

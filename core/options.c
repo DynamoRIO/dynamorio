@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -744,6 +744,70 @@ update_dynamic_options(options_t *options, options_t *new_options)
 
      return updated;
 }
+
+#ifdef CLIENT_INTERFACE
+void
+options_enable_code_api_dependences(options_t *options)
+{
+    if (!options->code_api)
+        return;
+
+    /* PR 202669: larger stack size since we're saving a 512-byte
+     * buffer on the stack when saving fp state.
+     * Also, C++ RTL initialization (even when a C++
+     * client does little else) can take a lot of stack space.
+     * Furthermore, dbghelp.dll usage via drsyms has been observed
+     * to require 36KB, which is already beyond the minimum to
+     * share gencode in the same 64K alloc as the stack.
+     *
+     * XXX: if we raise this beyond 56KB we should adjust the
+     * logic in heap_mmap_reserve_post_stack() to handle sharing the
+     * tail end of a multi-64K-region stack.
+     */
+    options->stack_size = MAX(options->stack_size, 56*1024);
+
+    /* For CI builds we'll disable elision by default since we
+     * expect most CI users will prefer a view of the
+     * instruction stream that's as unmodified as possible.
+     * Also xref PR 214169: eliding calls presents a confusing
+     * view of basic blocks since clients see both the call
+     * and the called function in the same block.  TODO PR
+     * 214169: pass both sides to the client and merge
+     * internally to get the best of both worlds.
+     */
+    options->max_elide_jmp = 0;
+    options->max_elide_call = 0;
+
+    /* indcall2direct causes problems with the code manip API,
+     * so disable by default (xref PR 214051 & PR 214169).
+     * Even if we address those issues, we may want to keep
+     * disabled if we expect users will be confused by this
+     * optimization.
+     */
+    options->indcall2direct = false;
+
+    /* To support clients changing syscall numbers we need to
+     * be able to swap ignored for non-ignored (xref PR 307284)
+     */
+    options->inline_ignored_syscalls = false;
+
+    /* Clients usually want to see all the code, regardless of bugs and
+     * perf issues, so we empty the default native exec list when using
+     * -code_api.  The user can override this behavior by passing their
+     * own -native_exec_list.
+     * However the .pexe section thing on Vista is too dangerous so we
+     * leave that on. */
+    memset(options->native_exec_default_list, 0,
+           sizeof(options->native_exec_default_list));
+    options->native_exec_managed_code = false;
+
+    /* Don't randomize dynamorio.dll */
+    IF_WINDOWS(options->aslr_dr = false;)
+
+    /* FIXME PR 215179 on getting rid of this tracing restriction. */
+    options->pad_jmps_mark_no_trace = true;
+}
+#endif
 
 /****************************************************************************/
 #ifndef NOT_DYNAMORIO_CORE
@@ -2006,6 +2070,12 @@ options_init()
                            sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
         ret = set_dynamo_options(&dynamo_options, option_string);
+#if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)
+    /* For dynamorio_static, we always enable code_api as it's a pain to set
+     * DR runtime options -- unless otherwise requested.
+     */
+    options_enable_code_api_dependences(&dynamo_options);
+#endif
     check_option_compatibility();
     /* options will be protected when DR init is completed */
     write_unlock(&options_lock);

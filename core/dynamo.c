@@ -813,7 +813,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
     signal_fork_init(dcontext);
 
 # ifdef CLIENT_INTERFACE
-    if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
         instrument_fork_init(dcontext);
     }
 # endif

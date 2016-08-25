@@ -459,7 +459,7 @@ remove_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
  * and since this routine assumes .data is writable.
  */
 static void
-add_client_lib(char *path, char *id_str, char *options)
+add_client_lib(const char *path, const char *id_str, const char *options)
 {
     client_id_t id;
     shlib_handle_t client_lib;
@@ -562,7 +562,14 @@ add_client_lib(char *path, char *id_str, char *options)
 void
 instrument_load_client_libs(void)
 {
-    if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
+#ifdef STATIC_LIBRARY
+        /* We ignore -client_lib and allow client code anywhere in the app.
+         * We have a check in load_shared_library() to avoid loading
+         * a 2nd copy of the app.
+         */
+        add_client_lib(get_application_name(), "0", "");
+#else
         char buf[MAX_LIST_OPTION_LENGTH];
         char *path;
 
@@ -599,6 +606,7 @@ instrument_load_client_libs(void)
             add_client_lib(path, id, options);
             path = next_path;
         } while (path != NULL);
+#endif
     }
 }
 
@@ -654,15 +662,22 @@ instrument_init(void)
                            &client_libs[i].argc, &client_libs[i].argv,
                            MAX_OPTION_LENGTH);
 
+#ifdef STATIC_LIBRARY
+        /* We support the app having client code anywhere, so there does not
+         * have to be an init routine that we call.  This means the app
+         * may have to iterate modules on its own.
+         */
+#else
         /* Since the user has to register all other events, it
          * doesn't make sense to provide the -client_lib
          * option for a module that doesn't export an init routine.
          */
         CLIENT_ASSERT(init != NULL || legacy != NULL,
                       "client does not export a dr_client_main or dr_init routine");
+#endif
         if (init != NULL)
             (*init)(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
-        else
+        else if (legacy != NULL)
             (*legacy)(client_libs[i].id);
     }
 
@@ -1901,7 +1916,7 @@ dr_module_contains_addr(const module_data_t *data, app_pc addr)
 void
 instrument_module_load_trigger(app_pc pc)
 {
-    if (!IS_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
         module_area_t *ma;
         module_data_t *client_data = NULL;
         os_get_module_info_lock();

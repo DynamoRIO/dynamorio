@@ -1,5 +1,5 @@
 pre-DR init
-in dr_client_main
+registering for DR events outside of dr_client_main
 pre-DR start
 pre-DR stop
 Saw some bb events

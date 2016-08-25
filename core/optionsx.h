@@ -333,6 +333,7 @@
      * client option strings to matter, so we check this separately
      * from the general -persist_check_options
      */
+    /* This option is ignored for STATIC_LIBRARY. */
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING,
                             ";-separated string containing client "
                             "lib paths, IDs, and options")
@@ -344,7 +345,7 @@
     OPTION_DEFAULT_INTERNAL(bool, private_loader,
                             IF_MACOS_ELSE(false, true),
                             "use private loader for clients and dependents")
-# ifdef UNIX
+#  ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
      * so use the runtime option to control the tls size.
      */
@@ -356,8 +357,8 @@
      */
     OPTION_DEFAULT_INTERNAL(bool, privload_register_gdb, true,
                             "register private loader DLLs with gdb")
-# endif
-# ifdef WINDOWS
+#  endif
+#  ifdef WINDOWS
     /* Heap isolation for private dll copies.  Valid only with -private_loader. */
     OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
                             "redirect heap usage by private libraries to DR heap")
@@ -367,70 +368,20 @@
      */
     OPTION_DEFAULT_INTERNAL(bool, private_peb, true,
                             "use private PEB + TEB fields for private libraries")
-# endif
+#  endif
 
     /* PR 200418: Code Manipulation API.  This option enables the code
      * manipulation events and sets some default options.  We can't
      * afford to check for this in our exported routines, so we allow
      * ourselves to be used as a utility or standalone library
      * regardless of this option.
+     * For the static library, we commit to use with code_api and enable
+     * it by default as it's more of a pain to set options with this model.
      */
-    OPTION_COMMAND_INTERNAL(bool, code_api, false, "code_api", {
+    OPTION_COMMAND_INTERNAL(bool, code_api, IF_STATIC_LIBRARY_ELSE(true, false),
+                            "code_api", {
         if (options->code_api) {
-            /* PR 202669: larger stack size since we're saving a 512-byte
-             * buffer on the stack when saving fp state.
-             * Also, C++ RTL initialization (even when a C++
-             * client does little else) can take a lot of stack space.
-             * Furthermore, dbghelp.dll usage via drsyms has been observed
-             * to require 36KB, which is already beyond the minimum to
-             * share gencode in the same 64K alloc as the stack.
-             *
-             * XXX: if we raise this beyond 56KB we should adjust the
-             * logic in heap_mmap_reserve_post_stack() to handle sharing the
-             * tail end of a multi-64K-region stack.
-             */
-            options->stack_size = MAX(options->stack_size, 56*1024);
-
-            /* For CI builds we'll disable elision by default since we
-             * expect most CI users will prefer a view of the
-             * instruction stream that's as unmodified as possible.
-             * Also xref PR 214169: eliding calls presents a confusing
-             * view of basic blocks since clients see both the call
-             * and the called function in the same block.  TODO PR
-             * 214169: pass both sides to the client and merge
-             * internally to get the best of both worlds.
-             */
-            options->max_elide_jmp = 0;
-            options->max_elide_call = 0;
-
-            /* indcall2direct causes problems with the code manip API,
-             * so disable by default (xref PR 214051 & PR 214169).
-             * Even if we address those issues, we may want to keep
-             * disabled if we expect users will be confused by this
-             * optimization.
-             */
-            options->indcall2direct = false;
-
-            /* To support clients changing syscall numbers we need to
-             * be able to swap ignored for non-ignored (xref PR 307284)
-             */
-            options->inline_ignored_syscalls = false;
-
-            /* Clients usually want to see all the code, regardless of bugs and
-             * perf issues, so we empty the default native exec list when using
-             * -code_api.  The user can override this behavior by passing their
-             * own -native_exec_list.
-             * However the .pexe section thing on Vista is too dangerous so we
-             * leave that on. */
-            memset(options->native_exec_default_list, 0,
-                   sizeof(options->native_exec_default_list));
-            options->native_exec_managed_code = false;
-
-            /* Don't randomize dynamorio.dll */
-            IF_WINDOWS(options->aslr_dr = false;)
-
-            /* FIXME PR 215179 on getting rid of this tracing restriction. */
-            options->pad_jmps_mark_no_trace = true;
+            options_enable_code_api_dependences(options);
         }
      }, "enable Code Manipulation API", STATIC, OP_PCACHE_NOP)
 

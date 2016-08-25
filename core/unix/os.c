@@ -674,6 +674,10 @@ our_init(int argc, char **argv, char **envp)
     } else {
         our_environ = envp;
     }
+#if defined(ANDROID) && defined(STATIC_LIBRARY)
+    /* The Android loader does not pass envp. */
+    our_environ = environ;
+#endif
     /* if using preload, no -early_inject */
     if (!takeover) {
         const char *takeover_env = getenv("DYNAMORIO_TAKEOVER_IN_INIT");

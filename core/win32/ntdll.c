@@ -4738,7 +4738,7 @@ free_library(module_handle_t lib)
  * a unicode string and what looks like handling the flags for the ex version. */
 /* returns NULL on failure */
 module_handle_t
-get_module_handle(wchar_t *lib_name)
+get_module_handle(const wchar_t *lib_name)
 {
     UNICODE_STRING ulib_name;
     HANDLE hMod;

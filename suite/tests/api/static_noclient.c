@@ -30,47 +30,19 @@
  * DAMAGE.
  */
 
+/* Ensures that static DR can operate with no client at all */
+
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
 #include <math.h>
 
-/* XXX i#975: also add an api.static_takeover test that uses drrun
- * -static instead of calling dr_app_*.
- */
-
-static int num_bbs;
-
-static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
-{
-    num_bbs++;
-    return DR_EMIT_DEFAULT;
-}
-
-static void
-event_exit(void)
-{
-    dr_printf("Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
-}
-
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    print("in dr_client_main\n");
-    dr_register_bb_event(event_bb);
-    dr_register_exit_event(event_exit);
-
-    /* XXX i#975: add some more thorough tests of different events */
-}
-
 static int
-do_some_work(void)
+do_some_work(int seed)
 {
     static int iters = 8192;
     int i;
-    double val = num_bbs;
+    double val = seed;
     for (i = 0; i < iters; ++i) {
         val += sin(val);
     }
@@ -88,7 +60,7 @@ main(int argc, const char *argv[])
     dr_app_start();
     assert(dr_app_running_under_dynamorio());
 
-    if (do_some_work() < 0)
+    if (do_some_work(argc) < 0)
         print("error in computation\n");
 
     print("pre-DR stop\n");

@@ -985,6 +985,13 @@ function (configure_DynamoRIO_static target)
   endif (NOT cur_cflags)
   DynamoRIO_extra_cflags(cur_cflags "${cur_cflags}" ${tgt_cxx})
   set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur_cflags}")
+  if (ANDROID)
+    # The Android linker is not exporting the weak symbol _USES_DR_VERSION_.
+    # We use --dynamic-list-data to do so.
+    # Actually the Linux linker is exporting the entire DR API symbol set:
+    # should we pass -Wl,--export-dynamic here to match it?
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--dynamic-list-data")
+  endif ()
 
   target_link_libraries(${target} dynamorio_static)
 

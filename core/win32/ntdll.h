@@ -2174,7 +2174,7 @@ bool
 free_library_64(HANDLE lib);
 
 uint64
-get_module_handle_64(wchar_t *name);
+get_module_handle_64(const wchar_t *name);
 
 uint64
 get_proc_address_64(uint64 lib, const char *name);
@@ -2212,7 +2212,7 @@ bool
 free_library(module_handle_t lib);
 
 module_handle_t
-get_module_handle(wchar_t *lib_name);
+get_module_handle(const wchar_t *lib_name);
 
 /* From WINNT.H for .NET 2.0 (Visual Studio.NET VC7)
  * Needed for IMAGE_COR20_HEADER

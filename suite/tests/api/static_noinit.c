@@ -30,14 +30,14 @@
  * DAMAGE.
  */
 
+/* Ensures that static DR can operate with a client who does not have
+ * an exported init routine.
+ */
+
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
 #include <math.h>
-
-/* XXX i#975: also add an api.static_takeover test that uses drrun
- * -static instead of calling dr_app_*.
- */
 
 static int num_bbs;
 
@@ -53,16 +53,6 @@ static void
 event_exit(void)
 {
     dr_printf("Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
-}
-
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    print("in dr_client_main\n");
-    dr_register_bb_event(event_bb);
-    dr_register_exit_event(event_exit);
-
-    /* XXX i#975: add some more thorough tests of different events */
 }
 
 static int
@@ -83,6 +73,11 @@ main(int argc, const char *argv[])
     print("pre-DR init\n");
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
+
+    print("registering for DR events outside of dr_client_main\n");
+    dr_register_bb_event(event_bb);
+    dr_register_exit_event(event_exit);
+    /* XXX i#975: add some more thorough tests of different events */
 
     print("pre-DR start\n");
     dr_app_start();

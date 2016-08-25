@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2712,9 +2712,11 @@ create_log_dir(int dir_type)
                 basedir_initialized = true;
                 /* skip creating dir basedir if is empty */
                 if (basedir[0] == '\0') {
+#ifndef STATIC_LIBRARY
                     SYSLOG(SYSLOG_WARNING,
                            WARNING_EMPTY_OR_NONEXISTENT_LOGDIR_KEY, 2,
                            get_application_name(), get_application_pid());
+#endif
                 } else {
                     if (!os_create_dir(basedir, CREATE_DIR_ALLOW_EXISTING)) {
                         /* try to create full path */

@@ -4253,7 +4253,7 @@ master_signal_handler_C(byte *xsp)
         target = compute_memory_target(dcontext, pc, ucxt, siginfo, &is_write);
 
 #ifdef CLIENT_INTERFACE
-        if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) && is_in_client_lib(pc)) {
+        if (CLIENTS_EXIST() && is_in_client_lib(pc)) {
             /* i#1354: client might write to a page we made read-only.
              * If so, handle the fault and re-execute it, if it's safe to do so
              * (we document these criteria under DR_MEMPROT_PRETEND_WRITE).

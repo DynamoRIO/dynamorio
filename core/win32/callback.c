@@ -4988,7 +4988,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
                  * own gencode.  client_exception_event() won't return if client
                  * wants to re-execute faulting instr.
                  */
-                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                if (CLIENTS_EXIST()) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(raw_mcontext, cxt);
                     client_exception_event(dcontext, cxt, pExcptRec, raw_mcontext, NULL);
@@ -5319,7 +5319,7 @@ intercept_exception(app_state_at_intercept_t *state)
         });
 
 #ifdef CLIENT_INTERFACE
-        if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
+        if (CLIENTS_EXIST() &&
             is_in_client_lib(pExcptRec->ExceptionAddress)) {
             /* i#1354: client might fault touching a code page we made read-only.
              * If so, just re-execute post-page-prot-change (MOD_CODE_APP_CXT), if
@@ -5439,7 +5439,7 @@ intercept_exception(app_state_at_intercept_t *state)
             if (!takeover) {
 #ifdef CLIENT_INTERFACE
                 /* -probe_api client should get exception events too */
-                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                if (CLIENTS_EXIST()) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(&raw_mcontext, cxt);
                     client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
@@ -5558,7 +5558,7 @@ intercept_exception(app_state_at_intercept_t *state)
             /* remember faulting pc */
             faulting_pc = (cache_pc) pExcptRec->ExceptionAddress;
 #ifdef CLIENT_INTERFACE
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 /* i#182/PR 449996: we provide the pre-translation context */
                 context_to_mcontext(&raw_mcontext, cxt);
             }
@@ -5681,7 +5681,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
 #ifdef CLIENT_INTERFACE
             /* Inform client of exceptions */
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
             }
 #endif
@@ -5715,7 +5715,7 @@ intercept_exception(app_state_at_intercept_t *state)
             });
 #ifdef CLIENT_INTERFACE
             /* Inform client of forged exceptions (i#1775) */
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 /* raw_mcontext equals mcontext */
                 context_to_mcontext(&raw_mcontext, cxt);
                 client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, NULL);
