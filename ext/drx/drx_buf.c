@@ -73,7 +73,9 @@ struct _drx_buf_t {
 };
 
 /* drx_buf globals */
-drvector_t clients;
+static drvector_t clients;
+/* A flag to avoid work when no buffers were ever created. */
+static bool any_bufs_created;
 
 /* called by drx_init() */
 bool drx_buf_init_library(void);
@@ -205,6 +207,9 @@ drx_buf_init(drx_buf_type_t bt, size_t bsz,
     new_client->vec_idx = clients.entries;
     drvector_append(&clients, new_client);
     drvector_unlock(&clients);
+
+    if (!any_bufs_created)
+        any_bufs_created = true;
 
     return new_client;
 }
@@ -702,7 +707,7 @@ bool
 exception_event(void *drcontext, dr_exception_t *excpt)
 {
     /* fast fail if it wasn't a seg fault */
-    if (excpt->record->ExceptionCode != STATUS_ACCESS_VIOLATION)
+    if (!any_bufs_created || excpt->record->ExceptionCode != STATUS_ACCESS_VIOLATION)
         return true;
 
     /* The second entry in the exception information array handily holds the target
@@ -715,10 +720,9 @@ exception_event(void *drcontext, dr_exception_t *excpt)
 dr_signal_action_t
 signal_event(void *drcontext, dr_siginfo_t *info)
 {
-    /* fast fail if it wasn't a seg fault */
-    if (info->sig != SIGSEGV)
+    /* fast fail if it wasn't a regular seg fault */
+    if (!any_bufs_created || info->sig != SIGSEGV || !info->raw_mcontext_valid)
         return DR_SIGNAL_DELIVER;
-    DR_ASSERT(info->raw_mcontext_valid);
 
     return fault_event_helper(drcontext, info->access_address, info->raw_mcontext) ?
         DR_SIGNAL_DELIVER : DR_SIGNAL_SUPPRESS;
