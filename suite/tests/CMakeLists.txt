@@ -1324,7 +1324,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # much simpler this way.
     string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
-    get_target_path_for_execution(toolbindir nudgeunix)
+    if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
+      get_target_path_for_execution(toolbindir nudgeunix)
+    else ()
+      set(toolbindir "i#1286-not-implemented-for-Mac")
+    endif ()
     get_filename_component(toolbindir ${toolbindir} DIRECTORY)
     add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${toolbindir}
       -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
@@ -2313,10 +2317,12 @@ if (CLIENT_INTERFACE)
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
-    if (NOT ANDROID) # XXX i#1874: get working on Android
+    if (NOT ANDROID AND NOT APPLE) # XXX i#1874,i#1360: get working on Android,Mac
       torunonly_ci(tool.drltrace common.fib drltrace common/fib.c "-only_from_app" "" "")
       set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
+    endif ()
 
+    if (NOT ANDROID) # XXX i#1874: get working on Android
       torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
       set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
       set(tool.drcov.fib_expectbase "tool.drcov.fib")
