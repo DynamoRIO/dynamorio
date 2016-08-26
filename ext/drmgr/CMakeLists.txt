@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 # DynamoRIO Multi-Instrumentation Manager: a mediator for combining
 # and coordinating multiple instrumentation passes.
 

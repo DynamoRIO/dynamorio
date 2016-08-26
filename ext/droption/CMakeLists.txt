@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 # DynamoRIO option parsing
 
 # Pure header extension (b/c it's a template, but also to avoid C++

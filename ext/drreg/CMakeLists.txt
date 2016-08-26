@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 # DynamoRIO Register Management Utilities
 
 # We do not need libc, and we avoid a 10x size increase in both our

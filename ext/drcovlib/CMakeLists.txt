@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 # DynamoRIO Code Coverage Library
 
 # Avoiding libc reduces lib size (i#714)
