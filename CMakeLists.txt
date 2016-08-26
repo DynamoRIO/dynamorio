@@ -692,12 +692,18 @@ macro(add_static_lib_debug_info target dest_dir)
 endmacro()
 
 # compiler flags
+# BASE_CFLAGS applies to both C and C++.
+# BASE_CONLY_FLAGS applies to just C.
+# BASE_CXXONLY_FLAGS applies to just C++.
+set(BASE_CFLAGS "")
+set(BASE_CONLY_FLAGS "")
+set(BASE_CXXONLY_FLAGS "")
 if (UNIX)
   # -std=c99 doesn't quite work
   # FIXME case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
   # warnings and pass -pedantic to main gcc
-  set(BASE_CFLAGS "-std=gnu99")
+  set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
   # Ubuntu defaults to -fstack-protector these days, which depends on app TLS.
@@ -709,17 +715,14 @@ if (UNIX)
   if (X86)
     if (X64)
       set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
-      set(BASE_CXXFLAGS "-m64")
       set(LD_FLAGS "-melf_x86_64")
     else (X64)
       set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
-      set(BASE_CXXFLAGS "-m32")
       # i#847 keep stack boundary 4-byte aligned (except on Mac)
       # XXX i#1800: clang does not support -mpreferred-stack-boundary=2 or
       # an equivalent flag, so clang's build may not run legacy binaries.
       if (NOT CMAKE_COMPILER_IS_CLANG)
         set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
-        set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
       elseif (NOT APPLE)
         message(STATUS "WARNING: 32-bit clang lacks stack alignment control:")
         message(STATUS "  resulting build may not run all apps correctly")
@@ -731,7 +734,6 @@ if (UNIX)
     if (X64)
     else (X64)
       set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
-      set(BASE_CXXFLAGS "-mthumb -march=armv7-a")
       set(LD_FLAGS "-marmelf_linux_eabi")
       if (ANDROID OR CMAKE_C_LIBRARY_ARCHITECTURE MATCHES "gnueabi$")
         # We use eabihf by default for ARM build.
@@ -742,13 +744,15 @@ if (UNIX)
         # so we use softfp for Android build instead.
         # We also need to add softfp for the gnueabi target.
         set(BASE_CFLAGS "-mfloat-abi=softfp ${BASE_CFLAGS}")
-        set(BASE_CXXFLAGS "-mfloat-abi=softfp ${BASE_CXXFLAGS}")
       endif ()
     endif (X64)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
     # Ensure our binaries can run on older OSX
-    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.7")
+    # We're building our release package on 10.11, and that XCode does not
+    # supply C++ libraries for below 10.9, causing drcachesim to fail to build.
+    # Thus we have abandoned support for below 10.9.
+    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.9")
   endif ()
   if (APPLE)
     set(ld_entry_flag "-e")
@@ -774,9 +778,7 @@ if (UNIX)
     if (CLANG_COLOR_DIAGNOSTICS)
       set(clang_args "-fcolor-diagnostics ${clang_args}")
     endif (CLANG_COLOR_DIAGNOSTICS)
-    # Apply to both C and C++.
     set(BASE_CFLAGS "${clang_args} ${BASE_CFLAGS}")
-    set(BASE_CXXFLAGS "${clang_args} ${BASE_CXXFLAGS}")
   endif (NOT CMAKE_COMPILER_IS_CLANG)
   set(DBG "-g3")
   # gcc doesn't change its optimizations based on -g
@@ -820,7 +822,7 @@ if (UNIX)
   set(LINK_DBG "")
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
-  set(BASE_CFLAGS "/nologo")
+  set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
   # build in parallel, always.
   # note that /MP is not officially supported on VS 2005 and others
   # have seen occasional problems: we'll risk it.  we could check for
@@ -884,7 +886,6 @@ else (UNIX)
   # explicitly request /Od even though it's cl's default b/c VS has /O2 as default
   # and cl 14.00 hangs compiling core/fragment.c with /Od and DEBUG.
   set(DBG_OPT "/Od")
-  set(BASE_CXXFLAGS "${BASE_CFLAGS}")
   if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # i#1821: cmake 3.3.1 (but not 2.8.12) somehow messes up this /nologo flag.
     # We just avoid it for VS generators as a workaround.
@@ -925,7 +926,6 @@ if (UNIX)
 
   if (VISIBILITY)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=${VISIBILITY}")
-    set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -fvisibility=${VISIBILITY}")
     set(HAVE_FVISIBILITY ON)
   endif (VISIBILITY)
 
@@ -1071,16 +1071,16 @@ endif (UNIX)
 #   Release => -O3 -NDEBUG
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CXXFLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${DBG} ${DBG_OPT}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
     # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CXXFLAGS} ${OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${OPT}")
 endif (DEBUG)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_DBG}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_DBG}")
