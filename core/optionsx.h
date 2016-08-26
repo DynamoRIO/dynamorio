@@ -697,7 +697,7 @@
 
     /* For MacOS, set to 0 to disable the check */
     OPTION_DEFAULT(uint, max_supported_os_version,
-        IF_WINDOWS_ELSE(100, IF_MACOS_ELSE(14, 0)),
+        IF_WINDOWS_ELSE(100, IF_MACOS_ELSE(15, 0)),
         /* case 447, defaults to supporting NT, 2000, XP, 2003, and Vista.
          * Windows 7 added with i#218
          * Windows 8 added with i#565

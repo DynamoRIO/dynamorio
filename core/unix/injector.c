@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -96,11 +96,14 @@ typedef enum {
 /* The type is just "int", and the values are different, so we use the Linux
  * type name to match the Linux constant names.
  */
+# ifndef PT_ATTACHEXC /* New replacement for PT_ATTACH */
+#  define PT_ATTACHEXC PT_ATTACH
+# endif
 enum __ptrace_request {
     PTRACE_TRACEME     = PT_TRACE_ME,
     PTRACE_CONT        = PT_CONTINUE,
     PTRACE_KILL        = PT_KILL,
-    PTRACE_ATTACH      = PT_ATTACH,
+    PTRACE_ATTACH      = PT_ATTACHEXC,
     PTRACE_DETACH      = PT_DETACH,
     PTRACE_SINGLESTEP  = PT_STEP,
 };
