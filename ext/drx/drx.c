@@ -405,9 +405,6 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         ASSERT(false, "drcontext cannot be NULL");
         return false;
     }
-    /* This drx routine is labeled as not needing drx_init(), so drmgr may not
-     * be initialized.  drmgr explicitly supports calling this routine though:
-     */
     if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
         use_drreg = true;
         if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&

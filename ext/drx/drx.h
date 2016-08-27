@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -154,8 +154,6 @@ DR_EXPORT
  * same \p where instruction and no other instructions should be inserted in
  * between. In that case, \p drx will try to merge the instrumentation for
  * better performance.
- *
- * \note May be called without calling drx_init().
  */
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,

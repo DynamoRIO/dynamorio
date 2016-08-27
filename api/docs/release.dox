@@ -147,6 +147,7 @@ The changes between version \DR_VERSION and 6.1.0 include:
    drmgr_register_thread_exit_event_ex().
  - Added \ref sec_drx_buf to drx: drx_buf_create_circular_buffer(),
    drx_buf_create_trace_buffer(), and more.
+ - Documented that drx_insert_counter_update() does rely on drx_init().
 
 **************************************************
 <hr>
