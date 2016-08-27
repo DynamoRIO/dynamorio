@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,14 +44,18 @@
     instrlist_t *ilist = instrlist_create(dc);
     instr_t *instr, *orig;
 
+#   define XOPCODE OPCODE
 #   define OPCODE(name, opc, icnm, ...) \
     int len_##name;
 #   include INCLUDE_NAME
 #   undef OPCODE
+#   undef XOPCODE
 
 #   define OPCODE OPCODE_FOR_CREATE
+#   define XOPCODE XOPCODE_FOR_CREATE
 #   include INCLUDE_NAME
 #   undef OPCODE
+#   undef XOPCODE
 
     end = instrlist_encode(dc, ilist, buf, false);
 
@@ -59,6 +63,7 @@
     pc = buf;
     orig = instrlist_first(ilist);
 
+#   define XOPCODE OPCODE
 #   define OPCODE(name, opc, icnm, flags, ...) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0 && len_##name != 0) { \
         instr_reset(dc, instr); \
@@ -76,6 +81,7 @@
     } } while (0);
 #   include INCLUDE_NAME
 #   undef OPCODE
+#   undef XOPCODE
 
 #if VERBOSE
     for (pc = buf; pc < end; )

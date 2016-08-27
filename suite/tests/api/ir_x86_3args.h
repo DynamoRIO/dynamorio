@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -105,6 +105,8 @@ OPCODE(pcmpestri, pcmpestri, pcmpestri, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG
 OPCODE(pclmulqdq, pclmulqdq, pclmulqdq, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(aeskeygenassist, aeskeygenassist, aeskeygenassist, 0, REGARG(XMM0),
        MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+
+XOPCODE(add_2src, lea, add_2src, 0, REGARG(XAX), REGARG(XCX), IMMARG(OPSZ_4))
 
 /****************************************************************************/
 /* AVX */
