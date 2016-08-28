@@ -110,7 +110,12 @@ static void
 convert_to_tchar(TCHAR *dst, const char *src, size_t dst_sz)
 {
 #ifdef _UNICODE
-    _snwprintf(dst, dst_sz, L"%S", src);
+# ifdef DEBUG
+    int res =
+# endif
+        MultiByteToWideChar(CP_UTF8, 0/*=>MB_PRECOMPOSED*/, src, -1/*null-term*/,
+                            dst, (int)dst_sz);
+    DO_ASSERT(res > 0 && "convert_to_tchar failed");
 #else
     strncpy(dst, src, dst_sz);
 #endif
@@ -127,23 +132,23 @@ static TCHAR *
 get_next_token(TCHAR* ptr, TCHAR *token)
 {
     /* advance to next non-space character */
-    while (*ptr == L' ') {
+    while (*ptr == _T(' ')) {
         ptr++;
     }
 
     /* check for end-of-string */
-    if (*ptr == L'\0') {
-        token[0] = L'\0';
+    if (*ptr == _T('\0')) {
+        token[0] = _T('\0');
         return NULL;
     }
 
     /* for quoted options, copy until the closing quote */
-    if (*ptr == L'\"' || *ptr == L'\'' || *ptr == L'`') {
+    if (*ptr == _T('\"') || *ptr == _T('\'') || *ptr == _T('`')) {
         TCHAR quote = *ptr;
         *token++ = *ptr++;
-        while (*ptr != L'\0') {
+        while (*ptr != _T('\0')) {
             *token++ = *ptr++;
-            if (ptr[-1] == quote && ptr[-2] != L'\\') {
+            if (ptr[-1] == quote && ptr[-2] != _T('\\')) {
                 break;
             }
         }
@@ -151,12 +156,12 @@ get_next_token(TCHAR* ptr, TCHAR *token)
 
     /* otherwise copy until the next space character */
     else {
-        while (*ptr != L' ' && *ptr != L'\0') {
+        while (*ptr != _T(' ') && *ptr != _T('\0')) {
             *token++ = *ptr++;
         }
     }
 
-    *token = L'\0';
+    *token = _T('\0');
     return ptr;
 }
 
@@ -176,12 +181,12 @@ new_client_opt(const TCHAR *path, client_id_t id, const TCHAR *opts)
     len = MIN(MAXIMUM_PATH-1, _tcslen(path));
     opt->path = malloc((len+1) * sizeof(opt->path[0]));
     _tcsncpy(opt->path, path, len);
-    opt->path[len] = L'\0';
+    opt->path[len] = _T('\0');
 
     len = MIN(DR_MAX_OPTIONS_LENGTH-1, _tcslen(opts));
     opt->opts = malloc((len+1) * sizeof(opt->opts[0]));
     _tcsncpy(opt->opts, opts, len);
-    opt->opts[len] = L'\0';
+    opt->opts[len] = _T('\0');
 
     return opt;
 }
@@ -256,7 +261,7 @@ remove_client_lib(opt_info_t *opt_info, client_id_t id)
 static dr_config_status_t
 add_extra_option(opt_info_t *opt_info, const TCHAR *opt)
 {
-    if (opt != NULL && opt[0] != L'\0') {
+    if (opt != NULL && opt[0] != _T('\0')) {
         size_t idx, len;
         idx = opt_info->num_extra_opts;
         if (idx >= MAX_NUM_OPTIONS) {
@@ -267,7 +272,7 @@ add_extra_option(opt_info_t *opt_info, const TCHAR *opt)
         opt_info->extra_opts[idx] = malloc
             ((len+1) * sizeof(opt_info->extra_opts[idx][0]));
         _tcsncpy(opt_info->extra_opts[idx], opt, len);
-        opt_info->extra_opts[idx][len] = L'\0';
+        opt_info->extra_opts[idx][len] = _T('\0');
 
         opt_info->num_extra_opts++;
     }
@@ -355,18 +360,7 @@ get_config_sfx(dr_platform_t dr_platform)
 static bool
 env_var_exists(const char *name, char *buf, size_t buflen)
 {
-#ifdef WINDOWS
-    size_t len = GetEnvironmentVariableA(name, buf, (DWORD) buflen);
-    if (len == 0 || len > buflen)
-        return false;
-#else
-    char *val = getenv(name);
-    if (val == NULL)
-        return false;
-    strncpy(buf, val, buflen);
-    buf[buflen - 1] = '\0';
-#endif
-    return true;
+    return drfront_get_env_var(name, buf, buflen) == DRFRONT_SUCCESS;
 }
 
 static bool
@@ -458,8 +452,13 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
              * either LOCAL_CONFIG_ENV or TMP to ensure DR finds the same config file!
              */
 #ifdef WINDOWS
-            if (!SetEnvironmentVariableA(DYNAMORIO_VAR_CONFIGDIR, dir))
-                goto get_config_dir_done;
+            {
+                TCHAR wbuf[MAXIMUM_PATH];
+                convert_to_tchar(wbuf, dir, BUFFER_SIZE_ELEMENTS(wbuf));
+                NULL_TERMINATE_BUFFER(wbuf);
+                if (!SetEnvironmentVariableW(L_DYNAMORIO_VAR_CONFIGDIR, wbuf))
+                    goto get_config_dir_done;
+            }
 #else
             if (setenv(DYNAMORIO_VAR_CONFIGDIR, dir, 1/*replace*/) != 0)
                 goto get_config_dir_done;
@@ -491,6 +490,9 @@ get_config_file_name(const char *process_name,
                      size_t fname_len)
 {
     size_t dir_len;
+#ifdef WINDOWS
+    drfront_status_t res;
+#endif
     /* i#939: we can't fall back to tmp dirs here b/c it's too late to set
      * the DYNAMORIO_CONFIGDIR env var (child is already created).
      */
@@ -500,8 +502,8 @@ get_config_file_name(const char *process_name,
     }
 #ifdef WINDOWS
     /* make sure subdir exists*/
-    if (!CreateDirectoryA(fname, NULL) &&
-        GetLastError() != ERROR_ALREADY_EXISTS) {
+    res = drfront_create_dir(fname);
+    if (res != DRFRONT_SUCCESS && res != DRFRONT_ERROR_FILE_EXISTS) {
         DO_ASSERT(false && "failed to create subdir: check permissions");
         return false;
     }
@@ -546,7 +548,7 @@ open_config_file(const char *process_name,
 {
     TCHAR wfname[MAXIMUM_PATH];
     char fname[MAXIMUM_PATH];
-    char mode[MAX_MODE_STRING_SIZE];
+    TCHAR mode[MAX_MODE_STRING_SIZE];
     int i = 0;
     FILE *f;
     DO_ASSERT(read || write);
@@ -569,14 +571,14 @@ open_config_file(const char *process_name,
      * like r, w, and +.
      */
     if (read)
-        mode[i++] = 'r';
+        mode[i++] = _T('r');
     if (write)
-        mode[i++] = (read ? '+' : 'w');
-    mode[i++] = 'b';  /* Avoid CRLF translation on Windows. */
-    mode[i++] = '\0';
+        mode[i++] = (read ? _T('+') : _T('w'));
+    mode[i++] = _T('b');  /* Avoid CRLF translation on Windows. */
+    mode[i++] = _T('\0');
     DO_ASSERT(i <= BUFFER_SIZE_ELEMENTS(mode));
     NULL_TERMINATE_BUFFER(mode);
-    f = fopen(fname, mode);
+    f = _wfopen(wfname, mode);
     return f;
 }
 
@@ -584,8 +586,8 @@ static void
 trim_trailing_newline(TCHAR *line)
 {
     TCHAR *cur = line + _tcslen(line) - 1;
-    while (cur >= line && (*cur == '\n' || *cur == '\r')) {
-        *cur = '\0';
+    while (cur >= line && (*cur == _T('\n') || *cur == _T('\r'))) {
+        *cur = _T('\0');
         cur--;
     }
 }
@@ -620,7 +622,7 @@ read_config_ex(FILE *f, const char *var, TCHAR *val, size_t val_len,
             var_end = var_start + strlen(line);
             if (val != NULL) {
                 convert_to_tchar(val, line+var_len+1, val_len);
-                val[val_len-1] = '\0';
+                val[val_len-1] = _T('\0');
                 trim_trailing_newline(val);
             }
             break;
@@ -753,7 +755,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
      */
     len = MIN(DR_MAX_OPTIONS_LENGTH-1, _tcslen(ptr));
     _tcsncpy(tmp, ptr, len);
-    tmp[len] = L'\0';
+    tmp[len] = _T('\0');
 
     opt_info->mode = DR_MODE_NONE;
 
@@ -813,7 +815,9 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
 
             /* handle enclosing quotes */
             path_str = token;
-            if (path_str[0] == L'\"' || path_str[0] == L'\'' || path_str[0] == L'`') {
+            if (path_str[0] == _T('\"') ||
+                path_str[0] == _T('\'') ||
+                path_str[0] == _T('`')) {
                 TCHAR quote = path_str[0];
                 size_t last;
 
@@ -822,7 +826,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
                 if (path_str[last] != quote) {
                     goto error;
                 }
-                path_str[last] = L'\0';
+                path_str[last] = _T('\0');
             }
 
             /* -client_lib options should have the form path;ID;options.
@@ -833,7 +837,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
                 goto error;
             }
 
-            *id_str = L'\0';
+            *id_str = _T('\0');
             id_str++;
 
             opt_str = _tcsstr(id_str, _TEXT(";"));
@@ -841,7 +845,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
                 goto error;
             }
 
-            *opt_str = L'\0';
+            *opt_str = _T('\0');
             opt_str++;
 
             /* client IDs are in hex */
@@ -969,7 +973,7 @@ write_options(opt_info_t *opt_info, TCHAR *wbuf)
             sofar += len;
     }
 
-    wbuf[DR_MAX_OPTIONS_LENGTH-1] = L'\0';
+    wbuf[DR_MAX_OPTIONS_LENGTH-1] = _T('\0');
     return DR_SUCCESS;
 }
 
@@ -1031,7 +1035,7 @@ get_syswide_path(TCHAR *wbuf,
     /* spaces are separator in AppInit so use short path */
     len = GetShortPathName(path, wbuf, MAXIMUM_PATH);
     DO_ASSERT(len > 0);
-    wbuf[MAXIMUM_PATH - 1] = '\0';
+    wbuf[MAXIMUM_PATH - 1] = _T('\0');
 }
 
 dr_config_status_t
@@ -1230,7 +1234,10 @@ dr_unregister_process(const char *process_name,
     char fname[MAXIMUM_PATH];
     if (get_config_file_name(process_name, pid, global, dr_platform,
                              fname, BUFFER_SIZE_ELEMENTS(fname))) {
-        if (remove(fname) == 0)
+        TCHAR wbuf[MAXIMUM_PATH];
+        convert_to_tchar(wbuf, fname, BUFFER_SIZE_ELEMENTS(wbuf));
+        NULL_TERMINATE_BUFFER(wbuf);
+        if (_wremove(wbuf) == 0)
             return DR_SUCCESS;
     }
     return DR_FAILURE;
@@ -1246,7 +1253,7 @@ dr_unregister_process(const char *process_name,
     }
 
     /* remove it */
-    convert_to_tchar(wbuf, process_name, MAXIMUM_PATH);
+    convert_to_tchar(wbuf, process_name, BUFFER_SIZE_ELEMENTS(wbuf));
     NULL_TERMINATE_BUFFER(wbuf);
     remove_child(wbuf, policy);
     policy->should_clear = TRUE;
@@ -1385,8 +1392,8 @@ struct _dr_registered_process_iterator_t {
      */
     WIN32_FIND_DATA find_data;
     /* FindFirstFile only fills in the basename */
-    char dir[MAXIMUM_PATH];
-    char fname[MAXIMUM_PATH];
+    TCHAR wdir[MAXIMUM_PATH];
+    TCHAR wfname[MAXIMUM_PATH];
 #endif
 };
 
@@ -1403,14 +1410,17 @@ dr_registered_process_iterator_start(dr_platform_t dr_platform,
     else
         iter->cur = NULL;
 #else
-    if (!get_config_dir(global, iter->dir, BUFFER_SIZE_ELEMENTS(iter->dir), false)) {
+    char dir[MAXIMUM_PATH];
+    if (!get_config_dir(global, dir, BUFFER_SIZE_ELEMENTS(dir), false)) {
         iter->has_next = false;
         return iter;
     }
-    _sntprintf(iter->fname, BUFFER_SIZE_ELEMENTS(iter->fname),
-               _TEXT("%S/*.%S"), iter->dir, get_config_sfx(dr_platform));
-    NULL_TERMINATE_BUFFER(iter->fname);
-    iter->find_handle = FindFirstFile(iter->fname, &iter->find_data);
+    convert_to_tchar(iter->wdir, dir, BUFFER_SIZE_ELEMENTS(iter->wdir));
+    NULL_TERMINATE_BUFFER(iter->wdir);
+    _sntprintf(iter->wfname, BUFFER_SIZE_ELEMENTS(iter->wfname),
+               _TEXT("%s/*.%S"), iter->wdir, get_config_sfx(dr_platform));
+    NULL_TERMINATE_BUFFER(iter->wfname);
+    iter->find_handle = FindFirstFile(iter->wfname, &iter->find_data);
     iter->has_next = (iter->find_handle != INVALID_HANDLE_VALUE);
 #endif
     return iter;
@@ -1441,10 +1451,10 @@ dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
 #else
     bool ok = true;
     FILE *f;
-    _sntprintf(iter->fname, BUFFER_SIZE_ELEMENTS(iter->fname),
-               _TEXT("%S/%s"), iter->dir, iter->find_data.cFileName);
-    NULL_TERMINATE_BUFFER(iter->fname);
-    f = fopen(iter->fname, "r");
+    _sntprintf(iter->wfname, BUFFER_SIZE_ELEMENTS(iter->wfname),
+               _TEXT("%s/%s"), iter->wdir, iter->find_data.cFileName);
+    NULL_TERMINATE_BUFFER(iter->wfname);
+    f = _wfopen(iter->wfname, L"r");
     if (process_name != NULL) {
         TCHAR *end;
         end = _tcsstr(iter->find_data.cFileName, _TEXT(".config"));
