@@ -1392,7 +1392,9 @@ static bool
 is_thread_tls_initialized(void)
 {
 #ifdef X86
-    if (read_thread_register(SEG_TLS) != 0)
+    ptr_uint_t cur_seg = read_thread_register(SEG_TLS);
+    /* Handle WSL (i#1896) where fs and gs start out equal to ss (0x2b) */
+    if (cur_seg != 0 && cur_seg != read_thread_register(SEG_SS))
         return true;
 # ifdef X64
     if (tls_dr_using_msr()) {
