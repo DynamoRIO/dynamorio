@@ -114,11 +114,15 @@
 
 #ifdef AARCHXX
 # ifdef ANDROID
-/* We have our own slot at the end of our instance of Android's pthread_internal_t */
+/* We have our own slot at the end of our instance of Android's pthread_internal_t.
+ * However, its offset varies by Android version, requiring indirection through
+ * a variable.
+ */
 #  ifdef AARCH64
 #   error NYI
 #  else
-#   define DR_TLS_BASE_OFFSET  1100
+extern uint android_tls_base_offs;
+#   define DR_TLS_BASE_OFFSET  android_tls_base_offs
 #  endif
 # else
 /* The TLS slot for DR's TLS base.

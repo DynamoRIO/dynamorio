@@ -121,15 +121,17 @@ struct compat_rlimit {
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
 #if defined(AARCH64)
+# define ASM_R2 "x2"
 # define ASM_R3 "x3"
-# define READ_TP_TO_R3 \
+# define READ_TP_TO_R3_DISP_IN_R2 \
       "mrs "ASM_R3", tpidr_el0\n\t" \
-      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
+      "ldr "ASM_R3", ["ASM_R3", "ASM_R2"] \n\t"
 #elif defined(ARM)
+# define ASM_R2 "r2"
 # define ASM_R3 "r3"
-# define READ_TP_TO_R3 \
+# define READ_TP_TO_R3_DISP_IN_R2 \
       "mrc p15, 0, "ASM_R3", c13, c0, "STRINGIFY(USR_TLS_REG_OPCODE)" \n\t" \
-      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
+      "ldr "ASM_R3", ["ASM_R3", "ASM_R2"] \n\t"
 #endif /* ARM */
 
 /* Prototype for all functions in .init_array. */
@@ -869,6 +871,14 @@ os_init(void)
     if (DYNAMO_OPTION(emulate_brk))
         init_emulated_brk(NULL);
 #endif
+
+#ifdef ANDROID
+    /* This must be set up earlier than privload_tls_init, and must be set up
+     * for non-client-interface as well, as this initializes DR_TLS_BASE_OFFSET
+     * (i#1931).
+     */
+    init_android_version();
+#endif
 }
 
 /* called before any logfiles are opened */
@@ -1328,36 +1338,53 @@ os_timeout(int time_in_milliseconds)
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
 #elif defined(AARCHXX)
-# define WRITE_TLS_SLOT_IMM(imm, var) \
-    __asm__ __volatile__(             \
-      READ_TP_TO_R3                   \
-      "str %0, ["ASM_R3", %1] \n\t"   \
-      : : "r" (var), "i" (imm)        \
-      : "memory", ASM_R3);
-# define READ_TLS_SLOT_IMM(imm, var) \
-    __asm__ __volatile__(            \
-      READ_TP_TO_R3                  \
-      "ldr %0, ["ASM_R3", %1] \n\t"  \
-      : "=r" (var)                   \
-      : "i" (imm)                    \
-      : ASM_R3);
+/* Android needs indirection through a global.  The Android toolchain has
+ * trouble with relocations if we use a global directly in asm, so we convert to
+ * a local variable in these macros.  We pay the cost of the extra instructions
+ * for Linux ARM to share the code.
+ */
+# define WRITE_TLS_SLOT_IMM(imm, var) do {       \
+    uint _base_offs = DR_TLS_BASE_OFFSET;        \
+    __asm__ __volatile__(                        \
+      "mov "ASM_R2", %0 \n\t"                    \
+      READ_TP_TO_R3_DISP_IN_R2                   \
+      "str %1, ["ASM_R3", %2] \n\t"              \
+      : : "r" (_base_offs), "r" (var), "i" (imm) \
+      : "memory", ASM_R2, ASM_R3);               \
+} while (0)
+# define READ_TLS_SLOT_IMM(imm, var) do { \
+    uint _base_offs = DR_TLS_BASE_OFFSET; \
+    __asm__ __volatile__(                 \
+      "mov "ASM_R2", %1 \n\t"             \
+      READ_TP_TO_R3_DISP_IN_R2            \
+      "ldr %0, ["ASM_R3", %2] \n\t"       \
+      : "=r" (var)                        \
+      : "r" (_base_offs), "i" (imm)       \
+      : ASM_R2, ASM_R3);                  \
+} while (0)
 # define WRITE_TLS_INT_SLOT_IMM WRITE_TLS_SLOT_IMM /* b/c 32-bit */
 # define READ_TLS_INT_SLOT_IMM READ_TLS_SLOT_IMM /* b/c 32-bit */
-# define WRITE_TLS_SLOT(offs, var)           \
-    __asm__ __volatile__(                    \
-      READ_TP_TO_R3                          \
-      "add "ASM_R3", "ASM_R3", %1 \n\t"      \
-      "str %0, ["ASM_R3"]   \n\t"            \
-      : : "r" (var), "r" (offs)              \
-      : "memory", ASM_R3);
-# define READ_TLS_SLOT(offs, var)         \
+# define WRITE_TLS_SLOT(offs, var) do {           \
+    uint _base_offs = DR_TLS_BASE_OFFSET;         \
+    __asm__ __volatile__(                         \
+      "mov "ASM_R2", %0 \n\t"                     \
+      READ_TP_TO_R3_DISP_IN_R2                    \
+      "add "ASM_R3", "ASM_R3", %2 \n\t"           \
+      "str %1, ["ASM_R3"]   \n\t"                 \
+      : : "r" (_base_offs), "r" (var), "r" (offs) \
+      : "memory", ASM_R2, ASM_R3);                \
+} while (0)
+# define READ_TLS_SLOT(offs, var) do {    \
+    uint _base_offs = DR_TLS_BASE_OFFSET; \
     __asm__ __volatile__(                 \
-      READ_TP_TO_R3                       \
-      "add "ASM_R3", "ASM_R3", %1 \n\t"   \
+      "mov "ASM_R2", %1 \n\t"             \
+      READ_TP_TO_R3_DISP_IN_R2            \
+      "add "ASM_R3", "ASM_R3", %2 \n\t"   \
       "ldr %0, ["ASM_R3"]   \n\t"         \
       : "=r" (var)                        \
-      : "r"  (offs)                       \
-      : ASM_R3);
+      : "r" (_base_offs), "r"  (offs)     \
+      : ASM_R2, ASM_R3);                  \
+} while (0)
 #endif /* X86/ARM */
 
 /* FIXME: on X86, we assume that DR's thread register is not already in use by app */

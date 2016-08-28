@@ -319,6 +319,7 @@ void *privload_tls_init(void *app_tp);
 void  privload_tls_exit(void *dr_tp);
 #ifdef ANDROID
 bool get_kernel_args(int *argc OUT, char ***argv OUT, char ***envp OUT);
+void init_android_version(void);
 #endif
 
 /* in nudgesig.c */

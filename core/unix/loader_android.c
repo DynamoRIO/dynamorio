@@ -53,6 +53,8 @@ static uint android_version = 6;
 
 extern void *kernel_init_sp;
 
+uint android_tls_base_offs;
+
 static size_t
 get_pthread_tls_offs(void)
 {
@@ -62,8 +64,8 @@ get_pthread_tls_offs(void)
         return offsetof(android_v6_pthread_internal_t, tls);
 }
 
-static void
-get_android_version(void)
+void
+init_android_version(void)
 {
 #   define VER_FILE "/system/build.prop"
 #   define VER_PROP "ro.build.version.release="
@@ -89,12 +91,19 @@ get_android_version(void)
 
     /* We have to exactly duplicate the offset of key fields in Android's
      * pthread_internal_t struct.
-     * We want the dr_tls_base_offset offset from the tls field constant.
      */
-    ASSERT(DR_TLS_BASE_OFFSET == offsetof(android_v5_pthread_internal_t, dr_tls_base)
-           - offsetof(android_v5_pthread_internal_t, tls) /* the self slot */);
-    ASSERT(DR_TLS_BASE_OFFSET == offsetof(android_v6_pthread_internal_t, dr_tls_base)
-           - offsetof(android_v6_pthread_internal_t, tls) /* the self slot */);
+    if (android_version <= 5) {
+        android_tls_base_offs = offsetof(android_v5_pthread_internal_t, dr_tls_base)
+            - offsetof(android_v5_pthread_internal_t, tls) /* the self slot */;
+        /* i#1931: ensure we do not cross onto a new page. */
+        ASSERT(PAGE_START(android_tls_base_offs) ==
+               PAGE_START(sizeof(android_v5_pthread_internal_t) - sizeof(void*)));
+    } else {
+        android_tls_base_offs = offsetof(android_v6_pthread_internal_t, dr_tls_base)
+            - offsetof(android_v6_pthread_internal_t, tls) /* the self slot */;
+        ASSERT(PAGE_START(android_tls_base_offs) ==
+               PAGE_START(sizeof(android_v6_pthread_internal_t) - sizeof(void*)));
+    }
 }
 
 static size_t
@@ -119,8 +128,6 @@ privload_tls_init(void *app_tls)
     if (!dynamo_initialized) {
         char **e;
         pid_t tid;
-
-        get_android_version();
 
         /* We have to duplicate the pthread setup that the Android loader does.
          * We expect app_tls to be either NULL or garbage, as we have early injection.
