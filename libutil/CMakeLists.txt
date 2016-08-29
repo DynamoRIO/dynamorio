@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -64,6 +64,7 @@ set(CORE_SRCS
   ${PROJECT_SOURCE_DIR}/core/win32/module_shared.c
   ${PROJECT_SOURCE_DIR}/core/win32/ntdll_shared.c
   ${PROJECT_SOURCE_DIR}/core/win32/drmarker.c
+  ${PROJECT_SOURCE_DIR}/core/io.c
   )
 set(RESOURCES ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 set(BASE_SRCS

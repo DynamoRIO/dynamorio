@@ -55,6 +55,11 @@
 # define LIB32_SUBDIR    _TEXT("\\lib32")
 # define PREINJECT32_DLL _TEXT("\\lib32\\drpreinject.dll")
 # define PREINJECT64_DLL _TEXT("\\lib64\\drpreinject.dll")
+# define _snprintf our_snprintf
+# undef _sntprintf
+# define _sntprintf our_snprintf_wide
+int our_snprintf(char *s, size_t max, const char *fmt, ...);
+int our_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 #else
 # include <sys/stat.h>
 # include <sys/types.h>

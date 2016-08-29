@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,14 @@
 
 /* FIXME: failure modes should be more graceful than failing asserts in most places */
 
-#include "globals.h"
+#ifndef NOT_DYNAMORIO_CORE
+# include "globals.h"
+#else
+# include "configure.h"
+# include "globals_shared.h"
+typedef unsigned long ulong;
+void dr_fpu_exception_init(void);
+#endif
 #include <string.h>
 #include <stdarg.h> /* for varargs */
 
@@ -60,7 +67,9 @@
 # undef CLIENT_ASSERT
 # define CLIENT_ASSERT(cond, msg)
 # undef ASSERT
+# undef ASSERT_NOT_REACHED
 # define ASSERT(x)
+# define ASSERT_NOT_REACHED()
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
 
 #define VA_ARG_CHAR2INT
@@ -305,7 +314,7 @@ utf16_to_utf8(char *dst, size_t dst_sz/*elements*/, const wchar_t *src,
 ssize_t
 utf16_to_utf8_size(const wchar_t *src, size_t max_chars, size_t *written/*unicode chars*/)
 {
-    return utf16_to_utf8(NULL, 0, src, max_chars, NULL);
+    return utf16_to_utf8(NULL, 0, src, max_chars, written);
 }
 #endif
 
