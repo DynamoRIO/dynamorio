@@ -133,7 +133,17 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 6.1.0 include:
+The changes between version \DR_VERSION and 6.2.0 include:
+ - Nothing yet: TBD.
+
+**************************************************
+<hr>
+
+Version 6.2.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 6.2.0 and 6.1.0 include:
 
  - Added support for Windows 10 1607.  We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1607 to distinguish this major update.
