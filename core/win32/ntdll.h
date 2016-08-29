@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2102,14 +2102,15 @@ create_process(wchar_t *exe, wchar_t *cmdline);
 /* NOTE see important usage information in ntdll.c, threads created with this
  * function can NOT return from their start routine */
 HANDLE
-create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
-              void *arg, const void *arg_buf, size_t arg_buf_size,
-              uint stack_reserve, uint stack_commit, bool suspended, thread_id_t *tid);
+our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
+                  void *arg, const void *arg_buf, size_t arg_buf_size,
+                  uint stack_reserve, uint stack_commit, bool suspended,
+                  thread_id_t *tid);
 HANDLE
-create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
-                         void *arg, const void *arg_buf, size_t arg_buf_size,
-                         byte *stack_base, size_t stack_size,
-                         bool suspended, thread_id_t *tid);
+our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
+                             void *arg, const void *arg_buf, size_t arg_buf_size,
+                             byte *stack_base, size_t stack_size,
+                             bool suspended, thread_id_t *tid);
 
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context

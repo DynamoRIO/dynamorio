@@ -4428,11 +4428,11 @@ create_process(wchar_t *exe, wchar_t *cmdline)
     NTPRINT("create_process: created section and process\n");
 
     /* FIXME : if thread returns from its EntryPoint function will crash because
-     * create_thread skips the kernel32 ThreadStartThunk */
+     * our_create_thread skips the kernel32 ThreadStartThunk */
     /* FIXME : need to know whether target process is 32bit or 64bit, for now
      * assume 32bit. */
-    hthread = create_thread(hProcess, false, sii.EntryPoint, NULL, NULL, 0,
-                            sii.StackReserve, sii.StackCommit, TRUE, &tid);
+    hthread = our_create_thread(hProcess, false, sii.EntryPoint, NULL, NULL, 0,
+                                sii.StackReserve, sii.StackCommit, TRUE, &tid);
 
     if (hthread == INVALID_HANDLE_VALUE) {
         NTPRINT("create_process: failed to create thread\n");
@@ -4492,7 +4492,7 @@ create_process(wchar_t *exe, wchar_t *cmdline)
  * arg.
  */
 /* returns INVALID_HANDLE_VALUE on error */
-HANDLE
+static HANDLE
 create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
                      void *arg, const void *arg_buf, size_t arg_buf_size,
                      USER_STACK *stack, bool suspended, thread_id_t *tid)
@@ -4592,9 +4592,10 @@ create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
 
 /* Creates a new stack w/ guard page */
 HANDLE
-create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
-              void *arg, const void *arg_buf, size_t arg_buf_size,
-              uint stack_reserve, uint stack_commit, bool suspended, thread_id_t *tid)
+our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
+                  void *arg, const void *arg_buf, size_t arg_buf_size,
+                  uint stack_reserve, uint stack_commit, bool suspended,
+                  thread_id_t *tid)
 {
     USER_STACK stack = {0};
     uint num_commit_bytes, old_prot;
@@ -4636,10 +4637,10 @@ create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
 
 /* Uses caller-allocated stack */
 HANDLE
-create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
-                         void *arg, const void *arg_buf, size_t arg_buf_size,
-                         byte *stack_base, size_t stack_size,
-                         bool suspended, thread_id_t *tid)
+our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
+                             void *arg, const void *arg_buf, size_t arg_buf_size,
+                             byte *stack_base, size_t stack_size,
+                             bool suspended, thread_id_t *tid)
 {
     USER_STACK stack = {0};
     stack.ExpandableStackBase = stack_base;

@@ -36,7 +36,7 @@
 #include "nudge.h"
 
 #ifdef WINDOWS
-# include "ntdll.h" /* for create_thread(), nt_free_virtual_memory() */
+# include "ntdll.h" /* for our_create_thread(), nt_free_virtual_memory() */
 # include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
 # include "drmarker.h"
 #else
@@ -514,9 +514,9 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
         nudge_target = marker.dr_generic_nudge_target;
     }
 
-    hthread = create_thread(hproc, IF_X64_ELSE(true, false), nudge_target,
-                            NULL, &nudge_arg, sizeof(nudge_arg_t),
-                            15*PAGE_SIZE, 12*PAGE_SIZE, false, NULL);
+    hthread = our_create_thread(hproc, IF_X64_ELSE(true, false), nudge_target,
+                                NULL, &nudge_arg, sizeof(nudge_arg_t),
+                                15*PAGE_SIZE, 12*PAGE_SIZE, false, NULL);
     ASSERT(hthread != INVALID_HANDLE_VALUE);
     if (hthread == INVALID_HANDLE_VALUE)
         return DR_FAILURE;

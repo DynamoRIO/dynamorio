@@ -3116,7 +3116,7 @@ intercept_new_thread(CONTEXT *cxt)
         if (is_client) {
             ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP));
             /* PR 210591: hide our threads from DllMain by not executing rest
-             * of Ldr init code and going straight to target.  create_thread()
+             * of Ldr init code and going straight to target.  our_create_thread()
              * already set up the arg in cxt.
              */
             nt_continue(cxt);

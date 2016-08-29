@@ -2675,10 +2675,10 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     arg_buf[1] = arg;
 
     /* FIXME PR 225714: does this work on Vista? */
-    hthread = create_thread_have_stack(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
-                                       (void *)client_thread_target,
-                                       NULL, arg_buf, BUFFER_SIZE_BYTES(arg_buf),
-                                       dstack, DYNAMORIO_STACK_SIZE, false, &tid);
+    hthread = our_create_thread_have_stack(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
+                                           (void *)client_thread_target,
+                                           NULL, arg_buf, BUFFER_SIZE_BYTES(arg_buf),
+                                           dstack, DYNAMORIO_STACK_SIZE, false, &tid);
     CLIENT_ASSERT(hthread != INVALID_HANDLE_VALUE, "error creating thread");
     if (hthread == INVALID_HANDLE_VALUE) {
         stack_free(dstack, DYNAMORIO_STACK_SIZE);
