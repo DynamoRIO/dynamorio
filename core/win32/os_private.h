@@ -259,7 +259,11 @@ sys_param_addr(dcontext_t *dcontext, reg_t *param_base, int num)
     /* we force-inline get_mcontext() and so don't take it as a param */
     priv_mcontext_t *mc = get_mcontext(dcontext);
     switch (num) {
-    case 0: return &mc->xcx;
+    /* The first arg was in rcx, but that's clobbered by OP_sysycall, so the wrapper
+     * copies it to r10.  We need to use r10 as our own instru sometimes takes
+     * advantage of the dead rcx and clobbers it inside the wrapper (i#1901).
+     */
+    case 0: return &mc->r10;
     case 1: return &mc->xdx;
     case 2: return &mc->r8;
     case 3: return &mc->r9;

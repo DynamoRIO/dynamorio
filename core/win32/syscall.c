@@ -1750,7 +1750,10 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         /* FIXME: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
         os_terminate_wow64_write_args(true/*process*/, process_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],
-                              IF_X64_ELSE(mc->xcx, mc->xdx),
+                              /* r10, which will go to rcx in cleanup_and_terminate
+                               * and back to r10 in global_do_syscall_syscall (i#1901).
+                               */
+                              IF_X64_ELSE(mc->r10, mc->xdx),
                               mc->xdx, true /* entire process */, 0, 0);
     }
     return true;
@@ -1829,7 +1832,10 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
         KSTOP(num_exits_dir_syscall);
         os_terminate_wow64_write_args(false/*thread*/, thread_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateThread],
-                              IF_X64_ELSE(mc->xcx, mc->xdx),
+                              /* r10, which will go to rcx in cleanup_and_terminate
+                               * and back to r10 in global_do_syscall_syscall (i#1901).
+                               */
+                              IF_X64_ELSE(mc->r10, mc->xdx),
                               mc->xdx, exitproc, 0, 0);
     }
 }
@@ -4474,8 +4480,7 @@ dr_syscall_invoke_another(void *drcontext)
     }
 # ifdef X64
     else if (get_syscall_method() == SYSCALL_METHOD_SYSCALL) {
-        /* we could instead have sys_param_addr() use r10, like we do on linux */
-        mc->r10 = mc->xcx;
+        /* sys_param_addr() is already using r10 */
     }
 # endif
 }
