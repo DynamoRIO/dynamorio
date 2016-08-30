@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -49,9 +49,17 @@ SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
-# set additional variables
-SET(CMAKE_LINKER        aarch64-${TARGET_ABI}-ld       CACHE FILEPATH "cmake_linker")
-SET(CMAKE_ASM_COMPILER  aarch64-${TARGET_ABI}-as       CACHE FILEPATH "cmake_asm_compiler")
-SET(CMAKE_OBJCOPY       aarch64-${TARGET_ABI}-objcopy  CACHE FILEPATH "cmake_objcopy")
-SET(CMAKE_STRIP         aarch64-${TARGET_ABI}-strip    CACHE FILEPATH "cmake_strip")
-SET(CMAKE_CPP           aarch64-${TARGET_ABI}-cpp      CACHE FILEPATH "cmake_cpp")
+# Set additional variables.
+# If we don't set some of these, CMake will end up using the host version.
+# We want the full path, however, so we can pass EXISTS and other checks in
+# the our CMake code.
+find_program(GCC_FULL_PATH arm-${TARGET_ABI}-gcc)
+if (NOT GCC_FULL_PATH)
+  message(FATAL_ERROR "Cross-compiler arm-${TARGET_ABI}-gcc not found")
+endif ()
+get_filename_component(GCC_DIR ${GCC_FULL_PATH} PATH)
+SET(CMAKE_LINKER       ${GCC_DIR}/aarch64-${TARGET_ABI}-ld      CACHE FILEPATH "linker")
+SET(CMAKE_ASM_COMPILER ${GCC_DIR}/aarch64-${TARGET_ABI}-as      CACHE FILEPATH "assembler")
+SET(CMAKE_OBJCOPY      ${GCC_DIR}/aarch64-${TARGET_ABI}-objcopy CACHE FILEPATH "objcopy")
+SET(CMAKE_STRIP        ${GCC_DIR}/aarch64-${TARGET_ABI}-strip   CACHE FILEPATH "strip")
+SET(CMAKE_CPP          ${GCC_DIR}/aarch64-${TARGET_ABI}-cpp     CACHE FILEPATH "cpp")
