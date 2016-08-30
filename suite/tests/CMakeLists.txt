@@ -2153,15 +2153,16 @@ if (CLIENT_INTERFACE)
 
   if (ARM)
     set(sfx "arm")
+  elseif (AARCH64)
+    set(sfx "aarch64")
   else ()
     set(sfx "x86")
   endif ()
-  if (NOT ANDROID AND NOT AARCH64)
+  if (NOT ANDROID)
     # XXX i#1874: get working on Android
-    # FIXME i#1569: get working on AArch64
     tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF)
     # XXX i#1686: add ARM's headers too once they are all created
-    if (NOT ARM AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+    if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
       # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
       # and so doesn't find headers named via macros
       # (http://www.cmake.org/Bug/view.php?id=13718)

@@ -567,6 +567,10 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
         opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
         opnd.value.base_disp.shift_amount_minus_1 = 0;
     }
+#elif defined(AARCH64)
+    opnd.value.base_disp.pre_index = false;
+    opnd.value.base_disp.extend_type = DR_EXTEND_UXTX;
+    opnd.value.base_disp.scaled = false;
 #elif defined(X86)
     opnd.value.base_disp.scale = (byte) scale;
     opnd.value.base_disp.encode_zero_disp = (byte) encode_zero_disp;
@@ -610,6 +614,37 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
     opnd.aux.flags = flags;
     if (!opnd_set_index_shift(&opnd, shift_type, shift_amount))
         CLIENT_ASSERT(false, "opnd_create_base_disp_arm: invalid shift type/amount");
+    return opnd;
+}
+#endif
+
+#ifdef AARCH64
+opnd_t
+opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                              dr_extend_type_t extend_type, bool scaled, int disp,
+                              dr_opnd_flags_t flags, opnd_size_t size)
+{
+    opnd_t opnd;
+    opnd.kind = BASE_DISP_kind;
+    CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_*base_disp*: invalid size");
+    opnd.size = size;
+    CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
+                  "opnd_create_base_disp_aarch64: cannot have both disp and index");
+    CLIENT_ASSERT(base_reg <= REG_LAST_ENUM,
+                  "opnd_create_base_disp_aarch64: invalid base");
+    CLIENT_ASSERT(index_reg <= REG_LAST_ENUM,
+                  "opnd_create_base_disp_aarch64: invalid index");
+    /* reg_id_t is now a ushort, but we can only accept low values */
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, base_reg,
+                                    "opnd_create_base_disp_aarch64: invalid base");
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
+                                    "opnd_create_base_disp_aarch64: invalid index");
+    opnd.value.base_disp.base_reg = base_reg;
+    opnd.value.base_disp.index_reg = index_reg;
+    opnd_set_disp_helper(&opnd, disp);
+    opnd.aux.flags = flags;
+    if (!opnd_set_index_extend(&opnd, extend_type, scaled))
+        CLIENT_ASSERT(false, "opnd_create_base_disp_aarch64: invalid extend type");
     return opnd;
 }
 #endif
@@ -697,6 +732,61 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
     return true;
 }
 #endif /* ARM */
+
+#ifdef AARCH64
+static uint
+opnd_size_to_extend_amount(opnd_size_t size)
+{
+    switch (size) {
+    default:
+        ASSERT(false);
+        /* fall-through */
+    case OPSZ_1: return 0;
+    case OPSZ_2: return 1;
+    case OPSZ_4: return 2;
+    case OPSZ_0: /* fall-through */
+    case OPSZ_8: return 3;
+    case OPSZ_16: return 4;
+    }
+}
+
+dr_extend_type_t
+opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
+{
+    dr_extend_type_t extend = DR_EXTEND_UXTX;
+    bool scaled_out = false;
+    uint amount_out = 0;
+    if (!opnd_is_base_disp(opnd))
+        CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
+    else {
+        extend = opnd.value.base_disp.extend_type;
+        scaled_out = opnd.value.base_disp.scaled;
+        if (scaled_out)
+            amount_out = opnd_size_to_extend_amount(opnd_get_size(opnd));
+    }
+    if (scaled != NULL)
+        *scaled = scaled_out;
+    if (amount != NULL)
+        *amount = amount_out;
+    return extend;
+}
+
+bool
+opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
+{
+    if (!opnd_is_base_disp(*opnd)) {
+        CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
+        return false;
+    }
+    if (extend < 0 || extend > 7) {
+        CLIENT_ASSERT(false, "opnd index extend: invalid extend type");
+        return false;
+    }
+    opnd->value.base_disp.extend_type = extend;
+    opnd->value.base_disp.scaled = scaled;
+    return true;
+}
+#endif /* AARCH64 */
 
 bool
 opnd_is_disp_encode_zero(opnd_t opnd)

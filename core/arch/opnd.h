@@ -726,6 +726,23 @@ typedef enum _dr_shift_type_t {
 } dr_shift_type_t;
 
 /**
+ * These flags describe how the index register in a memory reference is extended
+ * before being optionally shifted and added to the base register. They also describe
+ * how a general source register is extended before being used in its containing
+ * instruction.
+ */
+typedef enum _dr_extend_type_t {
+    DR_EXTEND_UXTB = 0, /**< Unsigned extend byte. */
+    DR_EXTEND_UXTH,     /**< Unsigned extend halfword. */
+    DR_EXTEND_UXTW,     /**< Unsigned extend word. */
+    DR_EXTEND_UXTX,     /**< Unsigned extend doubleword (a no-op). */
+    DR_EXTEND_SXTB,     /**< Signed extend byte. */
+    DR_EXTEND_SXTH,     /**< Signed extend halfword. */
+    DR_EXTEND_SXTW,     /**< Signed extend word. */
+    DR_EXTEND_SXTX,     /**< Signed extend doubleword (a no-op). */
+} dr_extend_type_t;
+
+/**
  * These flags describe operations performed on the value of a source register
  * before it is combined with other sources as part of the behavior of the
  * containing instruction, or operations performed on an index register or
@@ -751,10 +768,24 @@ typedef enum _dr_opnd_flags_t {
      * low and high parts of a 64-bit value.
      */
     DR_OPND_MULTI_PART = 0x04,
-    /** This immediate integer operand should be interpreted as an ARM shift type. */
+    /**
+     * This immediate integer operand should be interpreted as an ARM/AArch64 shift type.
+     */
     DR_OPND_IS_SHIFT   = 0x08,
     /** A hint indicating that this register operand is part of a register list. */
     DR_OPND_IN_LIST    = 0x10,
+    /**
+     * This register's value is extended prior to use in the containing instruction.
+     * This flag is for informational purposes only and is not guaranteed to
+     * be consistent with the shift type of an index register or displacement
+     * if the latter are set without using opnd_set_index_extend() or if an
+     * instruction is created without using high-level API routines.
+     * This flag is also ignored for encoding and will not apply a shift
+     * on its own.
+     */
+    DR_OPND_EXTENDED   = 0x20,
+    /** This immediate integer operand should be interpreted as an AArch64 extend type. */
+    DR_OPND_IS_EXTEND  = 0x40,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -826,7 +857,16 @@ struct _opnd_t {
              * We also have to use byte and not dr_shift_type_t
              * to get cl to not align.
              */
-# if defined(ARM)
+# if defined(AARCH64)
+            /* This is only used to distinguish pre-index from post-index when the
+             * offset is zero, for example: ldr w1,[x2,#0]! from ldr w1,[x0],#0.
+             */
+            byte/*bool*/ pre_index : 1;
+            /* Access this using opnd_get_index_extend and opnd_set_index_extend. */
+            byte/*dr_extend_type_t*/ extend_type : 3;
+            /* Shift register offset left by amount implied by size of memory operand: */
+            byte/*bool*/ scaled : 1;
+# elif defined(ARM)
             byte/*dr_shift_type_t*/ shift_type : 3;
             byte shift_amount_minus_1 : 5; /* 1..31 so we store (val - 1) */
 # elif defined(X86)
@@ -1155,6 +1195,31 @@ opnd_t
 opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
                           dr_shift_type_t shift_type, uint shift_amount, int disp,
                           dr_opnd_flags_t flags, opnd_size_t size);
+#endif
+
+#ifdef AARCH64
+DR_API
+/**
+ * Returns a memory reference operand that refers to either a base
+ * register with a constant displacement:
+ * - [base_reg, disp]
+ *
+ * Or a base register plus an optionally extended and shifted index register:
+ * - [base_reg, index_reg, extend_type, shift_amount]
+ *
+ * The shift_amount is zero or, if \p scaled, a value determined by the
+ * size of the operand.
+ *
+ * The resulting operand has data size \p size (must be an OPSZ_ constant).
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
+ * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                              dr_extend_type_t extend_type, bool scaled, int disp,
+                              dr_opnd_flags_t flags, opnd_size_t size);
 #endif
 
 DR_API
@@ -1693,6 +1758,31 @@ DR_API
 bool
 opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount);
 #endif /* ARM */
+
+#ifdef AARCH64
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Returns the extension type, whether the offset is \p scaled, and the shift \p amount.
+ * The register offset will be extended, then shifted, then added to the base register.
+ * If there is no extension and no shift the values returned will be #DR_EXTEND_UXTX,
+ * false, and zero.
+ * \note AArch64-only.
+ */
+dr_extend_type_t
+opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount);
+
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Sets the index register to be extended by \p extend and optionally \p scaled.
+ * Returns whether successful. If the offset is scaled the amount it is shifted
+ * by is determined by the size of the memory operand.
+ * \note AArch64-only.
+ */
+bool
+opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled);
+#endif /* AARCH64 */
 
 DR_API
 /**
