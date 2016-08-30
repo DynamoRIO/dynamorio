@@ -191,6 +191,7 @@ opnd_size_suffix_dr(opnd_t opnd)
     switch (sz) {
     case 1: return "1byte";
     case 2: return "2byte";
+    case 3: return "3byte";
     case 4: return "4byte";
     case 6: return "6byte";
     case 8: return "8byte";
