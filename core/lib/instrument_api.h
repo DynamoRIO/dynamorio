@@ -5600,6 +5600,7 @@ DR_API
  * \note This routine supports replacement for the current thread
  * only.  \p drcontext must be from the current thread and must
  * be the drcontext used to create the instruction list.
+ * This routine may not be called from the thread exit event.
  *
  * \return false if the fragment does not exist and true otherwise.
  */
@@ -5620,6 +5621,7 @@ DR_API
  * \note This routine supports deletion for the current thread
  * only.  \p drcontext must be from the current thread and must
  * be the drcontext used to create the instruction list.
+ * This routine may not be called from the thread exit event.
  *
  * \note Other options of removing the code fragments from code cache include
  * dr_flush_region(), dr_unlink_flush_region(), and dr_delay_flush_region().
@@ -5782,6 +5784,7 @@ DR_API
  * This involves translating the state and thus may incur calls to
  * the basic block and trace events (see dr_register_bb_event()).
  * If translation fails, returns NULL.
+ * This routine may not be called from a thread exit event.
  */
 app_pc
 dr_app_pc_from_cache_pc(byte *cache_pc);

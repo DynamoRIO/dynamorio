@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1218,7 +1218,8 @@ dynamo_process_exit_cleanup(void)
          * we do some thread cleanup early for the final thread so we can delay
          * the rest (PR 536058).  This is a little risky in that we
          * clean up dcontext->fragment_field, which is used for lots of
-         * things like couldbelinking.
+         * things like couldbelinking (and thus we have to disable some API
+         * routines in the thread exit event: i#1989).
          */
         dynamo_thread_exit_pre_client(get_thread_private_dcontext(), get_thread_id());
 

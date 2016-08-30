@@ -6444,6 +6444,11 @@ dr_delete_fragment(void *drcontext, void *tag)
     CLIENT_ASSERT(!SHARED_FRAGMENTS_ENABLED(),
                   "dr_delete_fragment() only valid with -thread_private");
     CLIENT_ASSERT(drcontext != NULL, "dr_delete_fragment(): drcontext cannot be NULL");
+    /* i#1989: there's no easy way to get a translation without a proper dcontext */
+    CLIENT_ASSERT(!fragment_thread_exited(dcontext),
+                  "dr_delete_fragment not supported from the thread exit event");
+    if (fragment_thread_exited(dcontext))
+        return false;
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
@@ -6513,6 +6518,11 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     CLIENT_ASSERT(drcontext != NULL, "dr_replace_fragment(): drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_replace_fragment: drcontext is invalid");
+    /* i#1989: there's no easy way to get a translation without a proper dcontext */
+    CLIENT_ASSERT(!fragment_thread_exited(dcontext),
+                  "dr_replace_fragment not supported from the thread exit event");
+    if (fragment_thread_exited(dcontext))
+        return false;
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
@@ -6854,6 +6864,11 @@ dr_app_pc_from_cache_pc(byte *cache_pc)
     bool waslinking;
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL);
+    /* i#1989: there's no easy way to get a translation without a proper dcontext */
+    CLIENT_ASSERT(!fragment_thread_exited(dcontext),
+                  "dr_app_pc_from_cache_pc not supported from the thread exit event");
+    if (fragment_thread_exited(dcontext))
+        return NULL;
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);

@@ -1982,6 +1982,8 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.option_parse.dll droption)
   set(client.option_parse_client_ops_islist ON)
 
+  tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
+
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 

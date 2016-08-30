@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -606,6 +606,9 @@ fragment_thread_init(dcontext_t *dcontext);
 
 void
 fragment_thread_exit(dcontext_t *dcontext);
+
+bool
+fragment_thread_exited(dcontext_t *dcontext);
 
 /* re-initializes non-persistent memory */
 void

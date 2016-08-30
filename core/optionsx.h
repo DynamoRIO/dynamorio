@@ -752,7 +752,10 @@
      * with max bb size (even 64 may be too big), xref case 7893. */
     OPTION_DEFAULT(uint, selfmod_max_writes, 5,
         "maximum write instrs per selfmod fragment")
-    OPTION_DEFAULT(uint, max_bb_instrs, 1024,
+    /* If this is too large, clients with heavyweight instrumentation hit the
+     * "exceeded maximum size" failure.
+     */
+    OPTION_DEFAULT(uint, max_bb_instrs, IF_CLIENT_INTERFACE_ELSE(256, 1024),
         "maximum instrs per basic block")
     PC_OPTION_DEFAULT(bool, process_SEH_push,
         IF_RETURN_AFTER_CALL_ELSE(true, false),
