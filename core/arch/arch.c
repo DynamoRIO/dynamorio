@@ -2918,9 +2918,10 @@ unhook_vsyscall(void)
         if (!res)
             return false;
     }
-    memcpy(vsyscall_sysenter_return_pc, vsyscall_syscall_end_pc, len);
+    memcpy(vsyscall_sysenter_return_pc, vsyscall_sysenter_displaced_pc, len);
     /* we do not restore the 5th (junk/nop) byte (we never copied it) */
-    memset(vsyscall_syscall_end_pc, RAW_OPCODE_nop, len);
+    if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
+        memset(vsyscall_syscall_end_pc, RAW_OPCODE_nop, len);
     if (!TEST(MEMPROT_WRITE, prot)) {
         res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
         ASSERT(res);
