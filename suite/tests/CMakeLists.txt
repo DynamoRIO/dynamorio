@@ -2208,8 +2208,9 @@ if (CLIENT_INTERFACE)
   endif ()
 
   # Test DR as a static library
-  # FIXME i#1996: not fully supported on Android yet
-  if (NOT ANDROID)
+  # XXX i#1996: not fully supported on Android yet
+  # XXX i#1997: not fully supported on Mac yet
+  if (NOT ANDROID AND NOT APPLE)
     tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
     target_link_libraries(api.static_startstop ${libmath})
     tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
@@ -3141,6 +3142,6 @@ if (APPLE)
     code_api|api.ir
     code_api|api.dis
     code_api|api.ir-static
-    code_api|api.static
+    code_api|api.drdecode
     PROPERTIES LABELS OSX)
 endif ()

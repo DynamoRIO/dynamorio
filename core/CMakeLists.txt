@@ -745,69 +745,72 @@ endif (UNIX)
 ###########################################################################
 # DynamoRIO static core library
 
-add_library(dynamorio_static STATIC
-  ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
+# XXX i#1997: not fully supported on Mac yet
+if (NOT APPLE)
+  add_library(dynamorio_static STATIC
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
 
-configure_core_lib(dynamorio_static)
+  configure_core_lib(dynamorio_static)
 
-append_property_list(TARGET dynamorio_static COMPILE_DEFINITIONS "STATIC_LIBRARY")
+  append_property_list(TARGET dynamorio_static COMPILE_DEFINITIONS "STATIC_LIBRARY")
 
-if (UNIX)
-  # We build static DR as PIC in case we're linked into a .so or a PIE.
-  append_property_string(TARGET dynamorio_static COMPILE_FLAGS "-fPIC")
-  target_link_libraries(dynamorio_static dl)
+  if (UNIX)
+    # We build static DR as PIC in case we're linked into a .so or a PIE.
+    append_property_string(TARGET dynamorio_static COMPILE_FLAGS "-fPIC")
+    target_link_libraries(dynamorio_static dl)
 
-  # We need to do extra work to hide symbols in the static library build.
-  # First we do a partial link with ld -r, which makes a single libdynamorio.o
-  # object file.  Then we use objcopy --localize-hidden to hide all
-  # non-exported symbols.
-  if (NOT EXISTS ${CMAKE_OBJCOPY})
-    message(FATAL_ERROR "dynamorio_static requires objcopy")
-  endif ()
-  get_target_property(dynamorio_dot_a dynamorio_static LOCATION)
-  string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
-  string(REPLACE " " ";" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
-  set (globalize_pic_thunks)
-  if (NOT X64)
-    # Localizing PIC thunks on ia32 creates references to discarded sections.
-    # XXX: Hardcoding this list of symbols is fragile.  It is known to work
-    # with gcc 4.4 and 4.6.  gcc 4.7 uses symbols starting with __x86.
-    set (globalize_pic_thunks ${CMAKE_OBJCOPY}
-      --globalize-symbol=__i686.get_pc_thunk.bx
-      --globalize-symbol=__i686.get_pc_thunk.cx
-      --globalize-symbol=__x86.get_pc_thunk.ax
-      --globalize-symbol=__x86.get_pc_thunk.bx
-      --globalize-symbol=__x86.get_pc_thunk.cx
-      --globalize-symbol=__x86.get_pc_thunk.dx
-      --globalize-symbol=__x86.get_pc_thunk.di
-      --globalize-symbol=__x86.get_pc_thunk.si
-      "${dynamorio_dot_o}" &&
-      )
-  endif ()
-  add_custom_command(TARGET dynamorio_static POST_BUILD
-    COMMAND
-    ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
-      -nostartfiles -nodefaultlibs -Wl,-r
-      -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
-      -o "${dynamorio_dot_o}" &&
-    ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
-    ${globalize_pic_thunks}
-    rm -f "${dynamorio_dot_a}" &&
-    ${CMAKE_AR} cr "${dynamorio_dot_a}" "${dynamorio_dot_o}" &&
-    ${CMAKE_RANLIB} "${dynamorio_dot_a}"
-    WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
-    VERBATIM)
+    # We need to do extra work to hide symbols in the static library build.
+    # First we do a partial link with ld -r, which makes a single libdynamorio.o
+    # object file.  Then we use objcopy --localize-hidden to hide all
+    # non-exported symbols.
+    if (NOT EXISTS ${CMAKE_OBJCOPY})
+      message( "dynamorio_static requires objcopy")
+    endif ()
+    get_target_property(dynamorio_dot_a dynamorio_static LOCATION)
+    string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
+    string(REPLACE " " ";" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
+    set (globalize_pic_thunks)
+    if (NOT X64)
+      # Localizing PIC thunks on ia32 creates references to discarded sections.
+      # XXX: Hardcoding this list of symbols is fragile.  It is known to work
+      # with gcc 4.4 and 4.6.  gcc 4.7 uses symbols starting with __x86.
+      set (globalize_pic_thunks ${CMAKE_OBJCOPY}
+        --globalize-symbol=__i686.get_pc_thunk.bx
+        --globalize-symbol=__i686.get_pc_thunk.cx
+        --globalize-symbol=__x86.get_pc_thunk.ax
+        --globalize-symbol=__x86.get_pc_thunk.bx
+        --globalize-symbol=__x86.get_pc_thunk.cx
+        --globalize-symbol=__x86.get_pc_thunk.dx
+        --globalize-symbol=__x86.get_pc_thunk.di
+        --globalize-symbol=__x86.get_pc_thunk.si
+        "${dynamorio_dot_o}" &&
+        )
+    endif ()
+    add_custom_command(TARGET dynamorio_static POST_BUILD
+      COMMAND
+      ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
+        -nostartfiles -nodefaultlibs -Wl,-r
+        -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
+        -o "${dynamorio_dot_o}" &&
+      ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
+      ${globalize_pic_thunks}
+      rm -f "${dynamorio_dot_a}" &&
+      ${CMAKE_AR} cr "${dynamorio_dot_a}" "${dynamorio_dot_o}" &&
+      ${CMAKE_RANLIB} "${dynamorio_dot_a}"
+      WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
+      VERBATIM)
 
-else (UNIX)
+  else (UNIX)
 
-  # i#975: if we're building static, none of the shared lib link flags are going
-  # to make it through.  But target_link_libraries will.  We name a C library
-  # here to make sure things get linked in the right order to avoid duplicate
-  # definitions.  See the case 4125 msvcrt comment above about why we need a C
-  # library.
-  target_link_libraries(dynamorio_static ${WIN32_C_LIB} ntdll_imports)
+    # i#975: if we're building static, none of the shared lib link flags are going
+    # to make it through.  But target_link_libraries will.  We name a C library
+    # here to make sure things get linked in the right order to avoid duplicate
+    # definitions.  See the case 4125 msvcrt comment above about why we need a C
+    # library.
+    target_link_libraries(dynamorio_static ${WIN32_C_LIB} ntdll_imports)
 
-endif (UNIX)
+  endif (UNIX)
+endif (NOT APPLE)
 
 ###########################################################################
 # Preload library
@@ -1027,8 +1030,13 @@ install_exported_target(dynamorio ${INSTALL_LIB}
   # CMake doesn't set +x on shared libraries, so we have to ask for it.
   PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE)
 DR_export_target(dynamorio)
-install_exported_target(dynamorio_static ${INSTALL_LIB})
-DR_export_target(dynamorio_static)
+
+# XXX i#1997: not fully supported on Mac yet
+if (NOT APPLE)
+  install_exported_target(dynamorio_static ${INSTALL_LIB})
+  DR_export_target(dynamorio_static)
+endif ()
+
 install_exported_target(drinjectlib ${INSTALL_LIB_BASE})
 DR_export_target(drinjectlib)
 if (UNIX)
