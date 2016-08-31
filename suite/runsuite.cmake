@@ -235,12 +235,12 @@ if (NOT cross_only)
       ${install_path_cache}
       ")
   endif (DO_ALL_BUILDS)
-  # non-official-API builds but not all are in pre-commit suite on Windows
+  # Non-official-API builds but not all are in pre-commit suite, esp on Windows
   # where building is slow: we'll rely on bots to catch breakage in most of these
-  # builds on Windows
+  # builds.
   if (ARCH_IS_X86 AND NOT APPLE)
     # we do not bother to support these on ARM
-    if (UNIX OR DO_ALL_BUILDS)
+    if (DO_ALL_BUILDS)
       testbuild("vmsafe-debug-internal-32" OFF "
         VMAP:BOOL=OFF
         VMSAFE:BOOL=ON
