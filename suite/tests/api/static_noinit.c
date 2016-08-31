@@ -52,7 +52,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static void
 event_exit(void)
 {
-    dr_printf("Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
+    dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
 }
 
 static int
