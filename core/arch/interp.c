@@ -3147,6 +3147,8 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
                (bb->start_pc == instr_get_raw_bits(mov) ||
                 /* the translation field might be NULL */
                 bb->start_pc == instr_get_translation(mov)));
+        /* i#1998: ensure the instr is Level 3+ */
+        instr_decode(dcontext, mov);
         instr_set_src(mov, 0, OPND_CREATE_INT32(1));
     }
 }
