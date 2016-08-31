@@ -1648,8 +1648,7 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
-  tobuild(libutil.frontend_test libutil/frontend_test.c)
-  configure_DynamoRIO_standalone(libutil.frontend_test)
+  tobuild_api(libutil.frontend_test libutil/frontend_test.c "" "" OFF OFF)
   target_link_libraries(libutil.frontend_test drfrontendlib)
 endif ()
 
