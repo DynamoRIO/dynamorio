@@ -679,12 +679,14 @@ our_init(int argc, char **argv, char **envp)
     our_environ = environ;
 #endif
     /* if using preload, no -early_inject */
+#ifdef STATIC_LIBRARY
     if (!takeover) {
         const char *takeover_env = getenv("DYNAMORIO_TAKEOVER_IN_INIT");
         if (takeover_env != NULL && strcmp(takeover_env, "1") == 0) {
             takeover = true;
         }
     }
+#endif
     if (takeover) {
         if (dynamorio_app_init() == 0 /* success */) {
             dynamorio_app_take_over();

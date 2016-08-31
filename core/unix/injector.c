@@ -542,9 +542,8 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
     info->method = INJECT_LD_PRELOAD;
-#ifdef STATIC_LIBRARY
+    /* Trigger automated takeover in case DR is statically linked. */
     setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
-#endif
     return errcode;
 }
 
