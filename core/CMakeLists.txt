@@ -787,7 +787,7 @@ if (UNIX)
   add_custom_command(TARGET dynamorio_static POST_BUILD
     COMMAND
     ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
-      -nostartfiles -nodefaultlibs -r
+      -nostartfiles -nodefaultlibs -Wl,-r
       -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
       -o "${dynamorio_dot_o}" &&
     ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
