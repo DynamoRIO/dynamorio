@@ -2210,7 +2210,9 @@ if (CLIENT_INTERFACE)
   # Test DR as a static library
   # XXX i#1996: not fully supported on Android yet
   # XXX i#1997: not fully supported on Mac yet
-  if (NOT ANDROID AND NOT APPLE)
+  # XXX i#1551: start/stop API NYI on ARM
+  # XXX i#1569: start/stop API NYI on AArch64
+  if (NOT ANDROID AND NOT APPLE AND NOT ARM AND NOT AARCH64)
     tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
     target_link_libraries(api.static_startstop ${libmath})
     tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
