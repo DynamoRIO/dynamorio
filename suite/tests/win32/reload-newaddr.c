@@ -162,11 +162,11 @@ check_mem_usage(SIZE_T peakpage)
               (newpeak - peakpage)/1024);
     }
 #else
-    if (newpeak - peakpage < 80*1024)
-        print("Memory check: pagefile usage increase is < 80 KB\n");
+    if (newpeak - peakpage < 90*1024)
+        print("Memory check: pagefile usage increase is < 90 KB\n");
     /* detect_dangling_fcache doesn't free fcache */
     else if (newpeak - peakpage < 120*1024)
-        print("Memory check: pagefile usage increase is >= 80 KB, < 120 KB\n");
+        print("Memory check: pagefile usage increase is >= 90 KB, < 120 KB\n");
     else {
         /* give actual number here so we can see how high it is */
         print("Memory check: pagefile usage increase is %d KB >= 120 KB\n",
