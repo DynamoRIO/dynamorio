@@ -734,7 +734,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
             LOG(THREAD, LOG_INTERP, 2, "hit post-sysenter hook while native\n");
             ASSERT(dcontext->currently_stopped);
             dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
-            dcontext->native_exec_postsyscall = vsyscall_syscall_end_pc;
+            dcontext->native_exec_postsyscall =
+                IF_UNIX_ELSE(vsyscall_sysenter_displaced_pc, vsyscall_syscall_end_pc);
         } else {
             ASSERT(dcontext->last_exit == get_starting_linkstub() ||
                    /* The start/stop API will set this linkstub. */

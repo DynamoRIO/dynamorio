@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,16 +34,14 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
-#ifdef USE_DYNAMO
 #include "configure.h"
 #include "dr_api.h"
-#endif
 #include "tools.h"
 #ifdef WINDOWS
 # include <windows.h>
 #else
 # include <pthread.h>
-# include <unistd.h>  /* for sleep */
+# include <sched.h>
 #endif
 
 #define ITERS 150000
@@ -64,7 +62,6 @@ NOINLINE void func_9(void) { }
 
 static bool took_over_thread[10];
 
-#ifdef USE_DYNAMO
 static dr_emit_flags_t
 event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
          bool translating)
@@ -82,10 +79,11 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     if (pc == (app_pc)&func_9) took_over_thread[9] = true;
     return DR_EMIT_DEFAULT;
 }
-#endif
 
 /* This is a thread that spins and calls sideline_func.  It will call
  * sideline_func at least once before returning and joining the parent.
+ * We cannot use pthread_cond_var here as we need to keep spinning
+ * until DR takes over and hits event_bb.
  */
 static volatile bool should_spin = true;
 
@@ -102,7 +100,7 @@ sideline_spinner(void *arg)
 #ifdef WINDOWS
         Sleep(0);
 #else
-        sleep(0);
+        sched_yield();
 #endif
     } while (should_spin);
 #ifdef WINDOWS
@@ -153,22 +151,18 @@ int main(void)
     thread[9] = _beginthreadex(NULL, 0, sideline_spinner, (void*)func_9, 0, &tid[9]);
 #endif
 
-#ifdef USE_DYNAMO
     dr_app_setup();
     /* XXX: Calling the client interface from the app is not supported.  We're
      * just using it for testing.
      */
     dr_register_bb_event(event_bb);
-#endif
 
     for (j=0; j<10; j++) {
-#ifdef USE_DYNAMO
         if (dr_app_running_under_dynamorio())
             print("ERROR: should not be under DynamoRIO before dr_app_start!\n");
         dr_app_start();
         if (!dr_app_running_under_dynamorio())
             print("ERROR: should be under DynamoRIO after dr_app_start!\n");
-#endif
         for (i=0; i<ITERS; i++) {
             if (i % 2 == 0) {
                 res += cos(1./(double)(i+1));
@@ -177,7 +171,6 @@ int main(void)
             }
         }
         foo();
-#ifdef USE_DYNAMO
         if (!dr_app_running_under_dynamorio())
             print("ERROR: should be under DynamoRIO before dr_app_stop!\n");
         /* FIXME i#95: On Linux dr_app_stop only makes the current thread run
@@ -187,18 +180,15 @@ int main(void)
         dr_app_stop();
         if (dr_app_running_under_dynamorio())
             print("ERROR: should not be under DynamoRIO after dr_app_stop!\n");
-#endif
     }
     /* PR : we get different floating point results on different platforms,
      * so we no longer print out res */
     print("all done: %d iters\n", i);
 
-#ifdef USE_DYNAMO
     /* On x64 Linux it's OK if we call pthread_join natively, but x86-32 has
      * problems.  We start and stop to bracket it.
      */
     dr_app_start();
-#endif
     should_spin = false;  /* Break the loops. */
     for (i = 0; i < 10; i++) {
 #ifdef UNIX
@@ -211,13 +201,8 @@ int main(void)
                   IF_WINDOWS_ELSE(tid[i],pt[i]));
         }
     }
-#ifdef USE_DYNAMO
     dr_app_stop();
-#endif
-
-#ifdef USE_DYNAMO
     dr_app_cleanup();
-#endif
 
     return 0;
 }
