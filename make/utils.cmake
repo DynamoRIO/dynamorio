@@ -207,8 +207,9 @@ if (UNIX)
       endif ()
     endif ()
     if (ARM AND NOT set_bounds) # XXX: don't want for libDR: using "set_bounds" for now
-      # Somehow the entry point gets changed to ARM by using ldscript
-      set(ldflags "${ldflags} -Wl,--thumb-entry -Wl,_start")
+      # Somehow the entry point gets changed to A32 by using ldscript.
+      # Adding --entry causes the linker to set it to either A32 or T32 as appropriate.
+      set(ldflags "${ldflags} -Wl,--entry -Wl,_start")
     endif ()
     append_property_string(TARGET ${target} LINK_FLAGS "${ldflags}")
   endfunction (set_preferred_base_start_and_end)
