@@ -28,61 +28,650 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Data read by "codec.py" and used to generate "codec_gen.h" and "opcode.h".
+# Data read by "codec.py" and used to generate some C source files.
 # After changing this file, run "codec.py" in this directory.
 
-# Columns are:
-# - "fixed"    : bits that are fixed for this encoding
-# - "variable" : operand bits handled by encoder/decoder functions
-# - "opcode"   : mnemonic
-# - "type"     : name (suffix) of encoder/decoder functions
-#
-# Constraints:
-# - Variable bits are zero in "fixed": (fixed & variable) == 0
-# - No overlaps: ((fixed_1 ^ fixed_2) & ~variable_1 & ~variable_2) != 0
-# - Consistent variable bits: type_1 != type_2 || variable_1 == variable_2
+# Text from '#' to the end of the line is a comment.
 
-11000000 807fffff add arith_imm
-0b000000 80dfffff add arith_reg
-31000000 807fffff adds arith_imm
-2b000000 80dfffff adds arith_reg
-10000000 60ffffff adr adr
-90000000 60ffffff adrp adr
-12000000 807fffff and logic_imm
-0a000000 80dfffff and logic_reg
-72000000 807fffff ands logic_imm
-6a000000 80dfffff ands logic_reg
-14000000 03ffffff b b
-54000000 00ffffef bcond bcond
-0a200000 80dfffff bic logic_reg
-6a200000 80dfffff bics logic_reg
-94000000 03ffffff bl b
-d63f0000 000003e0 blr br
-d61f0000 000003e0 br br
-d4200000 001fffe0 brk svc
-35000000 80ffffff cbnz cbz
-34000000 80ffffff cbz cbz
-4a200000 80dfffff eon logic_reg
-52000000 807fffff eor logic_imm
-4a000000 80dfffff eor logic_reg
-b9400000 403fffff ldr ldr_imm
-3d400000 c0bfffff ldr ldr_imm_simd
-18000000 40ffffff ldr ldr_literal
-1c000000 c0ffffff ldr ldr_literal_simd
-d5300000 000fffff mrs mrs
-d5100000 000fffff msr msr
-d503201f 00000000 nop nop
-2a200000 80dfffff orn logic_reg
-32000000 807fffff orr logic_imm
-2a000000 80dfffff orr logic_reg
-d65f0000 000003e0 ret br
-b9000000 403fffff str str_imm
-39000000 003fffff strb strb_imm
-79000000 003fffff strh strb_imm
-51000000 807fffff sub arith_imm
-4b000000 80dfffff sub arith_reg
-71000000 807fffff subs arith_imm
-6b000000 80dfffff subs arith_reg
-d4000001 001fffe0 svc svc
-37000000 80ffffff tbnz tbz
-36000000 80ffffff tbz tbz
+################################################################################
+# Operand types
+
+# The syntax here is: mask opndtype
+
+# Each operand type is listed here with a mask, consisting of '-' and 'x',
+# showing which bits are encoded/decoded. The encoder/decoder functions,
+# {de,en}code_opnd_OPNDTYPE in "codec.c", may also refer to bits that are
+# provided by the instruction pattern.
+
+# Hints for understanding the operand type names:
+# In register operands (e.g. w10) the number refers to the position of the lowest bit.
+# In memory operands (e.g. mem7) the number refers to the number of offset bits.
+
+--------------------------------  lsl        # LSL for ADD/MOV (immediate)
+---------------------------xxxxx  b0         # B register
+---------------------------xxxxx  h0         # H register
+---------------------------xxxxx  s0         # S register
+---------------------------xxxxx  d0         # D register
+---------------------------xxxxx  q0         # Q register
+---------------------------xxxxx  q0p1       # Q register, add 1
+---------------------------xxxxx  q0p2       # Q register, add 2
+---------------------------xxxxx  q0p3       # Q register, add 3
+---------------------------xxxxx  w0         # W register (or WZR)
+---------------------------xxxxx  x0         # X register (or XZR)
+---------------------------xxxxx  prfop      # prefetch operation
+----------------------xxxxx-----  x5         # X register (or XZR)
+----------------------xxxxx-----  x5sp       # X register or XSP
+----------------------xxxxx-----  mem0       # gets size from 31:30; no offset
+----------------------xxxxx-----  mem0p      # gets size from 31:30; no offset, pair
+----------------------xxxxx-----  mem7post   # gets size from 31:30 and 26; post-index
+----------------------xxxxx-----  mem9post   # gets size from 31:30; post-index
+----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
+----------------------xxxxx-----  memvrpost  # gets size from 21, 13 and 11:10
+----------------------xxxxx-----  memvs      # gets size from 21, 15:13 and 11:10
+--------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
+--------------------xxxx--------  isbopt     # option for ISB
+--------------------xxxxxxx-----  memvr      # gets size from 21, 13 and 11:10
+-------------------xxx----------  extam      # extend amount
+-----------------xxxxx----------  ign10      # ignored reg field in load/store exclusive
+-----------------xxxxx----------  s10        # S register
+-----------------xxxxx----------  d10        # D register
+-----------------xxxxx----------  q10        # Q register
+-----------------xxxxx----------  w10        # W register (or WZR)
+-----------------xxxxx----------  x10        # X register (or XZR)
+----------------xxx-------------  ext        # extend type
+----------------xxxxxx----------  imm6       # shift amount
+-------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
+------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
+-----------xxxxx----------------  ign16      # ignored reg field in load/store exclusive
+-----------xxxxx----------------  w16        # W register (or WZR)
+-----------xxxxx----------------  x16immvr   # computes immed from 21, 13 and 11:10
+-----------xxxxx----------------  x16immvs   # computes immed 21, 15:13 and 11:10
+-----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
+-----------xxxxxxxxx--xxxxx-----  mem9       # gets size from 31:30
+-----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
+-----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
+-----------xxxxxxxxx--xxxxx-----  memreg     # register offset, gets size from 31:30
+-----------xxxxxxxxx--xxxxx-----  memregq    # register offset, size is 16 bytes
+-----------xxxxxxxxx--xxxxx-----  prfreg     # register offset, size is 0 (prefetch)
+-----------xxxxxxxxxxxxxxxx-----  imm16      # immediate for MOVK/MOVN/MOVZ/SVC
+----------xxxxxxx---------------  mem7off    # gets size from 31:30 and 26
+----------xxxxxxx-----xxxxx-----  mem7       # gets size from 31:30 and 26
+----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
+----------xxxxxxxxxxxxxxxxx-----  mem12      # gets size from 31:30
+----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
+----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
+---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
+---------xx---------------------  imm16sh    # shift for MOVK/... (immediate); checks 31
+--------xx----------------------  shift3     # shift type for add/sub (shifted register)
+--------xx----------------------  shift4     # shift type for logical (shifted register)
+--------xxxxxxxxxxxxxxxxxxx-----  memlit     # load literal, gets size from 31:30 and 26
+-x------------------------------  index3     # index of D subreg in Q: 0-1
+-x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
+-x-------------------------xxxxx  dq0p1      # ... add 1
+-x-------------------------xxxxx  dq0p2      # ... add 2
+-x-------------------------xxxxx  dq0p3      # ... add 3
+-x-------------------------xxxxx  vt0        # checks (30, 11:10) != (0, 0b11)
+-x-------------------------xxxxx  vt1        # ... add 1
+-x-------------------------xxxxx  vt2        # ... add 2
+-x-------------------------xxxxx  vt3        # ... add 3
+-x--------------------xxxxx-----  memvm      # computes multiplier from 15:12
+-x-----------------x------------  index2     # index of S subreg in Q: 0-3
+-x-----------------xx-----------  index1     # index of H subreg in Q: 0-7
+-x-----------------xxx----------  index0     # index of B subreg in Q: 0-15
+-x---------xxxxx----------------  x16imm     # computes immed from 30 and 15:12
+-xx-----xxxxxxxxxxxxxxxxxxx-----  adr        # operand of ADR
+-xx-----xxxxxxxxxxxxxxxxxxx-----  adrp       # operand of ADRP
+x--------------------------xxxxx  wx0        # W/X register (or WZR/XZR)
+x--------------------------xxxxx  wx0sp      # W/X register or WSP/XSP
+x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
+x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
+x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
+
+################################################################################
+# Instruction patterns
+
+# The syntax here is: pattern opcode opndtype* : opndtype*
+
+# Each pattern consists of '0', '1' and 'x'. Patterns must not overlap.
+# The opndtypes before/after the ':' correspond to destination/source operands.
+# Each 'x' bit must be handled by at least one of the listed opndtypes.
+# If several operands handle the same 'x' bit then the automatically generated
+# encoder will check that consistent bit patterns are generated.
+
+# Alternative syntax: pattern opcode opndset
+
+# This alternative is used when there is a pair of encoder/decoder functions,
+# {de,en}code_opnds_OPNDSET in "codec.c", that handles all the operands together.
+# This is used, for example, when the number of operands varies.
+
+# Data Processing - Immediate
+
+## PC-relative addressing
+
+0xx10000xxxxxxxxxxxxxxxxxxxxxxxx  adr    x0 : adr
+1xx10000xxxxxxxxxxxxxxxxxxxxxxxx  adrp   x0 : adrp
+
+## Add/subtract (immediate)
+
+x00100010xxxxxxxxxxxxxxxxxxxxxxx  add    wx0sp : wx5sp imm12 lsl imm12sh
+x01100010xxxxxxxxxxxxxxxxxxxxxxx  adds   wx0   : wx5sp imm12 lsl imm12sh
+x10100010xxxxxxxxxxxxxxxxxxxxxxx  sub    wx0sp : wx5sp imm12 lsl imm12sh
+x11100010xxxxxxxxxxxxxxxxxxxxxxx  subs   wx0   : wx5sp imm12 lsl imm12sh
+
+## Logical (immediate)
+
+x00100100xxxxxxxxxxxxxxxxxxxxxxx  and    logic_imm
+x01100100xxxxxxxxxxxxxxxxxxxxxxx  orr    logic_imm
+x10100100xxxxxxxxxxxxxxxxxxxxxxx  eor    logic_imm
+x11100100xxxxxxxxxxxxxxxxxxxxxxx  ands   logic_imm
+
+## Move wide (immediate)
+
+000100101xxxxxxxxxxxxxxxxxxxxxxx  movn   w0 : imm16 lsl imm16sh
+010100101xxxxxxxxxxxxxxxxxxxxxxx  movz   w0 : imm16 lsl imm16sh
+011100101xxxxxxxxxxxxxxxxxxxxxxx  movk   w0 : w0 imm16 lsl imm16sh
+100100101xxxxxxxxxxxxxxxxxxxxxxx  movn   x0 : imm16 lsl imm16sh
+110100101xxxxxxxxxxxxxxxxxxxxxxx  movz   x0 : imm16 lsl imm16sh
+111100101xxxxxxxxxxxxxxxxxxxxxxx  movk   x0 : x0 imm16 lsl imm16sh
+
+## Bitfield
+
+# FIXME i#1569: Add: sbfm, bfm, ubfm
+
+## Extract
+
+# FIXME i#1569: Add: extr
+
+# Branches, Exception Generating and System instructions
+
+## Unconditional branch (immediate)
+
+000101xxxxxxxxxxxxxxxxxxxxxxxxxx  b      b
+100101xxxxxxxxxxxxxxxxxxxxxxxxxx  bl     b
+
+## Compare and branch (immediate)
+
+x0110100xxxxxxxxxxxxxxxxxxxxxxxx  cbz    cbz
+x0110101xxxxxxxxxxxxxxxxxxxxxxxx  cbnz   cbz
+
+## Test and branch (immediate)
+
+x0110110xxxxxxxxxxxxxxxxxxxxxxxx  tbz    tbz
+x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
+
+## Conditional branch (immediate)
+
+01010100xxxxxxxxxxxxxxxxxxx0xxxx  bcond  bcond
+
+## Exception generation
+
+11010100000xxxxxxxxxxxxxxxx00001  svc    : imm16
+# FIXME i#1569: Add: hvc, smc
+11010100001xxxxxxxxxxxxxxxx00000  brk    : imm16
+# FIXME i#1569: Add: hlt
+
+## System
+
+# FIXME i#1569: Add: msr, hint
+11010101000000110010000000011111  nop    :
+# FIXME i#1569: Add: yield, wfe, wfi, sev, sevl, hint, clrex, dsb, dmb
+11010101000000110011xxxx11011111  isb    : isbopt
+1101010100001xxxxxxxxxxxxxxxxxxx  sys    : sysops x0
+1101010100101xxxxxxxxxxxxxxxxxxx  sys    x0 : sysops
+110101010001xxxxxxxxxxxxxxxxxxxx  msr    msr
+# FIXME i#1569: Add: sysl
+110101010011xxxxxxxxxxxxxxxxxxxx  mrs    x0 : sysreg
+
+## Unconditional branch (register)
+
+1101011000011111000000xxxxx00000  br     : x5
+1101011000111111000000xxxxx00000  blr    : x5
+1101011001011111000000xxxxx00000  ret    : x5
+
+# Loads and Stores
+
+## Load/store exclusive
+
+00001000000xxxxx0xxxxxxxxxxxxxxx  stxrb  mem0 w16 : w0 ign10
+00001000000xxxxx1xxxxxxxxxxxxxxx  stlxrb mem0 w16 : w0 ign10
+00001000010xxxxx0xxxxxxxxxxxxxxx  ldxrb  w0 : mem0 ign10 ign16
+00001000010xxxxx1xxxxxxxxxxxxxxx  ldaxrb w0 : mem0 ign10 ign16
+00001000100xxxxx1xxxxxxxxxxxxxxx  stlrb  mem0 : w0 ign10 ign16
+00001000110xxxxx1xxxxxxxxxxxxxxx  ldarb  w0 : mem0 ign10 ign16
+
+01001000000xxxxx0xxxxxxxxxxxxxxx  stxrh  mem0 w16 : w0 ign10
+01001000000xxxxx1xxxxxxxxxxxxxxx  stlxrh mem0 w16 : w0 ign10
+01001000010xxxxx0xxxxxxxxxxxxxxx  ldxrh  w0 : mem0 ign10 ign16
+01001000010xxxxx1xxxxxxxxxxxxxxx  ldaxrh w0 : mem0 ign10 ign16
+01001000100xxxxx1xxxxxxxxxxxxxxx  stlrh  mem0 : w0 ign10 ign16
+01001000110xxxxx1xxxxxxxxxxxxxxx  ldarh  w0 : mem0 ign10 ign16
+
+10001000000xxxxx0xxxxxxxxxxxxxxx  stxr   mem0 w16 : w0 ign10
+10001000000xxxxx1xxxxxxxxxxxxxxx  stlxr  mem0 w16 : w0 ign10
+10001000001xxxxx0xxxxxxxxxxxxxxx  stxp   mem0p w16 : w0 w10
+10001000001xxxxx1xxxxxxxxxxxxxxx  stlxp  mem0p w16 : w0 w10
+10001000010xxxxx0xxxxxxxxxxxxxxx  ldxr   w0 : mem0 ign10 ign16
+10001000010xxxxx1xxxxxxxxxxxxxxx  ldaxr  w0 : mem0 ign10 ign16
+10001000011xxxxx0xxxxxxxxxxxxxxx  ldxp   w0 w10 : mem0p ign16
+10001000011xxxxx1xxxxxxxxxxxxxxx  ldaxp  w0 w10 : mem0p ign16
+10001000100xxxxx1xxxxxxxxxxxxxxx  stlr   mem0 : w0 ign10 ign16
+10001000110xxxxx1xxxxxxxxxxxxxxx  ldar   w0 : mem0 ign10 ign16
+
+11001000000xxxxx0xxxxxxxxxxxxxxx  stxr   mem0 w16 : x0 ign10
+11001000000xxxxx1xxxxxxxxxxxxxxx  stlxr  mem0 w16 : x0 ign10
+11001000001xxxxx0xxxxxxxxxxxxxxx  stxp   mem0p w16 : x0 x10
+11001000001xxxxx1xxxxxxxxxxxxxxx  stlxp  mem0p w16 : x0 x10
+11001000010xxxxx0xxxxxxxxxxxxxxx  ldxr   x0 : mem0 ign10 ign16
+11001000010xxxxx1xxxxxxxxxxxxxxx  ldaxr  x0 : mem0 ign10 ign16
+11001000011xxxxx0xxxxxxxxxxxxxxx  ldxp   x0 x10 : mem0p ign16
+11001000011xxxxx1xxxxxxxxxxxxxxx  ldaxp  x0 x10 : mem0p ign16
+11001000100xxxxx1xxxxxxxxxxxxxxx  stlr   mem0 : x0 ign10 ign16
+11001000110xxxxx1xxxxxxxxxxxxxxx  ldar   x0 : mem0 ign10 ign16
+
+## Load register (literal)
+
+00011000xxxxxxxxxxxxxxxxxxxxxxxx  ldr    w0 : memlit
+00011100xxxxxxxxxxxxxxxxxxxxxxxx  ldr    s0 : memlit
+01011000xxxxxxxxxxxxxxxxxxxxxxxx  ldr    x0 : memlit
+01011100xxxxxxxxxxxxxxxxxxxxxxxx  ldr    d0 : memlit
+10011000xxxxxxxxxxxxxxxxxxxxxxxx  ldrsw  x0 : memlit
+10011100xxxxxxxxxxxxxxxxxxxxxxxx  ldr    q0 : memlit
+11011000xxxxxxxxxxxxxxxxxxxxxxxx  prfm   : prfop memlit
+
+## Load/store no-allocate pair (offset)
+
+0010100000xxxxxxxxxxxxxxxxxxxxxx  stnp   mem7 : w0 w10
+0010100001xxxxxxxxxxxxxxxxxxxxxx  ldnp   w0 w10 : mem7
+0010110000xxxxxxxxxxxxxxxxxxxxxx  stnp   mem7 : s0 s10
+0010110001xxxxxxxxxxxxxxxxxxxxxx  ldnp   s0 s10 : mem7
+0110110000xxxxxxxxxxxxxxxxxxxxxx  stnp   mem7 : d0 d10
+0110110001xxxxxxxxxxxxxxxxxxxxxx  ldnp   d0 d10 : mem7
+1010100000xxxxxxxxxxxxxxxxxxxxxx  stnp   mem7 : x0 x10
+1010100001xxxxxxxxxxxxxxxxxxxxxx  ldnp   x0 x10 : mem7
+1010110000xxxxxxxxxxxxxxxxxxxxxx  stnp   mem7 : q0 q10
+1010110001xxxxxxxxxxxxxxxxxxxxxx  ldnp   q0 q10 : mem7
+
+## Load/store register pair (post-indexed)
+
+0010100010xxxxxxxxxxxxxxxxxxxxxx  stp    mem7post x5sp : w0 w10 x5sp mem7off
+0010100011xxxxxxxxxxxxxxxxxxxxxx  ldp    w0 w10 x5sp : mem7post x5sp mem7off
+0010110010xxxxxxxxxxxxxxxxxxxxxx  stp    mem7post x5sp : s0 s10 x5sp mem7off
+0010110011xxxxxxxxxxxxxxxxxxxxxx  ldp    s0 s10 x5sp : mem7post x5sp mem7off
+0110100011xxxxxxxxxxxxxxxxxxxxxx  ldpsw  x0 x10 x5sp : mem7post x5sp mem7off
+0110110010xxxxxxxxxxxxxxxxxxxxxx  stp    mem7post x5sp : d0 d10 x5sp mem7off
+0110110011xxxxxxxxxxxxxxxxxxxxxx  ldp    d0 d10 x5sp : mem7post x5sp mem7off
+1010100010xxxxxxxxxxxxxxxxxxxxxx  stp    mem7post x5sp : x0 x10 x5sp mem7off
+1010100011xxxxxxxxxxxxxxxxxxxxxx  ldp    x0 x10 x5sp : mem7post x5sp mem7off
+1010110010xxxxxxxxxxxxxxxxxxxxxx  stp    mem7post x5sp : q0 q10 x5sp mem7off
+1010110011xxxxxxxxxxxxxxxxxxxxxx  ldp    q0 q10 x5sp : mem7post x5sp mem7off
+
+## Load/store register pair (offset)
+
+0010100100xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 : w0 w10
+0010100101xxxxxxxxxxxxxxxxxxxxxx  ldp    w0 w10 : mem7
+0010110100xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 : s0 s10
+0010110101xxxxxxxxxxxxxxxxxxxxxx  ldp    s0 s10 : mem7
+0110100101xxxxxxxxxxxxxxxxxxxxxx  ldpsw  x0 x10 : mem7
+0110110100xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 : d0 d10
+0110110101xxxxxxxxxxxxxxxxxxxxxx  ldp    d0 d10 : mem7
+1010100100xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 : x0 x10
+1010100101xxxxxxxxxxxxxxxxxxxxxx  ldp    x0 x10 : mem7
+1010110100xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 : q0 q10
+1010110101xxxxxxxxxxxxxxxxxxxxxx  ldp    q0 q10 : mem7
+
+## Load/store register pair (pre-indexed)
+
+0010100110xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 x5sp : w0 w10 x5sp mem7off
+0010100111xxxxxxxxxxxxxxxxxxxxxx  ldp    w0 w10 x5sp : mem7 x5sp mem7off
+0010110110xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 x5sp : s0 s10 x5sp mem7off
+0010110111xxxxxxxxxxxxxxxxxxxxxx  ldp    s0 s10 x5sp : mem7 x5sp mem7off
+0110100111xxxxxxxxxxxxxxxxxxxxxx  ldpsw  x0 x10 x5sp : mem7 x5sp mem7off
+0110110110xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 x5sp : d0 d10 x5sp mem7off
+0110110111xxxxxxxxxxxxxxxxxxxxxx  ldp    d0 d10 x5sp : mem7 x5sp mem7off
+1010100110xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 x5sp : x0 x10 x5sp mem7off
+1010100111xxxxxxxxxxxxxxxxxxxxxx  ldp    x0 x10 x5sp : mem7 x5sp mem7off
+1010110110xxxxxxxxxxxxxxxxxxxxxx  stp    mem7 x5sp : q0 q10 x5sp mem7off
+1010110111xxxxxxxxxxxxxxxxxxxxxx  ldp    q0 q10 x5sp : mem7 x5sp mem7off
+
+## Load/store register (unscaled immediate)
+
+00111000000xxxxxxxxx00xxxxxxxxxx  sturb  mem9 : w0  # STURB Wt,[Xn,#simm]
+00111000010xxxxxxxxx00xxxxxxxxxx  ldurb  w0 : mem9
+00111000100xxxxxxxxx00xxxxxxxxxx  ldursb x0 : mem9
+00111000110xxxxxxxxx00xxxxxxxxxx  ldursb w0 : mem9
+00111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : b0
+00111100010xxxxxxxxx00xxxxxxxxxx  ldur   b0 : mem9
+00111100100xxxxxxxxx00xxxxxxxxxx  stur   mem9 : q0
+00111100110xxxxxxxxx00xxxxxxxxxx  ldur   q0 : mem9
+
+01111000000xxxxxxxxx00xxxxxxxxxx  sturh  mem9 : w0
+01111000010xxxxxxxxx00xxxxxxxxxx  ldurh  w0 : mem9
+01111000100xxxxxxxxx00xxxxxxxxxx  ldursh x0 : mem9
+01111000110xxxxxxxxx00xxxxxxxxxx  ldursh w0 : mem9
+01111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : h0
+01111100010xxxxxxxxx00xxxxxxxxxx  ldur   h0 : mem9
+
+10111000000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : w0
+10111000010xxxxxxxxx00xxxxxxxxxx  ldur   w0 : mem9
+10111000100xxxxxxxxx00xxxxxxxxxx  ldursw x0 : mem9
+10111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : s0
+10111100010xxxxxxxxx00xxxxxxxxxx  ldur   s0 : mem9
+
+11111000000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : x0
+11111000010xxxxxxxxx00xxxxxxxxxx  ldur   x0 : mem9
+11111000100xxxxxxxxx00xxxxxxxxxx  prfum  : prfop prf9  # PRFUM #imm5,[Xn,#simm]
+11111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : d0
+11111100010xxxxxxxxx00xxxxxxxxxx  ldur   d0 : mem9
+
+## Load/store register (immediate post-indexed)
+
+00111000000xxxxxxxxx01xxxxxxxxxx  strb  mem9post x5sp : w0 x5sp mem9off  # STRB Wt,[Xn],#simm
+00111000010xxxxxxxxx01xxxxxxxxxx  ldrb  w0 x5sp : mem9post x5sp mem9off
+00111000100xxxxxxxxx01xxxxxxxxxx  ldrsb x0 x5sp : mem9post x5sp mem9off
+00111000110xxxxxxxxx01xxxxxxxxxx  ldrsb w0 x5sp : mem9post x5sp mem9off
+00111100000xxxxxxxxx01xxxxxxxxxx  str   mem9post x5sp : b0 x5sp mem9off
+00111100010xxxxxxxxx01xxxxxxxxxx  ldr   b0 x5sp : mem9post x5sp mem9off
+00111100100xxxxxxxxx01xxxxxxxxxx  str   mem9qpost x5sp : q0 x5sp mem9off
+00111100110xxxxxxxxx01xxxxxxxxxx  ldr   q0 x5sp : mem9qpost x5sp mem9off
+
+01111000000xxxxxxxxx01xxxxxxxxxx  strh  mem9post x5sp : w0 x5sp mem9off
+01111000010xxxxxxxxx01xxxxxxxxxx  ldrh  w0 x5sp : mem9post x5sp mem9off
+01111000100xxxxxxxxx01xxxxxxxxxx  ldrsh x0 x5sp : mem9post x5sp mem9off
+01111000110xxxxxxxxx01xxxxxxxxxx  ldrsh w0 x5sp : mem9post x5sp mem9off
+01111100000xxxxxxxxx01xxxxxxxxxx  str   mem9post x5sp : h0 x5sp mem9off
+01111100010xxxxxxxxx01xxxxxxxxxx  ldr   h0 x5sp : mem9post x5sp mem9off
+
+10111000000xxxxxxxxx01xxxxxxxxxx  str   mem9post x5sp : w0 x5sp mem9off
+10111000010xxxxxxxxx01xxxxxxxxxx  ldr   w0 x5sp : mem9post x5sp mem9off
+10111000100xxxxxxxxx01xxxxxxxxxx  ldrsw x0 x5sp : mem9post x5sp mem9off
+10111100000xxxxxxxxx01xxxxxxxxxx  str   mem9post x5sp : s0 x5sp mem9off
+10111100010xxxxxxxxx01xxxxxxxxxx  ldr   s0 x5sp : mem9post x5sp mem9off
+
+11111000000xxxxxxxxx01xxxxxxxxxx  str   mem9post x5sp : x0 x5sp mem9off
+11111000010xxxxxxxxx01xxxxxxxxxx  ldr   x0 x5sp : mem9post x5sp mem9off
+11111100000xxxxxxxxx01xxxxxxxxxx  str   mem9post x5sp : d0 x5sp mem9off
+11111100010xxxxxxxxx01xxxxxxxxxx  ldr   d0 x5sp : mem9post x5sp mem9off
+
+## Load/store register (unprivileged)
+
+00111000000xxxxxxxxx10xxxxxxxxxx  sttrb  mem9 : w0
+00111000010xxxxxxxxx10xxxxxxxxxx  ldtrb  w0 : mem9
+00111000100xxxxxxxxx10xxxxxxxxxx  ldtrsb x0 : mem9
+00111000110xxxxxxxxx10xxxxxxxxxx  ldtrsb w0 : mem9
+01111000000xxxxxxxxx10xxxxxxxxxx  sttrh  mem9 : w0
+01111000010xxxxxxxxx10xxxxxxxxxx  ldtrh  w0 : mem9
+01111000100xxxxxxxxx10xxxxxxxxxx  ldtrsh x0 : mem9
+01111000110xxxxxxxxx10xxxxxxxxxx  ldtrsh w0 : mem9
+10111000000xxxxxxxxx10xxxxxxxxxx  sttr   mem9 : w0
+10111000010xxxxxxxxx10xxxxxxxxxx  ldtr   w0 : mem9
+10111000100xxxxxxxxx10xxxxxxxxxx  ldtrsw x0 : mem9
+11111000000xxxxxxxxx10xxxxxxxxxx  sttr   mem9 : x0
+11111000010xxxxxxxxx10xxxxxxxxxx  ldtr   x0 : mem9
+
+## Load/store register (immediate pre-indexed)
+
+00111000000xxxxxxxxx11xxxxxxxxxx  strb   mem9 x5sp : w0 x5sp mem9off  # STRB Wt,[Xn,#simm]!
+00111000010xxxxxxxxx11xxxxxxxxxx  ldrb   w0 x5sp : mem9 x5sp mem9off
+00111000100xxxxxxxxx11xxxxxxxxxx  ldrsb  x0 x5sp : mem9 x5sp mem9off
+00111000110xxxxxxxxx11xxxxxxxxxx  ldrsb  w0 x5sp : mem9 x5sp mem9off
+00111100000xxxxxxxxx11xxxxxxxxxx  str    mem9 x5sp : b0 x5sp mem9off
+00111100010xxxxxxxxx11xxxxxxxxxx  ldr    b0 x5sp : mem9 x5sp mem9off
+00111100100xxxxxxxxx11xxxxxxxxxx  str    mem9q x5sp : q0 x5sp mem9off
+00111100110xxxxxxxxx11xxxxxxxxxx  ldr    q0 x5sp : mem9q x5sp mem9off
+
+01111000000xxxxxxxxx11xxxxxxxxxx  strh   mem9 x5sp : w0 x5sp mem9off
+01111000010xxxxxxxxx11xxxxxxxxxx  ldrh   w0 x5sp : mem9 x5sp mem9off
+01111000100xxxxxxxxx11xxxxxxxxxx  ldrsh  x0 x5sp : mem9 x5sp mem9off
+01111000110xxxxxxxxx11xxxxxxxxxx  ldrsh  w0 x5sp : mem9 x5sp mem9off
+01111100000xxxxxxxxx11xxxxxxxxxx  str    mem9 x5sp : h0 x5sp mem9off
+01111100010xxxxxxxxx11xxxxxxxxxx  ldr    h0 x5sp : mem9 x5sp mem9off
+
+10111000000xxxxxxxxx11xxxxxxxxxx  str    mem9 x5sp : w0 x5sp mem9off
+10111000010xxxxxxxxx11xxxxxxxxxx  ldr    w0 x5sp : mem9 x5sp mem9off
+10111000100xxxxxxxxx11xxxxxxxxxx  ldrsw  x0 x5sp : mem9 x5sp mem9off
+10111100000xxxxxxxxx11xxxxxxxxxx  str    mem9 x5sp : s0 x5sp mem9off
+10111100010xxxxxxxxx11xxxxxxxxxx  ldr    s0 x5sp : mem9 x5sp mem9off
+
+11111000000xxxxxxxxx11xxxxxxxxxx  str    mem9 x5sp : x0 x5sp mem9off
+11111000010xxxxxxxxx11xxxxxxxxxx  ldr    x0 x5sp : mem9 x5sp mem9off
+11111100000xxxxxxxxx11xxxxxxxxxx  str    mem9 x5sp : d0 x5sp mem9off
+11111100010xxxxxxxxx11xxxxxxxxxx  ldr    d0 x5sp : mem9 x5sp mem9off
+
+## Load/store register (register offset)
+
+00111000001xxxxxxxxx10xxxxxxxxxx  strb   memreg : w0
+00111000011xxxxxxxxx10xxxxxxxxxx  ldrb   w0 : memreg
+00111000101xxxxxxxxx10xxxxxxxxxx  ldrsb  x0 : memreg
+00111000111xxxxxxxxx10xxxxxxxxxx  ldrsb  w0 : memreg
+00111100001xxxxxxxxx10xxxxxxxxxx  str    memreg : b0
+00111100011xxxxxxxxx10xxxxxxxxxx  ldr    b0 : memreg
+00111100101xxxxxxxxx10xxxxxxxxxx  str    memregq : b0
+00111100111xxxxxxxxx10xxxxxxxxxx  ldr    q0 : memregq
+
+01111000001xxxxxxxxx10xxxxxxxxxx  strh   memreg : w0
+01111000011xxxxxxxxx10xxxxxxxxxx  ldrh   w0 : memreg
+01111000101xxxxxxxxx10xxxxxxxxxx  ldrsh  x0 : memreg
+01111000111xxxxxxxxx10xxxxxxxxxx  ldrsh  w0 : memreg
+01111100001xxxxxxxxx10xxxxxxxxxx  str    memreg : h0
+01111100011xxxxxxxxx10xxxxxxxxxx  ldr    h0 : memreg
+
+10111000001xxxxxxxxx10xxxxxxxxxx  str    memreg : w0
+10111000011xxxxxxxxx10xxxxxxxxxx  ldr    w0 : memreg
+10111000101xxxxxxxxx10xxxxxxxxxx  ldrsw  x0 : memreg
+10111100001xxxxxxxxx10xxxxxxxxxx  str    memreg : s0
+10111100011xxxxxxxxx10xxxxxxxxxx  ldr    s0 : memreg
+
+11111000001xxxxxxxxx10xxxxxxxxxx  str    memreg : x0
+11111000011xxxxxxxxx10xxxxxxxxxx  ldr    x0 : memreg
+11111000101xxxxxxxxx10xxxxxxxxxx  prfm   : prfop prfreg
+11111100001xxxxxxxxx10xxxxxxxxxx  str    memreg : d0
+11111100011xxxxxxxxx10xxxxxxxxxx  ldr    d0 : memreg
+
+## Load/store register (unsigned immediate)
+
+0011100100xxxxxxxxxxxxxxxxxxxxxx  strb   mem12 : w0  # STRB Wt,[Xn,#simm]
+0011100101xxxxxxxxxxxxxxxxxxxxxx  ldrb   w0 : mem12
+0011100110xxxxxxxxxxxxxxxxxxxxxx  ldrsb  x0 : mem12
+0011100111xxxxxxxxxxxxxxxxxxxxxx  ldrsb  w0 : mem12
+0011110100xxxxxxxxxxxxxxxxxxxxxx  str    mem12 : b0
+0011110101xxxxxxxxxxxxxxxxxxxxxx  ldr    b0 : mem12
+0011110110xxxxxxxxxxxxxxxxxxxxxx  str    mem12q : q0
+0011110111xxxxxxxxxxxxxxxxxxxxxx  ldr    q0 : mem12q
+
+0111100100xxxxxxxxxxxxxxxxxxxxxx  strh   mem12 : w0
+0111100101xxxxxxxxxxxxxxxxxxxxxx  ldrh   w0 : mem12
+0111100110xxxxxxxxxxxxxxxxxxxxxx  ldrsh  x0 : mem12
+0111100111xxxxxxxxxxxxxxxxxxxxxx  ldrsh  w0 : mem12
+0111110100xxxxxxxxxxxxxxxxxxxxxx  str    mem12 : h0
+0111110101xxxxxxxxxxxxxxxxxxxxxx  ldr    h0 : mem12
+
+1011100100xxxxxxxxxxxxxxxxxxxxxx  str    mem12 : w0
+1011100101xxxxxxxxxxxxxxxxxxxxxx  ldr    w0 : mem12
+1011100110xxxxxxxxxxxxxxxxxxxxxx  ldrsw  x0 : mem12
+1011110100xxxxxxxxxxxxxxxxxxxxxx  str    mem12 : s0
+1011110101xxxxxxxxxxxxxxxxxxxxxx  ldr    s0 : mem12
+
+1111100100xxxxxxxxxxxxxxxxxxxxxx  str    mem12 : x0
+1111100101xxxxxxxxxxxxxxxxxxxxxx  ldr    x0 : mem12
+1111100110xxxxxxxxxxxxxxxxxxxxxx  prfm   : prfop prf12  # PRFM #imm5,[Xn,#simm]
+1111110100xxxxxxxxxxxxxxxxxxxxxx  str    mem12 : d0
+1111110101xxxxxxxxxxxxxxxxxxxxxx  ldr    d0 : mem12
+
+## Advanced SIMD load/store multiple structures
+
+0x001100000000000000xxxxxxxxxxxx  st4    memvm : vmsz vt0 vt1 vt2 vt3
+0x001100000000000010xxxxxxxxxxxx  st1    memvm : vmsz vt0 vt1 vt2 vt3
+0x001100000000000100xxxxxxxxxxxx  st3    memvm : vmsz vt0 vt1 vt2
+0x001100000000000110xxxxxxxxxxxx  st1    memvm : vmsz vt0 vt1 vt2
+0x001100000000000111xxxxxxxxxxxx  st1    memvm : vmsz vt0
+0x001100000000001000xxxxxxxxxxxx  st2    memvm : vmsz vt0 vt1
+0x001100000000001010xxxxxxxxxxxx  st1    memvm : vmsz vt0 vt1
+
+0x001100010000000000xxxxxxxxxxxx  ld4    vt0 vt1 vt2 vt3 : memvm vmsz
+0x001100010000000010xxxxxxxxxxxx  ld1    vt0 vt1 vt2 vt3 : memvm vmsz
+0x001100010000000100xxxxxxxxxxxx  ld3    vt0 vt1 vt2 : memvm vmsz
+0x001100010000000110xxxxxxxxxxxx  ld1    vt0 vt1 vt2 : memvm vmsz
+0x001100010000000111xxxxxxxxxxxx  ld1    vt0 : memvm vmsz
+0x001100010000001000xxxxxxxxxxxx  ld2    vt0 vt1 : memvm vmsz
+0x001100010000001010xxxxxxxxxxxx  ld1    vt0 vt1 : memvm vmsz
+
+## Advanced SIMD load/store multiple structures (post-indexed)
+
+0x001100100xxxxx0000xxxxxxxxxxxx  st4    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+0x001100100xxxxx0010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+0x001100100xxxxx0100xxxxxxxxxxxx  st3    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+0x001100100xxxxx0110xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+0x001100100xxxxx0111xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 x5sp x16imm
+0x001100100xxxxx1000xxxxxxxxxxxx  st2    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+0x001100100xxxxx1010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+
+0x001100110xxxxx0000xxxxxxxxxxxx  ld4    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx0010xxxxxxxxxxxx  ld1    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx0100xxxxxxxxxxxx  ld3    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx0110xxxxxxxxxxxx  ld1    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx0111xxxxxxxxxxxx  ld1    vt0 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx1000xxxxxxxxxxxx  ld2    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx1010xxxxxxxxxxxx  ld1    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+
+## Advanced SIMD load/store single structure
+
+0x00110100000000000xxxxxxxxxxxxx  st1    memvs : q0 index0
+0x00110100000000001xxxxxxxxxxxxx  st3    memvs : q0 q0p1 q0p2 index0
+0x00110100000000010xx0xxxxxxxxxx  st1    memvs : q0 index1
+0x00110100000000011xx0xxxxxxxxxx  st3    memvs : q0 q0p1 q0p2 index1
+0x00110100000000100x00xxxxxxxxxx  st1    memvs : q0 index2
+0x00110100000000100001xxxxxxxxxx  st1    memvs : q0 index3
+0x00110100000000101x00xxxxxxxxxx  st3    memvs : q0 q0p1 q0p2 index2
+0x00110100000000101001xxxxxxxxxx  st3    memvs : q0 q0p1 q0p2 index3
+
+0x00110100100000000xxxxxxxxxxxxx  st2    memvs : q0 q0p1 index0
+0x00110100100000001xxxxxxxxxxxxx  st4    memvs : q0 q0p1 q0p2 q0p3 index0
+0x00110100100000010xx0xxxxxxxxxx  st2    memvs : q0 q0p1 index1
+0x00110100100000011xx0xxxxxxxxxx  st4    memvs : q0 q0p1 q0p2 q0p3 index1
+0x00110100100000100x00xxxxxxxxxx  st2    memvs : q0 q0p1 index2
+0x00110100100000100001xxxxxxxxxx  st2    memvs : q0 q0p1 index3
+0x00110100100000101x00xxxxxxxxxx  st4    memvs : q0 q0p1 q0p2 q0p3 index2
+0x00110100100000101001xxxxxxxxxx  st4    memvs : q0 q0p1 q0p2 q0p3 index3
+
+0x00110101000000000xxxxxxxxxxxxx  ld1    q0 : memvs index0
+0x00110101000000001xxxxxxxxxxxxx  ld3    q0 q0p1 q0p2 : memvs index0
+0x00110101000000010xx0xxxxxxxxxx  ld1    q0 : memvs index1
+0x00110101000000011xx0xxxxxxxxxx  ld3    q0 q0p1 q0p2 : memvs index1
+0x00110101000000100x00xxxxxxxxxx  ld1    q0 : memvs index2
+0x00110101000000100001xxxxxxxxxx  ld1    q0 : memvs index3
+0x00110101000000101x00xxxxxxxxxx  ld3    q0 q0p1 q0p2 : memvs index2
+0x00110101000000101001xxxxxxxxxx  ld3    q0 q0p1 q0p2 : memvs index3
+
+0x001101010000001100xxxxxxxxxxxx  ld1r   dq0 : memvr
+0x001101010000001110xxxxxxxxxxxx  ld3r   dq0 dq0p1 dq0p2 : memvr
+
+0x00110101100000000xxxxxxxxxxxxx  ld2    q0 q0p1 : memvs index0
+0x00110101100000001xxxxxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 : memvs index0
+0x00110101100000010xx0xxxxxxxxxx  ld2    q0 q0p1 : memvs index1
+0x00110101100000011xx0xxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 : memvs index1
+0x00110101100000100x00xxxxxxxxxx  ld2    q0 q0p1 : memvs index2
+0x00110101100000100001xxxxxxxxxx  ld2    q0 q0p1 : memvs index3
+0x00110101100000101x00xxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 : memvs index2
+0x00110101100000101001xxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 : memvs index3
+
+0x001101011000001100xxxxxxxxxxxx  ld2r   dq0 dq0p1 : memvr
+0x001101011000001110xxxxxxxxxxxx  ld4r   dq0 dq0p1 dq0p2 dq0p3 : memvr
+
+## Advanced SIMD load/store single structure (post-indexed)
+
+0x001101100xxxxx000xxxxxxxxxxxxx  st1    memvs x5sp : q0 index0 x5sp x16immvs
+0x001101100xxxxx001xxxxxxxxxxxxx  st3    memvs x5sp : q0 q0p1 q0p2 index0 x5sp x16immvs
+0x001101100xxxxx010xx0xxxxxxxxxx  st1    memvs x5sp : q0 index1 x5sp x16immvs
+0x001101100xxxxx011xx0xxxxxxxxxx  st3    memvs x5sp : q0 q0p1 q0p2 index1 x5sp x16immvs
+0x001101100xxxxx100x00xxxxxxxxxx  st1    memvs x5sp : q0 index2 x5sp x16immvs
+0x001101100xxxxx100001xxxxxxxxxx  st1    memvs x5sp : q0 index3 x5sp x16immvs
+0x001101100xxxxx101x00xxxxxxxxxx  st3    memvs x5sp : q0 q0p1 q0p2 index2 x5sp x16immvs
+0x001101100xxxxx101001xxxxxxxxxx  st3    memvs x5sp : q0 q0p1 q0p2 index3 x5sp x16immvs
+
+0x001101101xxxxx000xxxxxxxxxxxxx  st2    memvs x5sp : q0 q0p1 index0 x5sp x16immvs
+0x001101101xxxxx001xxxxxxxxxxxxx  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index0 x5sp x16immvs
+0x001101101xxxxx010xx0xxxxxxxxxx  st2    memvs x5sp : q0 q0p1 index1 x5sp x16immvs
+0x001101101xxxxx011xx0xxxxxxxxxx  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index1 x5sp x16immvs
+0x001101101xxxxx100x00xxxxxxxxxx  st2    memvs x5sp : q0 q0p1 index2 x5sp x16immvs
+0x001101101xxxxx100001xxxxxxxxxx  st2    memvs x5sp : q0 q0p1 index3 x5sp x16immvs
+0x001101101xxxxx101x00xxxxxxxxxx  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index2 x5sp x16immvs
+0x001101101xxxxx101001xxxxxxxxxx  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index3 x5sp x16immvs
+
+0x001101110xxxxx000xxxxxxxxxxxxx  ld1    q0 x5sp : q0 memvs index0 x5sp x16immvs
+0x001101110xxxxx001xxxxxxxxxxxxx  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index0 x5sp x16immvs
+0x001101110xxxxx010xx0xxxxxxxxxx  ld1    q0 x5sp : q0 memvs index1 x5sp x16immvs
+0x001101110xxxxx011xx0xxxxxxxxxx  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index1 x5sp x16immvs
+0x001101110xxxxx100x00xxxxxxxxxx  ld1    q0 x5sp : q0 memvs index2 x5sp x16immvs
+0x001101110xxxxx100001xxxxxxxxxx  ld1    q0 x5sp : q0 memvs index3 x5sp x16immvs
+0x001101110xxxxx101x00xxxxxxxxxx  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index2 x5sp x16immvs
+0x001101110xxxxx101001xxxxxxxxxx  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index3 x5sp x16immvs
+
+0x001101110xxxxx110000xxxxxxxxxx  ld1r   dq0 x5sp : memvrpost x5sp x16immvr
+0x001101110xxxxx110001xxxxxxxxxx  ld1r   dq0 x5sp : memvrpost x5sp x16immvr
+0x001101110xxxxx110010xxxxxxxxxx  ld1r   dq0 x5sp : memvrpost x5sp x16immvr
+0x001101110xxxxx110011xxxxxxxxxx  ld1r   dq0 x5sp : memvrpost x5sp x16immvr
+0x001101110xxxxx111000xxxxxxxxxx  ld3r   dq0 dq0p1 dq0p2 x5sp : memvrpost x5sp x16immvr
+0x001101110xxxxx111001xxxxxxxxxx  ld3r   dq0 dq0p1 dq0p2 x5sp : memvrpost x5sp x16immvr
+0x001101110xxxxx111010xxxxxxxxxx  ld3r   dq0 dq0p1 dq0p2 x5sp : memvrpost x5sp x16immvr
+0x001101110xxxxx111011xxxxxxxxxx  ld3r   dq0 dq0p1 dq0p2 x5sp : memvrpost x5sp x16immvr
+
+0x001101111xxxxx000xxxxxxxxxxxxx  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index0 x5sp x16immvs
+0x001101111xxxxx001xxxxxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index0 x5sp x16immvs
+0x001101111xxxxx010xx0xxxxxxxxxx  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index1 x5sp x16immvs
+0x001101111xxxxx011xx0xxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index1 x5sp x16immvs
+0x001101111xxxxx100x00xxxxxxxxxx  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index2 x5sp x16immvs
+0x001101111xxxxx100001xxxxxxxxxx  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index3 x5sp x16immvs
+0x001101111xxxxx101x00xxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index2 x5sp x16immvs
+0x001101111xxxxx101001xxxxxxxxxx  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index3 x5sp x16immvs
+
+0x001101111xxxxx110000xxxxxxxxxx  ld2r   dq0 dq0p1 x5sp : memvrpost x5sp x16immvr
+0x001101111xxxxx110001xxxxxxxxxx  ld2r   dq0 dq0p1 x5sp : memvrpost x5sp x16immvr
+0x001101111xxxxx110010xxxxxxxxxx  ld2r   dq0 dq0p1 x5sp : memvrpost x5sp x16immvr
+0x001101111xxxxx110011xxxxxxxxxx  ld2r   dq0 dq0p1 x5sp : memvrpost x5sp x16immvr
+0x001101111xxxxx111000xxxxxxxxxx  ld4r   dq0 dq0p1 dq0p2 dq0p3 x5sp : memvrpost x5sp x16immvr
+0x001101111xxxxx111001xxxxxxxxxx  ld4r   dq0 dq0p1 dq0p2 dq0p3 x5sp : memvrpost x5sp x16immvr
+0x001101111xxxxx111010xxxxxxxxxx  ld4r   dq0 dq0p1 dq0p2 dq0p3 x5sp : memvrpost x5sp x16immvr
+0x001101111xxxxx111011xxxxxxxxxx  ld4r   dq0 dq0p1 dq0p2 dq0p3 x5sp : memvrpost x5sp x16immvr
+
+# Data Processing - Register
+
+## Logical (shifted register)
+
+00001010xx0xxxxx0xxxxxxxxxxxxxxx  and    wx0 : wx5 wx16 shift4 imm6
+00001010xx1xxxxx0xxxxxxxxxxxxxxx  bic    wx0 : wx5 wx16 shift4 imm6
+00101010xx0xxxxx0xxxxxxxxxxxxxxx  orr    wx0 : wx5 wx16 shift4 imm6
+00101010xx1xxxxx0xxxxxxxxxxxxxxx  orn    wx0 : wx5 wx16 shift4 imm6
+01001010xx0xxxxx0xxxxxxxxxxxxxxx  eor    wx0 : wx5 wx16 shift4 imm6
+01001010xx1xxxxx0xxxxxxxxxxxxxxx  eon    wx0 : wx5 wx16 shift4 imm6
+01101010xx0xxxxx0xxxxxxxxxxxxxxx  ands   wx0 : wx5 wx16 shift4 imm6
+01101010xx1xxxxx0xxxxxxxxxxxxxxx  bics   wx0 : wx5 wx16 shift4 imm6
+
+10001010xx0xxxxxxxxxxxxxxxxxxxxx  and    wx0 : wx5 wx16 shift4 imm6
+10001010xx1xxxxxxxxxxxxxxxxxxxxx  bic    wx0 : wx5 wx16 shift4 imm6
+10101010xx0xxxxxxxxxxxxxxxxxxxxx  orr    wx0 : wx5 wx16 shift4 imm6
+10101010xx1xxxxxxxxxxxxxxxxxxxxx  orn    wx0 : wx5 wx16 shift4 imm6
+11001010xx0xxxxxxxxxxxxxxxxxxxxx  eor    wx0 : wx5 wx16 shift4 imm6
+11001010xx1xxxxxxxxxxxxxxxxxxxxx  eon    wx0 : wx5 wx16 shift4 imm6
+11101010xx0xxxxxxxxxxxxxxxxxxxxx  ands   wx0 : wx5 wx16 shift4 imm6
+11101010xx1xxxxxxxxxxxxxxxxxxxxx  bics   wx0 : wx5 wx16 shift4 imm6
+
+## Add/subtract (shifted register)
+
+00001011xx0xxxxx0xxxxxxxxxxxxxxx  add    wx0 : wx5 wx16 shift3 imm6
+00101011xx0xxxxx0xxxxxxxxxxxxxxx  adds   wx0 : wx5 wx16 shift3 imm6
+01001011xx0xxxxx0xxxxxxxxxxxxxxx  sub    wx0 : wx5 wx16 shift3 imm6
+01101011xx0xxxxx0xxxxxxxxxxxxxxx  subs   wx0 : wx5 wx16 shift3 imm6
+
+10001011xx0xxxxxxxxxxxxxxxxxxxxx  add    wx0 : wx5 wx16 shift3 imm6
+10101011xx0xxxxxxxxxxxxxxxxxxxxx  adds   wx0 : wx5 wx16 shift3 imm6
+11001011xx0xxxxxxxxxxxxxxxxxxxxx  sub    wx0 : wx5 wx16 shift3 imm6
+11101011xx0xxxxxxxxxxxxxxxxxxxxx  subs   wx0 : wx5 wx16 shift3 imm6
+
+## Add/subtract (extended register)
+
+x0001011001xxxxxxxxxxxxxxxxxxxxx  add    wx0sp : wx5sp wx16 ext extam
+x0101011001xxxxxxxxxxxxxxxxxxxxx  adds   wx0   : wx5sp wx16 ext extam
+x1001011001xxxxxxxxxxxxxxxxxxxxx  sub    wx0sp : wx5sp wx16 ext extam
+x1101011001xxxxxxxxxxxxxxxxxxxxx  subs   wx0   : wx5sp wx16 ext extam
+
+# FIXME i#1569: Add: more data processing
