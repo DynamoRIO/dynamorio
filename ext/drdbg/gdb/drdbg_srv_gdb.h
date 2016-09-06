@@ -30,4 +30,49 @@
  * DAMAGE.
  */
 
-/* DynamoRIO Debugger Transparency Extension: GDB Server Commands*/
+/* DynamoRIO Debugger Transparency Extension: GDB Server */
+
+#ifndef _drdbg_srv_gdb_H_
+#define _drdbg_srv_gdb_H_ 1
+
+/**
+ * @file drdbg_srv_gdb.h
+ * @brief Header for DynamoRIO Debugger Transparency Extension
+ */
+
+#include "drdbg.h"
+#include "../drdbg_server_int.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef drdbg_status_t (*drdbg_gdb_cmd_func_t)(int cmd_index, char *buf, int len,
+                                               drdbg_srv_int_cmd_t *cmd,
+                                               void **cmd_args);
+typedef drdbg_status_t (*drdbg_gdb_put_cmd_func_t)(drdbg_srv_int_cmd_t *cmd,
+                                                   void **cmd_args);
+
+typedef struct _gdb_cmd_t {
+    const drdbg_srv_int_cmd_t cmd_id;
+    const char *cmd_str;
+    const drdbg_gdb_cmd_func_t get;
+} gdb_cmd_t;
+
+extern const gdb_cmd_t SUPPORTED_CMDS[];
+
+/* GDB Remote Protocol packet prefixes */
+typedef enum {
+    DRDBG_GDB_CMD_PREFIX_MULTI = 'v',
+    DRDBG_GDB_CMD_PREFIX_QUERY = 'q',
+    DRDBG_GDB_CMD_PREFIX_QUERY_SET = 'Q'
+} DRDBG_GDB_CMD_PREFIX;
+
+drdbg_status_t
+drdbg_srv_gdb_init(drdbg_srv_int_t *dbg_server);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* _drdbg_srv_gdb_H_ */

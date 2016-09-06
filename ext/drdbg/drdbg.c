@@ -42,17 +42,23 @@
 #include "drqueue.h"
 #include "drdbg.h"
 #include "drdbg_server_int.h"
-#include "drdbg_srv_gdb.h"
+#include "gdb/drdbg_srv_gdb.h"
 
 #include <string.h> /* memcpy */
 
+#include <sys/mman.h>
+
 static drdbg_options_t drdbg_options;
 static drdbg_srv_int_t dbg_server;
+static drlist_t *drdbg_memmaps;
+
 void **drcontexts = NULL;
 uint num_suspended;
 uint num_unsuspended;
 drdbg_stop_rsn_t stop_rsn;
+
 static drdbg_handler_t *cmd_handlers;
+
 bool pause_at_first_app_ins = true;
 bool drdbg_break_on_entry = true;
 
@@ -117,12 +123,13 @@ drdbg_bp_cc_handler(drdbg_bp_t *bp)
     event->event = DRDBG_EVENT_BP;
     data = dr_global_alloc(sizeof(drdbg_event_data_bp_t));
     data->bp = bp;
-    //data->mcontext.flags = DR_MC_INTEGER|DR_MC_CONTROL;
-    //data->mcontext.size = sizeof(dr_mcontext_t);
-    //dr_get_mcontext(dr_get_current_drcontext(), &(data->mcontext));
+    data->mcontext.flags = DR_MC_INTEGER|DR_MC_CONTROL;
+    data->mcontext.size = sizeof(dr_mcontext_t);
+    dr_get_mcontext(dr_get_current_drcontext(), &data->mcontext);
+    data->mcontext.xip = dr_fragment_app_pc(data->bp->tag);
     data->keep_waiting = true;
     event->data = data;
-    dr_fprintf(STDERR, "ABOUT TO SLEEPWEEEEE\n");
+
     drqueue_push(drdbg_event_queue, event);
 
     /* enter safe spot and wait */
@@ -140,7 +147,7 @@ drdbg_bp_insert(void *drcontext, void *tag, instrlist_t *bb, drdbg_bp_t *bp)
         return DRDBG_ERROR;
     bp->tag = tag;
     bp->status = DRDBG_BP_ENABLED;
-    /* Split block on pc */
+    /* XXX: Split block on pc */
     /* Insert clean-call to bp handler */
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), drdbg_bp_cc_handler, false, 1, OPND_CREATE_INTPTR(bp));
     return DRDBG_SUCCESS;
@@ -210,11 +217,12 @@ drdbg_cmd_query_stop_rsn(void **arg)
 drdbg_status_t
 drdbg_cmd_reg_read(void **arg)
 {
-    dr_mcontext_t *mcontext = dr_global_alloc(sizeof(dr_mcontext_t));
-    mcontext->size = sizeof(dr_mcontext_t);
-    mcontext->flags = DR_MC_INTEGER|DR_MC_CONTROL;
-    dr_get_mcontext(drcontexts[0], mcontext);
-    *arg = (void *)mcontext;
+    //dr_mcontext_t *mcontext = dr_global_alloc(sizeof(dr_mcontext_t));
+    //mcontext->size = sizeof(dr_mcontext_t);
+    //mcontext->flags = DR_MC_INTEGER|DR_MC_CONTROL;
+    //dr_get_mcontext(drcontexts[0], mcontext);
+    //*arg = (void *)mcontext;
+    *arg = &current_bp_event->mcontext;
     return DRDBG_SUCCESS;
 }
 
@@ -223,10 +231,22 @@ drdbg_cmd_mem_read(void **arg)
 {
     typedef drdbg_cmd_data_mem_read_t mydata_t;
     mydata_t *data = (mydata_t *)*arg;
-    char *read_data = dr_global_alloc(data->len);
+    char *read_data;
+    size_t bytes_read;
+
+    read_data = dr_global_alloc(data->len);
     memset(read_data, 0, data->len);
-    //memcpy(read_data, data->data, data->len);
+
+    //dr_switch_to_app_state(dr_get_current_drcontext());
+    dr_safe_read(data->data, data->len, read_data, &bytes_read);
+    if (bytes_read != data->len) {
+        dr_global_free(read_data, data->len);
+        return DRDBG_ERROR;
+    }
+    //dr_switch_to_dr_state(dr_get_current_drcontext());
+
     data->data = read_data;
+    data->len = bytes_read;
     *arg = data;
     return DRDBG_SUCCESS;
 }
@@ -288,7 +308,7 @@ drdbg_server_loop(void *arg)
                 switch (drdbg_event->event) {
                 case DRDBG_EVENT_BP:
                     dr_fprintf(STDERR, "BREAKPOINT TRIGGERED OMG WTF BBQ\n");
-                    dr_suspend_all_other_threads(&drcontexts,&num_suspended,&num_unsuspended);
+                    dr_suspend_all_other_threads(&drcontexts, &num_suspended, &num_unsuspended);
                     if (drdbg_break_on_entry) {
                         drdbg_srv_accept();
                         drdbg_break_on_entry = false;
@@ -307,18 +327,13 @@ drdbg_server_loop(void *arg)
 
 static
 void
-drdbg_start_server_2(void *arg)
+drdbg_start_server(void *arg)
 {
     drdbg_status_t ret;
 
     /* Mark thread as unsuspendable */
     if (!dr_client_thread_set_suspendable(false))
         return;
-    dr_fprintf(STDERR, "NOT SUSPENDABLE\n");
-
-    /* Stop application */
-    //dr_suspend_all_other_threads(&drcontexts,&num_suspended,&num_unsuspended);
-    dr_fprintf(STDERR, "ALL OTHER THREADS STOPPED\n");
 
     /* Initialize server */
     ret = drdbg_srv_start();
@@ -333,17 +348,21 @@ drdbg_status_t
 drdbg_init_data(void)
 {
     drdbg_bps = dr_global_alloc(sizeof(drvector_t));
-    if (drdbg_bps == NULL)
-        DR_ASSERT_MSG(false, "failed to alloc vector");
-    drvector_init(drdbg_bps, 10, true, NULL);
+    if (drdbg_bps == NULL || !drvector_init(drdbg_bps, 10, true, NULL))
+        return DRDBG_ERROR;
+
     drdbg_bps_pending = dr_global_alloc(sizeof(drlist_t));
-    if (drdbg_bps_pending == NULL)
-        DR_ASSERT_MSG(false, "failed to alloc list");
-    DR_ASSERT_MSG(drlist_init(drdbg_bps_pending, true, NULL), "failed to init list");
+    if (drdbg_bps_pending == NULL || !drlist_init(drdbg_bps_pending, true, NULL))
+        return DRDBG_ERROR;
+
     drdbg_event_queue = dr_global_alloc(sizeof(drqueue_t));
-    if (drdbg_event_queue == NULL)
-        DR_ASSERT_MSG(false, "failed to alloc queue");
-    drqueue_init(drdbg_event_queue, 10, true, NULL);
+    if (drdbg_event_queue == NULL || !drqueue_init(drdbg_event_queue, 10, true, NULL))
+        return DRDBG_ERROR;
+
+    drdbg_memmaps = dr_global_alloc(sizeof(drlist_t));
+    if (drdbg_memmaps == NULL || !drlist_init(drdbg_memmaps, true, NULL))
+        return DRDBG_ERROR;
+
     return DRDBG_SUCCESS;
 }
 
@@ -351,8 +370,8 @@ static
 drdbg_status_t
 drdbg_init_cmd_handlers(void)
 {
-    cmd_handlers = (drdbg_handler_t *)calloc(DRDBG_CMD_NUM_CMDS, sizeof(drdbg_handler_t));
     int i;
+    cmd_handlers = (drdbg_handler_t *)calloc(DRDBG_CMD_NUM_CMDS, sizeof(drdbg_handler_t));
 
     /* Fill with not implemented */
     for (i = 0; i < DRDBG_CMD_NUM_CMDS; i++) {
@@ -394,12 +413,14 @@ drdbg_init(drdbg_options_t *ops_in)
         return ret;
 
     /* Initialiation */
-    drdbg_init_data();
-    drdbg_init_cmd_handlers();
-    drdbg_init_events();
+    if (drdbg_init_data() != DRDBG_SUCCESS ||
+        drdbg_init_cmd_handlers() != DRDBG_SUCCESS ||
+        drdbg_init_events() != DRDBG_SUCCESS) {
+        return DRDBG_ERROR;
+    }
 
     /* Start server thread */
-    if (!dr_create_client_thread(drdbg_start_server_2, NULL))
+    if (!dr_create_client_thread(drdbg_start_server, NULL))
       return DRDBG_ERROR;
 
     return DRDBG_SUCCESS;

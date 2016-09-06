@@ -39,7 +39,7 @@ cmake_minimum_required(VERSION 2.6)
 
 set(srcs
   drdbg.c
-  drdbg_srv_gdb.c
+  gdb/drdbg_srv_gdb.c
   # add more here
   )
 

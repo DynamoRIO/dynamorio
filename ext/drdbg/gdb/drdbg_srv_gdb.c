@@ -34,7 +34,7 @@
 
 #include "dr_api.h"
 #include "drdbg.h"
-#include "drdbg_server_int.h"
+#include "../drdbg_server_int.h"
 #include "drdbg_srv_gdb.h"
 
 #include <string.h>
@@ -89,9 +89,10 @@ gdb_hexify(char *out, ssize_t len_out, char *buf, ssize_t len_buf)
     int i = 0;
     if (len_buf*2 >= len_out)
         return 0;
+
     for (i = 0; i < len_buf; i++) {
-        /* XXX: Account for endianess */
-        snprintf(out+(i*2), len_out-(i*2), "%02x", buf[i]);
+        /* XXX: Account for protocel endianess? */
+        snprintf(out+(i*2), len_out-(i*2), "%02hhx", buf[i]);
     }
     return i*2;
 }
@@ -157,7 +158,10 @@ gdb_recvpkt(char *buf, ssize_t len, ssize_t *bread)
     while (*bread < len) {
         ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 1, 0);
         if (ret == -1) {
+            if (errno == EINTR)
+                exit(1);
             dr_fprintf(STDERR, "RECV ERROR %d\n", errno);
+            *bread = ret;
             gdb_sendack('-');
             return DRDBG_ERROR;
         }
@@ -166,6 +170,7 @@ gdb_recvpkt(char *buf, ssize_t len, ssize_t *bread)
             ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 2, 0);
             if (ret == -1) {
                 dr_fprintf(STDERR, "CHKSUM ERROR %d\n", errno);
+                *bread = ret;
                 gdb_sendack('-');
 
                 return DRDBG_ERROR;
@@ -257,26 +262,40 @@ drdbg_srv_gdb_cmd_continue(int cmd_index, char *buf, int len,
     *cmd = gdb_cmd->cmd_id;
 
     // Specifying multiple actions is an error
-    cur = buf+strlen(gdb_cmd->cmd_str);
-    if (*cur != ':') {
-        return DRDBG_ERROR;
-    }
-
-    // Fill in array of tids to continue
-    tids = (unsigned int *)calloc(10, sizeof(unsigned int));
-    while (*cur == ':') {
-        // Advance to beginning of tid
+    cur = buf+1+strlen(gdb_cmd->cmd_str);
+    switch (*cur) {
+    case ';':
         cur++;
-        // Get tid and convert from BE hexstr to normal int
-        tids[ctr] = (unsigned int)strtoul(cur,&tmp,16);
-        if (tmp == cur && tids[ctr] == 0) {
+        switch (*cur) {
+        case 'c':
+            // Fill in array of tids to continue
+            tids = (unsigned int *)calloc(10, sizeof(unsigned int));
+            while (*cur == ':') {
+                // Advance to beginning of tid
+                cur++;
+                // Get tid and convert from BE hexstr to normal int
+                tids[ctr] = (unsigned int)strtoul(cur,&tmp,16);
+                if (tmp == cur && tids[ctr] == 0) {
+                    return DRDBG_ERROR;
+                }
+                tids[ctr] = END_SWAP_UINT32(tids[ctr]);
+                // Advance to next delimiter
+                cur = tmp;
+            }
+            *cmd_args = (void *)tids;
+            break;
+        default:
+            *cmd = DRDBG_CMD_NOT_IMPLEMENTED;
             return DRDBG_ERROR;
         }
-        tids[ctr] = END_SWAP_UINT32(tids[ctr]);
-        // Advance to next delimiter
-        cur = tmp;
+        break;
+    case '?':
+        gdb_sendpkt("vCont;c;C;s;S", 13);
+        *cmd = DRDBG_CMD_SERVER_INTERNAL;
+        break;
+    default:
+        return DRDBG_ERROR;
     }
-    *cmd_args = (void *)tids;
     return DRDBG_SUCCESS;
 }
 
@@ -323,18 +342,23 @@ drdbg_srv_gdb_cmd_put_reg_read(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
     char *pkt = (char *)calloc(MAX_PACKET_SIZE, sizeof(char));
     ssize_t len = 0;
     ssize_t ret = 0;
+    dr_fprintf(STDERR, "%p %p", (uint64)data->xip, END_SWAP_PTR((uint64)data->xip));
     ret = snprintf(pkt, MAX_PACKET_SIZE, PFMT PFMT PFMT PFMT PFMT PFMT PFMT PFMT,
-                   data->xax,data->xbx,data->xcx,data->xdx,data->xsi,data->xdi,
-                   data->xbp,data->xsp);
+                   END_SWAP_PTR(data->xax),END_SWAP_PTR(data->xbx),
+                   END_SWAP_PTR(data->xcx),END_SWAP_PTR(data->xdx),
+                   END_SWAP_PTR(data->xsi),END_SWAP_PTR(data->xdi),
+                   END_SWAP_PTR(data->xbp),END_SWAP_PTR(data->xsp));
     len += ret;
 #ifdef X64
     ret = snprintf(pkt+len, MAX_PACKET_SIZE-len, PFMT PFMT PFMT PFMT PFMT PFMT PFMT PFMT,
-                   data->r8, data->r9, data->r10, data->r11, data->r12,
-                   data->r13, data->r14, data->r15);
+                   END_SWAP_PTR(data->r8),END_SWAP_PTR(data->r9),
+                   END_SWAP_PTR(data->r10),END_SWAP_PTR(data->r11),
+                   END_SWAP_PTR(data->r12),END_SWAP_PTR(data->r13),
+                   END_SWAP_PTR(data->r14),END_SWAP_PTR(data->r15));
     len += ret;
 #endif
     ret = snprintf(pkt+len, MAX_PACKET_SIZE-len, PFMT PFMT,
-                   (uint64)data->xip, data->xflags);
+                   END_SWAP_PTR((uint64)data->xip), END_SWAP_PTR(data->xflags));
     len += ret;
 
     gdb_sendpkt(pkt, len);
@@ -362,6 +386,10 @@ drdbg_srv_gdb_cmd_put_mem_read(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
     int len = 0;
 
     my_data_t *data = (my_data_t *)*cmd_args;
+    if (data->data == NULL) {
+        gdb_sendpkt("E01", 3);
+        return DRDBG_SUCCESS;
+    }
     len = gdb_hexify(pkt, MAX_PACKET_SIZE, data->data, data->len);
 
     gdb_sendpkt(pkt, len);
@@ -377,35 +405,37 @@ drdbg_srv_gdb_parse_cmd(char *buf, int len,
 {
     int i = 0;
 
-    for (i = 0; i < NUM_SUPPORTED_CMDS; i++) {
-        switch (buf[1]) {
-        case DRDBG_GDB_CMD_PREFIX_MULTI:
-            /* Multi-letter command */
+
+    switch (buf[1]) {
+    case DRDBG_GDB_CMD_PREFIX_MULTI:
+        /* Multi-letter command */
+        for (i = 0; i < NUM_SUPPORTED_CMDS; i++) {
             if (!gdb_cmdcmp(buf+1, SUPPORTED_CMDS[i].cmd_str, ";?#")) {
-                return SUPPORTED_CMDS[i].func(i, buf, len, cmd, cmd_args);
+                return SUPPORTED_CMDS[i].get(i, buf, len, cmd, cmd_args);
             }
-            break;
-        case DRDBG_GDB_CMD_PREFIX_QUERY:
-        case DRDBG_GDB_CMD_PREFIX_QUERY_SET:
-            /* Query Command */
-            *cmd = DRDBG_CMD_SERVER_INTERNAL;
-            return drdbg_srv_gdb_cmd_query(buf, len);
-            break;
-        case 'g':
-            *cmd = DRDBG_CMD_REG_READ;
-            return DRDBG_SUCCESS;
-        case 'm':
-            *cmd = DRDBG_CMD_MEM_READ;
-            return drdbg_srv_gdb_cmd_mem_read(buf, len, cmd_args);
-            break;
-        case '?':
-            *cmd = DRDBG_CMD_QUERY_STOP_RSN;
-            return DRDBG_SUCCESS;
-        default:
-            /* Normal command */
-            break;
         }
+        break;
+    case DRDBG_GDB_CMD_PREFIX_QUERY:
+    case DRDBG_GDB_CMD_PREFIX_QUERY_SET:
+        /* Query Command */
+        *cmd = DRDBG_CMD_SERVER_INTERNAL;
+        return drdbg_srv_gdb_cmd_query(buf, len);
+        break;
+    case 'g':
+        *cmd = DRDBG_CMD_REG_READ;
+        return DRDBG_SUCCESS;
+    case 'm':
+        *cmd = DRDBG_CMD_MEM_READ;
+        return drdbg_srv_gdb_cmd_mem_read(buf, len, cmd_args);
+        break;
+    case '?':
+        *cmd = DRDBG_CMD_QUERY_STOP_RSN;
+        return DRDBG_SUCCESS;
+    default:
+        /* Not supported */
+        break;
     }
+
     /* Command not supported */
     gdb_sendpkt("", 0);
     return DRDBG_ERROR;
@@ -419,6 +449,7 @@ drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
     ssize_t bread = 0;
     int chksum = 0;
     int ret = 0;
+    drdbg_status_t status;
 
     if (drdbg_srv_gdb_conn == -1) {
         return DRDBG_ERROR;
@@ -426,7 +457,10 @@ drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
 
     /* recv packet */
     //bread = recv(drdbg_srv_gdb_conn, buf, MAX_PACKET_SIZE, 0);
-    gdb_recvpkt(buf, MAX_PACKET_SIZE, &bread);
+    status = gdb_recvpkt(buf, MAX_PACKET_SIZE, &bread);
+    if (status != DRDBG_SUCCESS) {
+        return status;
+    }
     dr_fprintf(STDERR, "Received packet '%s'\n", buf);
     if (bread == -1) {
         dr_fprintf(STDERR, "recv error %d\n", errno);

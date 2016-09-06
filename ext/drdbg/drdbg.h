@@ -53,6 +53,15 @@ extern "C" {
      (((_num)>>8) &0xff00)   |  /* move byte 2 to byte 1 */ \
      (((_num)<<24)&0xff000000)) // byte 0 to byte 3
 
+#define END_SWAP_UINT64(_num) \
+    ((((uint64)END_SWAP_UINT32((uint)_num))<<32) | END_SWAP_UINT32((uint)(_num>>32)))
+
+#ifdef X64
+# define END_SWAP_PTR(_num) END_SWAP_UINT64(_num)
+#else
+# define END_SWAP_PTR(_num) END_SWAP_UINT32(_num)
+#endif
+
 typedef enum {
     DRDBG_EVENT_BP
 } DRDBG_EVENT;
@@ -77,9 +86,22 @@ typedef struct _drdbg_bp_t {
 
 typedef struct _drdbg_event_data_bp_t {
     drdbg_bp_t *bp;
-    //dr_mcontext_t mcontext;
+    dr_mcontext_t mcontext;
     bool keep_waiting;
 } drdbg_event_data_bp_t;
+
+#define MAX_SIZE_MEMMAP_PATH 256
+typedef struct _drdbg_memmap_entry_t {
+    void *start;
+    void *end;
+    int prot;
+    bool private;
+    void *offset;
+    char dev_major;
+    char dev_minor;
+    int inode;
+    char path[MAX_SIZE_MEMMAP_PATH];
+} drdbg_memmap_entry_t;
 
 typedef enum {
     DRDBG_SUCCESS,  /* Operation succeeded. */
