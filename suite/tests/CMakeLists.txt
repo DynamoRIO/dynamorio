@@ -1640,7 +1640,7 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
     "-early_inject -max_bb_instrs 6" "")
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
-    "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")
+    "-nostartfiles -nodefaultlibs -Wl,-static")
 
   tobuild_ops(common.allasm_arm common/allasm_arm.asm "-early_inject" "")
   set_target_properties(common.allasm_arm PROPERTIES LINKER_LANGUAGE C)
