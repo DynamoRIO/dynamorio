@@ -170,6 +170,7 @@ drlist_push_back(drlist_t *list, void *data)
         new_node->prev = NULL;
     } else {
         new_node->prev = list->tail;
+        list->tail->next = new_node;
     }
     list->tail = new_node;
     if (list->synch)
