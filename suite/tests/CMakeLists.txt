@@ -584,7 +584,7 @@ function(add_exe test source)
       target_link_libraries(${test} ${libmath} ${libdl})
     endif ()
     if (NOT ANDROID) # pthreads is inside Bionic on Android
-      if ("${test}" MATCHES "^pthread|api.startstop_FLAKY")
+      if ("${test}" MATCHES "^pthread|api.startstop")
         target_link_libraries(${test} ${libpthread})
       endif ()
     endif ()
@@ -2176,8 +2176,7 @@ if (CLIENT_INTERFACE)
   endif (ARM)
 
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    # XXX i#1512: api.startstop is FLAKY
-    tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF OFF)
+    tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
   endif (NOT ARM)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # test static decoder library
