@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -857,6 +857,31 @@ recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
     return ilist;
 }
 
+bool
+at_syscall_translation(dcontext_t *dcontext, app_pc pc)
+{
+    /* For sysenter our translation will still point at DR code */
+    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER)
+        return false;
+#ifdef WINDOWS
+    return pc == vsyscall_after_syscall;
+#else
+    /* Even when the main syscall method is sysenter, we also have a
+     * do_int_syscall and do_clone_syscall that use int, so check only
+     * the main syscall routine.
+     * Note that we don't modify the stack, so once we do sysenter syscalls
+     * inlined in the cache (PR 288101) we'll need some mechanism to
+     * distinguish those: but for now if a sysenter instruction is used it
+     * has to be do_syscall since DR's own syscalls are ints.
+     */
+    return (pc == vsyscall_sysenter_return_pc ||
+            is_after_main_do_syscall_addr(dcontext, pc) ||
+            /* Check for pointing right at sysenter, for i#1145 */
+            pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
+            is_after_main_do_syscall_addr(dcontext, pc + SYSENTER_LENGTH));
+#endif
+}
+
 /* The esp in mcontext must either be valid or NULL (if null will be unable to
  * recreate on XP and 03 at vsyscall_after_syscall and on sygate 2k at after syscall).
  * Returns true if successful.  Whether successful or not, attempts to modify
@@ -894,20 +919,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
     }
 #else
-    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
-        /* Even when the main syscall method is sysenter, we also have a
-         * do_int_syscall and do_clone_syscall that use int, so check only
-         * the main syscall routine.
-         * Note that we don't modify the stack, so once we do sysenter syscalls
-         * inlined in the cache (PR 288101) we'll need some mechanism to
-         * distinguish those: but for now if a sysenter instruction is used it
-         * has to be do_syscall since DR's own syscalls are ints.
-         */
-        (mcontext->pc == vsyscall_sysenter_return_pc ||
-         is_after_main_do_syscall_addr(tdcontext, mcontext->pc) ||
-         /* Check for pointing right at sysenter, for i#1145 */
-         mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
-         is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
+    if (at_syscall_translation(tdcontext, mcontext->pc)) {
 # ifdef MACOS
         if (!just_pc) {
             LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,

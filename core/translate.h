@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -104,5 +104,7 @@ void translation_info_print(const translation_info_t *info, cache_pc start, file
 #ifdef INTERNAL
 void stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist);
 #endif
+
+bool at_syscall_translation(dcontext_t *dcontext, app_pc pc);
 
 #endif /* _TRANSLATE_H_ */
