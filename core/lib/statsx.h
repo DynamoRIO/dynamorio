@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -703,6 +703,7 @@
     STATS_DEF("Fcache exits, native_exec executions", num_exits_native_exec)
     STATS_DEF("Fcache exits, native_exec syscalls", num_exits_native_exec_syscall)
     STATS_DEF("Fcache exits, proactive reset", num_exits_reset)
+    STATS_DEF("Fcache exits, going native", num_exits_native)
 #ifdef HOT_PATCHING_INTERFACE
     STATS_DEF("Fcache exits, hot patching control flow change", num_exits_hot_patch)
 #endif

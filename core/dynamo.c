@@ -1663,6 +1663,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
     /* We don't need to initialize dcontext->coarse_exit as it is only
      * read when last_exit indicates a coarse exit, which sets the fields.
      */
+    dcontext->go_native = false;
 }
 
 #ifdef WINDOWS
@@ -2582,6 +2583,7 @@ dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME" not initialized");
     LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread "TIDFMT"\n", get_thread_id());
+    LOG(THREAD_GET, LOG_TOP, 1, "dr_app_start\n");
 
     if (!INTERNAL_OPTION(nullcalls)) {
         /* Adjust the app stack to account for the return address + alignment.
@@ -2629,6 +2631,7 @@ dynamo_thread_under_dynamo(dcontext_t *dcontext)
     }
 #endif
     dcontext->currently_stopped = false;
+    dcontext->go_native = false;
 }
 
 /* For use by threads that start and stop whether dynamo controls them.

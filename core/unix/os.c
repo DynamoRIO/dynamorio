@@ -9167,7 +9167,13 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     }
     for (i = 0; i < num_threads; i++) {
         thread_record_t *tr = thread_lookup(tids[i]);
-        if (tr == NULL)
+        if (tr == NULL ||
+            /* Re-takeover known threads that are currently native as well.
+             * XXX i#95: we need a synchall-style loop for known threads as
+             * they can be in DR for syscall hook handling.
+             */
+            (is_thread_currently_native(tr)
+             IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(tr->dcontext))))
             tids[threads_to_signal++] = tids[i];
     }
 
@@ -9236,7 +9242,6 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 void
 os_thread_take_over(priv_mcontext_t *mc)
 {
-    int r;
     uint i;
     thread_id_t mytid;
     dcontext_t *dcontext;
@@ -9250,11 +9255,18 @@ os_thread_take_over(priv_mcontext_t *mc)
      * create_clone_record and new_thread_setup, except we're not putting a
      * clone record on the dstack.
      */
-    r = dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
-    ASSERT(r == SUCCESS);
-    dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
-    share_siginfo_after_take_over(dcontext, takeover_dcontext);
+    if (!is_thread_initialized()) {
+        IF_DEBUG(int r =)
+            dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
+        ASSERT(r == SUCCESS);
+        dcontext = get_thread_private_dcontext();
+        ASSERT(dcontext != NULL);
+        share_siginfo_after_take_over(dcontext, takeover_dcontext);
+    } else {
+        /* Re-takeover a thread that we let go native */
+        dcontext = get_thread_private_dcontext();
+        ASSERT(dcontext != NULL);
+    }
     dynamo_thread_under_dynamo(dcontext);
     dc_mc = get_mcontext(dcontext);
     *dc_mc = *mc;

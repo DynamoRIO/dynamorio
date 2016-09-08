@@ -2462,6 +2462,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     const uint MAX_ITERS = 16;
     uint num_threads = 0;
     thread_list_t *threads = NULL;
+    thread_id_t my_id = get_thread_id();
     bool took_over_all = true, found_new_threads = true;
     /* ensure user_data starts out how we think it does */
     ASSERT(TAKEOVER_NEW == (ptr_uint_t) NULL);
@@ -2508,9 +2509,14 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 found_new_threads = true;
                 threads[i].user_data = (void *)(ptr_uint_t) TAKEOVER_TRIED;
                 tr = thread_lookup(threads[i].tid);
-                if (tr == NULL) { /* not already under our control */
-                    /* cur thread is assumed to be under DR */
-                    ASSERT(threads[i].tid != get_thread_id());
+                if ((tr == NULL ||
+                     /* Re-takeover known threads that are currently native as well.
+                      * XXX i#95: we need a synchall-style loop for known threads as
+                      * they can be in DR for syscall hook handling.
+                      */
+                     (is_thread_currently_native(tr)
+                      IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(tr->dcontext)))) &&
+                    threads[i].tid != my_id) {
                     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: taking over thread "TIDFMT"\n",
                         threads[i].tid);
                     if (os_take_over_thread(dcontext, threads[i].handle,
@@ -2560,7 +2566,6 @@ thread_attach_setup(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
     takeover_data_t *data;
-    int rc;
     ENTERING_DR();
 
     TABLE_RWLOCK(takeover_table, write, lock);
@@ -2576,10 +2581,13 @@ thread_attach_setup(priv_mcontext_t *mc)
     /* Preclude double takeover if we become suspended while in ntdll */
     data->in_progress = true;
 
-    rc = dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
-    /* We don't assert that rc!=-1 b/c we are used to take over a
-     * native_exec thread, which is already initialized.
+    /* We come here for native_exec threads and dr_app_stop threads, which are
+     * already initialized.
      */
+    if (!is_thread_initialized()) {
+        int rc = dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
+        ASSERT(rc == SUCCESS);
+    }
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     dynamo_thread_under_dynamo(dcontext);

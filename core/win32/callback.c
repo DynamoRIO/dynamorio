@@ -136,8 +136,8 @@ static byte *
 emit_takeover_code(byte *pc);
 
 /* For detach */
-bool init_apc_go_native = false;
-bool init_apc_go_native_pause = false;
+volatile bool init_apc_go_native = false;
+volatile bool init_apc_go_native_pause = false;
 
 /* overridden by dr_preinjected, or retakeover_after_native() */
 static retakeover_point_t interception_point = INTERCEPT_PREINJECT;
@@ -3065,7 +3065,7 @@ intercept_new_thread(CONTEXT *cxt)
     /* init apc, check init_apc_go_native to sync w/detach */
     if (init_apc_go_native) {
         /* need to wait after checking _go_native to avoid a thread
-         * going native to early because of races between setting
+         * going native too early because of races between setting
          * _go_native and _pause */
         if (init_apc_go_native_pause) {
             /* FIXME : this along with any other logging in this

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -412,11 +412,13 @@ waiting_at_safe_spot(thread_record_t *trec, thread_synch_state_t desired_state)
      * case the suspended thread is holding this lock, note only need
      * lock to check the synch_perm */
     if (spinmutex_trylock(tsd->synch_lock)) {
-        bool res = THREAD_SYNCH_SAFE(tsd->synch_perm, desired_state);
+        thread_synch_permission_t perm = tsd->synch_perm;
+        bool res = THREAD_SYNCH_SAFE(perm, desired_state);
         spinmutex_unlock(tsd->synch_lock);
         if (res) {
             LOG(THREAD_GET, LOG_SYNCH, 2,
-                "thread "TIDFMT" waiting at safe spot\n", trec->id);
+                "thread "TIDFMT" waiting at safe spot (synch_perm=%d)\n",
+                trec->id, perm);
             return true;
         }
     } else {
@@ -1707,3 +1709,113 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
     }
 }
 
+/***************************************************************************
+ * Detach and similar operations
+ */
+
+void
+send_all_other_threads_native(void)
+{
+    thread_record_t **threads;
+    dcontext_t *my_dcontext = get_thread_private_dcontext();
+    int i, num_threads;
+    bool waslinking;
+    /* We're forced to use an asynch model due to not being able to call
+     * dynamo_thread_not_under_dynamo, which has a bonus of making it easier
+     * to handle other threads asking for synchall.
+     * This is why we don't ask for THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT.
+     */
+    const thread_synch_state_t desired_state =
+        THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER;
+    DEBUG_DECLARE(bool ok;)
+
+    ASSERT(dynamo_initialized && !dynamo_exited && my_dcontext != NULL);
+    LOG(my_dcontext->logfile, LOG_ALL, 1, "%s\n", __FUNCTION__);
+    LOG(GLOBAL, LOG_ALL, 1, "%s: cur thread "TIDFMT"\n", __FUNCTION__, get_thread_id());
+
+    waslinking = is_couldbelinking(my_dcontext);
+    if (waslinking)
+        enter_nolinking(my_dcontext, NULL, false);
+
+#ifdef WINDOWS
+    /* Ensure new threads will go straight to native */
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    init_apc_go_native_pause = true;
+    init_apc_go_native = true;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+
+# ifdef CLIENT_INTERFACE
+    wait_for_outstanding_nudges();
+# endif
+#endif
+
+    /* Suspend all threads except those trying to synch with us */
+    DEBUG_DECLARE(ok =)
+        synch_with_all_threads(desired_state, &threads, &num_threads,
+                               THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                               THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+    ASSERT(ok);
+    ASSERT(mutex_testlock(&all_threads_synch_lock) &&
+           mutex_testlock(&thread_initexit_lock));
+
+#ifdef WINDOWS
+    /* Let threads waiting at APC point go native */
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    init_apc_go_native_pause = false;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#endif
+
+#ifdef WINDOWS
+    /* FIXME i#95: handle outstanding callbacks where we've put our retaddr on
+     * the app stack.  This should be able to share
+     * detach_helper_handle_callbacks() code.  Won't the old single-thread
+     * dr_app_stop() have had this same problem?  Since we're not tearing
+     * everything down, can we solve it by waiting until we hit
+     * after_shared_syscall_code_ex() in a native thread?
+     */
+    ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
+#endif
+
+    for (i = 0; i < num_threads; i++) {
+        if (threads[i]->dcontext == my_dcontext ||
+            is_thread_currently_native(threads[i])
+            IF_CLIENT_INTERFACE(|| IS_CLIENT_THREAD(threads[i]->dcontext)))
+            continue;
+
+        /* Because dynamo_thread_not_under_dynamo() has to be run by the owning
+         * thread, the simplest solution is to send everyone back to dispatch
+         * with a flag to go native from there, rather than directly setting the
+         * native context.
+         */
+        threads[i]->dcontext->go_native = true;
+
+        if (thread_synch_state_no_xfer(threads[i]->dcontext)) {
+            /* Another thread trying to synch with us: just let it go.  It will
+             * go native once it gets back to dispatch which will be before it
+             * goes into the cache.
+             */
+            continue;
+        } else {
+            LOG(my_dcontext->logfile, LOG_ALL, 1, "%s: sending thread %d native\n",
+                __FUNCTION__, threads[i]->id);
+            LOG(threads[i]->dcontext->logfile, LOG_ALL, 1,
+                "**** requested by thread %d to go native\n", my_dcontext->owning_thread);
+            /* This won't change a thread at a syscall, so we rely on the thread
+             * going to dispatch and then going native when its syscall exits.
+             *
+             * FIXME i#95: this means that dr_app_cleanup() needs to synch the
+             * threads and force-xl8 these if there's a way to do that (if so we
+             * should prob just do that here), or leave behind a tombstone w/
+             * segment-cleanup code, or what we do now: we rely on the app
+             * joining all its threads *before* calling dr_app_cleanup().
+             */
+            translate_from_synchall_to_dispatch(threads[i], desired_state);
+        }
+    }
+
+    end_synch_with_all_threads(threads, num_threads, true/*resume*/);
+
+    if (waslinking)
+        enter_couldbelinking(my_dcontext, NULL, false);
+    return;
+}

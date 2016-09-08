@@ -160,7 +160,8 @@ dispatch(dcontext_t *dcontext)
      */
     do {
         if (is_in_dynamo_dll(dcontext->next_tag) ||
-            dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL) {
+            dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL ||
+            dcontext->go_native) {
             handle_special_tag(dcontext);
         }
         /* Neither hotp_only nor thin_client should have any fragment
@@ -552,10 +553,20 @@ handle_special_tag(dcontext_t *dcontext)
         interpret_back_from_native(dcontext);  /* updates next_tag */
     }
 
-    if (is_stopping_point(dcontext, dcontext->next_tag)) {
+    if (is_stopping_point(dcontext, dcontext->next_tag) ||
+        /* We don't want this to be part of is_stopping_point() b/c we don't
+         * want bb building for state xl8 to look at it.
+         */
+        dcontext->go_native) {
         LOG(THREAD, LOG_INTERP, 1,
-            "\nFound DynamoRIO stopping point: thread "TIDFMT" returning to app @"PFX"\n",
+            "\n%s: thread "TIDFMT" returning to app @"PFX"\n",
+            dcontext->go_native ? "Requested to go native" :
+            "Found DynamoRIO stopping point",
             get_thread_id(),  dcontext->next_tag);
+#ifdef DR_APP_EXPORTS
+        if (dcontext->next_tag == (app_pc)dr_app_stop)
+            send_all_other_threads_native();
+#endif
         dispatch_enter_native(dcontext);
         ASSERT_NOT_REACHED();  /* noreturn */
     }
@@ -590,7 +601,10 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
 #  endif
 # endif
 
+    /* XXX i#95: should we add an instrument_thread_detach_event()? */
+
     dynamo_thread_not_under_dynamo(dcontext);
+    dcontext->go_native = false;
 }
 #endif
 
@@ -1267,8 +1281,14 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         return;
     }
     else if (dcontext->last_exit == get_reset_linkstub()) {
-        LOG(THREAD, LOG_DISPATCH, 2, "Exit due to proactive reset\n");
-        STATS_INC(num_exits_reset);
+        LOG(THREAD, LOG_DISPATCH, 2, "Exit due to %s\n",
+            dcontext->go_native ? "request to go native" : "proactive reset");
+        DOSTATS({
+            if (dcontext->go_native)
+                STATS_INC(num_exits_native);
+            else
+                STATS_INC(num_exits_reset);
+        });
         KSWITCH_STOP_NOT_PROPAGATED(fcache_default);
         return;
     }

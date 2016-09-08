@@ -228,6 +228,8 @@ bool is_phandle_me(HANDLE phandle);
 
 extern bool intercept_asynch;
 extern bool intercept_callbacks;
+extern volatile bool init_apc_go_native_pause;
+extern volatile bool init_apc_go_native;
 extern process_id_t win32_pid;
 extern void *peb_ptr; /* not exposing type in case not including ntdll.h */
 

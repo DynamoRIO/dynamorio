@@ -201,9 +201,6 @@ extern SYS_CONST uint syscall_argsz[];
 
 extern const char * SYS_CONST syscall_names[];
 
-extern bool init_apc_go_native_pause;
-extern bool init_apc_go_native;
-
 #ifdef DEBUG
 void check_syscall_array_sizes(void);
 #endif

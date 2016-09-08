@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -251,6 +251,9 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mc, bool restore_memo
 void
 translate_from_synchall_to_dispatch(thread_record_t *tr,
                                     thread_synch_state_t synch_state);
+
+void
+send_all_other_threads_native(void);
 
 /*** exported for detach only ***/
 

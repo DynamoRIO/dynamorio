@@ -6134,6 +6134,12 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
         return false;
     }
 
+    if (is_thread_currently_native(dcontext->thread_record)
+        IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(dcontext))) {
+        sig_take_over(ucxt);  /* no return */
+        ASSERT_NOT_REACHED();
+    }
+
     /* If suspend_count is 0, we are not trying to suspend this thread
      * (os_thread_resume() may have already decremented suspend_count to 0, but
      * os_thread_suspend() will not send a signal until this thread unsets

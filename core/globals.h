@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1007,10 +1007,12 @@ struct _dcontext_t {
     bool post_syscall;
 # endif
 #endif
-    /* The start/stop APi doesn't change thread_record_t.under_dynamo_control,
+    /* The start/stop API doesn't change thread_record_t.under_dynamo_control,
      * but we need some indication so we add a custom field.
      */
     bool currently_stopped;
+    /* This is a flag requesting that this thread go native. */
+    bool go_native;
 };
 
 /* sentinel value for dcontext_t* used to indicate
