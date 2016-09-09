@@ -174,12 +174,9 @@ void
 insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr)
 {
-
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
-    /* There is no DF on ARM, so we do not need clear xflags. */
-#endif
+    /* On ARM/AArch64 no known calling convention requires any of the
+     * flags to be zero on entry to a function, so there is nothing to do.
+     */
 }
 
 /* Pushes not only the GPRs but also simd regs, xip, and xflags, in
