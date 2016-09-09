@@ -1087,12 +1087,12 @@ byte *get_app_sysenter_addr(void);
 /* in [x86/arm].asm */
 /* Calls the specified function 'func' after switching to the stack 'stack'.  If we're
  * currently on the initstack 'mutex_to_free' should be passed so we release the
- * initstack lock.  The supplied 'dcontext' will be passed as an argument to 'func'.
+ * initstack lock.  The supplied 'func_arg' will be passed as an argument to 'func'.
  * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
  * return to the caller.  If not set then it's assumed that func wasn't supposed to
  * return and we go to an error routine unexpected_return() below.
  */
-void call_switch_stack(dcontext_t *dcontext, byte *stack, void (*func) (dcontext_t *),
+void call_switch_stack(void *func_arg, byte *stack, void (*func) (void *arg),
                        void *mutex_to_free, bool return_on_return);
 # if defined (WINDOWS) && !defined(X64)
 DYNAMORIO_EXPORT int64

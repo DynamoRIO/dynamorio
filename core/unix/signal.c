@@ -4817,7 +4817,7 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
         /* We can't clean up our sigstack properly when we're on it
          * (i#1160) so we terminate on the dstack.
          */
-        call_switch_stack(dcontext, dcontext->dstack, terminate_via_kill,
+        call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))terminate_via_kill,
                           NULL/*!initstack */, false/*no return */);
     } else {
         terminate_via_kill(dcontext);
@@ -6066,8 +6066,6 @@ handle_post_alarm(dcontext_t *dcontext, bool success, unsigned int sec)
     ASSERT(success);
     return;
 }
-
-/***************************************************************************/
 
 /* Returns whether to pass on to app */
 static bool

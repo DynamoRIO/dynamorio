@@ -247,9 +247,9 @@ GLOBAL_LABEL(get_pic_xdi:)
         END_FUNC(get_pic_xdi)
 #endif
 
-/* void call_switch_stack(dcontext_t *dcontext,       // 1*ARG_SZ+XAX
+/* void call_switch_stack(void *func_arg,             // 1*ARG_SZ+XAX
  *                        byte *stack,                // 2*ARG_SZ+XAX
- *                        void (*func)(dcontext_t *), // 3*ARG_SZ+XAX
+ *                        void (*func)(void *arg),    // 3*ARG_SZ+XAX
  *                        void *mutex_to_free,        // 4*ARG_SZ+XAX
  *                        bool return_on_return)      // 5*ARG_SZ+XAX
  */
@@ -286,7 +286,7 @@ GLOBAL_LABEL(call_switch_stack:)
         mov      IF_X64_ELSE(r12, REG_XDI), REG_XSP
         /* set up for call */
         mov      REG_XDX, [3*ARG_SZ + REG_XAX] /* func */
-        mov      REG_XCX, [1*ARG_SZ + REG_XAX] /* dcontext */
+        mov      REG_XCX, [1*ARG_SZ + REG_XAX] /* func_arg */
         mov      REG_XSP, [2*ARG_SZ + REG_XAX] /* stack */
         cmp      PTRSZ [4*ARG_SZ + REG_XAX], 0 /* mutex_to_free */
         je       call_dispatch_alt_stack_no_free

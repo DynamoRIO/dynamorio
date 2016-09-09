@@ -69,9 +69,9 @@ GLOBAL_LABEL(cpuid_supported:)
         ret
         END_FUNC(cpuid_supported)
 
-/* void call_switch_stack(dcontext_t *dcontext,       // REG_X0
+/* void call_switch_stack(void *func_arg,             // REG_X0
  *                        byte *stack,                // REG_X1
- *                        void (*func)(dcontext_t *), // REG_X2
+ *                        void (*func)(void *arg),    // REG_X2
  *                        void *mutex_to_free,        // REG_X3
  *                        bool return_on_return)      // REG_W4
  */

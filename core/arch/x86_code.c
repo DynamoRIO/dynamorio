@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -111,7 +111,7 @@ dynamo_start(priv_mcontext_t *mc)
     });
 
     /* Swap stacks so dispatch is invoked outside the application. */
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, true/*return on error*/);
     /* In release builds, this will simply return and continue native
      * execution.  That's better than calling unexpected_return() which
@@ -218,7 +218,7 @@ auto_setup(ptr_uint_t appstack)
      * then.  We do so now.
      */
     IF_WINDOWS(os_swap_context(dcontext, false/*to priv*/, DR_STATE_STACK_BOUNDS));
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -303,7 +303,7 @@ new_thread_setup(priv_mcontext_t *mc)
     thread_starting(dcontext);
     dcontext->next_tag = next_tag;
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -353,7 +353,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     *(reg_t*)(mc->xsp + sizeof(reg_t)) = (reg_t) func_arg;
 #  endif
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -400,7 +400,7 @@ nt_continue_setup(priv_mcontext_t *mc)
     /* We came straight from fcache, so swap to priv now (i#25) */
     IF_WINDOWS(swap_peb_pointer(dcontext, true/*to priv*/));
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -477,7 +477,7 @@ test_call_switch_stack(dcontext_t *dc)
     static_dc = dc;
     print_file(STDERR, "testing asm call_switch_stack\n");
     memset(test_stack, CONST_BYTE, sizeof(test_stack));
-    call_switch_stack(dc, stack_ptr, test_func,
+    call_switch_stack(dc, stack_ptr, (void(*)(void*))test_func,
                       NULL, true /* should return */);
 }
 
