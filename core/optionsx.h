@@ -1920,14 +1920,14 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 
     OPTION_DEFAULT(bool, track_module_filenames, true,
         "track module file names by watching section creation")
+#endif
 
-    /* FIXME: since we have dynamic options this option can be false for most of the time,
+    /* XXX: since we have dynamic options this option can be false for most of the time,
      * and the gui should set true only when going to detach to prevent a security risk.
      * The setting should be removed when detach is complete.
      * In vault mode: -no_allow_detach -no_dynamic_options
      */
     DYNAMIC_OPTION_DEFAULT(bool, allow_detach, true, "allow detaching from process")
-#endif
 
     /* turn off critical features, right now for experimentation only */
 #ifdef WINDOWS

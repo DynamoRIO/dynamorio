@@ -7729,9 +7729,6 @@ END_DATA_SECTION()
 /***************************************************************************/
 /* detaching routines */
 
-/* not static only for a few asserts in other files */
-bool doing_detach = false;
-
 static bool internal_detach = false;
 
 /* Handle any outstanding callbacks.
@@ -7881,6 +7878,7 @@ detach_helper_handle_callbacks(int num_threads, thread_record_t **threads,
 void
 detach_helper(int detach_type)
 {
+    /* FIXME i#95: merge with detach_called_from_app_thread() */
     thread_record_t **threads;
     thread_record_t *toexit;
     dcontext_t *my_dcontext = get_thread_private_dcontext();

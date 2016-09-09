@@ -1146,16 +1146,12 @@ void dynamorio_earliest_init_takeover(void);
 void client_int_syscall(void);
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
-# ifdef MACOS
-void dynamorio_semaphore_signal_all(KSYNCH_TYPE *ksynch/*in xax*/);
-# endif
+void dynamorio_condvar_wake_and_jmp(KSYNCH_TYPE *ksynch/*in xax/r0*/,
+                                    byte *jmp_tgt/*in xcx/r1*/);
 # ifdef LINUX
-void dynamorio_futex_wake_and_exit(volatile int *futex/* in xax*/);
 #  ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 #  endif
-# endif
-# ifdef LINUX
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
 void xfer_to_new_libdr(app_pc entry, void **init_sp, byte *cur_dr_map,

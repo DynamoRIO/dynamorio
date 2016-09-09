@@ -67,6 +67,7 @@ dr_app_setup(void);
 
 /**
  * Application-wide cleanup.  Prints statistics. Returns zero on success.
+ * Once this is invoked, calling dr_app_start() or dr_app_setup() is not supported.
  */
 DR_APP_API int
 dr_app_cleanup(void);
@@ -108,6 +109,16 @@ dr_app_take_over(void);
  */
 DR_APP_API int
 dr_app_setup_and_start(void);
+
+/**
+ * Causes all of the application's threads to run directly on the machine upon
+ * return from this call, and additionally frees the resources used by DR.
+ * Once this is invoked, calling dr_app_start() or dr_app_setup() is not supported.
+ * This call has no effect if the application is not currently running
+ * under DR control.
+ */
+DR_APP_API void
+dr_app_stop_and_cleanup(void);
 
 /**
  * Indicates whether the current thread is running within the DynamoRIO code

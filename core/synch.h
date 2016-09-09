@@ -255,6 +255,9 @@ translate_from_synchall_to_dispatch(thread_record_t *tr,
 void
 send_all_other_threads_native(void);
 
+void
+detach_called_from_app_thread(void);
+
 /*** exported for detach only ***/
 
 bool

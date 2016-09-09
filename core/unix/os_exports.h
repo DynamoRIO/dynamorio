@@ -159,6 +159,7 @@ thread_id_t get_tls_thread_id(void);
 thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_wait_thread_terminated(dcontext_t *dcontext);
+void os_wait_thread_detached(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
 /* XXX: reg_id_t is not defined here, use ushort instead */
 ushort os_get_app_tls_base_offset(ushort/*reg_id_t*/ seg);

@@ -399,7 +399,6 @@ enum {
     DETACH_BAD_STATE_NO_CLEANUP = -2,
 };
 void detach_helper(int detach_type); /* needs to be exported for nudge.c */
-extern bool doing_detach;
 
 void early_inject_init(void);
 bool earliest_inject_init(byte *arg_ptr);

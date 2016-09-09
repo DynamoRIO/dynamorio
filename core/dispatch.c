@@ -255,7 +255,8 @@ is_stopping_point(dcontext_t *dcontext, app_pc pc)
               * should not be called from the cache.
               */
              pc == (app_pc)dynamo_thread_exit ||
-             pc == (app_pc)dr_app_stop))
+             pc == (app_pc)dr_app_stop ||
+             pc == (app_pc)dr_app_stop_and_cleanup))
 #endif
 #ifdef WINDOWS
         /* we go all the way to NtTerminateThread/NtTerminateProcess */
@@ -595,15 +596,20 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
         LOG(THREAD, LOG_INTERP, 1, "\t==dynamo_thread_exit\n");
     else if (dcontext->next_tag == (app_pc)dynamorio_app_exit)
         LOG(THREAD, LOG_INTERP, 1, "\t==dynamorio_app_exit\n");
-    else if (dcontext->next_tag == (app_pc)dr_app_stop) {
+    else if (dcontext->next_tag == (app_pc)dr_app_stop)
         LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop\n");
-    }
+    else if (dcontext->next_tag == (app_pc)dr_app_stop_and_cleanup)
+        LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop_and_cleanup\n");
 #  endif
 # endif
 
     /* XXX i#95: should we add an instrument_thread_detach_event()? */
 
-    dynamo_thread_not_under_dynamo(dcontext);
+#ifdef DR_APP_EXPORTS
+    /* not_under will be called by dynamo_shared_exit so skip it here. */
+    if (dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup)
+#endif
+        dynamo_thread_not_under_dynamo(dcontext);
     dcontext->go_native = false;
 }
 #endif

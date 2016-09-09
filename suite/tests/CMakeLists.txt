@@ -310,6 +310,7 @@ if (UNIX)
     # locate libm or libdl within the Android toolchain: we just assume they're there.
     set(libmath m)
     set(libdl dl)
+    set(libpthread "")
   else ()
     # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
     # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
@@ -584,7 +585,7 @@ function(add_exe test source)
       target_link_libraries(${test} ${libmath} ${libdl})
     endif ()
     if (NOT ANDROID) # pthreads is inside Bionic on Android
-      if ("${test}" MATCHES "^pthread|api.startstop")
+      if ("${test}" MATCHES "^pthread")
         target_link_libraries(${test} ${libpthread})
       endif ()
     endif ()
@@ -2177,6 +2178,15 @@ if (CLIENT_INTERFACE)
 
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
+    if (NOT ANDROID) # pthreads is inside Bionic on Android
+      target_link_libraries(api.startstop ${libpthread})
+    endif ()
+    if (UNIX) # FIXME i#95: impl for Windows
+      tobuild_api(api.detach api/detach.c "" "" OFF OFF)
+      if (NOT ANDROID) # pthreads is inside Bionic on Android
+        target_link_libraries(api.detach ${libpthread})
+      endif ()
+    endif ()
   endif (NOT ARM)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # test static decoder library
@@ -2218,6 +2228,10 @@ if (CLIENT_INTERFACE)
     target_link_libraries(api.static_noclient ${libmath})
     tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
     target_link_libraries(api.static_noinit ${libmath})
+    if (UNIX) # FIXME i#95: impl for Windows
+      tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
+      target_link_libraries(api.static_detach ${libmath})
+    endif ()
   endif ()
 
   if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM

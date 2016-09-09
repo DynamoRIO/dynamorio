@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1405,8 +1405,7 @@ vmm_heap_exit()
                 VMM_BLOCK_SIZE;
             uint unfreed_blocks = perstack * 1 /* initstack */ +
                 /* current stack */
-                perstack * ((IF_WINDOWS_ELSE(doing_detach, false)
-                             IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
+                perstack * ((doing_detach IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
             /* FIXME: on detach arch_thread_exit should explicitly mark as
                left behind all TPCs needed so then we can assert even for
                detach

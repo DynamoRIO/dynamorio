@@ -50,11 +50,14 @@
 #ifdef X86
 # ifdef X64
 #  define ASM_XAX "rax"
+#  define ASM_XCX "rcx"
 #  define ASM_XDX "rdx"
 #  define ASM_XBP "rbp"
 #  define ASM_XSP "rsp"
+#  define ASM_XSP "rsp"
 # else
 #  define ASM_XAX "eax"
+#  define ASM_XCX "ecx"
 #  define ASM_XDX "edx"
 #  define ASM_XBP "ebp"
 #  define ASM_XSP "esp"
@@ -63,10 +66,13 @@
 # define ASM_R0 "x0"
 # define ASM_R1 "x1"
 # define ASM_XSP "sp"
+# define ASM_XSP "sp"
+# define ASM_INDJMP "br"
 #elif defined(ARM)
 # define ASM_R0 "r0"
 # define ASM_R1 "r1"
 # define ASM_XSP "sp"
+# define ASM_INDJMP "bx"
 #endif /* X86/ARM */
 
 #define MACHINE_TLS_IS_DR_TLS IF_X86_ELSE(INTERNAL_OPTION(mangle_app_seg), true)
@@ -152,6 +158,8 @@ typedef struct _os_thread_data_t {
      */
     KSYNCH_TYPE terminated;
 
+    KSYNCH_TYPE detached;
+
     volatile bool retakeover; /* for re-attach */
 
     /* PR 450670: for re-entrant suspend signals */
@@ -182,6 +190,9 @@ typedef struct ptrace_stack_args_t {
 void os_thread_take_over(priv_mcontext_t *mc);
 
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
+
+void
+os_tls_thread_exit(local_state_t *local_state);
 
 #ifdef AARCHXX
 bool

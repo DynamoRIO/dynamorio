@@ -1299,14 +1299,17 @@ dynamorio_sys_exit_failed:
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
-#ifdef LINUX
-/* we need to call futex_wakeall without using any stack, to support
- * THREAD_SYNCH_TERMINATED_AND_CLEANED.
- * takes int* futex in xax.
+#ifdef UNIX
+/* We need to signal a futex or semaphore without using our dstack, to support
+ * THREAD_SYNCH_TERMINATED_AND_CLEANED and detach.
+ * Takes KSYNCH_TYPE* in xax and the post-syscall jump target in xcx.
  */
-        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
-GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
-#ifdef X64
+        DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
+GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
+# ifdef LINUX
+        /* We call futex_wakeall */
+#  ifdef X64
+        mov      r12, rcx /* save across syscall */
         mov      ARG6, 0
         mov      ARG5, 0
         mov      ARG4, 0
@@ -1316,7 +1319,10 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
         mov      rax, 202 /* SYS_futex */
         mov      r10, rcx
         syscall
-#else
+        jmp      r12
+#  else
+        /* We use the stack, which should be the app stack: see the MacOS args below. */
+        push     ecx /* save across syscall */
         mov      ebp, 0 /* arg6 */
         mov      edi, 0 /* arg5 */
         mov      esi, 0 /* arg4 */
@@ -1326,28 +1332,23 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
         mov      eax, 240 /* SYS_futex */
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
-#endif
-        jmp      GLOBAL_REF(dynamorio_sys_exit)
-        END_FUNC(dynamorio_futex_wake_and_exit)
-#endif /* LINUX */
-
-#ifdef MACOS
-/* We need to call semaphore_signal_all without using dstack, to support
- * THREAD_SYNCH_TERMINATED_AND_CLEANED.  We have to put syscall args on
- * the stack for 32-bit, and we use the stack for call;pop for
- * sysenter -- so we use the app stack, which we assume the caller has
- * put us on.  We're only called when terminating a thread so transparency
- * should be ok so long as the app's stack is valid.
- * Takes KSYNCH_TYPE* in xax.
- */
-        DECLARE_FUNC(dynamorio_semaphore_signal_all)
-GLOBAL_LABEL(dynamorio_semaphore_signal_all:)
+        pop      ecx
+        jmp      ecx
+#  endif
+# elif defined(MACOS)
+       /* We call semaphore_signal_all.  We have to put syscall args on
+        * the stack for 32-bit, and we use the stack for call;pop for
+        * sysenter -- so we use the app stack, which we assume the caller has
+        * put us on.  We're only called when terminating a thread or detaching
+        * so transparency should be ok so long as the app's stack is valid.
+        */
+        mov      REG_XDI, REG_XCX /* save across syscall */
         mov      REG_XAX, DWORD [REG_XAX] /* load mach_synch_t->sem */
-# ifdef X64
+#  ifdef X64
         mov      ARG1, REG_XAX
         mov      eax, MACH_semaphore_signal_all_trap
         or       eax, SYSCALL_NUM_MARKER_MACH
-# else
+#  else
         push     REG_XAX
         mov      eax, MACH_semaphore_signal_all_trap
         neg      eax
@@ -1362,13 +1363,14 @@ dynamorio_semaphore_next:
         lea      REG_XDX, [1/*pop*/ + 3/*lea*/ + 2/*sysenter*/ + 2/*mov*/ + REG_XDX]
         mov      REG_XCX, REG_XSP
         sysenter
-# ifndef X64
+#  ifndef X64
         lea      esp, [2*ARG_SZ + esp] /* must not change flags */
-# endif
+#  endif
         /* we ignore return val */
-        jmp      GLOBAL_REF(dynamorio_sys_exit)
-        END_FUNC(dynamorio_semaphore_signal_all)
-#endif /* MACOS */
+        jmp      REG_XDI
+# endif /* MACOS */
+        END_FUNC(dynamorio_condvar_wake_and_jmp)
+#endif /* UNIX */
 
 /* exit entire group without using any stack, in case something like
  * SYS_kill via cleanup_and_terminate fails.

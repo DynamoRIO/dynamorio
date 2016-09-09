@@ -91,10 +91,12 @@ main(int argc, const char *argv[])
     if (do_some_work() < 0)
         print("error in computation\n");
 
-    print("pre-DR stop\n");
-    dr_app_stop();
+    print("pre-DR detach\n");
+    dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
-    dr_app_cleanup();
+
+    if (do_some_work() < 0)
+        print("error in computation\n");
     print("all done\n");
     return 0;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -320,6 +320,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         if (target_addr == (app_pc) dr_app_start ||
             target_addr == (app_pc) dr_app_take_over ||
             target_addr == (app_pc) dr_app_stop ||
+            target_addr == (app_pc) dr_app_stop_and_cleanup ||
             target_addr == (app_pc) dr_app_cleanup)
             goto good;
 #endif
