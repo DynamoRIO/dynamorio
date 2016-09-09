@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -241,6 +241,7 @@
      * have a separate WOW64 build, we have them in the struct but ignored
      * for normal 32-bit.
      * PR 306394: we preserve xmm0-7 for 32-bit linux too.
+     * DrMi#665: we now preserve all of the xmm registers.
      */
 # endif
     dr_ymm_t ymm[NUM_XMM_SLOTS];

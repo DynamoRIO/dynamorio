@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -480,10 +480,10 @@ DR_API
  * The last floating-point instruction address is left in an
  * untranslated state (i.e., it may point into the code cache).
  *
- * DR does NOT save the application's floating-point, MMX, or SSE state
+ * DR does NOT save the application's floating-point or MMX state
  * on context switches!  Thus if a client performs any floating-point
  * operations in its main routines called by DR, the client must save
- * and restore the floating-point/MMX/SSE state.
+ * and restore the floating-point/MMX state.
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
  * Returns number of bytes written.

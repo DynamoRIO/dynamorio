@@ -4839,7 +4839,7 @@ DR_API
  * be accessed from \c callee using dr_get_mcontext() and modified using
  * dr_set_mcontext().
  *
- * If \p save_fpstate is true, preserves the fp/mmx/sse state on the DR stack.
+ * If \p save_fpstate is true, preserves the fp/mmx state on the DR stack.
  * Note that it is relatively expensive to save this state (on the
  * order of 200 cycles) and that it typically takes 512 bytes to store
  * it (see proc_fpstate_save_size()).
@@ -4947,7 +4947,7 @@ dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 /* Inserts a complete call to callee with the passed-in arguments, wrapped
  * by an app save and restore.
- * If "save_fpstate" is true, saves the fp/mmx/sse state.
+ * If "save_fpstate" is true, saves the fp/mmx state.
  *
  * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
  * dr_prepare_for_call(). We guarantee to clients that all other slots
@@ -5219,11 +5219,8 @@ dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *inst
 
 DR_API
 /**
- * Returns true if the xmm0 through xmm5 for Windows, or xmm0 through
- * xmm15 for 64-bit Linux, or xmm0 through xmm7 for 32-bit Linux,
- * fields in dr_mcontext_t are valid for this process
- * (i.e., whether this process is 64-bit or WOW64, and the processor
- * supports SSE).
+ * Returns true if the xmm fields in dr_mcontext_t are valid
+ * (i.e., whether the underlying processor supports SSE).
  * \note If DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
  * the xmm fields will not be filled in regardless of the return value
  * of this routine.

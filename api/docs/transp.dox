@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -138,12 +138,14 @@ acquired, to allow it to safely synchronize with multiple threads:
 As many aspects of the application as possible should be left unchanged:
 
 \anchor sec_trans_floating_point
-\par Floating Point State, MMX, and SSE Transparency
+\par Floating Point State Transparency
 
 Because it is expensive to do so and rarely necessary, DynamoRIO does
 \e NOT save or restore the floating point state or MMX (64-bit) registers
-during a context switch away from the application.  If at any time a
-client wishes to use floating point or multimedia operations, it
+during a context switch away from the application.  The larger multimedia
+registers that are separated from the floating point state (SSE and beyond)
+are preserved, but if at any time a
+client wishes to use floating point or MMX operations, it
 must explicitly preserve the state.  The dr_insert_clean_call() routine
 takes a boolean indicating whether floating point state should be preserved
 across the call; this is the most convenient method for saving the state.
@@ -172,16 +174,8 @@ proc_save_fpstate(fp_align);
 Note that floating point operations include almost any operation that
 acts on a float, even printing one with %%f.
 
-The XMM (128-bit) registers are saved by DynamoRIO on context switches and
-clean calls only for a 64-bit Windows kernel (whether in a 32-bit process
-(WOW64) or a 64-bit process) or for 32-bit and 64-bit Linux applications. For a
-64-bit Windows kernel, xmm0 through xmm5 are preserved; for a 64-bit Linux
-application, xmm0 through xmm15 are preserved; for a 32-bit Linux application,
-xmm0 through xmm7 are preserved. For all other platforms, it
-is up to the client to preserve the xmm registers, and for 64-bit Windows
-kernels, to preserve the rest of the xmm registers beyond xmm5, if any code
-is invoked that modifies them.  See also the dr_mcontext_xmm_fields_valid()
-routine.
+The XMM (128-bit) and larger registers are saved by DynamoRIO on context switches and
+clean calls.  See also the dr_mcontext_xmm_fields_valid() routine.
 
 \anchor sec_trans_thread
 \par Thread Transparency
