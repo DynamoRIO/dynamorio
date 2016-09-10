@@ -90,19 +90,6 @@ typedef struct _drdbg_event_data_bp_t {
     bool keep_waiting;
 } drdbg_event_data_bp_t;
 
-#define MAX_SIZE_MEMMAP_PATH 256
-typedef struct _drdbg_memmap_entry_t {
-    void *start;
-    void *end;
-    int prot;
-    bool private;
-    void *offset;
-    char dev_major;
-    char dev_minor;
-    int inode;
-    char path[MAX_SIZE_MEMMAP_PATH];
-} drdbg_memmap_entry_t;
-
 typedef enum {
     DRDBG_SUCCESS,  /* Operation succeeded. */
     DRDBG_ERROR,    /* Operation failed. */

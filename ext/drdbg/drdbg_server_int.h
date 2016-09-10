@@ -52,7 +52,9 @@ typedef enum {
     DRDBG_CMD_QUERY_STOP_RSN,  /* Ask why target stopped */
     DRDBG_CMD_REG_READ,        /* Read register(s) */
     DRDBG_CMD_MEM_READ,        /* Read memory */
+    DRDBG_CMD_MEM_WRITE,       /* Write memory */
     DRDBG_CMD_CONTINUE,        /* Continue execution */
+    DRDBG_CMD_SWBREAK,         /* Software breakpoint */
 
     DRDBG_CMD_NUM_CMDS         /* Must be last entry */
 } drdbg_srv_int_cmd_t;
@@ -90,10 +92,17 @@ typedef struct _drdbg_cmd_data_query_stop_rsn_t {
     int signum;
 } drdbg_cmd_data_query_stop_rsn_t;
 
-typedef struct _drdbg_cmd_data_mem_read_t {
-    void *data;
+typedef struct _drdbg_cmd_data_mem_op_t {
+    void *addr;
+    char *data;
     ssize_t len;
-} drdbg_cmd_data_mem_read_t;
+} drdbg_cmd_data_mem_op_t;
+
+typedef struct _drdbg_cmd_data_swbreak_t {
+    void *addr;
+    int kind;
+    bool insert; /* True to add BP, false to remove */
+} drdbg_cmd_data_swbreak_t;
 
 #ifdef __cplusplus
 }

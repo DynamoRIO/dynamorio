@@ -70,19 +70,46 @@ drqueue_t *drdbg_event_queue;
 drdbg_event_data_bp_t *current_bp_event;
 
 /* DynamoRIO interactions */
-drdbg_status_t
-drdbg_bp_queue_ex(void *drcontext, void *pc, bool flush_pc)
+drdbg_bp_t *
+drdbg_bp_find_by_pc(void *pc)
 {
+    drdbg_bp_t *bp = NULL;
+    int i = 0;
+
+    drvector_lock(drdbg_bps);
+
+    for (i = 0; i < drdbg_bps->entries; i++) {
+        bp = drdbg_bps->array[i];
+        if (bp->pc == pc) {
+            drvector_unlock(drdbg_bps);
+            return bp;
+        }
+    }
+
+    drvector_unlock(drdbg_bps);
+    return NULL;
+}
+
+drdbg_status_t
+drdbg_bp_queue_ex(void *pc, bool flush_pc)
+{
+    /* Check if breakpoint already exists, if so, enable it */
+    drdbg_bp_t *bp;
+    bp = drdbg_bp_find_by_pc(pc);
+    if (bp != NULL) {
+        bp->status = DRDBG_BP_ENABLED;
+        return DRDBG_SUCCESS;
+    }
     /*
      * Flush cache regions containing pc
      * XXX: We can't use dr_fragment_exists_at() since we can't guarantee
      * that pc is at the start of a BB, so we must always flush for now.
      */
     if (flush_pc) {
-        dr_flush_region(pc, 1);
+        /* XXX: dr_flush_region(pc, 1); */
     }
     /* Fill bp info */
-    drdbg_bp_t *bp = dr_global_alloc(sizeof(drdbg_bp_t));
+    bp = dr_global_alloc(sizeof(drdbg_bp_t));
     if (bp == NULL)
         return DRDBG_ERROR;
     bp->pc = pc;
@@ -102,9 +129,19 @@ drdbg_bp_queue_ex(void *drcontext, void *pc, bool flush_pc)
 }
 
 drdbg_status_t
-drdbg_bp_queue(void *drcontext, void *pc)
+drdbg_bp_queue(void *pc)
 {
-    return drdbg_bp_queue_ex(drcontext, pc, true);
+    return drdbg_bp_queue_ex(pc, true);
+}
+
+drdbg_status_t
+drdbg_bp_disable(void *pc)
+{
+    drdbg_bp_t *bp = drdbg_bp_find_by_pc(pc);
+    if (bp == NULL)
+        return DRDBG_ERROR;
+    bp->status = DRDBG_BP_DISABLED;
+    return DRDBG_SUCCESS;
 }
 
 /* Clean call for triggering breakpoint event */
@@ -164,7 +201,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
          * Can't flush since we're in an event callback. Luckily, we
          * don't need to flush since this is the first block.
          */
-        if (drdbg_bp_queue_ex(drcontext, tag, false) != DRDBG_SUCCESS) {
+        if (drdbg_bp_queue_ex(tag, false) != DRDBG_SUCCESS) {
             DR_ASSERT_MSG(false, "queue failed");
             return DR_EMIT_DEFAULT;
         }
@@ -229,7 +266,7 @@ drdbg_cmd_reg_read(void **arg)
 drdbg_status_t
 drdbg_cmd_mem_read(void **arg)
 {
-    typedef drdbg_cmd_data_mem_read_t mydata_t;
+    typedef drdbg_cmd_data_mem_op_t mydata_t;
     mydata_t *data = (mydata_t *)*arg;
     char *read_data;
     size_t bytes_read;
@@ -238,7 +275,7 @@ drdbg_cmd_mem_read(void **arg)
     memset(read_data, 0, data->len);
 
     //dr_switch_to_app_state(dr_get_current_drcontext());
-    dr_safe_read(data->data, data->len, read_data, &bytes_read);
+    dr_safe_read(data->addr, data->len, read_data, &bytes_read);
     if (bytes_read != data->len) {
         dr_global_free(read_data, data->len);
         return DRDBG_ERROR;
@@ -252,6 +289,24 @@ drdbg_cmd_mem_read(void **arg)
 }
 
 drdbg_status_t
+drdbg_cmd_mem_write(void **arg)
+{
+    typedef drdbg_cmd_data_mem_op_t mydata_t;
+    mydata_t *data = (mydata_t *)*arg;
+    size_t bytes_wrote;
+
+    //dr_switch_to_app_state(dr_get_current_drcontext());
+    dr_safe_write(data->addr, data->len, data->data, &bytes_wrote);
+    if (bytes_wrote != data->len) {
+        return DRDBG_ERROR;
+    }
+    //dr_switch_to_dr_state(dr_get_current_drcontext());
+
+    *arg = 0;
+    return DRDBG_SUCCESS;
+}
+
+drdbg_status_t
 drdbg_cmd_continue(void **arg)
 {
     if (current_bp_event == NULL)
@@ -259,6 +314,24 @@ drdbg_cmd_continue(void **arg)
     current_bp_event->keep_waiting = false;
     dr_resume_all_other_threads(drcontexts,num_suspended);
     return DRDBG_SUCCESS;
+}
+
+drdbg_status_t
+drdbg_cmd_swbreak(void **arg)
+{
+    typedef drdbg_cmd_data_swbreak_t mydata_t;
+    mydata_t *data = (mydata_t *)*arg;
+    drdbg_status_t ret = DRDBG_ERROR;
+    if (data->insert) {
+        ret = drdbg_bp_queue(data->addr);
+        *arg = (void *)(long long)(ret != DRDBG_SUCCESS);
+        return ret;
+    } else {
+        ret = drdbg_bp_disable(data->addr);
+        *arg = (void *)(long long)(ret != DRDBG_SUCCESS);
+        return ret;
+    }
+
 }
 
 /* drdbg managagement */
@@ -382,6 +455,8 @@ drdbg_init_cmd_handlers(void)
     cmd_handlers[DRDBG_CMD_QUERY_STOP_RSN] = drdbg_cmd_query_stop_rsn;
     cmd_handlers[DRDBG_CMD_REG_READ] = drdbg_cmd_reg_read;
     cmd_handlers[DRDBG_CMD_MEM_READ] = drdbg_cmd_mem_read;
+    cmd_handlers[DRDBG_CMD_MEM_WRITE] = drdbg_cmd_mem_write;
+    cmd_handlers[DRDBG_CMD_SWBREAK] = drdbg_cmd_swbreak;
     cmd_handlers[DRDBG_CMD_CONTINUE] = drdbg_cmd_continue;
 
     return DRDBG_SUCCESS;
