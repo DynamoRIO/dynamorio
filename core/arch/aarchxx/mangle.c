@@ -1516,13 +1516,14 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef AARCH64
     uint opc = instr_get_opcode(instr);
     opnd_t dst = instr_get_dst(instr, 0);
+    opnd_t src = instr_get_src(instr, 0);
     app_pc tgt;
-    ASSERT(opc == OP_adr || opc == OP_adrp || opc == OP_ldr);
+    ASSERT(opc == OP_adr || opc == OP_adrp || opc == OP_ldr || opc == OP_ldrsw);
     ASSERT(instr_has_rel_addr_reference(instr));
     instr_get_rel_addr_target(instr, &tgt);
     ASSERT(opnd_is_reg(dst));
-    ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
-    ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == tgt);
+    ASSERT(opnd_is_rel_addr(src));
+    ASSERT(opnd_get_addr(src) == tgt);
 
     if (instr_uses_reg(instr, dr_reg_stolen)) {
         dst = opnd_create_reg(reg_resize_to_opsz(DR_REG_X0, opnd_get_size(dst)));
@@ -1530,14 +1531,14 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
     }
 
-    if (opc == OP_ldr && reg_is_gpr(dst.value.reg)) {
+    if ((opc == OP_ldr || opc == OP_ldrsw) && reg_is_gpr(opnd_get_reg(dst))) {
         reg_id_t xreg = reg_to_pointer_sized(opnd_get_reg(dst));
         insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, opnd_create_reg(xreg),
                                ilist, next_instr, NULL, NULL);
         PRE(ilist, next_instr,
-            XINST_CREATE_load(dcontext, dst,
-                              opnd_create_base_disp(xreg, REG_NULL,
-                                                    0, 0, opnd_get_size(dst))));
+            instr_create_1dst_1src(dcontext, opc, dst,
+                                   opnd_create_base_disp(xreg, REG_NULL,
+                                                         0, 0, opnd_get_size(src))));
     } else if (opc == OP_ldr) {
         PRE(ilist, instr,
             instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
