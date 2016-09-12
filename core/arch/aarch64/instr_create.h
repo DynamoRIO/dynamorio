@@ -243,6 +243,11 @@
 
 #define INSTR_CREATE_add(dc, rd, rn, rm_or_imm) \
   INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa) \
+  instr_create_1dst_4src(dc, OP_add, rd, rn, \
+    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
+    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
+    exa)
 #define INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha) \
   opnd_is_reg(rm_or_imm) ? \
   instr_create_1dst_4src((dc), OP_add, (rd), (rn), \
@@ -290,6 +295,11 @@
   instr_create_1dst_1src((dc), OP_strh, (mem), (Rt))
 #define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm) \
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa) \
+  instr_create_1dst_4src(dc, OP_sub, rd, rn, \
+    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
+    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
+    exa)
 #define INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha) \
   opnd_is_reg(rm_or_imm) ? \
   instr_create_1dst_4src((dc), OP_sub, (rd), (rn), \
