@@ -541,10 +541,10 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                 !READ_LOCK_HELD(&fcache_unit_areas->lock)) &&
                recreate_app_state(trec->dcontext, mc, false/*just query*/, NULL) ==
                RECREATE_SUCCESS_STATE &&
-               /* is ok to call is_dynamo_address even though it grabs many
-                * locks because recreate_app_state succeeded */
-               (!is_dynamo_address(mc->pc) ||
-                at_syscall_translation(trec->dcontext, mc->pc))) {
+               /* It's ok to call is_dynamo_address even though it grabs many
+                * locks because recreate_app_state succeeded.
+                */
+               !is_dynamo_address(mc->pc)) {
         safe = true;
     }
     if (safe) {

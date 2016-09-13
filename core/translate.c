@@ -861,31 +861,6 @@ recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
     return ilist;
 }
 
-bool
-at_syscall_translation(dcontext_t *dcontext, app_pc pc)
-{
-    /* For sysenter our translation will still point at DR code */
-    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER)
-        return false;
-#ifdef WINDOWS
-    return pc == vsyscall_after_syscall;
-#else
-    /* Even when the main syscall method is sysenter, we also have a
-     * do_int_syscall and do_clone_syscall that use int, so check only
-     * the main syscall routine.
-     * Note that we don't modify the stack, so once we do sysenter syscalls
-     * inlined in the cache (PR 288101) we'll need some mechanism to
-     * distinguish those: but for now if a sysenter instruction is used it
-     * has to be do_syscall since DR's own syscalls are ints.
-     */
-    return (pc == vsyscall_sysenter_return_pc ||
-            is_after_main_do_syscall_addr(dcontext, pc) ||
-            /* Check for pointing right at sysenter, for i#1145 */
-            pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
-            is_after_main_do_syscall_addr(dcontext, pc + SYSENTER_LENGTH));
-#endif
-}
-
 /* The esp in mcontext must either be valid or NULL (if null will be unable to
  * recreate on XP and 03 at vsyscall_after_syscall and on sygate 2k at after syscall).
  * Returns true if successful.  Whether successful or not, attempts to modify
@@ -923,16 +898,44 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
     }
 #else
-    if (at_syscall_translation(tdcontext, mcontext->pc)) {
+    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
+        /* Even when the main syscall method is sysenter, we also have a
+         * do_int_syscall and do_clone_syscall that use int, so check only
+         * the main syscall routine.
+         * Note that we don't modify the stack, so once we do sysenter syscalls
+         * inlined in the cache (PR 288101) we'll need some mechanism to
+         * distinguish those: but for now if a sysenter instruction is used it
+         * has to be do_syscall since DR's own syscalls are ints.
+         */
+        (mcontext->pc == vsyscall_sysenter_return_pc ||
+         is_after_main_do_syscall_addr(tdcontext, mcontext->pc) ||
+         /* Check for pointing right at sysenter, for i#1145 */
+         mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
+         is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
+        /* If at do_syscall yet not yet in the kernel (or the do_syscall still uses
+         * int: i#2005), we need to translate to vsyscall, for detach (i#95).
+         */
+        if (is_after_main_do_syscall_addr(tdcontext, mcontext->pc)) {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: from do_syscall "PFX" to vsyscall "PFX"\n",
+                mcontext->pc, vsyscall_sysenter_return_pc);
+            mcontext->pc = vsyscall_sysenter_return_pc;
+        } else if (is_after_main_do_syscall_addr(tdcontext,
+                                                 mcontext->pc + SYSENTER_LENGTH)) {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: from do_syscall "PFX" to vsyscall "PFX"\n",
+                mcontext->pc, vsyscall_syscall_end_pc - SYSENTER_LENGTH);
+            mcontext->pc = vsyscall_syscall_end_pc - SYSENTER_LENGTH;
+        } else {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: no PC translation needed (at vsyscall)\n");
+        }
 # ifdef MACOS
         if (!just_pc) {
             LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                 "recreate_app: restoring xdx (at sysenter)\n");
             mcontext->xdx = tdcontext->app_xdx;
         }
-# else
-        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
-            "recreate_app no translation needed (at syscall)\n");
 # endif
         return res;
     }
