@@ -393,6 +393,9 @@ enum {
 /* sets detach in motion and never returns */
 void detach_internal_synch(void);
 void detach_internal(void);
+bool detach_handle_callbacks(int num_threads, thread_record_t **threads,
+                             bool *cleanup_tpc /* array of size num_threads */);
+void detach_remove_image_entry_hook(int num_threads, thread_record_t **threads);
 enum {
     DETACH_NORMAL_TYPE          =  0,
     DETACH_BAD_STATE            = -1,

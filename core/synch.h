@@ -256,7 +256,7 @@ void
 send_all_other_threads_native(void);
 
 void
-detach_called_from_app_thread(void);
+detach_on_permanent_stack(bool internal, bool do_cleanup);
 
 /*** exported for detach only ***/
 

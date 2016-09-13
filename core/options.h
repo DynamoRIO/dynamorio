@@ -275,10 +275,6 @@ const options_t *
 get_process_options(HANDLE process_handle);
 #endif
 
-#define SYNCHRONIZE_DYNAMIC_OPTION(x) (                                         \
-        (dynamo_options.dynamic_options && synchronize_dynamic_options()),      \
-         dynamo_options.x)
-
 /*
  * if minimal then the options string only contains values different than
  *  the defaults, otherwise it explicitly lists all options being used

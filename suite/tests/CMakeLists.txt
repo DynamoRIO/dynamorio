@@ -2181,11 +2181,9 @@ if (CLIENT_INTERFACE)
     if (NOT ANDROID) # pthreads is inside Bionic on Android
       target_link_libraries(api.startstop ${libpthread})
     endif ()
-    if (UNIX) # FIXME i#95: impl for Windows
-      tobuild_api(api.detach api/detach.c "" "" OFF OFF)
-      if (NOT ANDROID) # pthreads is inside Bionic on Android
-        target_link_libraries(api.detach ${libpthread})
-      endif ()
+    tobuild_api(api.detach api/detach.c "" "" OFF OFF)
+    if (NOT ANDROID) # pthreads is inside Bionic on Android
+      target_link_libraries(api.detach ${libpthread})
     endif ()
   endif (NOT ARM)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
@@ -2228,10 +2226,8 @@ if (CLIENT_INTERFACE)
     target_link_libraries(api.static_noclient ${libmath})
     tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
     target_link_libraries(api.static_noinit ${libmath})
-    if (UNIX) # FIXME i#95: impl for Windows
-      tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
-      target_link_libraries(api.static_detach ${libmath})
-    endif ()
+    tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
+    target_link_libraries(api.static_detach ${libmath})
   endif ()
 
   if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM

@@ -67,6 +67,10 @@ void os_thread_not_under_dynamo(dcontext_t *dcontext);
 
 bool os_take_over_all_unknown_threads(dcontext_t *dcontext);
 
+bool detach_do_not_translate(thread_record_t *tr);
+void detach_finalize_translation(thread_record_t *tr, priv_mcontext_t *mc);
+void detach_finalize_cleanup(void);
+
 void os_heap_init(void);
 void os_heap_exit(void);
 

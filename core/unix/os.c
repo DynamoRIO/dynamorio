@@ -2290,6 +2290,24 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     os_swap_context(dcontext, true/*to app*/, DR_STATE_ALL);
 }
 
+bool
+detach_do_not_translate(thread_record_t *tr)
+{
+    return false;
+}
+
+void
+detach_finalize_translation(thread_record_t *tr, priv_mcontext_t *mc)
+{
+    /* Nothing to do. */
+}
+
+void
+detach_finalize_cleanup(void)
+{
+    /* Nothing to do. */
+}
+
 static pid_t
 get_process_group_id()
 {
@@ -3192,6 +3210,9 @@ os_thread_terminate(thread_record_t *tr)
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
     ostd->terminate = true;
+    /* Even if the thread is currently suspended, it's simpler to send it
+     * another signal than to resume it.
+     */
     return known_thread_signal(tr, SUSPEND_SIGNAL);
 }
 

@@ -1021,7 +1021,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
 #ifdef WINDOWS
 # ifdef CLIENT_INTERFACE
     /* for -private_loader we do this here to catch more exit-time crashes */
-    if (!INTERNAL_OPTION(noasynch) && INTERNAL_OPTION(private_loader))
+    if (!INTERNAL_OPTION(noasynch) && INTERNAL_OPTION(private_loader) && !doing_detach)
         callback_interception_unintercept();
 # endif
     /* callback_interception_exit must be after fragment exit for CLIENT_INTERFACE so
@@ -2617,7 +2617,7 @@ DR_APP_API void
 dr_app_stop_and_cleanup(void)
 {
     if (dynamo_initialized && !dynamo_exited && !doing_detach) {
-        detach_called_from_app_thread();
+        detach_on_permanent_stack(true/*internal*/, true/*do cleanup*/);
     }
     /* the application regains control in here */
 }

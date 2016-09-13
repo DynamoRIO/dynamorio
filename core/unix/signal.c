@@ -6209,7 +6209,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
 
     if (ostd->terminate) {
         /* PR 297902: exit this thread, without using the dstack */
-        /* For MacOS, We need a stack as 32-bit syscalls take args on the stack.
+        /* For MacOS, we need a stack as 32-bit syscalls take args on the stack.
          * We go ahead and use it for x86 too for simpler sysenter return.
          * We don't have a lot of options: we're terminating, so we go ahead
          * and use the app stack.
