@@ -3343,7 +3343,7 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
 static instr_t *
 create_int_syscall_instr(dcontext_t *dcontext)
 {
-#ifdef WINDOWS
+# ifdef WINDOWS
     /* On windows should already be initialized by syscalls_init() */
     ASSERT(get_syscall_method() != SYSCALL_METHOD_UNINITIALIZED);
     /* int $0x2e */
@@ -3354,11 +3354,11 @@ create_int_syscall_instr(dcontext_t *dcontext)
     } else {
         return INSTR_CREATE_int(dcontext, opnd_create_immed_int((char)0x2e, OPSZ_1));
     }
-#else
+# else
     /* if uninitialized just guess int, we'll patch up later */
 
     return INSTR_CREATE_int(dcontext, opnd_create_immed_int((char)0x80, OPSZ_1));
-#endif
+# endif
 }
 #endif
 
@@ -3370,7 +3370,7 @@ create_syscall_instr(dcontext_t *dcontext)
     if (method == SYSCALL_METHOD_SVC || method == SYSCALL_METHOD_UNINITIALIZED) {
         return INSTR_CREATE_svc(dcontext, opnd_create_immed_int((char)0x0, OPSZ_1));
     }
-# elif defined(X86)
+#elif defined(X86)
     if (method == SYSCALL_METHOD_INT || method == SYSCALL_METHOD_UNINITIALIZED) {
         return create_int_syscall_instr(dcontext);
     } else if (method == SYSCALL_METHOD_SYSENTER) {
