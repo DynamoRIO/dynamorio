@@ -42,9 +42,9 @@ if (UNIX)
   endif ()
 
   add_executable(drcachesim
-    simulator/launcher.cpp
+    launcher.cpp
+    reader/ipc_reader.cpp
     simulator/simulator.cpp
-    simulator/ipc_reader.cpp
     common/named_pipe_${os_name}.cpp
     common/options.cpp
     common/trace_entry.cpp

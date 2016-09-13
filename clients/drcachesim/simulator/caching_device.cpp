@@ -33,7 +33,7 @@
 #include "caching_device.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
-#include "utils.h"
+#include "../common/utils.h"
 #include <assert.h>
 
 caching_device_t::caching_device_t()

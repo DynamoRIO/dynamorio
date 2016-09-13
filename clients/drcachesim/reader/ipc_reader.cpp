@@ -32,9 +32,9 @@
 
 #include <assert.h>
 #include <map>
-#include "memref.h"
 #include "ipc_reader.h"
-#include "utils.h"
+#include "../common/memref.h"
+#include "../common/utils.h"
 
 #ifdef VERBOSE
 # include <iostream>

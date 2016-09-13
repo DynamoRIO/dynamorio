@@ -54,10 +54,10 @@
 #include "dr_config.h"
 #include "dr_frontend.h"
 #include "droption.h"
-#include "../common/options.h"
-#include "cache_simulator.h"
-#include "tlb_simulator.h"
-#include "utils.h"
+#include "common/options.h"
+#include "common/utils.h"
+#include "simulator/cache_simulator.h"
+#include "simulator/tlb_simulator.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \

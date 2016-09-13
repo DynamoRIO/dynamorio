@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,56 +30,26 @@
  * DAMAGE.
  */
 
-/* ipc_reader: obtains memory streams from DR clients running in
- * application processes and presents them via an interator interface
- * to the cache simulator.
+/* analyzer: represent a memory trace analysis tool.
  */
 
-#ifndef _IPC_READER_H_
-#define _IPC_READER_H_ 1
+#ifndef _ANALYZER_H_
+#define _ANALYZER_H_ 1
 
-#include <list>
-#include <string>
-#include <map>
-#include "memref.h"
-#include "reader.h"
-#include "../common/named_pipe.h"
-#include "../common/trace_entry.h"
+#include "reader/ipc_reader.h"
 
-class ipc_reader_t : public reader_t
+class analyzer_t
 {
  public:
-    ipc_reader_t();
-    explicit ipc_reader_t(const char *ipc_name);
-    virtual ~ipc_reader_t();
-    bool init();
-    virtual const memref_t& operator*();
-    virtual bool operator==(const ipc_reader_t& rhs);
-    virtual bool operator!=(const ipc_reader_t& rhs);
-    virtual reader_t operator++(int);
-    virtual reader_t& operator++();
+    analyzer_t() {}
+    virtual bool init() = 0;
+    virtual ~analyzer_t() {};
+    virtual bool run() = 0;
+    virtual bool print_stats() = 0;
 
-    void stream_server();
-
- private:
-    bool at_eof;
-    named_pipe_t pipe;
-    memref_t cur_ref;
-    memref_tid_t cur_tid;
-    memref_pid_t cur_pid;
-    addr_t cur_pc;
-    addr_t next_pc;
-    int bundle_idx;
-    std::map<memref_tid_t, memref_pid_t> tid2pid;
-
-    // For efficiency we want to read large chunks at a time.
-    // The atomic write size for a pipe on Linux is 4096 bytes but
-    // we want to go ahead and read as much data as we can at one
-    // time.
-    static const int BUF_SIZE = 16*1024;
-    trace_entry_t buf[BUF_SIZE];
-    trace_entry_t *cur_buf;
-    trace_entry_t *end_buf;
+ protected:
+    ipc_reader_t ipc_end;
+    ipc_reader_t ipc_iter;
 };
 
-#endif /* _IPC_READER_H_ */
+#endif /* _ANALYZER_H_ */

@@ -30,34 +30,36 @@
  * DAMAGE.
  */
 
-/* reader: virtual base class for an iterator that provides a single memory
- * stream for use by a cache simulator.
- */
+/* This is the data format that the simulator takes as input */
 
-#ifndef _READER_H_
-#define _READER_H_ 1
+#ifndef _MEMREF_H_
+#define _MEMREF_H_ 1
 
-#include <iterator>
-#include <assert.h>
-#include "memref.h"
+#include <stdint.h>
+#include <stddef.h> // for size_t
+#include "trace_entry.h"
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
-{
- public:
-    virtual ~reader_t() {}
-    // XXX: we can't have any pure virtual functions here, as then the
-    // postfix operator won't compile as it can't return an abstract type.
-    // We could not support postfix at all.
-    // Instead we have dummy implementations to make this a non-abstract
-    // class and avoid the problem that way.
-    virtual const memref_t& operator*() { assert(false); return ignored_memref; }
-    virtual bool operator==(const reader_t& rhs) { return false; }
-    virtual bool operator!=(const reader_t& rhs) { return false; }
-    virtual reader_t& operator++() { assert(false); return *this; }
-    virtual reader_t operator++(int) { assert(false); return *this; }
+// On some platforms, like MacOS, a thread id is 64 bits.
+// We just make both 64 bits to cover all our bases.
+typedef int_least64_t memref_pid_t;
+typedef int_least64_t memref_tid_t;
 
- private:
-    memref_t ignored_memref; // Purely for operator*
-};
+typedef struct _memref_t {
+    memref_pid_t pid;
+    memref_tid_t tid;
+    unsigned short type; // trace_type_t
 
-#endif /* _READER_H_ */
+    // Fields below are here at not valid for TRACE_TYPE_THREAD_EXIT.
+
+    size_t size;
+    addr_t addr;
+
+    // The pc field is only used for read, write, and prefetch entries.
+    // XXX: should we remove it from here and have the simulator compute it
+    // from instr entries?  Though if the user turns off icache simulation
+    // it may be better to keep it as a field here and have the reader
+    // fill it in for us.
+    addr_t pc;
+} memref_t;
+
+#endif /* _MEMREF_H_ */

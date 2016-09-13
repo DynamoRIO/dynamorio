@@ -40,7 +40,7 @@
 #include "simulator.h"
 #include "cache_stats.h"
 #include "cache.h"
-#include "ipc_reader.h"
+#include "../reader/ipc_reader.h"
 
 class cache_simulator_t : public simulator_t
 {

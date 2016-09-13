@@ -36,13 +36,13 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h> /* for supporting 64-bit integers*/
-#include "utils.h"
-#include "memref.h"
-#include "ipc_reader.h"
+#include "../common/memref.h"
+#include "../common/options.h"
+#include "../common/utils.h"
+#include "../reader/ipc_reader.h"
+#include "droption.h"
 #include "tlb_stats.h"
 #include "tlb.h"
-#include "droption.h"
-#include "../common/options.h"
 #include "tlb_simulator.h"
 
 bool

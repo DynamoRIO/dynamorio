@@ -36,16 +36,16 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h> /* for supporting 64-bit integers*/
-#include "utils.h"
-#include "memref.h"
-#include "ipc_reader.h"
+#include "../common/memref.h"
+#include "../common/options.h"
+#include "../common/utils.h"
+#include "../reader/ipc_reader.h"
 #include "cache_stats.h"
 #include "cache.h"
 #include "cache_lru.h"
 #include "cache_fifo.h"
-#include "droption.h"
-#include "../common/options.h"
 #include "cache_simulator.h"
+#include "droption.h"
 
 bool
 cache_simulator_t::init()

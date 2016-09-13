@@ -37,10 +37,10 @@
 #define _SIMULATOR_H_ 1
 
 #include <map>
-#include "analyzer.h"
+#include "../analyzer.h"
 #include "caching_device_stats.h"
 #include "caching_device.h"
-#include "ipc_reader.h"
+#include "../reader/ipc_reader.h"
 
 class simulator_t : public analyzer_t
 {

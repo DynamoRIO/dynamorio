@@ -40,7 +40,7 @@
 #include "simulator.h"
 #include "tlb_stats.h"
 #include "tlb.h"
-#include "ipc_reader.h"
+#include "../reader/ipc_reader.h"
 
 class tlb_simulator_t : public simulator_t
 {
