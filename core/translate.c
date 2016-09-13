@@ -387,12 +387,16 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
         DOCHECK(1, {
             for (r = 0; r < REG_SPILL_NUM; r++)
                 ASSERT(!walk->reg_spilled[r]
+                       /* Register X0 is used for branches on AArch64.
+                        * See mangle_cbr_stolen_reg.
+                        */
+                       IF_AARCH64(|| r + REG_START_SPILL == DR_REG_X0)
                        /* The special stolen register mangling from
                         * mangle_syscall_arch() for a non-restartable syscall ends
                         * up here due to the nop having a xl8 post-syscall.
                         * We do need to restore that spill.
                         */
-                       IF_ARM(|| r == 10));
+                       IF_AARCHXX(|| r + REG_START_SPILL == dr_reg_stolen));
         });
         return;
     }
