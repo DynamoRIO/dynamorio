@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,40 +30,26 @@
  * DAMAGE.
  */
 
-/* simulator: represent a simulator of a set of caching devices.
+/* analyzer: represent a memory trace analysis tool.
  */
 
-#ifndef _SIMULATOR_H_
-#define _SIMULATOR_H_ 1
+#ifndef _ANALYZER_H_
+#define _ANALYZER_H_ 1
 
-#include <map>
-#include "analyzer.h"
-#include "caching_device_stats.h"
-#include "caching_device.h"
 #include "ipc_reader.h"
 
-class simulator_t : public analyzer_t
+class analyzer_t
 {
  public:
-    simulator_t() {}
+    analyzer_t() {}
     virtual bool init() = 0;
-    virtual ~simulator_t() = 0;
+    virtual ~analyzer_t() {};
     virtual bool run() = 0;
     virtual bool print_stats() = 0;
 
  protected:
-    virtual int core_for_thread(memref_tid_t tid);
-    virtual void handle_thread_exit(memref_tid_t tid);
-
-    int num_cores;
-
     ipc_reader_t ipc_end;
     ipc_reader_t ipc_iter;
-
-    // For thread mapping to cores:
-    std::map<memref_tid_t, int> thread2core;
-    unsigned int *thread_counts;
-    unsigned int *thread_ever_counts;
 };
 
-#endif /* _SIMULATOR_H_ */
+#endif /* _ANALYZER_H_ */

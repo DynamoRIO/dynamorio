@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* launcher: the front end for the cache simulator */
+/* launcher: the front end for the trace analyzer */
 
 // FIXME i#1727: the Windows implementation is not tested (needs
 // the named pipe implementation to be finished).
@@ -155,7 +155,7 @@ _tmain(int argc, const TCHAR *targv[])
     char buf[MAXIMUM_PATH];
     drfront_status_t sc;
     bool is64, is32;
-    simulator_t *simulator = NULL;
+    analyzer_t *analyzer = NULL;
     std::string tracer_ops;
 
 #if defined(WINDOWS) && !defined(_UNICODE)
@@ -168,7 +168,7 @@ _tmain(int argc, const TCHAR *targv[])
 #endif
 
     // This frontend exists mainly because we have a standalone application
-    // to launch, the simulator.  We are not currently looking for a polished
+    // to launch, the analyzer.  We are not currently looking for a polished
     // tool launcher independent of drrun.  Thus, we skip all the logic around
     // default root and client directories and assume we were invoked from
     // a pre-configured .drrun file with proper paths.
@@ -222,19 +222,19 @@ _tmain(int argc, const TCHAR *targv[])
         assert(false); // won't get here
     }
 
-    // declare the simulator based on its type
+    // declare the analyzer based on its type
     if (op_simulator_type.get_value() == CPU_CACHE)
-        simulator = new cache_simulator_t;
+        analyzer = new cache_simulator_t;
     else if (op_simulator_type.get_value() == TLB)
-        simulator = new tlb_simulator_t;
+        analyzer = new tlb_simulator_t;
     else {
-        ERROR("Usage error: unsupported simulator type. "
+        ERROR("Usage error: unsupported analyzer type. "
               "Please choose " CPU_CACHE" or " TLB".\n");
         return false;
     }
 
-    if (!simulator->init()) {
-        FATAL_ERROR("failed to initialize simulator");
+    if (!analyzer->init()) {
+        FATAL_ERROR("failed to initialize analyzer");
         assert(false); // won't get here
     }
 
@@ -268,8 +268,8 @@ _tmain(int argc, const TCHAR *targv[])
     dr_inject_process_run(inject_data);
 #endif
 
-    if (!simulator->run()) {
-        FATAL_ERROR("failed to run simulator");
+    if (!analyzer->run()) {
+        FATAL_ERROR("failed to run analyzer");
         assert(false); // won't get here
     }
 
@@ -290,10 +290,10 @@ _tmain(int argc, const TCHAR *targv[])
     // XXX: we may want a prefix on our output
     std::cerr << "---- <application exited with code " << errcode <<
         "> ----" << std::endl;
-    simulator->print_stats();
+    analyzer->print_stats();
 
-    // release simulator's space
-    delete simulator;
+    // release analyzer's space
+    delete analyzer;
 
     sc = drfront_cleanup_args(argv, argc);
     if (sc != DRFRONT_SUCCESS)
