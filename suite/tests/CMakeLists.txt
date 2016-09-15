@@ -1880,11 +1880,17 @@ if (CLIENT_INTERFACE)
   endif (ANNOTATIONS AND NOT ARM)
   if (UNIX)
     if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-      # Just happens to not make as many traces.
+      if (AARCH64)
+        # FIXME i#1569: Reenable when trace construction is implemented.
+        set(trace_arg "-disable_traces")
+      else ()
+        # Just happens to not make as many traces.
+        set(trace_arg "-trace_threshold 5")
+      endif ()
       tobuild_ci(client.events client-interface/events.c
-        "" "-trace_threshold 5" "${events_appdll_path}")
+        "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
-        "" "-trace_threshold 5" "${events_appdll_path}")
+        "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
     endif (NOT ARM)
@@ -1948,8 +1954,10 @@ if (CLIENT_INTERFACE)
       torunonly_ci(client.truncate.thread-churn-2 win32.threadchurn client.truncate.dll
         client-interface/truncate.c "2" "" "")
     endif (WIN32)
-    tobuild_ci(client.dr_options client-interface/dr_options.c
-      "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+    if (NOT AARCH64) # FIXME i#1569: get working on AArch64
+      tobuild_ci(client.dr_options client-interface/dr_options.c
+        "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+    endif (NOT AARCH64)
   endif (NOT ARM)
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
@@ -1993,14 +2001,16 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drmgr-test ${libpthread})
   endif ()
 
-  tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
-  use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
-  use_DynamoRIO_extension(client.drx_buf-test.dll drx)
-  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
-    target_link_libraries(client.drx_buf-test ${libpthread})
-  endif ()
-  target_include_directories(client.drx_buf-test PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  if (NOT AARCH64) # FIXME i#1569: get working on AArch64
+    tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
+    use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
+    use_DynamoRIO_extension(client.drx_buf-test.dll drx)
+    if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
+      target_link_libraries(client.drx_buf-test ${libpthread})
+    endif ()
+    target_include_directories(client.drx_buf-test PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  endif (NOT AARCH64)
 
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
@@ -2176,7 +2186,7 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (ARM)
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  if (NOT ARM AND NOT AARCH64) # FIXME i#1551, i#1569: fix bugs on ARM/AArch64
     tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
     if (NOT ANDROID) # pthreads is inside Bionic on Android
       target_link_libraries(api.startstop ${libpthread})
@@ -2185,7 +2195,7 @@ if (CLIENT_INTERFACE)
     if (NOT ANDROID) # pthreads is inside Bionic on Android
       target_link_libraries(api.detach ${libpthread})
     endif ()
-  endif (NOT ARM)
+  endif ()
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # test static decoder library
     tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
@@ -2351,7 +2361,8 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.phys_rawtemp ON) # no preprocessor
 
         # FIXME i#1799: clang does not support "asm goto" used in annotation
-        if (NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
+        # FIXME i#1551, i#1569: get working on ARM/AArch64
+        if (NOT ARM AND NOT AARCH64 AND NOT CMAKE_COMPILER_IS_CLANG)
           # Our pthreads tests don't have many threads so we run this annot test,
           # though it is a little slow under drcachesim.
           # XXX i#1703: this may be too flaky: we may want to remove this once
@@ -2483,7 +2494,7 @@ if (UNIX)
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
-  if (TEST_SUITE OR TEST_32BIT_PATH)
+  if (X86 AND (TEST_SUITE OR TEST_32BIT_PATH))
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       tobuild_ops(linux.execve64 linux/execve.c ""
@@ -2494,7 +2505,7 @@ if (UNIX)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
     endif (X64)
-  endif (TEST_SUITE OR TEST_32BIT_PATH)
+  endif (X86 AND (TEST_SUITE OR TEST_32BIT_PATH))
 
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
@@ -2949,7 +2960,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
-if (X64)
+if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
   # Reachability tests
 
   # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
@@ -2986,11 +2997,15 @@ if (X64)
     endif (UNIX)
   endif (CLIENT_INTERFACE)
 
-endif (X64)
+endif (X64 AND NOT AARCH64)
 
-tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+if (NOT AARCH64) # FIXME i#1569: get working on AArch64
+  tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+endif ()
 
-if (NOT ANDROID) # XXX i#1874: get working on Android
+# XXX i#1874: get working on Android
+# FIXME i#1569: get working on AArch64
+if (NOT ANDROID AND NOT AARCH64)
   set (TestMemProtChg "security-common.TestMemProtChg")
   if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
     set (TestMemProtChg "${TestMemProtChg}_FLAKY")
