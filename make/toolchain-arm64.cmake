@@ -53,9 +53,9 @@ SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 # If we don't set some of these, CMake will end up using the host version.
 # We want the full path, however, so we can pass EXISTS and other checks in
 # the our CMake code.
-find_program(GCC_FULL_PATH arm-${TARGET_ABI}-gcc)
+find_program(GCC_FULL_PATH aarch64-${TARGET_ABI}-gcc)
 if (NOT GCC_FULL_PATH)
-  message(FATAL_ERROR "Cross-compiler arm-${TARGET_ABI}-gcc not found")
+  message(FATAL_ERROR "Cross-compiler aarch64-${TARGET_ABI}-gcc not found")
 endif ()
 get_filename_component(GCC_DIR ${GCC_FULL_PATH} PATH)
 SET(CMAKE_LINKER       ${GCC_DIR}/aarch64-${TARGET_ABI}-ld      CACHE FILEPATH "linker")
