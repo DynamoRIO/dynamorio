@@ -1853,7 +1853,7 @@ os_tls_thread_exit(local_state_t *local_state)
 
     tls_thread_free(tls_type, index);
 
-# ifdef X64
+# if defined(X86) && defined(X64)
     if (tls_type == TLS_TYPE_ARCH_PRCTL) {
         /* syscall re-sets gs register so re-clear it */
         if (read_thread_register(SEG_TLS) != 0) {
