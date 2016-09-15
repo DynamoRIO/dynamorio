@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,25 @@
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 #define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+
+#define BOOLS_MATCH(b1, b2) (!!(b1) == !!(b2))
+
+#ifdef WINDOWS
+/* Use special C99 operator _Pragma to generate a pragma from a macro */
+# if _MSC_VER <= 1200
+#  define ACTUAL_PRAGMA(p) _Pragma ( #p )
+# else
+#  define ACTUAL_PRAGMA(p) __pragma ( p )
+# endif
+/* Usage: if planning to typedef, that must be done separately, as MSVC will
+ * not take _pragma after typedef.
+ */
+# define START_PACKED_STRUCTURE ACTUAL_PRAGMA( pack(push,1) )
+# define END_PACKED_STRUCTURE ACTUAL_PRAGMA( pack(pop) )
+#else
+# define START_PACKED_STRUCTURE /* nothing */
+# define END_PACKED_STRUCTURE __attribute__ ((__packed__))
+#endif
 
 static inline int
 compute_log2(int value)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,11 +36,23 @@
 #include "droption.h"
 #include "options.h"
 
+droption_t<bool> op_offline
+(DROPTION_SCOPE_ALL, "offline", false, "Store trace files for offline analysis",
+ "By default, traces are processed online, sent over a pipe to a simulator.  "
+ "If this option is enabled, trace data is instead written to files in -outdir "
+ "for later offline analysis.  No simulator is executed.");
+
 droption_t<std::string> op_ipc_name
 (DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Base name of named pipe",
- "Specifies the base name of the named pipe used to communicate between the target "
+ "For online tracing and simulation (the default, unless -offline is requested), "
+ "specifies the base name of the named pipe used to communicate between the target "
  "application processes and the caching device simulator.  A unique name must be chosen "
  "for each instance of the simulator being run at any one time.");
+
+droption_t<std::string> op_outdir
+(DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
+ "For the offline analysis mode (when -offline is requested), specifies the path "
+ "to a directory where per-thread trace files will be written.");
 
 droption_t<unsigned int> op_num_cores
 (DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",

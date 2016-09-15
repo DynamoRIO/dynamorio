@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,7 +45,9 @@
 #include <string>
 #include "droption.h"
 
+extern droption_t<bool> op_offline;
 extern droption_t<std::string> op_ipc_name;
+extern droption_t<std::string> op_outdir;
 extern droption_t<unsigned int> op_num_cores;
 extern droption_t<unsigned int> op_line_size;
 extern droption_t<bytesize_t> op_L1I_size;

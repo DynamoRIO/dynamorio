@@ -33,8 +33,8 @@
 
 /* tracer.cpp: tracing client for feeding data to cache simulator.
  *
- * Based on the memtrace_opt.c sample.
- * XXX i#1703: add in more optimizations to improve performance.
+ * Originally built from the memtrace_opt.c sample.
+ * XXX i#1703, i#2001: add in more optimizations to improve performance.
  * XXX i#1703: perhaps refactor and split up to make it more
  * modular.
  */
@@ -47,6 +47,7 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "drx.h"
 #include "droption.h"
 #include "physaddr.h"
 #include "../common/trace_entry.h"
@@ -56,12 +57,6 @@
 #ifdef ARM
 # include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
 #endif
-
-// XXX: share these instead of duplicating
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
 #define NOTIFY(level, ...) do {            \
     if (op_verbose.get_value() >= (level)) \
@@ -87,6 +82,7 @@ typedef struct {
     byte *seg_base;
     trace_entry_t *buf_base;
     uint64 num_refs;
+    file_t file; /* For offline traces */
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -98,7 +94,7 @@ typedef struct {
     instr_t *delay_instrs[MAX_NUM_DELAY_INSTRS];
 } user_data_t;
 
-/* we write to a single global pipe */
+/* For online simulation, we write to a single global pipe */
 static named_pipe_t ipc_pipe;
 
 static client_id_t client_id;
@@ -148,6 +144,21 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
     return pipe_start;
 }
 
+static inline byte *
+write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
+{
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (op_offline.get_value()) {
+        ssize_t size = towrite_end - towrite_start;
+        if (dr_write_file(data->file, towrite_start, size) < size) {
+            NOTIFY(0, "Fatal error: failed to write trace");
+            dr_abort();
+        }
+        return towrite_start;
+    } else
+        return atomic_pipe_write(drcontext, towrite_start, towrite_end);
+}
+
 static void
 memtrace(void *drcontext)
 {
@@ -157,6 +168,7 @@ memtrace(void *drcontext)
 
     buf_ptr = BUF_PTR(data->seg_base);
     /* The initial slot is left empty for the thread entry, which we add here */
+    /* FIXME i#1729: for offline, change this to a timestamp entry */
     init_thread_entry(drcontext, data->buf_base);
     pipe_start = (byte *)data->buf_base;
     pipe_end = pipe_start;
@@ -182,23 +194,29 @@ memtrace(void *drcontext)
                 }
             }
         }
-        // Split up the buffer into multiple writes to ensure atomic pipe writes.
-        // We can only split before TRACE_TYPE_INSTR, assuming only a few data
-        // entries in between instr entries.
-        if (mem_ref->type == TRACE_TYPE_INSTR) {
-            if (((byte *)mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
-                pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-            // Advance pipe_end pointer
-            pipe_end = (byte *)mem_ref;
+        if (!op_offline.get_value()) {
+            // Split up the buffer into multiple writes to ensure atomic pipe writes.
+            // We can only split before TRACE_TYPE_INSTR, assuming only a few data
+            // entries in between instr entries.
+            if (mem_ref->type == TRACE_TYPE_INSTR) {
+                if (((byte *)mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
+                    pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+                // Advance pipe_end pointer
+                pipe_end = (byte *)mem_ref;
+            }
         }
     }
-    // Write the rest to pipe
-    // The last few entries (e.g., instr + refs) may exceed the atomic write size,
-    // so we may need two writes.
-    if (((byte *)buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
-        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-    if (((byte *)buf_ptr - pipe_start) > (ssize_t)BUF_HDR_SLOTS_SIZE)
-        atomic_pipe_write(drcontext, pipe_start, (byte *)buf_ptr);
+    if (op_offline.get_value()) {
+        write_trace_data(drcontext, pipe_start, (byte *)buf_ptr);
+    } else {
+        // Write the rest to pipe
+        // The last few entries (e.g., instr + refs) may exceed the atomic write size,
+        // so we may need two writes.
+        if (((byte *)buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
+            pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+        if (((byte *)buf_ptr - pipe_start) > (ssize_t)BUF_HDR_SLOTS_SIZE)
+            atomic_pipe_write(drcontext, pipe_start, (byte *)buf_ptr);
+    }
 
     // Our instrumentation reads from buffer and skips the clean call if the
     // content is 0, so we need set zero in the trace buffer and set non-zero
@@ -785,6 +803,7 @@ static void
 event_thread_init(void *drcontext)
 {
     trace_entry_t pid_info[2];
+    char buf[MAXIMUM_PATH];
     per_thread_t *data = (per_thread_t *)
         dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
@@ -803,15 +822,34 @@ event_thread_init(void *drcontext)
     memset((byte *)data->buf_base + TRACE_BUF_SIZE, -1, REDZONE_SIZE);
     /* put buf_base to TLS plus header slots as starting buf_ptr */
     BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
+    data->num_refs = 0;
+
+    if (op_offline.get_value()) {
+        /* We do not need to call drx_init before using drx_open_unique_appid_file.
+         * Should we create a subdir for this process to group all of its thread files?
+         */
+        data->file = drx_open_unique_appid_file(op_outdir.get_value().c_str(),
+                                                dr_get_thread_id(drcontext),
+                                                "memtrace", "log",
+#ifndef WINDOWS
+                                                DR_FILE_CLOSE_ON_FORK |
+#endif
+                                                DR_FILE_ALLOW_LARGE,
+                                                buf, BUFFER_SIZE_ELEMENTS(buf));
+        NULL_TERMINATE_BUFFER(buf);
+        if (data->file == INVALID_FILE) {
+            NOTIFY(0, "Fatal error: failed to create trace file %s", buf);
+            dr_abort();
+        }
+        NOTIFY(1, "Created trace file %s\n", buf);
+    }
 
     /* pass pid and tid to the simulator to register current thread */
     init_thread_entry(drcontext, &pid_info[0]);
     pid_info[1].type = TRACE_TYPE_PID;
     pid_info[1].size = sizeof(process_id_t);
     pid_info[1].addr = (addr_t) dr_get_process_id();
-    if (ipc_pipe.write((void *)pid_info, sizeof(pid_info)) < (ssize_t)sizeof(pid_info))
-        DR_ASSERT(false);
-    data->num_refs = 0;
+    write_trace_data(drcontext, (byte *)pid_info, (byte *)pid_info + sizeof(pid_info));
 }
 
 static void
@@ -828,6 +866,9 @@ event_thread_exit(void *drcontext)
 
     memtrace(drcontext);
 
+    if (op_offline.get_value())
+        dr_close_file(data->file);
+
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
@@ -839,7 +880,8 @@ static void
 event_exit(void)
 {
     dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
-    ipc_pipe.close();
+    if (!op_offline.get_value())
+        ipc_pipe.close();
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
@@ -875,21 +917,27 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
     }
-    if (op_ipc_name.get_value().empty()) {
+    if (!op_offline.get_value() && op_ipc_name.get_value().empty()) {
         NOTIFY(0, "Usage error: ipc name is required\nUsage:\n%s",
+               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        dr_abort();
+    } else if (op_offline.get_value() && op_outdir.get_value().empty()) {
+        NOTIFY(0, "Usage error: outdir is required\nUsage:\n%s",
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
     }
 
-    if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
-        DR_ASSERT(false);
-    /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
-    int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);
-    DR_ASSERT(fd != INVALID_FILE);
-    if (!ipc_pipe.set_fd(fd))
-        DR_ASSERT(false);
-    if (!ipc_pipe.maximize_buffer())
-        NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
+    if (!op_offline.get_value()) {
+        if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
+            DR_ASSERT(false);
+        /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
+        int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);
+        DR_ASSERT(fd != INVALID_FILE);
+        if (!ipc_pipe.set_fd(fd))
+            DR_ASSERT(false);
+        if (!ipc_pipe.maximize_buffer())
+            NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
+    }
 
     if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);

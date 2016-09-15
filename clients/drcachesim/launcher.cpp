@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -81,6 +81,13 @@ file_is_readable(const char *path)
     return (drfront_access(path, DRFRONT_READ, &ret) == DRFRONT_SUCCESS && ret);
 }
 
+static bool
+file_is_writable(const char *path)
+{
+    bool ret = false;
+    return (drfront_access(path, DRFRONT_WRITE, &ret) == DRFRONT_SUCCESS && ret);
+}
+
 static void
 get_full_path(const char *app, char *buf, size_t buflen/*# elements*/)
 {
@@ -157,6 +164,9 @@ _tmain(int argc, const TCHAR *targv[])
     bool is64, is32;
     analyzer_t *analyzer = NULL;
     std::string tracer_ops;
+#ifdef UNIX
+    pid_t child;
+#endif
 
 #if defined(WINDOWS) && !defined(_UNICODE)
 # error _UNICODE must be defined
@@ -222,20 +232,29 @@ _tmain(int argc, const TCHAR *targv[])
         assert(false); // won't get here
     }
 
-    // declare the analyzer based on its type
-    if (op_simulator_type.get_value() == CPU_CACHE)
-        analyzer = new cache_simulator_t;
-    else if (op_simulator_type.get_value() == TLB)
-        analyzer = new tlb_simulator_t;
-    else {
-        ERROR("Usage error: unsupported analyzer type. "
-              "Please choose " CPU_CACHE" or " TLB".\n");
-        return false;
-    }
+    if (op_offline.get_value()) {
+        // Initial sanity check: may still be unwritable by this user, but this
+        // serves as at least an existence check.
+        if (!file_is_writable(op_outdir.get_value().c_str())) {
+            FATAL_ERROR("invalid -outdir %s", op_outdir.get_value().c_str());
+            assert(false); // won't get here
+        }
+    } else {
+        // declare the analyzer based on its type
+        if (op_simulator_type.get_value() == CPU_CACHE)
+            analyzer = new cache_simulator_t;
+        else if (op_simulator_type.get_value() == TLB)
+            analyzer = new tlb_simulator_t;
+        else {
+            ERROR("Usage error: unsupported analyzer type. "
+                  "Please choose " CPU_CACHE" or " TLB".\n");
+            return false;
+        }
 
-    if (!analyzer->init()) {
-        FATAL_ERROR("failed to initialize analyzer");
-        assert(false); // won't get here
+        if (!analyzer->init()) {
+            FATAL_ERROR("failed to initialize analyzer");
+            assert(false); // won't get here
+        }
     }
 
     tracer_ops = op_tracer_ops.get_value();
@@ -245,12 +264,15 @@ _tmain(int argc, const TCHAR *targv[])
     NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
 
 #ifdef UNIX
-    pid_t child = fork();
+    if (op_offline.get_value())
+        child = 0;
+    else
+        child = fork();
     if (child < 0) {
         FATAL_ERROR("failed to fork");
         assert(false); // won't get here
     } else if (child == 0) {
-        /* child */
+        /* child, or offline where we exec this process */
         if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
             !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
             FATAL_ERROR("unable to inject");
@@ -268,9 +290,11 @@ _tmain(int argc, const TCHAR *targv[])
     dr_inject_process_run(inject_data);
 #endif
 
-    if (!analyzer->run()) {
-        FATAL_ERROR("failed to run analyzer");
-        assert(false); // won't get here
+    if (!op_offline.get_value()) {
+        if (!analyzer->run()) {
+            FATAL_ERROR("failed to run analyzer");
+            assert(false); // won't get here
+        }
     }
 
 #ifdef WINDOWS
