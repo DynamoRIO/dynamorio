@@ -140,7 +140,7 @@ As many aspects of the application as possible should be left unchanged:
 \anchor sec_trans_floating_point
 \par Floating Point State Transparency
 
-Because it is expensive to do so and rarely necessary, DynamoRIO does
+Because it is expensive to do so and rarely necessary, on x86 DynamoRIO does
 \e NOT save or restore the floating point state or MMX (64-bit) registers
 during a context switch away from the application.  The larger multimedia
 registers that are separated from the floating point state (SSE and beyond)
@@ -176,6 +176,11 @@ acts on a float, even printing one with %%f.
 
 The XMM (128-bit) and larger registers are saved by DynamoRIO on context switches and
 clean calls.  See also the dr_mcontext_xmm_fields_valid() routine.
+
+On ARM/AArch64, DynamoRIO saves and restores all the registers,
+including the SIMD/FP registers, during a context switch away from the
+application. The functions proc_save_fpstate and proc_restore_fpstate
+are provided, but do nothing.
 
 \anchor sec_trans_thread
 \par Thread Transparency

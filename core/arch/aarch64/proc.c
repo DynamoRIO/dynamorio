@@ -65,16 +65,9 @@ DR_API
 size_t
 proc_save_fpstate(byte *buf)
 {
-    __asm__ __volatile__
-        ("st1 {v0.2d-v3.2d}, [%0], #64\n\t"
-         "st1 {v4.2d-v7.2d}, [%0], #64\n\t"
-         "st1 {v8.2d-v11.2d}, [%0], #64\n\t"
-         "st1 {v12.2d-v15.2d}, [%0], #64\n\t"
-         "st1 {v16.2d-v19.2d}, [%0], #64\n\t"
-         "st1 {v20.2d-v23.2d}, [%0], #64\n\t"
-         "st1 {v24.2d-v27.2d}, [%0], #64\n\t"
-         "st1 {v28.2d-v31.2d}, [%0], #64\n\t"
-         : "=r"(buf) : "r"(buf) : "memory");
+    /* All registers are saved by insert_push_all_registers so nothing extra
+     * needs to be saved here.
+     */
     return DR_FPSTATE_BUF_SIZE;
 }
 
@@ -82,16 +75,7 @@ DR_API
 void
 proc_restore_fpstate(byte *buf)
 {
-    __asm__ __volatile__
-        ("ld1 {v0.2d-v3.2d}, [%0], #64\n\t"
-         "ld1 {v4.2d-v7.2d}, [%0], #64\n\t"
-         "ld1 {v8.2d-v11.2d}, [%0], #64\n\t"
-         "ld1 {v12.2d-v15.2d}, [%0], #64\n\t"
-         "ld1 {v16.2d-v19.2d}, [%0], #64\n\t"
-         "ld1 {v20.2d-v23.2d}, [%0], #64\n\t"
-         "ld1 {v24.2d-v27.2d}, [%0], #64\n\t"
-         "ld1 {v28.2d-v31.2d}, [%0], #64\n\t"
-         : "=r"(buf) : "r"(buf) : "memory");
+    /* Nothing to restore. */
 }
 
 void

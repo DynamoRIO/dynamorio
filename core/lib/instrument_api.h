@@ -4839,12 +4839,14 @@ DR_API
  * be accessed from \c callee using dr_get_mcontext() and modified using
  * dr_set_mcontext().
  *
- * If \p save_fpstate is true, preserves the fp/mmx state on the DR stack.
- * Note that it is relatively expensive to save this state (on the
+ * On x86, if \p save_fpstate is true, preserves the fp/mmx state on the
+ * DR stack. Note that it is relatively expensive to save this state (on the
  * order of 200 cycles) and that it typically takes 512 bytes to store
  * it (see proc_fpstate_save_size()).
  * The last floating-point instruction address in the saved state is left in
  * an untranslated state (i.e., it may point into the code cache).
+ *
+ * On ARM/AArch64, \p save_fpstate is ignored.
  *
  * DR does support translating a fault in an argument (e.g., an
  * argument that references application memory); such a fault will be
@@ -4903,7 +4905,7 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
  */
 typedef enum {
     /**
-     * Save floating-point state.
+     * Save floating-point state (x86-specific).
      * The last floating-point instruction address in the saved state is left in
      * an untranslated state (i.e., it may point into the code cache).
      */
@@ -4947,7 +4949,8 @@ dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 /* Inserts a complete call to callee with the passed-in arguments, wrapped
  * by an app save and restore.
- * If "save_fpstate" is true, saves the fp/mmx state.
+ * On x86, if \p save_fpstate is true, saves the fp/mmx state.
+ * On ARM/AArch64, \p save_fpstate is ignored.
  *
  * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
  * dr_prepare_for_call(). We guarantee to clients that all other slots
@@ -5050,8 +5053,8 @@ DR_API
  * Returns the size of the data stored on the DR stack (in case the caller
  * needs to align the stack pointer).
  *
- * \warning This routine does NOT save the fp/mmx/sse state: to do that the
- * instrumentation routine should call proc_save_fpstate() to save and
+ * \warning On x86, this routine does NOT save the fp/mmx state: to do that
+ * the instrumentation routine should call proc_save_fpstate() to save and
  * then proc_restore_fpstate() to restore (or use dr_insert_clean_call()).
  *
  * \note The preparation modifies the DR_REG_XSP and DR_REG_XAX registers

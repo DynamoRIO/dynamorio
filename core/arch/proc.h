@@ -70,17 +70,18 @@
  */
 #ifdef X86
 # define DR_FPSTATE_BUF_SIZE 512
-#elif defined(ARM)
-# define DR_FPSTATE_BUF_SIZE (32*64)
-#elif defined(AARCH64)
-# define DR_FPSTATE_BUF_SIZE (32*128)
+#elif defined(ARM) || defined(AARCH64)
+/* On ARM/AArch64 proc_save_fpstate saves nothing, so use the smallest
+ * legal size for an array.
+ */
+# define DR_FPSTATE_BUF_SIZE 1
 #endif
 
 /** The alignment requirements of floating point state buffer. */
 #if defined(X86) || defined(AARCH64)
 # define DR_FPSTATE_ALIGN  16
 #elif defined(ARM)
-# define DR_FPSTATE_ALIGN  4
+# define DR_FPSTATE_ALIGN  1
 #endif
 /** Constants returned by proc_get_vendor(). */
 enum {
@@ -468,8 +469,8 @@ DR_API
  * On x86, the buffer must be 16-byte-aligned, and it must be
  * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
  * and 108 bytes for those without (where this routine does not support
- * 16-bit operand sizing).  On ARM, the buffer must be 4-byte-aligned and
- * it must be 2048 (DR_FPSTATE_BUF_SIZE) bytes.
+ * 16-bit operand sizing).  On ARM/AArch64, nothing needs to be saved as the
+ * SIMD/FP registers are saved together with the general-purpose registers.
  *
  * \note proc_fpstate_save_size() can be used to determine the particular
  * size needed.
@@ -497,8 +498,8 @@ DR_API
  * On x86, the buffer must be 16-byte-aligned, and it must be
  * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
  * and 108 bytes for those without (where this routine does not support
- * 16-bit operand sizing).  On ARM, the buffer must be 4-byte-aligned and
- * it must be 2048 (DR_FPSTATE_BUF_SIZE) bytes.
+ * 16-bit operand sizing).  On ARM/AArch64, nothing needs to be restored as the
+ * SIMD/FP registers are restored together with the general-purpose registers.
  *
  * \note proc_fpstate_save_size() can be used to determine the particular
  * size needed.

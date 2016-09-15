@@ -90,13 +90,9 @@ DR_API
 size_t
 proc_save_fpstate(byte *buf)
 {
-    /* The compiler may not support asm code for accessing d16 to d32 registers,
-     * so we use raw bits instead.
+    /* All registers are saved by insert_push_all_registers so nothing extra
+     * needs to be saved here.
      */
-    __asm__ __volatile__
-        (".byte 0xa0, 0xec, 0x20, 0x0b," /* vstmia  r0!, {d0-d15} */
-         "      0xc0, 0xec, 0x20, 0x0b"  /* vstmia  r0, {d16-d31} */
-         : : : "r0", "memory");
     return DR_FPSTATE_BUF_SIZE;
 }
 
@@ -104,13 +100,7 @@ DR_API
 void
 proc_restore_fpstate(byte *buf)
 {
-    /* The compiler may not support asm code for accessing d16 to d32 registers,
-     * so we use raw bits instead.
-     */
-    __asm__ __volatile__
-        (".byte 0xb0, 0xec, 0x20, 0x0b," /* vldmia  r0!, {d0-d15} */
-         "      0xd0, 0xec, 0x20, 0x0b"  /* vldmia  r0, {d16-d31} */
-         : : : "r0", "memory");
+    /* Nothing to restore. */
 }
 
 void
