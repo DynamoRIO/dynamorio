@@ -443,7 +443,7 @@ safe_read_resume_pc(void)
 #if defined(STANDALONE_UNIT_TEST)
 
 # define CONST_BYTE      0x1f
-# define TEST_STACK_SIZE PAGE_SIZE
+# define TEST_STACK_SIZE 4096
 /* Align stack to 16 bytes: sufficient for all current architectures. */
 byte ALIGN_VAR(16) test_stack[TEST_STACK_SIZE];
 static dcontext_t *static_dc;
