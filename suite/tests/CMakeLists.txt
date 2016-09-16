@@ -2206,7 +2206,7 @@ if (CLIENT_INTERFACE)
       tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
     endif ()
   elseif (AARCH64)
-    # FIXME i#1569: get working on AArch64
+    tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
   else ()
     tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
