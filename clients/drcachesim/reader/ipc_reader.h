@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,9 +38,6 @@
 #ifndef _IPC_READER_H_
 #define _IPC_READER_H_ 1
 
-#include <list>
-#include <string>
-#include <map>
 #include "reader.h"
 #include "../common/memref.h"
 #include "../common/named_pipe.h"
@@ -52,25 +49,14 @@ class ipc_reader_t : public reader_t
     ipc_reader_t();
     explicit ipc_reader_t(const char *ipc_name);
     virtual ~ipc_reader_t();
-    bool init();
-    virtual const memref_t& operator*();
-    virtual bool operator==(const ipc_reader_t& rhs);
-    virtual bool operator!=(const ipc_reader_t& rhs);
-    virtual reader_t operator++(int);
-    virtual reader_t& operator++();
+    // This potentially blocks.
+    virtual bool init();
 
-    void stream_server();
+ protected:
+    virtual trace_entry_t * read_next_entry();
 
  private:
-    bool at_eof;
     named_pipe_t pipe;
-    memref_t cur_ref;
-    memref_tid_t cur_tid;
-    memref_pid_t cur_pid;
-    addr_t cur_pc;
-    addr_t next_pc;
-    int bundle_idx;
-    std::map<memref_tid_t, memref_pid_t> tid2pid;
 
     // For efficiency we want to read large chunks at a time.
     // The atomic write size for a pipe on Linux is 4096 bytes but

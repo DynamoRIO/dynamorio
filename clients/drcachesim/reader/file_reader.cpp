@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,63 +30,47 @@
  * DAMAGE.
  */
 
-/* reader: virtual base class for an iterator that provides a single memory
- * stream for use by a cache simulator.
- */
-
-#ifndef _READER_H_
-#define _READER_H_ 1
-
 #include <assert.h>
-#include <iterator>
+#include <fstream>
 #include <map>
+#include "file_reader.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
+#ifdef VERBOSE
+# include <iostream>
+#endif
+
+file_reader_t::file_reader_t()
 {
- public:
-    reader_t();
-    virtual ~reader_t() {}
+    /* Empty. */
+}
 
-    virtual bool init() = 0;
+file_reader_t::file_reader_t(const char *file_name) :
+    fstream(file_name, std::ifstream::binary)
+{
+    /* Empty. */
+}
 
-    virtual const memref_t& operator*();
+bool
+file_reader_t::init()
+{
+    at_eof = false;
+    if (!fstream)
+        return false;
+    ++*this;
+    return true;
+}
 
-    // To avoid double-dispatch (requires listing all derived types in the base here)
-    // and RTTI in trying to get the right operators called for subclasses, we
-    // instead directly check at_eof here.  If we end up needing to run code
-    // and a bool field is not enough we can change this to invoke a virtual
-    // method is_at_eof().
-    virtual bool operator==(const reader_t& rhs) const {
-        return BOOLS_MATCH(at_eof, rhs.at_eof);
-    }
-    virtual bool operator!=(const reader_t& rhs) const {
-        return !BOOLS_MATCH(at_eof, rhs.at_eof);
-    }
+file_reader_t::~file_reader_t()
+{
+    fstream.close();
+}
 
-    virtual reader_t& operator++();
-
-    // We do not support the post-increment operator for two reasons:
-    // 1) It prevents pure virtual functions here, as it cannot
-    //    return an abstract type;
-    // 2) It is difficult to implement for file_reader_t as streams do not
-    //    have a copy constructor.
-
- protected:
-    virtual trace_entry_t * read_next_entry() = 0;
-
-    bool at_eof;
-
- private:
-    trace_entry_t *input_entry;
-    memref_t cur_ref;
-    memref_tid_t cur_tid;
-    memref_pid_t cur_pid;
-    addr_t cur_pc;
-    addr_t next_pc;
-    int bundle_idx;
-    std::map<memref_tid_t, memref_pid_t> tid2pid;
-};
-
-#endif /* _READER_H_ */
+trace_entry_t *
+file_reader_t::read_next_entry()
+{
+    if (!fstream.read((char*)&entry_copy, sizeof(entry_copy)))
+        return NULL;
+    return &entry_copy;
+}

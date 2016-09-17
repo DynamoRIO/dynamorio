@@ -43,6 +43,8 @@ if (UNIX)
 
   add_executable(drcachesim
     launcher.cpp
+    reader/reader.cpp
+    reader/file_reader.cpp
     reader/ipc_reader.cpp
     simulator/simulator.cpp
     common/named_pipe_${os_name}.cpp
