@@ -2417,6 +2417,26 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.multiproc_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.multiproc_rawtemp ON) # no preprocessor
+
+        # Test offline traces.
+        # XXX: we could exclude the pipe files and build the offline trace
+        # support by itself for Windows and Android.
+        torunonly_ci(tool.drcacheoff.simple ${ci_shared_app} drcachesim
+          # We could use drcachesim-simple.templatex if we had the launcher fork
+          # and print out the "---- <application exited with code 0> ----".
+          "offline-simple.c" # for templatex basename
+          "-offline" "" "")
+        set(tool.drcacheoff.simple_toolname "drcachesim")
+        set(tool.drcacheoff.simple_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcacheoff.simple_rawtemp ON) # no preprocessor
+        get_target_path_for_execution(drcachesim_path drcachesim)
+        prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+        set(tool.drcacheoff.simple_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.drcacheoff.simple_precmd
+          "${CMAKE_COMMAND}@-E@remove@memtrace.simple_app.*.log")
+        set(tool.drcacheoff.simple_postcmd
+          "${drcachesim_path}@-infile@memtrace.simple_app.*.log")
       endif ()
     endif ()
 
