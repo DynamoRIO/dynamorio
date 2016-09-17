@@ -153,9 +153,9 @@ int
 _tmain(int argc, const TCHAR *targv[])
 {
     char **argv;
-    char *app_name;
+    char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
-    char **app_argv;
+    char **app_argv = NULL;
     int app_idx = 1;
     int errcode = 1;
     void *inject_data;
@@ -165,7 +165,7 @@ _tmain(int argc, const TCHAR *targv[])
     analyzer_t *analyzer = NULL;
     std::string tracer_ops;
 #ifdef UNIX
-    pid_t child;
+    pid_t child = 0;
 #endif
 
 #if defined(WINDOWS) && !defined(_UNICODE)
@@ -197,42 +197,44 @@ _tmain(int argc, const TCHAR *targv[])
         }
     }
 
-    if (app_idx >= argc) {
-        FATAL_ERROR("Usage error: no application specified\nUsage:\n%s",
-                    droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        assert(false); // won't get here
-    }
-    app_name = argv[app_idx];
-    get_full_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
-    if (full_app_name[0] != '\0')
-        app_name = full_app_name;
-    NOTIFY(1, "INFO", "targeting application: \"%s\"", app_name);
-    if (!file_is_readable(full_app_name)) {
-        FATAL_ERROR("cannot find application %s", full_app_name);
-        assert(false); // won't get here
+    if (op_infile.get_value().empty()) {
+        if (app_idx >= argc) {
+            FATAL_ERROR("Usage error: no application specified\nUsage:\n%s",
+                        droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+            assert(false); // won't get here
+        }
+        app_name = argv[app_idx];
+        get_full_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
+        if (full_app_name[0] != '\0')
+            app_name = full_app_name;
+        NOTIFY(1, "INFO", "targeting application: \"%s\"", app_name);
+        if (!file_is_readable(full_app_name)) {
+            FATAL_ERROR("cannot find application %s", full_app_name);
+            assert(false); // won't get here
+        }
+
+        if (drfront_is_64bit_app(app_name, &is64, &is32) == DRFRONT_SUCCESS &&
+            IF_X64_ELSE(!is64, is64 && !is32)) {
+            /* FIXME i#1703: since drinjectlib doesn't support cross-arch
+             * injection (DRi#803), we need to launch the other frontend.
+             */
+            FATAL_ERROR("application has bitwidth unsupported by this launcher");
+            assert(false); // won't get here
+        }
+
+        app_argv = &argv[app_idx];
+
+        if (!file_is_readable(op_tracer.get_value().c_str())) {
+            FATAL_ERROR("tracer library %s is unreadable", op_tracer.get_value().c_str());
+            assert(false); // won't get here
+        }
+        if (!file_is_readable(op_dr_root.get_value().c_str())) {
+            FATAL_ERROR("invalid -dr_root %s", op_dr_root.get_value().c_str());
+            assert(false); // won't get here
+        }
     }
 
-    if (drfront_is_64bit_app(app_name, &is64, &is32) == DRFRONT_SUCCESS &&
-        IF_X64_ELSE(!is64, is64 && !is32)) {
-        /* FIXME i#1703: since drinjectlib doesn't support cross-arch
-         * injection (DRi#803), we need to launch the other frontend.
-         */
-        FATAL_ERROR("application has bitwidth unsupported by this launcher");
-        assert(false); // won't get here
-    }
-
-    app_argv = &argv[app_idx];
-
-    if (!file_is_readable(op_tracer.get_value().c_str())) {
-        FATAL_ERROR("tracer library %s is unreadable", op_tracer.get_value().c_str());
-        assert(false); // won't get here
-    }
-    if (!file_is_readable(op_dr_root.get_value().c_str())) {
-        FATAL_ERROR("invalid -dr_root %s", op_dr_root.get_value().c_str());
-        assert(false); // won't get here
-    }
-
-    if (op_offline.get_value()) {
+    if (op_offline.get_value() && op_infile.get_value().empty()) {
         // Initial sanity check: may still be unwritable by this user, but this
         // serves as at least an existence check.
         if (!file_is_writable(op_outdir.get_value().c_str())) {
@@ -251,7 +253,7 @@ _tmain(int argc, const TCHAR *targv[])
             return false;
         }
 
-        if (!analyzer->init()) {
+        if (!analyzer) {
             FATAL_ERROR("failed to initialize analyzer");
             assert(false); // won't get here
         }
@@ -259,61 +261,69 @@ _tmain(int argc, const TCHAR *targv[])
 
     tracer_ops = op_tracer_ops.get_value();
 
-    /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
-    dr_get_config_dir(false/*local*/, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
-    NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
+    if (op_infile.get_value().empty()) {
+        /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
+        dr_get_config_dir(false/*local*/, true/*use temp*/, buf,
+                          BUFFER_SIZE_ELEMENTS(buf));
+        NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
 
 #ifdef UNIX
-    if (op_offline.get_value())
-        child = 0;
-    else
-        child = fork();
-    if (child < 0) {
-        FATAL_ERROR("failed to fork");
-        assert(false); // won't get here
-    } else if (child == 0) {
-        /* child, or offline where we exec this process */
+        if (op_offline.get_value())
+            child = 0;
+        else
+            child = fork();
+        if (child < 0) {
+            FATAL_ERROR("failed to fork");
+            assert(false); // won't get here
+        } else if (child == 0) {
+            /* child, or offline where we exec this process */
+            if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
+                !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
+                FATAL_ERROR("unable to inject");
+                assert(false); // won't get here
+            }
+            FATAL_ERROR("failed to exec application");
+        }
+        /* parent */
+#else
         if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
             !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
             FATAL_ERROR("unable to inject");
             assert(false); // won't get here
         }
-        FATAL_ERROR("failed to exec application");
-    }
-    /* parent */
-#else
-    if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
-        !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
-        FATAL_ERROR("unable to inject");
-        assert(false); // won't get here
-    }
-    dr_inject_process_run(inject_data);
+        dr_inject_process_run(inject_data);
 #endif
+    }
 
-    if (!op_offline.get_value()) {
+    if (!op_offline.get_value() || !op_infile.get_value().empty()) {
         if (!analyzer->run()) {
             FATAL_ERROR("failed to run analyzer");
             assert(false); // won't get here
         }
     }
 
+    if (op_infile.get_value().empty()) {
 #ifdef WINDOWS
-    NOTIFY(1, "INFO", "waiting for app to exit...");
-    errcode = WaitForSingleObject(dr_inject_get_process_handle(inject_data), INFINITE);
-    if (errcode != WAIT_OBJECT_0)
-        NOTIFY(1, "INFO", "failed to wait for app: %d\n", errcode);
-    errcode = dr_inject_process_exit(inject_data, false/*don't kill process*/);
+        NOTIFY(1, "INFO", "waiting for app to exit...");
+        errcode = WaitForSingleObject(dr_inject_get_process_handle(inject_data),
+                                      INFINITE);
+        if (errcode != WAIT_OBJECT_0)
+            NOTIFY(1, "INFO", "failed to wait for app: %d\n", errcode);
+        errcode = dr_inject_process_exit(inject_data, false/*don't kill process*/);
 #else
 # ifndef NDEBUG
-    pid_t result =
+        pid_t result =
 # endif
-        waitpid(child, &errcode, 0);
-    assert(result == child);
+            waitpid(child, &errcode, 0);
+        assert(result == child);
 #endif
 
-    // XXX: we may want a prefix on our output
-    std::cerr << "---- <application exited with code " << errcode <<
-        "> ----" << std::endl;
+        // XXX: we may want a prefix on our output
+        std::cerr << "---- <application exited with code " << errcode <<
+            "> ----" << std::endl;
+    } else
+        errcode = 0;
+
     analyzer->print_stats();
 
     // release analyzer's space

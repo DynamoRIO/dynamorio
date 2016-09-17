@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,23 +39,15 @@
 #include "../common/memref.h"
 #include "../common/options.h"
 #include "../common/utils.h"
+#include "../reader/file_reader.h"
 #include "../reader/ipc_reader.h"
 #include "droption.h"
 #include "tlb_stats.h"
 #include "tlb.h"
 #include "tlb_simulator.h"
 
-bool
-tlb_simulator_t::init()
+tlb_simulator_t::tlb_simulator_t()
 {
-    // XXX: add a "required" flag to droption to avoid needing this here
-    if (op_ipc_name.get_value().empty()) {
-        ERROR("Usage error: ipc name is required\nUsage:\n%s",
-              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        return false;
-    }
-    ipc_iter = ipc_reader_t(op_ipc_name.get_value().c_str());
-
     num_cores = op_num_cores.get_value();
 
     itlbs = new tlb_t* [num_cores];
@@ -63,14 +55,20 @@ tlb_simulator_t::init()
     lltlbs = new tlb_t* [num_cores];
     for (int i = 0; i < num_cores; i++) {
         itlbs[i] = create_tlb(op_TLB_replace_policy.get_value());
-        if (itlbs[i] == NULL)
-            return false;
+        if (itlbs[i] == NULL) {
+            success = false;
+            return;
+        }
         dtlbs[i] = create_tlb(op_TLB_replace_policy.get_value());
-        if (dtlbs[i] == NULL)
-            return false;
+        if (dtlbs[i] == NULL) {
+            success = false;
+            return;
+        }
         lltlbs[i] = create_tlb(op_TLB_replace_policy.get_value());
-        if (lltlbs[i] == NULL)
-            return false;
+        if (lltlbs[i] == NULL) {
+            success = false;
+            return;
+        }
 
         if (!itlbs[i]->init(op_TLB_L1I_assoc.get_value(), op_page_size.get_value(),
                             op_TLB_L1I_entries.get_value(), lltlbs[i], new tlb_stats_t) ||
@@ -80,7 +78,8 @@ tlb_simulator_t::init()
                              op_TLB_L2_entries.get_value(), NULL, new tlb_stats_t)) {
             ERROR("Usage error: failed to initialize TLBs. Ensure entry number, "
                   "page size and associativity are powers of 2.\n");
-            return false;
+            success = false;
+            return;
         }
     }
 
@@ -88,18 +87,23 @@ tlb_simulator_t::init()
     memset(thread_counts, 0, sizeof(thread_counts[0])*num_cores);
     thread_ever_counts = new unsigned int[num_cores];
     memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*num_cores);
-
-    return true;
 }
 
 tlb_simulator_t::~tlb_simulator_t()
 {
     for (int i = 0; i < num_cores; i++) {
+        // Try to handle failure during construction.
+        if (itlbs[i] == NULL)
+            return;
         delete itlbs[i]->get_stats();
-        delete dtlbs[i]->get_stats();
-        delete lltlbs[i]->get_stats();
         delete itlbs[i];
+        if (dtlbs[i] == NULL)
+            return;
+        delete dtlbs[i]->get_stats();
         delete dtlbs[i];
+        if (lltlbs[i] == NULL)
+            return;
+        delete lltlbs[i]->get_stats();
         delete lltlbs[i];
     }
     delete [] itlbs;
@@ -112,10 +116,9 @@ tlb_simulator_t::~tlb_simulator_t()
 bool
 tlb_simulator_t::run()
 {
-    if (!ipc_iter.init()) {
-        ERROR("failed to read from pipe %s", op_ipc_name.get_value().c_str());
+    if (!start_reading())
         return false;
-    }
+
     memref_tid_t last_thread = 0;
     int last_core = 0;
 
@@ -123,11 +126,8 @@ tlb_simulator_t::run()
     uint64_t warmup_refs = op_warmup_refs.get_value();
     uint64_t sim_refs = op_sim_refs.get_value();
 
-    // XXX i#1703: add options to select either ipc_reader_t or
-    // a recorded trace file reader, and use a base class reader_t
-    // here.
-    for (; ipc_iter != ipc_end; ++ipc_iter) {
-        memref_t memref = *ipc_iter;
+    for (; *trace_iter != *trace_end; ++(*trace_iter)) {
+        memref_t memref = **trace_iter;
         if (skip_refs > 0) {
             skip_refs--;
             continue;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,35 +30,51 @@
  * DAMAGE.
  */
 
-/* tlb_simulator: controls the multi-level TLB simulation.
- */
+#include "analyzer.h"
+#include "common/options.h"
+#include "common/utils.h"
+#include "reader/file_reader.h"
+#include "reader/ipc_reader.h"
 
-#ifndef _TLB_SIMULATOR_H_
-#define _TLB_SIMULATOR_H_ 1
-
-#include <map>
-#include "simulator.h"
-#include "tlb_stats.h"
-#include "tlb.h"
-#include "../reader/ipc_reader.h"
-
-class tlb_simulator_t : public simulator_t
+analyzer_t::analyzer_t() :
+    success(true)
 {
- public:
-    tlb_simulator_t();
-    virtual ~tlb_simulator_t();
-    virtual bool run();
-    virtual bool print_stats();
+    // XXX: add a "required" flag to droption to avoid needing this here
+    if (op_infile.get_value().empty() && op_ipc_name.get_value().empty()) {
+        ERROR("Usage error: -ipc_name or -infile is required\nUsage:\n%s",
+              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        success = false;
+        return;
+    }
+    if (op_infile.get_value().empty()) {
+        trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
+        trace_end = new ipc_reader_t();
+    } else {
+        trace_iter = new file_reader_t(op_infile.get_value().c_str());
+        trace_end = new file_reader_t();
+    }
+    // We can't call trace_iter->init() here as it blocks for ipc_reader_t.
+}
 
- protected:
-    // Create a tlb_t object with a specific replacement policy.
-    virtual tlb_t *create_tlb(std::string policy);
+analyzer_t::~analyzer_t()
+{
+    delete trace_iter;
+    delete trace_end;
+}
 
-    // Each CPU core contains a L1 ITLB, L1 DTLB and L2 TLB.
-    // All of them are private to the core.
-    tlb_t **itlbs;
-    tlb_t **dtlbs;
-    tlb_t **lltlbs;
-};
+bool
+analyzer_t::operator!()
+{
+    return !success;
+}
 
-#endif /* _TLB_SIMULATOR_H_ */
+bool
+analyzer_t::start_reading()
+{
+    if (!trace_iter->init()) {
+        ERROR("failed to read from %s\n", op_infile.get_value().empty() ?
+              op_ipc_name.get_value().c_str() : op_infile.get_value().c_str());
+        return false;
+    }
+    return true;
+}

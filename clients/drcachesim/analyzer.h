@@ -36,20 +36,27 @@
 #ifndef _ANALYZER_H_
 #define _ANALYZER_H_ 1
 
-#include "reader/ipc_reader.h"
+#include "reader/reader.h"
 
 class analyzer_t
 {
  public:
-    analyzer_t() {}
-    virtual bool init() = 0;
-    virtual ~analyzer_t() {};
+    // Usage: errors encountered during the constructor will set a flag that should
+    // be queried via operator!.
+    analyzer_t();
+    virtual ~analyzer_t();
+    virtual bool operator!();
     virtual bool run() = 0;
     virtual bool print_stats() = 0;
 
  protected:
-    ipc_reader_t ipc_end;
-    ipc_reader_t ipc_iter;
+    // This finalizes the trace_iter setup.  It can block and is meant to be
+    // called at the top of run().
+    bool start_reading();
+
+    bool success;
+    reader_t *trace_iter;
+    reader_t *trace_end;
 };
 
 #endif /* _ANALYZER_H_ */

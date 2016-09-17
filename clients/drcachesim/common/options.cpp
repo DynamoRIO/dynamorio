@@ -54,6 +54,11 @@ droption_t<std::string> op_outdir
  "For the offline analysis mode (when -offline is requested), specifies the path "
  "to a directory where per-thread trace files will be written.");
 
+droption_t<std::string> op_infile
+(DROPTION_SCOPE_ALL, "infile", "", "Offline trace file for input to the simulator",
+ "After a trace file is produced via -offline into -outdir, it can be passed to the "
+ "simulator via this flag.");
+
 droption_t<unsigned int> op_num_cores
 (DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",
  "Specifies the number of cores to simulate.");

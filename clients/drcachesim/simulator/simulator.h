@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,7 +46,6 @@ class simulator_t : public analyzer_t
 {
  public:
     simulator_t() {}
-    virtual bool init() = 0;
     virtual ~simulator_t() = 0;
     virtual bool run() = 0;
     virtual bool print_stats() = 0;
@@ -56,9 +55,6 @@ class simulator_t : public analyzer_t
     virtual void handle_thread_exit(memref_tid_t tid);
 
     int num_cores;
-
-    ipc_reader_t ipc_end;
-    ipc_reader_t ipc_iter;
 
     // For thread mapping to cores:
     std::map<memref_tid_t, int> thread2core;

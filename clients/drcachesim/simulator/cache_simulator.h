@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,7 +45,7 @@
 class cache_simulator_t : public simulator_t
 {
  public:
-    virtual bool init();
+    cache_simulator_t();
     virtual ~cache_simulator_t();
     virtual bool run();
     virtual bool print_stats();

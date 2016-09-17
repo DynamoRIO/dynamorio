@@ -43,6 +43,7 @@ if (UNIX)
 
   add_executable(drcachesim
     launcher.cpp
+    analyzer.cpp
     reader/reader.cpp
     reader/file_reader.cpp
     reader/ipc_reader.cpp

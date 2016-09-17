@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,7 @@
 #include "../common/memref.h"
 #include "../common/options.h"
 #include "../common/utils.h"
+#include "../reader/file_reader.h"
 #include "../reader/ipc_reader.h"
 #include "cache_stats.h"
 #include "cache.h"
@@ -47,42 +48,40 @@
 #include "cache_simulator.h"
 #include "droption.h"
 
-bool
-cache_simulator_t::init()
+cache_simulator_t::cache_simulator_t()
 {
-    // XXX: add a "required" flag to droption to avoid needing this here
-    if (op_ipc_name.get_value().empty()) {
-        ERROR("Usage error: ipc name is required\nUsage:\n%s",
-              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        return false;
-    }
-    ipc_iter = ipc_reader_t(op_ipc_name.get_value().c_str());
-
     // XXX i#1703: get defaults from hardware being run on.
 
     num_cores = op_num_cores.get_value();
 
     llcache = create_cache(op_replace_policy.get_value());
-    if (llcache == NULL)
-        return false;
+    if (llcache == NULL) {
+        success = false;
+        return;
+    }
 
     if (!llcache->init(op_LL_assoc.get_value(), op_line_size.get_value(),
                        op_LL_size.get_value(), NULL, new cache_stats_t)) {
         ERROR("Usage error: failed to initialize LL cache.  Ensure sizes and "
               "associativity are powers of 2 "
               "and that the total size is a multiple of the line size.\n");
-        return false;
+        success = false;
+        return;
     }
 
     icaches = new cache_t* [num_cores];
     dcaches = new cache_t* [num_cores];
     for (int i = 0; i < num_cores; i++) {
         icaches[i] = create_cache(op_replace_policy.get_value());
-        if (icaches[i] == NULL)
-            return false;
+        if (icaches[i] == NULL) {
+            success = false;
+            return;
+        }
         dcaches[i] = create_cache(op_replace_policy.get_value());
-        if (dcaches[i] == NULL)
-            return false;
+        if (dcaches[i] == NULL) {
+            success = false;
+            return;
+        }
 
         if (!icaches[i]->init(op_L1I_assoc.get_value(), op_line_size.get_value(),
                               op_L1I_size.get_value(), llcache, new cache_stats_t) ||
@@ -91,7 +90,8 @@ cache_simulator_t::init()
             ERROR("Usage error: failed to initialize L1 caches.  Ensure sizes and "
                   "associativity are powers of 2 "
                   "and that the total sizes are multiples of the line size.\n");
-            return false;
+            success = false;
+            return;
         }
     }
 
@@ -99,17 +99,23 @@ cache_simulator_t::init()
     memset(thread_counts, 0, sizeof(thread_counts[0])*num_cores);
     thread_ever_counts = new unsigned int[num_cores];
     memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*num_cores);
-
-    return true;
 }
 
 cache_simulator_t::~cache_simulator_t()
 {
+    if (llcache == NULL)
+        return;
     delete llcache->get_stats();
+    delete llcache;
     for (int i = 0; i < num_cores; i++) {
+        // Try to handle failure during construction.
+        if (icaches[i] == NULL)
+            return;
+        delete icaches[i];
+        if (dcaches[i] == NULL)
+            return;
         delete icaches[i]->get_stats();
         delete dcaches[i]->get_stats();
-        delete icaches[i];
         delete dcaches[i];
     }
     delete [] icaches;
@@ -121,10 +127,9 @@ cache_simulator_t::~cache_simulator_t()
 bool
 cache_simulator_t::run()
 {
-    if (!ipc_iter.init()) {
-        ERROR("failed to read from pipe %s", op_ipc_name.get_value().c_str());
+    if (!start_reading())
         return false;
-    }
+
     memref_tid_t last_thread = 0;
     int last_core = 0;
 
@@ -132,11 +137,8 @@ cache_simulator_t::run()
     uint64_t warmup_refs = op_warmup_refs.get_value();
     uint64_t sim_refs = op_sim_refs.get_value();
 
-    // XXX i#1703: add options to select either ipc_reader_t or
-    // a recorded trace file reader, and use a base class reader_t
-    // here.
-    for (; ipc_iter != ipc_end; ++ipc_iter) {
-        memref_t memref = *ipc_iter;
+    for (; *trace_iter != *trace_end; ++(*trace_iter)) {
+        memref_t memref = **trace_iter;
         if (skip_refs > 0) {
             skip_refs--;
             continue;
