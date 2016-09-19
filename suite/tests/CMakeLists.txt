@@ -516,20 +516,6 @@ function(append_link_flags target newflags)
     LINK_FLAGS "${cur_ldflags} ${newflags}")
 endfunction(append_link_flags)
 
-# On Linux, the individual object files contained by an archive are
-# garbage collected by the linker if they are not referenced.  To avoid
-# this, we have to use the --whole-archive option with ld.
-function(force_static_link target lib)
-  if (UNIX)
-    # CMake ignores libraries starting with '-' and preserves the
-    # ordering, so we can pass flags through target_link_libraries, which
-    # ensures we have the right CMake dependencies.
-    target_link_libraries(${target} -Wl,--whole-archive ${lib} -Wl,--no-whole-archive)
-  else ()
-    target_link_libraries(${target} ${lib})
-  endif ()
-endfunction(force_static_link)
-
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)

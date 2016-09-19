@@ -89,6 +89,11 @@
 #  add_executable(myapp myapp.c)
 #  configure_DynamoRIO_static(myapp)
 #
+# To link in a separately-built static client and ensure the linker will keep
+# its symbols, use:
+#
+#  use_DynamoRIO_static_client(myapp myclient)
+#
 ###########
 #
 # Global changes:
@@ -997,6 +1002,9 @@ function (configure_DynamoRIO_static target)
 
 endfunction (configure_DynamoRIO_static)
 
+function (use_DynamoRIO_static_client target client)
+  DynamoRIO_force_static_link(${target} ${client})
+endfunction (use_DynamoRIO_static_client)
 
 function (get_DynamoRIO_defines outvar is_cxx)
   # We assume that only defines are added by DynamoRIO_extra_cflags,
