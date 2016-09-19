@@ -563,13 +563,6 @@ void
 instrument_load_client_libs(void)
 {
     if (CLIENTS_EXIST()) {
-#ifdef STATIC_LIBRARY
-        /* We ignore -client_lib and allow client code anywhere in the app.
-         * We have a check in load_shared_library() to avoid loading
-         * a 2nd copy of the app.
-         */
-        add_client_lib(get_application_name(), "0", "");
-#else
         char buf[MAX_LIST_OPTION_LENGTH];
         char *path;
 
@@ -603,10 +596,19 @@ instrument_load_client_libs(void)
                 }
             }
 
+#ifdef STATIC_LIBRARY
+            /* We ignore client library paths and allow client code anywhere in the app.
+             * We have a check in load_shared_library() to avoid loading
+             * a 2nd copy of the app.
+             * We do support passing client ID and options via the first -client_lib.
+             */
+            add_client_lib(get_application_name(), id == NULL ? "0" : id,
+                           options == NULL ? "" : options);
+            break;
+#endif
             add_client_lib(path, id, options);
             path = next_path;
         } while (path != NULL);
-#endif
     }
 }
 
