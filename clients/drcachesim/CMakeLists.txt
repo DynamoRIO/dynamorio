@@ -64,19 +64,31 @@ if (UNIX)
   target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)
   use_DynamoRIO_extension(drcachesim droption)
 
-  add_library(drmemtrace SHARED
-    tracer/tracer.cpp
-    tracer/physaddr.cpp
-    common/named_pipe_${os_name}.cpp
-    common/options.cpp
-    common/trace_entry.cpp
-    )
-  configure_DynamoRIO_client(drmemtrace)
-  use_DynamoRIO_extension(drmemtrace drmgr)
-  use_DynamoRIO_extension(drmemtrace drreg)
-  use_DynamoRIO_extension(drmemtrace drutil)
-  use_DynamoRIO_extension(drmemtrace drx)
-  use_DynamoRIO_extension(drmemtrace droption)
+  macro(add_drmemtrace name type)
+    if (${type} STREQUAL "STATIC")
+      set(ext_sfx "_static")
+    else ()
+      set(ext_sfx "")
+    endif ()
+    add_library(${name} ${type}
+      tracer/tracer.cpp
+      tracer/physaddr.cpp
+      common/named_pipe_${os_name}.cpp
+      common/options.cpp
+      common/trace_entry.cpp
+      )
+    configure_DynamoRIO_client(${name})
+    use_DynamoRIO_extension(${name} drmgr${ext_sfx})
+    use_DynamoRIO_extension(${name} drreg${ext_sfx})
+    use_DynamoRIO_extension(${name} drutil${ext_sfx})
+    use_DynamoRIO_extension(${name} drx${ext_sfx})
+    use_DynamoRIO_extension(${name} droption)
+    add_dependencies(${name} api_headers)
+    install_target(${name} ${INSTALL_CLIENTS_LIB})
+  endmacro()
+
+  add_drmemtrace(drmemtrace SHARED)
+  add_drmemtrace(drmemtrace_static STATIC)
 
   # Restore debug and other flags to our non-client executable
   set_target_properties(drcachesim PROPERTIES
@@ -91,7 +103,6 @@ if (UNIX)
 
   place_shared_lib_in_lib_dir(drmemtrace)
 
-  add_dependencies(drmemtrace api_headers)
   add_dependencies(drcachesim api_headers)
 
   # Provide a hint for how to use the client
@@ -103,7 +114,6 @@ if (UNIX)
       VERBATIM)
   endif ()
 
-  install_target(drmemtrace ${INSTALL_CLIENTS_LIB})
   install_target(drcachesim ${INSTALL_CLIENTS_BIN})
 
   set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
@@ -137,6 +147,20 @@ if (UNIX)
 
   DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
   register_tool_file("drcachesim")
+
+
+  ##################################################
+  # Test executables
+  #
+  # We build larger executables here.  All tests are added in suite/tests/.
+  # Be sure to give the targets qualified test names ("tool.drcache*...").
+
+  add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
+  configure_DynamoRIO_static(tool.drcacheoff.burst_static)
+  use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
+  if (WIN32)
+    append_property_string(TARGET tool.drcacheoff.burst_static COMPILE_FLAGS "/EHsc")
+  endif ()
 
 endif (UNIX)
 

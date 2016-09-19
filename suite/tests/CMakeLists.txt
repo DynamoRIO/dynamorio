@@ -1301,7 +1301,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # Some apps have enough output that ctest runs out of memory when
     # doing its built-in regex cmp so we use a separate script.
     # We also use this approach for tests that need custom success tests.
-    set(cmd_with_at ${rundr} ${exepath} ${exe_ops})
+    if (DEFINED ${key}_nodr)
+      set(cmd_with_at ${exepath} ${exe_ops})
+    else ()
+      set(cmd_with_at ${rundr} ${exepath} ${exe_ops})
+    endif ()
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
     # much simpler this way.
@@ -2407,22 +2411,30 @@ if (CLIENT_INTERFACE)
         # Test offline traces.
         # XXX: we could exclude the pipe files and build the offline trace
         # support by itself for Windows and Android.
-        torunonly_ci(tool.drcacheoff.simple ${ci_shared_app} drcachesim
-          # We could use drcachesim-simple.templatex if we had the launcher fork
-          # and print out the "---- <application exited with code 0> ----".
-          "offline-simple.c" # for templatex basename
-          "-offline" "" "")
-        set(tool.drcacheoff.simple_toolname "drcachesim")
-        set(tool.drcacheoff.simple_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcacheoff.simple_rawtemp ON) # no preprocessor
-        get_target_path_for_execution(drcachesim_path drcachesim)
-        prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
-        set(tool.drcacheoff.simple_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-        set(tool.drcacheoff.simple_precmd
-          "${CMAKE_COMMAND}@-E@remove@memtrace.simple_app.*.log")
-        set(tool.drcacheoff.simple_postcmd
-          "${drcachesim_path}@-infile@memtrace.simple_app.*.log")
+        macro (torunonly_drcacheoff testname exetgt)
+          torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
+            "offline-${testname}.c" # for templatex basename
+            "-offline" "" "")
+          set(tool.drcacheoff.${testname}_toolname "drcachesim")
+          set(tool.drcacheoff.${testname}_basedir
+            "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+          set(tool.drcacheoff.${testname}_rawtemp ON) # no preprocessor
+          get_target_path_for_execution(drcachesim_path drcachesim)
+          prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+          set(tool.drcacheoff.${testname}_runcmp
+            "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+          set(tool.drcacheoff.${testname}_precmd
+            "${CMAKE_COMMAND}@-E@remove@memtrace.${exetgt}.*.log")
+          set(tool.drcacheoff.${testname}_postcmd
+            "${drcachesim_path}@-infile@memtrace.${exetgt}.*.log")
+        endmacro()
+
+        # We could share drcachesim-simple.templatex if we had the launcher fork
+        # and print out the "---- <application exited with code 0> ----".
+        torunonly_drcacheoff(simple ${ci_shared_app})
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
+        set(tool.drcacheoff.burst_static_nodr ON)
+
       endif ()
     endif ()
 
