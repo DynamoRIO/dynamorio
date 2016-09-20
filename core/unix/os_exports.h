@@ -191,7 +191,15 @@ int get_libc_errno(void);
 void set_libc_errno(int val);
 
 /* i#46: Our env manipulation routines. */
+#ifdef STATIC_LIBRARY
+/* For STATIC_LIBRARY, we want to support the app setting DYNAMORIO_OPTIONS
+ * after our constructor ran: thus we do not want to cache the environ pointer.
+ */
+extern char **environ;
+# define our_environ environ
+#else
 extern char **our_environ;
+#endif
 void dynamorio_set_envp(char **envp);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 /* drinjectlib wants the libc version while the core wants the private version */

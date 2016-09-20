@@ -137,12 +137,16 @@ struct compat_rlimit {
 /* Prototype for all functions in .init_array. */
 typedef int (*init_fn_t)(int argc, char **argv, char **envp);
 
+/* For STATIC_LIBRARY we do not cache environ so the app can change it. */
+#ifndef STATIC_LIBRARY
 /* i#46: Private __environ pointer.  Points at the environment variable array
  * on the stack, which is different from what libc __environ may point at.  We
  * use the environment for following children and setting options, so its OK
  * that we don't see what libc says.
  */
 char **our_environ;
+#endif
+
 #include <errno.h>
 /* avoid problems with use of errno as var name in rest of file */
 #if !defined(STANDALONE_UNIT_TEST) && !defined(MACOS)
@@ -643,7 +647,8 @@ our_getenv(const char *name)
  * routine down below, but drpreload.so comes first and calls
  * dynamorio_app_init before our own _init routine gets called.  Apps using the
  * app API are unaffected because our _init routine will have run by then.  For
- * STATIC_LIBRARY, we simply set our_environ below in our_init().
+ * STATIC_LIBRARY, we used to set our_environ in our_init(), but to support
+ * the app setting DYNAMORIO_OPTIONS after our_init() runs, we now just use environ.
  */
 DYNAMORIO_EXPORT
 void
@@ -668,15 +673,13 @@ our_init(int argc, char **argv, char **envp)
     /* PR 391765: take over here instead of using preload */
     takeover = os_in_vmkernel_classic();
 #endif
+#ifndef STATIC_LIBRARY
     if (our_environ != NULL) {
         /* Set by dynamorio_set_envp above.  These should agree. */
         ASSERT(our_environ == envp);
     } else {
         our_environ = envp;
     }
-#if defined(ANDROID) && defined(STATIC_LIBRARY)
-    /* The Android loader does not pass envp. */
-    our_environ = environ;
 #endif
     /* if using preload, no -early_inject */
 #ifdef STATIC_LIBRARY
