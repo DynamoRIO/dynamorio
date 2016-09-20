@@ -70,7 +70,8 @@ main(int argc, const char *argv[])
     static int iter_start = outer_iters/3;
     static int iter_stop = iter_start + 4;
 
-    my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'");
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
+        std::cerr << "failed to set env var!\n";
 
     std::cerr << "pre-DR init\n";
     dr_app_setup();

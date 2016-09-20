@@ -2432,8 +2432,13 @@ if (CLIENT_INTERFACE)
         # We could share drcachesim-simple.templatex if we had the launcher fork
         # and print out the "---- <application exited with code 0> ----".
         torunonly_drcacheoff(simple ${ci_shared_app})
-        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
-        set(tool.drcacheoff.burst_static_nodr ON)
+
+        # FIXME i#2007: fails to link on A64
+        # XXX i#1997: dynamorio_static is not supported on Mac yet
+        if (NOT AARCH64 AND NOT APPLE)
+          torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
+          set(tool.drcacheoff.burst_static_nodr ON)
+        endif ()
 
       endif ()
     endif ()

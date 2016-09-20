@@ -155,11 +155,15 @@ if (UNIX)
   # We build larger executables here.  All tests are added in suite/tests/.
   # Be sure to give the targets qualified test names ("tool.drcache*...").
 
-  add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
-  configure_DynamoRIO_static(tool.drcacheoff.burst_static)
-  use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
-  if (WIN32)
-    append_property_string(TARGET tool.drcacheoff.burst_static COMPILE_FLAGS "/EHsc")
+  # FIXME i#2007: fails to link on A64
+  # XXX i#1997: dynamorio_static is not supported on Mac yet
+  if (NOT AARCH64 AND NOT APPLE)
+    add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_static)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
+    if (WIN32)
+      append_property_string(TARGET tool.drcacheoff.burst_static COMPILE_FLAGS "/EHsc")
+    endif ()
   endif ()
 
 endif (UNIX)
