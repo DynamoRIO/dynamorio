@@ -46,6 +46,7 @@ elseif ("${CMAKE_VERSION}" VERSION_LESS "2.8.10")
 else () # Qt5 and CMake 2.8.10+
   # Build Qt Visualizer
   cmake_minimum_required(VERSION 2.8.10)
+
   message(STATUS "Found Qt 5: DrGUI will be built")
 
   include(../../make/policies.cmake NO_POLICY_SCOPE)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,12 +33,13 @@
 #include "caching_device.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
-#include "utils.h"
+#include "../common/utils.h"
 #include <assert.h>
 
-caching_device_t::caching_device_t()
+caching_device_t::caching_device_t() :
+    blocks(NULL), stats(NULL)
 {
-    blocks = 0;
+    /* Empty. */
 }
 
 caching_device_t::~caching_device_t()

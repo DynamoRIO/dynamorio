@@ -101,7 +101,10 @@ typedef struct _tls_info_t {
 } tls_info_t;
 static tls_info_t tls_info;
 
-static size_t max_client_tls_size = 2 * PAGE_SIZE;
+/* Maximum size of TLS for client private libraries.
+ * We will round this up to a multiple of the page size.
+ */
+static size_t client_tls_size = 2 * 4096;
 
 /* The actual tcb size is the size of struct pthread from nptl/descr.h, which is
  * a glibc internal header that we can't include.  We hardcode a guess for the
@@ -244,6 +247,7 @@ privload_mod_tls_init(privmod_t *mod)
 void *
 privload_tls_init(void *app_tp)
 {
+    size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     app_pc dr_tp;
     tcb_head_t *dr_tcb;
     uint i;
@@ -252,8 +256,8 @@ privload_tls_init(void *app_tp)
     /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is "PFX"\n",
         __FUNCTION__, app_tp);
-    dr_tp = heap_mmap(max_client_tls_size);
-    ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= max_client_tls_size);
+    dr_tp = heap_mmap(client_tls_alloc_size);
+    ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= client_tls_alloc_size);
 #ifdef AARCHXX
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
      * the size and member locations match to avoid gdb crash.
@@ -262,8 +266,8 @@ privload_tls_init(void *app_tp)
     ASSERT(LIBC_PTHREAD_TID_OFFSET == offsetof(dr_pthread_t, tid));
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at "PFX"\n",
-        __FUNCTION__, max_client_tls_size, dr_tp);
-    dr_tp = dr_tp + max_client_tls_size - tcb_size;
+        __FUNCTION__, client_tls_alloc_size, dr_tp);
+    dr_tp = dr_tp + client_tls_alloc_size - tcb_size;
     dr_tcb = (tcb_head_t *) dr_tp;
     LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to "PFX"\n",
         __FUNCTION__, dr_tp);
@@ -296,7 +300,7 @@ privload_tls_init(void *app_tp)
      * + our over-estimate crosses a page boundary (our estimate is for latest
      * libc and is larger than on older libc versions): i#855.
      */
-    ASSERT(tls_info.offset <= max_client_tls_size - TLS_PRE_TCB_SIZE - tcb_size);
+    ASSERT(tls_info.offset <= client_tls_alloc_size - TLS_PRE_TCB_SIZE - tcb_size);
 #ifdef X86
     /* Update two self pointers. */
     dr_tcb->tcb  = dr_tcb;
@@ -329,10 +333,11 @@ privload_tls_init(void *app_tp)
 void
 privload_tls_exit(void *dr_tp)
 {
+    size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     if (dr_tp == NULL)
         return;
-    dr_tp = dr_tp + tcb_size - max_client_tls_size;
-    heap_munmap(dr_tp, max_client_tls_size);
+    dr_tp = dr_tp + tcb_size - client_tls_alloc_size;
+    heap_munmap(dr_tp, client_tls_alloc_size);
 }
 
 /****************************************************************************

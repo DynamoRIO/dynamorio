@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,34 +30,33 @@
  * DAMAGE.
  */
 
-/* reader: virtual base class for an iterator that provides a single memory
- * stream for use by a cache simulator.
+/* file_reader: obtains memory streams from DR clients running in
+ * application processes and presents them via an interator interface
+ * to the cache simulator.
  */
 
-#ifndef _READER_H_
-#define _READER_H_ 1
+#ifndef _FILE_READER_H_
+#define _FILE_READER_H_ 1
 
-#include <iterator>
-#include <assert.h>
-#include "memref.h"
+#include <fstream>
+#include "reader.h"
+#include "../common/memref.h"
+#include "../common/trace_entry.h"
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
+class file_reader_t : public reader_t
 {
  public:
-    virtual ~reader_t() {}
-    // XXX: we can't have any pure virtual functions here, as then the
-    // postfix operator won't compile as it can't return an abstract type.
-    // We could not support postfix at all.
-    // Instead we have dummy implementations to make this a non-abstract
-    // class and avoid the problem that way.
-    virtual const memref_t& operator*() { assert(false); return ignored_memref; }
-    virtual bool operator==(const reader_t& rhs) { return false; }
-    virtual bool operator!=(const reader_t& rhs) { return false; }
-    virtual reader_t& operator++() { assert(false); return *this; }
-    virtual reader_t operator++(int) { assert(false); return *this; }
+    file_reader_t();
+    explicit file_reader_t(const char *file_name);
+    virtual ~file_reader_t();
+    virtual bool init();
+
+ protected:
+    virtual trace_entry_t * read_next_entry();
 
  private:
-    memref_t ignored_memref; // Purely for operator*
+    std::ifstream fstream;
+    trace_entry_t entry_copy;
 };
 
-#endif /* _READER_H_ */
+#endif /* _FILE_READER_H_ */

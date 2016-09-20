@@ -31,7 +31,6 @@
  */
 
 /* This is a statically-linked app.
- * Be sure to link with "--thumb-entry _start" to get the LSB set to 1.
  * Note: I'm using //-style comments below for easy transition to and from
  * @-style comments for native ARM assembly.
  */
@@ -41,6 +40,7 @@
 .syntax unified
 
         .align   6
+        .type    _start, %function
 _start:
         // Align stack pointer to cache line.
         mov      r0, sp

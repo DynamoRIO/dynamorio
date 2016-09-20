@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,15 +62,18 @@
  * Application-wide initialization. Must be called before any other
  * API function. Returns zero on success.
  */
-DR_APP_API int dr_app_setup(void);
+DR_APP_API int
+dr_app_setup(void);
 
 /**
  * Application-wide cleanup.  Prints statistics. Returns zero on success.
+ * Once this is invoked, calling dr_app_start() or dr_app_setup() is not supported.
  */
-DR_APP_API int dr_app_cleanup(void);
+DR_APP_API int
+dr_app_cleanup(void);
 
 /**
- * Causes application to run under DR control upon return from this call.
+ * Causes the application to run under DR control upon return from this call.
  * Attempts to take over any existing threads in the application.
  *
  * \warning On Linux, DR detects threads by listing thread ids in the current
@@ -78,27 +81,25 @@ DR_APP_API int dr_app_cleanup(void);
  * may fail if the main thread has quit.  DR also assumes the threads all share
  * signal handlers, as is the case for pthreads.  Violating these assumptions
  * will lead to unpredictable behavior.
- *
- * \warning Windows does not yet attempt to take over existing threads.
  */
-DR_APP_API void dr_app_start(void);
+DR_APP_API void
+dr_app_start(void);
 
 /**
- * Causes the application's current thread to run directly on the machine upon
- * return from this call; no effect if application is not currently running
+ * Causes all of the application's threads to run directly on the machine upon
+ * return from this call; no effect if the application is not currently running
  * under DR control.
- *
- * \note This only affects the current thread.  Other threads will still be
- * under DR's control.  This behavior may change in the future.
  */
-DR_APP_API void dr_app_stop(void);
+DR_APP_API void
+dr_app_stop(void);
 
 /**
  * Causes application to run under DR control upon return from
  * this call.  DR never releases control. Useful for overriding
  * dr_app_start/dr_app_stop calls in the rest of a program.
  */
-DR_APP_API void dr_app_take_over(void);
+DR_APP_API void
+dr_app_take_over(void);
 
 /**
  * Calls dr_app_setup() and, if it succeeds, calls dr_app_start().  Returns the
@@ -106,7 +107,18 @@ DR_APP_API void dr_app_take_over(void);
  * intended as a convenient single point of entry for callers who are using
  * dlsym() or GetProcAddress() to access the app API.
  */
-DR_APP_API int dr_app_setup_and_start(void);
+DR_APP_API int
+dr_app_setup_and_start(void);
+
+/**
+ * Causes all of the application's threads to run directly on the machine upon
+ * return from this call, and additionally frees the resources used by DR.
+ * Once this is invoked, calling dr_app_start() or dr_app_setup() is not supported.
+ * This call has no effect if the application is not currently running
+ * under DR control.
+ */
+DR_APP_API void
+dr_app_stop_and_cleanup(void);
 
 /**
  * Indicates whether the current thread is running within the DynamoRIO code

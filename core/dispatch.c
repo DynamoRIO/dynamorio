@@ -160,7 +160,8 @@ dispatch(dcontext_t *dcontext)
      */
     do {
         if (is_in_dynamo_dll(dcontext->next_tag) ||
-            dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL) {
+            dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL ||
+            dcontext->go_native) {
             handle_special_tag(dcontext);
         }
         /* Neither hotp_only nor thin_client should have any fragment
@@ -254,7 +255,8 @@ is_stopping_point(dcontext_t *dcontext, app_pc pc)
               * should not be called from the cache.
               */
              pc == (app_pc)dynamo_thread_exit ||
-             pc == (app_pc)dr_app_stop))
+             pc == (app_pc)dr_app_stop ||
+             pc == (app_pc)dr_app_stop_and_cleanup))
 #endif
 #ifdef WINDOWS
         /* we go all the way to NtTerminateThread/NtTerminateProcess */
@@ -552,10 +554,20 @@ handle_special_tag(dcontext_t *dcontext)
         interpret_back_from_native(dcontext);  /* updates next_tag */
     }
 
-    if (is_stopping_point(dcontext, dcontext->next_tag)) {
+    if (is_stopping_point(dcontext, dcontext->next_tag) ||
+        /* We don't want this to be part of is_stopping_point() b/c we don't
+         * want bb building for state xl8 to look at it.
+         */
+        dcontext->go_native) {
         LOG(THREAD, LOG_INTERP, 1,
-            "\nFound DynamoRIO stopping point: thread "TIDFMT" returning to app @"PFX"\n",
+            "\n%s: thread "TIDFMT" returning to app @"PFX"\n",
+            dcontext->go_native ? "Requested to go native" :
+            "Found DynamoRIO stopping point",
             get_thread_id(),  dcontext->next_tag);
+#ifdef DR_APP_EXPORTS
+        if (dcontext->next_tag == (app_pc)dr_app_stop)
+            send_all_other_threads_native();
+#endif
         dispatch_enter_native(dcontext);
         ASSERT_NOT_REACHED();  /* noreturn */
     }
@@ -584,13 +596,21 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
         LOG(THREAD, LOG_INTERP, 1, "\t==dynamo_thread_exit\n");
     else if (dcontext->next_tag == (app_pc)dynamorio_app_exit)
         LOG(THREAD, LOG_INTERP, 1, "\t==dynamorio_app_exit\n");
-    else if (dcontext->next_tag == (app_pc)dr_app_stop) {
+    else if (dcontext->next_tag == (app_pc)dr_app_stop)
         LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop\n");
-    }
+    else if (dcontext->next_tag == (app_pc)dr_app_stop_and_cleanup)
+        LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop_and_cleanup\n");
 #  endif
 # endif
 
-    dynamo_thread_not_under_dynamo(dcontext);
+    /* XXX i#95: should we add an instrument_thread_detach_event()? */
+
+#ifdef DR_APP_EXPORTS
+    /* not_under will be called by dynamo_shared_exit so skip it here. */
+    if (dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup)
+#endif
+        dynamo_thread_not_under_dynamo(dcontext);
+    dcontext->go_native = false;
 }
 #endif
 
@@ -734,7 +754,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
             LOG(THREAD, LOG_INTERP, 2, "hit post-sysenter hook while native\n");
             ASSERT(dcontext->currently_stopped);
             dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
-            dcontext->native_exec_postsyscall = vsyscall_syscall_end_pc;
+            dcontext->native_exec_postsyscall =
+                IF_UNIX_ELSE(vsyscall_sysenter_displaced_pc, vsyscall_syscall_end_pc);
         } else {
             ASSERT(dcontext->last_exit == get_starting_linkstub() ||
                    /* The start/stop API will set this linkstub. */
@@ -1266,8 +1287,14 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         return;
     }
     else if (dcontext->last_exit == get_reset_linkstub()) {
-        LOG(THREAD, LOG_DISPATCH, 2, "Exit due to proactive reset\n");
-        STATS_INC(num_exits_reset);
+        LOG(THREAD, LOG_DISPATCH, 2, "Exit due to %s\n",
+            dcontext->go_native ? "request to go native" : "proactive reset");
+        DOSTATS({
+            if (dcontext->go_native)
+                STATS_INC(num_exits_native);
+            else
+                STATS_INC(num_exits_reset);
+        });
         KSWITCH_STOP_NOT_PROPAGATED(fcache_default);
         return;
     }
@@ -2167,7 +2194,7 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
      * what may have been there before, for both new dcontext and reuse dcontext
      * options.
      */
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       using_initstack ? &initstack_mutex : NULL,
                       false/*do not return on error*/);
     ASSERT_NOT_REACHED();

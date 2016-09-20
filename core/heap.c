@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -111,7 +111,7 @@ static const uint BLOCK_SIZES[] = {
     24, /* fcache empties and vm_area_t are now 20, vm area extras still 24 */
     ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT), /* 40 dbg / 36 rel */
 #if defined(X64) || defined(CUSTOM_EXIT_STUBS)
-    sizeof(instr_t), /* 64 (104 x64) */
+    sizeof(instr_t), /* 64 (96 x64) */
     sizeof(fragment_t) + sizeof(direct_linkstub_t)
         + sizeof(cbr_fallthrough_linkstub_t), /* 68 dbg / 64 rel, 112 x64 */
     /* all other bb/trace buckets are 8 larger but in same order */
@@ -1405,8 +1405,7 @@ vmm_heap_exit()
                 VMM_BLOCK_SIZE;
             uint unfreed_blocks = perstack * 1 /* initstack */ +
                 /* current stack */
-                perstack * ((IF_WINDOWS_ELSE(doing_detach, false)
-                             IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
+                perstack * ((doing_detach IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
             /* FIXME: on detach arch_thread_exit should explicitly mark as
                left behind all TPCs needed so then we can assert even for
                detach

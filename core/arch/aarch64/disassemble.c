@@ -39,6 +39,26 @@
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
+static const char * const pred_names[] = {
+    "",   /* DR_PRED_NONE */
+    "eq", /* DR_PRED_EQ */
+    "ne", /* DR_PRED_NE */
+    "cs", /* DR_PRED_CS */
+    "cc", /* DR_PRED_CC */
+    "mi", /* DR_PRED_MI */
+    "pl", /* DR_PRED_PL */
+    "vs", /* DR_PRED_VS */
+    "vc", /* DR_PRED_VC */
+    "hi", /* DR_PRED_HI */
+    "ls", /* DR_PRED_LS */
+    "ge", /* DR_PRED_GE */
+    "lt", /* DR_PRED_LT */
+    "gt", /* DR_PRED_GT */
+    "le", /* DR_PRED_LE */
+    "al", /* DR_PRED_AL */
+    "nv", /* DR_PRED_NV */
+};
+
 int
 print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
                       byte *pc, byte *next_pc, instr_t *instr)
@@ -55,16 +75,52 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
 
+static const char *
+shift_name(dr_shift_type_t shift)
+{
+    static const char * const names[] = { "lsl", "lsr", "asr", "ror" };
+    int i = shift;
+    return (0 <= i && i < sizeof(names) / sizeof(*names) ?
+            names[i] : "<UNKNOWN SHIFT>");
+}
+
+static const char *
+extend_name(dr_extend_type_t extend)
+{
+    static const char * const names[] = { "uxtb", "uxth", "uxtw", "uxtx",
+                                          "sxtb", "sxth", "sxtw", "sxtx" };
+    int i = extend;
+    return (0 <= i && i < sizeof(names) / sizeof(*names) ?
+            names[i] : "<UNKNOWN EXTENSION>");
+}
+
 void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    bool scaled;
+    uint amount;
+    dr_extend_type_t extend = opnd_get_index_extend(opnd, &scaled, &amount);
+    const char *name = extend_name(extend);
+    if (scaled)
+        print_to_buffer(buf, bufsz, sofar, ",%s #%d", name, amount);
+    else if (extend != DR_EXTEND_UXTX)
+        print_to_buffer(buf, bufsz, sofar, ",%s", name);
 }
 
 bool
 opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
+    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
+        dr_shift_type_t t = (dr_shift_type_t)opnd_get_immed_int(opnd);
+        print_to_buffer(buf, bufsz, sofar, "%s", shift_name(t));
+        return true;
+    }
+    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_EXTEND, opnd_get_flags(opnd))) {
+        dr_extend_type_t t = (dr_extend_type_t)opnd_get_immed_int(opnd);
+        print_to_buffer(buf, bufsz, sofar, "%s", extend_name(t));
+        return true;
+    }
     return false;
 }
 
@@ -88,7 +144,12 @@ void
 print_opcode_name(instr_t *instr, const char *name,
                   char *buf, size_t bufsz, size_t *sofar INOUT)
 {
-    print_to_buffer(buf, bufsz, sofar, "%s", name);
+    if (instr_get_opcode(instr) == OP_bcond) {
+        print_to_buffer(buf, bufsz, sofar, "b.%s",
+                        pred_names[instr_get_predicate(instr)]);
+    }
+    else
+        print_to_buffer(buf, bufsz, sofar, "%s", name);
 }
 
 #endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */

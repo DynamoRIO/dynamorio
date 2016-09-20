@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -442,6 +442,18 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 os_tls->tls_type = TLS_TYPE_ARCH_PRCTL;
                 LOG(GLOBAL, LOG_THREADS, 1,
                     "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
+                res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_GET_GS, &cur_gs);
+                if (res >= 0 && cur_gs != segment) {
+                    /* FIXME i#1896: handle WSL where ARCH_GET_GS is broken and
+                     * does not return the true value.  (Plus, fs and gs start
+                     * out equal to ss (0x2b) and are not set by ARCH_SET_*).
+                     * For now we identify and abort.
+                     */
+                    SYSLOG(SYSLOG_ERROR, WSL_UNSUPPORTED, 2,
+                           get_application_name(), get_application_pid());
+                    os_terminate(NULL, TERMINATE_PROCESS);
+                    ASSERT_NOT_REACHED();
+                }
                 /* Kernel should have written %gs for us if using GDT */
                 if (!dynamo_initialized && read_thread_register(SEG_TLS) == 0) {
                     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: using MSR\n");

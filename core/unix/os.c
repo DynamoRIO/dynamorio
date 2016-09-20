@@ -121,15 +121,17 @@ struct compat_rlimit {
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
 #if defined(AARCH64)
+# define ASM_R2 "x2"
 # define ASM_R3 "x3"
-# define READ_TP_TO_R3 \
+# define READ_TP_TO_R3_DISP_IN_R2 \
       "mrs "ASM_R3", tpidr_el0\n\t" \
-      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
+      "ldr "ASM_R3", ["ASM_R3", "ASM_R2"] \n\t"
 #elif defined(ARM)
+# define ASM_R2 "r2"
 # define ASM_R3 "r3"
-# define READ_TP_TO_R3 \
+# define READ_TP_TO_R3_DISP_IN_R2 \
       "mrc p15, 0, "ASM_R3", c13, c0, "STRINGIFY(USR_TLS_REG_OPCODE)" \n\t" \
-      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(DR_TLS_BASE_OFFSET)"] \n\t"
+      "ldr "ASM_R3", ["ASM_R3", "ASM_R2"] \n\t"
 #endif /* ARM */
 
 /* Prototype for all functions in .init_array. */
@@ -672,13 +674,19 @@ our_init(int argc, char **argv, char **envp)
     } else {
         our_environ = envp;
     }
+#if defined(ANDROID) && defined(STATIC_LIBRARY)
+    /* The Android loader does not pass envp. */
+    our_environ = environ;
+#endif
     /* if using preload, no -early_inject */
+#ifdef STATIC_LIBRARY
     if (!takeover) {
         const char *takeover_env = getenv("DYNAMORIO_TAKEOVER_IN_INIT");
         if (takeover_env != NULL && strcmp(takeover_env, "1") == 0) {
             takeover = true;
         }
     }
+#endif
     if (takeover) {
         if (dynamorio_app_init() == 0 /* success */) {
             dynamorio_app_take_over();
@@ -868,6 +876,14 @@ os_init(void)
 #ifdef LINUX
     if (DYNAMO_OPTION(emulate_brk))
         init_emulated_brk(NULL);
+#endif
+
+#ifdef ANDROID
+    /* This must be set up earlier than privload_tls_init, and must be set up
+     * for non-client-interface as well, as this initializes DR_TLS_BASE_OFFSET
+     * (i#1931).
+     */
+    init_android_version();
 #endif
 }
 
@@ -1328,36 +1344,53 @@ os_timeout(int time_in_milliseconds)
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
 #elif defined(AARCHXX)
-# define WRITE_TLS_SLOT_IMM(imm, var) \
-    __asm__ __volatile__(             \
-      READ_TP_TO_R3                   \
-      "str %0, ["ASM_R3", %1] \n\t"   \
-      : : "r" (var), "i" (imm)        \
-      : "memory", ASM_R3);
-# define READ_TLS_SLOT_IMM(imm, var) \
-    __asm__ __volatile__(            \
-      READ_TP_TO_R3                  \
-      "ldr %0, ["ASM_R3", %1] \n\t"  \
-      : "=r" (var)                   \
-      : "i" (imm)                    \
-      : ASM_R3);
+/* Android needs indirection through a global.  The Android toolchain has
+ * trouble with relocations if we use a global directly in asm, so we convert to
+ * a local variable in these macros.  We pay the cost of the extra instructions
+ * for Linux ARM to share the code.
+ */
+# define WRITE_TLS_SLOT_IMM(imm, var) do {       \
+    uint _base_offs = DR_TLS_BASE_OFFSET;        \
+    __asm__ __volatile__(                        \
+      "mov "ASM_R2", %0 \n\t"                    \
+      READ_TP_TO_R3_DISP_IN_R2                   \
+      "str %1, ["ASM_R3", %2] \n\t"              \
+      : : "r" (_base_offs), "r" (var), "i" (imm) \
+      : "memory", ASM_R2, ASM_R3);               \
+} while (0)
+# define READ_TLS_SLOT_IMM(imm, var) do { \
+    uint _base_offs = DR_TLS_BASE_OFFSET; \
+    __asm__ __volatile__(                 \
+      "mov "ASM_R2", %1 \n\t"             \
+      READ_TP_TO_R3_DISP_IN_R2            \
+      "ldr %0, ["ASM_R3", %2] \n\t"       \
+      : "=r" (var)                        \
+      : "r" (_base_offs), "i" (imm)       \
+      : ASM_R2, ASM_R3);                  \
+} while (0)
 # define WRITE_TLS_INT_SLOT_IMM WRITE_TLS_SLOT_IMM /* b/c 32-bit */
 # define READ_TLS_INT_SLOT_IMM READ_TLS_SLOT_IMM /* b/c 32-bit */
-# define WRITE_TLS_SLOT(offs, var)           \
-    __asm__ __volatile__(                    \
-      READ_TP_TO_R3                          \
-      "add "ASM_R3", "ASM_R3", %1 \n\t"      \
-      "str %0, ["ASM_R3"]   \n\t"            \
-      : : "r" (var), "r" (offs)              \
-      : "memory", ASM_R3);
-# define READ_TLS_SLOT(offs, var)         \
+# define WRITE_TLS_SLOT(offs, var) do {           \
+    uint _base_offs = DR_TLS_BASE_OFFSET;         \
+    __asm__ __volatile__(                         \
+      "mov "ASM_R2", %0 \n\t"                     \
+      READ_TP_TO_R3_DISP_IN_R2                    \
+      "add "ASM_R3", "ASM_R3", %2 \n\t"           \
+      "str %1, ["ASM_R3"]   \n\t"                 \
+      : : "r" (_base_offs), "r" (var), "r" (offs) \
+      : "memory", ASM_R2, ASM_R3);                \
+} while (0)
+# define READ_TLS_SLOT(offs, var) do {    \
+    uint _base_offs = DR_TLS_BASE_OFFSET; \
     __asm__ __volatile__(                 \
-      READ_TP_TO_R3                       \
-      "add "ASM_R3", "ASM_R3", %1 \n\t"   \
+      "mov "ASM_R2", %1 \n\t"             \
+      READ_TP_TO_R3_DISP_IN_R2            \
+      "add "ASM_R3", "ASM_R3", %2 \n\t"   \
       "ldr %0, ["ASM_R3"]   \n\t"         \
       : "=r" (var)                        \
-      : "r"  (offs)                       \
-      : ASM_R3);
+      : "r" (_base_offs), "r"  (offs)     \
+      : ASM_R2, ASM_R3);                  \
+} while (0)
 #endif /* X86/ARM */
 
 /* FIXME: on X86, we assume that DR's thread register is not already in use by app */
@@ -1365,7 +1398,9 @@ static bool
 is_thread_tls_initialized(void)
 {
 #ifdef X86
-    if (read_thread_register(SEG_TLS) != 0)
+    ptr_uint_t cur_seg = read_thread_register(SEG_TLS);
+    /* Handle WSL (i#1896) where fs and gs start out equal to ss (0x2b) */
+    if (cur_seg != 0 && cur_seg != read_thread_register(SEG_SS))
         return true;
 # ifdef X64
     if (tls_dr_using_msr()) {
@@ -1803,6 +1838,33 @@ os_tls_init(void)
     ASSERT(is_thread_tls_initialized());
 }
 
+/* TLS exit for the current thread who must own local_state. */
+void
+os_tls_thread_exit(local_state_t *local_state)
+{
+#ifdef HAVE_TLS
+    /* We assume (assert below) that local_state_t's start == local_state_extended_t */
+    os_local_state_t *os_tls = (os_local_state_t *)
+        (((byte*)local_state) - offsetof(os_local_state_t, state));
+    tls_type_t tls_type = os_tls->tls_type;
+    int index = os_tls->ldt_index;
+    ASSERT(offsetof(local_state_t, spill_space) ==
+           offsetof(local_state_extended_t, spill_space));
+
+    tls_thread_free(tls_type, index);
+
+# if defined(X86) && defined(X64)
+    if (tls_type == TLS_TYPE_ARCH_PRCTL) {
+        /* syscall re-sets gs register so re-clear it */
+        if (read_thread_register(SEG_TLS) != 0) {
+            static const ptr_uint_t zero = 0;
+            WRITE_DR_SEG(zero); /* macro needs lvalue! */
+        }
+    }
+# endif
+#endif
+}
+
 /* Frees local_state.  If the calling thread is exiting (i.e.,
  * !other_thread) then also frees kernel resources for the calling
  * thread; if other_thread then that may not be possible.
@@ -1818,9 +1880,6 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
     os_local_state_t *os_tls = (os_local_state_t *)
         (((byte*)local_state) - offsetof(os_local_state_t, state));
-    tls_type_t tls_type = os_tls->tls_type;
-    int index = os_tls->ldt_index;
-
 # ifdef X86
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
@@ -1832,20 +1891,10 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
 
     /* For another thread we can't really make these syscalls so we have to
      * leave it un-cleaned-up.  That's fine if the other thread is exiting:
-     * but if we have a detach feature (i#95) we'll have to get the other
-     * thread to run this code.
+     * but for detach (i#95) we get the other thread to run this code.
      */
-    if (!other_thread) {
-        tls_thread_free(tls_type, index);
-# if defined(X86) && defined(X64)
-        if (tls_type == TLS_TYPE_ARCH_PRCTL) {
-            /* syscall re-sets gs register so re-clear it */
-            if (read_thread_register(SEG_TLS) != 0) {
-                WRITE_DR_SEG(zero); /* macro needs lvalue! */
-            }
-        }
-# endif
-    }
+    if (!other_thread)
+        os_tls_thread_exit(local_state);
 
     /* We can't free prior to tls_thread_free() in case that routine refs os_tls */
     heap_munmap(os_tls->self, PAGE_SIZE);
@@ -1958,6 +2007,7 @@ os_thread_init(dcontext_t *dcontext)
     ksynch_init_var(&ostd->wakeup);
     ksynch_init_var(&ostd->resumed);
     ksynch_init_var(&ostd->terminated);
+    ksynch_init_var(&ostd->detached);
 
 #ifdef RETURN_AFTER_CALL
     /* We only need the stack bottom for the initial thread, and due to thread
@@ -2027,6 +2077,7 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
     ksynch_free_var(&ostd->wakeup);
     ksynch_free_var(&ostd->resumed);
     ksynch_free_var(&ostd->terminated);
+    ksynch_free_var(&ostd->detached);
 
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
@@ -2237,6 +2288,24 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
 {
     stop_itimer(dcontext);
     os_swap_context(dcontext, true/*to app*/, DR_STATE_ALL);
+}
+
+bool
+detach_do_not_translate(thread_record_t *tr)
+{
+    return false;
+}
+
+void
+detach_finalize_translation(thread_record_t *tr, priv_mcontext_t *mc)
+{
+    /* Nothing to do. */
+}
+
+void
+detach_finalize_cleanup(void)
+{
+    /* Nothing to do. */
 }
 
 static pid_t
@@ -3141,6 +3210,9 @@ os_thread_terminate(thread_record_t *tr)
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
     ostd->terminate = true;
+    /* Even if the thread is currently suspended, it's simpler to send it
+     * another signal than to resume it.
+     */
     return known_thread_signal(tr, SUSPEND_SIGNAL);
 }
 
@@ -3152,21 +3224,35 @@ is_thread_terminated(dcontext_t *dcontext)
     return (ksynch_get_value(&ostd->terminated) == 1);
 }
 
+static void
+os_wait_thread_futex(KSYNCH_TYPE *var)
+{
+    while (ksynch_get_value(var) == 0) {
+        /* On Linux, waits only if var is not set as 1. Return value
+         * doesn't matter because var will be re-checked.
+         */
+        ksynch_wait(var, 0);
+        if (ksynch_get_value(var) == 0) {
+            /* If it still has to wait, give up the cpu. */
+            os_thread_yield();
+        }
+    }
+}
+
 void
 os_wait_thread_terminated(dcontext_t *dcontext)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     ASSERT(ostd != NULL);
-    while (ksynch_get_value(&ostd->terminated) == 0) {
-        /* On Linux, waits only if the terminated flag is not set as 1. Return value
-         * doesn't matter because the flag will be re-checked.
-         */
-        ksynch_wait(&ostd->terminated, 0);
-        if (ksynch_get_value(&ostd->terminated) == 0) {
-            /* If it still has to wait, give up the cpu. */
-            os_thread_yield();
-        }
-    }
+    os_wait_thread_futex(&ostd->terminated);
+}
+
+void
+os_wait_thread_detached(dcontext_t *dcontext)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+    ASSERT(ostd != NULL);
+    os_wait_thread_futex(&ostd->detached);
 }
 
 bool
@@ -9132,7 +9218,13 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     }
     for (i = 0; i < num_threads; i++) {
         thread_record_t *tr = thread_lookup(tids[i]);
-        if (tr == NULL)
+        if (tr == NULL ||
+            /* Re-takeover known threads that are currently native as well.
+             * XXX i#95: we need a synchall-style loop for known threads as
+             * they can be in DR for syscall hook handling.
+             */
+            (is_thread_currently_native(tr)
+             IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(tr->dcontext))))
             tids[threads_to_signal++] = tids[i];
     }
 
@@ -9201,7 +9293,6 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 void
 os_thread_take_over(priv_mcontext_t *mc)
 {
-    int r;
     uint i;
     thread_id_t mytid;
     dcontext_t *dcontext;
@@ -9215,11 +9306,18 @@ os_thread_take_over(priv_mcontext_t *mc)
      * create_clone_record and new_thread_setup, except we're not putting a
      * clone record on the dstack.
      */
-    r = dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
-    ASSERT(r == SUCCESS);
-    dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
-    share_siginfo_after_take_over(dcontext, takeover_dcontext);
+    if (!is_thread_initialized()) {
+        IF_DEBUG(int r =)
+            dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
+        ASSERT(r == SUCCESS);
+        dcontext = get_thread_private_dcontext();
+        ASSERT(dcontext != NULL);
+        share_siginfo_after_take_over(dcontext, takeover_dcontext);
+    } else {
+        /* Re-takeover a thread that we let go native */
+        dcontext = get_thread_private_dcontext();
+        ASSERT(dcontext != NULL);
+    }
     dynamo_thread_under_dynamo(dcontext);
     dc_mc = get_mcontext(dcontext);
     *dc_mc = *mc;
@@ -9247,7 +9345,7 @@ os_thread_take_over(priv_mcontext_t *mc)
     });
 
     /* Start interpreting from the signal context. */
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }

@@ -136,8 +136,8 @@ static byte *
 emit_takeover_code(byte *pc);
 
 /* For detach */
-bool init_apc_go_native = false;
-bool init_apc_go_native_pause = false;
+volatile bool init_apc_go_native = false;
+volatile bool init_apc_go_native_pause = false;
 
 /* overridden by dr_preinjected, or retakeover_after_native() */
 static retakeover_point_t interception_point = INTERCEPT_PREINJECT;
@@ -3065,7 +3065,7 @@ intercept_new_thread(CONTEXT *cxt)
     /* init apc, check init_apc_go_native to sync w/detach */
     if (init_apc_go_native) {
         /* need to wait after checking _go_native to avoid a thread
-         * going native to early because of races between setting
+         * going native too early because of races between setting
          * _go_native and _pause */
         if (init_apc_go_native_pause) {
             /* FIXME : this along with any other logging in this
@@ -3116,7 +3116,7 @@ intercept_new_thread(CONTEXT *cxt)
         if (is_client) {
             ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP));
             /* PR 210591: hide our threads from DllMain by not executing rest
-             * of Ldr init code and going straight to target.  create_thread()
+             * of Ldr init code and going straight to target.  our_create_thread()
              * already set up the arg in cxt.
              */
             nt_continue(cxt);
@@ -4988,7 +4988,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
                  * own gencode.  client_exception_event() won't return if client
                  * wants to re-execute faulting instr.
                  */
-                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                if (CLIENTS_EXIST()) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(raw_mcontext, cxt);
                     client_exception_event(dcontext, cxt, pExcptRec, raw_mcontext, NULL);
@@ -5319,7 +5319,7 @@ intercept_exception(app_state_at_intercept_t *state)
         });
 
 #ifdef CLIENT_INTERFACE
-        if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
+        if (CLIENTS_EXIST() &&
             is_in_client_lib(pExcptRec->ExceptionAddress)) {
             /* i#1354: client might fault touching a code page we made read-only.
              * If so, just re-execute post-page-prot-change (MOD_CODE_APP_CXT), if
@@ -5439,7 +5439,7 @@ intercept_exception(app_state_at_intercept_t *state)
             if (!takeover) {
 #ifdef CLIENT_INTERFACE
                 /* -probe_api client should get exception events too */
-                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                if (CLIENTS_EXIST()) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(&raw_mcontext, cxt);
                     client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
@@ -5558,7 +5558,7 @@ intercept_exception(app_state_at_intercept_t *state)
             /* remember faulting pc */
             faulting_pc = (cache_pc) pExcptRec->ExceptionAddress;
 #ifdef CLIENT_INTERFACE
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 /* i#182/PR 449996: we provide the pre-translation context */
                 context_to_mcontext(&raw_mcontext, cxt);
             }
@@ -5681,7 +5681,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
 #ifdef CLIENT_INTERFACE
             /* Inform client of exceptions */
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
             }
 #endif
@@ -5715,7 +5715,7 @@ intercept_exception(app_state_at_intercept_t *state)
             });
 #ifdef CLIENT_INTERFACE
             /* Inform client of forged exceptions (i#1775) */
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 /* raw_mcontext equals mcontext */
                 context_to_mcontext(&raw_mcontext, cxt);
                 client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, NULL);
@@ -8017,7 +8017,7 @@ enum {
  *   0:000> dds 12fdb4
  *   0012fdb4  0012fe2c
  *   0012fdb8  77f3b744 KERNEL32!_except_handler3
- *   0012fdbc  77f3d308 KERNEL32!ntdll_NULL_THUNK_DATA+0xebc
+ *   0012fdbc  77f3d308 KERNEL32!ntdll_NULL_THUNK_DATA+0xebc
  *
  *   and the handler is the instr after the push immed:
  *   0:000> dds 77f3d308

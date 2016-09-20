@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -29,8 +29,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-
-/* Don't link against libc so we can pass with STATIC_LIBRARY. */
 
 #include "configure.h"
 

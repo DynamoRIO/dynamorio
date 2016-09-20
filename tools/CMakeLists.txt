@@ -35,6 +35,7 @@ add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
   add_executable(runstats runstats.c)
+  copy_target_to_device(runstats)
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)

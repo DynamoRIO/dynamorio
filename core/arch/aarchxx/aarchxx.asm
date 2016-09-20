@@ -89,12 +89,12 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 #endif /* UNIX */
 
-/* we need to call futex_wakeall without using any stack, to support
- * THREAD_SYNCH_TERMINATED_AND_CLEANED.
- * takes int* futex in r0.
+/* We need to call futex_wakeall without using any stack.
+ * Takes KSYNCH_TYPE* in r0 and the post-syscall jump target in r1.
  */
-        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
-GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
+        DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
+GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
+        mov      REG_R12, REG_R1 /* save across syscall */
         mov      REG_R5, #0 /* arg6 */
         mov      REG_R4, #0 /* arg5 */
         mov      REG_R3, #0 /* arg4 */
@@ -107,7 +107,7 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
         mov      r7, #240 /* SYS_futex */
 #endif
         svc      #0
-        b        GLOBAL_REF(dynamorio_sys_exit)
-        END_FUNC(dynamorio_futex_wake_and_exit)
+        INDJMP   REG_R12
+        END_FUNC(dynamorio_condvar_wake_and_jmp)
 
 END_FILE

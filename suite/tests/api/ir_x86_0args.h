@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,6 +54,7 @@ OPCODE(lfence, lfence, lfence, 0)
 OPCODE(mfence, mfence, mfence, 0)
 OPCODE(sfence, sfence, sfence, 0)
 OPCODE(nop, nop, nop, 0)
+XOPCODE(x_nop, nop, nop, 0)
 OPCODE(pause, pause, pause, 0)
 OPCODE(fnop, fnop, fnop, 0)
 OPCODE(fdecstp, fdecstp, fdecstp, 0)
@@ -110,12 +111,14 @@ OPCODE(fprem, fprem, fprem, 0)
 OPCODE(fprem1, fprem1, fprem1, 0)
 OPCODE(popf, popf, popf, 0)
 OPCODE(ret, ret, ret, 0)
+XOPCODE(return, ret, return, 0)
 OPCODE(ret_far, ret_far, ret_far, 0)
 OPCODE(iret, iret, iret, 0)
 OPCODE(rdtsc, rdtsc, rdtsc, 0)
 OPCODE(cdq, cdq, cdq, 0)
 OPCODE(pushf, pushf, pushf, 0)
 OPCODE(int3, int3, int3, 0)
+XOPCODE(debug_instr, int3, debug_instr, 0)
 OPCODE(into, into, into, X86_ONLY)
 OPCODE(rdmsr, rdmsr, rdmsr, 0)
 OPCODE(rdpmc, rdpmc, rdpmc, 0)

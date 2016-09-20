@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -103,6 +103,8 @@ OPCODE(pop, pop, pop, 0, MEMARG(OPSZ_4x8))
 OPCODE(push, push, push, 0, MEMARG(OPSZ_4x8))
 OPCODE(cmpxchg8b, cmpxchg8b, cmpxchg8b, 0, MEMARG(OPSZ_8))
 OPCODE(jmp_ind, jmp_ind, jmp_ind, 0, MEMARG(OPSZ_4x8))
+XOPCODE(jump_mem, jmp_ind, jump_mem, 0, MEMARG(OPSZ_4x8))
+XOPCODE(jump_reg, jmp_ind, jump_reg, 0, REGARG(XAX))
 OPCODE(call_ind, call_ind, call_ind, 0, MEMARG(OPSZ_4x8))
 OPCODE(vmptrst, vmptrst, vmptrst, X64_ONLY, MEMARG(OPSZ_8))
 OPCODE(vmptrld, vmptrld, vmptrld, X64_ONLY, MEMARG(OPSZ_8))
@@ -128,6 +130,7 @@ OPCODE(ret_imm, ret, ret_imm, 0, IMMARG(OPSZ_2))
 OPCODE(ret_far_imm, ret_far, ret_far_imm, 0, IMMARG(OPSZ_2))
 OPCODE(push_imm, push_imm, push_imm, 0, IMMARG(OPSZ_4))
 OPCODE(int, int, int, 0, IMMARG(OPSZ_1))
+XOPCODE(interrupt, int, interrupt, 0, IMMARG(OPSZ_1))
 OPCODE(xabort, xabort, xabort, 0, IMMARG(OPSZ_1))
 
 /****************************************************************************/
@@ -160,7 +163,9 @@ OPCODE(wrgsbase, wrgsbase, wrgsbase, X64_ONLY, REGARG(EBX))
 /* single pc/instr argument */
 
 OPCODE(jmp, jmp, jmp, 0, TGTARG)
+XOPCODE(jump, jmp, jump, 0, TGTARG)
 OPCODE(jmp_short, jmp_short, jmp_short, 0, TGTARG)
+XOPCODE(jump_short, jmp_short, jump_short, 0, TGTARG)
 OPCODE(jecxz, jecxz, jecxz, 0, TGTARG)
 OPCODE(jcxz, jcxz, jcxz, X86_ONLY, TGTARG)
 OPCODE(loopne, loopne, loopne, 0, TGTARG)
@@ -169,6 +174,7 @@ OPCODE(loop, loop, loop, 0, TGTARG)
 OPCODE(jmp_far, jmp_far, jmp_far, X86_ONLY, opnd_create_far_pc(0x1234, 0))
 OPCODE(jmp_far_ind, jmp_far_ind, jmp_far_ind, 0, MEMARG(OPSZ_6))
 OPCODE(call, call, call, 0, TGTARG)
+XOPCODE(x_call, call, call, 0, TGTARG)
 OPCODE(call_far, call_far, call_far, X86_ONLY, opnd_create_far_pc(0x1234, 0))
 OPCODE(call_far_ind, call_far_ind, call_far_ind, 0, MEMARG(OPSZ_6))
 OPCODE(xbegin, xbegin, xbegin, 0, TGTARG)

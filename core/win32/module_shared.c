@@ -906,7 +906,7 @@ get_ldr_data_64(void)
  * holds the x64 loader lock.
  */
 static bool
-get_ldr_module_64(wchar_t *name, uint64 base, LDR_MODULE_64 *out)
+get_ldr_module_64(const wchar_t *name, uint64 base, LDR_MODULE_64 *out)
 {
     /* Be careful: we can't directly de-ref any ptrs b/c they can be >4GB */
     uint64 ldr_addr = get_ldr_data_64();
@@ -975,7 +975,7 @@ get_ldr_module_64(wchar_t *name, uint64 base, LDR_MODULE_64 *out)
  * to synchronize and avoid calling while the app holds the x64 loader lock.
  */
 uint64
-get_module_handle_64(wchar_t *name)
+get_module_handle_64(const wchar_t *name)
 {
     /* Be careful: we can't directly de-ref any ptrs b/c they can be >4GB */
     LDR_MODULE_64 mod;

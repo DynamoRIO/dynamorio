@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,36 +30,42 @@
  * DAMAGE.
  */
 
-/* This is the data format that the simulator takes as input */
+/* Ensures that static DR can operate with no client at all */
 
-#ifndef _MEMREF_H_
-#define _MEMREF_H_ 1
+#include "configure.h"
+#include "dr_api.h"
+#include "tools.h"
+#include <math.h>
 
-#include <stdint.h>
-#include <stddef.h> // for size_t
-#include "../common/trace_entry.h"
+static int
+do_some_work(int seed)
+{
+    static int iters = 8192;
+    int i;
+    double val = seed;
+    for (i = 0; i < iters; ++i) {
+        val += sin(val);
+    }
+    return (val > 0);
+}
 
-// On some platforms, like MacOS, a thread id is 64 bits.
-// We just make both 64 bits to cover all our bases.
-typedef int_least64_t memref_pid_t;
-typedef int_least64_t memref_tid_t;
+int
+main(int argc, const char *argv[])
+{
+    print("pre-DR init\n");
+    dr_app_setup();
+    assert(!dr_app_running_under_dynamorio());
 
-typedef struct _memref_t {
-    memref_pid_t pid;
-    memref_tid_t tid;
-    unsigned short type; // trace_type_t
+    print("pre-DR start\n");
+    dr_app_start();
+    assert(dr_app_running_under_dynamorio());
 
-    // Fields below are here at not valid for TRACE_TYPE_THREAD_EXIT.
+    if (do_some_work(argc) < 0)
+        print("error in computation\n");
 
-    size_t size;
-    addr_t addr;
-
-    // The pc field is only used for read, write, and prefetch entries.
-    // XXX: should we remove it from here and have the simulator compute it
-    // from instr entries?  Though if the user turns off icache simulation
-    // it may be better to keep it as a field here and have the reader
-    // fill it in for us.
-    addr_t pc;
-} memref_t;
-
-#endif /* _MEMREF_H_ */
+    print("pre-DR stop\n");
+    dr_app_stop();
+    dr_app_cleanup();
+    print("all done\n");
+    return 0;
+}

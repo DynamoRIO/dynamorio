@@ -168,3 +168,17 @@ function (DynamoRIO_copy_target_to_device target device_base_dir)
     COMMAND ${ADB} push ${abspath} ${device_base_dir}/${builddir}/${relpath}
     VERBATIM)
 endfunction (DynamoRIO_copy_target_to_device)
+
+# On Linux, the individual object files contained by an archive are
+# garbage collected by the linker if they are not referenced.  To avoid
+# this, we have to use the --whole-archive option with ld.
+function(DynamoRIO_force_static_link target lib)
+  if (UNIX)
+    # CMake ignores libraries starting with '-' and preserves the
+    # ordering, so we can pass flags through target_link_libraries, which
+    # ensures we have the right CMake dependencies.
+    target_link_libraries(${target} -Wl,--whole-archive ${lib} -Wl,--no-whole-archive)
+  else ()
+    target_link_libraries(${target} ${lib})
+  endif ()
+endfunction(DynamoRIO_force_static_link)

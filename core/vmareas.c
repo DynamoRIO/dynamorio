@@ -2695,8 +2695,7 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
         if (TEST(FRAG_COARSE_GRAIN, frag_flags) && DYNAMO_OPTION(use_persisted) &&
             info == NULL
             /* if clients are present, don't load until after they're initialized */
-            IF_CLIENT_INTERFACE(&& (dynamo_initialized ||
-                                    IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)))) {
+            IF_CLIENT_INTERFACE(&& (dynamo_initialized || !CLIENTS_EXIST()))) {
             info = vm_area_load_coarse_unit(&start, &end, vm_flags, frag_flags, false
                                             _IF_DEBUG(comment));
         }
@@ -2795,7 +2794,7 @@ vm_area_delay_load_coarse_units(void)
     ASSERT(!dynamo_initialized);
     if (!DYNAMO_OPTION(use_persisted) ||
         /* we already loaded if there's no client */
-        IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
+        !CLIENTS_EXIST())
         return;
     write_lock(&executable_areas->lock);
     for (i = 0; i < executable_areas->length; i++) {
@@ -4407,7 +4406,7 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
     /* Case 9712: Inform the client of the security violation and
      * give it a chance to modify the action.
      */
-    if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
         instrument_security_violation(dcontext, addr, violation_type, &action);
     }
 #endif

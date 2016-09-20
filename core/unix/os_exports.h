@@ -102,15 +102,27 @@
 #define TLS_REG_LIB  LIB_SEG_TLS  /* TLS reg commonly used by libraries in Linux */
 #define TLS_REG_ALT  SEG_TLS      /* spare TLS reg, used by DR in X86 Linux */
 
-#define DR_REG_SYSNUM IF_X86_ELSE(REG_EAX/* not XAX */, DR_REG_R7)
+#ifdef X86
+# define DR_REG_SYSNUM REG_EAX /* not XAX */
+#elif defined(ARM)
+# define DR_REG_SYSNUM DR_REG_R7
+#elif defined(AARCH64)
+# define DR_REG_SYSNUM DR_REG_X8
+#else
+# error NYI
+#endif
 
 #ifdef AARCHXX
 # ifdef ANDROID
-/* We have our own slot at the end of our instance of Android's pthread_internal_t */
+/* We have our own slot at the end of our instance of Android's pthread_internal_t.
+ * However, its offset varies by Android version, requiring indirection through
+ * a variable.
+ */
 #  ifdef AARCH64
 #   error NYI
 #  else
-#   define DR_TLS_BASE_OFFSET  1100
+extern uint android_tls_base_offs;
+#   define DR_TLS_BASE_OFFSET  android_tls_base_offs
 #  endif
 # else
 /* The TLS slot for DR's TLS base.
@@ -147,6 +159,7 @@ thread_id_t get_tls_thread_id(void);
 thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_wait_thread_terminated(dcontext_t *dcontext);
+void os_wait_thread_detached(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
 /* XXX: reg_id_t is not defined here, use ushort instead */
 ushort os_get_app_tls_base_offset(ushort/*reg_id_t*/ seg);

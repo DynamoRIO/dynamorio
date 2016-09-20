@@ -166,6 +166,9 @@ extern int *wow64_index;
 #  define SYS_CONST const
 #endif
 extern int windows_unknown_syscalls[];
+extern SYS_CONST int windows_10_1607_x64_syscalls[];
+extern SYS_CONST int windows_10_1607_wow64_syscalls[];
+extern SYS_CONST int windows_10_1607_x86_syscalls[];
 extern SYS_CONST int windows_10_1511_x64_syscalls[];
 extern SYS_CONST int windows_10_1511_wow64_syscalls[];
 extern SYS_CONST int windows_10_1511_x86_syscalls[];
@@ -198,9 +201,6 @@ extern SYS_CONST uint syscall_argsz[];
 
 extern const char * SYS_CONST syscall_names[];
 
-extern bool init_apc_go_native_pause;
-extern bool init_apc_go_native;
-
 #ifdef DEBUG
 void check_syscall_array_sizes(void);
 #endif
@@ -212,7 +212,7 @@ enum {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, x11x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL
@@ -256,7 +256,11 @@ sys_param_addr(dcontext_t *dcontext, reg_t *param_base, int num)
     /* we force-inline get_mcontext() and so don't take it as a param */
     priv_mcontext_t *mc = get_mcontext(dcontext);
     switch (num) {
-    case 0: return &mc->xcx;
+    /* The first arg was in rcx, but that's clobbered by OP_sysycall, so the wrapper
+     * copies it to r10.  We need to use r10 as our own instru sometimes takes
+     * advantage of the dead rcx and clobbers it inside the wrapper (i#1901).
+     */
+    case 0: return &mc->r10;
     case 1: return &mc->xdx;
     case 2: return &mc->r8;
     case 3: return &mc->r9;

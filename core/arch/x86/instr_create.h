@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -315,7 +315,7 @@
  */
 #define XINST_CREATE_add(dc, d, s) \
   INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(d), \
-    opnd_is_reg(s) ? opnd_get_reg(s) : DR_REG_NULL, 1, \
+    opnd_is_reg(s) ? opnd_get_reg(s) : DR_REG_NULL, 0, \
     opnd_is_reg(s) ? 0 : (int)opnd_get_immed_int(s)))
 
 /**
@@ -331,7 +331,7 @@
  */
 #define XINST_CREATE_add_2src(dc, d, s1, s2) \
   INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(s1), \
-    opnd_is_reg(s2) ? opnd_get_reg(s2) : DR_REG_NULL, 1, \
+    opnd_is_reg(s2) ? opnd_get_reg(s2) : DR_REG_NULL, 0, \
     opnd_is_reg(s2) ? 0 : (int)opnd_get_immed_int(s2)))
 
 /**
@@ -362,7 +362,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub((dc), OP_subs, (d), (s))
+#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub((dc), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a bitwise and

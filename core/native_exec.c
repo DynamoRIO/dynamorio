@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -346,7 +346,7 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
             __FUNCTION__, dcontext->next_tag, cur_esp, mc->xsp);
     });
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }

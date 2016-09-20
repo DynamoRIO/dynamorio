@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -447,6 +447,10 @@ extern bool dynamo_exited_log_and_stats; /* are stats and logfile shut down? */
 #endif
 extern bool dynamo_resetting;    /* in middle of global reset? */
 extern bool dynamo_all_threads_synched; /* are all other threads suspended safely? */
+/* Not guarded by DR_APP_EXPORTS because later detach implementations might not
+ * go through the app interface.
+ */
+extern bool doing_detach;
 
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 extern bool standalone_library;  /* used as standalone library */
@@ -557,8 +561,8 @@ void dynamorio_take_over_threads(dcontext_t *dcontext);
 dr_statistics_t * get_dr_stats(void);
 
 /* functions needed by detach */
-int dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
-                       IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
+int dynamo_shared_exit(thread_record_t *toexit
+                       _IF_WINDOWS(bool detach_stacked_callbacks));
 /* perform exit tasks that require full thread data structs */
 void dynamo_process_exit_with_thread_info(void);
 /* thread cleanup prior to clean exit event */
@@ -1007,10 +1011,12 @@ struct _dcontext_t {
     bool post_syscall;
 # endif
 #endif
-    /* The start/stop APi doesn't change thread_record_t.under_dynamo_control,
+    /* The start/stop API doesn't change thread_record_t.under_dynamo_control,
      * but we need some indication so we add a custom field.
      */
     bool currently_stopped;
+    /* This is a flag requesting that this thread go native. */
+    bool go_native;
 };
 
 /* sentinel value for dcontext_t* used to indicate

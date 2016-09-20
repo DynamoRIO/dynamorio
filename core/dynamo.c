@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -813,7 +813,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
     signal_fork_init(dcontext);
 
 # ifdef CLIENT_INTERFACE
-    if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
         instrument_fork_init(dcontext);
     }
 # endif
@@ -916,8 +916,8 @@ dynamo_process_exit_with_thread_info(void)
 
 /* shared between app_exit and detach */
 int
-dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
-                   IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
+dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
+                   _IF_WINDOWS(bool detach_stacked_callbacks))
 {
     DEBUG_DECLARE(uint endtime);
     /* set this now, could already be set */
@@ -979,14 +979,23 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
         loader_thread_exit(get_thread_private_dcontext());
     loader_exit();
 
-#ifdef WINDOWS
     if (toexit != NULL) {
         /* free detaching thread's dcontext */
+#ifdef WINDOWS
+        /* If we use dynamo_thread_exit() when toexit is the current thread,
+         * it results in asserts in the win32.tls test, so we stick with this.
+         */
         mutex_lock(&thread_initexit_lock);
         dynamo_other_thread_exit(toexit, false);
         mutex_unlock(&thread_initexit_lock);
-    }
+#else
+        /* On Linux, restoring segment registers can only be done
+         * on the current thread, which must be toexit.
+         */
+        ASSERT(toexit->id == get_thread_id());
+        dynamo_thread_exit();
 #endif
+    }
 
     if (IF_WINDOWS_ELSE(!detach_stacked_callbacks, true)) {
         /* We don't fully free cur thread until after client exit event (PR 536058) */
@@ -1012,7 +1021,7 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
 #ifdef WINDOWS
 # ifdef CLIENT_INTERFACE
     /* for -private_loader we do this here to catch more exit-time crashes */
-    if (!INTERNAL_OPTION(noasynch) && INTERNAL_OPTION(private_loader))
+    if (!INTERNAL_OPTION(noasynch) && INTERNAL_OPTION(private_loader) && !doing_detach)
         callback_interception_unintercept();
 # endif
     /* callback_interception_exit must be after fragment exit for CLIENT_INTERFACE so
@@ -1218,7 +1227,8 @@ dynamo_process_exit_cleanup(void)
          * we do some thread cleanup early for the final thread so we can delay
          * the rest (PR 536058).  This is a little risky in that we
          * clean up dcontext->fragment_field, which is used for lots of
-         * things like couldbelinking.
+         * things like couldbelinking (and thus we have to disable some API
+         * routines in the thread exit event: i#1989).
          */
         dynamo_thread_exit_pre_client(get_thread_private_dcontext(), get_thread_id());
 
@@ -1238,8 +1248,8 @@ dynamo_process_exit_cleanup(void)
         unhook_vsyscall();
 #endif /* UNIX */
 
-        return dynamo_shared_exit(IF_WINDOWS_(NULL) /* not detaching */
-                                  IF_WINDOWS(false /* not detaching */));
+        return dynamo_shared_exit(NULL /* not detaching */
+                                  _IF_WINDOWS(false /* not detaching */));
     }
     return SUCCESS;
 }
@@ -1662,6 +1672,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
     /* We don't need to initialize dcontext->coarse_exit as it is only
      * read when last_exit indicates a coarse exit, which sets the fields.
      */
+    dcontext->go_native = false;
 }
 
 #ifdef WINDOWS
@@ -2581,6 +2592,7 @@ dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME" not initialized");
     LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread "TIDFMT"\n", get_thread_id());
+    LOG(THREAD_GET, LOG_TOP, 1, "dr_app_start\n");
 
     if (!INTERNAL_OPTION(nullcalls)) {
         /* Adjust the app stack to account for the return address + alignment.
@@ -2601,6 +2613,15 @@ dr_app_stop(void)
     /* the application regains control in here */
 }
 
+DR_APP_API void
+dr_app_stop_and_cleanup(void)
+{
+    if (dynamo_initialized && !dynamo_exited && !doing_detach) {
+        detach_on_permanent_stack(true/*internal*/, true/*do cleanup*/);
+    }
+    /* the application regains control in here */
+}
+
 DR_APP_API int
 dr_app_setup_and_start(void)
 {
@@ -2611,7 +2632,7 @@ dr_app_setup_and_start(void)
 }
 #endif
 
-/* For use by threads that start and stop whether dynamo controls them
+/* For use by threads that start and stop whether dynamo controls them.
  */
 void
 dynamo_thread_under_dynamo(dcontext_t *dcontext)
@@ -2628,13 +2649,12 @@ dynamo_thread_under_dynamo(dcontext_t *dcontext)
     }
 #endif
     dcontext->currently_stopped = false;
+    dcontext->go_native = false;
 }
 
 /* For use by threads that start and stop whether dynamo controls them.
  * This must be called by the owner of dcontext and not another
  * non-executing thread.
- * XXX i#95: for detach we'll need to send a signal and have the
- * target thread run this on its own (ditto for os_tls_exit()).
  */
 void
 dynamo_thread_not_under_dynamo(dcontext_t *dcontext)

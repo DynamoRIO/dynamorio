@@ -385,7 +385,7 @@ static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
                int pos, bool write)
 {
-    instr_t *instr, *call, *restore, *first, *second;
+    instr_t *instr, *call, *restore;
     opnd_t   ref, opnd1, opnd2;
     reg_id_t reg1, reg2;
     drvector_t allowed;
@@ -459,10 +459,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
      */
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, pc));
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) pc, opnd1,
-                                     ilist, where, &first, &second);
-    instr_set_meta(first);
-    if (second != NULL)
-        instr_set_meta(second);
+                                     ilist, where, NULL, NULL);
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);

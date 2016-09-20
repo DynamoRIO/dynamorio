@@ -311,7 +311,7 @@ module_list_remove(app_pc base, size_t view_size)
 #ifdef CLIENT_INTERFACE
     /* inform clients of module unloads, we copy the data now and wait to
      * call the client till after we've released the module areas lock */
-    if (!IS_STRING_OPTION_EMPTY(client_lib)
+    if (CLIENTS_EXIST()
         /* don't notify for drearlyhelper* or other during-init modules */
         && dynamo_initialized
         /* don't notify for modules that were not executed (i#884) */

@@ -627,7 +627,11 @@ get_platform(DWORD *platform)
         }
         else if (osinfo.dwMajorVersion == 10) {
             if (osinfo.dwMinorVersion == 0) {
-                if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateEnclave") != NULL)
+                if (GetProcAddress((HMODULE)ntdll_handle,
+                                   "NtCreateRegistryTransaction") != NULL)
+                    *platform = PLATFORM_WIN_10_1607;
+                else if (GetProcAddress((HMODULE)ntdll_handle,
+                                        "NtCreateEnclave") != NULL)
                     *platform = PLATFORM_WIN_10_1511;
                 else
                     *platform = PLATFORM_WIN_10;

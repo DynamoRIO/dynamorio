@@ -15,12 +15,12 @@ iters is 40
 #ifdef X64
 Memory check: pagefile usage increase is < 160 KB
 #elif defined(desktop) || (defined(disable_traces) && !defined(no_coarse_units))
-Memory check: pagefile usage increase is < 80 KB
+Memory check: pagefile usage increase is < 90 KB
 #else
 #if defined(no_coarse_units)
-Memory check: pagefile usage increase is < 80 KB
+Memory check: pagefile usage increase is < 90 KB
 #else
-Memory check: pagefile usage increase is < 80 KB
+Memory check: pagefile usage increase is < 90 KB
 #endif
 #endif
 sum=-994385352

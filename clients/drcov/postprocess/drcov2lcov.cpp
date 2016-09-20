@@ -244,7 +244,7 @@ null_terminate_path(char *path)
 
 #define LINE_HASH_TABLE_BITS   10
 #define LINE_TABLE_INIT_SIZE 1024 /* first chunk holds 1024 lines */
-#define LINE_TABLE_INIT_PRINT_BUF_SIZE (4*PAGE_SIZE)
+#define LINE_TABLE_INIT_PRINT_BUF_SIZE (16*1024)
 #define SOURCE_FILE_START_LINE_SIZE (MAXIMUM_PATH + 10) /* "SF:%s\n" */
 #define SOURCE_FILE_END_LINE_SIZE   20 /* "end_of_record\n" */
 #define MAX_CHAR_PER_LINE 256 /* large enough to hold the test function name */

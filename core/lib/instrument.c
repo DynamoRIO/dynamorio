@@ -459,7 +459,7 @@ remove_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
  * and since this routine assumes .data is writable.
  */
 static void
-add_client_lib(char *path, char *id_str, char *options)
+add_client_lib(const char *path, const char *id_str, const char *options)
 {
     client_id_t id;
     shlib_handle_t client_lib;
@@ -562,7 +562,7 @@ add_client_lib(char *path, char *id_str, char *options)
 void
 instrument_load_client_libs(void)
 {
-    if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
         char buf[MAX_LIST_OPTION_LENGTH];
         char *path;
 
@@ -596,6 +596,16 @@ instrument_load_client_libs(void)
                 }
             }
 
+#ifdef STATIC_LIBRARY
+            /* We ignore client library paths and allow client code anywhere in the app.
+             * We have a check in load_shared_library() to avoid loading
+             * a 2nd copy of the app.
+             * We do support passing client ID and options via the first -client_lib.
+             */
+            add_client_lib(get_application_name(), id == NULL ? "0" : id,
+                           options == NULL ? "" : options);
+            break;
+#endif
             add_client_lib(path, id, options);
             path = next_path;
         } while (path != NULL);
@@ -654,15 +664,22 @@ instrument_init(void)
                            &client_libs[i].argc, &client_libs[i].argv,
                            MAX_OPTION_LENGTH);
 
+#ifdef STATIC_LIBRARY
+        /* We support the app having client code anywhere, so there does not
+         * have to be an init routine that we call.  This means the app
+         * may have to iterate modules on its own.
+         */
+#else
         /* Since the user has to register all other events, it
          * doesn't make sense to provide the -client_lib
          * option for a module that doesn't export an init routine.
          */
         CLIENT_ASSERT(init != NULL || legacy != NULL,
                       "client does not export a dr_client_main or dr_init routine");
+#endif
         if (init != NULL)
             (*init)(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
-        else
+        else if (legacy != NULL)
             (*legacy)(client_libs[i].id);
     }
 
@@ -1901,7 +1918,7 @@ dr_module_contains_addr(const module_data_t *data, app_pc addr)
 void
 instrument_module_load_trigger(app_pc pc)
 {
-    if (!IS_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
         module_area_t *ma;
         module_data_t *client_data = NULL;
         os_get_module_info_lock();
@@ -2594,6 +2611,7 @@ dr_get_os_version(dr_os_version_info_t *info)
     get_os_version_ex(&ver, &sp_major, &sp_minor);
     if (info->size > offsetof(dr_os_version_info_t, version)) {
         switch (ver) {
+        case WINDOWS_VERSION_10_1607: info->version = DR_WINDOWS_VERSION_10_1607; break;
         case WINDOWS_VERSION_10_1511: info->version = DR_WINDOWS_VERSION_10_1511; break;
         case WINDOWS_VERSION_10:    info->version = DR_WINDOWS_VERSION_10;    break;
         case WINDOWS_VERSION_8_1:   info->version = DR_WINDOWS_VERSION_8_1;   break;
@@ -4522,7 +4540,7 @@ dr_set_tls_field(void *drcontext, void *value)
 DR_API void *
 dr_get_dr_segment_base(IN reg_id_t seg)
 {
-#ifdef ARM
+#ifdef AARCHXX
     if (seg == dr_reg_stolen)
         return os_get_dr_tls_base(get_thread_private_dcontext());
     else
@@ -5321,6 +5339,7 @@ static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] =
 # endif
     REG_XDI, REG_XSI, REG_XBP, REG_XDX, REG_XCX, REG_XBX
 #elif defined(AARCHXX)
+    /* DR_REG_R0 is not used here. See prepare_for_clean_call. */
     DR_REG_R6, DR_REG_R5, DR_REG_R4, DR_REG_R3, DR_REG_R2, DR_REG_R1
 #endif /* X86/ARM */
 };
@@ -5649,9 +5668,12 @@ dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist,
                              opnd_create_reg(reg),
                              opnd_create_reg(DR_REG_CPSR)));
 #elif defined(AARCH64)
-    (void)dcontext;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif /* X86/ARM */
+    /* flag saving code: mrs reg, nzcv */
+    MINSERT(ilist, where,
+            INSTR_CREATE_mrs(dcontext,
+                             opnd_create_reg(reg),
+                             opnd_create_reg(DR_REG_NZCV)));
+#endif /* X86/ARM/AARCH64 */
 }
 
 DR_API void
@@ -5684,9 +5706,11 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist,
                              opnd_create_reg(reg)));
 #elif defined(AARCH64)
     /* flag restoring code: mrs reg, nzcv */
-    (void)dcontext;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif /* X86/ARM */
+    MINSERT(ilist, where,
+            INSTR_CREATE_msr(dcontext,
+                             opnd_create_reg(DR_REG_NZCV),
+                             opnd_create_reg(reg)));
+#endif /* X86/ARM/AARCH64 */
 }
 
 /* providing functionality of old -instr_calls and -instr_branches flags
@@ -6422,6 +6446,11 @@ dr_delete_fragment(void *drcontext, void *tag)
     CLIENT_ASSERT(!SHARED_FRAGMENTS_ENABLED(),
                   "dr_delete_fragment() only valid with -thread_private");
     CLIENT_ASSERT(drcontext != NULL, "dr_delete_fragment(): drcontext cannot be NULL");
+    /* i#1989: there's no easy way to get a translation without a proper dcontext */
+    CLIENT_ASSERT(!fragment_thread_exited(dcontext),
+                  "dr_delete_fragment not supported from the thread exit event");
+    if (fragment_thread_exited(dcontext))
+        return false;
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
@@ -6491,6 +6520,11 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     CLIENT_ASSERT(drcontext != NULL, "dr_replace_fragment(): drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_replace_fragment: drcontext is invalid");
+    /* i#1989: there's no easy way to get a translation without a proper dcontext */
+    CLIENT_ASSERT(!fragment_thread_exited(dcontext),
+                  "dr_replace_fragment not supported from the thread exit event");
+    if (fragment_thread_exited(dcontext))
+        return false;
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
@@ -6832,6 +6866,11 @@ dr_app_pc_from_cache_pc(byte *cache_pc)
     bool waslinking;
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL);
+    /* i#1989: there's no easy way to get a translation without a proper dcontext */
+    CLIENT_ASSERT(!fragment_thread_exited(dcontext),
+                  "dr_app_pc_from_cache_pc not supported from the thread exit event");
+    if (fragment_thread_exited(dcontext))
+        return NULL;
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
@@ -7151,7 +7190,7 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
                   "dr_insert_get_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_get_stolen_reg: reg is used by DynamoRIO\n");
-#ifdef ARM
+#ifdef AARCHXX
     instrlist_meta_preinsert
         (ilist, instr,
          instr_create_restore_from_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
@@ -7169,7 +7208,7 @@ dr_insert_set_stolen_reg_value(void *drcontext, instrlist_t *ilist,
                   "dr_insert_set_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_set_stolen_reg: reg is used by DynamoRIO\n");
-#ifdef ARM
+#ifdef AARCHXX
     instrlist_meta_preinsert
         (ilist, instr,
          instr_create_save_to_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
@@ -7587,37 +7626,37 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
 DR_API
 /* Create instructions for storing pointer-size integer val to dst,
  * and then insert them into ilist prior to where.
- * The created instructions are returned in first and second.
+ * The "first" and "last" created instructions are returned.
  */
 void
 instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
                                  instrlist_t *ilist, instr_t *where,
-                                 instr_t **first OUT, instr_t **second OUT)
+                                 OUT instr_t **first, OUT instr_t **last)
 {
     CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
     insert_mov_immed_ptrsz((dcontext_t *)drcontext, val, dst,
-                           ilist, where, first, second);
+                           ilist, where, first, last);
 }
 
 DR_API
 /* Create instructions for pushing pointer-size integer val on the stack,
  * and then insert them into ilist prior to where.
- * The created instructions are returned in first and second.
+ * The "first" and "last" created instructions are returned.
  */
 void
 instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
                                   instrlist_t *ilist, instr_t *where,
-                                  instr_t **first OUT, instr_t **second OUT)
+                                  OUT instr_t **first, OUT instr_t **last)
 {
     insert_push_immed_ptrsz((dcontext_t *)drcontext, val, ilist, where,
-                            first, second);
+                            first, last);
 }
 
 DR_API
 void
 instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
                                 opnd_t dst, instrlist_t *ilist, instr_t *where,
-                                instr_t **first OUT, instr_t **second OUT)
+                                OUT instr_t **first, OUT instr_t **last)
 {
     CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
     if (encode_pc == NULL) {
@@ -7628,14 +7667,14 @@ instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode
         encode_pc = vmcode_get_end();
     }
     insert_mov_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, dst,
-                           ilist, where, first, second);
+                           ilist, where, first, last);
 }
 
 DR_API
 void
 instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
                                  instrlist_t *ilist, instr_t *where,
-                                 instr_t **first OUT, instr_t **second OUT)
+                                 OUT instr_t **first, OUT instr_t **last)
 {
     if (encode_pc == NULL) {
         /* Pass highest code cache address.
@@ -7645,7 +7684,7 @@ instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encod
         encode_pc = vmcode_get_end();
     }
     insert_push_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc,
-                           ilist, where, first, second);
+                           ilist, where, first, last);
 }
 
 

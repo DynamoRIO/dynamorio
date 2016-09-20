@@ -283,7 +283,7 @@ set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_WARNINGS 200)
 
 # Detect if the arch is x86
 if (NOT DEFINED ARCH_IS_X86)
-  if (CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
     set(ARCH_IS_X86 OFF)
   else ()
     set(ARCH_IS_X86 ON)
@@ -311,7 +311,7 @@ if (NOT DEFINED KERNEL_IS_X64)  # Allow variable override.
       RESULT_VARIABLE cmd_result)
     # If for some reason uname fails (not on PATH), assume the kernel is x64
     # anyway.
-    if (cmd_result OR "${machine}" MATCHES "x86_64")
+    if (cmd_result OR "${machine}" MATCHES "x86_64|aarch64")
       set(KERNEL_IS_X64 ON)
     else ()
       set(KERNEL_IS_X64 OFF)
@@ -403,6 +403,11 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     return()
   endif ()
   if (is64 AND arg_32_only)
+    return()
+  endif ()
+
+  # Skip 32-bit builds on an AArch64 machine.
+  if (NOT is64 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
     return()
   endif ()
 

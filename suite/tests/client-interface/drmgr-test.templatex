@@ -1,3 +1,5 @@
+in event_thread_init_ex
+in event_thread_init
 in pre_sys_B
 in pre_sys_A
 /* B is here with late injection */
@@ -17,8 +19,12 @@ About to crash
 Inside handler
 in wnd_callback 0x0*0008001 0 2
 Got message 0x0*0008001 1 3
+in event_thread_exit
+in event_thread_exit_ex
 All done
 #else
+in event_thread_exit
+in event_thread_exit_ex
 Estimation of pi is 3.142425985001098
 #endif
 all done

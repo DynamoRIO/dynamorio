@@ -87,6 +87,10 @@ static uint verbose = 0;
     } \
 } while (0)
 
+/* defined in drx_buf.c */
+bool drx_buf_init_library(void);
+void drx_buf_exit_library(void);
+
 /***************************************************************************
  * INIT
  */
@@ -105,7 +109,7 @@ drx_init(void)
     note_base = drmgr_reserve_note_range(DRX_NOTE_COUNT);
     ASSERT(note_base != DRMGR_NOTE_NONE, "failed to reserve note range");
 
-    return true;
+    return drx_buf_init_library();
 }
 
 DR_EXPORT
@@ -119,6 +123,7 @@ drx_exit()
     if (soft_kills_enabled)
         soft_kills_exit();
 
+    drx_buf_exit_library();
     drmgr_exit();
 }
 
@@ -400,9 +405,6 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         ASSERT(false, "drcontext cannot be NULL");
         return false;
     }
-    /* This drx routine is labeled as not needing drx_init(), so drmgr may not
-     * be initialized.  drmgr explicitly supports calling this routine though:
-     */
     if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
         use_drreg = true;
         if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&

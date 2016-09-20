@@ -37,7 +37,7 @@
 #define _CACHING_DEVICE_BLOCK_H_ 1
 
 #include <inttypes.h>
-#include "memref.h"
+#include "../common/memref.h"
 
 // Assuming a block of a caching device represents a memory space of at least 4-byte,
 // e.g., a CPU cache line or a virtual/physical page, we can use special value

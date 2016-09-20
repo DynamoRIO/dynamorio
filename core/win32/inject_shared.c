@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -213,13 +213,13 @@ wchar_to_char(char *cdst, size_t buflen,
               PCWSTR wide_src, size_t bytelen)
 {
     int res;
-    size_t wlen = (bytelen / sizeof(wchar_t));
-    if (wlen >= buflen) {         /* wide string length + NULL */
+    ssize_t wlen = utf16_to_utf8_size(wide_src, buflen, NULL);
+    if (wlen < 0 || (size_t)wlen >= buflen) {         /* wide string length + NULL */
         cdst[0] = '\0';
         return 0;
     }
 
-    res = snprintf(cdst, buflen, "%*ls", wlen, wide_src);
+    res = snprintf(cdst, buflen, "%.*ls", wlen, wide_src);
     cdst[wlen] = '\0';          /* always NULL terminate */
     ASSERT(strlen(cdst) < buflen); /* off by one, lets us see if we're pushing it */
     return res;

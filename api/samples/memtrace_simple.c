@@ -201,14 +201,9 @@ static void
 insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                reg_id_t base, reg_id_t scratch, app_pc pc)
 {
-    instr_t *mov1, *mov2;
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      opnd_create_reg(scratch),
-                                     ilist, where, &mov1, &mov2);
-    DR_ASSERT(mov1 != NULL);
-    instr_set_meta(mov1);
-    if (mov2 != NULL)
-        instr_set_meta(mov2);
+                                     ilist, where, NULL, NULL);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(base,
@@ -320,7 +315,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          * It is ok to skip a few clean calls on predicated instructions,
          * since the buffer will be dumped later by other clean calls.
          */
-        IF_X86_ELSE(true, !instr_is_predicated(instr))
+        IF_ARM_ELSE(!instr_is_predicated(instr), true)
         /* XXX i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
          * As we're only inserting instrumentation on a memory reference, and the
@@ -331,7 +326,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          * Using a fault to handle a full buffer should be more robust, and the
          * forthcoming buffer filling API (i#513) will provide that.
          */
-        IF_ARM(&& !instr_is_exclusive_store(instr)))
+        IF_AARCHXX(&& !instr_is_exclusive_store(instr)))
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
 
     return DR_EMIT_DEFAULT;

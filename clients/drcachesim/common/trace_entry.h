@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,7 @@
 #define _TRACE_ENTRY_H_ 1
 
 #include <stdint.h>
+#include "utils.h"
 
 typedef uintptr_t addr_t;
 
@@ -116,7 +117,12 @@ extern const char * const trace_type_names[];
 // - a flush request
 // - a prefetch request
 // - a thread/process
-typedef struct _trace_entry_t {
+// FIXME i#1729/i#1569: for offline traces we need to pack this to avoid
+// compiler padding differences.  Packing should also help online performance,
+// and having the two identical is required anyway to avoid complexity in
+// reader_t.  Once the AArch64 instrumentation handles unaligned offsets we'll
+// put back the {START,END}_PACKED_STRUCTURE.
+struct _trace_entry_t {
     unsigned short type; // 2 bytes: trace_type_t
     // 2 bytes: mem ref size, instr length, or num of instrs for instr bundle
     unsigned short size;
@@ -125,7 +131,8 @@ typedef struct _trace_entry_t {
         // The length of each instr in the instr bundle
         unsigned char length[sizeof(addr_t)];
     };
-} trace_entry_t;
+};
+typedef struct _trace_entry_t trace_entry_t;
 
 static inline bool
 type_is_prefetch(unsigned short type)

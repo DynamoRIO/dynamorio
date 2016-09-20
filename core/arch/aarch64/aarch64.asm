@@ -69,9 +69,9 @@ GLOBAL_LABEL(cpuid_supported:)
         ret
         END_FUNC(cpuid_supported)
 
-/* void call_switch_stack(dcontext_t *dcontext,       // REG_X0
+/* void call_switch_stack(void *func_arg,             // REG_X0
  *                        byte *stack,                // REG_X1
- *                        void (*func)(dcontext_t *), // REG_X2
+ *                        void (*func)(void *arg),    // REG_X2
  *                        void *mutex_to_free,        // REG_X3
  *                        bool return_on_return)      // REG_W4
  */
@@ -103,18 +103,105 @@ call_dispatch_alt_stack_no_free:
         END_FUNC(call_switch_stack)
 
 #ifdef CLIENT_INTERFACE
+/*
+ * Calls the specified function 'func' after switching to the DR stack
+ * for the thread corresponding to 'drcontext'.
+ * Passes in 8 arguments.  Uses the C calling convention, so 'func' will work
+ * just fine even if if takes fewer than 8 args.
+ * Swaps the stack back upon return and returns the value returned by 'func'.
+ *
+ * void * dr_call_on_clean_stack(void *drcontext,
+ *                               void *(*func)(arg1...arg8),
+ *                               void *arg1,
+ *                               void *arg2,
+ *                               void *arg3,
+ *                               void *arg4,
+ *                               void *arg5,
+ *                               void *arg6,
+ *                               void *arg7,
+ *                               void *arg8)
+ */
         DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
 GLOBAL_LABEL(dr_call_on_clean_stack:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        /* We know that there are two arguments on stack. */
+        stp      x29, x30, [sp, #-16]! /* Save frame pointer and link register. */
+        mov      x29, sp /* Save sp across the call. */
+        /* Swap stacks. */
+        ldr      x30, [x0, #dstack_OFFSET]
+        mov      sp, x30
+        /* Set up args. */
+        mov      x30, x1 /* void *(*func)(arg1...arg8) */
+        mov      x0, x2  /* void *arg1 */
+        mov      x1, x3  /* void *arg2 */
+        mov      x2, x4  /* void *arg3 */
+        mov      x3, x5  /* void *arg4 */
+        mov      x4, x6  /* void *arg5 */
+        mov      x5, x7  /* void *arg6 */
+        ldp      x6, x7, [x29, #(2 * ARG_SZ)]   /* void *arg7, *arg8 */
+        blr      x30
+        /* Swap stacks. */
+        mov      sp, x29
+        ldp      x29, x30, [sp], #16
+        ret
         END_FUNC(dr_call_on_clean_stack)
 #endif /* CLIENT_INTERFACE */
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 #ifdef DR_APP_EXPORTS
+
+/* Save priv_mcontext_t, except for X0, X1, X30, SP and PC, to the address in X0.
+ * Typically the caller will save those five registers itself before calling this.
+ * Clobbers X1-X4.
+ */
+save_priv_mcontext_helper:
+        stp      x2, x3, [x0, #(1 * ARG_SZ*2)]
+        stp      x4, x5, [x0, #(2 * ARG_SZ*2)]
+        stp      x6, x7, [x0, #(3 * ARG_SZ*2)]
+        stp      x8, x9, [x0, #(4 * ARG_SZ*2)]
+        stp      x10, x11, [x0, #(5 * ARG_SZ*2)]
+        stp      x12, x13, [x0, #(6 * ARG_SZ*2)]
+        stp      x14, x15, [x0, #(7 * ARG_SZ*2)]
+        stp      x16, x17, [x0, #(8 * ARG_SZ*2)]
+        stp      x18, x19, [x0, #(9 * ARG_SZ*2)]
+        stp      x20, x21, [x0, #(10 * ARG_SZ*2)]
+        stp      x22, x23, [x0, #(11 * ARG_SZ*2)]
+        stp      x24, x25, [x0, #(12 * ARG_SZ*2)]
+        stp      x26, x27, [x0, #(13 * ARG_SZ*2)]
+        stp      x28, x29, [x0, #(14 * ARG_SZ*2)]
+        mrs      x1, nzcv
+        mrs      x2, fpcr
+        mrs      x3, fpsr
+        str      w1, [x0, #(16 * ARG_SZ*2 + 8)]
+        str      w2, [x0, #(16 * ARG_SZ*2 + 12)]
+        str      w3, [x0, #(16 * ARG_SZ*2 + 16)]
+        add      x4, x0, #simd_OFFSET
+        st1      {v0.2d-v3.2d}, [x4], #64
+        st1      {v4.2d-v7.2d}, [x4], #64
+        st1      {v8.2d-v11.2d}, [x4], #64
+        st1      {v12.2d-v15.2d}, [x4], #64
+        st1      {v16.2d-v19.2d}, [x4], #64
+        st1      {v20.2d-v23.2d}, [x4], #64
+        st1      {v24.2d-v27.2d}, [x4], #64
+        st1      {v28.2d-v31.2d}, [x4], #64
+        ret
+
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        /* Save FP and LR for the case that DR is not taking over. */
+        stp      x29, x30, [sp, #-16]!
+        /* Build a priv_mcontext_t on the stack. */
+        sub      sp, sp, #PRIV_MCONTEXT_SIZE
+        stp      x0, x1, [sp, #(0 * ARG_SZ*2)]
+        add      x0, sp, #(PRIV_MCONTEXT_SIZE + 16) /* compute original SP */
+        stp      x30, x0, [sp, #(15 * ARG_SZ*2)]
+        str      x30, [sp, #(16 * ARG_SZ*2)] /* save LR as PC */
+        CALLC1(save_priv_mcontext_helper, sp)
+        CALLC1(GLOBAL_REF(dr_app_start_helper), sp)
+        /* If we get here, DR is not taking over. */
+        add      sp, sp, #PRIV_MCONTEXT_SIZE
+        ldp      x29, x30, [sp], #16
+        ret
         END_FUNC(dr_app_start)
 
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
@@ -124,8 +211,10 @@ GLOBAL_LABEL(dr_app_take_over:)
 
         DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
 GLOBAL_LABEL(dr_app_running_under_dynamorio:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        movz     w0, #0 /* This instruction is manged by mangle_pre_client. */
+        ret
         END_FUNC(dr_app_running_under_dynamorio)
+
 #endif /* DR_APP_EXPORTS */
 
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
@@ -135,38 +224,10 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         /* Build a priv_mcontext_t on the stack. */
         sub      sp, sp, #PRIV_MCONTEXT_SIZE
         stp      x0, x1, [sp, #(0 * ARG_SZ*2)]
-        stp      x2, x3, [sp, #(1 * ARG_SZ*2)]
-        stp      x4, x5, [sp, #(2 * ARG_SZ*2)]
-        stp      x6, x7, [sp, #(3 * ARG_SZ*2)]
-        stp      x8, x9, [sp, #(4 * ARG_SZ*2)]
-        stp      x10, x11, [sp, #(5 * ARG_SZ*2)]
-        stp      x12, x13, [sp, #(6 * ARG_SZ*2)]
-        stp      x14, x15, [sp, #(7 * ARG_SZ*2)]
-        stp      x16, x17, [sp, #(8 * ARG_SZ*2)]
-        stp      x18, x19, [sp, #(9 * ARG_SZ*2)]
-        stp      x20, x21, [sp, #(10 * ARG_SZ*2)]
-        stp      x22, x23, [sp, #(11 * ARG_SZ*2)]
-        stp      x24, x25, [sp, #(12 * ARG_SZ*2)]
-        stp      x26, x27, [sp, #(13 * ARG_SZ*2)]
-        stp      x28, x29, [sp, #(14 * ARG_SZ*2)]
         add      x0, sp, #(PRIV_MCONTEXT_SIZE + 16) /* compute original SP */
         stp      x30, x0, [sp, #(15 * ARG_SZ*2)]
         str      x30, [sp, #(16 * ARG_SZ*2)] /* save LR as PC */
-        mrs      x1, nzcv
-        mrs      x2, fpcr
-        mrs      x3, fpsr
-        str      w1, [sp, #(16 * ARG_SZ*2 + 8)]
-        str      w2, [sp, #(16 * ARG_SZ*2 + 12)]
-        str      w3, [sp, #(16 * ARG_SZ*2 + 16)]
-        add      x4, sp, #simd_OFFSET
-        st1      {v0.2d-v3.2d}, [x4], #64
-        st1      {v4.2d-v7.2d}, [x4], #64
-        st1      {v8.2d-v11.2d}, [x4], #64
-        st1      {v12.2d-v15.2d}, [x4], #64
-        st1      {v16.2d-v19.2d}, [x4], #64
-        st1      {v20.2d-v23.2d}, [x4], #64
-        st1      {v24.2d-v27.2d}, [x4], #64
-        st1      {v28.2d-v31.2d}, [x4], #64
+        CALLC1(save_priv_mcontext_helper, sp)
         CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), sp)
         /* If we get here, DR is not taking over. */
         add      sp, sp, #PRIV_MCONTEXT_SIZE
@@ -362,7 +423,9 @@ GLOBAL_LABEL(dr_try_start:)
         b        GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 
-/* We save only the callee-save registers: X19-X30, (gap), SP, D8-D15.
+/* We save only the callee-saved registers: X19-X30, (gap), SP, D8-D15:
+ * a total of 22 reg_t (64-bit) slots. See definition of dr_jmp_buf_t.
+ * The gap is for better alignment of the D registers.
  *
  * int dr_setjmp(dr_jmp_buf_t *buf);
  */

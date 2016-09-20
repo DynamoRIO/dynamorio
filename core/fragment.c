@@ -2221,6 +2221,13 @@ fragment_thread_exit(dcontext_t *dcontext)
     dcontext->fragment_field = NULL;
 }
 
+bool
+fragment_thread_exited(dcontext_t *dcontext)
+{
+    per_thread_t *pt = (per_thread_t *) dcontext->fragment_field;
+    return (pt == NULL || pt->about_to_exit);
+}
+
 #ifdef UNIX
 void
 fragment_fork_init(dcontext_t *dcontext)
@@ -5816,6 +5823,7 @@ enter_couldbelinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache
     /*case 7966: has no pt, no flushing either */
     if (RUNNING_WITHOUT_CODE_CACHE())
         return true;
+    ASSERT(pt != NULL); /* i#1989: API callers should check fragment_thread_exited() */
 
     DOCHECK(1, { check_safe_for_flush_synch(dcontext); });
 

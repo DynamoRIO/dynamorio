@@ -38,7 +38,7 @@
 
 #include <string>
 #include <inttypes.h>
-#include "memref.h"
+#include "../common/memref.h"
 
 class caching_device_stats_t
 {

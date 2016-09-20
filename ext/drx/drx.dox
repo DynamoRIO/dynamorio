@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -70,5 +70,88 @@ perform instrumentation output and then terminate its process, allowing the
 parent to simply skip its own termination request.  The nudge handler
 should normally handle multiple requests, as it is not uncommon for the
 parent to kill each child process through multiple mechanisms.
+
+\section sec_drx_buf \p Buffer Filling API
+
+The \p drx library also demonstrates a minimalistic buffer API. Its API is
+currently in flux. These buffers may contain traces of data gathered during
+instrumentation, such as memory traces, instruction traces, etc. Note that
+per-thread buffers are used for all implementations. There currently exist
+three types of buffers.
+
+- \ref sec_drx_buf_trace
+- \ref sec_drx_buf_circular
+- \ref sec_drx_buf_circular_fast
+- \ref sec_drx_buf_api
+- \ref sec_drx_buf_no_api
+
+\section sec_drx_buf_trace Trace Buffer
+
+The trace buffer notifies the user when the buffer fills up and allows the
+client to write the contents to disk or to a pipe, etc. Note that writing
+multiple fields of a struct to the buffer runs the risk of the client being
+notified that the buffer is filled before the entire struct has been written.
+In order to circumvent this limitation, either write the element at the
+highest offset in the struct first, so that the user never sees an
+incompletely-written struct, or if this is not possible, allocate a buffer
+whose size is a multiple of the size of the struct.
+
+\section sec_drx_buf_circular Circular Buffer
+
+This circular buffer will wrap around when it becomes full, and is used
+when a client might only need to remember the most recent portion of a
+sequence of events instead of recording an entire trace of events. This
+circular buffer can be any size, but is specially optimized for a buffer
+size of 65336.
+
+\section sec_drx_buf_circular_fast Fast Circular Buffer
+
+The only special case mentioned in \ref sec_drx_buf_circular is a buffer
+of size 65336. Because the buffer is this size exactly, we can align it
+to a 65336 byte boundary, and increment only the bottom two bytes of the
+base pointer. By this method we are able to wrap around on overflow.
+
+Note that this buffer is very good for homogeneous writes, such as in the
+sample client \p bbuf (see \ref API_samples), where we only write \p app_pc
+sized values. Since the buffer cannot be a different size, when using a
+structure it is a good idea to increment \p buf_ptr to a size that evenly
+divides the size of the buffer.
+
+\section sec_drx_buf_api Using the Buffer API
+
+There is a single API for modifying the buffer which is compatible with each
+of these buffer types. The user must generally load the buffer pointer into
+a register, perform some store operations relative to the register, and then
+finally update the buffer pointer to accommodate these stores. Using offsets
+for subsequent fields in a structure is the most efficient method, but please
+note the warning in \ref sec_drx_buf_trace, where one should either allocate
+an integer multiple of the size of the struct, or always write the last field
+of a struct first.
+
+\code
+/* load the buffer pointer into reg_ptr */
+drx_buf_insert_load_buf_ptr(drcontext, buf, bb, inst, reg_ptr);
+/* Store whatever is in the scratch reg to the buffer at offset 0, and then
+ * to offset 8.
+ */
+drx_buf_insert_buf_store(drcontext, buf, bb, inst, reg_ptr,
+                         DR_REG_NULL, opnd_create_reg(scratch1), OPSZ_PTR, 0);
+drx_buf_insert_buf_store(drcontext, buf, bb, inst, reg_ptr,
+                         DR_REG_NULL, opnd_create_reg(scratch2), OPSZ_PTR, 8);
+/* We wrote 16 bytes (8 bytes of scratch1 and 8 bytes of scratch2), so we
+ * increment the buffer pointer by that amount, using reg_tmp as a temporary
+ * scratch register.
+ */
+drx_buf_insert_update_buf_ptr(drcontext, buf, bb, inst, reg_ptr,
+                              reg_tmp, sizeof(reg_t)*2);
+\endcode
+
+\section sec_drx_buf_no_api Manually Modifying the Buffer
+
+It is possible to manually modify the buffer without calling
+drx_buf_insert_buf_store(). The provided store routines are for convenience
+only, to ensure that an app translation is set for each instruction. If a user
+writes to the buffer without using the provided operations, please make sure an
+app translation is set.
 
 */

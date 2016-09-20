@@ -39,13 +39,7 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 set(DynamoRIO_USE_LIBC OFF)
 
 # add drcov client
-if (STATIC_LIBRARY)
-  set(libtype STATIC)
-else()
-  set(libtype SHARED)
-endif ()
-
-add_library(drcov ${libtype} drcov.c)
+add_library(drcov SHARED drcov.c)
 configure_DynamoRIO_client(drcov)
 use_DynamoRIO_extension(drcov drcovlib)
 use_DynamoRIO_extension(drcov drx)

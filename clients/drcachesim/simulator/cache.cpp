@@ -31,7 +31,7 @@
  */
 
 #include "cache.h"
-#include "utils.h"
+#include "../common/utils.h"
 #include <assert.h>
 
 bool

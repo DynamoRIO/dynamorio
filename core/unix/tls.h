@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -124,6 +124,8 @@ read_thread_register(reg_id_t reg)
         asm volatile("movl %%fs, %0" : "=r"(sel));
     } else if (reg == SEG_GS) {
         asm volatile("movl %%gs, %0" : "=r"(sel));
+    } else if (reg == SEG_SS) {
+        asm volatile("movl %%ss, %0" : "=r"(sel));
     } else {
         ASSERT_NOT_REACHED();
         return 0;

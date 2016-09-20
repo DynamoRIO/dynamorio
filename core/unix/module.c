@@ -655,7 +655,7 @@ redirect_calloc(size_t nmemb, size_t size)
 void
 redirect_free(void *mem)
 {
-    /* PR 200203: must_not_be_inlined() is assuming this routine calls
+    /* PR 200203: leave_call_native() is assuming this routine calls
      * no other DR routines besides global_heap_free!
      */
     if (mem != NULL) {

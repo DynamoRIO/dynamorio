@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -387,12 +387,16 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
         DOCHECK(1, {
             for (r = 0; r < REG_SPILL_NUM; r++)
                 ASSERT(!walk->reg_spilled[r]
+                       /* Register X0 is used for branches on AArch64.
+                        * See mangle_cbr_stolen_reg.
+                        */
+                       IF_AARCH64(|| r + REG_START_SPILL == DR_REG_X0)
                        /* The special stolen register mangling from
                         * mangle_syscall_arch() for a non-restartable syscall ends
                         * up here due to the nop having a xl8 post-syscall.
                         * We do need to restore that spill.
                         */
-                       IF_ARM(|| r == 10));
+                       IF_AARCHXX(|| r + REG_START_SPILL == dr_reg_stolen));
         });
         return;
     }
@@ -908,15 +912,30 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
          /* Check for pointing right at sysenter, for i#1145 */
          mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
          is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
+        /* If at do_syscall yet not yet in the kernel (or the do_syscall still uses
+         * int: i#2005), we need to translate to vsyscall, for detach (i#95).
+         */
+        if (is_after_main_do_syscall_addr(tdcontext, mcontext->pc)) {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: from do_syscall "PFX" to vsyscall "PFX"\n",
+                mcontext->pc, vsyscall_sysenter_return_pc);
+            mcontext->pc = vsyscall_sysenter_return_pc;
+        } else if (is_after_main_do_syscall_addr(tdcontext,
+                                                 mcontext->pc + SYSENTER_LENGTH)) {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: from do_syscall "PFX" to vsyscall "PFX"\n",
+                mcontext->pc, vsyscall_syscall_end_pc - SYSENTER_LENGTH);
+            mcontext->pc = vsyscall_syscall_end_pc - SYSENTER_LENGTH;
+        } else {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: no PC translation needed (at vsyscall)\n");
+        }
 # ifdef MACOS
         if (!just_pc) {
             LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                 "recreate_app: restoring xdx (at sysenter)\n");
             mcontext->xdx = tdcontext->app_xdx;
         }
-# else
-        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
-            "recreate_app no translation needed (at syscall)\n");
 # endif
         return res;
     }

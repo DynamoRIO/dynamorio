@@ -1014,7 +1014,7 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst,
                       instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second)
+                      OUT instr_t **first, OUT instr_t **last)
 {
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
@@ -1075,8 +1075,8 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 #endif
     if (first != NULL)
         *first = mov1;
-    if (second != NULL)
-        *second = mov2;
+    if (last != NULL)
+        *last = mov2;
 }
 
 
@@ -1088,7 +1088,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+                       OUT instr_t **first, OUT instr_t **last)
 {
     instr_t *push, *mov;
     if (src_inst != NULL)
@@ -1130,8 +1130,8 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
 #endif
     if (first != NULL)
         *first = push;
-    if (second != NULL)
-        *second = mov;
+    if (last != NULL)
+        *last = mov;
 }
 
 /* Far calls and rets have double total size */
@@ -2755,6 +2755,15 @@ mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr)
             ASSERT(instr_operands_valid(instr)); /* ensure will encode w/o raw bits */
             instr_set_prefixes(instr, prefixes);
         }
+    } else if (instr_get_opcode(instr) == OP_jmp &&
+               instr_length(dcontext, instr) != JMP_LONG_LENGTH) {
+        /* i#1988: remove MPX prefixes as they mess up our nop padding.
+         * i#1312 covers marking as actual prefixes, and we should keep them.
+         */
+        LOG(THREAD, LOG_INTERP, 4,
+            "\tremoving unknown jmp prefixes from "PFX"\n",
+            instr_get_raw_bits(instr));
+        instr_set_raw_bits_valid(instr, false);
     }
 }
 

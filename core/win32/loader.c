@@ -440,7 +440,7 @@ bool
 should_swap_peb_pointer(void)
 {
     return (INTERNAL_OPTION(private_peb) &&
-            !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib));
+            CLIENTS_EXIST());
 }
 
 bool

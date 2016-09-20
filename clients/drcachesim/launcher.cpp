@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* launcher: the front end for the cache simulator */
+/* launcher: the front end for the trace analyzer */
 
 // FIXME i#1727: the Windows implementation is not tested (needs
 // the named pipe implementation to be finished).
@@ -54,10 +54,10 @@
 #include "dr_config.h"
 #include "dr_frontend.h"
 #include "droption.h"
-#include "../common/options.h"
-#include "cache_simulator.h"
-#include "tlb_simulator.h"
-#include "utils.h"
+#include "common/options.h"
+#include "common/utils.h"
+#include "simulator/cache_simulator.h"
+#include "simulator/tlb_simulator.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
@@ -79,6 +79,13 @@ file_is_readable(const char *path)
 {
     bool ret = false;
     return (drfront_access(path, DRFRONT_READ, &ret) == DRFRONT_SUCCESS && ret);
+}
+
+static bool
+file_is_writable(const char *path)
+{
+    bool ret = false;
+    return (drfront_access(path, DRFRONT_WRITE, &ret) == DRFRONT_SUCCESS && ret);
 }
 
 static void
@@ -146,17 +153,20 @@ int
 _tmain(int argc, const TCHAR *targv[])
 {
     char **argv;
-    char *app_name;
+    char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
-    char **app_argv;
+    char **app_argv = NULL;
     int app_idx = 1;
     int errcode = 1;
     void *inject_data;
     char buf[MAXIMUM_PATH];
     drfront_status_t sc;
     bool is64, is32;
-    simulator_t *simulator = NULL;
+    analyzer_t *analyzer = NULL;
     std::string tracer_ops;
+#ifdef UNIX
+    pid_t child = 0;
+#endif
 
 #if defined(WINDOWS) && !defined(_UNICODE)
 # error _UNICODE must be defined
@@ -168,7 +178,7 @@ _tmain(int argc, const TCHAR *targv[])
 #endif
 
     // This frontend exists mainly because we have a standalone application
-    // to launch, the simulator.  We are not currently looking for a polished
+    // to launch, the analyzer.  We are not currently looking for a polished
     // tool launcher independent of drrun.  Thus, we skip all the logic around
     // default root and client directories and assume we were invoked from
     // a pre-configured .drrun file with proper paths.
@@ -187,113 +197,137 @@ _tmain(int argc, const TCHAR *targv[])
         }
     }
 
-    if (app_idx >= argc) {
-        FATAL_ERROR("Usage error: no application specified\nUsage:\n%s",
-                    droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        assert(false); // won't get here
-    }
-    app_name = argv[app_idx];
-    get_full_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
-    if (full_app_name[0] != '\0')
-        app_name = full_app_name;
-    NOTIFY(1, "INFO", "targeting application: \"%s\"", app_name);
-    if (!file_is_readable(full_app_name)) {
-        FATAL_ERROR("cannot find application %s", full_app_name);
-        assert(false); // won't get here
+    if (op_infile.get_value().empty()) {
+        if (app_idx >= argc) {
+            FATAL_ERROR("Usage error: no application specified\nUsage:\n%s",
+                        droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+            assert(false); // won't get here
+        }
+        app_name = argv[app_idx];
+        get_full_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
+        if (full_app_name[0] != '\0')
+            app_name = full_app_name;
+        NOTIFY(1, "INFO", "targeting application: \"%s\"", app_name);
+        if (!file_is_readable(full_app_name)) {
+            FATAL_ERROR("cannot find application %s", full_app_name);
+            assert(false); // won't get here
+        }
+
+        if (drfront_is_64bit_app(app_name, &is64, &is32) == DRFRONT_SUCCESS &&
+            IF_X64_ELSE(!is64, is64 && !is32)) {
+            /* FIXME i#1703: since drinjectlib doesn't support cross-arch
+             * injection (DRi#803), we need to launch the other frontend.
+             */
+            FATAL_ERROR("application has bitwidth unsupported by this launcher");
+            assert(false); // won't get here
+        }
+
+        app_argv = &argv[app_idx];
+
+        if (!file_is_readable(op_tracer.get_value().c_str())) {
+            FATAL_ERROR("tracer library %s is unreadable", op_tracer.get_value().c_str());
+            assert(false); // won't get here
+        }
+        if (!file_is_readable(op_dr_root.get_value().c_str())) {
+            FATAL_ERROR("invalid -dr_root %s", op_dr_root.get_value().c_str());
+            assert(false); // won't get here
+        }
     }
 
-    if (drfront_is_64bit_app(app_name, &is64, &is32) == DRFRONT_SUCCESS &&
-        IF_X64_ELSE(!is64, is64 && !is32)) {
-        /* FIXME i#1703: since drinjectlib doesn't support cross-arch
-         * injection (DRi#803), we need to launch the other frontend.
-         */
-        FATAL_ERROR("application has bitwidth unsupported by this launcher");
-        assert(false); // won't get here
-    }
+    if (op_offline.get_value() && op_infile.get_value().empty()) {
+        // Initial sanity check: may still be unwritable by this user, but this
+        // serves as at least an existence check.
+        if (!file_is_writable(op_outdir.get_value().c_str())) {
+            FATAL_ERROR("invalid -outdir %s", op_outdir.get_value().c_str());
+            assert(false); // won't get here
+        }
+    } else {
+        // declare the analyzer based on its type
+        if (op_simulator_type.get_value() == CPU_CACHE)
+            analyzer = new cache_simulator_t;
+        else if (op_simulator_type.get_value() == TLB)
+            analyzer = new tlb_simulator_t;
+        else {
+            ERROR("Usage error: unsupported analyzer type. "
+                  "Please choose " CPU_CACHE" or " TLB".\n");
+            return false;
+        }
 
-    app_argv = &argv[app_idx];
-
-    if (!file_is_readable(op_tracer.get_value().c_str())) {
-        FATAL_ERROR("tracer library %s is unreadable", op_tracer.get_value().c_str());
-        assert(false); // won't get here
-    }
-    if (!file_is_readable(op_dr_root.get_value().c_str())) {
-        FATAL_ERROR("invalid -dr_root %s", op_dr_root.get_value().c_str());
-        assert(false); // won't get here
-    }
-
-    // declare the simulator based on its type
-    if (op_simulator_type.get_value() == CPU_CACHE)
-        simulator = new cache_simulator_t;
-    else if (op_simulator_type.get_value() == TLB)
-        simulator = new tlb_simulator_t;
-    else {
-        ERROR("Usage error: unsupported simulator type. "
-              "Please choose " CPU_CACHE" or " TLB".\n");
-        return false;
-    }
-
-    if (!simulator->init()) {
-        FATAL_ERROR("failed to initialize simulator");
-        assert(false); // won't get here
+        if (!analyzer) {
+            FATAL_ERROR("failed to initialize analyzer");
+            assert(false); // won't get here
+        }
     }
 
     tracer_ops = op_tracer_ops.get_value();
 
-    /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
-    dr_get_config_dir(false/*local*/, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
-    NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
+    if (op_infile.get_value().empty()) {
+        /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
+        dr_get_config_dir(false/*local*/, true/*use temp*/, buf,
+                          BUFFER_SIZE_ELEMENTS(buf));
+        NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
 
 #ifdef UNIX
-    pid_t child = fork();
-    if (child < 0) {
-        FATAL_ERROR("failed to fork");
-        assert(false); // won't get here
-    } else if (child == 0) {
-        /* child */
+        if (op_offline.get_value())
+            child = 0;
+        else
+            child = fork();
+        if (child < 0) {
+            FATAL_ERROR("failed to fork");
+            assert(false); // won't get here
+        } else if (child == 0) {
+            /* child, or offline where we exec this process */
+            if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
+                !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
+                FATAL_ERROR("unable to inject");
+                assert(false); // won't get here
+            }
+            FATAL_ERROR("failed to exec application");
+        }
+        /* parent */
+#else
         if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
             !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
             FATAL_ERROR("unable to inject");
             assert(false); // won't get here
         }
-        FATAL_ERROR("failed to exec application");
-    }
-    /* parent */
-#else
-    if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
-        !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
-        FATAL_ERROR("unable to inject");
-        assert(false); // won't get here
-    }
-    dr_inject_process_run(inject_data);
+        dr_inject_process_run(inject_data);
 #endif
-
-    if (!simulator->run()) {
-        FATAL_ERROR("failed to run simulator");
-        assert(false); // won't get here
     }
 
+    if (!op_offline.get_value() || !op_infile.get_value().empty()) {
+        if (!analyzer->run()) {
+            FATAL_ERROR("failed to run analyzer");
+            assert(false); // won't get here
+        }
+    }
+
+    if (op_infile.get_value().empty()) {
 #ifdef WINDOWS
-    NOTIFY(1, "INFO", "waiting for app to exit...");
-    errcode = WaitForSingleObject(dr_inject_get_process_handle(inject_data), INFINITE);
-    if (errcode != WAIT_OBJECT_0)
-        NOTIFY(1, "INFO", "failed to wait for app: %d\n", errcode);
-    errcode = dr_inject_process_exit(inject_data, false/*don't kill process*/);
+        NOTIFY(1, "INFO", "waiting for app to exit...");
+        errcode = WaitForSingleObject(dr_inject_get_process_handle(inject_data),
+                                      INFINITE);
+        if (errcode != WAIT_OBJECT_0)
+            NOTIFY(1, "INFO", "failed to wait for app: %d\n", errcode);
+        errcode = dr_inject_process_exit(inject_data, false/*don't kill process*/);
 #else
 # ifndef NDEBUG
-    pid_t result =
+        pid_t result =
 # endif
-        waitpid(child, &errcode, 0);
-    assert(result == child);
+            waitpid(child, &errcode, 0);
+        assert(result == child);
 #endif
 
-    // XXX: we may want a prefix on our output
-    std::cerr << "---- <application exited with code " << errcode <<
-        "> ----" << std::endl;
-    simulator->print_stats();
+        // XXX: we may want a prefix on our output
+        std::cerr << "---- <application exited with code " << errcode <<
+            "> ----" << std::endl;
+    } else
+        errcode = 0;
 
-    // release simulator's space
-    delete simulator;
+    analyzer->print_stats();
+
+    // release analyzer's space
+    delete analyzer;
 
     sc = drfront_cleanup_args(argv, argc);
     if (sc != DRFRONT_SUCCESS)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1422,6 +1422,9 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
     INC_MEM32_OPCODE_1   = 0xff, /* has /0 as well */
     MODRM16_DISP16       = 0x06, /* see vol.2 Table 2-1 for modR/M */
     SIB_DISP32           = 0x25, /* see vol.2 Table 2-1 for modR/M */
+    RET_NOIMM_OPCODE     = 0xc3,
+    RET_IMM_OPCODE       = 0xc2,
+    MOV_IMM_EDX_OPCODE   = 0xba,
 };
 
 #endif /* _OPCODE_H_ */

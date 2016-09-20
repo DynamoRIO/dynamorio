@@ -283,7 +283,6 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 # ifdef ARM
     if (opnd_get_base(memref) == DR_REG_PC) {
         app_pc target;
-        instr_t *first, *second;
         /* We need the app instr for getting the rel_addr_target.
          * XXX: add drutil_insert_get_mem_addr_ex to let client provide app instr.
          */
@@ -294,10 +293,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             return false;
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)target,
                                          opnd_create_reg(dst), bb, where,
-                                         &first, &second);
-        instr_set_meta(first);
-        if (second != NULL)
-            instr_set_meta(second);
+                                         NULL, NULL);
     }
 # else /* AARCH64 */
     if (opnd_is_rel_addr(memref)) {
@@ -310,13 +306,17 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 # endif /* ARM/AARCH64 */
     else {
         instr_t *instr;
-        uint amount;
-        dr_shift_type_t shift;
         reg_id_t base   = opnd_get_base(memref);
         reg_id_t index  = opnd_get_index(memref);
-        /* disp is non-negative; DR_OPND_NEGATED specifies sign. */
+        bool negated    = TEST(DR_OPND_NEGATED, opnd_get_flags(memref));
         int      disp   = opnd_get_disp(memref);
         reg_id_t stolen = dr_get_stolen_reg();
+        /* On ARM, disp is never negative; on AArch64, we do not use DR_OPND_NEGATED. */
+        ASSERT(IF_ARM_ELSE(disp >= 0, !negated), "DR_OPND_NEGATED internal error");
+        if (disp < 0) {
+            disp = -disp;
+            negated = !negated;
+        }
         if (dst == stolen || scratch == stolen)
             return false;
         if (base == stolen)
@@ -325,7 +325,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch);
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
             /* first try "add dst, base, #disp" */
-            instr = TEST(DR_OPND_NEGATED, opnd_get_flags(memref)) ?
+            instr = negated ?
                 INSTR_CREATE_sub(drcontext,
                                  opnd_create_reg(dst),
                                  opnd_create_reg(base),
@@ -353,8 +353,10 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             /* "add" instr is inserted below with a fake index reg added here */
         }
         if (index != REG_NULL) {
-            shift = opnd_get_index_shift(memref, &amount);
-            instr = TEST(DR_OPND_NEGATED, opnd_get_flags(memref)) ?
+# ifdef ARM
+            uint amount;
+            dr_shift_type_t shift = opnd_get_index_shift(memref, &amount);
+            instr = negated ?
                 INSTR_CREATE_sub_shimm(drcontext,
                                        opnd_create_reg(dst),
                                        opnd_create_reg(base),
@@ -367,6 +369,23 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                        opnd_create_reg(index),
                                        OPND_CREATE_INT(shift),
                                        OPND_CREATE_INT(amount));
+# else /* AARCH64 */
+            uint amount;
+            dr_extend_type_t extend = opnd_get_index_extend(memref, NULL, &amount);
+            instr = negated ?
+                INSTR_CREATE_sub_extend(drcontext,
+                                        opnd_create_reg(dst),
+                                        opnd_create_reg(base),
+                                        opnd_create_reg(index),
+                                        OPND_CREATE_INT(extend),
+                                        OPND_CREATE_INT(amount)) :
+                INSTR_CREATE_add_extend(drcontext,
+                                        opnd_create_reg(dst),
+                                        opnd_create_reg(base),
+                                        opnd_create_reg(index),
+                                        OPND_CREATE_INT(extend),
+                                        OPND_CREATE_INT(amount));
+# endif /* ARM/AARCH64 */
             PRE(bb, where, instr);
         } else if (base != dst) {
             PRE(bb, where, XINST_CREATE_move(drcontext,

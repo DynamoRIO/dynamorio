@@ -53,16 +53,14 @@ DR_API
 app_pc
 dr_app_pc_as_jump_target(dr_isa_mode_t isa_mode, app_pc pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
+    return pc;
 }
 
 DR_API
 app_pc
 dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return 0;
+    return pc;
 }
 
 byte *
@@ -171,8 +169,7 @@ DR_API
 const char *
 decode_opcode_name(int opcode)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return NULL;
+    return get_opcode_name(opcode);
 }
 
 opnd_size_t

@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 ARM Limited.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +14,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,56 +31,32 @@
  * DAMAGE.
  */
 
-/* ipc_reader: obtains memory streams from DR clients running in
- * application processes and presents them via an interator interface
- * to the cache simulator.
- */
+/* Uses the static decoder library drdecode */
 
-#ifndef _IPC_READER_H_
-#define _IPC_READER_H_ 1
+#include "configure.h"
+#include "dr_api.h"
+#include <stdio.h>
 
-#include <list>
-#include <string>
-#include <map>
-#include "memref.h"
-#include "reader.h"
-#include "../common/named_pipe.h"
-#include "../common/trace_entry.h"
+#define GD GLOBAL_DCONTEXT
 
-class ipc_reader_t : public reader_t
+static void
+test_disasm(void)
 {
- public:
-    ipc_reader_t();
-    explicit ipc_reader_t(const char *ipc_name);
-    virtual ~ipc_reader_t();
-    bool init();
-    virtual const memref_t& operator*();
-    virtual bool operator==(const ipc_reader_t& rhs);
-    virtual bool operator!=(const ipc_reader_t& rhs);
-    virtual reader_t operator++(int);
-    virtual reader_t& operator++();
+    const uint b[] = {
+        0x0b010000, 0xd65f03c0
+    };
+    byte *pc = (byte *)b;
 
-    void stream_server();
+    while (pc < (byte *)b + sizeof(b))
+        pc = disassemble_with_info(GD, pc, STDOUT, false/*no pc*/, true);
+}
 
- private:
-    bool at_eof;
-    named_pipe_t pipe;
-    memref_t cur_ref;
-    memref_tid_t cur_tid;
-    memref_pid_t cur_pid;
-    addr_t cur_pc;
-    addr_t next_pc;
-    int bundle_idx;
-    std::map<memref_tid_t, memref_pid_t> tid2pid;
+int
+main()
+{
+    test_disasm();
 
-    // For efficiency we want to read large chunks at a time.
-    // The atomic write size for a pipe on Linux is 4096 bytes but
-    // we want to go ahead and read as much data as we can at one
-    // time.
-    static const int BUF_SIZE = 16*1024;
-    trace_entry_t buf[BUF_SIZE];
-    trace_entry_t *cur_buf;
-    trace_entry_t *end_buf;
-};
+    printf("done\n");
 
-#endif /* _IPC_READER_H_ */
+    return 0;
+}

@@ -330,7 +330,7 @@ code_cache_exit(void)
 static void
 instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    instr_t *instr, *call, *restore, *first, *second;
+    instr_t *instr, *call, *restore;
     opnd_t   opnd1, opnd2;
     reg_id_t reg1, reg2;
     drvector_t allowed;
@@ -375,10 +375,7 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
      */
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(ins_ref_t, pc));
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) pc, opnd1,
-                                     ilist, where, &first, &second);
-    instr_set_meta(first);
-    if (second != NULL)
-        instr_set_meta(second);
+                                     ilist, where, NULL, NULL);
 
     /* Store opcode */
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(ins_ref_t, opcode));

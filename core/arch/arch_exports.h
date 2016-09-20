@@ -1087,12 +1087,12 @@ byte *get_app_sysenter_addr(void);
 /* in [x86/arm].asm */
 /* Calls the specified function 'func' after switching to the stack 'stack'.  If we're
  * currently on the initstack 'mutex_to_free' should be passed so we release the
- * initstack lock.  The supplied 'dcontext' will be passed as an argument to 'func'.
+ * initstack lock.  The supplied 'func_arg' will be passed as an argument to 'func'.
  * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
  * return to the caller.  If not set then it's assumed that func wasn't supposed to
  * return and we go to an error routine unexpected_return() below.
  */
-void call_switch_stack(dcontext_t *dcontext, byte *stack, void (*func) (dcontext_t *),
+void call_switch_stack(void *func_arg, byte *stack, void (*func) (void *arg),
                        void *mutex_to_free, bool return_on_return);
 # if defined (WINDOWS) && !defined(X64)
 DYNAMORIO_EXPORT int64
@@ -1146,16 +1146,12 @@ void dynamorio_earliest_init_takeover(void);
 void client_int_syscall(void);
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
-# ifdef MACOS
-void dynamorio_semaphore_signal_all(KSYNCH_TYPE *ksynch/*in xax*/);
-# endif
+void dynamorio_condvar_wake_and_jmp(KSYNCH_TYPE *ksynch/*in xax/r0*/,
+                                    byte *jmp_tgt/*in xcx/r1*/);
 # ifdef LINUX
-void dynamorio_futex_wake_and_exit(volatile int *futex/* in xax*/);
 #  ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 #  endif
-# endif
-# ifdef LINUX
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
 void xfer_to_new_libdr(app_pc entry, void **init_sp, byte *cur_dr_map,
@@ -2108,10 +2104,12 @@ typedef struct dr_jmp_buf_t {
     reg_t r8, r9, r10, r11, r12, r13, r14, r15;
 # endif
 #elif defined(ARM) /* for arm.asm */
-    reg_t regs[16/*DR_NUM_GPR_REGS*/];
+# define       REGS_IN_JMP_BUF 26 /* See dr_setjmp and dr_longjmp. */
+    reg_t regs[REGS_IN_JMP_BUF];
 #elif defined(AARCH64) /* for aarch64.asm */
-    reg_t regs[22]; /* callee-save regs: X19-X30, (gap), SP, D8-D15 */
-#endif /* X86/ARM */
+# define       REGS_IN_JMP_BUF 22 /* See dr_setjmp and dr_longjmp. */
+    reg_t regs[REGS_IN_JMP_BUF];
+#endif /* X86/AARCH64/ARM */
 #if defined(UNIX) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug

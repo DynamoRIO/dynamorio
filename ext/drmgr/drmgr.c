@@ -1245,8 +1245,16 @@ DR_EXPORT
 bool
 drmgr_register_thread_init_event(void (*func)(void *drcontext))
 {
+    return drmgr_register_thread_init_event_ex(func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_thread_init_event_ex(void (*func)(void *drcontext),
+                                    drmgr_priority_t *priority)
+{
     return drmgr_generic_event_add(&cb_list_thread_init, thread_event_lock,
-                                   (void (*)(void)) func, NULL);
+                                   (void (*)(void)) func, priority);
 }
 
 DR_EXPORT
@@ -1261,8 +1269,16 @@ DR_EXPORT
 bool
 drmgr_register_thread_exit_event(void (*func)(void *drcontext))
 {
+    return drmgr_register_thread_exit_event_ex(func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_thread_exit_event_ex(void (*func)(void *drcontext),
+                                    drmgr_priority_t *priority)
+{
     return drmgr_generic_event_add(&cb_list_thread_exit, thread_event_lock,
-                                   (void (*)(void)) func, NULL);
+                                   (void (*)(void)) func, priority);
 }
 
 DR_EXPORT

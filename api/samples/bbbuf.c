@@ -76,7 +76,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       bool for_trace, bool translating, void *user_data)
 {
     app_pc pc = dr_fragment_app_pc(tag);
-    instr_t *mov1, *mov2;
     reg_id_t reg;
 #ifdef ARM
     /* We need a 2nd scratch reg for several operations */
@@ -113,18 +112,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      OPND_CREATE_MEMPTR(reg, 0),
-                                     bb, inst, &mov1, &mov2);
+                                     bb, inst, NULL, NULL);
 #elif defined(ARM)
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      opnd_create_reg(reg2),
-                                     bb, inst, &mov1, &mov2);
+                                     bb, inst, NULL, NULL);
     MINSERT(bb, inst, XINST_CREATE_store
             (drcontext, OPND_CREATE_MEMPTR(reg, 0), opnd_create_reg(reg2)));
 #endif
-    DR_ASSERT(mov1 != NULL);
-    instr_set_meta(mov1);
-    if (mov2 != NULL)
-        instr_set_meta(mov2);
 
     /* update the TLS buffer pointer by incrementing just the bottom 16 bits of
      * the pointer

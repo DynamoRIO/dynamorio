@@ -510,14 +510,14 @@ opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp
 static inline void
 opnd_set_disp_helper(opnd_t *opnd, int disp)
 {
-    IF_X86_ELSE({
-        opnd->value.base_disp.disp = disp;
-    }, {
+    IF_ARM_ELSE({
         if (disp < 0) {
             opnd->aux.flags |= DR_OPND_NEGATED;
             opnd->value.base_disp.disp = -disp;
         } else
             opnd->value.base_disp.disp = disp;
+    }, {
+        opnd->value.base_disp.disp = disp;
     });
 }
 
@@ -554,25 +554,29 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
         CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                       "opnd_create_*base_disp*: cannot have both disp and index");
     });
+    opnd_set_disp_helper(&opnd, disp);
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
-    IF_X86_ELSE({
-        opnd.value.base_disp.scale = (byte) scale;
-    }, {
-        if (scale > 1) {
-            opnd.value.base_disp.shift_type = DR_SHIFT_LSL;
-            opnd.value.base_disp.shift_amount_minus_1 =
-                /* we store the amount minus one */
-                (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
-        } else {
-            opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
-            opnd.value.base_disp.shift_amount_minus_1 = 0;
-        }
-    });
-    opnd_set_disp_helper(&opnd, disp);
+#if defined(ARM)
+    if (scale > 1) {
+        opnd.value.base_disp.shift_type = DR_SHIFT_LSL;
+        opnd.value.base_disp.shift_amount_minus_1 =
+            /* we store the amount minus one */
+            (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
+    } else {
+        opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
+        opnd.value.base_disp.shift_amount_minus_1 = 0;
+    }
+#elif defined(AARCH64)
+    opnd.value.base_disp.pre_index = false;
+    opnd.value.base_disp.extend_type = DR_EXTEND_UXTX;
+    opnd.value.base_disp.scaled = false;
+#elif defined(X86)
+    opnd.value.base_disp.scale = (byte) scale;
     opnd.value.base_disp.encode_zero_disp = (byte) encode_zero_disp;
     opnd.value.base_disp.force_full_disp = (byte) force_full_disp;
     opnd.value.base_disp.disp_short_addr = (byte) disp_short_addr;
+#endif
     return opnd;
 }
 
@@ -584,6 +588,7 @@ opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, i
                                         false, false, false);
 }
 
+#ifdef ARM
 opnd_t
 opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
                           dr_shift_type_t shift_type, uint shift_amount, int disp,
@@ -609,11 +614,40 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
     opnd.aux.flags = flags;
     if (!opnd_set_index_shift(&opnd, shift_type, shift_amount))
         CLIENT_ASSERT(false, "opnd_create_base_disp_arm: invalid shift type/amount");
-    opnd.value.base_disp.encode_zero_disp = 0;
-    opnd.value.base_disp.force_full_disp = 0;
-    opnd.value.base_disp.disp_short_addr = 0;
     return opnd;
 }
+#endif
+
+#ifdef AARCH64
+opnd_t
+opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                              dr_extend_type_t extend_type, bool scaled, int disp,
+                              dr_opnd_flags_t flags, opnd_size_t size)
+{
+    opnd_t opnd;
+    opnd.kind = BASE_DISP_kind;
+    CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_*base_disp*: invalid size");
+    opnd.size = size;
+    CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
+                  "opnd_create_base_disp_aarch64: cannot have both disp and index");
+    CLIENT_ASSERT(base_reg <= REG_LAST_ENUM,
+                  "opnd_create_base_disp_aarch64: invalid base");
+    CLIENT_ASSERT(index_reg <= REG_LAST_ENUM,
+                  "opnd_create_base_disp_aarch64: invalid index");
+    /* reg_id_t is now a ushort, but we can only accept low values */
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, base_reg,
+                                    "opnd_create_base_disp_aarch64: invalid base");
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
+                                    "opnd_create_base_disp_aarch64: invalid index");
+    opnd.value.base_disp.base_reg = base_reg;
+    opnd.value.base_disp.index_reg = index_reg;
+    opnd_set_disp_helper(&opnd, disp);
+    opnd.aux.flags = flags;
+    if (!opnd_set_index_extend(&opnd, extend_type, scaled))
+        CLIENT_ASSERT(false, "opnd_create_base_disp_aarch64: invalid extend type");
+    return opnd;
+}
+#endif
 
 #undef opnd_get_base
 #undef opnd_get_disp
@@ -631,6 +665,7 @@ reg_id_t opnd_get_segment(opnd_t opnd) { return OPND_GET_SEGMENT(opnd); }
 #define opnd_get_scale OPND_GET_SCALE
 #define opnd_get_segment OPND_GET_SEGMENT
 
+#ifdef ARM
 dr_shift_type_t
 opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
 {
@@ -696,12 +731,68 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
     opnd->value.base_disp.shift_type = shift;
     return true;
 }
+#endif /* ARM */
+
+#ifdef AARCH64
+static uint
+opnd_size_to_extend_amount(opnd_size_t size)
+{
+    switch (size) {
+    default:
+        ASSERT(false);
+        /* fall-through */
+    case OPSZ_1: return 0;
+    case OPSZ_2: return 1;
+    case OPSZ_4: return 2;
+    case OPSZ_0: /* fall-through */
+    case OPSZ_8: return 3;
+    case OPSZ_16: return 4;
+    }
+}
+
+dr_extend_type_t
+opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
+{
+    dr_extend_type_t extend = DR_EXTEND_UXTX;
+    bool scaled_out = false;
+    uint amount_out = 0;
+    if (!opnd_is_base_disp(opnd))
+        CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
+    else {
+        extend = opnd.value.base_disp.extend_type;
+        scaled_out = opnd.value.base_disp.scaled;
+        if (scaled_out)
+            amount_out = opnd_size_to_extend_amount(opnd_get_size(opnd));
+    }
+    if (scaled != NULL)
+        *scaled = scaled_out;
+    if (amount != NULL)
+        *amount = amount_out;
+    return extend;
+}
+
+bool
+opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
+{
+    if (!opnd_is_base_disp(*opnd)) {
+        CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
+        return false;
+    }
+    if (extend < 0 || extend > 7) {
+        CLIENT_ASSERT(false, "opnd index extend: invalid extend type");
+        return false;
+    }
+    opnd->value.base_disp.extend_type = extend;
+    opnd->value.base_disp.scaled = scaled;
+    return true;
+}
+#endif /* AARCH64 */
 
 bool
 opnd_is_disp_encode_zero(opnd_t opnd)
 {
     if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.encode_zero_disp;
+        return IF_X86_ELSE(opnd.value.base_disp.encode_zero_disp, false);
     CLIENT_ASSERT(false, "opnd_is_disp_encode_zero called on invalid opnd type");
     return false;
 }
@@ -710,7 +801,7 @@ bool
 opnd_is_disp_force_full(opnd_t opnd)
 {
     if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.force_full_disp;
+        return IF_X86_ELSE(opnd.value.base_disp.force_full_disp, false);
     CLIENT_ASSERT(false, "opnd_is_disp_force_full called on invalid opnd type");
     return false;
 }
@@ -719,7 +810,7 @@ bool
 opnd_is_disp_short_addr(opnd_t opnd)
 {
     if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.disp_short_addr;
+        return IF_X86_ELSE(opnd.value.base_disp.disp_short_addr, false);
     CLIENT_ASSERT(false, "opnd_is_disp_short_addr called on invalid opnd type");
     return false;
 }
@@ -733,6 +824,7 @@ opnd_set_disp(opnd_t *opnd, int disp)
         CLIENT_ASSERT(false, "opnd_set_disp called on invalid opnd type");
 }
 
+#ifdef X86
 void
 opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_disp,
                  bool disp_short_addr)
@@ -745,6 +837,7 @@ opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_
     } else
         CLIENT_ASSERT(false, "opnd_set_disp_ex called on invalid opnd type");
 }
+#endif
 
 opnd_t
 opnd_create_abs_addr(void *addr, opnd_size_t data_size)
@@ -1053,7 +1146,10 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 reg_id_t b = (old_reg == ob) ? new_reg : ob;
                 reg_id_t i = (old_reg == oi) ? new_reg : oi;
                 int d = opnd_get_disp(*opnd);
-#ifdef AARCHXX
+#if defined(AARCH64)
+                /* FIXME i#1569: Include extension and shift. */
+                *opnd = opnd_create_base_disp(b, i, 0, d, size);
+#elif defined(ARM)
                 uint amount;
                 dr_shift_type_t shift = opnd_get_index_shift(*opnd, &amount);
                 dr_opnd_flags_t flags = opnd_get_flags(*opnd);
@@ -1185,24 +1281,25 @@ bool opnd_same(opnd_t op1, opnd_t op2)
         return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                 op1.value.base_disp.base_reg == op2.value.base_disp.base_reg &&
                 op1.value.base_disp.index_reg == op2.value.base_disp.index_reg &&
-                IF_X86_ELSE(op1.value.base_disp.scale ==
-                            op2.value.base_disp.scale &&,
-                            op1.value.base_disp.shift_type ==
-                            op2.value.base_disp.shift_type &&
-                            op1.value.base_disp.shift_amount_minus_1 ==
-                            op2.value.base_disp.shift_amount_minus_1 &&)
+                IF_X86(op1.value.base_disp.scale ==
+                       op2.value.base_disp.scale &&)
+                IF_ARM(op1.value.base_disp.shift_type ==
+                       op2.value.base_disp.shift_type &&
+                       op1.value.base_disp.shift_amount_minus_1 ==
+                       op2.value.base_disp.shift_amount_minus_1 &&)
                 op1.value.base_disp.disp == op2.value.base_disp.disp &&
-                op1.value.base_disp.encode_zero_disp ==
-                op2.value.base_disp.encode_zero_disp &&
-                op1.value.base_disp.force_full_disp ==
-                op2.value.base_disp.force_full_disp &&
-                /* disp_short_addr only matters if no registers are set */
-                (((op1.value.base_disp.base_reg != REG_NULL ||
-                   op1.value.base_disp.index_reg != REG_NULL) &&
-                  (op2.value.base_disp.base_reg != REG_NULL ||
-                   op2.value.base_disp.index_reg != REG_NULL)) ||
-                 op1.value.base_disp.disp_short_addr ==
-                 op2.value.base_disp.disp_short_addr));
+                IF_X86(op1.value.base_disp.encode_zero_disp ==
+                       op2.value.base_disp.encode_zero_disp &&
+                       op1.value.base_disp.force_full_disp ==
+                       op2.value.base_disp.force_full_disp &&
+                       /* disp_short_addr only matters if no registers are set */
+                       (((op1.value.base_disp.base_reg != REG_NULL ||
+                          op1.value.base_disp.index_reg != REG_NULL) &&
+                         (op2.value.base_disp.base_reg != REG_NULL ||
+                          op2.value.base_disp.index_reg != REG_NULL)) ||
+                        op1.value.base_disp.disp_short_addr ==
+                        op2.value.base_disp.disp_short_addr) &&)
+                true);
 #if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
 #endif
@@ -1786,12 +1883,13 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
     ptr_int_t scaled_index = 0;
     if (opnd_is_base_disp(opnd)) {
         reg_id_t index = opnd_get_index(opnd);
-#ifdef X86
+#if defined(X86)
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
 #elif defined(AARCH64)
-        (void)index;
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+        reg_t index_val = reg_get_value_priv(index, mc);
+        /* FIXME i#1569: Compute extension and shift. */
+        scaled_index = index_val;
 #elif defined(ARM)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
@@ -1925,9 +2023,9 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     if (sz == OPSZ_4)
         return reg;
     else if (sz == OPSZ_2)
-        return IF_ARM_ELSE(reg, reg_32_to_16(reg));
+        return IF_AARCHXX_ELSE(reg, reg_32_to_16(reg));
     else if (sz == OPSZ_1)
-        return IF_ARM_ELSE(reg, reg_32_to_8(reg));
+        return IF_AARCHXX_ELSE(reg, reg_32_to_8(reg));
 #ifdef X64
     else if (sz == OPSZ_8)
         return reg_32_to_64(reg);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,12 +40,12 @@
 #include "simulator.h"
 #include "cache_stats.h"
 #include "cache.h"
-#include "ipc_reader.h"
+#include "../reader/ipc_reader.h"
 
 class cache_simulator_t : public simulator_t
 {
  public:
-    virtual bool init();
+    cache_simulator_t();
     virtual ~cache_simulator_t();
     virtual bool run();
     virtual bool print_stats();

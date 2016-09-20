@@ -431,19 +431,19 @@ mangle_exit(void);
 void
 insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first OUT, instr_t **second OUT);
+                       OUT instr_t **first, OUT instr_t **last);
 void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
                         instrlist_t *ilist, instr_t *instr,
-                        instr_t **first OUT, instr_t **second OUT);
+                        OUT instr_t **first, OUT instr_t **last);
 void
 insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
                       opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second);
+                      OUT instr_t **first, OUT instr_t **last);
 void
 insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second);
+                       OUT instr_t **first, OUT instr_t **last);
 
 /* in mangle.c arch-specific implementation */
 #ifdef ARM
@@ -461,11 +461,11 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst,
                       instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second);
+                      OUT instr_t **first, OUT instr_t **last);
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second);
+                       OUT instr_t **first, OUT instr_t **last);
 instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 void
@@ -638,9 +638,6 @@ enum {
 /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
 # define ENTRY_PC_REG        DR_REG_X0
 #endif
-
-/* in interp.c but not exported to non-x86 files */
-bool must_not_be_inlined(app_pc pc);
 
 /* A simple linker to give us indirection for patching after relocating structures */
 typedef struct patch_entry_t {

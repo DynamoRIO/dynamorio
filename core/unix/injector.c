@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,6 +71,9 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#if defined(LINUX) && defined(AARCH64)
+# include <linux/ptrace.h> /* for struct user_pt_regs */
+#endif
 #include <sys/uio.h> /* for struct iovec */
 #include <sys/user.h>
 #include <sys/wait.h>
@@ -93,11 +96,14 @@ typedef enum {
 /* The type is just "int", and the values are different, so we use the Linux
  * type name to match the Linux constant names.
  */
+# ifndef PT_ATTACHEXC /* New replacement for PT_ATTACH */
+#  define PT_ATTACHEXC PT_ATTACH
+# endif
 enum __ptrace_request {
     PTRACE_TRACEME     = PT_TRACE_ME,
     PTRACE_CONT        = PT_CONTINUE,
     PTRACE_KILL        = PT_KILL,
-    PTRACE_ATTACH      = PT_ATTACH,
+    PTRACE_ATTACH      = PT_ATTACHEXC,
     PTRACE_DETACH      = PT_DETACH,
     PTRACE_SINGLESTEP  = PT_STEP,
 };
@@ -343,9 +349,10 @@ fork_suspended_child(const char *exe, dr_inject_info_t *info, int fds[2])
             pre_execve_early(info, exe);
             real_exe = arg;
         }
-#ifdef STATIC_LIBRARY
+        /* Trigger automated takeover in case DR is statically linked (yes
+         * we blindly do this rather than try to pass in a parameter).
+         */
         setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
-#endif
         execute_exec(info, real_exe);
         /* If execv returns, there was an error. */
         exit(-1);
@@ -535,9 +542,8 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
     info->method = INJECT_LD_PRELOAD;
-#ifdef STATIC_LIBRARY
+    /* Trigger automated takeover in case DR is statically linked. */
     setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
-#endif
     return errcode;
 }
 
@@ -821,7 +827,7 @@ enum { MAX_SHELL_CODE = 4096 };
 /* On ARM, all reg args are also reg retvals. */
 # define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
 #elif defined(AARCH64)
-# define USER_REGS_TYPE user_regs_struct
+# define USER_REGS_TYPE user_pt_regs
 # define REG_PC_FIELD pc
 # define REG_SP_FIELD sp
 # define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */

@@ -55,6 +55,9 @@ if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
     "${CMAKE_VERSION}" VERSION_GREATER "3.0")
   # XXX i#1557: update our code to satisfy the changes in 3.x
   cmake_policy(SET CMP0026 OLD)
+  # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
+  # Mac stuff and this policy, right?
+  cmake_policy(SET CMP0042 OLD)
 endif ()
 
 set(output_dir "${PROJECT_BINARY_DIR}/bin")
@@ -98,12 +101,6 @@ if (NOT DEFINED GENERATE_PDBS)
   # support running tests over ssh where pdb building is problematic
   set(GENERATE_PDBS ON)
 endif (NOT DEFINED GENERATE_PDBS)
-
-if (STATIC_LIBRARY)
-  set(libtype STATIC)
-else()
-  set(libtype SHARED)
-endif ()
 
 # i#379: We usually want to build the samples with optimizations to improve the
 # chances of inlining, but it's nice to be able to turn that off easily.  A
@@ -153,7 +150,7 @@ if (OPTIMIZE_SAMPLES)
 endif ()
 
 function (add_sample_client name source_file_list extension_list)
-  add_library(${name} ${libtype} ${source_file_list})
+  add_library(${name} SHARED ${source_file_list})
   configure_DynamoRIO_client(${name})
   foreach (ext ${extension_list})
     use_DynamoRIO_extension(${name} ${ext})
@@ -219,11 +216,15 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")
   add_sample_client(div         "div.c"           "drmgr")
   add_sample_client(inc2add     "inc2add.c"       "")
-  add_sample_client(memtrace_x86_binary "memtrace_x86.c;utils.c" "drmgr;drreg;drutil;drx")
-  add_sample_client(memtrace_x86_text   "memtrace_x86.c;utils.c" "drmgr;drreg;drutil;drx")
+  add_sample_client(memtrace_x86_binary "memtrace_x86.c;utils.c"
+    "drcontainers;drmgr;drreg;drutil;drx")
+  add_sample_client(memtrace_x86_text   "memtrace_x86.c;utils.c"
+    "drcontainers;drmgr;drreg;drutil;drx")
   _DR_append_property_string(TARGET memtrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
-  add_sample_client(instrace_x86_binary "instrace_x86.c;utils.c" "drmgr;drreg;drx")
-  add_sample_client(instrace_x86_text   "instrace_x86.c;utils.c" "drmgr;drreg;drx")
+  add_sample_client(instrace_x86_binary "instrace_x86.c;utils.c"
+    "drcontainers;drmgr;drreg;drx")
+  add_sample_client(instrace_x86_text   "instrace_x86.c;utils.c"
+    "drcontainers;drmgr;drreg;drx")
   _DR_append_property_string(TARGET instrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(prefetch    "prefetch.c"      "drmgr")
   if (NOT WIN32)

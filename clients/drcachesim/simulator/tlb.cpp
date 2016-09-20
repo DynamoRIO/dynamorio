@@ -31,7 +31,7 @@
  */
 
 #include "tlb.h"
-#include "utils.h"
+#include "../common/utils.h"
 #include <assert.h>
 
 void

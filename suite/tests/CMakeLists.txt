@@ -310,6 +310,7 @@ if (UNIX)
     # locate libm or libdl within the Android toolchain: we just assume they're there.
     set(libmath m)
     set(libdl dl)
+    set(libpthread "")
   else ()
     # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
     # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
@@ -515,20 +516,6 @@ function(append_link_flags target newflags)
     LINK_FLAGS "${cur_ldflags} ${newflags}")
 endfunction(append_link_flags)
 
-# On Linux, the individual object files contained by an archive are
-# garbage collected by the linker if they are not referenced.  To avoid
-# this, we have to use the --whole-archive option with ld.
-function(force_static_link target lib)
-  if (UNIX)
-    # CMake ignores libraries starting with '-' and preserves the
-    # ordering, so we can pass flags through target_link_libraries, which
-    # ensures we have the right CMake dependencies.
-    target_link_libraries(${target} -Wl,--whole-archive ${lib} -Wl,--no-whole-archive)
-  else ()
-    target_link_libraries(${target} ${lib})
-  endif ()
-endfunction(force_static_link)
-
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)
@@ -579,11 +566,12 @@ function(add_exe test source)
     SKIP_BUILD_RPATH ON)
   if (UNIX)
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
-    if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static")
+    if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
+        AND NOT ${test} MATCHES "drdecode")
       target_link_libraries(${test} ${libmath} ${libdl})
     endif ()
     if (NOT ANDROID) # pthreads is inside Bionic on Android
-      if ("${test}" MATCHES "^pthread|startstop_FLAKY")
+      if ("${test}" MATCHES "^pthread")
         target_link_libraries(${test} ${libpthread})
       endif ()
     endif ()
@@ -596,12 +584,6 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY" AND
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${test} ${gen_asm_tgt})
-  endif ()
-
-  if (STATIC_LIBRARY AND NOT "${test}" MATCHES "api")
-    # Link DR into every test exe except the api tests, which already link
-    # against DR or the standalone decoder.
-    force_static_link(${test} dynamorio)
   endif ()
 endfunction(add_exe)
 
@@ -645,12 +627,7 @@ function(tobuild_dll test source dr_ops)
 endfunction(tobuild_dll)
 
 function(get_client_path client_path_out realclient realexe)
-  if (STATIC_LIBRARY)
-    set(tgt ${realexe})
-  else()
-    set(tgt ${realclient})
-  endif ()
-  get_target_path_for_execution(client_path ${tgt})
+  get_target_path_for_execution(client_path ${realclient})
   set(${client_path_out} "${client_path}" PARENT_SCOPE)
 endfunction(get_client_path)
 
@@ -687,17 +664,11 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
         set_target_properties(${test} PROPERTIES COMPILE_FLAGS "${tst_flags}")
       endif ()
     else ()
-      if (STATIC_LIBRARY)
-        add_exe(${test} ${ci_shared_app_src})
-      else ()
-        set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
-      endif ()
+      set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
     endif ()
-  elseif (STATIC_LIBRARY)
-    return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
   endif ()
 
-  add_library(${test}.dll ${SHARED_OR_STATIC} ${client_source})
+  add_library(${test}.dll SHARED ${client_source})
   if (NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
@@ -707,13 +678,6 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   add_dependencies(${test}.dll api_headers)
   copy_target_to_device(${test}.dll)
   get_client_path(client_path ${test}.dll ${test})
-  if (STATIC_LIBRARY)
-    # For STATIC_LIBRARY, we support a single client by linking the client into
-    # the exe.
-    force_static_link(${test} ${test}.dll)
-    # Let clients know if they're being built statically.
-    append_property_string(TARGET ${test}.dll COMPILE_FLAGS "-DSTATIC_LIBRARY")
-  endif ()
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
@@ -723,7 +687,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(tobuild_ci)
 
-function(configure_app_api_build_flags test decoder)
+function(configure_app_api_build_flags test decoder use_static_DR)
   # save property since configure_DynamoRIO_standalone will clobber it
   get_target_property(pre_lflags ${test} LINK_FLAGS)
   # disable the default rpath for standalone apps
@@ -733,6 +697,9 @@ function(configure_app_api_build_flags test decoder)
   if (decoder)
     configure_DynamoRIO_decoder(${test})
     set(extra_flags "-DSTANDALONE_DECODER")
+  elseif (use_static_DR)
+    configure_DynamoRIO_static(${test})
+    set(extra_flags "-DSTATIC_LIBRARY")
   else ()
     configure_DynamoRIO_standalone(${test})
     set(extra_flags "-DSTANDALONE")
@@ -803,7 +770,7 @@ function(tobuild_appdll test source)
     if ("${test}" MATCHES "nativeexec")
       # Link DynamoRIO for building nativeexec.appdll for using
       # dr_running_under_dynamorio and dr_native_handle_mbr_target.
-      configure_app_api_build_flags(${test}.appdll OFF)
+      configure_app_api_build_flags(${test}.appdll OFF OFF)
       add_dependencies(${test}.appdll api_headers)
     endif()
   copy_target_to_device(${test}.appdll)
@@ -857,11 +824,11 @@ function(torunonly_api test realexe source dr_ops exe_ops use_decoder)
 endfunction(torunonly_api)
 
 # client interface standalone app
-function(add_api_exe test source use_decoder)
+function(add_api_exe test source use_decoder use_static_DR)
   add_exe(${test} ${source})
-  configure_app_api_build_flags(${test} ${use_decoder})
+  configure_app_api_build_flags(${test} ${use_decoder} ${use_static_DR})
   add_dependencies(${test} api_headers)
-  if (WIN32 AND NOT use_decoder)
+  if (WIN32 AND NOT use_decoder AND NOT use_static_DR)
     # Since we can't set the working dir w/o making an external script,
     # we copy dynamorio.dll into the default dir.  If we just do a POST_BUILD
     # custom command we have races (i#810) so we use a globally unique
@@ -886,12 +853,12 @@ function(add_api_exe test source use_decoder)
       set(created_drcopy_target ON PARENT_SCOPE)
     endif ()
     add_dependencies(${test} drcopy)
-  endif (WIN32 AND NOT use_decoder)
+  endif ()
 endfunction(add_api_exe)
 
 # macro so the PARENT_SCOPE in torunonly_api will reach caller of this
-macro(tobuild_api test source dr_ops exe_ops use_decoder)
-  add_api_exe(${test} ${source} ${use_decoder})
+macro(tobuild_api test source dr_ops exe_ops use_decoder use_static_DR)
+  add_api_exe(${test} ${source} ${use_decoder} ${use_static_DR})
   torunonly_api(${test} OFF ${source} "${dr_ops}" "${exe_ops}" ${use_decoder})
 endmacro(tobuild_api)
 
@@ -1225,10 +1192,6 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
-  if (STATIC_LIBRARY AND NOT "${dr_ops}" MATCHES "-no_early_inject")
-    set(${added_out} OFF PARENT_SCOPE)
-    return()
-  endif ()
 
   if (DEFINED ${key}_realtest)
     set(exe ${${key}_realtest})
@@ -1324,7 +1287,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # much simpler this way.
     string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
-    get_target_path_for_execution(toolbindir nudgeunix)
+    if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
+      get_target_path_for_execution(toolbindir nudgeunix)
+    else ()
+      set(toolbindir "i#1286-not-implemented-for-Mac")
+    endif ()
     get_filename_component(toolbindir ${toolbindir} DIRECTORY)
     add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${toolbindir}
       -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
@@ -1334,7 +1301,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # Some apps have enough output that ctest runs out of memory when
     # doing its built-in regex cmp so we use a separate script.
     # We also use this approach for tests that need custom success tests.
-    set(cmd_with_at ${rundr} ${exepath} ${exe_ops})
+    if (DEFINED ${key}_nodr)
+      set(cmd_with_at ${exepath} ${exe_ops})
+    else ()
+      set(cmd_with_at ${rundr} ${exepath} ${exe_ops})
+    endif ()
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
     # much simpler this way.
@@ -1472,9 +1443,6 @@ endmacro()
 
 function(torun_normal name test ops)
   strings2lists(${test} ops)
-  if (STATIC_LIBRARY AND NOT "${ops}" MATCHES "-no_early_inject")
-    return()
-  endif ()
   torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops};${ops}"
     "${${test}_exe_ops}" added)
   if (DEFINED ${test}_depends)
@@ -1500,9 +1468,6 @@ function(torun_ci name test ops)
       set(cli_ops "use_unlink")
     endif ()
   endif ("${test}" MATCHES "client\\.flush")
-  if (STATIC_LIBRARY AND NOT "${${test}_dr_ops};${ops}" MATCHES "-no_early_inject")
-    return()
-  endif ()
   # note that we cannot use double quotes as they'll be stripped out
   if (DEFINED ${test}_toolname)
     # end-user tool
@@ -1666,7 +1631,7 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
     "-early_inject -max_bb_instrs 6" "")
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
-    "-nostartfiles -nodefaultlibs -Wl,-static -Wl,--thumb-entry -Wl,_start")
+    "-nostartfiles -nodefaultlibs -Wl,-static")
 
   tobuild_ops(common.allasm_arm common/allasm_arm.asm "-early_inject" "")
   set_target_properties(common.allasm_arm PROPERTIES LINKER_LANGUAGE C)
@@ -1674,8 +1639,7 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
-  tobuild(libutil.frontend_test libutil/frontend_test.c)
-  configure_DynamoRIO_standalone(libutil.frontend_test)
+  tobuild_api(libutil.frontend_test libutil/frontend_test.c "" "" OFF OFF)
   target_link_libraries(libutil.frontend_test drfrontendlib)
 endif ()
 
@@ -1706,8 +1670,6 @@ if (CLIENT_INTERFACE)
       get_target_property(modules_libname client.modules.appdll
         LOCATION${location_suffix})
       tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
-      # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
-      append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
     endif ()
   endif (X86)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
@@ -1908,11 +1870,17 @@ if (CLIENT_INTERFACE)
   endif (ANNOTATIONS AND NOT ARM)
   if (UNIX)
     if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-      # Just happens to not make as many traces.
+      if (AARCH64)
+        # FIXME i#1569: Reenable when trace construction is implemented.
+        set(trace_arg "-disable_traces")
+      else ()
+        # Just happens to not make as many traces.
+        set(trace_arg "-trace_threshold 5")
+      endif ()
       tobuild_ci(client.events client-interface/events.c
-        "" "-trace_threshold 5" "${events_appdll_path}")
+        "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
-        "" "-trace_threshold 5" "${events_appdll_path}")
+        "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
     endif (NOT ARM)
@@ -1976,8 +1944,10 @@ if (CLIENT_INTERFACE)
       torunonly_ci(client.truncate.thread-churn-2 win32.threadchurn client.truncate.dll
         client-interface/truncate.c "2" "" "")
     endif (WIN32)
-    tobuild_ci(client.dr_options client-interface/dr_options.c
-      "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+    if (NOT AARCH64) # FIXME i#1569: get working on AArch64
+      tobuild_ci(client.dr_options client-interface/dr_options.c
+        "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
+    endif (NOT AARCH64)
   endif (NOT ARM)
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
@@ -2010,6 +1980,8 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.option_parse.dll droption)
   set(client.option_parse_client_ops_islist ON)
 
+  tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
+
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
@@ -2018,6 +1990,17 @@ if (CLIENT_INTERFACE)
   if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
     target_link_libraries(client.drmgr-test ${libpthread})
   endif ()
+
+  if (NOT AARCH64) # FIXME i#1569: get working on AArch64
+    tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
+    use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
+    use_DynamoRIO_extension(client.drx_buf-test.dll drx)
+    if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
+      target_link_libraries(client.drx_buf-test ${libpthread})
+    endif ()
+    target_include_directories(client.drx_buf-test PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  endif (NOT AARCH64)
 
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
@@ -2029,6 +2012,11 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drreg-flow.dll drmgr)
   use_DynamoRIO_extension(client.drreg-flow.dll drreg)
   use_DynamoRIO_extension(client.drreg-flow.dll drutil)
+
+  tobuild_ci(client.drreg-cross client-interface/drreg-cross.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-cross.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-cross.dll drreg)
+  use_DynamoRIO_extension(client.drreg-cross.dll drutil)
 
   tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
   use_DynamoRIO_extension(client.drx-test.dll drx)
@@ -2135,15 +2123,16 @@ if (CLIENT_INTERFACE)
 
   if (ARM)
     set(sfx "arm")
+  elseif (AARCH64)
+    set(sfx "aarch64")
   else ()
     set(sfx "x86")
   endif ()
-  if (NOT ANDROID AND NOT AARCH64)
+  if (NOT ANDROID)
     # XXX i#1874: get working on Android
-    # FIXME i#1569: get working on AArch64
-    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF)
+    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
     # XXX i#1686: add ARM's headers too once they are all created
-    if (NOT ARM AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+    if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
       # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
       # and so doesn't find headers named via macros
       # (http://www.cmake.org/Bug/view.php?id=13718)
@@ -2162,10 +2151,10 @@ if (CLIENT_INTERFACE)
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
       # Helper exe, used offline to build smaller input binary to test itself:
-      add_api_exe(api.dis-create api/dis-create.c OFF)
+      add_api_exe(api.dis-create api/dis-create.c OFF OFF)
       # XXX i#1686: get -syntax_arm working and test it further here.
       # For now our template is DR syntax.
-      add_api_exe(api.dis api/dis.c OFF)
+      add_api_exe(api.dis api/dis.c OFF OFF)
       torunonly_api(api.disA32 api.dis api/dis.c ""
         "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-armA32-randtest.raw;-arm" OFF)
       set(api.disA32_expectbase "dis-armA32")
@@ -2174,12 +2163,12 @@ if (CLIENT_INTERFACE)
       set(api.disT32_expectbase "dis-armT32")
     endif ()
   elseif (AARCH64)
-    add_api_exe(api.dis-a64 api/dis-a64.c OFF)
+    add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
     torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
       "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF)
   elseif (X86)
     tobuild_api(api.dis api/dis.c "-syntax_intel"
-      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF)
+      "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF OFF)
     if (X64)
       set(api.dis_expectbase "dis-x64")
     else ()
@@ -2187,23 +2176,29 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (ARM)
 
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-    # XXX i#1512: api.startstop is FLAKY
-    tobuild_api(api.startstop_FLAKY api/startstop.c "" "" OFF)
-  endif (NOT ARM)
+  if (NOT ARM AND NOT AARCH64) # FIXME i#1551, i#1569: fix bugs on ARM/AArch64
+    tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
+    if (NOT ANDROID) # pthreads is inside Bionic on Android
+      target_link_libraries(api.startstop ${libpthread})
+    endif ()
+    tobuild_api(api.detach api/detach.c "" "" OFF OFF)
+    if (NOT ANDROID) # pthreads is inside Bionic on Android
+      target_link_libraries(api.detach ${libpthread})
+    endif ()
+  endif ()
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # test static decoder library
-    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON)
+    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
   endif (X86)
 
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
-      tobuild_api(api.static api/static_arm.c "" "" ON)
+      tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
     endif ()
   elseif (AARCH64)
-    # FIXME i#1569: get working on AArch64
+    tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
   else ()
-    tobuild_api(api.static api/static_x86.c "" "" ON)
+    tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
@@ -2214,9 +2209,25 @@ if (CLIENT_INTERFACE)
       DOC "path to MinGW libstdc++-6.dll")
     if (mingwlib)
       message(STATUS "Found ${mingwlib}, enabling api.symtest")
-      tobuild_api(api.symtest api/symtest.c "" "${mingwlib}" OFF)
+      tobuild_api(api.symtest api/symtest.c "" "${mingwlib}" OFF OFF)
       use_DynamoRIO_extension(api.symtest drsyms)
     endif ()
+  endif ()
+
+  # Test DR as a static library
+  # XXX i#1996: not fully supported on Android yet
+  # XXX i#1997: not fully supported on Mac yet
+  # XXX i#1551: start/stop API NYI on ARM
+  # XXX i#1569: start/stop API NYI on AArch64
+  if (NOT ANDROID AND NOT APPLE AND NOT ARM AND NOT AARCH64)
+    tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
+    target_link_libraries(api.static_startstop ${libmath})
+    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
+    target_link_libraries(api.static_noclient ${libmath})
+    tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
+    target_link_libraries(api.static_noinit ${libmath})
+    tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
+    target_link_libraries(api.static_detach ${libmath})
   endif ()
 
   if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM
@@ -2299,10 +2310,12 @@ if (CLIENT_INTERFACE)
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
-    if (NOT ANDROID) # XXX i#1874: get working on Android
+    if (NOT ANDROID AND NOT APPLE) # XXX i#1874,i#1360: get working on Android,Mac
       torunonly_ci(tool.drltrace common.fib drltrace common/fib.c "-only_from_app" "" "")
       set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
+    endif ()
 
+    if (NOT ANDROID) # XXX i#1874: get working on Android
       torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
       set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
       set(tool.drcov.fib_expectbase "tool.drcov.fib")
@@ -2338,7 +2351,8 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.phys_rawtemp ON) # no preprocessor
 
         # FIXME i#1799: clang does not support "asm goto" used in annotation
-        if (NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
+        # FIXME i#1551, i#1569: get working on ARM/AArch64
+        if (NOT ARM AND NOT AARCH64 AND NOT CMAKE_COMPILER_IS_CLANG)
           # Our pthreads tests don't have many threads so we run this annot test,
           # though it is a little slow under drcachesim.
           # XXX i#1703: this may be too flaky: we may want to remove this once
@@ -2393,6 +2407,34 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.multiproc_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.multiproc_rawtemp ON) # no preprocessor
+
+        # Test offline traces.
+        # XXX: we could exclude the pipe files and build the offline trace
+        # support by itself for Windows and Android.
+        macro (torunonly_drcacheoff testname exetgt)
+          torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
+            "offline-${testname}.c" # for templatex basename
+            "-offline" "" "")
+          set(tool.drcacheoff.${testname}_toolname "drcachesim")
+          set(tool.drcacheoff.${testname}_basedir
+            "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+          set(tool.drcacheoff.${testname}_rawtemp ON) # no preprocessor
+          get_target_path_for_execution(drcachesim_path drcachesim)
+          prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+          set(tool.drcacheoff.${testname}_runcmp
+            "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+          set(tool.drcacheoff.${testname}_precmd
+            "${CMAKE_COMMAND}@-E@remove@memtrace.${exetgt}.*.log")
+          set(tool.drcacheoff.${testname}_postcmd
+            "${drcachesim_path}@-infile@memtrace.${exetgt}.*.log")
+        endmacro()
+
+        # We could share drcachesim-simple.templatex if we had the launcher fork
+        # and print out the "---- <application exited with code 0> ----".
+        torunonly_drcacheoff(simple ${ci_shared_app})
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
+        set(tool.drcacheoff.burst_static_nodr ON)
+
       endif ()
     endif ()
 
@@ -2470,7 +2512,7 @@ if (UNIX)
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
-  if (TEST_SUITE OR TEST_32BIT_PATH)
+  if (X86 AND (TEST_SUITE OR TEST_32BIT_PATH))
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       tobuild_ops(linux.execve64 linux/execve.c ""
@@ -2481,7 +2523,7 @@ if (UNIX)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
     endif (X64)
-  endif (TEST_SUITE OR TEST_32BIT_PATH)
+  endif (X86 AND (TEST_SUITE OR TEST_32BIT_PATH))
 
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
@@ -2525,6 +2567,10 @@ if (UNIX)
   endif ()
 
   tobuild(linux.execve-rec linux/execve-rec.c)
+  if (ANDROID)
+    # Times out in 90s in suite
+    set(linux.execve-rec_timeout 120)
+  endif ()
   tobuild(linux.exit linux/exit.c)
   if (NOT ANDROID) # XXX i#1874: get working on Android: just output order?!?
     tobuild(linux.fork linux/fork.c)
@@ -2621,13 +2667,10 @@ if (UNIX)
   endif ()
 
   # Test fully static executables, which we only support with early injection
-  # or STATIC_LIBRARY.
+  # or static DR.
   # XXX i#1874: get working on Android
   if (NOT APPLE AND NOT ANDROID) # XXX i#1285: implement private loader on MacOS
     set(fib_static_ops "-early_inject")
-    if (STATIC_LIBRARY)
-      set(fib_static_ops "")
-    endif ()
     tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
     append_property_string(TARGET linux.fib-static LINK_FLAGS
       # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
@@ -2935,7 +2978,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
-if (X64)
+if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
   # Reachability tests
 
   # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
@@ -2972,11 +3015,15 @@ if (X64)
     endif (UNIX)
   endif (CLIENT_INTERFACE)
 
-endif (X64)
+endif (X64 AND NOT AARCH64)
 
-tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+if (NOT AARCH64) # FIXME i#1569: get working on AArch64
+  tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+endif ()
 
-if (NOT ANDROID) # XXX i#1874: get working on Android
+# XXX i#1874: get working on Android
+# FIXME i#1569: get working on AArch64
+if (NOT ANDROID AND NOT AARCH64)
   set (TestMemProtChg "security-common.TestMemProtChg")
   if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
     set (TestMemProtChg "${TestMemProtChg}_FLAKY")
@@ -3092,6 +3139,7 @@ if (APPLE)
   set_tests_properties(
     samples_proj
     code_api|common.broadfun
+    code_api|common.decode-bad
     code_api|common.fib
     code_api|common.floatpc
     code_api|common.floatpc_xl8all
@@ -3138,6 +3186,6 @@ if (APPLE)
     code_api|api.ir
     code_api|api.dis
     code_api|api.ir-static
-    code_api|api.static
+    code_api|api.drdecode
     PROPERTIES LABELS OSX)
 endif ()

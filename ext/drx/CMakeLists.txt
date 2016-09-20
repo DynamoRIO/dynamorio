@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 # DynamoRIO eXtension utilities
 
 # We do not need libc, and we avoid a 10x size increase in both our
@@ -39,6 +41,7 @@ set(DynamoRIO_USE_LIBC OFF)
 
 set(srcs
   drx.c
+  drx_buf.c
   # add more here
   )
 
@@ -49,7 +52,7 @@ if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 endif ()
 
-add_library(drx ${libtype} ${srcs})
+add_library(drx SHARED ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x77000000)
@@ -71,13 +74,11 @@ endmacro()
 
 configure_drx_target(drx)
 
-if (NOT STATIC_LIBRARY)
-  add_library(drx_static STATIC ${srcs_static})
-  configure_extension(drx_static ON)
-  use_DynamoRIO_extension(drx_static drcontainers)
-  use_DynamoRIO_extension(drx_static drmgr_static)
-  use_DynamoRIO_extension(drx_static drreg_static)
-  configure_drx_target(drx_static)
-endif ()
+add_library(drx_static STATIC ${srcs_static})
+configure_extension(drx_static ON)
+use_DynamoRIO_extension(drx_static drcontainers)
+use_DynamoRIO_extension(drx_static drmgr_static)
+use_DynamoRIO_extension(drx_static drreg_static)
+configure_drx_target(drx_static)
 
 install_ext_header(drx.h)

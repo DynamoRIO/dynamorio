@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,23 +32,38 @@
  */
 
 OPCODE(add, add, add, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(x_add_s, add, add_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(x_add, lea, add, 0, REGARG(XAX), IMMARG(OPSZ_4))
 OPCODE(or, or, or, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(adc, adc, adc, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(sbb, sbb, sbb, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(and, and, and, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(x_and, and, and_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(sub, sub, sub, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(x_sub_s, sub, sub_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(x_sub, lea, sub, 0, REGARG(XAX), IMMARG(OPSZ_4))
 OPCODE(xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(arpl, arpl, arpl, X86_ONLY, MEMARG(OPSZ_2), REGARG(AX))
 OPCODE(lea, lea, lea, 0, REGARG(EAX), MEMARG(OPSZ_lea))
 OPCODE(mov_ld, mov_ld, mov_ld, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(load, mov_ld, load, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(load_1byte, mov_ld, load_1byte, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(load_2bytes, mov_ld, load_2bytes, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(move, mov_ld, move, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(mov_st, mov_st, mov_st, 0, MEMARG(OPSZ_4), REGARG(EAX))
+XOPCODE(store, mov_st, store, 0, MEMARG(OPSZ_4), REGARG(EAX))
+XOPCODE(store_1byte, mov_st, store_1byte, 0, MEMARG(OPSZ_4), REGARG(EAX))
+XOPCODE(store_2bytes, mov_st, store_2bytes, 0, MEMARG(OPSZ_4), REGARG(EAX))
 OPCODE(mov_imm, mov_imm, mov_imm, 0, REGARG(EAX), IMMARG(OPSZ_4))
+XOPCODE(load_int, mov_imm, load_int, 0, REGARG(EAX), IMMARG(OPSZ_4))
 OPCODE(mov_seg, mov_seg, mov_seg, 0, REGARG(EAX), opnd_create_reg(SEG_FS))
 OPCODE(mov_priv, mov_priv, mov_priv, 0, REGARG(XAX), REGARG(CR0))
 OPCODE(lar, lar, lar, 0, REGARG(EAX), MEMARG(OPSZ_2))
 OPCODE(lsl, lsl, lsl, 0, REGARG(EAX), MEMARG(OPSZ_2))
 OPCODE(movd_ld, movd, movd, 0, REGARG(MM0), MEMARG(OPSZ_4))
+XOPCODE(load_simd, movd, load_simd, 0, REGARG(MM0), MEMARG(OPSZ_4))
 OPCODE(movd_st, movd, movd, 0, MEMARG(OPSZ_4), REGARG_PARTIAL(MM0, OPSZ_4))
+XOPCODE(store_simd, movd, store_simd, 0, MEMARG(OPSZ_4), REGARG_PARTIAL(MM0, OPSZ_4))
 OPCODE(movd_ld_xmm, movd, movd, 0, REGARG(XMM0), MEMARG(OPSZ_4))
 OPCODE(movd_st_xmm, movd, movd, 0, MEMARG(OPSZ_4), REGARG_PARTIAL(XMM0, OPSZ_4))
 OPCODE(movq_ld, movq, movq, 0, REGARG(MM0), MEMARG(OPSZ_8))
@@ -75,6 +90,7 @@ OPCODE(cmpxchg1, cmpxchg, cmpxchg_1, 0, MEMARG(OPSZ_1), REGARG(AL))
 OPCODE(cmpxchg4, cmpxchg, cmpxchg_4, 0, MEMARG(OPSZ_4), REGARG(EAX))
 OPCODE(cmpxchg8, cmpxchg, cmpxchg_8, X64_ONLY, MEMARG(OPSZ_8), REGARG(RDX))
 OPCODE(cmp, cmp, cmp, 0, REGARG(EAX), MEMARG(OPSZ_4))
+XOPCODE(x_cmp, cmp, cmp, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(test, test, test, 0, MEMARG(OPSZ_4), REGARG(EAX))
 OPCODE(bound, bound, bound, X86_ONLY, REGARG(EAX), MEMARG(OPSZ_bound))
 

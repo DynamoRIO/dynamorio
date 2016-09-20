@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -118,8 +118,14 @@ test_all_opcodes_0(void *dc)
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
+#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
+        instrlist_append(ilist, XINST_CREATE_##icnm(dc)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
+    } } while (0);
 #   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
+#   undef XOPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
 
@@ -137,8 +143,14 @@ test_all_opcodes_1(void *dc)
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
+#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
+        instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
+    } } while (0);
 #   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
+#   undef XOPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
 
@@ -151,8 +163,14 @@ test_all_opcodes_2(void *dc)
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
+#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
+        instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1, arg2)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
+    } } while (0);
 #   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
+#   undef XOPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
 
@@ -179,8 +197,14 @@ test_all_opcodes_3(void *dc)
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
+#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
+        instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1, arg2, arg3)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
+    } } while (0);
 #   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
+#   undef XOPCODE_FOR_CREATE
 #   undef INCLUDE_NAME
 }
 

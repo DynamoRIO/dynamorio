@@ -86,10 +86,7 @@ typedef struct _android_v5_pthread_internal_t {
     /* The TLS register points here, to slot #0 (ANDROID_TLS_SLOT_SELF) */
     void *tls[ANDROID_BIONIC_TLS_SLOTS];
     int /* really pthread_key_t */ pthread_keys[ANDROID_PTHREAD_KEYS_TOT];
-    char dlerror_buffer[ANDROID_DLERROR_BUFFER_SIZE];
-    /* We use this to store the DR TLS base.  We assume its distance from tls[]
-     * is the same for all versions.
-     */
+    /* This is our added field. */
     void *dr_tls_base;
 } android_v5_pthread_internal_t;
 
@@ -112,9 +109,7 @@ typedef struct _android_v6_pthread_internal_t {
     void *tls[ANDROID_BIONIC_TLS_SLOTS];
     int /* really pthread_key_t */ pthread_keys[ANDROID_PTHREAD_KEYS_TOT];
     char dlerror_buffer[ANDROID_DLERROR_BUFFER_SIZE];
-    /* We use this to store the DR TLS base.  We assume its distance from tls[]
-     * is the same for all versions.
-     */
+    /* This is our added field. */
     void *dr_tls_base;
 } android_v6_pthread_internal_t;
 

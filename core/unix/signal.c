@@ -275,7 +275,8 @@ static bool
 handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt);
 
 static bool
-handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt);
+handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
+                      sigframe_rt_t *frame);
 
 static bool
 handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
@@ -1221,36 +1222,38 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
     }
 #ifdef HAVE_SIGALTSTACK
     /* Remove our sigstack and restore the app sigstack if it had one.  */
-    LOG(THREAD, LOG_ASYNCH, 2, "removing our signal stack "PFX" - "PFX"\n",
-        info->sigstack.ss_sp, info->sigstack.ss_sp + info->sigstack.ss_size);
-    if (APP_HAS_SIGSTACK(info)) {
-        LOG(THREAD, LOG_ASYNCH, 2, "restoring app signal stack "PFX" - "PFX"\n",
-            info->app_sigstack.ss_sp,
-            info->app_sigstack.ss_sp + info->app_sigstack.ss_size);
-    } else {
-        ASSERT(TEST(SS_DISABLE, info->app_sigstack.ss_flags));
-    }
-    if (info->sigstack.ss_sp != NULL) {
-        /* i#552: to raise client exit event, we may call dynamo_process_exit
-         * on sigstack in signal handler.
-         * In that case we set sigstack (ss_sp) NULL to avoid stack swap.
-         */
-# ifdef MACOS
-        if (info->app_sigstack.ss_sp == NULL) {
-            /* Kernel fails with ENOMEM (even for SS_DISABLE) if ss_size is too small */
-            info->sigstack.ss_flags = SS_DISABLE;
-            i = sigaltstack_syscall(&info->sigstack, NULL);
-            /* i#1814: kernel gives EINVAL if last handler didn't call sigreturn! */
-            ASSERT(i == 0 || i == -EINVAL);
+    if (!other_thread) {
+        LOG(THREAD, LOG_ASYNCH, 2, "removing our signal stack "PFX" - "PFX"\n",
+            info->sigstack.ss_sp, info->sigstack.ss_sp + info->sigstack.ss_size);
+        if (APP_HAS_SIGSTACK(info)) {
+            LOG(THREAD, LOG_ASYNCH, 2, "restoring app signal stack "PFX" - "PFX"\n",
+                info->app_sigstack.ss_sp,
+                info->app_sigstack.ss_sp + info->app_sigstack.ss_size);
         } else {
-            i = sigaltstack_syscall(&info->app_sigstack, NULL);
-            /* i#1814: kernel gives EINVAL if last handler didn't call sigreturn! */
-            ASSERT(i == 0 || i == -EINVAL);
+            ASSERT(TEST(SS_DISABLE, info->app_sigstack.ss_flags));
         }
+        if (info->sigstack.ss_sp != NULL) {
+            /* i#552: to raise client exit event, we may call dynamo_process_exit
+             * on sigstack in signal handler.
+             * In that case we set sigstack (ss_sp) NULL to avoid stack swap.
+             */
+# ifdef MACOS
+            if (info->app_sigstack.ss_sp == NULL) {
+                /* Kernel fails w/ ENOMEM (even for SS_DISABLE) if ss_size is too small */
+                info->sigstack.ss_flags = SS_DISABLE;
+                i = sigaltstack_syscall(&info->sigstack, NULL);
+                /* i#1814: kernel gives EINVAL if last handler didn't call sigreturn! */
+                ASSERT(i == 0 || i == -EINVAL);
+            } else {
+                i = sigaltstack_syscall(&info->app_sigstack, NULL);
+                /* i#1814: kernel gives EINVAL if last handler didn't call sigreturn! */
+                ASSERT(i == 0 || i == -EINVAL);
+            }
 # else
-        i = sigaltstack_syscall(&info->app_sigstack, NULL);
-        ASSERT(i == 0);
+            i = sigaltstack_syscall(&info->app_sigstack, NULL);
+            ASSERT(i == 0);
 # endif
+        }
     }
 #endif
     IF_LINUX(signalfd_thread_exit(dcontext, info));
@@ -2518,7 +2521,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
             f_new->pretcode = (char *) dynamorio_sigreturn;
 # else
 #  ifdef X64
-        ASSERT(!for_app);
+        ASSERT(!for_app || doing_detach); /* detach uses a frame to go native */
 #  else
         /* only point at retcode if old one was -- with newer OS, points at
          * vsyscall page and there is no restorer, yet stack restorer code left
@@ -2563,15 +2566,19 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         LOG(THREAD, LOG_ASYNCH, level+1, "\tno fpstate needed\n");
     }
     LOG(THREAD, LOG_ASYNCH, level, "\tretaddr = "PFX"\n", f_new->pretcode);
-#  ifdef RETURN_AFTER_CALL
+# ifdef RETURN_AFTER_CALL
     info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
-#  endif
+# endif
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
-# elif defined(MACOS)
+#elif defined(MACOS)
+# ifndef X64
+    f_new->pinfo = &(f_new->info);
+    f_new->puc = &(f_new->uc);
+# endif
     f_new->puc->uc_mcontext = (IF_X64_ELSE(_STRUCT_MCONTEXT64, _STRUCT_MCONTEXT32) *)
         &f_new->mc;
-    LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", handler="PFX"\n", f_new, &f_new->handler);
+    LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", &handler="PFX"\n", f_new, &f_new->handler);
     ASSERT(!for_app || ALIGNED(&f_new->handler, 16));
 #endif /* X86 && LINUX */
 }
@@ -3161,7 +3168,7 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
             nxt_pc = decode(dcontext, pc - syslen, &instr);
             if (nxt_pc != NULL && instr_valid(&instr) &&
                 instr_is_syscall(&instr)) {
-#if !defined(ARM) && !defined(MACOS)
+#if defined(X86) && !defined(MACOS)
                 /* decoding backward so check for exit cti jmp prior
                  * to syscall to ensure no mismatch
                  */
@@ -3239,7 +3246,8 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
             pc = decode(dcontext, pc, &instr);
             if (instr_is_mov_constant(&instr, &val) &&
                 opnd_is_reg(instr_get_dst(&instr, 0)) &&
-                opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_SYSNUM) {
+                reg_to_pointer_sized(opnd_get_reg(instr_get_dst(&instr, 0))) ==
+                reg_to_pointer_sized(DR_REG_SYSNUM)) {
                 sysnum = (int) val;
                 /* don't break: find last one before syscall */
             }
@@ -4248,7 +4256,7 @@ master_signal_handler_C(byte *xsp)
         target = compute_memory_target(dcontext, pc, ucxt, siginfo, &is_write);
 
 #ifdef CLIENT_INTERFACE
-        if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) && is_in_client_lib(pc)) {
+        if (CLIENTS_EXIST() && is_in_client_lib(pc)) {
             /* i#1354: client might write to a page we made read-only.
              * If so, handle the fault and re-execute it, if it's safe to do so
              * (we document these criteria under DR_MEMPROT_PRETEND_WRITE).
@@ -4389,7 +4397,7 @@ master_signal_handler_C(byte *xsp)
 
     /* PR 212090: the signal we use to suspend threads */
     case SUSPEND_SIGNAL:
-        if (handle_suspend_signal(dcontext, ucxt))
+        if (handle_suspend_signal(dcontext, ucxt, frame))
             record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
         /* else, don't deliver to app */
         break;
@@ -4812,7 +4820,7 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
         /* We can't clean up our sigstack properly when we're on it
          * (i#1160) so we terminate on the dstack.
          */
-        call_switch_stack(dcontext, dcontext->dstack, terminate_via_kill,
+        call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))terminate_via_kill,
                           NULL/*!initstack */, false/*no return */);
     } else {
         terminate_via_kill(dcontext);
@@ -5180,11 +5188,20 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         /* The initial frame fields on the stack are messed up due to
          * params to handler from tramp, so use params to syscall.
          * XXX: we don't have signal # though: so we have to rely on app
-         * not clobbering the param field.
+         * not clobbering the sig param field.
          */
         sig = *(int*)xsp;
         LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d\n", sig);
         ucxt = (kernel_ucontext_t *) ucxt_param;
+        if (ucxt == NULL) {
+            /* On Mac the kernel seems to store state on whether the process is
+             * on the altstack, so longjmp calls _sigunaltstack() which issues a
+             * sigreturn syscall telling the kernel about the altstack change,
+             * with a NULL context.
+             */
+            LOG(THREAD, LOG_ASYNCH, 3, "\tsigunalstack sigreturn: no context\n");
+            return true;
+        }
         sc = SIGCXT_FROM_UCXT(ucxt);
 #endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && IS_RT_FOR_APP(info, sig));
@@ -5220,18 +5237,18 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
-#ifdef AARCH64
+# ifdef AARCH64
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
+# else
         prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
         if (_NSIG_WORDS > 1) {
             memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
                    sizeof(prevset.sig[1]));
         }
-#endif
+# endif
         set_blocked(dcontext, &prevset, true/*absolute*/);
     }
-#endif
+#endif /* LINUX */
 
     /* Make sure we deliver pending signals that are now unblocked.
      */
@@ -6053,11 +6070,137 @@ handle_post_alarm(dcontext_t *dcontext, bool success, unsigned int sec)
     return;
 }
 
-/***************************************************************************/
+/***************************************************************************
+ * Internal DR communication
+ */
+
+typedef struct _sig_detach_info_t {
+    KSYNCH_TYPE *detached;
+    byte *sigframe_xsp;
+#ifdef HAVE_SIGALTSTACK
+    stack_t *app_sigstack;
+#endif
+} sig_detach_info_t;
+
+/* xsp is only set for X86 */
+static void
+notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *xsp)
+{
+    if (ksynch_kernel_support()) {
+        /* Can't use dstack once we signal so in asm we do:
+         *   futex/semaphore = 1;
+         *   %xsp = xsp;
+         *   dynamorio_condvar_wake_and_jmp(notify_var, continuation);
+         */
+#ifdef MACOS
+        ASSERT(sizeof(notify_var->sem) == 4);
+#endif
+#ifdef X86
+        asm("mov %0, %%"ASM_XAX : : "m"(notify_var));
+        asm("mov %0, %%"ASM_XCX : : "m"(continuation));
+        asm("mov %0, %%"ASM_XSP : : "m"(xsp));
+# ifdef MACOS
+        asm("movl $1,4(%"ASM_XAX")");
+        asm("jmp _dynamorio_condvar_wake_and_jmp");
+# else
+        asm("movl $1,(%"ASM_XAX")");
+        asm("jmp dynamorio_condvar_wake_and_jmp");
+# endif
+#elif defined(AARCHXX)
+        asm("ldr "ASM_R0", %0" : : "m"(notify_var));
+        asm("mov "ASM_R1", #1");
+        asm("str "ASM_R1",["ASM_R0"]");
+        asm("ldr "ASM_R1", %0" : : "m"(continuation));
+        asm("b dynamorio_condvar_wake_and_jmp");
+#endif
+    } else {
+        ksynch_set_value(notify_var, 1);
+#ifdef X86
+        asm("mov %0, %%"ASM_XSP : : "m"(xsp));
+        asm("mov %0, %%"ASM_XAX : : "m"(continuation));
+        asm("jmp *%"ASM_XAX);
+#elif defined(AARCHXX)
+        asm("ldr "ASM_R0", %0" : : "m"(continuation));
+        asm(ASM_INDJMP" "ASM_R0);
+#endif /* X86/ARM */
+    }
+}
+
+/* Go native from detach. This is executed on the app stack. */
+static void
+sig_detach_go_native(sig_detach_info_t *info)
+{
+    byte *xsp = info->sigframe_xsp;
+
+#ifdef HAVE_SIGALTSTACK
+    /* Restore the app signal stack. */
+    DEBUG_DECLARE(int rc =)
+        sigaltstack_syscall(info->app_sigstack, NULL);
+    ASSERT(rc == 0);
+#endif
+
+#ifdef X86
+    /* Skip pretcode */
+    xsp += sizeof(char *);
+#endif
+    notify_and_jmp_without_stack(info->detached, (byte *)dynamorio_sigreturn, xsp);
+
+    ASSERT_NOT_REACHED();
+}
+
+/* Sets this (slave) thread to detach by directly returning from the signal. */
+static void
+sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    byte *xsp;
+    sig_detach_info_t detach_info;
+
+    LOG(THREAD, LOG_ASYNCH, 1, "%s: detaching\n", __FUNCTION__);
+
+    /* Update the mask of the signal frame so that the later sigreturn will
+     * restore the app signal mask.
+     */
+    memcpy(&frame->uc.uc_sigmask, &info->app_sigblocked,
+           sizeof(info->app_sigblocked));
+
+    /* Copy the signal frame to the app stack.
+     * XXX: We live with the transparency risk of storing the signal frame on
+     * the app stack: we assume the app stack is writable where we need it to be,
+     * and that we're not clobbering any app data beyond TOS.
+     */
+    xsp = get_sigstack_frame_ptr(dcontext, SUSPEND_SIGNAL, frame);
+    copy_frame_to_stack(dcontext, SUSPEND_SIGNAL, frame, xsp, false/*!pending*/);
+
+#ifdef HAVE_SIGALTSTACK
+    /* Make sure the frame's sigstack reflects the app stack. */
+    frame = (sigframe_rt_t *) xsp;
+    frame->uc.uc_stack = info->app_sigstack;
+#endif
+
+    /* Restore app segment registers. */
+    os_thread_not_under_dynamo(dcontext);
+    os_tls_thread_exit(dcontext->local_state);
+
+#ifdef HAVE_SIGALTSTACK
+    /* We can't restore the app's sigstack here as that will invalidate the
+     * sigstack we're currently on.
+     */
+    detach_info.app_sigstack = &info->app_sigstack;
+#endif
+    detach_info.detached = detached;
+    detach_info.sigframe_xsp = xsp;
+
+    call_switch_stack(&detach_info, xsp, (void(*)(void*))sig_detach_go_native,
+                      false/*free_initstack*/, false/*do not return*/);
+
+    ASSERT_NOT_REACHED();
+}
 
 /* Returns whether to pass on to app */
 static bool
-handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
+handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
+                      sigframe_rt_t *frame)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     kernel_sigset_t prevmask;
@@ -6065,59 +6208,30 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     ASSERT(ostd != NULL);
 
     if (ostd->terminate) {
-         /* PR 297902: exit this thread, without using any stack */
-#ifdef MACOS
-        /* We need a stack as 32-bit syscalls take args on the stack.
-         * We go ahead and use it for x64 too for simpler sysenter return.
+        /* PR 297902: exit this thread, without using the dstack */
+        /* For MacOS, we need a stack as 32-bit syscalls take args on the stack.
+         * We go ahead and use it for x86 too for simpler sysenter return.
          * We don't have a lot of options: we're terminating, so we go ahead
          * and use the app stack.
          */
-        byte *app_xsp = (byte *) get_mcontext(dcontext)->xsp;
-#endif
+        byte *app_xsp;
+        if (IS_CLIENT_THREAD(dcontext))
+            app_xsp = (byte *) SIGCXT_FROM_UCXT(ucxt)->SC_XSP;
+        else
+            app_xsp = (byte *) get_mcontext(dcontext)->xsp;
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
-        if (ksynch_kernel_support()) {
-            /* can't use stack once set terminated to 1 so in asm we do:
-             *   ostd->terminated = 1;
-             *   futex_wake_all(&ostd->terminated in xax);
-             *   semaphore_signal_all(&ostd->terminated in xax);
-             */
-#ifdef MACOS
-            KSYNCH_TYPE *term = &ostd->terminated;
-            ASSERT(sizeof(ostd->terminated.sem) == 4);
-#else
-            volatile int *term = &ostd->terminated;
-#endif
-#ifdef X86
-            asm("mov %0, %%"ASM_XAX : : "m"(term));
-# ifdef MACOS
-            asm("movl $1,4(%"ASM_XAX")");
-            asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
-            asm("jmp _dynamorio_semaphore_signal_all");
-# else
-            asm("movl $1,(%"ASM_XAX")");
-            asm("jmp dynamorio_futex_wake_and_exit");
-# endif
-#elif defined(AARCHXX)
-            asm("ldr "ASM_R0", %0" : : "m"(term));
-            asm("mov "ASM_R1", #1");
-            asm("str "ASM_R1",["ASM_R0"]");
-            asm("b dynamorio_futex_wake_and_exit");
-#endif
-        } else {
-            ksynch_set_value(&ostd->terminated, 1);
-#ifdef X86
-# ifdef MACOS
-            asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
-            asm("jmp _dynamorio_sys_exit");
-# else
-            asm("jmp dynamorio_sys_exit");
-# endif
-#elif defined(ARM)
-            asm("b dynamorio_sys_exit");
-#endif /* X86/ARM */
-        }
+        ASSERT(app_xsp != NULL);
+        notify_and_jmp_without_stack(&ostd->terminated, (byte*)dynamorio_sys_exit,
+                                     app_xsp);
         ASSERT_NOT_REACHED();
         return false;
+    }
+
+    if (!doing_detach &&
+        is_thread_currently_native(dcontext->thread_record) &&
+        !IS_CLIENT_THREAD(dcontext)) {
+        sig_take_over(ucxt);  /* no return */
+        ASSERT_NOT_REACHED();
     }
 
     /* If suspend_count is 0, we are not trying to suspend this thread
@@ -6181,7 +6295,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     /* Notify os_thread_resume that it can return now, which (assuming
      * suspend_count is back to 0) means it's then safe to re-suspend.
      */
-    ksynch_set_value(&ostd->suspended, 0); /* reset prior to signalling os_thread_resume */
+    ksynch_set_value(&ostd->suspended, 0); /*reset prior to signalling os_thread_resume*/
     ksynch_set_value(&ostd->resumed, 1);
     ksynch_wake_all(&ostd->resumed);
 
@@ -6189,7 +6303,10 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
         ostd->retakeover = false;
         sig_take_over(ucxt);  /* no return */
         ASSERT_NOT_REACHED();
-    }
+    } else if (doing_detach) {
+        sig_detach(dcontext, frame, &ostd->detached);  /* no return */
+        ASSERT_NOT_REACHED();
+     }
 
     return false; /* do not pass to app */
 }
