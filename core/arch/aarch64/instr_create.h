@@ -94,7 +94,10 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store(dc, m, r) INSTR_CREATE_str((dc), (m), (r))
+#define XINST_CREATE_store(dc, m, r) \
+  (opnd_is_base_disp(m) && \
+   opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0 ? \
+   INSTR_CREATE_stur(dc, m, r) : INSTR_CREATE_str(dc, m, r))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -289,10 +292,14 @@
   instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_ret(dc, Rn) \
   instr_create_0dst_1src((dc), OP_ret, (Rn))
-#define INSTR_CREATE_str(dc, mem, Rt) \
-  instr_create_1dst_1src((dc), OP_str, (mem), (Rt))
-#define INSTR_CREATE_strh(dc, mem, Rt) \
-  instr_create_1dst_1src((dc), OP_strh, (mem), (Rt))
+#define INSTR_CREATE_str(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_str, mem, rt)
+#define INSTR_CREATE_strh(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_strh, mem, rt)
+#define INSTR_CREATE_stur(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_stur, mem, rt)
+#define INSTR_CREATE_sturh(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_sturh, mem, rt)
 #define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm) \
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa) \
