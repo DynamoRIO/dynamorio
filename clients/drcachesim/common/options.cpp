@@ -47,7 +47,8 @@ droption_t<std::string> op_ipc_name
  "For online tracing and simulation (the default, unless -offline is requested), "
  "specifies the base name of the named pipe used to communicate between the target "
  "application processes and the caching device simulator.  A unique name must be chosen "
- "for each instance of the simulator being run at any one time.");
+ "for each instance of the simulator being run at any one time.  On Windows, the name "
+ "is limited to 247 characters.");
 
 droption_t<std::string> op_outdir
 (DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",

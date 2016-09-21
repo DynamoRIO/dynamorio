@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -137,7 +137,7 @@ The \p drcachesim tool is a work in progress.  We welcome contributions in
 these areas of missing functionality:
 
 - Cache coherence (https://github.com/DynamoRIO/dynamorio/issues/1726)
-- Windows support (https://github.com/DynamoRIO/dynamorio/issues/1727)
+- Multi-process online application simulation on Windows (https://github.com/DynamoRIO/dynamorio/issues/1727)
 - Arbitrary cache hierarchy support via an input config file
   (https://github.com/DynamoRIO/dynamorio/issues/1715)
 

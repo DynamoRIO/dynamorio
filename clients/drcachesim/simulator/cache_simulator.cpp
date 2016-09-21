@@ -60,11 +60,11 @@ cache_simulator_t::cache_simulator_t()
         return;
     }
 
-    if (!llcache->init(op_LL_assoc.get_value(), op_line_size.get_value(),
-                       op_LL_size.get_value(), NULL, new cache_stats_t)) {
-        ERROR("Usage error: failed to initialize LL cache.  Ensure sizes and "
-              "associativity are powers of 2 "
-              "and that the total size is a multiple of the line size.\n");
+    if (!llcache->init(op_LL_assoc.get_value(), (int)op_line_size.get_value(),
+                       (int)op_LL_size.get_value(), NULL, new cache_stats_t)) {
+        ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
+               "associativity are powers of 2 "
+               "and that the total size is a multiple of the line size.\n");
         success = false;
         return;
     }
@@ -83,13 +83,13 @@ cache_simulator_t::cache_simulator_t()
             return;
         }
 
-        if (!icaches[i]->init(op_L1I_assoc.get_value(), op_line_size.get_value(),
-                              op_L1I_size.get_value(), llcache, new cache_stats_t) ||
-            !dcaches[i]->init(op_L1D_assoc.get_value(), op_line_size.get_value(),
-                              op_L1D_size.get_value(), llcache, new cache_stats_t)) {
-            ERROR("Usage error: failed to initialize L1 caches.  Ensure sizes and "
-                  "associativity are powers of 2 "
-                  "and that the total sizes are multiples of the line size.\n");
+        if (!icaches[i]->init(op_L1I_assoc.get_value(), (int)op_line_size.get_value(),
+                              (int)op_L1I_size.get_value(), llcache, new cache_stats_t) ||
+            !dcaches[i]->init(op_L1D_assoc.get_value(), (int)op_line_size.get_value(),
+                              (int)op_L1D_size.get_value(), llcache, new cache_stats_t)) {
+            ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "
+                   "associativity are powers of 2 "
+                   "and that the total sizes are multiples of the line size.\n");
             success = false;
             return;
         }
@@ -111,10 +111,10 @@ cache_simulator_t::~cache_simulator_t()
         // Try to handle failure during construction.
         if (icaches[i] == NULL)
             return;
+        delete icaches[i]->get_stats();
         delete icaches[i];
         if (dcaches[i] == NULL)
             return;
-        delete icaches[i]->get_stats();
         delete dcaches[i]->get_stats();
         delete dcaches[i];
     }
@@ -179,7 +179,7 @@ cache_simulator_t::run()
             handle_thread_exit(memref.tid);
             last_thread = 0;
         } else {
-            ERROR("unhandled memref type");
+            ERRMSG("unhandled memref type");
             return false;
         }
 
@@ -239,7 +239,7 @@ cache_simulator_t::create_cache(std::string policy)
         return new cache_fifo_t;
 
     // undefined replacement policy
-    ERROR("Usage error: undefined replacement policy. "
-          "Please choose " REPLACE_POLICY_LRU" or " REPLACE_POLICY_LFU".\n");
+    ERRMSG("Usage error: undefined replacement policy. "
+           "Please choose " REPLACE_POLICY_LRU" or " REPLACE_POLICY_LFU".\n");
     return NULL;
 }

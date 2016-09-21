@@ -466,7 +466,8 @@ instrument_delay_instrs(void *drcontext, instrlist_t *ilist,
         entry.size = 0;
         for (i = 1; i < ud->num_delay_instrs; i++) {
             // Fill instr size into bundle entry
-            entry.length[entry.size++] = instr_length(drcontext, ud->delay_instrs[i]);
+            entry.length[entry.size++] = (char)
+                instr_length(drcontext, ud->delay_instrs[i]);
             // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
             if (entry.size == sizeof(entry.length) || i == ud->num_delay_instrs - 1) {
                 adjust = instrument_trace_entry(drcontext, ilist, entry, where,
@@ -496,7 +497,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
                bool write, reg_id_t reg_ptr, reg_id_t reg_tmp,
                dr_pred_type_t pred, int adjust)
 {
-    ushort type = write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ;
+    ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
     instr_t *label = INSTR_CREATE_label(drcontext);
     MINSERT(ilist, where, label);
@@ -930,11 +931,25 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!op_offline.get_value()) {
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
+#ifdef UNIX
         /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
         int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);
         DR_ASSERT(fd != INVALID_FILE);
         if (!ipc_pipe.set_fd(fd))
             DR_ASSERT(false);
+#else
+        if (!ipc_pipe.open_for_write()) {
+            if (GetLastError() == ERROR_PIPE_BUSY) {
+                // FIXME i#1727: add multi-process support to Windows named_pipe_t.
+                NOTIFY(0, "Fatal error: multi-process applications not yet supported "
+                       "for drcachesim on Windows\n");
+            } else {
+                NOTIFY(0, "Fatal error: Failed to open pipe %s.\n",
+                       op_ipc_name.get_value().c_str());
+            }
+            dr_abort();
+        }
+#endif
         if (!ipc_pipe.maximize_buffer())
             NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
     }

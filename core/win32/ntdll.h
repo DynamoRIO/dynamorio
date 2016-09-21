@@ -1924,6 +1924,8 @@ query_full_attributes_file(PCWSTR filename,
 /* The NTFS file or directory is not a reparse point. */
 #define STATUS_NOT_A_REPARSE_POINT       ((NTSTATUS)0xC0000275L)
 
+#define STATUS_PIPE_NOT_AVAILABLE        ((NTSTATUS)0xC00000ACL)
+
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 # define IMAGE_SIZEOF_BASE_RELOCATION         8

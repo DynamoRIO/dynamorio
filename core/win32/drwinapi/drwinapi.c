@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -180,6 +180,7 @@ ntstatus_to_last_error(NTSTATUS status)
     case STATUS_END_OF_FILE:           return ERROR_HANDLE_EOF;
     case STATUS_PENDING:               return ERROR_IO_PENDING;
     case STATUS_NOT_A_REPARSE_POINT:   return ERROR_NOT_A_REPARSE_POINT;
+    case STATUS_PIPE_NOT_AVAILABLE:    return ERROR_PIPE_BUSY;
     /* XXX: add more.  Variations by function are rare and handled in callers. */
     default:                           return ERROR_INVALID_PARAMETER;
     }

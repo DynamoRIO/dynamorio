@@ -70,14 +70,14 @@ tlb_simulator_t::tlb_simulator_t()
             return;
         }
 
-        if (!itlbs[i]->init(op_TLB_L1I_assoc.get_value(), op_page_size.get_value(),
+        if (!itlbs[i]->init(op_TLB_L1I_assoc.get_value(), (int)op_page_size.get_value(),
                             op_TLB_L1I_entries.get_value(), lltlbs[i], new tlb_stats_t) ||
-            !dtlbs[i]->init(op_TLB_L1D_assoc.get_value(), op_page_size.get_value(),
+            !dtlbs[i]->init(op_TLB_L1D_assoc.get_value(), (int)op_page_size.get_value(),
                             op_TLB_L1D_entries.get_value(), lltlbs[i], new tlb_stats_t) ||
-            !lltlbs[i]->init(op_TLB_L2_assoc.get_value(), op_page_size.get_value(),
+            !lltlbs[i]->init(op_TLB_L2_assoc.get_value(), (int)op_page_size.get_value(),
                              op_TLB_L2_entries.get_value(), NULL, new tlb_stats_t)) {
-            ERROR("Usage error: failed to initialize TLBs. Ensure entry number, "
-                  "page size and associativity are powers of 2.\n");
+            ERRMSG("Usage error: failed to initialize TLBs. Ensure entry number, "
+                   "page size and associativity are powers of 2.\n");
             success = false;
             return;
         }
@@ -165,7 +165,7 @@ tlb_simulator_t::run()
                  memref.type == TRACE_TYPE_DATA_FLUSH) {
             // TLB simulator ignores prefetching and cache flushing
         } else {
-            ERROR("unhandled memref type");
+            ERRMSG("unhandled memref type");
             return false;
         }
 
@@ -225,7 +225,7 @@ tlb_simulator_t::create_tlb(std::string policy)
         return new tlb_t;
 
     // undefined replacement policy
-    ERROR("Usage error: undefined replacement policy. "
-          "Please choose " REPLACE_POLICY_LFU".\n");
+    ERRMSG("Usage error: undefined replacement policy. "
+           "Please choose " REPLACE_POLICY_LFU".\n");
     return NULL;
 }

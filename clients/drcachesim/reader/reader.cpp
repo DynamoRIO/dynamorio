@@ -152,7 +152,7 @@ reader_t::operator++()
             tid2pid[cur_tid] = (memref_pid_t) input_entry->addr;
             break;
         default:
-            ERROR("Unknown trace entry type %d\n", input_entry->type);
+            ERRMSG("Unknown trace entry type %d\n", input_entry->type);
             assert(false);
             at_eof = true; // bail
             break;

@@ -49,6 +49,7 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     reader_t();
     virtual ~reader_t() {}
 
+    // This may block.
     virtual bool init() = 0;
 
     virtual const memref_t& operator*();

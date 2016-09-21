@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
 #ifndef _CACHING_DEVICE_BLOCK_H_
 #define _CACHING_DEVICE_BLOCK_H_ 1
 
-#include <inttypes.h>
+#include <stdint.h>
 #include "../common/memref.h"
 
 // Assuming a block of a caching device represents a memory space of at least 4-byte,
@@ -58,7 +58,7 @@ class caching_device_block_t
 
     // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
     // A 32-bit counter should be sufficient but we may want to revisit.
-    // We already have inttypes.h so we can reinstate int_least64_t easily.
+    // We already have stdint.h so we can reinstate int_least64_t easily.
     int counter; // for use by replacement policies
 };
 
