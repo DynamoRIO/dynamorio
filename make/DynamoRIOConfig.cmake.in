@@ -989,6 +989,10 @@ function (configure_DynamoRIO_static target)
     set(cur_cflags "")
   endif (NOT cur_cflags)
   DynamoRIO_extra_cflags(cur_cflags "${cur_cflags}" ${tgt_cxx})
+  if (WIN32)
+    # For static DR, we want dllexport and not dllimport for the app API.
+    set(cur_cflags "${cur_cflags} -DDR_APP_EXPORTS")
+  endif ()
   set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur_cflags}")
   if (ANDROID)
     # The Android linker is not exporting the weak symbol _USES_DR_VERSION_.

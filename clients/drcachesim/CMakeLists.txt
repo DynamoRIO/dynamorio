@@ -36,6 +36,8 @@ if (WIN32)
   set(os_name "win")
 else ()
   set(os_name "unix")
+  # Our non-client files assume this is set, yet don't include headers that set it.
+  add_definitions(-DUNIX)
 endif ()
 
 set(client_and_sim_srcs

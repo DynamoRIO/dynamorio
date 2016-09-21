@@ -144,6 +144,7 @@ Further non-compatibility-affecting changes include:
  - Added a static library form of DynamoRIO for use either with
    auto-takeover or the start/stop API.  The configure_DynamoRIO_static()
    and use_DynamoRIO_static_client() CMake utilities facilitate this.
+ - Enabled \ref page_drcachesim for Windows for single-process applications.
 
 **************************************************
 <hr>

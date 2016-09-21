@@ -34,12 +34,15 @@
  * a "burst" of execution in the middle of the application.  It then detaches.
  */
 
+/* We deliberately do not include configure.h here to simulate what an
+ * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
+ * for us.
+ */
+#include "dr_api.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
-
-#include "dr_api.h"
 
 bool
 my_setenv(const char *var, const char *value)
