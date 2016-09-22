@@ -36,6 +36,7 @@
 #ifndef _INSTRU_H_
 #define _INSTRU_H_ 1
 
+#include <stdint.h>
 #include "../common/trace_entry.h"
 
 #define MINSERT instrlist_meta_preinsert
@@ -69,14 +70,13 @@ class instru_t
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                   opnd_t ref, bool write, dr_pred_type_t pred) = 0;
-    virtual int instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where,
+    virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
+                                 instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                  instr_t *app) = 0;
     virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs) = 0;
-    virtual int instrument_per_bb(void *drcontext, instrlist_t *ilist,
-                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust) = 0;
 
  protected:
     void (*insert_load_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t);
@@ -107,14 +107,13 @@ class online_instru_t : public instru_t
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                   opnd_t ref, bool write, dr_pred_type_t pred);
-    virtual int instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where,
+    virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
+                                 instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                  instr_t *app);
     virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs);
-    virtual int instrument_per_bb(void *drcontext, instrlist_t *ilist,
-                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust);
 
  private:
     void insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -126,15 +125,41 @@ class online_instru_t : public instru_t
                                    ushort size, int adjust);
 };
 
-// FIXME i#1729: this temporarily is identical to online_instru_t.
-// We'll split it in a separate CL.
-class offline_instru_t : public online_instru_t
+class offline_instru_t : public instru_t
 {
  public:
     explicit offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                      instr_t *, reg_id_t))
-        : online_instru_t(insert_load_buf) {}
-    virtual ~offline_instru_t() {}
+                                                     instr_t *, reg_id_t));
+    virtual ~offline_instru_t();
+
+    virtual size_t sizeof_entry() const;
+
+    virtual trace_type_t get_entry_type(byte *buf_ptr) const;
+    virtual size_t get_entry_size(byte *buf_ptr) const;
+    virtual addr_t get_entry_addr(byte *buf_ptr) const;
+    virtual void set_entry_addr(byte *buf_ptr, addr_t addr);
+
+    virtual int append_pid(byte *buf_ptr, process_id_t pid);
+    virtual int append_tid(byte *buf_ptr, thread_id_t tid);
+    virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
+    virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
+
+    virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                  opnd_t ref, bool write, dr_pred_type_t pred);
+    virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
+                                 instrlist_t *ilist, instr_t *where,
+                                 reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                 instr_t *app);
+    virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
+                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                   instr_t **delay_instrs, int num_delay_instrs);
+
+ private:
+    void insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t reg_ptr, reg_id_t scratch, int adjust, uint64_t value);
+    void insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                          reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref);
 };
 
 #endif /* _INSTRU_H_ */

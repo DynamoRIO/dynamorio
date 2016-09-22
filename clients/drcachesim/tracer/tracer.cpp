@@ -93,6 +93,7 @@ typedef struct {
     instr_t *strex;
     int num_delay_instrs;
     instr_t *delay_instrs[MAX_NUM_DELAY_INSTRS];
+    void *instru_field; /* for use by instru_t */
 } user_data_t;
 
 /* For online simulation, we write to a single global pipe */
@@ -140,8 +141,8 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
 static inline byte *
 write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
 {
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     if (op_offline.get_value()) {
+        per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
         if (dr_write_file(data->file, towrite_start, size) < size) {
             NOTIFY(0, "Fatal error: failed to write trace");
@@ -268,19 +269,21 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 }
 
 static int
-instrument_delay_instrs(void *drcontext, instrlist_t *ilist,
+instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
                         user_data_t *ud, instr_t *where,
                         reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
     // Instrument to add a full instr entry for the first instr.
-    adjust = instru->instrument_instr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
+    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field,
+                                      ilist, where, reg_ptr, reg_tmp, adjust,
                                       ud->delay_instrs[0]);
     if (have_phys && op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary.
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
-            adjust = instru->instrument_instr(drcontext, ilist, where, reg_ptr, reg_tmp,
+            adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field,
+                                              ilist, where, reg_ptr, reg_tmp,
                                               adjust, ud->delay_instrs[i]);
         }
     } else {
@@ -426,14 +429,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
 
     if (ud->num_delay_instrs != 0) {
-        adjust = instrument_delay_instrs(drcontext, bb, ud, instr,
+        adjust = instrument_delay_instrs(drcontext, tag, bb, ud, instr,
                                          reg_ptr, reg_tmp, adjust);
     }
 
     if (ud->strex != NULL) {
         DR_ASSERT(instr_is_exclusive_store(ud->strex));
-        adjust = instru->instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp,
-                                          adjust, ud->strex);
+        adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, bb,
+                                          instr, reg_ptr, reg_tmp, adjust, ud->strex);
         adjust = instru->instrument_memref(drcontext, bb, instr, reg_ptr, reg_tmp,
                                            adjust, instr_get_dst(ud->strex, 0),
                                            true, instr_get_predicate(ud->strex));
@@ -450,11 +453,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      * trace_entry_t than require a separate instr entry for every memref
      * instr (if average # of memrefs per instr is < 2, PC field is better).
      */
-    adjust = instru->instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp,
-                                      adjust, instr);
+    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, bb,
+                                      instr, reg_ptr, reg_tmp, adjust, instr);
     ud->last_app_pc = instr_get_app_pc(instr);
 
-    // FIXME i#1703: add OP_clflush handling for cache flush on X86
     if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
         if (pred != DR_PRED_NONE) {
             // Update buffer ptr and reset adjust to 0, because
@@ -481,7 +483,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
             }
         }
         insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, pred, adjust);
-    } else
+    } else if (adjust != 0)
         insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, DR_PRED_NONE, adjust);
 
     /* Insert code to call clean_call for processing the buffer.
@@ -509,6 +511,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
     data->last_app_pc = NULL;
     data->strex = NULL;
     data->num_delay_instrs = 0;
+    data->instru_field = NULL;
     *user_data = (void *)data;
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);
@@ -606,6 +609,8 @@ event_thread_init(void *drcontext)
     proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
     proc_info += instru->append_pid(proc_info, dr_get_process_id());
     write_trace_data(drcontext, (byte *)buf, proc_info);
+
+    // XXX i#1729: gather and store an initial callstack for the thread.
 }
 
 static void

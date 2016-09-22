@@ -110,6 +110,12 @@ typedef enum {
 
 extern const char * const trace_type_names[];
 
+static inline bool
+type_is_prefetch(unsigned short type)
+{
+    return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR);
+}
+
 // Each trace entry is a <type, size, addr> tuple representing:
 // - a memory reference
 // - an instr fetch
@@ -130,10 +136,65 @@ struct _trace_entry_t {
 } END_PACKED_STRUCTURE;
 typedef struct _trace_entry_t trace_entry_t;
 
-static inline bool
-type_is_prefetch(unsigned short type)
-{
-    return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR);
-}
+///////////////////////////////////////////////////////////////////////////
+//
+// Offline trace format
+
+// For offline traces, the tracing overhead is no longer overshadowed by online
+// simulation.  Consequently, we aggressively shrink the tracer's trace entries,
+// reconstructing the trace_entry_t format that the readers expect via a
+// post-processing step before feeding it to analysis tools.
+
+// We target 64-bit addresses and do not bother to shrink the module or timestamp
+// entries for 32-bit apps.
+// We assume that a 64-bit address has far fewer real bits, typically
+// 48 bits, and that the top bits 48..63 are always identical.  Thus we can store
+// a type field in those top bits.
+// For the most common, a memref, we have both all 0's and all 1's be its
+// type to reduce instrumentation overhead.
+// The type simply identifies which union alternative:
+typedef enum {
+    OFFLINE_TYPE_MEMREF, // We rely on this being 0.
+    OFFLINE_TYPE_PC,
+    OFFLINE_TYPE_THREAD,
+    OFFLINE_TYPE_PID,
+    OFFLINE_TYPE_TIMESTAMP,
+    // An ARM SYS_cacheflush: always has two addr entries for [start, end).
+    OFFLINE_TYPE_IFLUSH,
+} offline_type_t;
+
+START_PACKED_STRUCTURE
+struct _offline_entry_t {
+    union {
+        // Unfortunately the compiler won't combine bitfields across the union border
+        // so we have to duplicate the type field in each alternative.
+        // It is simplest to set a whole byte so we use 8 bits.
+        struct {
+            uint64_t addr:56;
+            uint64_t type:8;
+        } addr;
+        struct {
+            uint64_t modoffs:40;
+            uint64_t modidx:16;
+            uint64_t type:8;
+        } pc;
+        struct {
+            uint64_t tid:56;
+            uint64_t type:8;
+        } tid;
+        struct {
+            uint64_t pid:56;
+            uint64_t type:8;
+        } pid;
+        struct {
+            uint32_t tv_sec;
+            uint32_t tv_usec:24; // We only need 20 bits here.
+            uint32_t type:8;
+        } timestamp;
+        uint64_t combined_value;
+        // XXX: add a CPU id entry for more faithful thread scheduling.
+    };
+} END_PACKED_STRUCTURE;
+typedef struct _offline_entry_t offline_entry_t;
 
 #endif /* _TRACE_ENTRY_H_ */
