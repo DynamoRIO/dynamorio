@@ -74,6 +74,7 @@ macro(add_drmemtrace name type)
   endif ()
   add_library(${name} ${type}
     tracer/tracer.cpp
+    tracer/instru_online.cpp
     tracer/physaddr.cpp
     ${client_and_sim_srcs}
     )

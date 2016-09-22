@@ -39,9 +39,7 @@
  * modular.
  */
 
-#include <stddef.h> /* for offsetof */
 #include <string.h>
-#include <limits.h> /* for INT_MAX/INT_MIN */
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
@@ -49,6 +47,7 @@
 #include "drutil.h"
 #include "drx.h"
 #include "droption.h"
+#include "instru.h"
 #include "physaddr.h"
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
@@ -69,18 +68,18 @@
 // XXX i#1703: use an option instead.
 #define MAX_NUM_ENTRIES 4096
 /* The buffer size for holding trace entries. */
-#define TRACE_BUF_SIZE (sizeof(trace_entry_t) * MAX_NUM_ENTRIES)
+static size_t trace_buf_size;
 /* The redzone is allocated right after the trace buffer.
  * We fill the redzone with sentinel value to detect when the redzone
  * is reached, i.e., when the trace buffer is full.
  */
-#define REDZONE_SIZE (sizeof(trace_entry_t) * MAX_NUM_ENTRIES)
-#define MAX_BUF_SIZE (TRACE_BUF_SIZE + REDZONE_SIZE)
+static size_t redzone_size;
+static size_t max_buf_size;
 
 /* thread private buffer and counter */
 typedef struct {
     byte *seg_base;
-    trace_entry_t *buf_base;
+    byte *buf_base;
     uint64 num_refs;
     file_t file; /* For offline traces */
 } per_thread_t;
@@ -96,6 +95,8 @@ typedef struct {
 
 /* For online simulation, we write to a single global pipe */
 static named_pipe_t ipc_pipe;
+
+static instru_t *instru;
 
 static client_id_t client_id;
 static void  *mutex;    /* for multithread support */
@@ -114,33 +115,23 @@ static reg_id_t tls_seg;
 static uint     tls_offs;
 static int      tls_idx;
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base)+tls_offs+(enum_val))
-#define BUF_PTR(tls_base) *(trace_entry_t **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
+#define BUF_PTR(tls_base) *(byte **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
 /* We leave a slot at the start so we can easily insert a header entry */
 #define BUF_HDR_SLOTS 1
-#define BUF_HDR_SLOTS_SIZE (BUF_HDR_SLOTS * sizeof(trace_entry_t))
-
-#define MINSERT instrlist_meta_preinsert
-
-static inline void
-init_thread_entry(void *drcontext, trace_entry_t *entry)
-{
-    entry->type = TRACE_TYPE_THREAD;
-    entry->size = sizeof(thread_id_t);
-    entry->addr = (addr_t) dr_get_thread_id(drcontext);
-}
+static size_t buf_hdr_slots_size;
 
 static inline byte *
 atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
 {
     ssize_t towrite = pipe_end - pipe_start;
     DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() &&
-              towrite > (ssize_t)BUF_HDR_SLOTS_SIZE);
+              towrite > (ssize_t)buf_hdr_slots_size);
     if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite)
         DR_ASSERT(false);
     // Re-emit thread entry header
-    DR_ASSERT(pipe_end - BUF_HDR_SLOTS_SIZE > pipe_start);
-    pipe_start = pipe_end - BUF_HDR_SLOTS_SIZE;
-    init_thread_entry(drcontext, (trace_entry_t *)pipe_start);
+    DR_ASSERT(pipe_end - buf_hdr_slots_size > pipe_start);
+    pipe_start = pipe_end - buf_hdr_slots_size;
+    instru->append_tid(pipe_start, dr_get_thread_id(drcontext));
     return pipe_start;
 }
 
@@ -163,26 +154,29 @@ static void
 memtrace(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    trace_entry_t *mem_ref, *buf_ptr;
+    byte *mem_ref, *buf_ptr;
     byte *pipe_start, *pipe_end, *redzone;
 
     buf_ptr = BUF_PTR(data->seg_base);
     /* The initial slot is left empty for the thread entry, which we add here */
     /* FIXME i#1729: for offline, change this to a timestamp entry */
-    init_thread_entry(drcontext, data->buf_base);
-    pipe_start = (byte *)data->buf_base;
+    instru->append_tid(data->buf_base, dr_get_thread_id(drcontext));
+    pipe_start = data->buf_base;
     pipe_end = pipe_start;
 
-    for (mem_ref = data->buf_base + BUF_HDR_SLOTS; mem_ref < buf_ptr; mem_ref++) {
+    for (mem_ref = data->buf_base + buf_hdr_slots_size; mem_ref < buf_ptr;
+         mem_ref += instru->sizeof_entry()) {
         data->num_refs++;
         if (have_phys && op_use_physical.get_value()) {
-            if (mem_ref->type != TRACE_TYPE_THREAD &&
-                mem_ref->type != TRACE_TYPE_THREAD_EXIT &&
-                mem_ref->type != TRACE_TYPE_PID) {
-                addr_t phys = physaddr.virtual2physical(mem_ref->addr);
-                DR_ASSERT(mem_ref->type != TRACE_TYPE_INSTR_BUNDLE);
+            trace_type_t type = instru->get_entry_type(mem_ref);
+            if (type != TRACE_TYPE_THREAD &&
+                type != TRACE_TYPE_THREAD_EXIT &&
+                type != TRACE_TYPE_PID) {
+                addr_t virt = instru->get_entry_addr(mem_ref);
+                addr_t phys = physaddr.virtual2physical(virt);
+                DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
                 if (phys != 0)
-                    mem_ref->addr = phys;
+                    instru->set_entry_addr(mem_ref, phys);
                 else {
                     // XXX i#1735: use virtual address and continue?
                     // There are cases the xl8 fail, e.g.,:
@@ -190,7 +184,7 @@ memtrace(void *drcontext)
                     // - wild access (NULL or very large bogus address) by app
                     NOTIFY(1, "virtual2physical translation failure for "
                            "<%2d, %2d, " PFX">\n",
-                           mem_ref->type, mem_ref->size, mem_ref->addr);
+                           type, instru->get_entry_size(mem_ref), virt);
                 }
             }
         }
@@ -198,36 +192,36 @@ memtrace(void *drcontext)
             // Split up the buffer into multiple writes to ensure atomic pipe writes.
             // We can only split before TRACE_TYPE_INSTR, assuming only a few data
             // entries in between instr entries.
-            if (mem_ref->type == TRACE_TYPE_INSTR) {
-                if (((byte *)mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
+            if (instru->get_entry_type(mem_ref) == TRACE_TYPE_INSTR) {
+                if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
                     pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
                 // Advance pipe_end pointer
-                pipe_end = (byte *)mem_ref;
+                pipe_end = mem_ref;
             }
         }
     }
     if (op_offline.get_value()) {
-        write_trace_data(drcontext, pipe_start, (byte *)buf_ptr);
+        write_trace_data(drcontext, pipe_start, buf_ptr);
     } else {
         // Write the rest to pipe
         // The last few entries (e.g., instr + refs) may exceed the atomic write size,
         // so we may need two writes.
-        if (((byte *)buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
+        if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
             pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-        if (((byte *)buf_ptr - pipe_start) > (ssize_t)BUF_HDR_SLOTS_SIZE)
-            atomic_pipe_write(drcontext, pipe_start, (byte *)buf_ptr);
+        if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
+            atomic_pipe_write(drcontext, pipe_start, buf_ptr);
     }
 
     // Our instrumentation reads from buffer and skips the clean call if the
     // content is 0, so we need set zero in the trace buffer and set non-zero
     // in redzone.
-    memset(data->buf_base, 0, TRACE_BUF_SIZE);
-    redzone = (byte *)data->buf_base + TRACE_BUF_SIZE;
-    if ((byte *)buf_ptr > redzone) {
+    memset(data->buf_base, 0, trace_buf_size);
+    redzone = data->buf_base + trace_buf_size;
+    if (buf_ptr > redzone) {
         // Set sentinel (non-zero) value in redzone
-        memset(redzone, -1, (byte *)buf_ptr - redzone);
+        memset(redzone, -1, buf_ptr - redzone);
     }
-    BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
+    BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
 }
 
 /* clean_call sends the memory reference info to the simulator */
@@ -271,261 +265,29 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 #endif
 }
 
-static void
-insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          reg_id_t base, reg_id_t scratch, ushort type, ushort size,
-                          int adjust)
-{
-    int disp;
-    if (offsetof(trace_entry_t, type) + 2 != offsetof(trace_entry_t, size)) {
-        /* there is padding between type and size, so save them separately */
-        disp = adjust + offsetof(trace_entry_t, type);
-        scratch = reg_resize_to_opsz(scratch, OPSZ_2);
-        /* save type */
-        MINSERT(ilist, where,
-                XINST_CREATE_load_int(drcontext,
-                                      opnd_create_reg(scratch),
-                                      OPND_CREATE_INT16(type)));
-        MINSERT(ilist, where,
-                XINST_CREATE_store_2bytes(drcontext,
-                                          OPND_CREATE_MEM16(base, disp),
-                                          opnd_create_reg(scratch)));
-        /* save size */
-        disp = adjust + offsetof(trace_entry_t, size);
-        MINSERT(ilist, where,
-                XINST_CREATE_load_int(drcontext,
-                                      opnd_create_reg(scratch),
-                                      OPND_CREATE_INT16(size)));
-        MINSERT(ilist, where,
-                XINST_CREATE_store_2bytes(drcontext,
-                                          OPND_CREATE_MEM16(base, disp),
-                                          opnd_create_reg(scratch)));
-    } else {
-        /* no padding, save type and size together */
-        disp = adjust + offsetof(trace_entry_t, type);
-#ifdef X86
-        MINSERT(ilist, where,
-                INSTR_CREATE_mov_st(drcontext,
-                                    OPND_CREATE_MEM32(base, disp),
-                                    OPND_CREATE_INT32(type | (size << 16))));
-#elif defined(ARM)
-        MINSERT(ilist, where,
-                XINST_CREATE_load_int(drcontext,
-                                      opnd_create_reg(scratch),
-                                      OPND_CREATE_INT(type)));
-        MINSERT(ilist, where,
-                INSTR_CREATE_movt(drcontext,
-                                  opnd_create_reg(scratch),
-                                  OPND_CREATE_INT(size)));
-        MINSERT(ilist, where,
-                XINST_CREATE_store(drcontext,
-                                   OPND_CREATE_MEM32(base, disp),
-                                   opnd_create_reg(scratch)));
-#elif defined(AARCH64)
-        scratch = reg_resize_to_opsz(scratch, OPSZ_4);
-        /* MOVZ scratch, #type */
-        MINSERT(ilist, where,
-                INSTR_CREATE_movz(drcontext, opnd_create_reg(scratch),
-                                  OPND_CREATE_INT(type), OPND_CREATE_INT8(0)));
-        /* MOVK scratch, #size, LSL #16 */
-        MINSERT(ilist, where,
-                INSTR_CREATE_movk(drcontext, opnd_create_reg(scratch),
-                                  OPND_CREATE_INT(size), OPND_CREATE_INT8(16)));
-        MINSERT(ilist, where,
-                XINST_CREATE_store(drcontext,
-                                   OPND_CREATE_MEM32(base, disp),
-                                   opnd_create_reg(scratch)));
-#endif
-    }
-}
-
-static void
-insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
-               reg_id_t base, reg_id_t scratch, app_pc pc, int adjust)
-{
-    int disp = adjust + offsetof(trace_entry_t, addr);
-#ifdef X86_32
-    ptr_int_t val = (ptr_int_t)pc;
-    MINSERT(ilist, where,
-            INSTR_CREATE_mov_st(drcontext,
-                                OPND_CREATE_MEM32(base, disp),
-                                OPND_CREATE_INT32((int)val)));
-#else
-    // For X86_64, we can't write the PC immed directly to memory and
-    // skip the top half for a <4GB PC b/c if we're in the sentinel
-    // region of the buffer we'll be leaving 0xffffffff in the top
-    // half (i#1735).  Thus we go through a register on x86 (where we
-    // can skip the top half), just like on ARM.
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(base, disp),
-                               opnd_create_reg(scratch)));
-#endif
-}
-
-static void
-insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                 opnd_t ref, reg_id_t reg_ptr, reg_id_t reg_addr, int adjust)
-{
-    bool ok;
-    int disp = adjust + offsetof(trace_entry_t, addr);
-    if (opnd_uses_reg(ref, reg_ptr))
-        drreg_get_app_value(drcontext, ilist, where, reg_ptr, reg_ptr);
-    if (opnd_uses_reg(ref, reg_addr))
-        drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
-    /* we use reg_ptr as scratch to get addr */
-    ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_ptr);
-    DR_ASSERT(ok);
-    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need reload reg_ptr
-    insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(reg_ptr, disp),
-                               opnd_create_reg(reg_addr)));
-}
-
-static unsigned short
-instr_to_prefetch_type(instr_t *instr)
-{
-    int opcode = instr_get_opcode(instr);
-    DR_ASSERT(instr_is_prefetch(instr));
-    switch (opcode) {
-#ifdef X86
-    case OP_prefetcht0:
-        return TRACE_TYPE_PREFETCHT0;
-    case OP_prefetcht1:
-        return TRACE_TYPE_PREFETCHT1;
-    case OP_prefetcht2:
-        return TRACE_TYPE_PREFETCHT2;
-    case OP_prefetchnta:
-        return TRACE_TYPE_PREFETCHNTA;
-#endif
-#ifdef ARM
-    case OP_pld:
-        return TRACE_TYPE_PREFETCH_READ;
-    case OP_pldw:
-        return TRACE_TYPE_PREFETCH_WRITE;
-    case OP_pli:
-        return TRACE_TYPE_PREFETCH_INSTR;
-#endif
-    default:
-        return TRACE_TYPE_PREFETCH;
-    }
-}
-
-/* insert inline code to add an instruction entry into the buffer */
-static int
-instrument_instr(void *drcontext, instrlist_t *ilist,
-                 instr_t *app, instr_t *where,
-                 reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
-{
-    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              TRACE_TYPE_INSTR,
-                              (ushort)instr_length(drcontext, app), adjust);
-    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                   instr_get_app_pc(app), adjust);
-    return (adjust + sizeof(trace_entry_t));
-}
-
-static int
-instrument_trace_entry(void *drcontext, instrlist_t *ilist,
-                       const trace_entry_t &entry, instr_t *where,
-                       reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
-{
-    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              entry.type, entry.size, adjust);
-    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                   (app_pc)entry.addr, adjust);
-    return (adjust + sizeof(trace_entry_t));
-}
-
 static int
 instrument_delay_instrs(void *drcontext, instrlist_t *ilist,
                         user_data_t *ud, instr_t *where,
                         reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
-    trace_entry_t entry;
-    int i;
-
-    // Instrument to add an INSTR_TRACE entry
-    adjust = instrument_instr(drcontext, ilist, ud->delay_instrs[0], where,
-                              reg_ptr, reg_tmp, adjust);
+    // Instrument to add a full instr entry for the first instr.
+    adjust = instru->instrument_instr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
+                                      ud->delay_instrs[0]);
     if (have_phys && op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary.
+        int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
-            adjust = instrument_instr(drcontext, ilist, ud->delay_instrs[i],
-                                      where, reg_ptr, reg_tmp, adjust);
+            adjust = instru->instrument_instr(drcontext, ilist, where, reg_ptr, reg_tmp,
+                                              adjust, ud->delay_instrs[i]);
         }
     } else {
-        // Create and instrument for INSTR_BUNDLE
-        entry.type = TRACE_TYPE_INSTR_BUNDLE;
-        entry.size = 0;
-        for (i = 1; i < ud->num_delay_instrs; i++) {
-            // Fill instr size into bundle entry
-            entry.length[entry.size++] = (char)
-                instr_length(drcontext, ud->delay_instrs[i]);
-            // Instrument to add an INSTR_BUNDLE entry if bundle is full or last instr
-            if (entry.size == sizeof(entry.length) || i == ud->num_delay_instrs - 1) {
-                adjust = instrument_trace_entry(drcontext, ilist, entry, where,
-                                                reg_ptr, reg_tmp, adjust);
-                entry.size = 0;
-            }
-        }
+        adjust = instru->instrument_ibundle(drcontext, ilist, where, reg_ptr, reg_tmp,
+                                            adjust, ud->delay_instrs + 1,
+                                            ud->num_delay_instrs - 1);
     }
     ud->num_delay_instrs = 0;
     return adjust;
-}
-
-static bool
-instr_is_flush(instr_t *instr)
-{
-    // Assuming we won't see any privileged instructions.
-#ifdef X86
-    if (instr_get_opcode(instr) == OP_clflush)
-        return true;
-#endif
-    return false;
-}
-
-/* insert inline code to add a memory reference info entry into the buffer */
-static int
-instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref,
-               bool write, reg_id_t reg_ptr, reg_id_t reg_tmp,
-               dr_pred_type_t pred, int adjust)
-{
-    ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
-    ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
-    // Special handling for prefetch instruction
-    if (instr_is_prefetch(where)) {
-        type = instr_to_prefetch_type(where);
-        // Prefetch instruction may have zero sized mem reference.
-        size = 1;
-    } else if (instr_is_flush(where)) {
-        // XXX: OP_clflush invalidates all levels of the processor cache
-        // hierarchy (data and instruction)
-        type = TRACE_TYPE_DATA_FLUSH;
-    }
-    insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              type, size, adjust);
-    insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp, adjust);
-#ifdef ARM // X86 does not support general predicated execution
-    if (pred != DR_PRED_NONE) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
-    return (adjust + sizeof(trace_entry_t));
 }
 
 /* We insert code to read from trace buffer and check whether the redzone
@@ -625,7 +387,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         return DR_EMIT_DEFAULT;
     }
 
-    // Optimization: delay the simple instr trace instrumentation if possible
+    // Optimization: delay the simple instr trace instrumentation if possible.
+    // For offline traces we don't need this logic as we do not have per-instr
+    // entries, but for code simplicity we pay the slight cost for this to keep
+    // app-instr event logic out of instru_t.
     if (!(instr_reads_memory(instr) ||instr_writes_memory(instr)) &&
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
@@ -665,12 +430,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
     if (ud->strex != NULL) {
         DR_ASSERT(instr_is_exclusive_store(ud->strex));
-        adjust = instrument_instr(drcontext, bb, ud->strex, instr,
-                                  reg_ptr, reg_tmp, adjust);
-        adjust = instrument_mem(drcontext, bb, instr,
-                                instr_get_dst(ud->strex, 0),
-                                true, reg_ptr, reg_tmp,
-                                instr_get_predicate(ud->strex), adjust);
+        adjust = instru->instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp,
+                                          adjust, ud->strex);
+        adjust = instru->instrument_memref(drcontext, bb, instr, reg_ptr, reg_tmp,
+                                           adjust, instr_get_dst(ud->strex, 0),
+                                           true, instr_get_predicate(ud->strex));
         ud->strex = NULL;
     }
 
@@ -684,7 +448,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      * trace_entry_t than require a separate instr entry for every memref
      * instr (if average # of memrefs per instr is < 2, PC field is better).
      */
-    adjust = instrument_instr(drcontext, bb, instr, instr, reg_ptr, reg_tmp, adjust);
+    adjust = instru->instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp,
+                                      adjust, instr);
     ud->last_app_pc = instr_get_app_pc(instr);
 
     // FIXME i#1703: add OP_clflush handling for cache flush on X86
@@ -700,19 +465,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
             if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                adjust = instrument_mem(drcontext, bb, instr,
-                                        instr_get_src(instr, i),
-                                        false, reg_ptr, reg_tmp,
-                                        pred, adjust);
+                adjust = instru->instrument_memref(drcontext, bb, instr, reg_ptr,
+                                                   reg_tmp, adjust,
+                                                   instr_get_src(instr, i), false, pred);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                adjust = instrument_mem(drcontext, bb, instr,
-                                        instr_get_dst(instr, i),
-                                        true, reg_ptr, reg_tmp,
-                                        pred, adjust);
+                adjust = instru->instrument_memref(drcontext, bb, instr, reg_ptr,
+                                                   reg_tmp, adjust,
+                                                   instr_get_dst(instr, i), true, pred);
             }
         }
         insert_update_buf_ptr(drcontext, bb, instr, reg_ptr, pred, adjust);
@@ -776,23 +539,12 @@ event_pre_syscall(void *drcontext, int sysnum)
     // On Linux ARM, cacheflush syscall takes 3 params: start, end, and 0.
     if (sysnum == SYS_cacheflush) {
         per_thread_t *data;
-        trace_entry_t *buf_ptr;
         addr_t start = (addr_t)dr_syscall_get_param(drcontext, 0);
         addr_t end   = (addr_t)dr_syscall_get_param(drcontext, 1);
         data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
         if (end > start) {
-            buf_ptr = BUF_PTR(data->seg_base);
-            buf_ptr->type = TRACE_TYPE_INSTR_FLUSH;
-            buf_ptr->addr = start;
-            buf_ptr->size = ((end - start) <= USHRT_MAX) ? (end - start) : 0;
-            // if flush size is too large, we use two entries for start/end
-            if (buf_ptr->size == 0) {
-                ++buf_ptr;
-                buf_ptr->type = TRACE_TYPE_INSTR_FLUSH_END;
-                buf_ptr->addr = end;
-                buf_ptr->size = 0;
-            }
-            BUF_PTR(data->seg_base) = ++buf_ptr;
+            BUF_PTR(data->seg_base) +=
+                instru->append_iflush(BUF_PTR(data->seg_base), start, end - start);
         }
     }
 #endif
@@ -803,8 +555,8 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_thread_init(void *drcontext)
 {
-    trace_entry_t pid_info[2];
     char buf[MAXIMUM_PATH];
+    byte *proc_info;
     per_thread_t *data = (per_thread_t *)
         dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
@@ -814,15 +566,15 @@ event_thread_init(void *drcontext)
      * slot and find where the pointer points to in the buffer.
      */
     data->seg_base = (byte *) dr_get_dr_segment_base(tls_seg);
-    data->buf_base = (trace_entry_t *)
-        dr_raw_mem_alloc(MAX_BUF_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    data->buf_base = (byte *)
+        dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
     DR_ASSERT(data->seg_base != NULL && data->buf_base != NULL);
     /* clear trace buffer */
-    memset(data->buf_base, 0, TRACE_BUF_SIZE);
+    memset(data->buf_base, 0, trace_buf_size);
     /* set sentinel (non-zero) value in redzone */
-    memset((byte *)data->buf_base + TRACE_BUF_SIZE, -1, REDZONE_SIZE);
+    memset(data->buf_base + trace_buf_size, -1, redzone_size);
     /* put buf_base to TLS plus header slots as starting buf_ptr */
-    BUF_PTR(data->seg_base) = data->buf_base + BUF_HDR_SLOTS;
+    BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
     data->num_refs = 0;
 
     if (op_offline.get_value()) {
@@ -846,11 +598,11 @@ event_thread_init(void *drcontext)
     }
 
     /* pass pid and tid to the simulator to register current thread */
-    init_thread_entry(drcontext, &pid_info[0]);
-    pid_info[1].type = TRACE_TYPE_PID;
-    pid_info[1].size = sizeof(process_id_t);
-    pid_info[1].addr = (addr_t) dr_get_process_id();
-    write_trace_data(drcontext, (byte *)pid_info, (byte *)pid_info + sizeof(pid_info));
+    proc_info = (byte *)buf;
+    DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 2*instru->sizeof_entry());
+    proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
+    proc_info += instru->append_pid(proc_info, dr_get_process_id());
+    write_trace_data(drcontext, (byte *)buf, proc_info);
 }
 
 static void
@@ -859,11 +611,8 @@ event_thread_exit(void *drcontext)
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
 
     /* let the simulator know this thread has exited */
-    trace_entry_t *buf_ptr = BUF_PTR(data->seg_base);
-    buf_ptr->type = TRACE_TYPE_THREAD_EXIT;
-    buf_ptr->size = sizeof(thread_id_t);
-    buf_ptr->addr = (addr_t) dr_get_thread_id(drcontext);
-    BUF_PTR(data->seg_base) = ++buf_ptr;
+    BUF_PTR(data->seg_base) +=
+        instru->append_thread_exit(BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
     memtrace(drcontext);
 
@@ -873,7 +622,7 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    dr_raw_mem_free(data->buf_base, MAX_BUF_SIZE);
+    dr_raw_mem_free(data->buf_base, max_buf_size);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
@@ -881,6 +630,7 @@ static void
 event_exit(void)
 {
     dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
+    delete instru;
     if (!op_offline.get_value())
         ipc_pipe.close();
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
@@ -928,7 +678,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_abort();
     }
 
-    if (!op_offline.get_value()) {
+    if (op_offline.get_value()) {
+        instru = new offline_instru_t(insert_load_buf_ptr);
+    } else {
+        instru = new online_instru_t(insert_load_buf_ptr);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX
@@ -968,6 +721,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                                     event_bb_instru2instru,
                                                     NULL))
         DR_ASSERT(false);
+
+    trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
+    redzone_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
+    max_buf_size = trace_buf_size + redzone_size;
+    buf_hdr_slots_size = instru->sizeof_entry() * BUF_HDR_SLOTS;
 
     client_id = id;
     mutex = dr_mutex_create();
