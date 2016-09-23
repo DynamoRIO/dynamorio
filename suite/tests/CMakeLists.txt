@@ -1663,9 +1663,11 @@ if (CLIENT_INTERFACE)
   include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
-  if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
+  if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
-    tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
+  endif (X86)
+  tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
+  if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
     if (NOT MACOS) # FIXME i#1360: implement Mach-O export iterator
       tobuild_appdll(client.modules client-interface/modules.c)
       get_target_property(modules_libname client.modules.appdll
@@ -2061,7 +2063,6 @@ if (CLIENT_INTERFACE)
 
   if (NOT ANDROID)
     # XXX i#1874: get working on Android
-    # FIXME i#1569: get working on AArch64
     tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
     get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll)
     tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
@@ -2187,10 +2188,8 @@ if (CLIENT_INTERFACE)
       target_link_libraries(api.detach ${libpthread})
     endif ()
   endif ()
-  if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
-    # test static decoder library
-    tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
-  endif (X86)
+  # test static decoder library
+  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
 
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
