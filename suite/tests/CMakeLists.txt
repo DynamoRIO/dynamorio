@@ -1562,8 +1562,10 @@ endif ()
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
-  tobuild(common.getretaddr common/getretaddr.c)
+endif (X86)
+tobuild(common.getretaddr common/getretaddr.c)
 
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # nativeexec tests are under CLIENT_INTERFACE b/c they link w/ DR and need api_headers.
   # We do not run for VMSAFE as they fail there and we just don't support that
   # combination now (i#1793).

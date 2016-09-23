@@ -642,6 +642,27 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         END_FUNC(FUNCNAME)
 
+#undef FUNCNAME
+#define FUNCNAME tailcall_with_retaddr
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        mov      REG_XAX, [REG_XSP]  /* Load retaddr. */
+        xchg     REG_XAX, ARG1       /* Swap with function pointer in arg1. */
+        jmp      REG_XAX             /* Call function, now with retaddr as arg1. */
+#elif defined(ARM)
+        mov      r12, r0             /* Move function pointer to scratch register. */
+        mov      r0, r14             /* Replace first argument with return address. */
+        bx       r12                 /* Tailcall to function pointer. */
+#elif defined(AARCH64)
+        mov      x9, x0              /* Move function pointer to scratch register. */
+        mov      x0, x30             /* Replace first argument with return address. */
+        br       x9                  /* Tailcall to function pointer. */
+#else
+# error NYI
+#endif
+        END_FUNC(FUNCNAME)
+
 #ifdef ARM
     /* gcc's __clear_cache is not easily usable: no header, need lib; so we just
      * roll our own.

@@ -40,10 +40,15 @@
 ptr_int_t get_retaddr(void);
 ptr_int_t get_retaddr_from_frameptr(void);
 
-static void foo(void **retaddr_p)
+#undef NO_FRAME_POINTER
+#if (defined(X64) && defined(WINDOWS)) || defined(ARM)
+# define NO_FRAME_POINTER 1
+#endif
+
+static void foo(void *retaddr)
 {
     ptr_int_t myaddr1, myaddr2;
-#if defined(X64) && defined(WINDOWS)
+#ifdef NO_FRAME_POINTER
     /* no frame pointer available w/ the compiler we're using */
 #else
     myaddr1 = get_retaddr_from_frameptr();
@@ -51,8 +56,8 @@ static void foo(void **retaddr_p)
     print("my own return address is "PFX"\n", myaddr1);
 # endif
 #endif
-    myaddr2 = (ptr_int_t)*retaddr_p;
-#if defined(X64) && defined(WINDOWS)
+    myaddr2 = (ptr_int_t)retaddr;
+#ifdef NO_FRAME_POINTER
     myaddr1 = myaddr2;
 #endif
     if (myaddr1 == myaddr2)
@@ -72,7 +77,7 @@ int main()
 #if VERBOSE
     print("my address is something like "PFX"\n", myaddr);
 #endif
-    call_with_retaddr((void*)foo);
+    tailcall_with_retaddr((void*)foo);
     return 0;
 }
 
@@ -84,19 +89,46 @@ START_FILE
 #define FUNCNAME get_retaddr
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+# if defined(X86)
         /* We don't bother w/ SEH64 directives, though we're an illegal leaf routine! */
         call     next_instr
     next_instr:
         pop      REG_XAX
         ret
+# elif defined(ARM)
+        push     {r12, lr}
+        bl       next_instr
+    next_instr:
+        mov      r0, lr
+        pop      {r12, pc}
+# elif defined(AARCH64)
+        str      x30, [sp, #-16]!
+        bl       next_instr
+    next_instr:
+        mov      x0, x30
+        ldr      x30, [sp], #16
+        ret
+# else
+#  error NYI
+# endif
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME get_retaddr_from_frameptr
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+# if defined(X86)
         mov      REG_XAX, PTRSZ [REG_XBP + ARG_SZ]
         ret
+# elif defined(ARM)
+        ldr      r0, [r11, #4]
+        bx       lr
+# elif defined(AARCH64)
+        ldr      x0, [x29, #8]
+        ret
+# else
+#  error NYI
+# endif
         END_FUNC(FUNCNAME)
 
 END_FILE

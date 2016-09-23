@@ -243,7 +243,8 @@ void flush_icache(byte *start, byte *end);
 #endif
 
 /* This function implements a trampoline that portably gets its return address
- * and tail calls to its first argument, which is a function pointer.  All
+ * and calls its first argument, which is a function pointer, with a pointer
+ * to the return address substituted for the first argument.  All
  * other parameters are untouched.  It can be used like so:
  *
  * void bar(void);
@@ -258,6 +259,20 @@ void flush_icache(byte *start, byte *end);
  * that want to overwrite their return address.
  */
 int call_with_retaddr(void *func, ...);
+
+/* This function implements a trampoline that portably gets its return address
+ * and tailcalls to its first argument, which is a function pointer, with the
+ * return address substituted for the first argument.  All
+ * other parameters are untouched.  It can be used like so:
+ *
+ * void foo(void *myretaddr, int num) {
+ *     printf("Return address is %p, second arg is %d\n", myretaddr, num);
+ * }
+ * int main(void) {
+ *     tailcall_with_retaddr((void*)foo, 123);
+ * }
+ */
+int tailcall_with_retaddr(void *func, ...);
 
 static size_t
 size(Code_Snippet func)
