@@ -1669,12 +1669,14 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
   endif (X86)
   tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
-  if (NOT MACOS) # FIXME i#1360: implement Mach-O export iterator
-    tobuild_appdll(client.modules client-interface/modules.c)
-    get_target_property(modules_libname client.modules.appdll
-      LOCATION${location_suffix})
-    tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
-  endif ()
+  if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
+    if (NOT MACOS) # FIXME i#1360: implement Mach-O export iterator
+      tobuild_appdll(client.modules client-interface/modules.c)
+      get_target_property(modules_libname client.modules.appdll
+        LOCATION${location_suffix})
+      tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
+    endif ()
+  endif (X86)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")

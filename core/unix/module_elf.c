@@ -89,12 +89,8 @@ safe_read(const void *base, size_t size, void *out_buf)
 #else /* !NOT_DYNAMORIO_CORE_PROPER */
 
 #ifdef CLIENT_INTERFACE
-typedef struct _elf_symbol_iterator_t {
+typedef struct _elf_import_iterator_t {
     dr_symbol_import_t symbol_import;   /* symbol import returned by next() */
-    dr_symbol_export_t symbol_export;   /* symbol export returned by next() */
-
-    ELF_SYM_TYPE *symbol;               /* safe_cur_sym or NULL */
-    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of current symbol */
 
     /* This data is copied from os_module_data_t so we don't have to hold the
      * module area lock while the client iterates.
@@ -104,18 +100,35 @@ typedef struct _elf_symbol_iterator_t {
     const char *dynstr;                 /* absolute addr of .dynstr */
     size_t dynstr_size;                 /* size of .dynstr */
 
-    /* These are used for iterating through a part of .dynsym. */
-    size_t nohash_count;                /* number of symbols remaining */
-    ELF_SYM_TYPE *cur_sym;              /* pointer to next symbol in .dynsym */
+    ELF_SYM_TYPE *cur_sym;              /* pointer to next import in .dynsym */
+    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of cur_sym */
+    ELF_SYM_TYPE *import_end;           /* end of imports in .dynsym */
+    bool error_occurred;                /* error during iteration */
+} elf_import_iterator_t;
 
-    /* These are used for iterating through a GNU hashtable. */
+typedef struct _elf_export_iterator_t {
+    dr_symbol_export_t symbol_export;   /* symbol export returned by next() */
+
+    /* Just like elf_import_iterator_t, this is copied from os_module_data_t. */
+    bool hash_is_gnu;
+    ELF_SYM_TYPE *dynsym;               /* absolute addr of .dynsym */
+    size_t symentry_size;               /* size of a .dynsym entry */
+    const char *dynstr;                 /* absolute addr of .dynstr */
+    size_t dynstr_size;                 /* size of .dynstr */
+
+    /* For gnu hashtable we have to walk the hashtable. */
     Elf_Symndx *buckets;
     size_t num_buckets;
     Elf_Symndx *chain;
     ptr_int_t load_delta;
     Elf_Symndx hidx;
     Elf_Symndx chain_idx;
-} elf_symbol_iterator_t;
+
+    ELF_SYM_TYPE *cur_sym;              /* pointer to next export in .dynsym */
+    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of cur_sym */
+    ELF_SYM_TYPE *export_end;           /* end of exports in .dynsym */
+    bool valid_entry;                   /* is safe_cur_sym valid */
+} elf_export_iterator_t;
 #endif /* CLIENT_INTERFACE */
 
 /* In case want to build w/o gnu headers and use that to run recent gnu elf */
@@ -1398,236 +1411,265 @@ module_undef_symbols()
 }
 
 #ifdef CLIENT_INTERFACE
-
-static ELF_SYM_TYPE *
-symbol_iterator_cur_symbol(elf_symbol_iterator_t *iter)
+static void
+dynsym_next(elf_import_iterator_t *iter)
 {
-    return iter->symbol;
+    iter->cur_sym = (ELF_SYM_TYPE *) ((byte *) iter->cur_sym +
+                                      iter->symentry_size);
 }
 
-static ELF_SYM_TYPE *
-symbol_iterator_next_noread(elf_symbol_iterator_t *iter)
+static void
+dynsym_next_import(elf_import_iterator_t *iter)
 {
-    if (iter->nohash_count > 0) {
-        --iter->nohash_count;
-        if (iter->nohash_count > 0)  {
-            iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym +
-                                             iter->symentry_size);
-            return iter->cur_sym;
+    /* Imports have zero st_value fields.  Anything else is something else, so
+     * we skip it.  Modules using .gnu.hash symbol lookup tend to have imports
+     * come first, but sysv hash tables don't have any such split.
+     */
+    do {
+        dynsym_next(iter);
+        if (iter->cur_sym >= iter->import_end)
+            return;
+        if (!SAFE_READ_VAL(iter->safe_cur_sym, iter->cur_sym)) {
+            memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
+            iter->error_occurred = true;
+            return;
         }
-    }
-    if (iter->hidx < iter->num_buckets) {
-        /* XXX: perhaps we should safe_read buckets[] and chain[] */
-        if (iter->chain_idx != 0) {
-            if (TEST(1, iter->chain[iter->chain_idx])) {
-                /* LSB being 1 marks end of chain. */
-                iter->chain_idx = 0;
-            } else
-                ++iter->chain_idx;
-        }
-        while (iter->chain_idx == 0 && iter->hidx < iter->num_buckets) {
-            /* Advance to next hash chain */
-            iter->chain_idx = iter->buckets[iter->hidx];
-            ++iter->hidx;
-        }
-        return iter->chain_idx == 0 ? NULL : &iter->dynsym[iter->chain_idx];
-    }
-    return NULL;
-}
+    } while (iter->safe_cur_sym.st_value != 0);
 
-static ELF_SYM_TYPE *
-symbol_iterator_next(elf_symbol_iterator_t *iter)
-{
-    ELF_SYM_TYPE *sym = symbol_iterator_next_noread(iter);
-
-    if (sym == NULL) {
-        iter->symbol = NULL;
-        return iter->symbol;
-    } else if (sym->st_name >= iter->dynstr_size) {
+    if (iter->safe_cur_sym.st_name >= iter->dynstr_size) {
         ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
-    } else if (SAFE_READ_VAL(iter->safe_cur_sym, sym)) {
-        iter->symbol = &iter->safe_cur_sym;
-        return iter->symbol;
-    } else {
-        ASSERT_CURIOSITY(false && "could not read symbol");
+        iter->error_occurred = true;
+        return;
     }
-
-    /* Stop the iteration. */
-    iter->nohash_count = 0;
-    iter->hidx = 0;
-    iter->num_buckets = 0;
-    iter->symbol = NULL;
-    return NULL;
 }
 
-static elf_symbol_iterator_t *
-symbol_iterator_start(module_handle_t handle)
+dr_symbol_import_iterator_t *
+dr_symbol_import_iterator_start(module_handle_t handle,
+                                dr_module_import_desc_t *from_module)
 {
-    elf_symbol_iterator_t *iter;
     module_area_t *ma;
+    elf_import_iterator_t *iter;
+    size_t max_imports;
 
-    iter = global_heap_alloc(sizeof(*iter)HEAPACCT(ACCT_CLIENT));
+    if (from_module != NULL) {
+        CLIENT_ASSERT(false, "Cannot iterate imports from a given module on "
+                      "Linux");
+        return NULL;
+    }
+
+    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
     if (iter == NULL)
         return NULL;
     memset(iter, 0, sizeof(*iter));
 
     os_get_module_info_lock();
-    ma = module_pc_lookup((byte *)handle);
+    ma = module_pc_lookup((byte *) handle);
+    if (ma != NULL) {
+        iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
+        iter->symentry_size = ma->os_data.symentry_size;
+        iter->dynstr = (const char *) ma->os_data.dynstr;
+        iter->dynstr_size = ma->os_data.dynstr_size;
+        iter->cur_sym = iter->dynsym;
 
-    iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
-    iter->symentry_size = ma->os_data.symentry_size;
-    iter->dynstr = (const char *) ma->os_data.dynstr;
-    iter->dynstr_size = ma->os_data.dynstr_size;
-    iter->cur_sym = iter->dynsym;
-    iter->load_delta = ma->start - ma->os_data.base_address;
-
-    if (ma->os_data.hash_is_gnu) {
-        /* See https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
-         * "With GNU hash, the dynamic symbol table is divided into two
-         * parts. The first part receives the symbols that can be omitted
-         * from the hash table."
-         * The division sometimes corresponds, roughly, to imports and
-         * exports, but not reliably.
+        /* The length of .dynsym is not available in the mapped image, so we
+         * have to be creative.  The two export hashtables point into dynsym,
+         * though, so they have some info about the length.
          */
-        /* First we will step through the unhashed symbols. */
-        iter->nohash_count = ma->os_data.gnu_symbias;
-        /* Then we will walk the hashtable. */
-        iter->buckets = (Elf_Symndx *)ma->os_data.buckets;
-        iter->chain = (Elf_Symndx *)ma->os_data.chain;
-        iter->num_buckets = ma->os_data.num_buckets;
-        iter->hidx = 0;
-        iter->chain_idx = 0;
+        if (ma->os_data.hash_is_gnu) {
+            /* See https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+             * "With GNU hash, the dynamic symbol table is divided into two
+             * parts. The first part receives the symbols that can be omitted
+             * from the hash table."
+             * gnu_symbias is the index of the first symbol in the hash table,
+             * so all of the imports are before it.  If we ever want to iterate
+             * all of .dynsym, we will have to look at the contents of the hash
+             * table.
+             */
+            max_imports = ma->os_data.gnu_symbias;
+        } else {
+            /* See http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
+             * "The number of symbol table entries should equal nchain"
+             */
+            max_imports = ma->os_data.num_chain;
+        }
+        iter->import_end = (ELF_SYM_TYPE *)((app_pc)iter->dynsym +
+                                            (max_imports * iter->symentry_size));
+
+        /* Set up invariant that cur_sym and safe_cur_sym point to the next
+         * symbol to yield.  This skips the first entry, which is fake according
+         * to the spec.
+         */
+        ASSERT_CURIOSITY(iter->cur_sym->st_name == 0);
+        dynsym_next_import(iter);
     } else {
-        /* See http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
-         * "The number of symbol table entries should equal nchain"
-         */
-        iter->nohash_count = ma->os_data.num_chain;
-        /* There is no GNU hash table. */
-        iter->hidx = 0;
-        iter->num_buckets = 0;
+        global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+        iter = NULL;
     }
-    ASSERT_CURIOSITY(iter->cur_sym->st_name == 0); /* ok to skip 1st */
-    symbol_iterator_next(iter);
-
     os_get_module_info_unlock();
 
-    return iter;
-}
-
-static void
-symbol_iterator_stop(elf_symbol_iterator_t *iter)
-{
-    if (iter == NULL)
-        return;
-    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
-}
-
-static void
-symbol_iterator_next_import(elf_symbol_iterator_t *iter)
-{
-    ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
-    /* Imports have zero st_value fields. Anything else is something else. */
-    while (sym != NULL && sym->st_value != 0)
-        sym = symbol_iterator_next(iter);
-}
-
-dr_symbol_import_iterator_t *
-dr_symbol_import_iterator_start(module_handle_t handle,
-                                   dr_module_import_desc_t *from_module)
-{
-    elf_symbol_iterator_t *iter = NULL;
-    if (from_module != NULL) {
-        CLIENT_ASSERT(false, "Cannot iterate imports from a given module on Linux");
-        return NULL;
-    }
-    iter = symbol_iterator_start(handle);
-    if (iter != NULL)
-        symbol_iterator_next_import(iter);
-    return (dr_symbol_import_iterator_t *)iter;
+    return (dr_symbol_import_iterator_t *) iter;
 }
 
 bool
 dr_symbol_import_iterator_hasnext(dr_symbol_import_iterator_t *dr_iter)
 {
-    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
-    return symbol_iterator_cur_symbol(iter) != NULL;
+    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
+    return (iter != NULL && !iter->error_occurred &&
+            iter->cur_sym < iter->import_end);
 }
 
 dr_symbol_import_t *
 dr_symbol_import_iterator_next(dr_symbol_import_iterator_t *dr_iter)
 {
-    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
-    ELF_SYM_TYPE *sym;
+    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
 
     CLIENT_ASSERT(iter != NULL, "invalid parameter");
-    sym = symbol_iterator_cur_symbol(iter);
-    CLIENT_ASSERT(sym != NULL, "no next");
-
-    iter->symbol_import.name = iter->dynstr + sym->st_name;
+    iter->symbol_import.name = iter->dynstr + iter->safe_cur_sym.st_name;
     iter->symbol_import.modname = NULL;  /* no module for ELFs */
     iter->symbol_import.delay_load = false;
 
-    symbol_iterator_next(iter);
-    symbol_iterator_next_import(iter);
+    dynsym_next_import(iter);
     return &iter->symbol_import;
 }
 
 void
 dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
 {
-    symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
+    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
+    if (iter == NULL)
+        return;
+    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
 
-static void
-symbol_iterator_next_export(elf_symbol_iterator_t *iter)
+static bool
+dynsym_next_export(elf_export_iterator_t *iter)
 {
-    ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
-    /* Assume that eports have non-zero st_value fields. */
-    while (sym != NULL && sym->st_value == 0)
-        sym = symbol_iterator_next(iter);
+    if (iter->hash_is_gnu) {
+        /* XXX: perhaps we should safe_read buckets[] and chain[] */
+        do { /* loop over zero entries */
+            if (iter->chain_idx == 0) {
+                /* Advance to next hash chain */
+                do {
+                    if (iter->hidx >= iter->num_buckets)
+                        return false;
+                    iter->chain_idx = iter->buckets[iter->hidx];
+                    iter->hidx++;
+                } while (iter->chain_idx == 0);
+            }
+            /* Walk the hash chain for this bucket value */
+            if (!SAFE_READ_VAL(iter->safe_cur_sym, &iter->dynsym[iter->chain_idx])) {
+                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
+                return false;
+            }
+            /* End of chain is marked by LSB being 1 */
+            if (TEST(1, iter->chain[iter->chain_idx]))
+                iter->chain_idx = 0;
+            else
+                iter->chain_idx++;
+            /* Hashtable should only have non-zero entries, but I see some in
+             * the middle of .dynsym for 32-bit libs.
+             */
+        } while (iter->safe_cur_sym.st_value == 0);
+    } else {
+        do {
+            iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym + iter->symentry_size);
+            if (iter->cur_sym >= iter->export_end)
+                return false;
+            if (!SAFE_READ_VAL(iter->safe_cur_sym, iter->cur_sym)) {
+                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
+                return false;
+            }
+        } while (iter->safe_cur_sym.st_value == 0);
+    }
+
+    if (iter->safe_cur_sym.st_name >= iter->dynstr_size) {
+        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
+        return false;
+    }
+    return true;
 }
 
 dr_symbol_export_iterator_t *
 dr_symbol_export_iterator_start(module_handle_t handle)
 {
-    elf_symbol_iterator_t *iter = symbol_iterator_start(handle);
-    if (iter != NULL)
-        symbol_iterator_next_export(iter);
-    return (dr_symbol_export_iterator_t *)iter;
+    module_area_t *ma;
+    elf_export_iterator_t *iter;
+
+    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    if (iter == NULL)
+        return NULL;
+    memset(iter, 0, sizeof(*iter));
+
+    os_get_module_info_lock();
+    ma = module_pc_lookup((byte *) handle);
+    if (ma != NULL) {
+        iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
+        iter->symentry_size = ma->os_data.symentry_size;
+        iter->dynstr = (const char *) ma->os_data.dynstr;
+        iter->dynstr_size = ma->os_data.dynstr_size;
+        iter->cur_sym = iter->dynsym;
+        iter->load_delta = ma->start - ma->os_data.base_address;
+
+        /* See dr_symbol_import_iterator_start(): we don't have the length of .dynsym
+         * (we'd have to map the original file).
+         */
+        iter->hash_is_gnu = ma->os_data.hash_is_gnu;
+        if (iter->hash_is_gnu) {
+            /* We have to walk the hashtable */
+            iter->buckets = (Elf_Symndx *) ma->os_data.buckets;
+            iter->chain = (Elf_Symndx *) ma->os_data.chain;
+            iter->num_buckets = ma->os_data.num_buckets;
+            iter->hidx = 0;
+            iter->chain_idx = 0;
+        } else {
+            /* See dr_symbol_import_iterator_start(): num_chain is # of .dynsym entries */
+            iter->export_end = (ELF_SYM_TYPE *)
+                ((app_pc)iter->dynsym + (ma->os_data.num_chain * iter->symentry_size));
+            ASSERT_CURIOSITY(iter->cur_sym->st_name == 0); /* ok to skip 1st */
+        }
+        /* Just like the import iterator, we always point at next */
+        iter->valid_entry = dynsym_next_export(iter);
+    } else {
+        global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+        iter = NULL;
+    }
+    os_get_module_info_unlock();
+
+    return (dr_symbol_export_iterator_t *) iter;
 }
 
 bool
 dr_symbol_export_iterator_hasnext(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
-    return symbol_iterator_cur_symbol(iter) != NULL;
+    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
+    return (iter != NULL && iter->valid_entry &&
+            (iter->hash_is_gnu || iter->cur_sym < iter->export_end));
 }
 
 dr_symbol_export_t *
 dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
-    ELF_SYM_TYPE *sym;
+    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
 
     CLIENT_ASSERT(iter != NULL, "invalid parameter");
-    sym = symbol_iterator_cur_symbol(iter);
-    CLIENT_ASSERT(sym != NULL, "no next");
-
     memset(&iter->symbol_export, 0, sizeof(iter->symbol_export));
-    iter->symbol_export.name = iter->dynstr + sym->st_name;
-    iter->symbol_export.is_indirect_code = (ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC);
-    iter->symbol_export.is_code = (ELF_ST_TYPE(sym->st_info) == STT_FUNC);
-    iter->symbol_export.addr = (app_pc)(sym->st_value + iter->load_delta);
+    iter->symbol_export.name = iter->dynstr + iter->safe_cur_sym.st_name;
+    iter->symbol_export.is_indirect_code =
+        (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_GNU_IFUNC);
+    iter->symbol_export.is_code = (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_FUNC);
+    iter->symbol_export.addr = (app_pc) (iter->safe_cur_sym.st_value + iter->load_delta);
 
-    symbol_iterator_next(iter);
-    symbol_iterator_next_export(iter);
+    iter->valid_entry = dynsym_next_export(iter);
     return &iter->symbol_export;
 }
 
 void
 dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 {
-    symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
+    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
+    if (iter == NULL)
+        return;
+    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
 
 #endif /* CLIENT_INTERFACE */
