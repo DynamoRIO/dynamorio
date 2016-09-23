@@ -35,11 +35,29 @@
 
 int main()
 {
+#if defined(__i386__) || defined (__x86_64__)
     __asm__("jmp    aroundexit");
     __asm__("doexit:          ");
     __asm__("       movl   $1,%eax       # exit");
     __asm__("       movl   $0,%ebx       # exit code");
     __asm__("       int    $0x80         # kernel");
     __asm__("aroundexit: call doexit");
+#elif defined (__aarch64__)
+    __asm__("b      aroundexit");
+    __asm__("doexit:          ");
+    __asm__("       mov    w8, #94       // exit_group");
+    __asm__("       mov    w0, #0        // exit code");
+    __asm__("       svc    #0            // kernel");
+    __asm__("aroundexit: bl doexit");
+#elif defined (__arm__)
+    __asm__("b      aroundexit");
+    __asm__("doexit:          ");
+    __asm__("       mov    r7, #248      // exit_group");
+    __asm__("       mov    r0, #0        // exit code");
+    __asm__("       svc    0             // kernel");
+    __asm__("aroundexit: bl doexit");
+#else
+# error NYI
+#endif
     return 0;
 }

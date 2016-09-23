@@ -2591,9 +2591,7 @@ if (UNIX)
       "-vm_base 0x100000000 -no_vm_base_near_app" "")
   endif ()
 
-  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-    tobuild(linux.infinite linux/infinite.c)
-  endif (X86)
+  tobuild(linux.infinite linux/infinite.c)
   tobuild(linux.longjmp linux/longjmp.c)
   if (NOT APPLE)
     tobuild(linux.prctl linux/prctl.c)
