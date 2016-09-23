@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,41 +30,26 @@
  * DAMAGE.
  */
 
-/* simulator: represent a simulator of a set of caching devices.
+/* analysis_tool: represent a memory trace analysis tool.
  */
 
-#ifndef _SIMULATOR_H_
-#define _SIMULATOR_H_ 1
+#ifndef _ANALYSIS_TOOL_H_
+#define _ANALYSIS_TOOL_H_ 1
 
-#include <map>
-#include "caching_device_stats.h"
-#include "caching_device.h"
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "common/memref.h"
 
-class simulator_t : public analysis_tool_t
+class analysis_tool_t
 {
  public:
-    simulator_t();
-    virtual ~simulator_t() = 0;
-
+    // Usage: errors encountered during the constructor will set a flag that should
+    // be queried via operator!.
+    analysis_tool_t() : success(true) {};
+    virtual ~analysis_tool_t() {};
+    virtual bool operator!() { return !success; }
+    virtual bool process_memref(const memref_t &memref) = 0;
+    virtual bool print_results() = 0;
  protected:
-    virtual int core_for_thread(memref_tid_t tid);
-    virtual void handle_thread_exit(memref_tid_t tid);
-
-    int num_cores;
-
-    // For thread mapping to cores:
-    std::map<memref_tid_t, int> thread2core;
-    unsigned int *thread_counts;
-    unsigned int *thread_ever_counts;
-
-    uint64_t skip_refs;
-    uint64_t warmup_refs;
-    uint64_t sim_refs;
-
-    memref_tid_t last_thread;
-    int last_core;
+    bool success;
 };
 
-#endif /* _SIMULATOR_H_ */
+#endif /* _ANALYSIS_TOOL_H_ */

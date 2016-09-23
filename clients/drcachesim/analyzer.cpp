@@ -30,15 +30,23 @@
  * DAMAGE.
  */
 
+#include "analysis_tool.h"
 #include "analyzer.h"
 #include "common/options.h"
 #include "common/utils.h"
 #include "reader/file_reader.h"
 #include "reader/ipc_reader.h"
+#include "simulator/cache_simulator.h"
+#include "simulator/tlb_simulator.h"
 
 analyzer_t::analyzer_t() :
-    success(true)
+    success(true), trace_iter(NULL), trace_end(NULL), num_tools(0)
 {
+    if (!create_analysis_tools()) {
+        success = false;
+        ERRMSG("Failed to create analysis tool\n");
+        return;
+    }
     // XXX: add a "required" flag to droption to avoid needing this here
     if (op_infile.get_value().empty() && op_ipc_name.get_value().empty()) {
         ERRMSG("Usage error: -ipc_name or -infile is required\nUsage:\n%s",
@@ -60,12 +68,38 @@ analyzer_t::~analyzer_t()
 {
     delete trace_iter;
     delete trace_end;
+    destroy_analysis_tools();
 }
 
 bool
 analyzer_t::operator!()
 {
     return !success;
+}
+
+bool
+analyzer_t::run()
+{
+    bool res = true;
+    if (!start_reading())
+        return false;
+
+    for (; *trace_iter != *trace_end; ++(*trace_iter)) {
+        for (int i = 0; i < num_tools; i++) {
+            memref_t memref = **trace_iter;
+            res = tools[i]->process_memref(memref) && res;
+        }
+    }
+    return res;
+}
+
+bool
+analyzer_t::print_stats()
+{
+    bool res = true;
+    for (int i = 0; i < num_tools; i++)
+        res = tools[i]->print_results() && res;
+    return res;
 }
 
 bool
@@ -77,4 +111,35 @@ analyzer_t::start_reading()
         return false;
     }
     return true;
+}
+
+bool
+analyzer_t::create_analysis_tools()
+{
+    /* FIXME i#2006: add multiple tool support. */
+    /* FIXME i#2006: create a single top-level tool for multi-component
+     * tools.
+     */
+    if (op_simulator_type.get_value() == CPU_CACHE)
+        tools[0] = new cache_simulator_t;
+    else if (op_simulator_type.get_value() == TLB)
+        tools[0] = new tlb_simulator_t;
+    else {
+        ERRMSG("Usage error: unsupported analyzer type. "
+               "Please choose " CPU_CACHE" or " TLB".\n");
+        return false;
+    }
+    if (!tools[0])
+        return false;
+    num_tools = 1;
+    return true;
+}
+
+void
+analyzer_t::destroy_analysis_tools()
+{
+    if (!success)
+        return;
+    for (int i = 0; i < num_tools; i++)
+        delete tools[i];
 }

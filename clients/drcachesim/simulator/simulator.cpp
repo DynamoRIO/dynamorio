@@ -40,6 +40,14 @@
 #include "droption.h"
 #include "simulator.h"
 
+simulator_t::simulator_t() :
+    last_thread(0), last_core(0)
+{
+    skip_refs = op_skip_refs.get_value();
+    warmup_refs = op_warmup_refs.get_value();
+    sim_refs = op_sim_refs.get_value();
+}
+
 simulator_t::~simulator_t() {}
 
 int

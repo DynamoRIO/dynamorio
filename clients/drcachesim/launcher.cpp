@@ -38,14 +38,18 @@
 #ifdef WINDOWS
 # define UNICODE
 # define _UNICODE
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
 #else
 # include <sys/types.h>
 # include <sys/wait.h>
+# include <unistd.h>  /* for fork */
 #endif
 
 #include <assert.h>
 #include <stdio.h>
 #include <iostream>
+#include "analyzer.h"
 #include "dr_api.h"
 #include "dr_inject.h"
 #include "dr_config.h"
@@ -53,8 +57,6 @@
 #include "droption.h"
 #include "common/options.h"
 #include "common/utils.h"
-#include "simulator/cache_simulator.h"
-#include "simulator/tlb_simulator.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
@@ -230,16 +232,7 @@ _tmain(int argc, const TCHAR *targv[])
         }
     } else {
         // declare the analyzer based on its type
-        if (op_simulator_type.get_value() == CPU_CACHE)
-            analyzer = new cache_simulator_t;
-        else if (op_simulator_type.get_value() == TLB)
-            analyzer = new tlb_simulator_t;
-        else {
-            ERRMSG("Usage error: unsupported analyzer type. "
-                   "Please choose " CPU_CACHE" or " TLB".\n");
-            return false;
-        }
-
+        analyzer = new analyzer_t;
         if (!analyzer) {
             FATAL_ERROR("failed to initialize analyzer");
         }

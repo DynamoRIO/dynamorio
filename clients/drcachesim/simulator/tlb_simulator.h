@@ -40,15 +40,14 @@
 #include "simulator.h"
 #include "tlb_stats.h"
 #include "tlb.h"
-#include "../reader/ipc_reader.h"
 
 class tlb_simulator_t : public simulator_t
 {
  public:
     tlb_simulator_t();
     virtual ~tlb_simulator_t();
-    virtual bool run();
-    virtual bool print_stats();
+    virtual bool process_memref(const memref_t &memref);
+    virtual bool print_results();
 
  protected:
     // Create a tlb_t object with a specific replacement policy.
