@@ -405,9 +405,7 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
             return true;
         } else
             return false;
-    } else if (opc == OP_mov || opc == OP_movs || opc == OP_movw ||
-               /* We include movt even though it only writes the top half */
-               opc == OP_movt) {
+    } else if (opc == OP_mov || opc == OP_movs || opc == OP_movw) {
         opnd_t op = instr_get_src(instr, 0);
         if (opnd_is_immed_int(op)) {
             *value = opnd_get_immed_int(op);
