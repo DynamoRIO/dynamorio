@@ -639,6 +639,33 @@ dynamorio_app_init(void)
 #endif
         jitopt_init();
 #ifdef CLIENT_INTERFACE
+        /* Initialize drdbg here so we have a dcontext and will also
+         * receive the thread init event from instrument_init()
+         */
+        if (INTERNAL_OPTION(appdebug)) {
+            acquire_recursive_lock(&privload_lock);
+            mod = privload_lookup("libdrdbg.so");
+            release_recursive_lock(&privload_lock);
+            if (mod == NULL) {
+                SYSLOG_INTERNAL_ERROR("Failed to locate drdbg library!");
+                os_terminate(NULL, TERMINATE_PROCESS);
+                ASSERT_NOT_REACHED();
+            }
+            faddr = get_private_library_address(mod->base, "drdbg_init");
+            if (faddr == NULL) {
+                SYSLOG_INTERNAL_ERROR("Failed to locate drdbg_init!");
+                os_terminate(NULL, TERMINATE_PROCESS);
+                ASSERT_NOT_REACHED();
+            }
+            LOG(GLOBAL, LOG_TOP, 1, "%s: Found drdbg_init @ %p\n",
+                __FUNCTION__, faddr);
+            /* opts is copied by drdbg */
+            drdbg_options_t opts;
+            opts.port = DYNAMO_OPTION(appdebug_port);
+            opts.debug = DYNAMO_OPTION(appdebug_debug);
+            ((generic_func_t)faddr)(&opts);
+        }
+
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
          * Note that we *load* the client library before installing our hooks,
@@ -711,29 +738,7 @@ dynamorio_app_init(void)
         wait_for_event(never_signaled);
         destroy_event(never_signaled);
     }
-    /* Initialize drdbg */
-    if (INTERNAL_OPTION(appdebug)) {
-        acquire_recursive_lock(&privload_lock);
-        mod = privload_lookup("libdrdbg.so");
-        release_recursive_lock(&privload_lock);
-        if (mod == NULL) {
-            SYSLOG_INTERNAL_ERROR("Failed to locate drdbg library!");
-            os_terminate(NULL, TERMINATE_PROCESS);
-            ASSERT_NOT_REACHED();
-        }
-        faddr = get_private_library_address(mod->base, "drdbg_init");
-        if (faddr == NULL) {
-            SYSLOG_INTERNAL_ERROR("Failed to locate drdbg_init!");
-            os_terminate(NULL, TERMINATE_PROCESS);
-            ASSERT_NOT_REACHED();
-        }
-        LOG(GLOBAL, LOG_TOP, 1, "%s: Found drdbg_init @ %p\n",
-            __FUNCTION__, faddr);
-        /* XXX: Add options */
-        drdbg_options_t opts;
-        opts.port = DYNAMO_OPTION(appdebug_port);
-        ((generic_func_t)faddr)(&opts);
-    }
+
     return SUCCESS;
 }
 

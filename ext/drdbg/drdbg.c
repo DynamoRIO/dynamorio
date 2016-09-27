@@ -36,7 +36,7 @@
  */
 
 #include "dr_api.h"
-//#include "drmgr.h"
+#include "drmgr.h"
 #include "drvector.h"
 #include "drlist.h"
 #include "drqueue.h"
@@ -48,7 +48,6 @@
 
 #include <sys/mman.h>
 
-static drdbg_options_t drdbg_options;
 static drdbg_srv_int_t dbg_server;
 static drlist_t *drdbg_memmaps;
 
@@ -106,7 +105,7 @@ drdbg_bp_queue_ex(void *pc, bool flush_pc)
      * that pc is at the start of a BB, so we must always flush for now.
      */
     if (flush_pc) {
-        /* XXX: dr_flush_region(pc, 1); */
+        //dr_flush_region(pc, 1);
     }
     /* Fill bp info */
     bp = dr_global_alloc(sizeof(drdbg_bp_t));
@@ -125,6 +124,7 @@ drdbg_bp_queue_ex(void *pc, bool flush_pc)
         dr_global_free(bp, sizeof(drdbg_bp_t));
         return DRDBG_ERROR;
     }
+
     return DRDBG_SUCCESS;
 }
 
@@ -163,14 +163,14 @@ drdbg_bp_cc_handler(drdbg_bp_t *bp)
     data->mcontext.flags = DR_MC_INTEGER|DR_MC_CONTROL;
     data->mcontext.size = sizeof(dr_mcontext_t);
     dr_get_mcontext(dr_get_current_drcontext(), &data->mcontext);
-    data->mcontext.xip = dr_fragment_app_pc(data->bp->tag);
+    data->mcontext.xip = bp->pc;
     data->keep_waiting = true;
     event->data = data;
 
-    drqueue_push(drdbg_event_queue, event);
-
     /* enter safe spot and wait */
     dr_mark_safe_to_suspend(dr_get_current_drcontext(), true);
+
+    drqueue_push(drdbg_event_queue, event);
 
     /* XXX: would be nice if os_thread_yield() was exposed */
     while (data->keep_waiting)
@@ -178,43 +178,61 @@ drdbg_bp_cc_handler(drdbg_bp_t *bp)
 }
 
 drdbg_status_t
-drdbg_bp_insert(void *drcontext, void *tag, instrlist_t *bb, drdbg_bp_t *bp)
+drdbg_bp_insert(void *drcontext, instrlist_t *bb, drdbg_bp_t *bp)
 {
     if (bp == NULL)
         return DRDBG_ERROR;
-    bp->tag = tag;
+
+    bp->bb = bb;
     bp->status = DRDBG_BP_ENABLED;
-    /* XXX: Split block on pc */
+
     /* Insert clean-call to bp handler */
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), drdbg_bp_cc_handler, false, 1, OPND_CREATE_INTPTR(bp));
+
     return DRDBG_SUCCESS;
+}
+
+static instr_t *
+instrlist_find_pc(instrlist_t *ilist, app_pc pc)
+{
+    instr_t *next = instrlist_first_app(ilist);
+    while (next != NULL) {
+        if (instr_get_app_pc(next) == pc)
+            return next;
+        next = instr_get_next(next);
+    }
+    return NULL;
+}
+
+/* removes all instrs from start to the end of ilist
+ * XXX: add to DR and export?
+ */
+static void
+instrlist_truncate(void *drcontext, instrlist_t *ilist, instr_t *start)
+{
+    instr_t *next = start, *tmp;
+    while (next != NULL) {
+        tmp = next;
+        next = instr_get_next(next);
+        instrlist_remove(ilist, tmp);
+        instr_destroy(drcontext, tmp);
+    }
 }
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+                  bool for_trace, bool translating, void **user_data)
 {
     drlist_node_t *node = NULL;
     drlist_node_t *del_node = NULL;
-    if (pause_at_first_app_ins) {
-        /*
-         * Can't flush since we're in an event callback. Luckily, we
-         * don't need to flush since this is the first block.
-         */
-        if (drdbg_bp_queue_ex(tag, false) != DRDBG_SUCCESS) {
-            DR_ASSERT_MSG(false, "queue failed");
-            return DR_EMIT_DEFAULT;
-        }
-        pause_at_first_app_ins = false;
-    }
+    app_pc bb_first_pc = instr_get_app_pc(instrlist_first_app(bb));
 
     /* Insert any pending breakpoints */
     node = drdbg_bps_pending->head;
     while (node != NULL) {
         if (node->data != NULL &&
-            instr_get_app_pc(instrlist_first_app(bb)) <= ((drdbg_bp_t *)(node->data))->pc &&
-            ((drdbg_bp_t *)(node->data))->pc <= instr_get_app_pc(instrlist_last_app(bb))) {
-            if (drdbg_bp_insert(drcontext, tag, bb, node->data) == DRDBG_SUCCESS) {
+            bb_first_pc == ((drdbg_bp_t *)(node->data))->pc) {
+            if (drdbg_bp_insert(drcontext, bb, node->data) == DRDBG_SUCCESS) {
                 del_node = node;
                 node = node->next;
                 drlist_remove(drdbg_bps_pending, del_node);
@@ -229,45 +247,83 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
+static dr_emit_flags_t
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating)
+{
+    if (pause_at_first_app_ins) {
+        /*
+         * Can't flush since we're in an event callback. Luckily, we
+         * don't need to flush since this is the first block.
+         */
+        if (drdbg_bp_queue_ex(tag, false) != DRDBG_SUCCESS) {
+            DR_ASSERT_MSG(false, "queue failed");
+            return DR_EMIT_DEFAULT;
+        }
+    }
+    /* If bb contains a pending breakpoint then split the bb on the
+     * breakpoint address.
+     */
+    app_pc bb_first_pc = instr_get_app_pc(instrlist_first_app(bb));
+    app_pc bb_last_pc = instr_get_app_pc(instrlist_last_app(bb));
+    app_pc bp_pc;
+
+    drlist_node_t *node = drdbg_bps_pending->head;
+    while (node != NULL) {
+        if (node->data != NULL) {
+            bp_pc = ((drdbg_bp_t *)(node->data))->pc;
+            if (bb_first_pc == bp_pc) {
+                /* Remove the instructions after the bp */
+                instrlist_truncate(drcontext, bb,
+                                   instr_get_next(instrlist_first_app(bb)));
+            } else if (bb_first_pc < bp_pc && bp_pc <= bb_last_pc) {
+                /* Remove the instructions starting at the bp */
+                instrlist_truncate(drcontext, bb, instrlist_find_pc(bb, bp_pc));
+            }
+        }
+        node = node->next;
+    }
+
+    return DR_EMIT_DEFAULT;
+}
+
 /* Command handlers */
 drdbg_status_t
-drdbg_cmd_not_implemented(void **arg)
+drdbg_cmd_not_implemented(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     return DRDBG_SUCCESS;
 }
 
 drdbg_status_t
-drdbg_cmd_query_stop_rsn(void **arg)
+drdbg_cmd_query_stop_rsn(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_query_stop_rsn_t mydata_t;
     mydata_t *data = (mydata_t *)calloc(1, sizeof(mydata_t));
-    if (arg && *arg != NULL)
-        free(*arg);
 
     data->stop_rsn = DRDBG_STOP_RSN_RECV_SIG;
     data->signum = 5;
-    *arg = data;
+    cmd_data->cmd_data = data;
 
     return DRDBG_SUCCESS;
 }
 
 drdbg_status_t
-drdbg_cmd_reg_read(void **arg)
+drdbg_cmd_reg_read(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     //dr_mcontext_t *mcontext = dr_global_alloc(sizeof(dr_mcontext_t));
     //mcontext->size = sizeof(dr_mcontext_t);
     //mcontext->flags = DR_MC_INTEGER|DR_MC_CONTROL;
     //dr_get_mcontext(drcontexts[0], mcontext);
     //*arg = (void *)mcontext;
-    *arg = &current_bp_event->mcontext;
+    cmd_data->cmd_data = &current_bp_event->mcontext;
     return DRDBG_SUCCESS;
 }
 
 drdbg_status_t
-drdbg_cmd_mem_read(void **arg)
+drdbg_cmd_mem_read(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_mem_op_t mydata_t;
-    mydata_t *data = (mydata_t *)*arg;
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
     char *read_data;
     size_t bytes_read;
 
@@ -284,15 +340,15 @@ drdbg_cmd_mem_read(void **arg)
 
     data->data = read_data;
     data->len = bytes_read;
-    *arg = data;
+    cmd_data->cmd_data = data;
     return DRDBG_SUCCESS;
 }
 
 drdbg_status_t
-drdbg_cmd_mem_write(void **arg)
+drdbg_cmd_mem_write(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_mem_op_t mydata_t;
-    mydata_t *data = (mydata_t *)*arg;
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
     size_t bytes_wrote;
 
     //dr_switch_to_app_state(dr_get_current_drcontext());
@@ -302,36 +358,62 @@ drdbg_cmd_mem_write(void **arg)
     }
     //dr_switch_to_dr_state(dr_get_current_drcontext());
 
-    *arg = 0;
     return DRDBG_SUCCESS;
 }
 
 drdbg_status_t
-drdbg_cmd_continue(void **arg)
+drdbg_cmd_continue(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     if (current_bp_event == NULL)
         return DRDBG_ERROR;
     current_bp_event->keep_waiting = false;
-    dr_resume_all_other_threads(drcontexts,num_suspended);
+    dr_resume_all_other_threads(drcontexts, num_suspended);
     return DRDBG_SUCCESS;
 }
 
 drdbg_status_t
-drdbg_cmd_swbreak(void **arg)
+drdbg_cmd_step(drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    instr_t *i;
+    app_pc tgt;
+    if (current_bp_event == NULL)
+        return DRDBG_ERROR;
+    i = instrlist_first_app(current_bp_event->bp->bb);
+    if (instr_is_cti(i)) {
+        tgt = opnd_get_pc(instr_get_target(i));
+    } else {
+        tgt = current_bp_event->bp->pc + instr_length(dr_get_current_drcontext(), i);
+    }
+    drdbg_bp_queue(tgt);
+    current_bp_event->keep_waiting = false;
+    dr_resume_all_other_threads(drcontexts, num_suspended);
+    return DRDBG_SUCCESS;
+}
+
+drdbg_status_t
+drdbg_cmd_swbreak(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_swbreak_t mydata_t;
-    mydata_t *data = (mydata_t *)*arg;
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
     drdbg_status_t ret = DRDBG_ERROR;
+    if (((unsigned long)data->addr & 0xfff) == 0xca0)
+        return DRDBG_SUCCESS;
     if (data->insert) {
         ret = drdbg_bp_queue(data->addr);
-        *arg = (void *)(long long)(ret != DRDBG_SUCCESS);
         return ret;
     } else {
         ret = drdbg_bp_disable(data->addr);
-        *arg = (void *)(long long)(ret != DRDBG_SUCCESS);
         return ret;
     }
 
+}
+
+drdbg_status_t
+drdbg_cmd_kill(drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    drdbg_exit();
+    dr_exit_process(0);
+    return DRDBG_ERROR;
 }
 
 /* drdbg managagement */
@@ -360,19 +442,17 @@ static
 void
 drdbg_server_loop(void *arg)
 {
-    drdbg_status_t ret;
-    drdbg_srv_int_cmd_t cmd_id;
-    void *cmd_data = NULL;
     drdbg_event_t *drdbg_event = NULL;
+    drdbg_srv_int_cmd_data_t cmd_data;
 
     /* Command loop */
     while (1) {
         /* Get command from server */
-        ret = dbg_server.get_cmd(&cmd_id, &cmd_data);
-        if (ret == DRDBG_SUCCESS) {
-            cmd_handlers[cmd_id](&cmd_data);
+        cmd_data.status = dbg_server.get_cmd(&cmd_data);
+        if (cmd_data.status == DRDBG_SUCCESS) {
+            cmd_data.status = cmd_handlers[cmd_data.cmd_id](&cmd_data);
             /* Send results to server */
-            ret = dbg_server.put_cmd(&cmd_id, &cmd_data);
+            cmd_data.status = dbg_server.put_cmd(&cmd_data);
         }
 
         /* Handle drdbg events */
@@ -380,13 +460,23 @@ drdbg_server_loop(void *arg)
             while ((drdbg_event = drqueue_pop(drdbg_event_queue)) != NULL) {
                 switch (drdbg_event->event) {
                 case DRDBG_EVENT_BP:
-                    dr_fprintf(STDERR, "BREAKPOINT TRIGGERED OMG WTF BBQ\n");
                     dr_suspend_all_other_threads(&drcontexts, &num_suspended, &num_unsuspended);
                     if (drdbg_break_on_entry) {
                         drdbg_srv_accept();
                         drdbg_break_on_entry = false;
                     }
                     current_bp_event = drdbg_event->data;
+                    /* If we just paused at the first app instruction disable
+                     * the bp insertion in bb analysis, otherwise, send the
+                     * debugger a stop signal.
+                     */
+                    if (pause_at_first_app_ins) {
+                        pause_at_first_app_ins = false;
+                    } else {
+                        cmd_data.cmd_id = DRDBG_CMD_QUERY_STOP_RSN;
+                        cmd_handlers[cmd_data.cmd_id](&cmd_data);
+                        dbg_server.put_cmd(&cmd_data);
+                    }
                     break;
                 default:
                     break;
@@ -405,8 +495,8 @@ drdbg_start_server(void *arg)
     drdbg_status_t ret;
 
     /* Mark thread as unsuspendable */
-    if (!dr_client_thread_set_suspendable(false))
-        return;
+    //if (!dr_client_thread_set_suspendable(false))
+        //return;
 
     /* Initialize server */
     ret = drdbg_srv_start();
@@ -458,6 +548,8 @@ drdbg_init_cmd_handlers(void)
     cmd_handlers[DRDBG_CMD_MEM_WRITE] = drdbg_cmd_mem_write;
     cmd_handlers[DRDBG_CMD_SWBREAK] = drdbg_cmd_swbreak;
     cmd_handlers[DRDBG_CMD_CONTINUE] = drdbg_cmd_continue;
+    cmd_handlers[DRDBG_CMD_STEP] = drdbg_cmd_step;
+    cmd_handlers[DRDBG_CMD_KILL] = drdbg_cmd_kill;
 
     return DRDBG_SUCCESS;
 }
@@ -466,8 +558,12 @@ static
 drdbg_status_t
 drdbg_init_events(void)
 {
-    /* XXX: Should be using drmgr */
-    dr_register_bb_event(event_bb_analysis);
+    if (!drmgr_init()) {
+        return DRDBG_ERROR;
+    }
+    drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
+    drmgr_register_bb_app2app_event(event_bb_app2app, NULL);
+
     return DRDBG_SUCCESS;
 }
 
@@ -491,6 +587,7 @@ drdbg_init(drdbg_options_t *ops_in)
     if (drdbg_init_data() != DRDBG_SUCCESS ||
         drdbg_init_cmd_handlers() != DRDBG_SUCCESS ||
         drdbg_init_events() != DRDBG_SUCCESS) {
+        dr_fprintf(STDERR, "Failed to initialize\n");
         return DRDBG_ERROR;
     }
 

@@ -42,15 +42,26 @@
 #include <errno.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 /* Server constants */
 #define MAX_PACKET_SIZE 0x4000
-#define NUM_SUPPORTED_CMDS 1
+#define NUM_SUPPORTED_CMDS 2
 
 /* Server data */
 static int drdbg_srv_gdb_sock = -1;
 static int drdbg_srv_gdb_conn = -1;
 struct sockaddr_in drdbg_srv_gdb_client_addr;
+
+#define DEBUG_MSG(...) do {          \
+  /* XXX: make an option */          \
+  if (drdbg_options.debug)           \
+    dr_fprintf(STDERR, __VA_ARGS__); \
+  } while (0)
+
+#define ERROR_MSG(...) do {              \
+    dr_fprintf(STDERR, "error: "__VA_ARGS__); \
+  } while (0)
 
 /* GDB Helper functions */
 static
@@ -142,10 +153,10 @@ static
 drdbg_status_t
 gdb_sendpkt(const char *buf, int len)
 {
+    char pkt[MAX_PACKET_SIZE];
     do {
-        dr_fprintf(STDERR, "SENDING PACKET %s\n", buf);
+        DEBUG_MSG("Sending packet: '%s'\n", buf);
         int bread = -1;
-        char *pkt = (char *)calloc(MAX_PACKET_SIZE, sizeof(char));
         pkt[0] = '$';
         memcpy(pkt+1, buf, len);
         pkt[1+len] = '#';
@@ -153,11 +164,9 @@ gdb_sendpkt(const char *buf, int len)
         /* send packet */
         bread = send(drdbg_srv_gdb_conn, pkt, strlen(pkt), 0);
         if (bread != strlen(pkt)) {
-            dr_fprintf(STDERR, "Didn't send all the bytes\n");
+            DEBUG_MSG("Failed to send entire packet.\n");
             return DRDBG_ERROR;
         }
-        dr_fprintf(STDERR, "PACKET SENT!\n");
-        free(pkt);
     } while (!gdb_recvack());
     return DRDBG_SUCCESS;
 }
@@ -170,11 +179,16 @@ gdb_recvpkt(char *buf, ssize_t len, ssize_t *bread)
     *bread = 0;
 
     while (*bread < len) {
+        /* Check for data */
+        ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 1, MSG_PEEK|MSG_DONTWAIT);
+        if (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            return DRDBG_ERROR;
+        }
         ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 1, 0);
         if (ret == -1) {
             if (errno == EINTR)
                 exit(1);
-            dr_fprintf(STDERR, "RECV ERROR %d\n", errno);
+            DEBUG_MSG("Failed to receive packet: %d\n", errno);
             *bread = ret;
             gdb_sendack('-');
             return DRDBG_ERROR;
@@ -183,7 +197,7 @@ gdb_recvpkt(char *buf, ssize_t len, ssize_t *bread)
             *bread += 1;
             ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 2, 0);
             if (ret == -1) {
-                dr_fprintf(STDERR, "CHKSUM ERROR %d\n", errno);
+                DEBUG_MSG("Failed to receive checksum: %d\n", errno);
                 *bread = ret;
                 gdb_sendack('-');
 
@@ -206,46 +220,50 @@ drdbg_status_t
 drdbg_srv_gdb_accept(void)
 {
     socklen_t client_len;
-    dr_fprintf(STDERR, "WAITING ON CONN...\n");
     drdbg_srv_gdb_conn = accept(drdbg_srv_gdb_sock,
                                    (struct sockaddr *)&drdbg_srv_gdb_client_addr,
                                    &client_len);
     if (drdbg_srv_gdb_conn == -1) {
-        dr_fprintf(STDERR, "FAILED TO ACCEPT CONN %d\n", errno);
+        ERROR_MSG("Failed to accept connection: %d\n", errno);
         return DRDBG_ERROR;
     }
     while (!gdb_recvack());
-    dr_fprintf(STDERR, "ACCEPTED CONNCTION!\n");
+    dr_fprintf(STDERR, "Accepted connection.\n");
     return DRDBG_SUCCESS;
 }
 
 static
 drdbg_status_t
-drdbg_srv_gdb_start(uint port)
+drdbg_srv_gdb_start()
 {
     struct sockaddr_in addr;
 
     /* Creat socket */
     drdbg_srv_gdb_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (drdbg_srv_gdb_sock == -1)
+    if (drdbg_srv_gdb_sock == -1) {
+        ERROR_MSG("Failed to create socket");
         return DRDBG_ERROR;
+    }
 
     /* Bind to socket with port */
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(port);
+    addr.sin_port = htons(drdbg_options.port);
     if (bind(drdbg_srv_gdb_sock, (struct sockaddr *)&addr,
              sizeof(struct sockaddr_in)) == -1) {
+        ERROR_MSG("Failed binding to port %u\n", drdbg_options.port);
         close(drdbg_srv_gdb_sock);
         return DRDBG_ERROR;
     }
 
     /* Start listening on socket */
     if (listen(drdbg_srv_gdb_sock, 1) == -1) {
+        ERROR_MSG("Failed to listen on socket\n");
         close(drdbg_srv_gdb_sock);
         return DRDBG_ERROR;
     }
 
+    dr_fprintf(STDERR, "Listening on port %u\n", drdbg_options.port);
     return DRDBG_SUCCESS;
 }
 
@@ -265,15 +283,28 @@ drdbg_srv_gdb_stop(void)
 /* Command implementations */
 static
 drdbg_status_t
+drdbg_srv_gdb_cmd_put_result_code(drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    if (cmd_data == NULL)
+        return DRDBG_ERROR;
+    if (cmd_data->status == DRDBG_SUCCESS)
+        gdb_sendpkt("OK", 2);
+    else
+        gdb_sendpkt("E01", 3);
+    return DRDBG_SUCCESS;
+}
+
+static
+drdbg_status_t
 drdbg_srv_gdb_cmd_continue(int cmd_index, char *buf, int len,
-                           drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+                           drdbg_srv_int_cmd_data_t *cmd_data)
 {
     unsigned int *tids = NULL;
     char *cur = buf;
     char *tmp = buf;
     int ctr = 0;
     const gdb_cmd_t *gdb_cmd = &SUPPORTED_CMDS[cmd_index];
-    *cmd = gdb_cmd->cmd_id;
+    cmd_data->cmd_id = gdb_cmd->cmd_id;
 
     // Specifying multiple actions is an error
     cur = buf+1+strlen(gdb_cmd->cmd_str);
@@ -283,7 +314,7 @@ drdbg_srv_gdb_cmd_continue(int cmd_index, char *buf, int len,
         switch (*cur) {
         case 'c':
             // Fill in array of tids to continue
-            tids = (unsigned int *)calloc(10, sizeof(unsigned int));
+            tids = (unsigned int *)dr_global_alloc(sizeof(unsigned int)*10);
             while (*cur == ':') {
                 // Advance to beginning of tid
                 cur++;
@@ -296,16 +327,22 @@ drdbg_srv_gdb_cmd_continue(int cmd_index, char *buf, int len,
                 // Advance to next delimiter
                 cur = tmp;
             }
-            *cmd_args = (void *)tids;
+            cmd_data->cmd_data = (void *)tids;
             break;
+        case 's':
+            cmd_data->cmd_id = DRDBG_CMD_STEP;
+            return DRDBG_SUCCESS;
         default:
-            *cmd = DRDBG_CMD_NOT_IMPLEMENTED;
-            return DRDBG_ERROR;
+            cmd_data->cmd_id = DRDBG_CMD_SERVER_INTERNAL;
+            /* XXX: Implement other commands rather than pretending */
+            gdb_sendpkt("T05", 3);
+            return DRDBG_SUCCESS;
         }
         break;
     case '?':
+        /* XXX: Return real reply */
         gdb_sendpkt("vCont;c;C;s;S", 13);
-        *cmd = DRDBG_CMD_SERVER_INTERNAL;
+        cmd_data->cmd_id = DRDBG_CMD_SERVER_INTERNAL;
         break;
     default:
         return DRDBG_ERROR;
@@ -315,11 +352,24 @@ drdbg_srv_gdb_cmd_continue(int cmd_index, char *buf, int len,
 
 static
 drdbg_status_t
+drdbg_srv_gdb_cmd_kill(int cmd_index, char *buf, int len,
+                       drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    typedef drdbg_cmd_data_kill_t mydata_t;
+    const gdb_cmd_t *gdb_cmd = &SUPPORTED_CMDS[cmd_index];
+    mydata_t *data = dr_global_alloc(sizeof(mydata_t));
+    data->pid = (unsigned int)strtoul(buf+strlen(gdb_cmd->cmd_str)+1,NULL,16);
+    cmd_data->cmd_data = data;
+    return DRDBG_SUCCESS;
+}
+
+static
+drdbg_status_t
 drdbg_srv_gdb_cmd_query(char *buf, int len)
 {
     if (!gdb_cmdcmp(buf+1, "qSupported", ":;?#")) {
         const char *pkt = "PacketSize=3fff;multiprocess+;vContSupported+";
-        gdb_sendpkt(pkt,strlen(pkt));
+        gdb_sendpkt(pkt, strlen(pkt));
     } else {
         gdb_sendpkt("", 0);
     }
@@ -328,16 +378,16 @@ drdbg_srv_gdb_cmd_query(char *buf, int len)
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_put_query_stop_rsn(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+drdbg_srv_gdb_cmd_put_query_stop_rsn(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_query_stop_rsn_t mydata_t;
-    mydata_t *data = (mydata_t *)*cmd_args;
-    char *pkt = (char *)calloc(MAX_PACKET_SIZE, sizeof(char));
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
+    char pkt[MAX_PACKET_SIZE];
     ssize_t len = 0;
 
     switch (data->stop_rsn) {
     case DRDBG_STOP_RSN_RECV_SIG:
-        len = snprintf(pkt, MAX_PACKET_SIZE, "S%02x", data->signum);\
+        len = snprintf(pkt, MAX_PACKET_SIZE, "S%02x", data->signum);
         return gdb_sendpkt(pkt, len);
         break;
     default:
@@ -348,14 +398,13 @@ drdbg_srv_gdb_cmd_put_query_stop_rsn(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_put_reg_read(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+drdbg_srv_gdb_cmd_put_reg_read(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef dr_mcontext_t mydata_t;
-    mydata_t *data = (mydata_t *)*cmd_args;
-    char *pkt = (char *)calloc(MAX_PACKET_SIZE, sizeof(char));
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
+    char pkt[MAX_PACKET_SIZE];
     ssize_t len = 0;
     ssize_t ret = 0;
-    dr_fprintf(STDERR, "%p %p", (uint64)data->xip, END_SWAP_PTR((uint64)data->xip));
     ret = snprintf(pkt, MAX_PACKET_SIZE, PFMT PFMT PFMT PFMT PFMT PFMT PFMT PFMT,
                    END_SWAP_PTR(data->xax),END_SWAP_PTR(data->xbx),
                    END_SWAP_PTR(data->xcx),END_SWAP_PTR(data->xdx),
@@ -381,26 +430,26 @@ drdbg_srv_gdb_cmd_put_reg_read(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_mem_read(char *buf, int len, void **cmd_args)
+drdbg_srv_gdb_cmd_mem_read(char *buf, int len, drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_mem_op_t mydata_t;
     mydata_t *data = dr_global_alloc(sizeof(mydata_t));
     sscanf(buf+2, PFMT","PFMT, (uint64*)&data->addr, (uint64*)&data->len);
     data->data = NULL;
-    *cmd_args = data;
+    cmd_data->cmd_data = data;
     return DRDBG_SUCCESS;
 }
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_put_mem_read(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+drdbg_srv_gdb_cmd_put_mem_read(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_mem_op_t mydata_t;
     char pkt[MAX_PACKET_SIZE];
     int len = 0;
 
-    mydata_t *data = (mydata_t *)*cmd_args;
-    if (data->data == NULL) {
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
+    if (cmd_data->status != DRDBG_SUCCESS) {
         gdb_sendpkt("E01", 3);
         return DRDBG_SUCCESS;
     }
@@ -408,12 +457,15 @@ drdbg_srv_gdb_cmd_put_mem_read(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
 
     gdb_sendpkt(pkt, len);
 
+    dr_global_free(data->data, data->len);
+    dr_global_free(data, sizeof(mydata_t));
+
     return DRDBG_SUCCESS;
 }
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_mem_write(char *buf, int len, void **cmd_args)
+drdbg_srv_gdb_cmd_mem_write(char *buf, int len, drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_mem_op_t mydata_t;
     char *data_start = NULL;
@@ -421,50 +473,37 @@ drdbg_srv_gdb_cmd_mem_write(char *buf, int len, void **cmd_args)
     sscanf(buf+2, PFMT","PFMT, (uint64*)&data->addr, (uint64*)&data->len);
     data->data = dr_global_alloc(data->len);
     data_start = strchr(buf, ':') + 1;
-    dr_fprintf(STDERR, "cats %d: %s\n", strchr(data_start, '#')-data_start,data_start);
     gdb_unhexify(data->data, data->len, data_start, strchr(data_start, '#')-data_start);
-    *cmd_args = data;
+    cmd_data->cmd_data = data;
     return DRDBG_SUCCESS;
 }
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_put_result_code(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
-{
-    if (cmd_args == NULL)
-        return DRDBG_ERROR;
-    if (*cmd_args == 0)
-        gdb_sendpkt("OK", 2);
-    else
-        gdb_sendpkt("E01", 3);
-    return DRDBG_SUCCESS;
-}
-
-static
-drdbg_status_t
-drdbg_srv_gdb_cmd_swbreak(char *buf, int len, void **cmd_args)
+drdbg_srv_gdb_cmd_swbreak(char *buf, int len, drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_swbreak_t mydata_t;
     mydata_t *data = dr_global_alloc(sizeof(mydata_t));
-    dr_sscanf(buf+2, PFMT",%d", (uint64*)&data->addr, &data->kind);
-    *cmd_args = data;
+    dr_sscanf(buf+4, PFMT",%d", (uint64*)&data->addr, &data->kind);
+    cmd_data->cmd_data = data;
     return DRDBG_SUCCESS;
 }
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_break(char *buf, int len, drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+drdbg_srv_gdb_cmd_break(char *buf, int len, drdbg_srv_int_cmd_data_t *cmd_data)
 {
     switch (buf[2]) {
     case '0':
-        if (drdbg_srv_gdb_cmd_swbreak(buf, len, cmd_args) != DRDBG_SUCCESS)
+        if (drdbg_srv_gdb_cmd_swbreak(buf, len, cmd_data) != DRDBG_SUCCESS)
             return DRDBG_ERROR;
-        *cmd = DRDBG_CMD_SWBREAK;
-        ((drdbg_cmd_data_swbreak_t *)(*cmd_args))->insert = (buf[1] == 'Z');
+        cmd_data->cmd_id = DRDBG_CMD_SWBREAK;
+        ((drdbg_cmd_data_swbreak_t *)cmd_data->cmd_data)->insert = (buf[1] == 'Z');
         break;
     default:
         /* Not supported */
         gdb_sendpkt("", 0);
+        cmd_data->cmd_id = DRDBG_CMD_NOT_IMPLEMENTED;
         return DRDBG_ERROR;
         break;
     }
@@ -476,56 +515,60 @@ drdbg_srv_gdb_cmd_break(char *buf, int len, drdbg_srv_int_cmd_t *cmd, void **cmd
 static
 drdbg_status_t
 drdbg_srv_gdb_parse_cmd(char *buf, int len,
-                        drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+                        drdbg_srv_int_cmd_data_t *cmd_data)
 {
     int i = 0;
-
 
     switch (buf[1]) {
     case DRDBG_GDB_CMD_PREFIX_MULTI:
         /* Multi-letter command */
         for (i = 0; i < NUM_SUPPORTED_CMDS; i++) {
             if (!gdb_cmdcmp(buf+1, SUPPORTED_CMDS[i].cmd_str, ";?#")) {
-                return SUPPORTED_CMDS[i].get(i, buf, len, cmd, cmd_args);
+                return SUPPORTED_CMDS[i].get(i, buf, len, cmd_data);
             }
         }
+        /* Not supported */
+        cmd_data->cmd_id = DRDBG_CMD_NOT_IMPLEMENTED;
+        gdb_sendpkt("", 0);
+        return DRDBG_ERROR;
         break;
     case DRDBG_GDB_CMD_PREFIX_QUERY:
     case DRDBG_GDB_CMD_PREFIX_QUERY_SET:
         /* Query Command */
-        *cmd = DRDBG_CMD_SERVER_INTERNAL;
+        cmd_data->cmd_id = DRDBG_CMD_SERVER_INTERNAL;
         return drdbg_srv_gdb_cmd_query(buf, len);
         break;
     case 'g':
-        *cmd = DRDBG_CMD_REG_READ;
+        cmd_data->cmd_id = DRDBG_CMD_REG_READ;
         return DRDBG_SUCCESS;
     case 'm':
-        *cmd = DRDBG_CMD_MEM_READ;
-        return drdbg_srv_gdb_cmd_mem_read(buf, len, cmd_args);
+        cmd_data->cmd_id = DRDBG_CMD_MEM_READ;
+        return drdbg_srv_gdb_cmd_mem_read(buf, len, cmd_data);
         break;
     case 'M':
-        *cmd = DRDBG_CMD_MEM_WRITE;
-        return drdbg_srv_gdb_cmd_mem_write(buf, len, cmd_args);
+        cmd_data->cmd_id = DRDBG_CMD_MEM_WRITE;
+        return drdbg_srv_gdb_cmd_mem_write(buf, len, cmd_data);
         break;
     case 'Z':
-        return drdbg_srv_gdb_cmd_break(buf, len, cmd, cmd_args);
+        return drdbg_srv_gdb_cmd_break(buf, len, cmd_data);
         break;
     case '?':
-        *cmd = DRDBG_CMD_QUERY_STOP_RSN;
+        cmd_data->cmd_id = DRDBG_CMD_QUERY_STOP_RSN;
         return DRDBG_SUCCESS;
     default:
         /* Not supported */
+        cmd_data->cmd_id = DRDBG_CMD_NOT_IMPLEMENTED;
+        gdb_sendpkt("", 0);
+        return DRDBG_ERROR;
         break;
     }
 
-    /* Command not supported */
-    gdb_sendpkt("", 0);
     return DRDBG_ERROR;
 }
 
 static
 drdbg_status_t
-drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     char buf[MAX_PACKET_SIZE];
     ssize_t bread = 0;
@@ -538,47 +581,61 @@ drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
     }
 
     /* recv packet */
-    //bread = recv(drdbg_srv_gdb_conn, buf, MAX_PACKET_SIZE, 0);
     status = gdb_recvpkt(buf, MAX_PACKET_SIZE, &bread);
     if (status != DRDBG_SUCCESS) {
         return status;
     }
-    dr_fprintf(STDERR, "Received packet '%s'\n", buf);
-    if (bread == -1) {
-        dr_fprintf(STDERR, "recv error %d\n", errno);
-        return DRDBG_ERROR;
-    }
+    DEBUG_MSG("Received packet '%s'\n", buf);
     if (buf[0] != '$') {
         return DRDBG_ERROR;
     }
     /* verify checksum */
     ret = sscanf(buf, "%*[^#]#%x", &chksum);
     if (ret < 1 || (unsigned char)chksum != gdb_chksum(buf+1, bread-4)) {
-        dr_fprintf(STDERR, "Invalid checksum %d vs %d\n", chksum, gdb_chksum(buf+1, bread-4));
+        DEBUG_MSG("Invalid checksum %d vs %d\n", chksum, gdb_chksum(buf+1, bread-4));
         return DRDBG_ERROR;
     }
     /* Parse command */
-    return drdbg_srv_gdb_parse_cmd(buf, bread, cmd, cmd_args);
+    return drdbg_srv_gdb_parse_cmd(buf, bread, cmd_data);
 }
 
 static
 drdbg_status_t
-drdbg_srv_gdb_put_cmd(drdbg_srv_int_cmd_t *cmd, void **cmd_args)
+drdbg_srv_gdb_put_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
 {
-    switch (*cmd) {
+    switch (cmd_data->cmd_id) {
     case DRDBG_CMD_QUERY_STOP_RSN:
-        return drdbg_srv_gdb_cmd_put_query_stop_rsn(cmd, cmd_args);
+        return drdbg_srv_gdb_cmd_put_query_stop_rsn(cmd_data);
         break;
     case DRDBG_CMD_REG_READ:
-        return drdbg_srv_gdb_cmd_put_reg_read(cmd, cmd_args);
+        return drdbg_srv_gdb_cmd_put_reg_read(cmd_data);
         break;
     case DRDBG_CMD_MEM_READ:
-        return drdbg_srv_gdb_cmd_put_mem_read(cmd, cmd_args);
+        return drdbg_srv_gdb_cmd_put_mem_read(cmd_data);
         break;
     case DRDBG_CMD_MEM_WRITE:
-    case DRDBG_CMD_SWBREAK:
-        return drdbg_srv_gdb_cmd_put_result_code(cmd, cmd_args);
+    {
+        typedef drdbg_cmd_data_mem_op_t mydata_t;
+        dr_global_free(((mydata_t *)(cmd_data->cmd_data))->data,
+                       ((mydata_t *)(cmd_data->cmd_data))->len);
+        dr_global_free(cmd_data->cmd_data, sizeof(mydata_t));
+        return drdbg_srv_gdb_cmd_put_result_code(cmd_data);
         break;
+    }
+    case DRDBG_CMD_SWBREAK:
+    {
+        typedef drdbg_cmd_data_swbreak_t mydata_t;
+        dr_global_free(cmd_data->cmd_data, sizeof(mydata_t));
+        return drdbg_srv_gdb_cmd_put_result_code(cmd_data);
+        break;
+    }
+    case DRDBG_CMD_KILL:
+    {
+        typedef drdbg_cmd_data_kill_t mydata_t;
+        dr_global_free(cmd_data->cmd_data, sizeof(mydata_t));
+        return drdbg_srv_gdb_cmd_put_result_code(cmd_data);
+        break;
+    }
     default:
         break;
     }
@@ -600,5 +657,6 @@ drdbg_srv_gdb_init(drdbg_srv_int_t *dbg_server)
 
 const gdb_cmd_t SUPPORTED_CMDS[NUM_SUPPORTED_CMDS] =
     {
-        {DRDBG_CMD_CONTINUE, "vCont", drdbg_srv_gdb_cmd_continue}
+        {DRDBG_CMD_CONTINUE, "vCont", drdbg_srv_gdb_cmd_continue},
+        {DRDBG_CMD_CONTINUE, "vKill", drdbg_srv_gdb_cmd_kill}
     };

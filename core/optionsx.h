@@ -240,6 +240,7 @@
     OPTION_DEFAULT(bool, global_rstats, true, "enable global release-build statistics")
     OPTION_INTERNAL(bool, appdebug, "debug application with internal gdb server")
     OPTION_DEFAULT(uint, appdebug_port, 1234, "port that drdbg will listen on")
+    OPTION_DEFAULT(bool, appdebug_debug, false, "enable drdbg debug output")
 
     /* this takes precedence over the DYNAMORIO_VAR_LOGDIR config var */
     OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING,

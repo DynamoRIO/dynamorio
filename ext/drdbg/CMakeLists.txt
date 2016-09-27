@@ -57,7 +57,7 @@ set(PREFERRED_BASE 0x79000000)
 configure_extension(drdbg OFF)
 
 use_DynamoRIO_extension(drdbg drcontainers)
-#use_DynamoRIO_extension(drdbg drmgr)
+use_DynamoRIO_extension(drdbg drmgr)
 
 # Must be shared to ensure only one copy, since can be used by
 # the client and by multiple other libraries, some of which may

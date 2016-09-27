@@ -48,10 +48,8 @@ extern "C" {
 #endif
 
 typedef drdbg_status_t (*drdbg_gdb_cmd_func_t)(int cmd_index, char *buf, int len,
-                                               drdbg_srv_int_cmd_t *cmd,
-                                               void **cmd_args);
-typedef drdbg_status_t (*drdbg_gdb_put_cmd_func_t)(drdbg_srv_int_cmd_t *cmd,
-                                                   void **cmd_args);
+                                               drdbg_srv_int_cmd_data_t *cmd_data);
+typedef drdbg_status_t (*drdbg_gdb_put_cmd_func_t)(drdbg_srv_int_cmd_data_t *cmd_data);
 
 typedef struct _gdb_cmd_t {
     const drdbg_srv_int_cmd_t cmd_id;

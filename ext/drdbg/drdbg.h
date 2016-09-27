@@ -39,7 +39,7 @@
 #define _DRDBG_H_ 1
 
 /**
- * @file drreg.h
+ * @file drdbg.h
  * @brief Header for DynamoRIO Debugger Transparency Extension
  */
 
@@ -81,7 +81,7 @@ typedef enum {
 typedef struct _drdbg_bp_t {
     app_pc pc;
     DRDBG_BP_STATUS status;
-    void *tag;
+    instrlist_t *bb;
 } drdbg_bp_t;
 
 typedef struct _drdbg_event_data_bp_t {
@@ -96,11 +96,13 @@ typedef enum {
 } drdbg_status_t;
 
 typedef struct _drdbg_options_t {
-    /* Port to listen on for debugger */
-    uint port;
+    uint port;  /* Port to listen on for debugger */
+    bool debug; /* Enable debug output */
 } drdbg_options_t;
+drdbg_options_t drdbg_options;
 
-typedef drdbg_status_t (*drdbg_handler_t)(void **arg);
+typedef struct _drdbg_srv_int_cmd_data_t drdbg_srv_int_cmd_data_t;
+typedef drdbg_status_t (*drdbg_handler_t)(drdbg_srv_int_cmd_data_t *cmd_data);
 
 DR_EXPORT
 drdbg_status_t

@@ -54,7 +54,9 @@ typedef enum {
     DRDBG_CMD_MEM_READ,        /* Read memory */
     DRDBG_CMD_MEM_WRITE,       /* Write memory */
     DRDBG_CMD_CONTINUE,        /* Continue execution */
+    DRDBG_CMD_STEP,
     DRDBG_CMD_SWBREAK,         /* Software breakpoint */
+    DRDBG_CMD_KILL,            /* Kill process */
 
     DRDBG_CMD_NUM_CMDS         /* Must be last entry */
 } drdbg_srv_int_cmd_t;
@@ -71,9 +73,15 @@ typedef
 drdbg_status_t
 (*drdbg_srv_int_stop_t)(void);
 
+typedef struct _drdbg_srv_int_cmd_data_t {
+    drdbg_srv_int_cmd_t cmd_id;
+    void *cmd_data;
+    drdbg_status_t status;
+} drdbg_srv_int_cmd_data_t;
+
 typedef
 drdbg_status_t
-(*drdbg_srv_int_comm_t)(drdbg_srv_int_cmd_t *cmd, void **cmd_args);
+(*drdbg_srv_int_comm_t)(drdbg_srv_int_cmd_data_t *data);
 
 typedef struct _drdbg_srv_int_t {
     drdbg_srv_int_start_t start;
@@ -103,6 +111,10 @@ typedef struct _drdbg_cmd_data_swbreak_t {
     int kind;
     bool insert; /* True to add BP, false to remove */
 } drdbg_cmd_data_swbreak_t;
+
+typedef struct _drdbg_cmd_data_kill_t {
+    unsigned int pid;
+} drdbg_cmd_data_kill_t;
 
 #ifdef __cplusplus
 }
