@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 
 #include "dr_api.h"
 #include "drx.h"
+#include "client_tools.h"
 
 #define CHECK(x, msg) do {               \
     if (!(x)) {                          \
@@ -95,6 +96,47 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
+static void
+test_unique_files(void)
+{
+    char cwd[MAXIMUM_PATH];
+    char buf[MAXIMUM_PATH];
+    bool res;
+    file_t f;
+    res = dr_get_current_directory(cwd, BUFFER_SIZE_ELEMENTS(cwd));
+    CHECK(res, "dr_get_current_directory failed");
+#ifdef ANDROID
+    /* On Android cwd is / where we have no write privs. */
+    const char *cpath = dr_get_client_path(client_id);
+    const char *dir = strrchr(cpath, '/');
+    dr_snprintf(cwd, BUFFER_SIZE_ELEMENTS(cwd), "%.*s", dir - cpath, cpath);
+    NULL_TERMINATE_BUFFER(cwd);
+#endif
+
+    f = drx_open_unique_file(cwd, "drx-test", "log",
+                             0, buf, BUFFER_SIZE_ELEMENTS(buf));
+    CHECK(f != INVALID_FILE, "drx_open_unique_file failed");
+    CHECK(dr_file_exists(buf), "drx_open_unique_file failed");
+    dr_close_file(f);
+    res = dr_delete_file(buf);
+    CHECK(res, "drx_open_unique_file failed");
+
+    f = drx_open_unique_appid_file(cwd, dr_get_process_id(), "drx-test", "txt",
+                                   0, buf, BUFFER_SIZE_ELEMENTS(buf));
+    CHECK(f != INVALID_FILE, "drx_open_unique_appid_file failed");
+    CHECK(dr_file_exists(buf), "drx_open_unique_appid_file failed");
+    dr_close_file(f);
+    res = dr_delete_file(buf);
+    CHECK(res, "drx_open_unique_appid_file failed");
+
+    res = drx_open_unique_appid_dir(cwd, dr_get_process_id(), "drx-test", "dir",
+                                    buf, BUFFER_SIZE_ELEMENTS(buf));
+    CHECK(res, "drx_open_unique_appid_dir failed");
+    CHECK(dr_directory_exists(buf), "drx_open_unique_appid_dir failed");
+    res = dr_delete_dir(buf);
+    CHECK(res, "drx_open_unique_appid_dir failed");
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -105,4 +147,5 @@ dr_init(client_id_t id)
     drx_register_soft_kills(event_soft_kill);
     dr_register_nudge_event(event_nudge, id);
     dr_register_bb_event(event_basic_block);
+    test_unique_files();
 }

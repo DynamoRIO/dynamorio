@@ -256,6 +256,25 @@ drx_open_unique_appid_file(const char *dir, ptr_int_t id,
                            const char *prefix, const char *suffix,
                            uint extra_flags, char *result OUT, size_t result_len);
 
+DR_EXPORT
+/**
+ * Creates a new directory with a name constructed from
+ * "dir/prefix.appname.id.xxxx.suffix",
+ * where xxxx is a 4-digit number incremented until a unique name is found
+ * that does not collide with any existing file.  The appname string comes
+ * from dr_get_application_name().  The id portion of the string is from \p id,
+ * which is meant to be either the process id or the thread id.
+ *
+ * Returns whether successful.
+ * On success, optionally returns the resulting path in \p result.
+ *
+ * \note May be called without calling drx_init().
+ */
+bool
+drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
+                          const char *prefix, const char *suffix,
+                          char *result OUT, size_t result_len);
+
 /***************************************************************************
  * BUFFER FILLING LIBRARY
  */

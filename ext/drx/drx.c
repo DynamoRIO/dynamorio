@@ -1341,3 +1341,30 @@ drx_open_unique_appid_file(const char *dir, ptr_int_t id,
 
     return drx_open_unique_file(dir, appid, suffix, extra_flags, result, result_len);
 }
+
+bool
+drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
+                          const char *prefix, const char *suffix,
+                          char *result OUT, size_t result_len)
+{
+    char buf[MAXIMUM_PATH];
+    int i;
+    ssize_t len;
+    for (i = 0; i < 10000; i++) {
+        const char *app_name = dr_get_application_name();
+        if (app_name == NULL)
+            app_name = "<unknown-app>";
+        len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+                          "%s%c%s.%s.%05d.%04d.%s",
+                          dir, DIRSEP, prefix, app_name, id, i, suffix);
+        if (len < 0 || (size_t)len >= BUFFER_SIZE_ELEMENTS(buf))
+            return false;
+        NULL_TERMINATE_BUFFER(buf);
+        if (dr_create_dir(buf)) {
+            if (result != NULL)
+                dr_snprintf(result, result_len, "%s", buf);
+            return true;
+        }
+    }
+    return false;
+}
