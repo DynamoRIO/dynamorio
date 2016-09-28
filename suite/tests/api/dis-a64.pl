@@ -44,7 +44,7 @@ if ($#ARGV != 1) {
 my $dis_file = $ARGV[0];
 my $codec_file = $ARGV[1];
 my $asmfile = "tmp-dis-a64.s";
-my $objfile = "tmp-dis-a64.exe";
+my $objfile = "tmp-dis-a64.o";
 
 my $out = "";
 my %enc;
@@ -67,9 +67,20 @@ my %enc;
     open(my $fd, "<", $codec_file) || die;
     foreach (<$fd>) {
         next if /^[ \t]*(#.*)?$/;
-        /^([0-9a-f]{8}) ([0-9a-f]{8})/ || die;
-        my $t1 = hex($1);
-        my $t2 = hex($2);
+        my ($t1, $t2);
+        if (/^\s*([01x]{32})\s/) {
+            ($t1, $t2) = ($1, $1);
+            $t1 =~ tr/x/0/;
+            $t2 =~ tr/1x/01/;
+            ($t1, $t2) = (oct("0b$t1"), oct("0b$t2"));
+        }
+        elsif (/^\s*[x-]{32}\s/) {
+            next;
+        }
+        else {
+            die ;
+        }
+
         # Set every variable bit.
         $enc{$t1 | $t2} = 1;
         # Put a different value in each of the four register fields.
@@ -89,12 +100,9 @@ sub dis_objdump {
     my ($e) = @_;
     my $fd;
     open($fd, ">", $asmfile) || die;
-    print $fd "        .align  28\n"; # This gets us to 0x10000000.
-    print $fd "        .global _start\n";
-    print $fd "_start:\n";
     print $fd sprintf("        .inst   0x%08x\n", $e);
-    system("gcc", $asmfile, "-o", $objfile, "-nostartfiles", "-nodefaultlibs") && die;
-    open($fd, "-|", "objdump", "-d", $objfile) || die;
+    system("gcc", $asmfile, "-c", "-o", $objfile) && die;
+    open($fd, "-|", "objdump", "--adjust-vma=0x10000000", "-d", $objfile) || die;
     my $hex = sprintf("%08x", $e);
     if (join("", <$fd>) =~ /\n\s*10000000:\s+$hex\s+(.*)/) {
         my $dis = $1;

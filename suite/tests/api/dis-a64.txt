@@ -36,103 +36,1102 @@
 # Field 2: Disassembly produced by objdump (not used for testing).
 # Field 3: Disassembly produced by DynamoRIO.
 
-0a031041 : and    w1, w2, w3, lsl #4      : and    %w2 %w3 $0x00 $0x04 -> %w1
-0a231041 : bic    w1, w2, w3, lsl #4      : bic    %w2 %w3 $0x00 $0x04 -> %w1
-0a9f13ff : and    wzr, wzr, wzr, asr #4   : and    %wzr %wzr $0x02 $0x04 -> %wzr
-0abf13ff : bic    wzr, wzr, wzr, asr #4   : bic    %wzr %wzr $0x02 $0x04 -> %wzr
-0b031041 : add    w1, w2, w3, lsl #4      : add    %w2 %w3 $0x00 $0x04 -> %w1
-0b9f13ff : add    wzr, wzr, wzr, asr #4   : add    %wzr %wzr $0x02 $0x04 -> %wzr
-11000c41 : add    w1, w2, #0x3            : add    %w2 $0x0003 $0x00 $0x00 -> %w1
-11000fff : add    wsp, wsp, #0x3          : add    %wsp $0x0003 $0x00 $0x00 -> %wsp
-12000441 : and    w1, w2, #0x3            : and    %w2 $0x00000003 $0x0001 -> %w1
+08081041 : stxrb  w8, w1, [x2]            : stxrb  %w1 $0x04 -> (%x2)[1byte] %w8
+08089041 : stlxrb w8, w1, [x2]            : stlxrb %w1 $0x04 -> (%x2)[1byte] %w8
+081f7fff : stxrb  wzr, wzr, [sp]          : stxrb  %wzr $0x1f -> (%sp)[1byte] %wzr
+081fffff : stlxrb wzr, wzr, [sp]          : stlxrb %wzr $0x1f -> (%sp)[1byte] %wzr
+08481041 : ldxrb  w1, [x2]                : ldxrb  (%x2)[1byte] $0x04 $0x08 -> %w1
+08489041 : ldaxrb w1, [x2]                : ldaxrb (%x2)[1byte] $0x04 $0x08 -> %w1
+085f7fff : ldxrb  wzr, [sp]               : ldxrb  (%sp)[1byte] $0x1f $0x1f -> %wzr
+085fffff : ldaxrb wzr, [sp]               : ldaxrb (%sp)[1byte] $0x1f $0x1f -> %wzr
+08889041 : stlrb  w1, [x2]                : stlrb  %w1 $0x04 $0x08 -> (%x2)[1byte]
+089fffff : stlrb  wzr, [sp]               : stlrb  %wzr $0x1f $0x1f -> (%sp)[1byte]
+08dfffff : ldarb  wzr, [sp]               : ldarb  (%sp)[1byte] $0x1f $0x1f -> %wzr
+0a031041 : and    w1, w2, w3, lsl #4      : and    %w2 %w3 lsl $0x04 -> %w1
+0a231041 : bic    w1, w2, w3, lsl #4      : bic    %w2 %w3 lsl $0x04 -> %w1
+0a7f7fff : bic    wzr, wzr, wzr, lsr #31  : bic    %wzr %wzr lsr $0x1f -> %wzr
+0a9f13ff : and    wzr, wzr, wzr, asr #4   : and    %wzr %wzr asr $0x04 -> %wzr
+0abf13ff : bic    wzr, wzr, wzr, asr #4   : bic    %wzr %wzr asr $0x04 -> %wzr
+0b031041 : add    w1, w2, w3, lsl #4      : add    %w2 %w3 lsl $0x04 -> %w1
+0b1f7fff : add    wzr, wzr, wzr, lsl #31  : add    %wzr %wzr lsl $0x1f -> %wzr
+0b3008a0 : add    w0, w5, w16, uxtb #2    : add    %w5 %w16 uxtb $0x02 -> %w0
+0b9f13ff : add    wzr, wzr, wzr, asr #4   : add    %wzr %wzr asr $0x04 -> %wzr
+0c0007ff : st4    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: st4    $0x01 %d31 %d0 %d1 %d2 -> (%sp)[32byte]
+0c0067ff : st1    {v31.4h, v0.4h, v1.4h}, [sp]: st1    $0x01 %d31 %d0 %d1 -> (%sp)[24byte]
+0c0077ff : st1    {v31.4h}, [sp]          : st1    $0x01 %d31 -> (%sp)[8byte]
+0c00a7ff : st1    {v31.4h, v0.4h}, [sp]   : st1    $0x01 %d31 %d0 -> (%sp)[16byte]
+0c4027ff : ld1    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp]: ld1    (%sp)[32byte] $0x01 -> %d31 %d0 %d1 %d2
+0c4047ff : ld3    {v31.4h, v0.4h, v1.4h}, [sp]: ld3    (%sp)[24byte] $0x01 -> %d31 %d0 %d1
+0c4087ff : ld2    {v31.4h, v0.4h}, [sp]   : ld2    (%sp)[16byte] $0x01 -> %d31 %d0
+0c9f27ff : st1    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp], #32: st1    $0x01 %d31 %d0 %d1 %d2 %sp $0x20 -> (%sp)[32byte] %sp
+0c9f47ff : st3    {v31.4h, v0.4h, v1.4h}, [sp], #24: st3    $0x01 %d31 %d0 %d1 %sp $0x18 -> (%sp)[24byte] %sp
+0c9f87ff : st2    {v31.4h, v0.4h}, [sp], #16: st2    $0x01 %d31 %d0 %sp $0x10 -> (%sp)[16byte] %sp
+0cd5a7ff : ld1    {v31.4h, v0.4h}, [sp], x21: ld1    (%sp)[16byte] $0x01 %sp %x21 -> %d31 %d0 %sp
+0cdf07ff : ld4    {v31.4h, v0.4h, v1.4h, v2.4h}, [sp], #32: ld4    (%sp)[32byte] $0x01 %sp $0x20 -> %d31 %d0 %d1 %d2 %sp
+0cdf67ff : ld1    {v31.4h, v0.4h, v1.4h}, [sp], #24: ld1    (%sp)[24byte] $0x01 %sp $0x18 -> %d31 %d0 %d1 %sp
+0cdf77ff : ld1    {v31.4h}, [sp], #8      : ld1    (%sp)[8byte] $0x01 %sp $0x08 -> %d31 %sp
+0cdfa7ff : ld1    {v31.4h, v0.4h}, [sp], #16: ld1    (%sp)[16byte] $0x01 %sp $0x10 -> %d31 %d0 %sp
+0d40e7ff : ld3r   {v31.4h, v0.4h, v1.4h}, [sp]: ld3r   (%sp)[6byte] -> %d31 %d0 %d1
+0d60cbff : ld2r   {v31.2s, v0.2s}, [sp]   : ld2r   (%sp)[8byte] -> %d31 %d0
+0dc1e7ff : ld3r   {v31.4h, v0.4h, v1.4h}, [sp], x1: ld3r   (%sp)[6byte] %sp %x1 -> %d31 %d0 %d1 %sp
+0ddfe7ff : ld3r   {v31.4h, v0.4h, v1.4h}, [sp], #6: ld3r   (%sp)[6byte] %sp $0x06 -> %d31 %d0 %d1 %sp
+0de2cbff : ld2r   {v31.2s, v0.2s}, [sp], x2: ld2r   (%sp)[8byte] %sp %x2 -> %d31 %d0 %sp
+0dffcbff : ld2r   {v31.2s, v0.2s}, [sp], #8: ld2r   (%sp)[8byte] %sp $0x08 -> %d31 %d0 %sp
+10081041 : adr    x1, 10010208            : adr    <rel> 0x0000000010010208 -> %x1
+10800000 : adr    x0, ff00000             : adr    <rel> 0x000000000ff00000 -> %x0
+11000c41 : add    w1, w2, #0x3            : add    %w2 $0x0003 lsl $0x00 -> %w1
+11000fff : add    wsp, wsp, #0x3          : add    %wsp $0x0003 lsl $0x00 -> %wsp
+117fffff : add    wsp, wsp, #0xfff, lsl #12: add    %wsp $0x0fff lsl $0x10 -> %wsp
+12000441 : and    w1, w2, #0x3            : and    %w2 $0x00000003 -> %w1
+12881041 : mov    w1, #0xffffbf7d         : movn   $0x4082 lsl $0x00 -> %w1
 14081041 : b      10204104                : b      $0x0000000010204104
+15ffffff : b      17fffffc                : b      $0x0000000017fffffc
 17ffffff : b      ffffffc                 : b      $0x000000000ffffffc
 18081041 : ldr    w1, 10010208            : ldr    <rel> 0x0000000010010208[4byte] -> %w1
+187fffff : ldr    wzr, 100ffffc           : ldr    <rel> 0x00000000100ffffc[4byte] -> %wzr
+18800000 : ldr    w0, ff00000             : ldr    <rel> 0x000000000ff00000[4byte] -> %w0
 1c081041 : ldr    s1, 10010208            : ldr    <rel> 0x0000000010010208[4byte] -> %s1
-2a031041 : orr    w1, w2, w3, lsl #4      : orr    %w2 %w3 $0x00 $0x04 -> %w1
-2a231041 : orn    w1, w2, w3, lsl #4      : orn    %w2 %w3 $0x00 $0x04 -> %w1
-2a9f13ff : mov    wzr, wzr                : orr    %wzr %wzr $0x02 $0x04 -> %wzr
-2abf13ff : mvn    wzr, wzr, asr #4        : orn    %wzr %wzr $0x02 $0x04 -> %wzr
-2b031041 : adds   w1, w2, w3, lsl #4      : adds   %w2 %w3 $0x00 $0x04 -> %w1
-2b9f13ff : cmn    wzr, wzr, asr #4        : adds   %wzr %wzr $0x02 $0x04 -> %wzr
-31000c41 : adds   w1, w2, #0x3            : adds   %w2 $0x0003 $0x00 $0x00 -> %w1
-31000fff : cmn    wsp, #0x3               : adds   %wsp $0x0003 $0x00 $0x00 -> %wzr
-32000441 : orr    w1, w2, #0x3            : orr    %w2 $0x00000003 $0x0001 -> %w1
+1c7fffff : ldr    s31, 100ffffc           : ldr    <rel> 0x00000000100ffffc[4byte] -> %s31
+1c800000 : ldr    s0, ff00000             : ldr    <rel> 0x000000000ff00000[4byte] -> %s0
+28000000 : stnp   w0, w0, [x0]            : stnp   %w0 %w0 -> (%x0)[4byte]
+283fffff : stnp   wzr, wzr, [sp,#-4]      : stnp   %wzr %wzr -> -0x04(%sp)[4byte]
+28400000 : ldnp   w0, w0, [x0]            : ldnp   (%x0)[4byte] -> %w0 %w0
+287fffff : ldnp   wzr, wzr, [sp,#-4]      : ldnp   -0x04(%sp)[4byte] -> %wzr %wzr
+28800000 : stp    w0, w0, [x0],#0         : stp    %w0 %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+28bfffff : stp    wzr, wzr, [sp],#-4      : stp    %wzr %wzr %sp $0xfffffffffffffffc -> (%sp)[4byte] %sp
+28c00000 : ldp    w0, w0, [x0],#0         : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %w0 %w0 %x0
+28ffffff : ldp    wzr, wzr, [sp],#-4      : ldp    (%sp)[4byte] %sp $0xfffffffffffffffc -> %wzr %wzr %sp
+29000000 : stp    w0, w0, [x0]            : stp    %w0 %w0 -> (%x0)[4byte]
+293fffff : stp    wzr, wzr, [sp,#-4]      : stp    %wzr %wzr -> -0x04(%sp)[4byte]
+29400000 : ldp    w0, w0, [x0]            : ldp    (%x0)[4byte] -> %w0 %w0
+297fffff : ldp    wzr, wzr, [sp,#-4]      : ldp    -0x04(%sp)[4byte] -> %wzr %wzr
+29800000 : stp    w0, w0, [x0,#0]!        : stp    %w0 %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+29bfffff : stp    wzr, wzr, [sp,#-4]!     : stp    %wzr %wzr %sp $0xfffffffffffffffc -> -0x04(%sp)[4byte] %sp
+29c00000 : ldp    w0, w0, [x0,#0]!        : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %w0 %w0 %x0
+29ffffff : ldp    wzr, wzr, [sp,#-4]!     : ldp    -0x04(%sp)[4byte] %sp $0xfffffffffffffffc -> %wzr %wzr %sp
+2a031041 : orr    w1, w2, w3, lsl #4      : orr    %w2 %w3 lsl $0x04 -> %w1
+2a231041 : orn    w1, w2, w3, lsl #4      : orn    %w2 %w3 lsl $0x04 -> %w1
+2a9f13ff : mov    wzr, wzr                : orr    %wzr %wzr asr $0x04 -> %wzr
+2a9f7fff : mov    wzr, wzr                : orr    %wzr %wzr asr $0x1f -> %wzr
+2abf13ff : mvn    wzr, wzr, asr #4        : orn    %wzr %wzr asr $0x04 -> %wzr
+2b031041 : adds   w1, w2, w3, lsl #4      : adds   %w2 %w3 lsl $0x04 -> %w1
+2b3f43ff : cmn    wsp, wzr                : adds   %wsp %wzr uxtw $0x00 -> %wzr
+2b5f7fff : cmn    wzr, wzr, lsr #31       : adds   %wzr %wzr lsr $0x1f -> %wzr
+2b9f13ff : cmn    wzr, wzr, asr #4        : adds   %wzr %wzr asr $0x04 -> %wzr
+2c000000 : stnp   s0, s0, [x0]            : stnp   %s0 %s0 -> (%x0)[4byte]
+2c3fffff : stnp   s31, s31, [sp,#-4]      : stnp   %s31 %s31 -> -0x04(%sp)[4byte]
+2c400000 : ldnp   s0, s0, [x0]            : ldnp   (%x0)[4byte] -> %s0 %s0
+2c7fffff : ldnp   s31, s31, [sp,#-4]      : ldnp   -0x04(%sp)[4byte] -> %s31 %s31
+2c800000 : stp    s0, s0, [x0],#0         : stp    %s0 %s0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+2cbfffff : stp    s31, s31, [sp],#-4      : stp    %s31 %s31 %sp $0xfffffffffffffffc -> (%sp)[4byte] %sp
+2cc00000 : ldp    s0, s0, [x0],#0         : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %s0 %s0 %x0
+2cffffff : ldp    s31, s31, [sp],#-4      : ldp    (%sp)[4byte] %sp $0xfffffffffffffffc -> %s31 %s31 %sp
+2d000000 : stp    s0, s0, [x0]            : stp    %s0 %s0 -> (%x0)[4byte]
+2d3fffff : stp    s31, s31, [sp,#-4]      : stp    %s31 %s31 -> -0x04(%sp)[4byte]
+2d400000 : ldp    s0, s0, [x0]            : ldp    (%x0)[4byte] -> %s0 %s0
+2d7fffff : ldp    s31, s31, [sp,#-4]      : ldp    -0x04(%sp)[4byte] -> %s31 %s31
+2d800000 : stp    s0, s0, [x0,#0]!        : stp    %s0 %s0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+2dbfffff : stp    s31, s31, [sp,#-4]!     : stp    %s31 %s31 %sp $0xfffffffffffffffc -> -0x04(%sp)[4byte] %sp
+2dc00000 : ldp    s0, s0, [x0,#0]!        : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %s0 %s0 %x0
+2dffffff : ldp    s31, s31, [sp,#-4]!     : ldp    -0x04(%sp)[4byte] %sp $0xfffffffffffffffc -> %s31 %s31 %sp
+310003ff : cmn    wsp, #0x0               : adds   %wsp $0x0000 lsl $0x00 -> %wzr
+31000c41 : adds   w1, w2, #0x3            : adds   %w2 $0x0003 lsl $0x00 -> %w1
+31000fff : cmn    wsp, #0x3               : adds   %wsp $0x0003 lsl $0x00 -> %wzr
+32000441 : orr    w1, w2, #0x3            : orr    %w2 $0x00000003 -> %w1
 34081041 : cbz    w1, 10010208            : cbz    $0x0000000010010208 %w1
+347fffff : cbz    wzr, 100ffffc           : cbz    $0x00000000100ffffc %wzr
 35081041 : cbnz   w1, 10010208            : cbnz   $0x0000000010010208 %w1
+3603ffff : tbz    wzr, #0, 10007ffc       : tbz    $0x0000000010007ffc %xzr $0x00
 36081041 : tbz    w1, #1, 10000208        : tbz    $0x0000000010000208 %x1 $0x01
 37081041 : tbnz   w1, #1, 10000208        : tbnz   $0x0000000010000208 %x1 $0x01
-4a031041 : eor    w1, w2, w3, lsl #4      : eor    %w2 %w3 $0x00 $0x04 -> %w1
-4a231041 : eon    w1, w2, w3, lsl #4      : eon    %w2 %w3 $0x00 $0x04 -> %w1
-4a9f13ff : eor    wzr, wzr, wzr, asr #4   : eor    %wzr %wzr $0x02 $0x04 -> %wzr
-4abf13ff : eon    wzr, wzr, wzr, asr #4   : eon    %wzr %wzr $0x02 $0x04 -> %wzr
-4b031041 : sub    w1, w2, w3, lsl #4      : sub    %w2 %w3 $0x00 $0x04 -> %w1
-4b9f13ff : neg    wzr, wzr, asr #4        : sub    %wzr %wzr $0x02 $0x04 -> %wzr
-51000c41 : sub    w1, w2, #0x3            : sub    %w2 $0x0003 $0x00 $0x00 -> %w1
-51000fff : sub    wsp, wsp, #0x3          : sub    %wsp $0x0003 $0x00 $0x00 -> %wsp
-52000441 : eor    w1, w2, #0x3            : eor    %w2 $0x00000003 $0x0001 -> %w1
+38000400 : strb   w0, [x0],#0             : strb   %w0 %x0 $0x0000000000000000 -> (%x0)[1byte] %x0
+38000c00 : strb   w0, [x0,#0]!            : strb   %w0 %x0 $0x0000000000000000 -> (%x0)[1byte] %x0
+38081041 : sturb  w1, [x2,#129]           : sturb  %w1 -> +0x81(%x2)[1byte]
+38081441 : strb   w1, [x2],#129           : strb   %w1 %x2 $0x0000000000000081 -> (%x2)[1byte] %x2
+38081841 : sttrb  w1, [x2,#129]           : sttrb  %w1 -> +0x81(%x2)[1byte]
+38081c41 : strb   w1, [x2,#129]!          : strb   %w1 %x2 $0x0000000000000081 -> +0x81(%x2)[1byte] %x2
+381ff3ff : sturb  wzr, [sp,#-1]           : sturb  %wzr -> -0x01(%sp)[1byte]
+381ff7ff : strb   wzr, [sp],#-1           : strb   %wzr %sp $0xffffffffffffffff -> (%sp)[1byte] %sp
+381ffbff : sttrb  wzr, [sp,#-1]           : sttrb  %wzr -> -0x01(%sp)[1byte]
+381fffff : strb   wzr, [sp,#-1]!          : strb   %wzr %sp $0xffffffffffffffff -> -0x01(%sp)[1byte] %sp
+38234841 : strb   w1, [x2,w3,uxtw]        : strb   %w1 -> (%x2,%x3,uxtw)[1byte]
+38235841 : strb   w1, [x2,w3,uxtw #0]     : strb   %w1 -> (%x2,%x3,uxtw #0)[1byte]
+38236841 : strb   w1, [x2,x3]             : strb   %w1 -> (%x2,%x3)[1byte]
+38237841 : strb   w1, [x2,x3,lsl #0]      : strb   %w1 -> (%x2,%x3,uxtx #0)[1byte]
+3823c841 : strb   w1, [x2,w3,sxtw]        : strb   %w1 -> (%x2,%x3,sxtw)[1byte]
+3823d841 : strb   w1, [x2,w3,sxtw #0]     : strb   %w1 -> (%x2,%x3,sxtw #0)[1byte]
+3823e841 : strb   w1, [x2,x3,sxtx]        : strb   %w1 -> (%x2,%x3,sxtx)[1byte]
+3823f841 : strb   w1, [x2,x3,sxtx #0]     : strb   %w1 -> (%x2,%x3,sxtx #0)[1byte]
+383f4bff : strb   wzr, [sp,wzr,uxtw]      : strb   %wzr -> (%sp,%xzr,uxtw)[1byte]
+383f5bff : strb   wzr, [sp,wzr,uxtw #0]   : strb   %wzr -> (%sp,%xzr,uxtw #0)[1byte]
+383f6bff : strb   wzr, [sp,xzr]           : strb   %wzr -> (%sp,%xzr)[1byte]
+383f7bff : strb   wzr, [sp,xzr,lsl #0]    : strb   %wzr -> (%sp,%xzr,uxtx #0)[1byte]
+383fcbff : strb   wzr, [sp,wzr,sxtw]      : strb   %wzr -> (%sp,%xzr,sxtw)[1byte]
+383fdbff : strb   wzr, [sp,wzr,sxtw #0]   : strb   %wzr -> (%sp,%xzr,sxtw #0)[1byte]
+383febff : strb   wzr, [sp,xzr,sxtx]      : strb   %wzr -> (%sp,%xzr,sxtx)[1byte]
+383ffbff : strb   wzr, [sp,xzr,sxtx #0]   : strb   %wzr -> (%sp,%xzr,sxtx #0)[1byte]
+38400400 : ldrb   w0, [x0],#0             : ldrb   (%x0)[1byte] %x0 $0x0000000000000000 -> %w0 %x0
+38400c00 : ldrb   w0, [x0,#0]!            : ldrb   (%x0)[1byte] %x0 $0x0000000000000000 -> %w0 %x0
+38481041 : ldurb  w1, [x2,#129]           : ldurb  +0x81(%x2)[1byte] -> %w1
+38481441 : ldrb   w1, [x2],#129           : ldrb   (%x2)[1byte] %x2 $0x0000000000000081 -> %w1 %x2
+38481841 : ldtrb  w1, [x2,#129]           : ldtrb  +0x81(%x2)[1byte] -> %w1
+38481c41 : ldrb   w1, [x2,#129]!          : ldrb   +0x81(%x2)[1byte] %x2 $0x0000000000000081 -> %w1 %x2
+385ff3ff : ldurb  wzr, [sp,#-1]           : ldurb  -0x01(%sp)[1byte] -> %wzr
+385ff7ff : ldrb   wzr, [sp],#-1           : ldrb   (%sp)[1byte] %sp $0xffffffffffffffff -> %wzr %sp
+385ffbff : ldtrb  wzr, [sp,#-1]           : ldtrb  -0x01(%sp)[1byte] -> %wzr
+385fffff : ldrb   wzr, [sp,#-1]!          : ldrb   -0x01(%sp)[1byte] %sp $0xffffffffffffffff -> %wzr %sp
+38634841 : ldrb   w1, [x2,w3,uxtw]        : ldrb   (%x2,%x3,uxtw)[1byte] -> %w1
+38635841 : ldrb   w1, [x2,w3,uxtw #0]     : ldrb   (%x2,%x3,uxtw #0)[1byte] -> %w1
+38636841 : ldrb   w1, [x2,x3]             : ldrb   (%x2,%x3)[1byte] -> %w1
+38637841 : ldrb   w1, [x2,x3,lsl #0]      : ldrb   (%x2,%x3,uxtx #0)[1byte] -> %w1
+3863c841 : ldrb   w1, [x2,w3,sxtw]        : ldrb   (%x2,%x3,sxtw)[1byte] -> %w1
+3863d841 : ldrb   w1, [x2,w3,sxtw #0]     : ldrb   (%x2,%x3,sxtw #0)[1byte] -> %w1
+3863e841 : ldrb   w1, [x2,x3,sxtx]        : ldrb   (%x2,%x3,sxtx)[1byte] -> %w1
+3863f841 : ldrb   w1, [x2,x3,sxtx #0]     : ldrb   (%x2,%x3,sxtx #0)[1byte] -> %w1
+387f4bff : ldrb   wzr, [sp,wzr,uxtw]      : ldrb   (%sp,%xzr,uxtw)[1byte] -> %wzr
+387f5bff : ldrb   wzr, [sp,wzr,uxtw #0]   : ldrb   (%sp,%xzr,uxtw #0)[1byte] -> %wzr
+387f6bff : ldrb   wzr, [sp,xzr]           : ldrb   (%sp,%xzr)[1byte] -> %wzr
+387f7bff : ldrb   wzr, [sp,xzr,lsl #0]    : ldrb   (%sp,%xzr,uxtx #0)[1byte] -> %wzr
+387fcbff : ldrb   wzr, [sp,wzr,sxtw]      : ldrb   (%sp,%xzr,sxtw)[1byte] -> %wzr
+387fdbff : ldrb   wzr, [sp,wzr,sxtw #0]   : ldrb   (%sp,%xzr,sxtw #0)[1byte] -> %wzr
+387febff : ldrb   wzr, [sp,xzr,sxtx]      : ldrb   (%sp,%xzr,sxtx)[1byte] -> %wzr
+387ffbff : ldrb   wzr, [sp,xzr,sxtx #0]   : ldrb   (%sp,%xzr,sxtx #0)[1byte] -> %wzr
+38800400 : ldrsb  x0, [x0],#0             : ldrsb  (%x0)[1byte] %x0 $0x0000000000000000 -> %x0 %x0
+38800c00 : ldrsb  x0, [x0,#0]!            : ldrsb  (%x0)[1byte] %x0 $0x0000000000000000 -> %x0 %x0
+38881041 : ldursb x1, [x2,#129]           : ldursb +0x81(%x2)[1byte] -> %x1
+38881441 : ldrsb  x1, [x2],#129           : ldrsb  (%x2)[1byte] %x2 $0x0000000000000081 -> %x1 %x2
+38881841 : ldtrsb x1, [x2,#129]           : ldtrsb +0x81(%x2)[1byte] -> %x1
+38881c41 : ldrsb  x1, [x2,#129]!          : ldrsb  +0x81(%x2)[1byte] %x2 $0x0000000000000081 -> %x1 %x2
+389ff3ff : ldursb xzr, [sp,#-1]           : ldursb -0x01(%sp)[1byte] -> %xzr
+389ff7ff : ldrsb  xzr, [sp],#-1           : ldrsb  (%sp)[1byte] %sp $0xffffffffffffffff -> %xzr %sp
+389ffbff : ldtrsb xzr, [sp,#-1]           : ldtrsb -0x01(%sp)[1byte] -> %xzr
+389fffff : ldrsb  xzr, [sp,#-1]!          : ldrsb  -0x01(%sp)[1byte] %sp $0xffffffffffffffff -> %xzr %sp
+38a34841 : ldrsb  x1, [x2,w3,uxtw]        : ldrsb  (%x2,%x3,uxtw)[1byte] -> %x1
+38a35841 : ldrsb  x1, [x2,w3,uxtw #0]     : ldrsb  (%x2,%x3,uxtw #0)[1byte] -> %x1
+38a36841 : ldrsb  x1, [x2,x3]             : ldrsb  (%x2,%x3)[1byte] -> %x1
+38a37841 : ldrsb  x1, [x2,x3,lsl #0]      : ldrsb  (%x2,%x3,uxtx #0)[1byte] -> %x1
+38a3c841 : ldrsb  x1, [x2,w3,sxtw]        : ldrsb  (%x2,%x3,sxtw)[1byte] -> %x1
+38a3d841 : ldrsb  x1, [x2,w3,sxtw #0]     : ldrsb  (%x2,%x3,sxtw #0)[1byte] -> %x1
+38a3e841 : ldrsb  x1, [x2,x3,sxtx]        : ldrsb  (%x2,%x3,sxtx)[1byte] -> %x1
+38a3f841 : ldrsb  x1, [x2,x3,sxtx #0]     : ldrsb  (%x2,%x3,sxtx #0)[1byte] -> %x1
+38bf4bff : ldrsb  xzr, [sp,wzr,uxtw]      : ldrsb  (%sp,%xzr,uxtw)[1byte] -> %xzr
+38bf5bff : ldrsb  xzr, [sp,wzr,uxtw #0]   : ldrsb  (%sp,%xzr,uxtw #0)[1byte] -> %xzr
+38bf6bff : ldrsb  xzr, [sp,xzr]           : ldrsb  (%sp,%xzr)[1byte] -> %xzr
+38bf7bff : ldrsb  xzr, [sp,xzr,lsl #0]    : ldrsb  (%sp,%xzr,uxtx #0)[1byte] -> %xzr
+38bfcbff : ldrsb  xzr, [sp,wzr,sxtw]      : ldrsb  (%sp,%xzr,sxtw)[1byte] -> %xzr
+38bfdbff : ldrsb  xzr, [sp,wzr,sxtw #0]   : ldrsb  (%sp,%xzr,sxtw #0)[1byte] -> %xzr
+38bfebff : ldrsb  xzr, [sp,xzr,sxtx]      : ldrsb  (%sp,%xzr,sxtx)[1byte] -> %xzr
+38bffbff : ldrsb  xzr, [sp,xzr,sxtx #0]   : ldrsb  (%sp,%xzr,sxtx #0)[1byte] -> %xzr
+38c00400 : ldrsb  w0, [x0],#0             : ldrsb  (%x0)[1byte] %x0 $0x0000000000000000 -> %w0 %x0
+38c00c00 : ldrsb  w0, [x0,#0]!            : ldrsb  (%x0)[1byte] %x0 $0x0000000000000000 -> %w0 %x0
+38c81041 : ldursb w1, [x2,#129]           : ldursb +0x81(%x2)[1byte] -> %w1
+38c81441 : ldrsb  w1, [x2],#129           : ldrsb  (%x2)[1byte] %x2 $0x0000000000000081 -> %w1 %x2
+38c81841 : ldtrsb w1, [x2,#129]           : ldtrsb +0x81(%x2)[1byte] -> %w1
+38c81c41 : ldrsb  w1, [x2,#129]!          : ldrsb  +0x81(%x2)[1byte] %x2 $0x0000000000000081 -> %w1 %x2
+38dff3ff : ldursb wzr, [sp,#-1]           : ldursb -0x01(%sp)[1byte] -> %wzr
+38dff7ff : ldrsb  wzr, [sp],#-1           : ldrsb  (%sp)[1byte] %sp $0xffffffffffffffff -> %wzr %sp
+38dffbff : ldtrsb wzr, [sp,#-1]           : ldtrsb -0x01(%sp)[1byte] -> %wzr
+38dfffff : ldrsb  wzr, [sp,#-1]!          : ldrsb  -0x01(%sp)[1byte] %sp $0xffffffffffffffff -> %wzr %sp
+38e34841 : ldrsb  w1, [x2,w3,uxtw]        : ldrsb  (%x2,%x3,uxtw)[1byte] -> %w1
+38e35841 : ldrsb  w1, [x2,w3,uxtw #0]     : ldrsb  (%x2,%x3,uxtw #0)[1byte] -> %w1
+38e36841 : ldrsb  w1, [x2,x3]             : ldrsb  (%x2,%x3)[1byte] -> %w1
+38e37841 : ldrsb  w1, [x2,x3,lsl #0]      : ldrsb  (%x2,%x3,uxtx #0)[1byte] -> %w1
+38e3c841 : ldrsb  w1, [x2,w3,sxtw]        : ldrsb  (%x2,%x3,sxtw)[1byte] -> %w1
+38e3d841 : ldrsb  w1, [x2,w3,sxtw #0]     : ldrsb  (%x2,%x3,sxtw #0)[1byte] -> %w1
+38e3e841 : ldrsb  w1, [x2,x3,sxtx]        : ldrsb  (%x2,%x3,sxtx)[1byte] -> %w1
+38e3f841 : ldrsb  w1, [x2,x3,sxtx #0]     : ldrsb  (%x2,%x3,sxtx #0)[1byte] -> %w1
+38ff4bff : ldrsb  wzr, [sp,wzr,uxtw]      : ldrsb  (%sp,%xzr,uxtw)[1byte] -> %wzr
+38ff5bff : ldrsb  wzr, [sp,wzr,uxtw #0]   : ldrsb  (%sp,%xzr,uxtw #0)[1byte] -> %wzr
+38ff6bff : ldrsb  wzr, [sp,xzr]           : ldrsb  (%sp,%xzr)[1byte] -> %wzr
+38ff7bff : ldrsb  wzr, [sp,xzr,lsl #0]    : ldrsb  (%sp,%xzr,uxtx #0)[1byte] -> %wzr
+38ffcbff : ldrsb  wzr, [sp,wzr,sxtw]      : ldrsb  (%sp,%xzr,sxtw)[1byte] -> %wzr
+38ffdbff : ldrsb  wzr, [sp,wzr,sxtw #0]   : ldrsb  (%sp,%xzr,sxtw #0)[1byte] -> %wzr
+38ffebff : ldrsb  wzr, [sp,xzr,sxtx]      : ldrsb  (%sp,%xzr,sxtx)[1byte] -> %wzr
+38fffbff : ldrsb  wzr, [sp,xzr,sxtx #0]   : ldrsb  (%sp,%xzr,sxtx #0)[1byte] -> %wzr
+39081041 : strb   w1, [x2,#516]           : strb   %w1 -> +0x0204(%x2)[1byte]
+393fffff : strb   wzr, [sp,#4095]         : strb   %wzr -> +0x0fff(%sp)[1byte]
+39481041 : ldrb   w1, [x2,#516]           : ldrb   +0x0204(%x2)[1byte] -> %w1
+397fffff : ldrb   wzr, [sp,#4095]         : ldrb   +0x0fff(%sp)[1byte] -> %wzr
+39881041 : ldrsb  x1, [x2,#516]           : ldrsb  +0x0204(%x2)[1byte] -> %x1
+39bfffff : ldrsb  xzr, [sp,#4095]         : ldrsb  +0x0fff(%sp)[1byte] -> %xzr
+39c81041 : ldrsb  w1, [x2,#516]           : ldrsb  +0x0204(%x2)[1byte] -> %w1
+39ffffff : ldrsb  wzr, [sp,#4095]         : ldrsb  +0x0fff(%sp)[1byte] -> %wzr
+3c000400 : str    b0, [x0],#0             : str    %b0 %x0 $0x0000000000000000 -> (%x0)[1byte] %x0
+3c000c00 : str    b0, [x0,#0]!            : str    %b0 %x0 $0x0000000000000000 -> (%x0)[1byte] %x0
+3c081041 : stur   b1, [x2,#129]           : stur   %b1 -> +0x81(%x2)[1byte]
+3c081441 : str    b1, [x2],#129           : str    %b1 %x2 $0x0000000000000081 -> (%x2)[1byte] %x2
+3c081c41 : str    b1, [x2,#129]!          : str    %b1 %x2 $0x0000000000000081 -> +0x81(%x2)[1byte] %x2
+3c1ff3ff : stur   b31, [sp,#-1]           : stur   %b31 -> -0x01(%sp)[1byte]
+3c1ff7ff : str    b31, [sp],#-1           : str    %b31 %sp $0xffffffffffffffff -> (%sp)[1byte] %sp
+3c1fffff : str    b31, [sp,#-1]!          : str    %b31 %sp $0xffffffffffffffff -> -0x01(%sp)[1byte] %sp
+3c234841 : str    b1, [x2,w3,uxtw]        : str    %b1 -> (%x2,%x3,uxtw)[1byte]
+3c235841 : str    b1, [x2,w3,uxtw #0]     : str    %b1 -> (%x2,%x3,uxtw #0)[1byte]
+3c236841 : str    b1, [x2,x3]             : str    %b1 -> (%x2,%x3)[1byte]
+3c237841 : str    b1, [x2,x3,lsl #0]      : str    %b1 -> (%x2,%x3,uxtx #0)[1byte]
+3c23c841 : str    b1, [x2,w3,sxtw]        : str    %b1 -> (%x2,%x3,sxtw)[1byte]
+3c23d841 : str    b1, [x2,w3,sxtw #0]     : str    %b1 -> (%x2,%x3,sxtw #0)[1byte]
+3c23e841 : str    b1, [x2,x3,sxtx]        : str    %b1 -> (%x2,%x3,sxtx)[1byte]
+3c23f841 : str    b1, [x2,x3,sxtx #0]     : str    %b1 -> (%x2,%x3,sxtx #0)[1byte]
+3c3f4bff : str    b31, [sp,wzr,uxtw]      : str    %b31 -> (%sp,%xzr,uxtw)[1byte]
+3c3f5bff : str    b31, [sp,wzr,uxtw #0]   : str    %b31 -> (%sp,%xzr,uxtw #0)[1byte]
+3c3f6bff : str    b31, [sp,xzr]           : str    %b31 -> (%sp,%xzr)[1byte]
+3c3f7bff : str    b31, [sp,xzr,lsl #0]    : str    %b31 -> (%sp,%xzr,uxtx #0)[1byte]
+3c3fcbff : str    b31, [sp,wzr,sxtw]      : str    %b31 -> (%sp,%xzr,sxtw)[1byte]
+3c3fdbff : str    b31, [sp,wzr,sxtw #0]   : str    %b31 -> (%sp,%xzr,sxtw #0)[1byte]
+3c3febff : str    b31, [sp,xzr,sxtx]      : str    %b31 -> (%sp,%xzr,sxtx)[1byte]
+3c3ffbff : str    b31, [sp,xzr,sxtx #0]   : str    %b31 -> (%sp,%xzr,sxtx #0)[1byte]
+3c400400 : ldr    b0, [x0],#0             : ldr    (%x0)[1byte] %x0 $0x0000000000000000 -> %b0 %x0
+3c400c00 : ldr    b0, [x0,#0]!            : ldr    (%x0)[1byte] %x0 $0x0000000000000000 -> %b0 %x0
+3c481041 : ldur   b1, [x2,#129]           : ldur   +0x81(%x2)[1byte] -> %b1
+3c481441 : ldr    b1, [x2],#129           : ldr    (%x2)[1byte] %x2 $0x0000000000000081 -> %b1 %x2
+3c481c41 : ldr    b1, [x2,#129]!          : ldr    +0x81(%x2)[1byte] %x2 $0x0000000000000081 -> %b1 %x2
+3c5ff3ff : ldur   b31, [sp,#-1]           : ldur   -0x01(%sp)[1byte] -> %b31
+3c5ff7ff : ldr    b31, [sp],#-1           : ldr    (%sp)[1byte] %sp $0xffffffffffffffff -> %b31 %sp
+3c5fffff : ldr    b31, [sp,#-1]!          : ldr    -0x01(%sp)[1byte] %sp $0xffffffffffffffff -> %b31 %sp
+3c634841 : ldr    b1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[1byte] -> %b1
+3c635841 : ldr    b1, [x2,w3,uxtw #0]     : ldr    (%x2,%x3,uxtw #0)[1byte] -> %b1
+3c636841 : ldr    b1, [x2,x3]             : ldr    (%x2,%x3)[1byte] -> %b1
+3c637841 : ldr    b1, [x2,x3,lsl #0]      : ldr    (%x2,%x3,uxtx #0)[1byte] -> %b1
+3c63c841 : ldr    b1, [x2,w3,sxtw]        : ldr    (%x2,%x3,sxtw)[1byte] -> %b1
+3c63d841 : ldr    b1, [x2,w3,sxtw #0]     : ldr    (%x2,%x3,sxtw #0)[1byte] -> %b1
+3c63e841 : ldr    b1, [x2,x3,sxtx]        : ldr    (%x2,%x3,sxtx)[1byte] -> %b1
+3c63f841 : ldr    b1, [x2,x3,sxtx #0]     : ldr    (%x2,%x3,sxtx #0)[1byte] -> %b1
+3c7f4bff : ldr    b31, [sp,wzr,uxtw]      : ldr    (%sp,%xzr,uxtw)[1byte] -> %b31
+3c7f5bff : ldr    b31, [sp,wzr,uxtw #0]   : ldr    (%sp,%xzr,uxtw #0)[1byte] -> %b31
+3c7f6bff : ldr    b31, [sp,xzr]           : ldr    (%sp,%xzr)[1byte] -> %b31
+3c7f7bff : ldr    b31, [sp,xzr,lsl #0]    : ldr    (%sp,%xzr,uxtx #0)[1byte] -> %b31
+3c7fcbff : ldr    b31, [sp,wzr,sxtw]      : ldr    (%sp,%xzr,sxtw)[1byte] -> %b31
+3c7fdbff : ldr    b31, [sp,wzr,sxtw #0]   : ldr    (%sp,%xzr,sxtw #0)[1byte] -> %b31
+3c7febff : ldr    b31, [sp,xzr,sxtx]      : ldr    (%sp,%xzr,sxtx)[1byte] -> %b31
+3c7ffbff : ldr    b31, [sp,xzr,sxtx #0]   : ldr    (%sp,%xzr,sxtx #0)[1byte] -> %b31
+3c800400 : str    q0, [x0],#0             : str    %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+3c800c00 : str    q0, [x0,#0]!            : str    %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+3c881041 : stur   q1, [x2,#129]           : stur   %q1 -> +0x81(%x2)[1byte]
+3c881441 : str    q1, [x2],#129           : str    %q1 %x2 $0x0000000000000081 -> (%x2)[16byte] %x2
+3c881c41 : str    q1, [x2,#129]!          : str    %q1 %x2 $0x0000000000000081 -> +0x81(%x2)[16byte] %x2
+3c9ff3ff : stur   q31, [sp,#-1]           : stur   %q31 -> -0x01(%sp)[1byte]
+3c9ff7ff : str    q31, [sp],#-1           : str    %q31 %sp $0xffffffffffffffff -> (%sp)[16byte] %sp
+3c9fffff : str    q31, [sp,#-1]!          : str    %q31 %sp $0xffffffffffffffff -> -0x01(%sp)[16byte] %sp
+3ca34841 : str    q1, [x2,w3,uxtw]        : str    %b1 -> (%x2,%x3,uxtw)[16byte]
+3ca35841 : str    q1, [x2,w3,uxtw #4]     : str    %b1 -> (%x2,%x3,uxtw #4)[16byte]
+3ca36841 : str    q1, [x2,x3]             : str    %b1 -> (%x2,%x3)[16byte]
+3ca37841 : str    q1, [x2,x3,lsl #4]      : str    %b1 -> (%x2,%x3,uxtx #4)[16byte]
+3ca3c841 : str    q1, [x2,w3,sxtw]        : str    %b1 -> (%x2,%x3,sxtw)[16byte]
+3ca3d841 : str    q1, [x2,w3,sxtw #4]     : str    %b1 -> (%x2,%x3,sxtw #4)[16byte]
+3ca3e841 : str    q1, [x2,x3,sxtx]        : str    %b1 -> (%x2,%x3,sxtx)[16byte]
+3ca3f841 : str    q1, [x2,x3,sxtx #4]     : str    %b1 -> (%x2,%x3,sxtx #4)[16byte]
+3cbf4bff : str    q31, [sp,wzr,uxtw]      : str    %b31 -> (%sp,%xzr,uxtw)[16byte]
+3cbf5bff : str    q31, [sp,wzr,uxtw #4]   : str    %b31 -> (%sp,%xzr,uxtw #4)[16byte]
+3cbf6bff : str    q31, [sp,xzr]           : str    %b31 -> (%sp,%xzr)[16byte]
+3cbf7bff : str    q31, [sp,xzr,lsl #4]    : str    %b31 -> (%sp,%xzr,uxtx #4)[16byte]
+3cbfcbff : str    q31, [sp,wzr,sxtw]      : str    %b31 -> (%sp,%xzr,sxtw)[16byte]
+3cbfdbff : str    q31, [sp,wzr,sxtw #4]   : str    %b31 -> (%sp,%xzr,sxtw #4)[16byte]
+3cbfebff : str    q31, [sp,xzr,sxtx]      : str    %b31 -> (%sp,%xzr,sxtx)[16byte]
+3cbffbff : str    q31, [sp,xzr,sxtx #4]   : str    %b31 -> (%sp,%xzr,sxtx #4)[16byte]
+3cc00400 : ldr    q0, [x0],#0             : ldr    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %x0
+3cc00c00 : ldr    q0, [x0,#0]!            : ldr    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %x0
+3cc81041 : ldur   q1, [x2,#129]           : ldur   +0x81(%x2)[1byte] -> %q1
+3cc81441 : ldr    q1, [x2],#129           : ldr    (%x2)[16byte] %x2 $0x0000000000000081 -> %q1 %x2
+3cc81c41 : ldr    q1, [x2,#129]!          : ldr    +0x81(%x2)[16byte] %x2 $0x0000000000000081 -> %q1 %x2
+3cdff3ff : ldur   q31, [sp,#-1]           : ldur   -0x01(%sp)[1byte] -> %q31
+3cdff7ff : ldr    q31, [sp],#-1           : ldr    (%sp)[16byte] %sp $0xffffffffffffffff -> %q31 %sp
+3cdfffff : ldr    q31, [sp,#-1]!          : ldr    -0x01(%sp)[16byte] %sp $0xffffffffffffffff -> %q31 %sp
+3ce34841 : ldr    q1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[16byte] -> %q1
+3ce35841 : ldr    q1, [x2,w3,uxtw #4]     : ldr    (%x2,%x3,uxtw #4)[16byte] -> %q1
+3ce36841 : ldr    q1, [x2,x3]             : ldr    (%x2,%x3)[16byte] -> %q1
+3ce37841 : ldr    q1, [x2,x3,lsl #4]      : ldr    (%x2,%x3,uxtx #4)[16byte] -> %q1
+3ce3c841 : ldr    q1, [x2,w3,sxtw]        : ldr    (%x2,%x3,sxtw)[16byte] -> %q1
+3ce3d841 : ldr    q1, [x2,w3,sxtw #4]     : ldr    (%x2,%x3,sxtw #4)[16byte] -> %q1
+3ce3e841 : ldr    q1, [x2,x3,sxtx]        : ldr    (%x2,%x3,sxtx)[16byte] -> %q1
+3ce3f841 : ldr    q1, [x2,x3,sxtx #4]     : ldr    (%x2,%x3,sxtx #4)[16byte] -> %q1
+3cff4bff : ldr    q31, [sp,wzr,uxtw]      : ldr    (%sp,%xzr,uxtw)[16byte] -> %q31
+3cff5bff : ldr    q31, [sp,wzr,uxtw #4]   : ldr    (%sp,%xzr,uxtw #4)[16byte] -> %q31
+3cff6bff : ldr    q31, [sp,xzr]           : ldr    (%sp,%xzr)[16byte] -> %q31
+3cff7bff : ldr    q31, [sp,xzr,lsl #4]    : ldr    (%sp,%xzr,uxtx #4)[16byte] -> %q31
+3cffcbff : ldr    q31, [sp,wzr,sxtw]      : ldr    (%sp,%xzr,sxtw)[16byte] -> %q31
+3cffdbff : ldr    q31, [sp,wzr,sxtw #4]   : ldr    (%sp,%xzr,sxtw #4)[16byte] -> %q31
+3cffebff : ldr    q31, [sp,xzr,sxtx]      : ldr    (%sp,%xzr,sxtx)[16byte] -> %q31
+3cfffbff : ldr    q31, [sp,xzr,sxtx #4]   : ldr    (%sp,%xzr,sxtx #4)[16byte] -> %q31
+3d081041 : str    b1, [x2,#516]           : str    %b1 -> +0x0204(%x2)[1byte]
+3d3fffff : str    b31, [sp,#4095]         : str    %b31 -> +0x0fff(%sp)[1byte]
+3d481041 : ldr    b1, [x2,#516]           : ldr    +0x0204(%x2)[1byte] -> %b1
+3d7fffff : ldr    b31, [sp,#4095]         : ldr    +0x0fff(%sp)[1byte] -> %b31
+3d881041 : str    q1, [x2,#8256]          : str    %q1 -> +0x2040(%x2)[16byte]
+3dbfffff : str    q31, [sp,#65520]        : str    %q31 -> +0xfff0(%sp)[16byte]
+3dc81041 : ldr    q1, [x2,#8256]          : ldr    +0x2040(%x2)[16byte] -> %q1
+3dffffff : ldr    q31, [sp,#65520]        : ldr    +0xfff0(%sp)[16byte] -> %q31
+48081041 : stxrh  w8, w1, [x2]            : stxrh  %w1 $0x04 -> (%x2)[2byte] %w8
+48089041 : stlxrh w8, w1, [x2]            : stlxrh %w1 $0x04 -> (%x2)[2byte] %w8
+481f7fff : stxrh  wzr, wzr, [sp]          : stxrh  %wzr $0x1f -> (%sp)[2byte] %wzr
+481fffff : stlxrh wzr, wzr, [sp]          : stlxrh %wzr $0x1f -> (%sp)[2byte] %wzr
+48481041 : ldxrh  w1, [x2]                : ldxrh  (%x2)[2byte] $0x04 $0x08 -> %w1
+48489041 : ldaxrh w1, [x2]                : ldaxrh (%x2)[2byte] $0x04 $0x08 -> %w1
+485f7fff : ldxrh  wzr, [sp]               : ldxrh  (%sp)[2byte] $0x1f $0x1f -> %wzr
+485fffff : ldaxrh wzr, [sp]               : ldaxrh (%sp)[2byte] $0x1f $0x1f -> %wzr
+48889041 : stlrh  w1, [x2]                : stlrh  %w1 $0x04 $0x08 -> (%x2)[2byte]
+489fffff : stlrh  wzr, [sp]               : stlrh  %wzr $0x1f $0x1f -> (%sp)[2byte]
+48dfffff : ldarh  wzr, [sp]               : ldarh  (%sp)[2byte] $0x1f $0x1f -> %wzr
+4a031041 : eor    w1, w2, w3, lsl #4      : eor    %w2 %w3 lsl $0x04 -> %w1
+4a231041 : eon    w1, w2, w3, lsl #4      : eon    %w2 %w3 lsl $0x04 -> %w1
+4a9f13ff : eor    wzr, wzr, wzr, asr #4   : eor    %wzr %wzr asr $0x04 -> %wzr
+4abf13ff : eon    wzr, wzr, wzr, asr #4   : eon    %wzr %wzr asr $0x04 -> %wzr
+4b031041 : sub    w1, w2, w3, lsl #4      : sub    %w2 %w3 lsl $0x04 -> %w1
+4b9f13ff : neg    wzr, wzr, asr #4        : sub    %wzr %wzr asr $0x04 -> %wzr
+4b9f7fff : neg    wzr, wzr, asr #31       : sub    %wzr %wzr asr $0x1f -> %wzr
+4c0027ff : st1    {v31.8h, v0.8h, v1.8h, v2.8h}, [sp]: st1    $0x01 %q31 %q0 %q1 %q2 -> (%sp)[64byte]
+4c0047ff : st3    {v31.8h, v0.8h, v1.8h}, [sp]: st3    $0x01 %q31 %q0 %q1 -> (%sp)[48byte]
+4c0087ff : st2    {v31.8h, v0.8h}, [sp]   : st2    $0x01 %q31 %q0 -> (%sp)[32byte]
+4c4007ff : ld4    {v31.8h, v0.8h, v1.8h, v2.8h}, [sp]: ld4    (%sp)[64byte] $0x01 -> %q31 %q0 %q1 %q2
+4c4067ff : ld1    {v31.8h, v0.8h, v1.8h}, [sp]: ld1    (%sp)[48byte] $0x01 -> %q31 %q0 %q1
+4c4077ff : ld1    {v31.8h}, [sp]          : ld1    (%sp)[16byte] $0x01 -> %q31
+4c40a7ff : ld1    {v31.8h, v0.8h}, [sp]   : ld1    (%sp)[32byte] $0x01 -> %q31 %q0
+4c9f07ff : st4    {v31.8h, v0.8h, v1.8h, v2.8h}, [sp], #64: st4    $0x01 %q31 %q0 %q1 %q2 %sp $0x40 -> (%sp)[64byte] %sp
+4c9f67ff : st1    {v31.8h, v0.8h, v1.8h}, [sp], #48: st1    $0x01 %q31 %q0 %q1 %sp $0x30 -> (%sp)[48byte] %sp
+4c9f77ff : st1    {v31.8h}, [sp], #16     : st1    $0x01 %q31 %sp $0x10 -> (%sp)[16byte] %sp
+4c9fa7ff : st1    {v31.8h, v0.8h}, [sp], #32: st1    $0x01 %q31 %q0 %sp $0x20 -> (%sp)[32byte] %sp
+4cdf27ff : ld1    {v31.8h, v0.8h, v1.8h, v2.8h}, [sp], #64: ld1    (%sp)[64byte] $0x01 %sp $0x40 -> %q31 %q0 %q1 %q2 %sp
+4cdf47ff : ld3    {v31.8h, v0.8h, v1.8h}, [sp], #48: ld3    (%sp)[48byte] $0x01 %sp $0x30 -> %q31 %q0 %q1 %sp
+4cdf87ff : ld2    {v31.8h, v0.8h}, [sp], #32: ld2    (%sp)[32byte] $0x01 %sp $0x20 -> %q31 %q0 %sp
+4d001fff : st1    {v31.b}[15], [sp]       : st1    %q31 $0x0f -> (%sp)[1byte]
+4d003fff : st3    {v31.b, v0.b, v1.b}[15], [sp]: st3    %q31 %q0 %q1 $0x0f -> (%sp)[3byte]
+4d005bff : st1    {v31.h}[7], [sp]        : st1    %q31 $0x07 -> (%sp)[2byte]
+4d007bff : st3    {v31.h, v0.h, v1.h}[7], [sp]: st3    %q31 %q0 %q1 $0x07 -> (%sp)[6byte]
+4d0087ff : st1    {v31.d}[1], [sp]        : st1    %q31 $0x01 -> (%sp)[8byte]
+4d0093ff : st1    {v31.s}[3], [sp]        : st1    %q31 $0x03 -> (%sp)[4byte]
+4d00a7ff : st3    {v31.d, v0.d, v1.d}[1], [sp]: st3    %q31 %q0 %q1 $0x01 -> (%sp)[24byte]
+4d00b3ff : st3    {v31.s, v0.s, v1.s}[3], [sp]: st3    %q31 %q0 %q1 $0x03 -> (%sp)[12byte]
+4d201fff : st2    {v31.b, v0.b}[15], [sp] : st2    %q31 %q0 $0x0f -> (%sp)[2byte]
+4d203fff : st4    {v31.b, v0.b, v1.b, v2.b}[15], [sp]: st4    %q31 %q0 %q1 %q2 $0x0f -> (%sp)[4byte]
+4d205bff : st2    {v31.h, v0.h}[7], [sp]  : st2    %q31 %q0 $0x07 -> (%sp)[4byte]
+4d207bff : st4    {v31.h, v0.h, v1.h, v2.h}[7], [sp]: st4    %q31 %q0 %q1 %q2 $0x07 -> (%sp)[8byte]
+4d2087ff : st2    {v31.d, v0.d}[1], [sp]  : st2    %q31 %q0 $0x01 -> (%sp)[16byte]
+4d2093ff : st2    {v31.s, v0.s}[3], [sp]  : st2    %q31 %q0 $0x03 -> (%sp)[8byte]
+4d20a7ff : st4    {v31.d, v0.d, v1.d, v2.d}[1], [sp]: st4    %q31 %q0 %q1 %q2 $0x01 -> (%sp)[32byte]
+4d20b3ff : st4    {v31.s, v0.s, v1.s, v2.s}[3], [sp]: st4    %q31 %q0 %q1 %q2 $0x03 -> (%sp)[16byte]
+4d401fff : ld1    {v31.b}[15], [sp]       : ld1    (%sp)[1byte] $0x0f -> %q31
+4d403fff : ld3    {v31.b, v0.b, v1.b}[15], [sp]: ld3    (%sp)[3byte] $0x0f -> %q31 %q0 %q1
+4d405bff : ld1    {v31.h}[7], [sp]        : ld1    (%sp)[2byte] $0x07 -> %q31
+4d407bff : ld3    {v31.h, v0.h, v1.h}[7], [sp]: ld3    (%sp)[6byte] $0x07 -> %q31 %q0 %q1
+4d4087ff : ld1    {v31.d}[1], [sp]        : ld1    (%sp)[8byte] $0x01 -> %q31
+4d4093ff : ld1    {v31.s}[3], [sp]        : ld1    (%sp)[4byte] $0x03 -> %q31
+4d40a7ff : ld3    {v31.d, v0.d, v1.d}[1], [sp]: ld3    (%sp)[24byte] $0x01 -> %q31 %q0 %q1
+4d40b3ff : ld3    {v31.s, v0.s, v1.s}[3], [sp]: ld3    (%sp)[12byte] $0x03 -> %q31 %q0 %q1
+4d40c3ff : ld1r   {v31.16b}, [sp]         : ld1r   (%sp)[1byte] -> %q31
+4d601fff : ld2    {v31.b, v0.b}[15], [sp] : ld2    (%sp)[2byte] $0x0f -> %q31 %q0
+4d603fff : ld4    {v31.b, v0.b, v1.b, v2.b}[15], [sp]: ld4    (%sp)[4byte] $0x0f -> %q31 %q0 %q1 %q2
+4d605bff : ld2    {v31.h, v0.h}[7], [sp]  : ld2    (%sp)[4byte] $0x07 -> %q31 %q0
+4d607bff : ld4    {v31.h, v0.h, v1.h, v2.h}[7], [sp]: ld4    (%sp)[8byte] $0x07 -> %q31 %q0 %q1 %q2
+4d6087ff : ld2    {v31.d, v0.d}[1], [sp]  : ld2    (%sp)[16byte] $0x01 -> %q31 %q0
+4d6093ff : ld2    {v31.s, v0.s}[3], [sp]  : ld2    (%sp)[8byte] $0x03 -> %q31 %q0
+4d60a7ff : ld4    {v31.d, v0.d, v1.d, v2.d}[1], [sp]: ld4    (%sp)[32byte] $0x01 -> %q31 %q0 %q1 %q2
+4d60b3ff : ld4    {v31.s, v0.s, v1.s, v2.s}[3], [sp]: ld4    (%sp)[16byte] $0x03 -> %q31 %q0 %q1 %q2
+4d60efff : ld4r   {v31.2d, v0.2d, v1.2d, v2.2d}, [sp]: ld4r   (%sp)[32byte] -> %q31 %q0 %q1 %q2
+4d9f1fff : st1    {v31.b}[15], [sp], #1   : st1    %q31 $0x0f %sp $0x01 -> (%sp)[1byte] %sp
+4d9f3fff : st3    {v31.b, v0.b, v1.b}[15], [sp], #3: st3    %q31 %q0 %q1 $0x0f %sp $0x03 -> (%sp)[3byte] %sp
+4d9f5bff : st1    {v31.h}[7], [sp], #2    : st1    %q31 $0x07 %sp $0x02 -> (%sp)[2byte] %sp
+4d9f7bff : st3    {v31.h, v0.h, v1.h}[7], [sp], #6: st3    %q31 %q0 %q1 $0x07 %sp $0x06 -> (%sp)[6byte] %sp
+4d9f87ff : st1    {v31.d}[1], [sp], #8    : st1    %q31 $0x01 %sp $0x08 -> (%sp)[8byte] %sp
+4d9f93ff : st1    {v31.s}[3], [sp], #4    : st1    %q31 $0x03 %sp $0x04 -> (%sp)[4byte] %sp
+4d9fa7ff : st3    {v31.d, v0.d, v1.d}[1], [sp], #24: st3    %q31 %q0 %q1 $0x01 %sp $0x18 -> (%sp)[24byte] %sp
+4d9fb3ff : st3    {v31.s, v0.s, v1.s}[3], [sp], #12: st3    %q31 %q0 %q1 $0x03 %sp $0x0c -> (%sp)[12byte] %sp
+4dbf1fff : st2    {v31.b, v0.b}[15], [sp], #2: st2    %q31 %q0 $0x0f %sp $0x02 -> (%sp)[2byte] %sp
+4dbf3fff : st4    {v31.b, v0.b, v1.b, v2.b}[15], [sp], #4: st4    %q31 %q0 %q1 %q2 $0x0f %sp $0x04 -> (%sp)[4byte] %sp
+4dbf5bff : st2    {v31.h, v0.h}[7], [sp], #4: st2    %q31 %q0 $0x07 %sp $0x04 -> (%sp)[4byte] %sp
+4dbf7bff : st4    {v31.h, v0.h, v1.h, v2.h}[7], [sp], #8: st4    %q31 %q0 %q1 %q2 $0x07 %sp $0x08 -> (%sp)[8byte] %sp
+4dbf87ff : st2    {v31.d, v0.d}[1], [sp], #16: st2    %q31 %q0 $0x01 %sp $0x10 -> (%sp)[16byte] %sp
+4dbf93ff : st2    {v31.s, v0.s}[3], [sp], #8: st2    %q31 %q0 $0x03 %sp $0x08 -> (%sp)[8byte] %sp
+4dbfa7ff : st4    {v31.d, v0.d, v1.d, v2.d}[1], [sp], #32: st4    %q31 %q0 %q1 %q2 $0x01 %sp $0x20 -> (%sp)[32byte] %sp
+4dbfb3ff : st4    {v31.s, v0.s, v1.s, v2.s}[3], [sp], #16: st4    %q31 %q0 %q1 %q2 $0x03 %sp $0x10 -> (%sp)[16byte] %sp
+4dc4c3ff : ld1r   {v31.16b}, [sp], x4     : ld1r   (%sp)[1byte] %sp %x4 -> %q31 %sp
+4ddf1fff : ld1    {v31.b}[15], [sp], #1   : ld1    %q31 (%sp)[1byte] $0x0f %sp $0x01 -> %q31 %sp
+4ddf3fff : ld3    {v31.b, v0.b, v1.b}[15], [sp], #3: ld3    %q31 %q0 %q1 (%sp)[3byte] $0x0f %sp $0x03 -> %q31 %q0 %q1 %sp
+4ddf5bff : ld1    {v31.h}[7], [sp], #2    : ld1    %q31 (%sp)[2byte] $0x07 %sp $0x02 -> %q31 %sp
+4ddf7bff : ld3    {v31.h, v0.h, v1.h}[7], [sp], #6: ld3    %q31 %q0 %q1 (%sp)[6byte] $0x07 %sp $0x06 -> %q31 %q0 %q1 %sp
+4ddf87ff : ld1    {v31.d}[1], [sp], #8    : ld1    %q31 (%sp)[8byte] $0x01 %sp $0x08 -> %q31 %sp
+4ddf93ff : ld1    {v31.s}[3], [sp], #4    : ld1    %q31 (%sp)[4byte] $0x03 %sp $0x04 -> %q31 %sp
+4ddfa7ff : ld3    {v31.d, v0.d, v1.d}[1], [sp], #24: ld3    %q31 %q0 %q1 (%sp)[24byte] $0x01 %sp $0x18 -> %q31 %q0 %q1 %sp
+4ddfb3ff : ld3    {v31.s, v0.s, v1.s}[3], [sp], #12: ld3    %q31 %q0 %q1 (%sp)[12byte] $0x03 %sp $0x0c -> %q31 %q0 %q1 %sp
+4ddfc3ff : ld1r   {v31.16b}, [sp], #1     : ld1r   (%sp)[1byte] %sp $0x01 -> %q31 %sp
+4df0efff : ld4r   {v31.2d, v0.2d, v1.2d, v2.2d}, [sp], x16: ld4r   (%sp)[32byte] %sp %x16 -> %q31 %q0 %q1 %q2 %sp
+4dff1fff : ld2    {v31.b, v0.b}[15], [sp], #2: ld2    %q31 %q0 (%sp)[2byte] $0x0f %sp $0x02 -> %q31 %q0 %sp
+4dff3fff : ld4    {v31.b, v0.b, v1.b, v2.b}[15], [sp], #4: ld4    %q31 %q0 %q1 %q2 (%sp)[4byte] $0x0f %sp $0x04 -> %q31 %q0 %q1 %q2 %sp
+4dff5bff : ld2    {v31.h, v0.h}[7], [sp], #4: ld2    %q31 %q0 (%sp)[4byte] $0x07 %sp $0x04 -> %q31 %q0 %sp
+4dff7bff : ld4    {v31.h, v0.h, v1.h, v2.h}[7], [sp], #8: ld4    %q31 %q0 %q1 %q2 (%sp)[8byte] $0x07 %sp $0x08 -> %q31 %q0 %q1 %q2 %sp
+4dff87ff : ld2    {v31.d, v0.d}[1], [sp], #16: ld2    %q31 %q0 (%sp)[16byte] $0x01 %sp $0x10 -> %q31 %q0 %sp
+4dff93ff : ld2    {v31.s, v0.s}[3], [sp], #8: ld2    %q31 %q0 (%sp)[8byte] $0x03 %sp $0x08 -> %q31 %q0 %sp
+4dffa7ff : ld4    {v31.d, v0.d, v1.d, v2.d}[1], [sp], #32: ld4    %q31 %q0 %q1 %q2 (%sp)[32byte] $0x01 %sp $0x20 -> %q31 %q0 %q1 %q2 %sp
+4dffb3ff : ld4    {v31.s, v0.s, v1.s, v2.s}[3], [sp], #16: ld4    %q31 %q0 %q1 %q2 (%sp)[16byte] $0x03 %sp $0x10 -> %q31 %q0 %q1 %q2 %sp
+4dffefff : ld4r   {v31.2d, v0.2d, v1.2d, v2.2d}, [sp], #32: ld4r   (%sp)[32byte] %sp $0x20 -> %q31 %q0 %q1 %q2 %sp
+51000c41 : sub    w1, w2, #0x3            : sub    %w2 $0x0003 lsl $0x00 -> %w1
+51000fff : sub    wsp, wsp, #0x3          : sub    %wsp $0x0003 lsl $0x00 -> %wsp
+52000441 : eor    w1, w2, #0x3            : eor    %w2 $0x00000003 -> %w1
+52881041 : mov    w1, #0x4082             : movz   $0x4082 lsl $0x00 -> %w1
+54000000 : b.eq   10000000                : b.eq   $0x0000000010000000
+54000001 : b.ne   10000000                : b.ne   $0x0000000010000000
+54000002 : b.cs   10000000                : b.cs   $0x0000000010000000
+54000003 : b.cc   10000000                : b.cc   $0x0000000010000000
+54000004 : b.mi   10000000                : b.mi   $0x0000000010000000
+54000005 : b.pl   10000000                : b.pl   $0x0000000010000000
+54000006 : b.vs   10000000                : b.vs   $0x0000000010000000
+54000007 : b.vc   10000000                : b.vc   $0x0000000010000000
+54000008 : b.hi   10000000                : b.hi   $0x0000000010000000
+54000009 : b.ls   10000000                : b.ls   $0x0000000010000000
+5400000a : b.ge   10000000                : b.ge   $0x0000000010000000
+5400000b : b.lt   10000000                : b.lt   $0x0000000010000000
+5400002c : b.gt   10000004                : b.gt   $0x0000000010000004
+547fffed : b.le   100ffffc                : b.le   $0x00000000100ffffc
+547fffef : b.nv   100ffffc                : b.nv   $0x00000000100ffffc
+5480000e : b.al   ff00000                 : b.al   $0x000000000ff00000
+54ffffef : b.nv   ffffffc                 : b.nv   $0x000000000ffffffc
+587fffff : ldr    xzr, 100ffffc           : ldr    <rel> 0x00000000100ffffc[8byte] -> %xzr
+58800000 : ldr    x0, ff00000             : ldr    <rel> 0x000000000ff00000[8byte] -> %x0
 58ffffff : ldr    xzr, ffffffc            : ldr    <rel> 0x000000000ffffffc[8byte] -> %xzr
-6a031041 : ands   w1, w2, w3, lsl #4      : ands   %w2 %w3 $0x00 $0x04 -> %w1
-6a231041 : bics   w1, w2, w3, lsl #4      : bics   %w2 %w3 $0x00 $0x04 -> %w1
-6a9f13ff : tst    wzr, wzr, asr #4        : ands   %wzr %wzr $0x02 $0x04 -> %wzr
-6abf13ff : bics   wzr, wzr, wzr, asr #4   : bics   %wzr %wzr $0x02 $0x04 -> %wzr
-6b031041 : subs   w1, w2, w3, lsl #4      : subs   %w2 %w3 $0x00 $0x04 -> %w1
-6b9f13ff : negs   wzr, wzr, asr #4        : subs   %wzr %wzr $0x02 $0x04 -> %wzr
-71000c41 : subs   w1, w2, #0x3            : subs   %w2 $0x0003 $0x00 $0x00 -> %w1
-71000fff : cmp    wsp, #0x3               : subs   %wsp $0x0003 $0x00 $0x00 -> %wzr
-72000441 : ands   w1, w2, #0x3            : ands   %w2 $0x00000003 $0x0001 -> %w1
-8a431041 : and    x1, x2, x3, lsr #4      : and    %x2 %x3 $0x01 $0x04 -> %x1
-8a631041 : bic    x1, x2, x3, lsr #4      : bic    %x2 %x3 $0x01 $0x04 -> %x1
-8adf13ff : and    xzr, xzr, xzr, ror #4   : and    %xzr %xzr $0x03 $0x04 -> %xzr
-8aff13ff : bic    xzr, xzr, xzr, ror #4   : bic    %xzr %xzr $0x03 $0x04 -> %xzr
-8b431041 : add    x1, x2, x3, lsr #4      : add    %x2 %x3 $0x01 $0x04 -> %x1
-8b9f13ff : add    xzr, xzr, xzr, asr #4   : add    %xzr %xzr $0x02 $0x04 -> %xzr
-91000c41 : add    x1, x2, #0x3            : add    %x2 $0x0003 $0x00 $0x00 -> %x1
-91000fff : add    sp, sp, #0x3            : add    %sp $0x0003 $0x00 $0x00 -> %sp
-92400441 : and    x1, x2, #0x3            : and    %x2 $0x0000000000000003 $0x1001 -> %x1
+5c7fffff : ldr    d31, 100ffffc           : ldr    <rel> 0x00000000100ffffc[8byte] -> %d31
+5c800000 : ldr    d0, ff00000             : ldr    <rel> 0x000000000ff00000[8byte] -> %d0
+68c00000 : ldpsw  x0, x0, [x0],#0         : ldpsw  (%x0)[4byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+68ffffff : ldpsw  xzr, xzr, [sp],#-4      : ldpsw  (%sp)[4byte] %sp $0xfffffffffffffffc -> %xzr %xzr %sp
+69400000 : ldpsw  x0, x0, [x0]            : ldpsw  (%x0)[4byte] -> %x0 %x0
+697fffff : ldpsw  xzr, xzr, [sp,#-4]      : ldpsw  -0x04(%sp)[4byte] -> %xzr %xzr
+69c00000 : ldpsw  x0, x0, [x0,#0]!        : ldpsw  (%x0)[4byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+69ffffff : ldpsw  xzr, xzr, [sp,#-4]!     : ldpsw  -0x04(%sp)[4byte] %sp $0xfffffffffffffffc -> %xzr %xzr %sp
+6a031041 : ands   w1, w2, w3, lsl #4      : ands   %w2 %w3 lsl $0x04 -> %w1
+6a231041 : bics   w1, w2, w3, lsl #4      : bics   %w2 %w3 lsl $0x04 -> %w1
+6a9f13ff : tst    wzr, wzr, asr #4        : ands   %wzr %wzr asr $0x04 -> %wzr
+6abf13ff : bics   wzr, wzr, wzr, asr #4   : bics   %wzr %wzr asr $0x04 -> %wzr
+6aff7fff : bics   wzr, wzr, wzr, ror #31  : bics   %wzr %wzr ror $0x1f -> %wzr
+6b031041 : subs   w1, w2, w3, lsl #4      : subs   %w2 %w3 lsl $0x04 -> %w1
+6b1f7fff : negs   wzr, wzr, lsl #31       : subs   %wzr %wzr lsl $0x1f -> %wzr
+6b3f8fff : cmp    wsp, wzr, sxtb #3       : subs   %wsp %wzr sxtb $0x03 -> %wzr
+6b3fc7ff : cmp    wsp, wzr, sxtw #1       : subs   %wsp %wzr sxtw $0x01 -> %wzr
+6b9f13ff : negs   wzr, wzr, asr #4        : subs   %wzr %wzr asr $0x04 -> %wzr
+6c000000 : stnp   d0, d0, [x0]            : stnp   %d0 %d0 -> (%x0)[8byte]
+6c3fffff : stnp   d31, d31, [sp,#-8]      : stnp   %d31 %d31 -> -0x08(%sp)[8byte]
+6c400000 : ldnp   d0, d0, [x0]            : ldnp   (%x0)[8byte] -> %d0 %d0
+6c7fffff : ldnp   d31, d31, [sp,#-8]      : ldnp   -0x08(%sp)[8byte] -> %d31 %d31
+6c800000 : stp    d0, d0, [x0],#0         : stp    %d0 %d0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+6cbfffff : stp    d31, d31, [sp],#-8      : stp    %d31 %d31 %sp $0xfffffffffffffff8 -> (%sp)[8byte] %sp
+6cc00000 : ldp    d0, d0, [x0],#0         : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %d0 %d0 %x0
+6cffffff : ldp    d31, d31, [sp],#-8      : ldp    (%sp)[8byte] %sp $0xfffffffffffffff8 -> %d31 %d31 %sp
+6d000000 : stp    d0, d0, [x0]            : stp    %d0 %d0 -> (%x0)[8byte]
+6d3fffff : stp    d31, d31, [sp,#-8]      : stp    %d31 %d31 -> -0x08(%sp)[8byte]
+6d400000 : ldp    d0, d0, [x0]            : ldp    (%x0)[8byte] -> %d0 %d0
+6d7fffff : ldp    d31, d31, [sp,#-8]      : ldp    -0x08(%sp)[8byte] -> %d31 %d31
+6d800000 : stp    d0, d0, [x0,#0]!        : stp    %d0 %d0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+6dbfffff : stp    d31, d31, [sp,#-8]!     : stp    %d31 %d31 %sp $0xfffffffffffffff8 -> -0x08(%sp)[8byte] %sp
+6dc00000 : ldp    d0, d0, [x0,#0]!        : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %d0 %d0 %x0
+6dffffff : ldp    d31, d31, [sp,#-8]!     : ldp    -0x08(%sp)[8byte] %sp $0xfffffffffffffff8 -> %d31 %d31 %sp
+707fffff : adr    xzr, 100fffff           : adr    <rel> 0x00000000100fffff -> %xzr
+70ffffff : adr    xzr, fffffff            : adr    <rel> 0x000000000fffffff -> %xzr
+71000c41 : subs   w1, w2, #0x3            : subs   %w2 $0x0003 lsl $0x00 -> %w1
+71000fff : cmp    wsp, #0x3               : subs   %wsp $0x0003 lsl $0x00 -> %wzr
+72000441 : ands   w1, w2, #0x3            : ands   %w2 $0x00000003 -> %w1
+72881041 : movk   w1, #0x4082             : movk   %w1 $0x4082 lsl $0x00 -> %w1
+78000400 : strh   w0, [x0],#0             : strh   %w0 %x0 $0x0000000000000000 -> (%x0)[2byte] %x0
+78000c00 : strh   w0, [x0,#0]!            : strh   %w0 %x0 $0x0000000000000000 -> (%x0)[2byte] %x0
+78081041 : sturh  w1, [x2,#129]           : sturh  %w1 -> +0x81(%x2)[2byte]
+78081441 : strh   w1, [x2],#129           : strh   %w1 %x2 $0x0000000000000081 -> (%x2)[2byte] %x2
+78081841 : sttrh  w1, [x2,#129]           : sttrh  %w1 -> +0x81(%x2)[2byte]
+78081c41 : strh   w1, [x2,#129]!          : strh   %w1 %x2 $0x0000000000000081 -> +0x81(%x2)[2byte] %x2
+781ff3ff : sturh  wzr, [sp,#-1]           : sturh  %wzr -> -0x01(%sp)[2byte]
+781ff7ff : strh   wzr, [sp],#-1           : strh   %wzr %sp $0xffffffffffffffff -> (%sp)[2byte] %sp
+781ffbff : sttrh  wzr, [sp,#-1]           : sttrh  %wzr -> -0x01(%sp)[2byte]
+781fffff : strh   wzr, [sp,#-1]!          : strh   %wzr %sp $0xffffffffffffffff -> -0x01(%sp)[2byte] %sp
+78234841 : strh   w1, [x2,w3,uxtw]        : strh   %w1 -> (%x2,%x3,uxtw)[2byte]
+78235841 : strh   w1, [x2,w3,uxtw #1]     : strh   %w1 -> (%x2,%x3,uxtw #1)[2byte]
+78236841 : strh   w1, [x2,x3]             : strh   %w1 -> (%x2,%x3)[2byte]
+78237841 : strh   w1, [x2,x3,lsl #1]      : strh   %w1 -> (%x2,%x3,uxtx #1)[2byte]
+7823c841 : strh   w1, [x2,w3,sxtw]        : strh   %w1 -> (%x2,%x3,sxtw)[2byte]
+7823d841 : strh   w1, [x2,w3,sxtw #1]     : strh   %w1 -> (%x2,%x3,sxtw #1)[2byte]
+7823e841 : strh   w1, [x2,x3,sxtx]        : strh   %w1 -> (%x2,%x3,sxtx)[2byte]
+7823f841 : strh   w1, [x2,x3,sxtx #1]     : strh   %w1 -> (%x2,%x3,sxtx #1)[2byte]
+783f4bff : strh   wzr, [sp,wzr,uxtw]      : strh   %wzr -> (%sp,%xzr,uxtw)[2byte]
+783f5bff : strh   wzr, [sp,wzr,uxtw #1]   : strh   %wzr -> (%sp,%xzr,uxtw #1)[2byte]
+783f6bff : strh   wzr, [sp,xzr]           : strh   %wzr -> (%sp,%xzr)[2byte]
+783f7bff : strh   wzr, [sp,xzr,lsl #1]    : strh   %wzr -> (%sp,%xzr,uxtx #1)[2byte]
+783fcbff : strh   wzr, [sp,wzr,sxtw]      : strh   %wzr -> (%sp,%xzr,sxtw)[2byte]
+783fdbff : strh   wzr, [sp,wzr,sxtw #1]   : strh   %wzr -> (%sp,%xzr,sxtw #1)[2byte]
+783febff : strh   wzr, [sp,xzr,sxtx]      : strh   %wzr -> (%sp,%xzr,sxtx)[2byte]
+783ffbff : strh   wzr, [sp,xzr,sxtx #1]   : strh   %wzr -> (%sp,%xzr,sxtx #1)[2byte]
+78400400 : ldrh   w0, [x0],#0             : ldrh   (%x0)[2byte] %x0 $0x0000000000000000 -> %w0 %x0
+78400c00 : ldrh   w0, [x0,#0]!            : ldrh   (%x0)[2byte] %x0 $0x0000000000000000 -> %w0 %x0
+78481041 : ldurh  w1, [x2,#129]           : ldurh  +0x81(%x2)[2byte] -> %w1
+78481441 : ldrh   w1, [x2],#129           : ldrh   (%x2)[2byte] %x2 $0x0000000000000081 -> %w1 %x2
+78481841 : ldtrh  w1, [x2,#129]           : ldtrh  +0x81(%x2)[2byte] -> %w1
+78481c41 : ldrh   w1, [x2,#129]!          : ldrh   +0x81(%x2)[2byte] %x2 $0x0000000000000081 -> %w1 %x2
+785ff3ff : ldurh  wzr, [sp,#-1]           : ldurh  -0x01(%sp)[2byte] -> %wzr
+785ff7ff : ldrh   wzr, [sp],#-1           : ldrh   (%sp)[2byte] %sp $0xffffffffffffffff -> %wzr %sp
+785ffbff : ldtrh  wzr, [sp,#-1]           : ldtrh  -0x01(%sp)[2byte] -> %wzr
+785fffff : ldrh   wzr, [sp,#-1]!          : ldrh   -0x01(%sp)[2byte] %sp $0xffffffffffffffff -> %wzr %sp
+78634841 : ldrh   w1, [x2,w3,uxtw]        : ldrh   (%x2,%x3,uxtw)[2byte] -> %w1
+78635841 : ldrh   w1, [x2,w3,uxtw #1]     : ldrh   (%x2,%x3,uxtw #1)[2byte] -> %w1
+78636841 : ldrh   w1, [x2,x3]             : ldrh   (%x2,%x3)[2byte] -> %w1
+78637841 : ldrh   w1, [x2,x3,lsl #1]      : ldrh   (%x2,%x3,uxtx #1)[2byte] -> %w1
+7863c841 : ldrh   w1, [x2,w3,sxtw]        : ldrh   (%x2,%x3,sxtw)[2byte] -> %w1
+7863d841 : ldrh   w1, [x2,w3,sxtw #1]     : ldrh   (%x2,%x3,sxtw #1)[2byte] -> %w1
+7863e841 : ldrh   w1, [x2,x3,sxtx]        : ldrh   (%x2,%x3,sxtx)[2byte] -> %w1
+7863f841 : ldrh   w1, [x2,x3,sxtx #1]     : ldrh   (%x2,%x3,sxtx #1)[2byte] -> %w1
+787f4bff : ldrh   wzr, [sp,wzr,uxtw]      : ldrh   (%sp,%xzr,uxtw)[2byte] -> %wzr
+787f5bff : ldrh   wzr, [sp,wzr,uxtw #1]   : ldrh   (%sp,%xzr,uxtw #1)[2byte] -> %wzr
+787f6bff : ldrh   wzr, [sp,xzr]           : ldrh   (%sp,%xzr)[2byte] -> %wzr
+787f7bff : ldrh   wzr, [sp,xzr,lsl #1]    : ldrh   (%sp,%xzr,uxtx #1)[2byte] -> %wzr
+787fcbff : ldrh   wzr, [sp,wzr,sxtw]      : ldrh   (%sp,%xzr,sxtw)[2byte] -> %wzr
+787fdbff : ldrh   wzr, [sp,wzr,sxtw #1]   : ldrh   (%sp,%xzr,sxtw #1)[2byte] -> %wzr
+787febff : ldrh   wzr, [sp,xzr,sxtx]      : ldrh   (%sp,%xzr,sxtx)[2byte] -> %wzr
+787ffbff : ldrh   wzr, [sp,xzr,sxtx #1]   : ldrh   (%sp,%xzr,sxtx #1)[2byte] -> %wzr
+78800400 : ldrsh  x0, [x0],#0             : ldrsh  (%x0)[2byte] %x0 $0x0000000000000000 -> %x0 %x0
+78800c00 : ldrsh  x0, [x0,#0]!            : ldrsh  (%x0)[2byte] %x0 $0x0000000000000000 -> %x0 %x0
+78881041 : ldursh x1, [x2,#129]           : ldursh +0x81(%x2)[2byte] -> %x1
+78881441 : ldrsh  x1, [x2],#129           : ldrsh  (%x2)[2byte] %x2 $0x0000000000000081 -> %x1 %x2
+78881841 : ldtrsh x1, [x2,#129]           : ldtrsh +0x81(%x2)[2byte] -> %x1
+78881c41 : ldrsh  x1, [x2,#129]!          : ldrsh  +0x81(%x2)[2byte] %x2 $0x0000000000000081 -> %x1 %x2
+789ff3ff : ldursh xzr, [sp,#-1]           : ldursh -0x01(%sp)[2byte] -> %xzr
+789ff7ff : ldrsh  xzr, [sp],#-1           : ldrsh  (%sp)[2byte] %sp $0xffffffffffffffff -> %xzr %sp
+789ffbff : ldtrsh xzr, [sp,#-1]           : ldtrsh -0x01(%sp)[2byte] -> %xzr
+789fffff : ldrsh  xzr, [sp,#-1]!          : ldrsh  -0x01(%sp)[2byte] %sp $0xffffffffffffffff -> %xzr %sp
+78a34841 : ldrsh  x1, [x2,w3,uxtw]        : ldrsh  (%x2,%x3,uxtw)[2byte] -> %x1
+78a35841 : ldrsh  x1, [x2,w3,uxtw #1]     : ldrsh  (%x2,%x3,uxtw #1)[2byte] -> %x1
+78a36841 : ldrsh  x1, [x2,x3]             : ldrsh  (%x2,%x3)[2byte] -> %x1
+78a37841 : ldrsh  x1, [x2,x3,lsl #1]      : ldrsh  (%x2,%x3,uxtx #1)[2byte] -> %x1
+78a3c841 : ldrsh  x1, [x2,w3,sxtw]        : ldrsh  (%x2,%x3,sxtw)[2byte] -> %x1
+78a3d841 : ldrsh  x1, [x2,w3,sxtw #1]     : ldrsh  (%x2,%x3,sxtw #1)[2byte] -> %x1
+78a3e841 : ldrsh  x1, [x2,x3,sxtx]        : ldrsh  (%x2,%x3,sxtx)[2byte] -> %x1
+78a3f841 : ldrsh  x1, [x2,x3,sxtx #1]     : ldrsh  (%x2,%x3,sxtx #1)[2byte] -> %x1
+78bf4bff : ldrsh  xzr, [sp,wzr,uxtw]      : ldrsh  (%sp,%xzr,uxtw)[2byte] -> %xzr
+78bf5bff : ldrsh  xzr, [sp,wzr,uxtw #1]   : ldrsh  (%sp,%xzr,uxtw #1)[2byte] -> %xzr
+78bf6bff : ldrsh  xzr, [sp,xzr]           : ldrsh  (%sp,%xzr)[2byte] -> %xzr
+78bf7bff : ldrsh  xzr, [sp,xzr,lsl #1]    : ldrsh  (%sp,%xzr,uxtx #1)[2byte] -> %xzr
+78bfcbff : ldrsh  xzr, [sp,wzr,sxtw]      : ldrsh  (%sp,%xzr,sxtw)[2byte] -> %xzr
+78bfdbff : ldrsh  xzr, [sp,wzr,sxtw #1]   : ldrsh  (%sp,%xzr,sxtw #1)[2byte] -> %xzr
+78bfebff : ldrsh  xzr, [sp,xzr,sxtx]      : ldrsh  (%sp,%xzr,sxtx)[2byte] -> %xzr
+78bffbff : ldrsh  xzr, [sp,xzr,sxtx #1]   : ldrsh  (%sp,%xzr,sxtx #1)[2byte] -> %xzr
+78c00400 : ldrsh  w0, [x0],#0             : ldrsh  (%x0)[2byte] %x0 $0x0000000000000000 -> %w0 %x0
+78c00c00 : ldrsh  w0, [x0,#0]!            : ldrsh  (%x0)[2byte] %x0 $0x0000000000000000 -> %w0 %x0
+78c81041 : ldursh w1, [x2,#129]           : ldursh +0x81(%x2)[2byte] -> %w1
+78c81441 : ldrsh  w1, [x2],#129           : ldrsh  (%x2)[2byte] %x2 $0x0000000000000081 -> %w1 %x2
+78c81841 : ldtrsh w1, [x2,#129]           : ldtrsh +0x81(%x2)[2byte] -> %w1
+78c81c41 : ldrsh  w1, [x2,#129]!          : ldrsh  +0x81(%x2)[2byte] %x2 $0x0000000000000081 -> %w1 %x2
+78dff3ff : ldursh wzr, [sp,#-1]           : ldursh -0x01(%sp)[2byte] -> %wzr
+78dff7ff : ldrsh  wzr, [sp],#-1           : ldrsh  (%sp)[2byte] %sp $0xffffffffffffffff -> %wzr %sp
+78dffbff : ldtrsh wzr, [sp,#-1]           : ldtrsh -0x01(%sp)[2byte] -> %wzr
+78dfffff : ldrsh  wzr, [sp,#-1]!          : ldrsh  -0x01(%sp)[2byte] %sp $0xffffffffffffffff -> %wzr %sp
+78e34841 : ldrsh  w1, [x2,w3,uxtw]        : ldrsh  (%x2,%x3,uxtw)[2byte] -> %w1
+78e35841 : ldrsh  w1, [x2,w3,uxtw #1]     : ldrsh  (%x2,%x3,uxtw #1)[2byte] -> %w1
+78e36841 : ldrsh  w1, [x2,x3]             : ldrsh  (%x2,%x3)[2byte] -> %w1
+78e37841 : ldrsh  w1, [x2,x3,lsl #1]      : ldrsh  (%x2,%x3,uxtx #1)[2byte] -> %w1
+78e3c841 : ldrsh  w1, [x2,w3,sxtw]        : ldrsh  (%x2,%x3,sxtw)[2byte] -> %w1
+78e3d841 : ldrsh  w1, [x2,w3,sxtw #1]     : ldrsh  (%x2,%x3,sxtw #1)[2byte] -> %w1
+78e3e841 : ldrsh  w1, [x2,x3,sxtx]        : ldrsh  (%x2,%x3,sxtx)[2byte] -> %w1
+78e3f841 : ldrsh  w1, [x2,x3,sxtx #1]     : ldrsh  (%x2,%x3,sxtx #1)[2byte] -> %w1
+78ff4bff : ldrsh  wzr, [sp,wzr,uxtw]      : ldrsh  (%sp,%xzr,uxtw)[2byte] -> %wzr
+78ff5bff : ldrsh  wzr, [sp,wzr,uxtw #1]   : ldrsh  (%sp,%xzr,uxtw #1)[2byte] -> %wzr
+78ff6bff : ldrsh  wzr, [sp,xzr]           : ldrsh  (%sp,%xzr)[2byte] -> %wzr
+78ff7bff : ldrsh  wzr, [sp,xzr,lsl #1]    : ldrsh  (%sp,%xzr,uxtx #1)[2byte] -> %wzr
+78ffcbff : ldrsh  wzr, [sp,wzr,sxtw]      : ldrsh  (%sp,%xzr,sxtw)[2byte] -> %wzr
+78ffdbff : ldrsh  wzr, [sp,wzr,sxtw #1]   : ldrsh  (%sp,%xzr,sxtw #1)[2byte] -> %wzr
+78ffebff : ldrsh  wzr, [sp,xzr,sxtx]      : ldrsh  (%sp,%xzr,sxtx)[2byte] -> %wzr
+78fffbff : ldrsh  wzr, [sp,xzr,sxtx #1]   : ldrsh  (%sp,%xzr,sxtx #1)[2byte] -> %wzr
+79081041 : strh   w1, [x2,#1032]          : strh   %w1 -> +0x0408(%x2)[2byte]
+793fffff : strh   wzr, [sp,#8190]         : strh   %wzr -> +0x1ffe(%sp)[2byte]
+79481041 : ldrh   w1, [x2,#1032]          : ldrh   +0x0408(%x2)[2byte] -> %w1
+797fffff : ldrh   wzr, [sp,#8190]         : ldrh   +0x1ffe(%sp)[2byte] -> %wzr
+79881041 : ldrsh  x1, [x2,#1032]          : ldrsh  +0x0408(%x2)[2byte] -> %x1
+79bfffff : ldrsh  xzr, [sp,#8190]         : ldrsh  +0x1ffe(%sp)[2byte] -> %xzr
+79c81041 : ldrsh  w1, [x2,#1032]          : ldrsh  +0x0408(%x2)[2byte] -> %w1
+79ffffff : ldrsh  wzr, [sp,#8190]         : ldrsh  +0x1ffe(%sp)[2byte] -> %wzr
+7c000400 : str    h0, [x0],#0             : str    %h0 %x0 $0x0000000000000000 -> (%x0)[2byte] %x0
+7c000c00 : str    h0, [x0,#0]!            : str    %h0 %x0 $0x0000000000000000 -> (%x0)[2byte] %x0
+7c081041 : stur   h1, [x2,#129]           : stur   %h1 -> +0x81(%x2)[2byte]
+7c081441 : str    h1, [x2],#129           : str    %h1 %x2 $0x0000000000000081 -> (%x2)[2byte] %x2
+7c081c41 : str    h1, [x2,#129]!          : str    %h1 %x2 $0x0000000000000081 -> +0x81(%x2)[2byte] %x2
+7c1ff3ff : stur   h31, [sp,#-1]           : stur   %h31 -> -0x01(%sp)[2byte]
+7c1ff7ff : str    h31, [sp],#-1           : str    %h31 %sp $0xffffffffffffffff -> (%sp)[2byte] %sp
+7c1fffff : str    h31, [sp,#-1]!          : str    %h31 %sp $0xffffffffffffffff -> -0x01(%sp)[2byte] %sp
+7c234841 : str    h1, [x2,w3,uxtw]        : str    %h1 -> (%x2,%x3,uxtw)[2byte]
+7c235841 : str    h1, [x2,w3,uxtw #1]     : str    %h1 -> (%x2,%x3,uxtw #1)[2byte]
+7c236841 : str    h1, [x2,x3]             : str    %h1 -> (%x2,%x3)[2byte]
+7c237841 : str    h1, [x2,x3,lsl #1]      : str    %h1 -> (%x2,%x3,uxtx #1)[2byte]
+7c23c841 : str    h1, [x2,w3,sxtw]        : str    %h1 -> (%x2,%x3,sxtw)[2byte]
+7c23d841 : str    h1, [x2,w3,sxtw #1]     : str    %h1 -> (%x2,%x3,sxtw #1)[2byte]
+7c23e841 : str    h1, [x2,x3,sxtx]        : str    %h1 -> (%x2,%x3,sxtx)[2byte]
+7c23f841 : str    h1, [x2,x3,sxtx #1]     : str    %h1 -> (%x2,%x3,sxtx #1)[2byte]
+7c3f4bff : str    h31, [sp,wzr,uxtw]      : str    %h31 -> (%sp,%xzr,uxtw)[2byte]
+7c3f5bff : str    h31, [sp,wzr,uxtw #1]   : str    %h31 -> (%sp,%xzr,uxtw #1)[2byte]
+7c3f6bff : str    h31, [sp,xzr]           : str    %h31 -> (%sp,%xzr)[2byte]
+7c3f7bff : str    h31, [sp,xzr,lsl #1]    : str    %h31 -> (%sp,%xzr,uxtx #1)[2byte]
+7c3fcbff : str    h31, [sp,wzr,sxtw]      : str    %h31 -> (%sp,%xzr,sxtw)[2byte]
+7c3fdbff : str    h31, [sp,wzr,sxtw #1]   : str    %h31 -> (%sp,%xzr,sxtw #1)[2byte]
+7c3febff : str    h31, [sp,xzr,sxtx]      : str    %h31 -> (%sp,%xzr,sxtx)[2byte]
+7c3ffbff : str    h31, [sp,xzr,sxtx #1]   : str    %h31 -> (%sp,%xzr,sxtx #1)[2byte]
+7c400400 : ldr    h0, [x0],#0             : ldr    (%x0)[2byte] %x0 $0x0000000000000000 -> %h0 %x0
+7c400c00 : ldr    h0, [x0,#0]!            : ldr    (%x0)[2byte] %x0 $0x0000000000000000 -> %h0 %x0
+7c481041 : ldur   h1, [x2,#129]           : ldur   +0x81(%x2)[2byte] -> %h1
+7c481441 : ldr    h1, [x2],#129           : ldr    (%x2)[2byte] %x2 $0x0000000000000081 -> %h1 %x2
+7c481c41 : ldr    h1, [x2,#129]!          : ldr    +0x81(%x2)[2byte] %x2 $0x0000000000000081 -> %h1 %x2
+7c5ff3ff : ldur   h31, [sp,#-1]           : ldur   -0x01(%sp)[2byte] -> %h31
+7c5ff7ff : ldr    h31, [sp],#-1           : ldr    (%sp)[2byte] %sp $0xffffffffffffffff -> %h31 %sp
+7c5fffff : ldr    h31, [sp,#-1]!          : ldr    -0x01(%sp)[2byte] %sp $0xffffffffffffffff -> %h31 %sp
+7c634841 : ldr    h1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[2byte] -> %h1
+7c635841 : ldr    h1, [x2,w3,uxtw #1]     : ldr    (%x2,%x3,uxtw #1)[2byte] -> %h1
+7c636841 : ldr    h1, [x2,x3]             : ldr    (%x2,%x3)[2byte] -> %h1
+7c637841 : ldr    h1, [x2,x3,lsl #1]      : ldr    (%x2,%x3,uxtx #1)[2byte] -> %h1
+7c63c841 : ldr    h1, [x2,w3,sxtw]        : ldr    (%x2,%x3,sxtw)[2byte] -> %h1
+7c63d841 : ldr    h1, [x2,w3,sxtw #1]     : ldr    (%x2,%x3,sxtw #1)[2byte] -> %h1
+7c63e841 : ldr    h1, [x2,x3,sxtx]        : ldr    (%x2,%x3,sxtx)[2byte] -> %h1
+7c63f841 : ldr    h1, [x2,x3,sxtx #1]     : ldr    (%x2,%x3,sxtx #1)[2byte] -> %h1
+7c7f4bff : ldr    h31, [sp,wzr,uxtw]      : ldr    (%sp,%xzr,uxtw)[2byte] -> %h31
+7c7f5bff : ldr    h31, [sp,wzr,uxtw #1]   : ldr    (%sp,%xzr,uxtw #1)[2byte] -> %h31
+7c7f6bff : ldr    h31, [sp,xzr]           : ldr    (%sp,%xzr)[2byte] -> %h31
+7c7f7bff : ldr    h31, [sp,xzr,lsl #1]    : ldr    (%sp,%xzr,uxtx #1)[2byte] -> %h31
+7c7fcbff : ldr    h31, [sp,wzr,sxtw]      : ldr    (%sp,%xzr,sxtw)[2byte] -> %h31
+7c7fdbff : ldr    h31, [sp,wzr,sxtw #1]   : ldr    (%sp,%xzr,sxtw #1)[2byte] -> %h31
+7c7febff : ldr    h31, [sp,xzr,sxtx]      : ldr    (%sp,%xzr,sxtx)[2byte] -> %h31
+7c7ffbff : ldr    h31, [sp,xzr,sxtx #1]   : ldr    (%sp,%xzr,sxtx #1)[2byte] -> %h31
+7d081041 : str    h1, [x2,#1032]          : str    %h1 -> +0x0408(%x2)[2byte]
+7d3fffff : str    h31, [sp,#8190]         : str    %h31 -> +0x1ffe(%sp)[2byte]
+7d481041 : ldr    h1, [x2,#1032]          : ldr    +0x0408(%x2)[2byte] -> %h1
+7d7fffff : ldr    h31, [sp,#8190]         : ldr    +0x1ffe(%sp)[2byte] -> %h31
+88081041 : stxr   w8, w1, [x2]            : stxr   %w1 $0x04 -> (%x2)[4byte] %w8
+88089041 : stlxr  w8, w1, [x2]            : stlxr  %w1 $0x04 -> (%x2)[4byte] %w8
+881f7fff : stxr   wzr, wzr, [sp]          : stxr   %wzr $0x1f -> (%sp)[4byte] %wzr
+881fffff : stlxr  wzr, wzr, [sp]          : stlxr  %wzr $0x1f -> (%sp)[4byte] %wzr
+88281041 : stxp   w8, w1, w4, [x2]        : stxp   %w1 %w4 -> (%x2)[8byte] %w8
+88289041 : stlxp  w8, w1, w4, [x2]        : stlxp  %w1 %w4 -> (%x2)[8byte] %w8
+883f7fff : stxp   wzr, wzr, wzr, [sp]     : stxp   %wzr %wzr -> (%sp)[8byte] %wzr
+883fffff : stlxp  wzr, wzr, wzr, [sp]     : stlxp  %wzr %wzr -> (%sp)[8byte] %wzr
+88481041 : ldxr   w1, [x2]                : ldxr   (%x2)[4byte] $0x04 $0x08 -> %w1
+88489041 : ldaxr  w1, [x2]                : ldaxr  (%x2)[4byte] $0x04 $0x08 -> %w1
+885f7fff : ldxr   wzr, [sp]               : ldxr   (%sp)[4byte] $0x1f $0x1f -> %wzr
+885fffff : ldaxr  wzr, [sp]               : ldaxr  (%sp)[4byte] $0x1f $0x1f -> %wzr
+88681041 : ldxp   w1, w4, [x2]            : ldxp   (%x2)[8byte] $0x08 -> %w1 %w4
+88689041 : ldaxp  w1, w4, [x2]            : ldaxp  (%x2)[8byte] $0x08 -> %w1 %w4
+887f7fff : ldxp   wzr, wzr, [sp]          : ldxp   (%sp)[8byte] $0x1f -> %wzr %wzr
+887fffff : ldaxp  wzr, wzr, [sp]          : ldaxp  (%sp)[8byte] $0x1f -> %wzr %wzr
+88889041 : stlr   w1, [x2]                : stlr   %w1 $0x04 $0x08 -> (%x2)[4byte]
+889fffff : stlr   wzr, [sp]               : stlr   %wzr $0x1f $0x1f -> (%sp)[4byte]
+88dfffff : ldar   wzr, [sp]               : ldar   (%sp)[4byte] $0x1f $0x1f -> %wzr
+8a1fffff : and    xzr, xzr, xzr, lsl #63  : and    %xzr %xzr lsl $0x3f -> %xzr
+8a431041 : and    x1, x2, x3, lsr #4      : and    %x2 %x3 lsr $0x04 -> %x1
+8a631041 : bic    x1, x2, x3, lsr #4      : bic    %x2 %x3 lsr $0x04 -> %x1
+8adf13ff : and    xzr, xzr, xzr, ror #4   : and    %xzr %xzr ror $0x04 -> %xzr
+8aff13ff : bic    xzr, xzr, xzr, ror #4   : bic    %xzr %xzr ror $0x04 -> %xzr
+8b3f27ff : add    sp, sp, wzr, uxth #1    : add    %sp %xzr uxth $0x01 -> %sp
+8b431041 : add    x1, x2, x3, lsr #4      : add    %x2 %x3 lsr $0x04 -> %x1
+8b5fffff : add    xzr, xzr, xzr, lsr #63  : add    %xzr %xzr lsr $0x3f -> %xzr
+8b9f13ff : add    xzr, xzr, xzr, asr #4   : add    %xzr %xzr asr $0x04 -> %xzr
+90081041 : adrp   x1, 20208000            : adrp   <rel> 0x0000000020208000 -> %x1
+90800000 : adrp   x0, ffffffff10000000    : adrp   <rel> 0xffffffff10000000 -> %x0
+91000c41 : add    x1, x2, #0x3            : add    %x2 $0x0003 lsl $0x00 -> %x1
+91000fff : add    sp, sp, #0x3            : add    %sp $0x0003 lsl $0x00 -> %sp
+9201f041 : and    x1, x2, #0xaaaaaaaaaaaaaaaa: and    %x2 $0xaaaaaaaaaaaaaaaa -> %x1
+923ff041 : and    x1, x2, #0xaaaaaaaaaaaaaaaa: and    %x2 $0xaaaaaaaaaaaaaaaa $0x0ffc -> %x1
+92400441 : and    x1, x2, #0x3            : and    %x2 $0x0000000000000003 -> %x1
+92ffffff : mov    xzr, #0xffffffffffff    : movn   $0xffff lsl $0x30 -> %xzr
 94081041 : bl     10204104                : bl     $0x0000000010204104
+96000000 : bl     8000000                 : bl     $0x0000000008000000
 97ffffff : bl     ffffffc                 : bl     $0x000000000ffffffc
 98081041 : ldrsw  x1, 10010208            : ldrsw  <rel> 0x0000000010010208[4byte] -> %x1
+987fffff : ldrsw  xzr, 100ffffc           : ldrsw  <rel> 0x00000000100ffffc[4byte] -> %xzr
+98800000 : ldrsw  x0, ff00000             : ldrsw  <rel> 0x000000000ff00000[4byte] -> %x0
 98ffffff : ldrsw  xzr, ffffffc            : ldrsw  <rel> 0x000000000ffffffc[4byte] -> %xzr
-aa431041 : orr    x1, x2, x3, lsr #4      : orr    %x2 %x3 $0x01 $0x04 -> %x1
-aa631041 : orn    x1, x2, x3, lsr #4      : orn    %x2 %x3 $0x01 $0x04 -> %x1
-aadf13ff : mov    xzr, xzr                : orr    %xzr %xzr $0x03 $0x04 -> %xzr
-aaff13ff : mvn    xzr, xzr, ror #4        : orn    %xzr %xzr $0x03 $0x04 -> %xzr
-ab431041 : adds   x1, x2, x3, lsr #4      : adds   %x2 %x3 $0x01 $0x04 -> %x1
-ab9f13ff : cmn    xzr, xzr, asr #4        : adds   %xzr %xzr $0x02 $0x04 -> %xzr
-b1000c41 : adds   x1, x2, #0x3            : adds   %x2 $0x0003 $0x00 $0x00 -> %x1
-b1000fff : cmn    sp, #0x3                : adds   %sp $0x0003 $0x00 $0x00 -> %xzr
-b2400441 : orr    x1, x2, #0x3            : orr    %x2 $0x0000000000000003 $0x1001 -> %x1
+9c7fffff : ldr    q31, 100ffffc           : ldr    <rel> 0x00000000100ffffc[16byte] -> %q31
+9c800000 : ldr    q0, ff00000             : ldr    <rel> 0x000000000ff00000[16byte] -> %q0
+a8000000 : stnp   x0, x0, [x0]            : stnp   %x0 %x0 -> (%x0)[8byte]
+a83fffff : stnp   xzr, xzr, [sp,#-8]      : stnp   %xzr %xzr -> -0x08(%sp)[8byte]
+a8400000 : ldnp   x0, x0, [x0]            : ldnp   (%x0)[8byte] -> %x0 %x0
+a87fffff : ldnp   xzr, xzr, [sp,#-8]      : ldnp   -0x08(%sp)[8byte] -> %xzr %xzr
+a8800000 : stp    x0, x0, [x0],#0         : stp    %x0 %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+a8bfffff : stp    xzr, xzr, [sp],#-8      : stp    %xzr %xzr %sp $0xfffffffffffffff8 -> (%sp)[8byte] %sp
+a8c00000 : ldp    x0, x0, [x0],#0         : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+a8ffffff : ldp    xzr, xzr, [sp],#-8      : ldp    (%sp)[8byte] %sp $0xfffffffffffffff8 -> %xzr %xzr %sp
+a9000000 : stp    x0, x0, [x0]            : stp    %x0 %x0 -> (%x0)[8byte]
+a93fffff : stp    xzr, xzr, [sp,#-8]      : stp    %xzr %xzr -> -0x08(%sp)[8byte]
+a9400000 : ldp    x0, x0, [x0]            : ldp    (%x0)[8byte] -> %x0 %x0
+a97fffff : ldp    xzr, xzr, [sp,#-8]      : ldp    -0x08(%sp)[8byte] -> %xzr %xzr
+a9800000 : stp    x0, x0, [x0,#0]!        : stp    %x0 %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+a9bfffff : stp    xzr, xzr, [sp,#-8]!     : stp    %xzr %xzr %sp $0xfffffffffffffff8 -> -0x08(%sp)[8byte] %sp
+a9c00000 : ldp    x0, x0, [x0,#0]!        : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+a9ffffff : ldp    xzr, xzr, [sp,#-8]!     : ldp    -0x08(%sp)[8byte] %sp $0xfffffffffffffff8 -> %xzr %xzr %sp
+aa431041 : orr    x1, x2, x3, lsr #4      : orr    %x2 %x3 lsr $0x04 -> %x1
+aa631041 : orn    x1, x2, x3, lsr #4      : orn    %x2 %x3 lsr $0x04 -> %x1
+aadf13ff : mov    xzr, xzr                : orr    %xzr %xzr ror $0x04 -> %xzr
+aaff13ff : mvn    xzr, xzr, ror #4        : orn    %xzr %xzr ror $0x04 -> %xzr
+aaffffff : mvn    xzr, xzr, ror #63       : orn    %xzr %xzr ror $0x3f -> %xzr
+ab431041 : adds   x1, x2, x3, lsr #4      : adds   %x2 %x3 lsr $0x04 -> %x1
+ab9f13ff : cmn    xzr, xzr, asr #4        : adds   %xzr %xzr asr $0x04 -> %xzr
+ab9fffff : cmn    xzr, xzr, asr #63       : adds   %xzr %xzr asr $0x3f -> %xzr
+ac000000 : stnp   q0, q0, [x0]            : stnp   %q0 %q0 -> (%x0)[16byte]
+ac3fffff : stnp   q31, q31, [sp,#-16]     : stnp   %q31 %q31 -> -0x10(%sp)[16byte]
+ac400000 : ldnp   q0, q0, [x0]            : ldnp   (%x0)[16byte] -> %q0 %q0
+ac7fffff : ldnp   q31, q31, [sp,#-16]     : ldnp   -0x10(%sp)[16byte] -> %q31 %q31
+ac800000 : stp    q0, q0, [x0],#0         : stp    %q0 %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+acbfffff : stp    q31, q31, [sp],#-16     : stp    %q31 %q31 %sp $0xfffffffffffffff0 -> (%sp)[16byte] %sp
+acc00000 : ldp    q0, q0, [x0],#0         : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %q0 %x0
+acffffff : ldp    q31, q31, [sp],#-16     : ldp    (%sp)[16byte] %sp $0xfffffffffffffff0 -> %q31 %q31 %sp
+ad000000 : stp    q0, q0, [x0]            : stp    %q0 %q0 -> (%x0)[16byte]
+ad3fffff : stp    q31, q31, [sp,#-16]     : stp    %q31 %q31 -> -0x10(%sp)[16byte]
+ad400000 : ldp    q0, q0, [x0]            : ldp    (%x0)[16byte] -> %q0 %q0
+ad7fffff : ldp    q31, q31, [sp,#-16]     : ldp    -0x10(%sp)[16byte] -> %q31 %q31
+ad800000 : stp    q0, q0, [x0,#0]!        : stp    %q0 %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+adbfffff : stp    q31, q31, [sp,#-16]!    : stp    %q31 %q31 %sp $0xfffffffffffffff0 -> -0x10(%sp)[16byte] %sp
+adc00000 : ldp    q0, q0, [x0,#0]!        : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %q0 %x0
+adffffff : ldp    q31, q31, [sp,#-16]!    : ldp    -0x10(%sp)[16byte] %sp $0xfffffffffffffff0 -> %q31 %q31 %sp
+b1000c41 : adds   x1, x2, #0x3            : adds   %x2 $0x0003 lsl $0x00 -> %x1
+b1000fff : cmn    sp, #0x3                : adds   %sp $0x0003 lsl $0x00 -> %xzr
+b2400441 : orr    x1, x2, #0x3            : orr    %x2 $0x0000000000000003 -> %x1
 b4ffffff : cbz    xzr, ffffffc            : cbz    $0x000000000ffffffc %xzr
+b5800000 : cbnz   x0, ff00000             : cbnz   $0x000000000ff00000 %x0
 b5ffffff : cbnz   xzr, ffffffc            : cbnz   $0x000000000ffffffc %xzr
 b6ffffff : tbz    xzr, #63, ffffffc       : tbz    $0x000000000ffffffc %xzr $0x3f
+b7fc0000 : tbnz   x0, #63, fff8000        : tbnz   $0x000000000fff8000 %x0 $0x3f
 b7ffffff : tbnz   xzr, #63, ffffffc       : tbnz   $0x000000000ffffffc %xzr $0x3f
-ca431041 : eor    x1, x2, x3, lsr #4      : eor    %x2 %x3 $0x01 $0x04 -> %x1
-ca631041 : eon    x1, x2, x3, lsr #4      : eon    %x2 %x3 $0x01 $0x04 -> %x1
-cadf13ff : eor    xzr, xzr, xzr, ror #4   : eor    %xzr %xzr $0x03 $0x04 -> %xzr
-caff13ff : eon    xzr, xzr, xzr, ror #4   : eon    %xzr %xzr $0x03 $0x04 -> %xzr
-cb431041 : sub    x1, x2, x3, lsr #4      : sub    %x2 %x3 $0x01 $0x04 -> %x1
-cb9f13ff : neg    xzr, xzr, asr #4        : sub    %xzr %xzr $0x02 $0x04 -> %xzr
-d1000c41 : sub    x1, x2, #0x3            : sub    %x2 $0x0003 $0x00 $0x00 -> %x1
-d1000fff : sub    sp, sp, #0x3            : sub    %sp $0x0003 $0x00 $0x00 -> %sp
-d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 $0x1001 -> %x1
+b8000400 : str    w0, [x0],#0             : str    %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+b8000c00 : str    w0, [x0,#0]!            : str    %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+b8081041 : stur   w1, [x2,#129]           : stur   %w1 -> +0x81(%x2)[4byte]
+b8081441 : str    w1, [x2],#129           : str    %w1 %x2 $0x0000000000000081 -> (%x2)[4byte] %x2
+b8081841 : sttr   w1, [x2,#129]           : sttr   %w1 -> +0x81(%x2)[4byte]
+b8081c41 : str    w1, [x2,#129]!          : str    %w1 %x2 $0x0000000000000081 -> +0x81(%x2)[4byte] %x2
+b81ff3ff : stur   wzr, [sp,#-1]           : stur   %wzr -> -0x01(%sp)[4byte]
+b81ff7ff : str    wzr, [sp],#-1           : str    %wzr %sp $0xffffffffffffffff -> (%sp)[4byte] %sp
+b81ffbff : sttr   wzr, [sp,#-1]           : sttr   %wzr -> -0x01(%sp)[4byte]
+b81fffff : str    wzr, [sp,#-1]!          : str    %wzr %sp $0xffffffffffffffff -> -0x01(%sp)[4byte] %sp
+b8234841 : str    w1, [x2,w3,uxtw]        : str    %w1 -> (%x2,%x3,uxtw)[4byte]
+b8235841 : str    w1, [x2,w3,uxtw #2]     : str    %w1 -> (%x2,%x3,uxtw #2)[4byte]
+b8236841 : str    w1, [x2,x3]             : str    %w1 -> (%x2,%x3)[4byte]
+b8237841 : str    w1, [x2,x3,lsl #2]      : str    %w1 -> (%x2,%x3,uxtx #2)[4byte]
+b823c841 : str    w1, [x2,w3,sxtw]        : str    %w1 -> (%x2,%x3,sxtw)[4byte]
+b823d841 : str    w1, [x2,w3,sxtw #2]     : str    %w1 -> (%x2,%x3,sxtw #2)[4byte]
+b823e841 : str    w1, [x2,x3,sxtx]        : str    %w1 -> (%x2,%x3,sxtx)[4byte]
+b823f841 : str    w1, [x2,x3,sxtx #2]     : str    %w1 -> (%x2,%x3,sxtx #2)[4byte]
+b83f4bff : str    wzr, [sp,wzr,uxtw]      : str    %wzr -> (%sp,%xzr,uxtw)[4byte]
+b83f5bff : str    wzr, [sp,wzr,uxtw #2]   : str    %wzr -> (%sp,%xzr,uxtw #2)[4byte]
+b83f6bff : str    wzr, [sp,xzr]           : str    %wzr -> (%sp,%xzr)[4byte]
+b83f7bff : str    wzr, [sp,xzr,lsl #2]    : str    %wzr -> (%sp,%xzr,uxtx #2)[4byte]
+b83fcbff : str    wzr, [sp,wzr,sxtw]      : str    %wzr -> (%sp,%xzr,sxtw)[4byte]
+b83fdbff : str    wzr, [sp,wzr,sxtw #2]   : str    %wzr -> (%sp,%xzr,sxtw #2)[4byte]
+b83febff : str    wzr, [sp,xzr,sxtx]      : str    %wzr -> (%sp,%xzr,sxtx)[4byte]
+b83ffbff : str    wzr, [sp,xzr,sxtx #2]   : str    %wzr -> (%sp,%xzr,sxtx #2)[4byte]
+b8400400 : ldr    w0, [x0],#0             : ldr    (%x0)[4byte] %x0 $0x0000000000000000 -> %w0 %x0
+b8400c00 : ldr    w0, [x0,#0]!            : ldr    (%x0)[4byte] %x0 $0x0000000000000000 -> %w0 %x0
+b8481041 : ldur   w1, [x2,#129]           : ldur   +0x81(%x2)[4byte] -> %w1
+b8481441 : ldr    w1, [x2],#129           : ldr    (%x2)[4byte] %x2 $0x0000000000000081 -> %w1 %x2
+b8481841 : ldtr   w1, [x2,#129]           : ldtr   +0x81(%x2)[4byte] -> %w1
+b8481c41 : ldr    w1, [x2,#129]!          : ldr    +0x81(%x2)[4byte] %x2 $0x0000000000000081 -> %w1 %x2
+b85ff3ff : ldur   wzr, [sp,#-1]           : ldur   -0x01(%sp)[4byte] -> %wzr
+b85ff7ff : ldr    wzr, [sp],#-1           : ldr    (%sp)[4byte] %sp $0xffffffffffffffff -> %wzr %sp
+b85ffbff : ldtr   wzr, [sp,#-1]           : ldtr   -0x01(%sp)[4byte] -> %wzr
+b85fffff : ldr    wzr, [sp,#-1]!          : ldr    -0x01(%sp)[4byte] %sp $0xffffffffffffffff -> %wzr %sp
+b8634841 : ldr    w1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[4byte] -> %w1
+b8635841 : ldr    w1, [x2,w3,uxtw #2]     : ldr    (%x2,%x3,uxtw #2)[4byte] -> %w1
+b8636841 : ldr    w1, [x2,x3]             : ldr    (%x2,%x3)[4byte] -> %w1
+b8637841 : ldr    w1, [x2,x3,lsl #2]      : ldr    (%x2,%x3,uxtx #2)[4byte] -> %w1
+b863c841 : ldr    w1, [x2,w3,sxtw]        : ldr    (%x2,%x3,sxtw)[4byte] -> %w1
+b863d841 : ldr    w1, [x2,w3,sxtw #2]     : ldr    (%x2,%x3,sxtw #2)[4byte] -> %w1
+b863e841 : ldr    w1, [x2,x3,sxtx]        : ldr    (%x2,%x3,sxtx)[4byte] -> %w1
+b863f841 : ldr    w1, [x2,x3,sxtx #2]     : ldr    (%x2,%x3,sxtx #2)[4byte] -> %w1
+b87f4bff : ldr    wzr, [sp,wzr,uxtw]      : ldr    (%sp,%xzr,uxtw)[4byte] -> %wzr
+b87f5bff : ldr    wzr, [sp,wzr,uxtw #2]   : ldr    (%sp,%xzr,uxtw #2)[4byte] -> %wzr
+b87f6bff : ldr    wzr, [sp,xzr]           : ldr    (%sp,%xzr)[4byte] -> %wzr
+b87f7bff : ldr    wzr, [sp,xzr,lsl #2]    : ldr    (%sp,%xzr,uxtx #2)[4byte] -> %wzr
+b87fcbff : ldr    wzr, [sp,wzr,sxtw]      : ldr    (%sp,%xzr,sxtw)[4byte] -> %wzr
+b87fdbff : ldr    wzr, [sp,wzr,sxtw #2]   : ldr    (%sp,%xzr,sxtw #2)[4byte] -> %wzr
+b87febff : ldr    wzr, [sp,xzr,sxtx]      : ldr    (%sp,%xzr,sxtx)[4byte] -> %wzr
+b87ffbff : ldr    wzr, [sp,xzr,sxtx #2]   : ldr    (%sp,%xzr,sxtx #2)[4byte] -> %wzr
+b8800400 : ldrsw  x0, [x0],#0             : ldrsw  (%x0)[4byte] %x0 $0x0000000000000000 -> %x0 %x0
+b8800c00 : ldrsw  x0, [x0,#0]!            : ldrsw  (%x0)[4byte] %x0 $0x0000000000000000 -> %x0 %x0
+b8881041 : ldursw x1, [x2,#129]           : ldursw +0x81(%x2)[4byte] -> %x1
+b8881441 : ldrsw  x1, [x2],#129           : ldrsw  (%x2)[4byte] %x2 $0x0000000000000081 -> %x1 %x2
+b8881841 : ldtrsw x1, [x2,#129]           : ldtrsw +0x81(%x2)[4byte] -> %x1
+b8881c41 : ldrsw  x1, [x2,#129]!          : ldrsw  +0x81(%x2)[4byte] %x2 $0x0000000000000081 -> %x1 %x2
+b89ff3ff : ldursw xzr, [sp,#-1]           : ldursw -0x01(%sp)[4byte] -> %xzr
+b89ff7ff : ldrsw  xzr, [sp],#-1           : ldrsw  (%sp)[4byte] %sp $0xffffffffffffffff -> %xzr %sp
+b89ffbff : ldtrsw xzr, [sp,#-1]           : ldtrsw -0x01(%sp)[4byte] -> %xzr
+b89fffff : ldrsw  xzr, [sp,#-1]!          : ldrsw  -0x01(%sp)[4byte] %sp $0xffffffffffffffff -> %xzr %sp
+b8a34841 : ldrsw  x1, [x2,w3,uxtw]        : ldrsw  (%x2,%x3,uxtw)[4byte] -> %x1
+b8a35841 : ldrsw  x1, [x2,w3,uxtw #2]     : ldrsw  (%x2,%x3,uxtw #2)[4byte] -> %x1
+b8a36841 : ldrsw  x1, [x2,x3]             : ldrsw  (%x2,%x3)[4byte] -> %x1
+b8a37841 : ldrsw  x1, [x2,x3,lsl #2]      : ldrsw  (%x2,%x3,uxtx #2)[4byte] -> %x1
+b8a3c841 : ldrsw  x1, [x2,w3,sxtw]        : ldrsw  (%x2,%x3,sxtw)[4byte] -> %x1
+b8a3d841 : ldrsw  x1, [x2,w3,sxtw #2]     : ldrsw  (%x2,%x3,sxtw #2)[4byte] -> %x1
+b8a3e841 : ldrsw  x1, [x2,x3,sxtx]        : ldrsw  (%x2,%x3,sxtx)[4byte] -> %x1
+b8a3f841 : ldrsw  x1, [x2,x3,sxtx #2]     : ldrsw  (%x2,%x3,sxtx #2)[4byte] -> %x1
+b8bf4bff : ldrsw  xzr, [sp,wzr,uxtw]      : ldrsw  (%sp,%xzr,uxtw)[4byte] -> %xzr
+b8bf5bff : ldrsw  xzr, [sp,wzr,uxtw #2]   : ldrsw  (%sp,%xzr,uxtw #2)[4byte] -> %xzr
+b8bf6bff : ldrsw  xzr, [sp,xzr]           : ldrsw  (%sp,%xzr)[4byte] -> %xzr
+b8bf7bff : ldrsw  xzr, [sp,xzr,lsl #2]    : ldrsw  (%sp,%xzr,uxtx #2)[4byte] -> %xzr
+b8bfcbff : ldrsw  xzr, [sp,wzr,sxtw]      : ldrsw  (%sp,%xzr,sxtw)[4byte] -> %xzr
+b8bfdbff : ldrsw  xzr, [sp,wzr,sxtw #2]   : ldrsw  (%sp,%xzr,sxtw #2)[4byte] -> %xzr
+b8bfebff : ldrsw  xzr, [sp,xzr,sxtx]      : ldrsw  (%sp,%xzr,sxtx)[4byte] -> %xzr
+b8bffbff : ldrsw  xzr, [sp,xzr,sxtx #2]   : ldrsw  (%sp,%xzr,sxtx #2)[4byte] -> %xzr
+b9081041 : str    w1, [x2,#2064]          : str    %w1 -> +0x0810(%x2)[4byte]
+b93fffff : str    wzr, [sp,#16380]        : str    %wzr -> +0x3ffc(%sp)[4byte]
+b9481041 : ldr    w1, [x2,#2064]          : ldr    +0x0810(%x2)[4byte] -> %w1
+b97fffff : ldr    wzr, [sp,#16380]        : ldr    +0x3ffc(%sp)[4byte] -> %wzr
+b9881041 : ldrsw  x1, [x2,#2064]          : ldrsw  +0x0810(%x2)[4byte] -> %x1
+b9bfffff : ldrsw  xzr, [sp,#16380]        : ldrsw  +0x3ffc(%sp)[4byte] -> %xzr
+bc000400 : str    s0, [x0],#0             : str    %s0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+bc000c00 : str    s0, [x0,#0]!            : str    %s0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+bc081041 : stur   s1, [x2,#129]           : stur   %s1 -> +0x81(%x2)[4byte]
+bc081441 : str    s1, [x2],#129           : str    %s1 %x2 $0x0000000000000081 -> (%x2)[4byte] %x2
+bc081c41 : str    s1, [x2,#129]!          : str    %s1 %x2 $0x0000000000000081 -> +0x81(%x2)[4byte] %x2
+bc1ff3ff : stur   s31, [sp,#-1]           : stur   %s31 -> -0x01(%sp)[4byte]
+bc1ff7ff : str    s31, [sp],#-1           : str    %s31 %sp $0xffffffffffffffff -> (%sp)[4byte] %sp
+bc1fffff : str    s31, [sp,#-1]!          : str    %s31 %sp $0xffffffffffffffff -> -0x01(%sp)[4byte] %sp
+bc234841 : str    s1, [x2,w3,uxtw]        : str    %s1 -> (%x2,%x3,uxtw)[4byte]
+bc235841 : str    s1, [x2,w3,uxtw #2]     : str    %s1 -> (%x2,%x3,uxtw #2)[4byte]
+bc236841 : str    s1, [x2,x3]             : str    %s1 -> (%x2,%x3)[4byte]
+bc237841 : str    s1, [x2,x3,lsl #2]      : str    %s1 -> (%x2,%x3,uxtx #2)[4byte]
+bc23c841 : str    s1, [x2,w3,sxtw]        : str    %s1 -> (%x2,%x3,sxtw)[4byte]
+bc23d841 : str    s1, [x2,w3,sxtw #2]     : str    %s1 -> (%x2,%x3,sxtw #2)[4byte]
+bc23e841 : str    s1, [x2,x3,sxtx]        : str    %s1 -> (%x2,%x3,sxtx)[4byte]
+bc23f841 : str    s1, [x2,x3,sxtx #2]     : str    %s1 -> (%x2,%x3,sxtx #2)[4byte]
+bc3f4bff : str    s31, [sp,wzr,uxtw]      : str    %s31 -> (%sp,%xzr,uxtw)[4byte]
+bc3f5bff : str    s31, [sp,wzr,uxtw #2]   : str    %s31 -> (%sp,%xzr,uxtw #2)[4byte]
+bc3f6bff : str    s31, [sp,xzr]           : str    %s31 -> (%sp,%xzr)[4byte]
+bc3f7bff : str    s31, [sp,xzr,lsl #2]    : str    %s31 -> (%sp,%xzr,uxtx #2)[4byte]
+bc3fcbff : str    s31, [sp,wzr,sxtw]      : str    %s31 -> (%sp,%xzr,sxtw)[4byte]
+bc3fdbff : str    s31, [sp,wzr,sxtw #2]   : str    %s31 -> (%sp,%xzr,sxtw #2)[4byte]
+bc3febff : str    s31, [sp,xzr,sxtx]      : str    %s31 -> (%sp,%xzr,sxtx)[4byte]
+bc3ffbff : str    s31, [sp,xzr,sxtx #2]   : str    %s31 -> (%sp,%xzr,sxtx #2)[4byte]
+bc400400 : ldr    s0, [x0],#0             : ldr    (%x0)[4byte] %x0 $0x0000000000000000 -> %s0 %x0
+bc400c00 : ldr    s0, [x0,#0]!            : ldr    (%x0)[4byte] %x0 $0x0000000000000000 -> %s0 %x0
+bc481041 : ldur   s1, [x2,#129]           : ldur   +0x81(%x2)[4byte] -> %s1
+bc481441 : ldr    s1, [x2],#129           : ldr    (%x2)[4byte] %x2 $0x0000000000000081 -> %s1 %x2
+bc481c41 : ldr    s1, [x2,#129]!          : ldr    +0x81(%x2)[4byte] %x2 $0x0000000000000081 -> %s1 %x2
+bc5ff3ff : ldur   s31, [sp,#-1]           : ldur   -0x01(%sp)[4byte] -> %s31
+bc5ff7ff : ldr    s31, [sp],#-1           : ldr    (%sp)[4byte] %sp $0xffffffffffffffff -> %s31 %sp
+bc5fffff : ldr    s31, [sp,#-1]!          : ldr    -0x01(%sp)[4byte] %sp $0xffffffffffffffff -> %s31 %sp
+bc634841 : ldr    s1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[4byte] -> %s1
+bc635841 : ldr    s1, [x2,w3,uxtw #2]     : ldr    (%x2,%x3,uxtw #2)[4byte] -> %s1
+bc636841 : ldr    s1, [x2,x3]             : ldr    (%x2,%x3)[4byte] -> %s1
+bc637841 : ldr    s1, [x2,x3,lsl #2]      : ldr    (%x2,%x3,uxtx #2)[4byte] -> %s1
+bc63c841 : ldr    s1, [x2,w3,sxtw]        : ldr    (%x2,%x3,sxtw)[4byte] -> %s1
+bc63d841 : ldr    s1, [x2,w3,sxtw #2]     : ldr    (%x2,%x3,sxtw #2)[4byte] -> %s1
+bc63e841 : ldr    s1, [x2,x3,sxtx]        : ldr    (%x2,%x3,sxtx)[4byte] -> %s1
+bc63f841 : ldr    s1, [x2,x3,sxtx #2]     : ldr    (%x2,%x3,sxtx #2)[4byte] -> %s1
+bc7f4bff : ldr    s31, [sp,wzr,uxtw]      : ldr    (%sp,%xzr,uxtw)[4byte] -> %s31
+bc7f5bff : ldr    s31, [sp,wzr,uxtw #2]   : ldr    (%sp,%xzr,uxtw #2)[4byte] -> %s31
+bc7f6bff : ldr    s31, [sp,xzr]           : ldr    (%sp,%xzr)[4byte] -> %s31
+bc7f7bff : ldr    s31, [sp,xzr,lsl #2]    : ldr    (%sp,%xzr,uxtx #2)[4byte] -> %s31
+bc7fcbff : ldr    s31, [sp,wzr,sxtw]      : ldr    (%sp,%xzr,sxtw)[4byte] -> %s31
+bc7fdbff : ldr    s31, [sp,wzr,sxtw #2]   : ldr    (%sp,%xzr,sxtw #2)[4byte] -> %s31
+bc7febff : ldr    s31, [sp,xzr,sxtx]      : ldr    (%sp,%xzr,sxtx)[4byte] -> %s31
+bc7ffbff : ldr    s31, [sp,xzr,sxtx #2]   : ldr    (%sp,%xzr,sxtx #2)[4byte] -> %s31
+bd081041 : str    s1, [x2,#2064]          : str    %s1 -> +0x0810(%x2)[4byte]
+bd3fffff : str    s31, [sp,#16380]        : str    %s31 -> +0x3ffc(%sp)[4byte]
+bd481041 : ldr    s1, [x2,#2064]          : ldr    +0x0810(%x2)[4byte] -> %s1
+bd7fffff : ldr    s31, [sp,#16380]        : ldr    +0x3ffc(%sp)[4byte] -> %s31
+c8081041 : stxr   w8, x1, [x2]            : stxr   %x1 $0x04 -> (%x2)[8byte] %w8
+c8089041 : stlxr  w8, x1, [x2]            : stlxr  %x1 $0x04 -> (%x2)[8byte] %w8
+c81f7fff : stxr   wzr, xzr, [sp]          : stxr   %xzr $0x1f -> (%sp)[8byte] %wzr
+c81fffff : stlxr  wzr, xzr, [sp]          : stlxr  %xzr $0x1f -> (%sp)[8byte] %wzr
+c8281041 : stxp   w8, x1, x4, [x2]        : stxp   %x1 %x4 -> (%x2)[16byte] %w8
+c8289041 : stlxp  w8, x1, x4, [x2]        : stlxp  %x1 %x4 -> (%x2)[16byte] %w8
+c83f7fff : stxp   wzr, xzr, xzr, [sp]     : stxp   %xzr %xzr -> (%sp)[16byte] %wzr
+c83fffff : stlxp  wzr, xzr, xzr, [sp]     : stlxp  %xzr %xzr -> (%sp)[16byte] %wzr
+c8481041 : ldxr   x1, [x2]                : ldxr   (%x2)[8byte] $0x04 $0x08 -> %x1
+c8489041 : ldaxr  x1, [x2]                : ldaxr  (%x2)[8byte] $0x04 $0x08 -> %x1
+c85f7fff : ldxr   xzr, [sp]               : ldxr   (%sp)[8byte] $0x1f $0x1f -> %xzr
+c85fffff : ldaxr  xzr, [sp]               : ldaxr  (%sp)[8byte] $0x1f $0x1f -> %xzr
+c8681041 : ldxp   x1, x4, [x2]            : ldxp   (%x2)[16byte] $0x08 -> %x1 %x4
+c8689041 : ldaxp  x1, x4, [x2]            : ldaxp  (%x2)[16byte] $0x08 -> %x1 %x4
+c87f7fff : ldxp   xzr, xzr, [sp]          : ldxp   (%sp)[16byte] $0x1f -> %xzr %xzr
+c87fffff : ldaxp  xzr, xzr, [sp]          : ldaxp  (%sp)[16byte] $0x1f -> %xzr %xzr
+c8889041 : stlr   x1, [x2]                : stlr   %x1 $0x04 $0x08 -> (%x2)[8byte]
+c89fffff : stlr   xzr, [sp]               : stlr   %xzr $0x1f $0x1f -> (%sp)[8byte]
+c8dfffff : ldar   xzr, [sp]               : ldar   (%sp)[8byte] $0x1f $0x1f -> %xzr
+ca431041 : eor    x1, x2, x3, lsr #4      : eor    %x2 %x3 lsr $0x04 -> %x1
+ca631041 : eon    x1, x2, x3, lsr #4      : eon    %x2 %x3 lsr $0x04 -> %x1
+ca7f7fff : eon    xzr, xzr, xzr, lsr #31  : eon    %xzr %xzr lsr $0x1f -> %xzr
+cadf13ff : eor    xzr, xzr, xzr, ror #4   : eor    %xzr %xzr ror $0x04 -> %xzr
+caff13ff : eon    xzr, xzr, xzr, ror #4   : eon    %xzr %xzr ror $0x04 -> %xzr
+cb031041 : sub    x1, x2, x3, lsl #4      : sub    %x2 %x3 lsl $0x04 -> %x1
+cb3f73ff : sub    sp, sp, xzr, lsl #4     : sub    %sp %xzr uxtx $0x04 -> %sp
+cb431041 : sub    x1, x2, x3, lsr #4      : sub    %x2 %x3 lsr $0x04 -> %x1
+cb9f13ff : neg    xzr, xzr, asr #4        : sub    %xzr %xzr asr $0x04 -> %xzr
+d1000c41 : sub    x1, x2, #0x3            : sub    %x2 $0x0003 lsl $0x00 -> %x1
+d1000fff : sub    sp, sp, #0x3            : sub    %sp $0x0003 lsl $0x00 -> %sp
+d13fffff : sub    sp, sp, #0xfff          : sub    %sp $0x0fff lsl $0x00 -> %sp
+d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x1
+d2ffffff : mov    xzr, #0xffff000000000000: movz   $0xffff lsl $0x30 -> %xzr
+d4000001 : svc    #0x0                    : svc    $0x0000
 d4081041 : svc    #0x4082                 : svc    $0x4082
 d41fffe1 : svc    #0xffff                 : svc    $0xffff
+d4200000 : brk    #0x0                    : brk    $0x0000
 d4281040 : brk    #0x4082                 : brk    $0x4082
 d43fffe0 : brk    #0xffff                 : brk    $0xffff
 d503201f : nop                            : nop
+d50330df : isb    #0x0                    : isb    $0x00
+d5033fdf : isb                            : isb    $0x0f
+d5080000 : sys    #0, C0, C0, #0, x0      : sys    $0x0000 %x0
+d50fffff : sys    #7, C15, C15, #7        : sys    $0x3fff %xzr
+d5100000 : msr    s2_0_c0_c0_0, x0        : msr    %x0 $0x0000
+d51b4201 : msr    nzcv, x1                : msr    %x1 -> %nzcv
+d51b4402 : msr    fpcr, x2                : msr    %x2 -> %fpcr
+d51b4423 : msr    fpsr, x3                : msr    %x3 -> %fpsr
+d51bd044 : msr    tpidr_el0, x4           : msr    %x4 -> %tpidr_el0
+d51fffff : msr    s3_7_c15_c15_7, xzr     : msr    %xzr $0x7fff
+d5280000 : sysl   x0, #0, C0, C0, #0      : sys    $0x0000 -> %x0
+d52fffff : sysl   xzr, #7, C15, C15, #7   : sys    $0x3fff -> %xzr
+d5300000 : mrs    x0, s2_0_c0_c0_0        : mrs    $0x0000 -> %x0
+d53b4201 : mrs    x1, nzcv                : mrs    %nzcv -> %x1
+d53b4402 : mrs    x2, fpcr                : mrs    %fpcr -> %x2
+d53b4423 : mrs    x3, fpsr                : mrs    %fpsr -> %x3
+d53bd044 : mrs    x4, tpidr_el0           : mrs    %tpidr_el0 -> %x4
+d53fffff : mrs    xzr, s3_7_c15_c15_7     : mrs    $0x7fff -> %xzr
+d61f0000 : br     x0                      : br     %x0
 d61f0040 : br     x2                      : br     %x2
 d61f03e0 : br     xzr                     : br     %xzr
+d63f0000 : blr    x0                      : blr    %x0
 d63f0040 : blr    x2                      : blr    %x2
 d63f03e0 : blr    xzr                     : blr    %xzr
+d65f0000 : ret    x0                      : ret    %x0
 d65f0040 : ret    x2                      : ret    %x2
 d65f03e0 : ret    xzr                     : ret    %xzr
-ea431041 : ands   x1, x2, x3, lsr #4      : ands   %x2 %x3 $0x01 $0x04 -> %x1
-ea631041 : bics   x1, x2, x3, lsr #4      : bics   %x2 %x3 $0x01 $0x04 -> %x1
-eadf13ff : tst    xzr, xzr, ror #4        : ands   %xzr %xzr $0x03 $0x04 -> %xzr
-eaff13ff : bics   xzr, xzr, xzr, ror #4   : bics   %xzr %xzr $0x03 $0x04 -> %xzr
-eb431041 : subs   x1, x2, x3, lsr #4      : subs   %x2 %x3 $0x01 $0x04 -> %x1
-eb9f13ff : negs   xzr, xzr, asr #4        : subs   %xzr %xzr $0x02 $0x04 -> %xzr
-f1000c41 : subs   x1, x2, #0x3            : subs   %x2 $0x0003 $0x00 $0x00 -> %x1
-f1000fff : cmp    sp, #0x3                : subs   %sp $0x0003 $0x00 $0x00 -> %xzr
-f2400441 : ands   x1, x2, #0x3            : ands   %x2 $0x0000000000000003 $0x1001 -> %x1
+d87fffff : prfm   #0x1f, 100ffffc         : prfm   $0x1f <rel> 0x00000000100ffffc
+d8800000 : prfm   pldl1keep, ff00000      : prfm   $0x00 <rel> 0x000000000ff00000
+ea431041 : ands   x1, x2, x3, lsr #4      : ands   %x2 %x3 lsr $0x04 -> %x1
+ea631041 : bics   x1, x2, x3, lsr #4      : bics   %x2 %x3 lsr $0x04 -> %x1
+ea9fffff : tst    xzr, xzr, asr #63       : ands   %xzr %xzr asr $0x3f -> %xzr
+eadf13ff : tst    xzr, xzr, ror #4        : ands   %xzr %xzr ror $0x04 -> %xzr
+eaff13ff : bics   xzr, xzr, xzr, ror #4   : bics   %xzr %xzr ror $0x04 -> %xzr
+eb3fabff : cmp    sp, wzr, sxth #2        : subs   %sp %xzr sxth $0x02 -> %xzr
+eb3fe3ff : cmp    sp, xzr, sxtx           : subs   %sp %xzr sxtx $0x00 -> %xzr
+eb431041 : subs   x1, x2, x3, lsr #4      : subs   %x2 %x3 lsr $0x04 -> %x1
+eb5fffff : negs   xzr, xzr, lsr #63       : subs   %xzr %xzr lsr $0x3f -> %xzr
+eb9f13ff : negs   xzr, xzr, asr #4        : subs   %xzr %xzr asr $0x04 -> %xzr
+f07fffff : adrp   xzr, 10ffff000          : adrp   <rel> 0x000000010ffff000 -> %xzr
+f0ffffff : adrp   xzr, ffff000            : adrp   <rel> 0x000000000ffff000 -> %xzr
+f1000c41 : subs   x1, x2, #0x3            : subs   %x2 $0x0003 lsl $0x00 -> %x1
+f1000fff : cmp    sp, #0x3                : subs   %sp $0x0003 lsl $0x00 -> %xzr
+f16003ff : cmp    sp, #0x800, lsl #12     : subs   %sp $0x0800 lsl $0x10 -> %xzr
+f2400441 : ands   x1, x2, #0x3            : ands   %x2 $0x0000000000000003 -> %x1
+f2ffffff : movk   xzr, #0xffff, lsl #48   : movk   %xzr $0xffff lsl $0x30 -> %xzr
+f8000400 : str    x0, [x0],#0             : str    %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+f8000c00 : str    x0, [x0,#0]!            : str    %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+f8081041 : stur   x1, [x2,#129]           : stur   %x1 -> +0x81(%x2)[8byte]
+f8081441 : str    x1, [x2],#129           : str    %x1 %x2 $0x0000000000000081 -> (%x2)[8byte] %x2
+f8081841 : sttr   x1, [x2,#129]           : sttr   %x1 -> +0x81(%x2)[8byte]
+f8081c41 : str    x1, [x2,#129]!          : str    %x1 %x2 $0x0000000000000081 -> +0x81(%x2)[8byte] %x2
+f81ff3ff : stur   xzr, [sp,#-1]           : stur   %xzr -> -0x01(%sp)[8byte]
+f81ff7ff : str    xzr, [sp],#-1           : str    %xzr %sp $0xffffffffffffffff -> (%sp)[8byte] %sp
+f81ffbff : sttr   xzr, [sp,#-1]           : sttr   %xzr -> -0x01(%sp)[8byte]
+f81fffff : str    xzr, [sp,#-1]!          : str    %xzr %sp $0xffffffffffffffff -> -0x01(%sp)[8byte] %sp
+f8234841 : str    x1, [x2,w3,uxtw]        : str    %x1 -> (%x2,%x3,uxtw)[8byte]
+f8235841 : str    x1, [x2,w3,uxtw #3]     : str    %x1 -> (%x2,%x3,uxtw #3)[8byte]
+f8236841 : str    x1, [x2,x3]             : str    %x1 -> (%x2,%x3)[8byte]
+f8237841 : str    x1, [x2,x3,lsl #3]      : str    %x1 -> (%x2,%x3,uxtx #3)[8byte]
+f823c841 : str    x1, [x2,w3,sxtw]        : str    %x1 -> (%x2,%x3,sxtw)[8byte]
+f823d841 : str    x1, [x2,w3,sxtw #3]     : str    %x1 -> (%x2,%x3,sxtw #3)[8byte]
+f823e841 : str    x1, [x2,x3,sxtx]        : str    %x1 -> (%x2,%x3,sxtx)[8byte]
+f823f841 : str    x1, [x2,x3,sxtx #3]     : str    %x1 -> (%x2,%x3,sxtx #3)[8byte]
+f83f4bff : str    xzr, [sp,wzr,uxtw]      : str    %xzr -> (%sp,%xzr,uxtw)[8byte]
+f83f5bff : str    xzr, [sp,wzr,uxtw #3]   : str    %xzr -> (%sp,%xzr,uxtw #3)[8byte]
+f83f6bff : str    xzr, [sp,xzr]           : str    %xzr -> (%sp,%xzr)[8byte]
+f83f7bff : str    xzr, [sp,xzr,lsl #3]    : str    %xzr -> (%sp,%xzr,uxtx #3)[8byte]
+f83fcbff : str    xzr, [sp,wzr,sxtw]      : str    %xzr -> (%sp,%xzr,sxtw)[8byte]
+f83fdbff : str    xzr, [sp,wzr,sxtw #3]   : str    %xzr -> (%sp,%xzr,sxtw #3)[8byte]
+f83febff : str    xzr, [sp,xzr,sxtx]      : str    %xzr -> (%sp,%xzr,sxtx)[8byte]
+f83ffbff : str    xzr, [sp,xzr,sxtx #3]   : str    %xzr -> (%sp,%xzr,sxtx #3)[8byte]
+f8400400 : ldr    x0, [x0],#0             : ldr    (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0
+f8400c00 : ldr    x0, [x0,#0]!            : ldr    (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0
+f8481041 : ldur   x1, [x2,#129]           : ldur   +0x81(%x2)[8byte] -> %x1
+f8481441 : ldr    x1, [x2],#129           : ldr    (%x2)[8byte] %x2 $0x0000000000000081 -> %x1 %x2
+f8481841 : ldtr   x1, [x2,#129]           : ldtr   +0x81(%x2)[8byte] -> %x1
+f8481c41 : ldr    x1, [x2,#129]!          : ldr    +0x81(%x2)[8byte] %x2 $0x0000000000000081 -> %x1 %x2
+f85ff3ff : ldur   xzr, [sp,#-1]           : ldur   -0x01(%sp)[8byte] -> %xzr
+f85ff7ff : ldr    xzr, [sp],#-1           : ldr    (%sp)[8byte] %sp $0xffffffffffffffff -> %xzr %sp
+f85ffbff : ldtr   xzr, [sp,#-1]           : ldtr   -0x01(%sp)[8byte] -> %xzr
+f85fffff : ldr    xzr, [sp,#-1]!          : ldr    -0x01(%sp)[8byte] %sp $0xffffffffffffffff -> %xzr %sp
+f8634841 : ldr    x1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[8byte] -> %x1
+f8635841 : ldr    x1, [x2,w3,uxtw #3]     : ldr    (%x2,%x3,uxtw #3)[8byte] -> %x1
+f8636841 : ldr    x1, [x2,x3]             : ldr    (%x2,%x3)[8byte] -> %x1
+f8637841 : ldr    x1, [x2,x3,lsl #3]      : ldr    (%x2,%x3,uxtx #3)[8byte] -> %x1
+f863c841 : ldr    x1, [x2,w3,sxtw]        : ldr    (%x2,%x3,sxtw)[8byte] -> %x1
+f863d841 : ldr    x1, [x2,w3,sxtw #3]     : ldr    (%x2,%x3,sxtw #3)[8byte] -> %x1
+f863e841 : ldr    x1, [x2,x3,sxtx]        : ldr    (%x2,%x3,sxtx)[8byte] -> %x1
+f863f841 : ldr    x1, [x2,x3,sxtx #3]     : ldr    (%x2,%x3,sxtx #3)[8byte] -> %x1
+f87f4bff : ldr    xzr, [sp,wzr,uxtw]      : ldr    (%sp,%xzr,uxtw)[8byte] -> %xzr
+f87f5bff : ldr    xzr, [sp,wzr,uxtw #3]   : ldr    (%sp,%xzr,uxtw #3)[8byte] -> %xzr
+f87f6bff : ldr    xzr, [sp,xzr]           : ldr    (%sp,%xzr)[8byte] -> %xzr
+f87f7bff : ldr    xzr, [sp,xzr,lsl #3]    : ldr    (%sp,%xzr,uxtx #3)[8byte] -> %xzr
+f87fcbff : ldr    xzr, [sp,wzr,sxtw]      : ldr    (%sp,%xzr,sxtw)[8byte] -> %xzr
+f87fdbff : ldr    xzr, [sp,wzr,sxtw #3]   : ldr    (%sp,%xzr,sxtw #3)[8byte] -> %xzr
+f87febff : ldr    xzr, [sp,xzr,sxtx]      : ldr    (%sp,%xzr,sxtx)[8byte] -> %xzr
+f87ffbff : ldr    xzr, [sp,xzr,sxtx #3]   : ldr    (%sp,%xzr,sxtx #3)[8byte] -> %xzr
+f8800000 : prfum  pldl1keep, [x0]         : prfum  $0x00 (%x0)
+f8881041 : prfum  pldl1strm, [x2,#129]    : prfum  $0x01 +0x81(%x2)
+f89ff3ff : prfum  #0x1f, [sp,#-1]         : prfum  $0x1f -0x01(%sp)
+f8a34841 : prfm   pldl1strm, [x2,w3,uxtw] : prfm   $0x01 (%x2,%x3,uxtw)
+f8a35841 : prfm   pldl1strm, [x2,w3,uxtw #3]: prfm   $0x01 (%x2,%x3,uxtw #3)
+f8a36841 : prfm   pldl1strm, [x2,x3]      : prfm   $0x01 (%x2,%x3)
+f8a37841 : prfm   pldl1strm, [x2,x3,lsl #3]: prfm   $0x01 (%x2,%x3,uxtx #3)
+f8a3c841 : prfm   pldl1strm, [x2,w3,sxtw] : prfm   $0x01 (%x2,%x3,sxtw)
+f8a3d841 : prfm   pldl1strm, [x2,w3,sxtw #3]: prfm   $0x01 (%x2,%x3,sxtw #3)
+f8a3e841 : prfm   pldl1strm, [x2,x3,sxtx] : prfm   $0x01 (%x2,%x3,sxtx)
+f8a3f841 : prfm   pldl1strm, [x2,x3,sxtx #3]: prfm   $0x01 (%x2,%x3,sxtx #3)
+f8bf4bff : prfm   #0x1f, [sp,wzr,uxtw]    : prfm   $0x1f (%sp,%xzr,uxtw)
+f8bf5bff : prfm   #0x1f, [sp,wzr,uxtw #3] : prfm   $0x1f (%sp,%xzr,uxtw #3)
+f8bf6bff : prfm   #0x1f, [sp,xzr]         : prfm   $0x1f (%sp,%xzr)
+f8bf7bff : prfm   #0x1f, [sp,xzr,lsl #3]  : prfm   $0x1f (%sp,%xzr,uxtx #3)
+f8bfcbff : prfm   #0x1f, [sp,wzr,sxtw]    : prfm   $0x1f (%sp,%xzr,sxtw)
+f8bfdbff : prfm   #0x1f, [sp,wzr,sxtw #3] : prfm   $0x1f (%sp,%xzr,sxtw #3)
+f8bfebff : prfm   #0x1f, [sp,xzr,sxtx]    : prfm   $0x1f (%sp,%xzr,sxtx)
+f8bffbff : prfm   #0x1f, [sp,xzr,sxtx #3] : prfm   $0x1f (%sp,%xzr,sxtx #3)
+f9081041 : str    x1, [x2,#4128]          : str    %x1 -> +0x1020(%x2)[8byte]
+f93fffff : str    xzr, [sp,#32760]        : str    %xzr -> +0x7ff8(%sp)[8byte]
+f9481041 : ldr    x1, [x2,#4128]          : ldr    +0x1020(%x2)[8byte] -> %x1
+f97fffff : ldr    xzr, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %xzr
+f9881041 : prfm   pldl1strm, [x2,#4128]   : prfm   $0x01 +0x1020(%x2)
+f9bfffff : prfm   #0x1f, [sp,#32760]      : prfm   $0x1f +0x7ff8(%sp)
+fc000400 : str    d0, [x0],#0             : str    %d0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+fc000c00 : str    d0, [x0,#0]!            : str    %d0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+fc081041 : stur   d1, [x2,#129]           : stur   %d1 -> +0x81(%x2)[8byte]
+fc081441 : str    d1, [x2],#129           : str    %d1 %x2 $0x0000000000000081 -> (%x2)[8byte] %x2
+fc081c41 : str    d1, [x2,#129]!          : str    %d1 %x2 $0x0000000000000081 -> +0x81(%x2)[8byte] %x2
+fc1ff3ff : stur   d31, [sp,#-1]           : stur   %d31 -> -0x01(%sp)[8byte]
+fc1ff7ff : str    d31, [sp],#-1           : str    %d31 %sp $0xffffffffffffffff -> (%sp)[8byte] %sp
+fc1fffff : str    d31, [sp,#-1]!          : str    %d31 %sp $0xffffffffffffffff -> -0x01(%sp)[8byte] %sp
+fc234841 : str    d1, [x2,w3,uxtw]        : str    %d1 -> (%x2,%x3,uxtw)[8byte]
+fc235841 : str    d1, [x2,w3,uxtw #3]     : str    %d1 -> (%x2,%x3,uxtw #3)[8byte]
+fc236841 : str    d1, [x2,x3]             : str    %d1 -> (%x2,%x3)[8byte]
+fc237841 : str    d1, [x2,x3,lsl #3]      : str    %d1 -> (%x2,%x3,uxtx #3)[8byte]
+fc23c841 : str    d1, [x2,w3,sxtw]        : str    %d1 -> (%x2,%x3,sxtw)[8byte]
+fc23d841 : str    d1, [x2,w3,sxtw #3]     : str    %d1 -> (%x2,%x3,sxtw #3)[8byte]
+fc23e841 : str    d1, [x2,x3,sxtx]        : str    %d1 -> (%x2,%x3,sxtx)[8byte]
+fc23f841 : str    d1, [x2,x3,sxtx #3]     : str    %d1 -> (%x2,%x3,sxtx #3)[8byte]
+fc3f4bff : str    d31, [sp,wzr,uxtw]      : str    %d31 -> (%sp,%xzr,uxtw)[8byte]
+fc3f5bff : str    d31, [sp,wzr,uxtw #3]   : str    %d31 -> (%sp,%xzr,uxtw #3)[8byte]
+fc3f6bff : str    d31, [sp,xzr]           : str    %d31 -> (%sp,%xzr)[8byte]
+fc3f7bff : str    d31, [sp,xzr,lsl #3]    : str    %d31 -> (%sp,%xzr,uxtx #3)[8byte]
+fc3fcbff : str    d31, [sp,wzr,sxtw]      : str    %d31 -> (%sp,%xzr,sxtw)[8byte]
+fc3fdbff : str    d31, [sp,wzr,sxtw #3]   : str    %d31 -> (%sp,%xzr,sxtw #3)[8byte]
+fc3febff : str    d31, [sp,xzr,sxtx]      : str    %d31 -> (%sp,%xzr,sxtx)[8byte]
+fc3ffbff : str    d31, [sp,xzr,sxtx #3]   : str    %d31 -> (%sp,%xzr,sxtx #3)[8byte]
+fc400400 : ldr    d0, [x0],#0             : ldr    (%x0)[8byte] %x0 $0x0000000000000000 -> %d0 %x0
+fc400c00 : ldr    d0, [x0,#0]!            : ldr    (%x0)[8byte] %x0 $0x0000000000000000 -> %d0 %x0
+fc481041 : ldur   d1, [x2,#129]           : ldur   +0x81(%x2)[8byte] -> %d1
+fc481441 : ldr    d1, [x2],#129           : ldr    (%x2)[8byte] %x2 $0x0000000000000081 -> %d1 %x2
+fc481c41 : ldr    d1, [x2,#129]!          : ldr    +0x81(%x2)[8byte] %x2 $0x0000000000000081 -> %d1 %x2
+fc5ff3ff : ldur   d31, [sp,#-1]           : ldur   -0x01(%sp)[8byte] -> %d31
+fc5ff7ff : ldr    d31, [sp],#-1           : ldr    (%sp)[8byte] %sp $0xffffffffffffffff -> %d31 %sp
+fc5fffff : ldr    d31, [sp,#-1]!          : ldr    -0x01(%sp)[8byte] %sp $0xffffffffffffffff -> %d31 %sp
+fc634841 : ldr    d1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[8byte] -> %d1
+fc635841 : ldr    d1, [x2,w3,uxtw #3]     : ldr    (%x2,%x3,uxtw #3)[8byte] -> %d1
+fc636841 : ldr    d1, [x2,x3]             : ldr    (%x2,%x3)[8byte] -> %d1
+fc637841 : ldr    d1, [x2,x3,lsl #3]      : ldr    (%x2,%x3,uxtx #3)[8byte] -> %d1
+fc63c841 : ldr    d1, [x2,w3,sxtw]        : ldr    (%x2,%x3,sxtw)[8byte] -> %d1
+fc63d841 : ldr    d1, [x2,w3,sxtw #3]     : ldr    (%x2,%x3,sxtw #3)[8byte] -> %d1
+fc63e841 : ldr    d1, [x2,x3,sxtx]        : ldr    (%x2,%x3,sxtx)[8byte] -> %d1
+fc63f841 : ldr    d1, [x2,x3,sxtx #3]     : ldr    (%x2,%x3,sxtx #3)[8byte] -> %d1
+fc7f4bff : ldr    d31, [sp,wzr,uxtw]      : ldr    (%sp,%xzr,uxtw)[8byte] -> %d31
+fc7f5bff : ldr    d31, [sp,wzr,uxtw #3]   : ldr    (%sp,%xzr,uxtw #3)[8byte] -> %d31
+fc7f6bff : ldr    d31, [sp,xzr]           : ldr    (%sp,%xzr)[8byte] -> %d31
+fc7f7bff : ldr    d31, [sp,xzr,lsl #3]    : ldr    (%sp,%xzr,uxtx #3)[8byte] -> %d31
+fc7fcbff : ldr    d31, [sp,wzr,sxtw]      : ldr    (%sp,%xzr,sxtw)[8byte] -> %d31
+fc7fdbff : ldr    d31, [sp,wzr,sxtw #3]   : ldr    (%sp,%xzr,sxtw #3)[8byte] -> %d31
+fc7febff : ldr    d31, [sp,xzr,sxtx]      : ldr    (%sp,%xzr,sxtx)[8byte] -> %d31
+fc7ffbff : ldr    d31, [sp,xzr,sxtx #3]   : ldr    (%sp,%xzr,sxtx #3)[8byte] -> %d31
+fd081041 : str    d1, [x2,#4128]          : str    %d1 -> +0x1020(%x2)[8byte]
+fd3fffff : str    d31, [sp,#32760]        : str    %d31 -> +0x7ff8(%sp)[8byte]
+fd481041 : ldr    d1, [x2,#4128]          : ldr    +0x1020(%x2)[8byte] -> %d1
+fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
