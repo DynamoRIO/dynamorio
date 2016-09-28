@@ -201,3 +201,8 @@ droption_t<bytesize_t> op_sim_refs
  "Specifies the number of memory references simulated. "
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
+
+droption_t<unsigned int> op_report_top
+(DROPTION_SCOPE_FRONTEND, "report_top", 10,
+ "Number of top results to be reported",
+ "Specifies the number of top results to be reported.");

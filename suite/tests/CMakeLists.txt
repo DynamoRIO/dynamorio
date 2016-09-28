@@ -2420,6 +2420,14 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.multiproc_rawtemp ON) # no preprocessor
       endif ()
 
+      # Test other analysis tools
+      torunonly_ci(tool.histogram ${ci_shared_app} drcachesim
+        "histogram.c" # for templatex basename
+        "-ipc_name drtestpipe5 -simulator_type histogram" "" "")
+      set(tool.histogram_toolname "drcachesim")
+      set(tool.histogram_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+
       # Test offline traces.
       # XXX: we could exclude the pipe files and build the offline trace
       # support by itself for Android.

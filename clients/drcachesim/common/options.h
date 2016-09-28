@@ -41,6 +41,7 @@
 #define REPLACE_POLICY_FIFO                     "FIFO"
 #define CPU_CACHE                               "cache"
 #define TLB                                     "TLB"
+#define HISTOGRAM                               "histogram"
 
 #include <string>
 #include "droption.h"
@@ -79,5 +80,5 @@ extern droption_t<std::string> op_tracer_ops;
 extern droption_t<bytesize_t> op_skip_refs;
 extern droption_t<bytesize_t> op_warmup_refs;
 extern droption_t<bytesize_t> op_sim_refs;
-
+extern droption_t<unsigned int> op_report_top;
 #endif /* _OPTIONS_H_ */
