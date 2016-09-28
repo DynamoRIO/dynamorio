@@ -180,17 +180,15 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT int *mod_index, OUT app_pc *mo
      * and thus it is ok to check its value without a lock.
      */
     /* lookup thread module cache */
-    if (data->cache != NULL) {
-        for (i = 0; i < NUM_THREAD_MODULE_CACHE; i++) {
-            entry = data->cache[i];
-            if (pc_is_in_module(entry, pc)) {
-                if (i > 0) {
-                    thread_module_cache_adjust(data->cache, entry, i,
-                                               NUM_THREAD_MODULE_CACHE);
-                }
-                lookup_helper_set_fields(entry, mod_index, mod_base);
-                return DRCOVLIB_SUCCESS;
+    for (i = 0; i < NUM_THREAD_MODULE_CACHE; i++) {
+        entry = data->cache[i];
+        if (pc_is_in_module(entry, pc)) {
+            if (i > 0) {
+                thread_module_cache_adjust(data->cache, entry, i,
+                                           NUM_THREAD_MODULE_CACHE);
             }
+            lookup_helper_set_fields(entry, mod_index, mod_base);
+            return DRCOVLIB_SUCCESS;
         }
     }
     /* lookup global module cache */
@@ -210,8 +208,7 @@ drmodtrack_lookup(void *drcontext, app_pc pc, OUT int *mod_index, OUT app_pc *mo
         ASSERT(entry != NULL, "fail to get module entry");
         if (pc_is_in_module(entry, pc)) {
             global_module_cache_add(module_table.cache, entry);
-            if (data->cache != NULL)
-                thread_module_cache_add(data->cache, NUM_THREAD_MODULE_CACHE, entry);
+            thread_module_cache_add(data->cache, NUM_THREAD_MODULE_CACHE, entry);
             break;
         }
         entry = NULL;
@@ -226,7 +223,7 @@ static void
 event_module_unload(void *drcontext, const module_data_t *data)
 {
     module_entry_t *entry = NULL;
-    uint i;
+    int i;
     drvector_lock(&module_table.vector);
     for (i = module_table.vector.entries - 1; i >= 0; i--) {
         entry = drvector_get_entry(&module_table.vector, i);
