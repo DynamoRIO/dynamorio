@@ -62,7 +62,17 @@
         dr_fprintf(STDERR, __VA_ARGS__);   \
 } while (0)
 
+#ifdef WINDOWS
+# define DIRSEP '\\'
+# define IF_WINDOWS(x) x
+#else
+# define DIRSEP '/'
+# define IF_WINDOWS(x)
+#endif
+
 static char logsubdir[MAXIMUM_PATH];
+#define MODULE_FILENAME "modules.log"
+static file_t module_file;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -639,7 +649,9 @@ event_exit(void)
 {
     dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
     delete instru;
-    if (!op_offline.get_value())
+    if (op_offline.get_value())
+        dr_close_file(module_file);
+    else
         ipc_pipe.close();
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
@@ -658,6 +670,24 @@ event_exit(void)
     dr_mutex_destroy(mutex);
     drutil_exit();
     drmgr_exit();
+}
+
+static bool
+init_offline_dir(void)
+{
+    char buf[MAXIMUM_PATH];
+    /* We do not need to call drx_init before using drx_open_unique_appid_dir. */
+    if (!drx_open_unique_appid_dir(op_outdir.get_value().c_str(),
+                                   dr_get_process_id(),
+                                   "memtrace", "dir",
+                                   logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir)))
+        return false;
+    dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%c%s", logsubdir, DIRSEP,
+                MODULE_FILENAME);
+    NULL_TERMINATE_BUFFER(buf);
+    module_file = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW
+                               IF_WINDOWS(| DR_FILE_CLOSE_ON_FORK));
+    return (module_file != INVALID_FILE);
 }
 
 DR_EXPORT void
@@ -687,15 +717,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     if (op_offline.get_value()) {
-        /* We do not need to call drx_init before using drx_open_unique_appid_dir. */
-        if (!drx_open_unique_appid_dir(op_outdir.get_value().c_str(),
-                                       dr_get_process_id(),
-                                       "memtrace", "dir",
-                                       logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir))) {
+        if (!init_offline_dir()) {
             NOTIFY(0, "Failed to create a subdir in %s", op_outdir.get_value().c_str());
             dr_abort();
         }
-        instru = new offline_instru_t(insert_load_buf_ptr);
+        instru = new offline_instru_t(insert_load_buf_ptr, module_file);
     } else {
         instru = new online_instru_t(insert_load_buf_ptr);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))

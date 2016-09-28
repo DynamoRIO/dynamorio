@@ -36,21 +36,29 @@
 #include "dr_api.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "drcovlib.h"
 #include "instru.h"
 #include "../common/trace_entry.h"
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                           instr_t *, reg_id_t))
-    : instru_t(insert_load_buf)
+                                                           instr_t *, reg_id_t),
+                                   file_t module_file)
+    : instru_t(insert_load_buf), modfile(module_file)
 {
+    drcovlib_status_t res = drmodtrack_init();
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
     // Ensure every compiler is packing our struct how we want:
     DR_ASSERT(sizeof(offline_entry_t) == 8);
 }
 
 offline_instru_t::~offline_instru_t()
 {
+    drcovlib_status_t res = drmodtrack_dump(modfile);
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
+    res = drmodtrack_exit();
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
 }
 
 size_t
@@ -209,39 +217,31 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     return (adjust + sizeof(offline_entry_t));
 }
 
-static bool
-lookup_module(app_pc pc, uint64_t *modidx, uint64_t *modoffs)
-{
-    // FIXME i#1729: add module support and make this a member func if it remains.
-    return false;
-}
-
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                    instrlist_t *ilist, instr_t *where,
                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                    instr_t *app)
 {
-    app_pc pc;
-    uint64_t modidx;
-    uint64_t modoffs;
+    app_pc pc, modbase;
+    uint modidx;
     offline_entry_t entry;
     // We write just once per bb.
     if (*bb_field != NULL)
         return adjust;
 
     pc = dr_fragment_app_pc(tag);
-    if (!lookup_module(pc, &modidx, &modoffs)) {
+    if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS) {
         // FIXME i#1729: add non-module support.  The plan for instrs is to have
         // one entry w/ the start abs pc, and subsequent entries that pack the instr
         // length for 10 instrs, 4 bits each, into a pc.modoffs field.  We will
         // also need to store the type (read/write/prefetch*) and size for the
         // memrefs.
         modidx = 0;
-        modoffs = 0;
+        modbase = pc;
     }
     entry.pc.type = OFFLINE_TYPE_PC;
-    entry.pc.modoffs = modoffs;
+    entry.pc.modoffs = pc - modbase;
     entry.pc.modidx = modidx;
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                    entry.combined_value);

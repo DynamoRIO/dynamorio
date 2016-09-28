@@ -223,7 +223,7 @@ DR_EXPORT
  * returns DRCOVLIB_ERROR_NOT_FOUND.
  */
 drcovlib_status_t
-drmodtrack_lookup(void *drcontext, app_pc pc, OUT int *mod_index, OUT app_pc *mod_base);
+drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base);
 
 DR_EXPORT
 /**

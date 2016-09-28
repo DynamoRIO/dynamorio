@@ -152,7 +152,7 @@ static void
 bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start, uint size)
 {
     bb_entry_t *bb_entry = drtable_alloc(data->bb_table, 1, NULL);
-    int mod_id;
+    uint mod_id;
     app_pc mod_start;
     drcovlib_status_t res = drmodtrack_lookup(drcontext, start, &mod_id, &mod_start);
     /* we do not de-duplicate repeated bbs */

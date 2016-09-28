@@ -128,8 +128,9 @@ class online_instru_t : public instru_t
 class offline_instru_t : public instru_t
 {
  public:
-    explicit offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                     instr_t *, reg_id_t));
+    offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
+                                             instr_t *, reg_id_t),
+                     file_t module_file);
     virtual ~offline_instru_t();
 
     virtual size_t sizeof_entry() const;
@@ -160,6 +161,7 @@ class offline_instru_t : public instru_t
                         reg_id_t reg_ptr, reg_id_t scratch, int adjust, uint64_t value);
     void insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                           reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref);
+    file_t modfile;
 };
 
 #endif /* _INSTRU_H_ */

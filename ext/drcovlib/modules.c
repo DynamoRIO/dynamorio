@@ -43,7 +43,7 @@
 #define NUM_THREAD_MODULE_CACHE 4
 
 typedef struct _module_entry_t {
-    int  id;
+    uint id;
     bool unload; /* if the module is unloaded */
     module_data_t *data;
 } module_entry_t;
@@ -164,7 +164,7 @@ pc_is_in_module(module_entry_t *entry, app_pc pc)
 }
 
 static inline void
-lookup_helper_set_fields(module_entry_t *entry, OUT int *mod_index, OUT app_pc *mod_base)
+lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *mod_base)
 {
     if (mod_index != NULL)
         *mod_index = entry->id;
@@ -173,7 +173,7 @@ lookup_helper_set_fields(module_entry_t *entry, OUT int *mod_index, OUT app_pc *
 }
 
 drcovlib_status_t
-drmodtrack_lookup(void *drcontext, app_pc pc, OUT int *mod_index, OUT app_pc *mod_base)
+drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     module_entry_t *entry;
