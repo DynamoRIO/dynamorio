@@ -203,10 +203,10 @@ static file_t set_log = INVALID_FILE;
  * Utility Functions
  */
 
-static inline char *
-move_to_next_line(char *ptr)
+static inline const char *
+move_to_next_line(const char *ptr)
 {
-    char *end = strchr(ptr, '\n');
+    const char *end = strchr(ptr, '\n');
     if (end == NULL) {
         ptr += strlen(ptr);
     } else {
@@ -749,8 +749,8 @@ module_is_from_tool(const char * path)
             strstr(path, DRMEM_LIB_NAME) != NULL);
 }
 
-static char *
-read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
+static const char *
+read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 {
     char path[MAXIMUM_PATH];
     const char *modpath;
@@ -826,7 +826,7 @@ read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
 }
 
 static bool
-read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
+read_bb_list(const char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
 {
     uint i;
     bb_entry_t *entry;
@@ -850,8 +850,8 @@ read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
     return add_new_bb;
 }
 
-static char *
-read_file_header(char *buf)
+static const char *
+read_file_header(const char *buf)
 {
     char  str[MAXIMUM_PATH];
     uint  version;
@@ -892,7 +892,7 @@ read_file_header(char *buf)
 }
 
 static file_t
-open_input_file(const char *fname, char **map_out OUT,
+open_input_file(const char *fname, const char **map_out OUT,
                 size_t *map_size OUT, uint64 *file_sz OUT)
 {
     uint64 file_size;
@@ -929,17 +929,17 @@ open_input_file(const char *fname, char **map_out OUT,
 }
 
 static void
-close_input_file(file_t f, char *map, size_t map_size)
+close_input_file(file_t f, const char *map, size_t map_size)
 {
-    dr_unmap_file(map, map_size);
+    dr_unmap_file((char *)map, map_size);
     dr_close_file(f);
 }
 
 static bool
-read_drcov_file(char *input)
+read_drcov_file(const char *input)
 {
     file_t log;
-    char  *map, *ptr;
+    const char  *map, *ptr;
     size_t map_size;
     module_table_t **tables;
     uint   num_mods, num_bbs;
@@ -1073,7 +1073,7 @@ static bool
 read_drcov_list(void)
 {
     file_t list;
-    char  *map, *ptr;
+    const char  *map, *ptr;
     char   path[MAXIMUM_PATH];
     size_t map_size;
     uint64 file_size;
