@@ -752,35 +752,30 @@ module_is_from_tool(const char * path)
 static const char *
 read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 {
-    char path[MAXIMUM_PATH];
+    const char *path;
     const char *modpath;
     char subst[MAXIMUM_PATH];
     uint i;
+    void *handle;
 
     PRINT(3, "Reading module table...\n");
     /* module table header */
-    PRINT(4, "Reading Module Table Header\n");
-    if (dr_sscanf(buf, "Module Table: %d\n", num_mods) != 1) {
+    if (drmodtrack_offline_read(INVALID_FILE, &buf, &handle, num_mods) !=
+        DRCOVLIB_SUCCESS) {
         WARN(2, "Failed to read module table");
         return NULL;
     }
-    buf = move_to_next_line(buf);
 
-    /* module lists */
-    PRINT(4, "Reading Module Lists\n");
     *tables = (module_table_t **) calloc(*num_mods, sizeof(*tables));
     for (i = 0; i < *num_mods; i++) {
-        uint   mod_id;
-        uint64 mod_size;
+        size_t mod_size;
         module_table_t *mod_table;
 
-        /* assuming the string is something like:  "0, 2207744, /bin/ls" */
-        /* XXX: i#1143: we do not use dr_sscanf since it does not support %[] */
-        if (sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]", &mod_id, &mod_size, path) != 3)
+        if (drmodtrack_offline_lookup(handle, i, NULL, &mod_size, &path) !=
+            DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
-        buf = move_to_next_line(buf);
-        PRINT(5, "Module: %u, " PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
-        mod_table = (module_table_t *) hashtable_lookup(&module_htable, path);
+        PRINT(5, "Module: %u, " PFX", %s\n", i, (ptr_uint_t)mod_size, path);
+        mod_table = (module_table_t *) hashtable_lookup(&module_htable, (void*)path);
         if (mod_table == NULL) {
             modpath = path;
             if (mod_size >= UINT_MAX)
@@ -812,7 +807,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
                         }
                     }
                 }
-                mod_table = module_table_create(modpath, (size_t)mod_size);
+                mod_table = module_table_create(modpath, mod_size);
             }
             PRINT(4, "Create module table " PFX" for module %s\n",
                   (ptr_uint_t)mod_table, modpath);
@@ -822,6 +817,8 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
         }
         (*tables)[i] = mod_table;
     }
+    if (drmodtrack_offline_exit(handle) != DRCOVLIB_SUCCESS)
+        ASSERT(false, "failed to clean up module table data");
     return buf;
 }
 

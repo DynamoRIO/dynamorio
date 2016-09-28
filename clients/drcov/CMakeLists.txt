@@ -68,6 +68,7 @@ configure_DynamoRIO_standalone(drcov2lcov)
 use_DynamoRIO_extension(drcov2lcov drsyms_static)
 use_DynamoRIO_extension(drcov2lcov drcontainers)
 use_DynamoRIO_extension(drcov2lcov droption)
+use_DynamoRIO_extension(drcov2lcov drcovlib_static)
 target_link_libraries(drcov2lcov drfrontendlib)
 
 if (ANDROID)

@@ -30,10 +30,36 @@
  * DAMAGE.
  */
 
-#include "modules.h"
+#include "dr_api.h"
+#include "drvector.h"
+#include "drcovlib.h"
 #include "drcovlib_private.h"
-
 #include <string.h>
+#include <stdio.h>
+
+#define NUM_GLOBAL_MODULE_CACHE 8
+#define NUM_THREAD_MODULE_CACHE 4
+
+typedef struct _module_entry_t {
+    int  id;
+    bool unload; /* if the module is unloaded */
+    module_data_t *data;
+} module_entry_t;
+
+typedef struct _module_table_t {
+    drvector_t vector;
+    /* for quick query without lock, assuming pointer-aligned */
+    module_entry_t *cache[NUM_GLOBAL_MODULE_CACHE];
+} module_table_t;
+
+typedef struct _per_thread_t {
+    /* for quick per-thread query without lock */
+    module_entry_t *cache[NUM_THREAD_MODULE_CACHE];
+} per_thread_t;
+
+static int drmodtrack_init_count;
+static int tls_idx = -1;
+static module_table_t module_table;
 
 /* we use direct map cache to avoid locking */
 static inline void
@@ -73,8 +99,8 @@ module_table_entry_free(void *entry)
     dr_global_free(entry, sizeof(module_entry_t));
 }
 
-void
-module_table_load(module_table_t *table, const module_data_t *data)
+static void
+event_module_load(void *drcontext, const module_data_t *data, bool loaded)
 {
     module_entry_t *entry = NULL;
     module_data_t  *mod;
@@ -83,12 +109,12 @@ module_table_load(module_table_t *table, const module_data_t *data)
      * so we will try to re-use the old one.
      */
     ASSERT(data != NULL, "data must not be NULL");
-    drvector_lock(&table->vector);
+    drvector_lock(&module_table.vector);
     /* Assuming most recently loaded entries are most likely to be unloaded,
      * we iterate the module table in a backward way for better performance.
      */
-    for (i = table->vector.entries-1; i >= 0; i--) {
-        entry = drvector_get_entry(&table->vector, i);
+    for (i = module_table.vector.entries-1; i >= 0; i--) {
+        entry = drvector_get_entry(&module_table.vector, i);
         mod   = entry->data;
         if (entry->unload &&
             /* If the same module is re-loaded at the same address,
@@ -115,13 +141,13 @@ module_table_load(module_table_t *table, const module_data_t *data)
     }
     if (entry == NULL) {
         entry = dr_global_alloc(sizeof(*entry));
-        entry->id = table->vector.entries;
+        entry->id = module_table.vector.entries;
         entry->unload = false;
         entry->data = dr_copy_module_data(data);
-        drvector_append(&table->vector, entry);
+        drvector_append(&module_table.vector, entry);
     }
-    drvector_unlock(&table->vector);
-    global_module_cache_add(table->cache, entry);
+    drvector_unlock(&module_table.vector);
+    global_module_cache_add(module_table.cache, entry);
 }
 
 static inline bool
@@ -135,66 +161,155 @@ pc_is_in_module(module_entry_t *entry, app_pc pc)
     return false;
 }
 
-module_entry_t *
-module_table_lookup(module_entry_t **cache, int cache_size,
-                    module_table_t *table, app_pc pc)
+static inline void
+lookup_helper_set_fields(module_entry_t *entry, OUT int *mod_index, OUT app_pc *mod_base)
 {
+    if (mod_index != NULL)
+        *mod_index = entry->id;
+    if (mod_base != NULL)
+        *mod_base = entry->data->start;
+}
+
+drcovlib_status_t
+drmodtrack_lookup(void *drcontext, app_pc pc, OUT int *mod_index, OUT app_pc *mod_base)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     module_entry_t *entry;
     int i;
-
     /* We assume we never change an entry's data field, even on unload,
      * and thus it is ok to check its value without a lock.
      */
     /* lookup thread module cache */
-    if (cache != NULL) {
-        for (i = 0; i < cache_size; i++) {
-            entry = cache[i];
+    if (data->cache != NULL) {
+        for (i = 0; i < NUM_THREAD_MODULE_CACHE; i++) {
+            entry = data->cache[i];
             if (pc_is_in_module(entry, pc)) {
-                if (i > 0)
-                    thread_module_cache_adjust(cache, entry, i, cache_size);
-                return entry;
+                if (i > 0) {
+                    thread_module_cache_adjust(data->cache, entry, i,
+                                               NUM_THREAD_MODULE_CACHE);
+                }
+                lookup_helper_set_fields(entry, mod_index, mod_base);
+                return DRCOVLIB_SUCCESS;
             }
         }
     }
     /* lookup global module cache */
     /* we use a direct map cache, so it is ok to access it without lock */
     for (i = 0; i < NUM_GLOBAL_MODULE_CACHE; i++) {
-        entry = table->cache[i];
-        if (pc_is_in_module(entry, pc))
-            return entry;
+        entry = module_table.cache[i];
+        if (pc_is_in_module(entry, pc)) {
+            lookup_helper_set_fields(entry, mod_index, mod_base);
+            return DRCOVLIB_SUCCESS;
+        }
     }
     /* lookup module table */
     entry = NULL;
-    drvector_lock(&table->vector);
-    for (i = table->vector.entries - 1; i >= 0; i--) {
-        entry = drvector_get_entry(&table->vector, i);
+    drvector_lock(&module_table.vector);
+    for (i = module_table.vector.entries - 1; i >= 0; i--) {
+        entry = drvector_get_entry(&module_table.vector, i);
         ASSERT(entry != NULL, "fail to get module entry");
         if (pc_is_in_module(entry, pc)) {
-            global_module_cache_add(table->cache, entry);
-            if (cache != NULL)
-                thread_module_cache_add(cache, cache_size, entry);
+            global_module_cache_add(module_table.cache, entry);
+            if (data->cache != NULL)
+                thread_module_cache_add(data->cache, NUM_THREAD_MODULE_CACHE, entry);
             break;
         }
         entry = NULL;
     }
-    drvector_unlock(&table->vector);
-    return entry;
+    if (entry != NULL)
+        lookup_helper_set_fields(entry, mod_index, mod_base);
+    drvector_unlock(&module_table.vector);
+    return entry == NULL ? DRCOVLIB_ERROR_NOT_FOUND : DRCOVLIB_SUCCESS;
 }
 
-void
-module_table_unload(module_table_t *table, const module_data_t *data)
+static void
+event_module_unload(void *drcontext, const module_data_t *data)
 {
-    module_entry_t *entry = module_table_lookup(NULL, 0, table, data->start);
-    if (entry != NULL) {
-        entry->unload = true;
-    } else {
-        ASSERT(false, "fail to find the module to be unloaded");
+    module_entry_t *entry = NULL;
+    uint i;
+    drvector_lock(&module_table.vector);
+    for (i = module_table.vector.entries - 1; i >= 0; i--) {
+        entry = drvector_get_entry(&module_table.vector, i);
+        ASSERT(entry != NULL, "fail to get module entry");
+        if (pc_is_in_module(entry, data->start))
+            break;
+        entry = NULL;
     }
+    if (entry != NULL)
+        entry->unload = true;
+    else
+        ASSERT(false, "fail to find the module to be unloaded");
+    drvector_unlock(&module_table.vector);
 }
+
+static void
+event_thread_init(void *drcontext)
+{
+    per_thread_t *data = dr_thread_alloc(drcontext, sizeof(*data));
+    memset(data->cache, 0, sizeof(data->cache));
+    drmgr_set_tls_field(drcontext, tls_idx, data);
+}
+
+static void
+event_thread_exit(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    ASSERT(data != NULL, "data must not be NULL");
+    dr_thread_free(drcontext, data, sizeof(*data));
+}
+
+drcovlib_status_t
+drmodtrack_init(void)
+{
+    int count = dr_atomic_add32_return_sum(&drmodtrack_init_count, 1);
+    if (count > 1)
+        return DRCOVLIB_SUCCESS;
+
+    if (!drmgr_init() ||
+        !drmgr_register_thread_init_event(event_thread_init) ||
+        !drmgr_register_thread_exit_event(event_thread_exit) ||
+        !drmgr_register_module_load_event(event_module_load) ||
+        !drmgr_register_module_unload_event(event_module_unload))
+        return DRCOVLIB_ERROR;
+
+    tls_idx = drmgr_register_tls_field();
+    if (tls_idx == -1)
+        return DRCOVLIB_ERROR;
+
+    memset(module_table.cache, 0, sizeof(module_table.cache));
+    drvector_init(&module_table.vector, 16, false, module_table_entry_free);
+
+    return DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_exit(void)
+{
+    drvector_delete(&module_table.vector);
+    drmgr_exit();
+    return DRCOVLIB_SUCCESS;
+}
+
+/***************************************************************************
+ * Dumping to a file and reading back in
+ */
+
+typedef struct _module_read_entry_t {
+    app_pc base;
+    uint64 size;
+    char path[MAXIMUM_PATH];
+} module_read_entry_t;
+
+typedef struct _module_read_info_t {
+    const char *map;
+    size_t map_size;
+    uint num_mods;
+    module_read_entry_t *mod;
+} module_read_info_t;
 
 /* assuming caller holds the lock */
-void
-module_table_entry_print(module_entry_t *entry, file_t log, bool print_all_info)
+static void
+module_table_entry_print(module_entry_t *entry, file_t log)
 {
     const char *name;
     module_data_t *data;
@@ -204,7 +319,10 @@ module_table_entry_print(module_entry_t *entry, file_t log, bool print_all_info)
     if (data->full_path != NULL && data->full_path[0] != '\0')
         full_path = data->full_path;
 
-    if (print_all_info) {
+    /* FIXME i#1729: we need to add the base, and may as well always print everything
+     * and include a version field.  The reader should handle the legacy format.
+     */
+    if (false) {
         dr_fprintf(log, "%3u, "PFX", "PFX", "PFX", %s, %s",
                    entry->id, data->start, data->end, data->entry_point,
                    (name == NULL || name[0] == '\0') ? "<unknown>" : name,
@@ -219,23 +337,18 @@ module_table_entry_print(module_entry_t *entry, file_t log, bool print_all_info)
     }
 }
 
-void
-module_table_print(module_table_t *table, file_t log, bool print_all_info)
+drcovlib_status_t
+drmodtrack_dump(file_t log)
 {
     uint i;
     module_entry_t *entry;
-    if (log == INVALID_FILE) {
-        /* It is possible that failure on log file creation is caused by the
-         * running process not having enough privilege, so this is not a
-         * release-build fatal error
-         */
-        ASSERT(false, "invalid log file");
-        return;
-    }
-    drvector_lock(&table->vector);
-    dr_fprintf(log, "Module Table: %u\n", table->vector.entries);
+    if (log == INVALID_FILE)
+        return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    drvector_lock(&module_table.vector);
+    dr_fprintf(log, "Module Table: %u\n", module_table.vector.entries);
 
-    if (print_all_info) {
+    /* FIXME i#1729: we plan to add more info by default later. */
+    if (false) {
         dr_fprintf(log, "Module Table: id, base, end, entry, unload, name, path");
 #ifdef WINDOWS
         dr_fprintf(log, ", checksum, timestamp");
@@ -243,25 +356,122 @@ module_table_print(module_table_t *table, file_t log, bool print_all_info)
         dr_fprintf(log, "\n");
     }
 
-    for (i = 0; i < table->vector.entries; i++) {
-        entry = drvector_get_entry(&table->vector, i);
-        module_table_entry_print(entry, log, print_all_info);
+    for (i = 0; i < module_table.vector.entries; i++) {
+        entry = drvector_get_entry(&module_table.vector, i);
+        module_table_entry_print(entry, log);
     }
-    drvector_unlock(&table->vector);
+    drvector_unlock(&module_table.vector);
+    return DRCOVLIB_SUCCESS;
 }
 
-module_table_t *
-module_table_create()
+static inline const char *
+move_to_next_line(const char *ptr)
 {
-    module_table_t *table = dr_global_alloc(sizeof(*table));
-    memset(table->cache, 0, sizeof(table->cache));
-    drvector_init(&table->vector, 16, false, module_table_entry_free);
-    return table;
+    const char *end = strchr(ptr, '\n');
+    if (end == NULL) {
+        ptr += strlen(ptr);
+    } else {
+        for (ptr = end; *ptr == '\n' || *ptr == '\r'; ptr++)
+            ; /* do nothing */
+    }
+    return ptr;
 }
 
-void
-module_table_destroy(module_table_t *table)
+drcovlib_status_t
+drmodtrack_offline_read(file_t file, const char **map,
+                        OUT void **handle, OUT uint *num_mods)
 {
-    drvector_delete(&table->vector);
-    dr_global_free(table, sizeof(*table));
+    module_read_info_t *info = NULL;
+    uint i;
+    uint64 file_size;
+    size_t map_size = 0;
+    const char *buf, *map_start;
+
+    if (handle == NULL || num_mods == NULL)
+        return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    if (file == INVALID_FILE) {
+        if (map == NULL)
+            return DRCOVLIB_ERROR_INVALID_PARAMETER;
+        map_start = *map;
+    } else {
+        if (!dr_file_size(file, &file_size))
+            return DRCOVLIB_ERROR_INVALID_PARAMETER;
+        map_size = (size_t)file_size;
+        map_start = (char *) dr_map_file(file, &map_size, 0, NULL, DR_MEMPROT_READ, 0);
+        if (map_start == NULL || map_size < file_size)
+            return DRCOVLIB_ERROR_INVALID_PARAMETER; /* assume bad perms or sthg */
+    }
+    if (map_start == NULL)
+        return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    buf = map_start;
+
+    /* module table header */
+    if (dr_sscanf(buf, "Module Table: %u\n", num_mods) != 1)
+        goto read_error;
+    buf = move_to_next_line(buf);
+
+    info = (module_read_info_t *)dr_global_alloc(sizeof(*info));
+    if (file != INVALID_FILE) {
+        info->map = map_start;
+        info->map_size = map_size;
+    } else
+        info->map = NULL;
+    info->num_mods = *num_mods;
+    info->mod = (module_read_entry_t *)dr_global_alloc(*num_mods * sizeof(*info->mod));
+
+    /* module lists */
+    for (i = 0; i < *num_mods; i++) {
+        uint mod_id;
+        /* assuming the string is something like:  "0, 2207744, /bin/ls" */
+        /* XXX: i#1143: we do not use dr_sscanf since it does not support %[] */
+        if (sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]",
+                   &mod_id, &info->mod[i].size, info->mod[i].path) != 3 ||
+            mod_id != i)
+            goto read_error;
+        /* FIXME i#1729: we need to include the base on writing. */
+        info->mod[i].base = NULL;
+        buf = move_to_next_line(buf);
+    }
+    if (file == INVALID_FILE)
+        *map = buf;
+    *handle = (void *)info;
+    return DRCOVLIB_SUCCESS;
+
+ read_error:
+    if (info != NULL) {
+        dr_global_free(info->mod, *num_mods * sizeof(*info->mod));
+        dr_global_free(info, sizeof(*info));
+    }
+    if (file != INVALID_FILE)
+        dr_unmap_file((char *)map_start, map_size);
+    return DRCOVLIB_ERROR;
+}
+
+drcovlib_status_t
+drmodtrack_offline_lookup(void *handle, uint index, OUT app_pc *mod_base,
+                          OUT size_t *mod_size, OUT const char **mod_path)
+{
+    module_read_info_t *info = (module_read_info_t *)handle;
+    if (info == NULL || index >= info->num_mods)
+        return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    if (mod_base != NULL)
+        *mod_base = info->mod[index].base;
+    if (mod_size != NULL)
+        *mod_size = (size_t)info->mod[index].size;
+    if (mod_path != NULL)
+        *mod_path = info->mod[index].path;
+    return DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_offline_exit(void *handle)
+{
+    module_read_info_t *info = (module_read_info_t *)handle;
+    if (info == NULL)
+        return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    dr_global_free(info->mod, info->num_mods * sizeof(*info->mod));
+    dr_global_free(info, sizeof(*info));
+    if (info->map != NULL)
+        dr_unmap_file((char *)info->map, info->map_size);
+    return DRCOVLIB_SUCCESS;
 }

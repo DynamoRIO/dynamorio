@@ -71,19 +71,14 @@ uint verbose;
 static drcovlib_options_t options;
 static char logdir[MAXIMUM_PATH];
 
-#define NUM_THREAD_MODULE_CACHE 4
-
 typedef struct _per_thread_t {
     void *bb_table;
-    /* for quick per-thread query without lock */
-    module_entry_t *cache[NUM_THREAD_MODULE_CACHE];
     file_t  log;
     char logname[MAXIMUM_PATH];
 } per_thread_t;
 
 static per_thread_t *global_data;
 static bool drcov_per_thread = false;
-static module_table_t *module_table;
 #ifndef WINDOWS
 static int sysnum_execve = IF_X64_ELSE(59, 11);
 #endif
@@ -157,18 +152,17 @@ static void
 bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start, uint size)
 {
     bb_entry_t *bb_entry = drtable_alloc(data->bb_table, 1, NULL);
-    module_entry_t **mod_entry_cache = data != NULL ? data->cache : NULL;
-    module_entry_t *mod_entry = module_table_lookup(mod_entry_cache,
-                                                    NUM_THREAD_MODULE_CACHE,
-                                                    module_table, start);
+    int mod_id;
+    app_pc mod_start;
+    drcovlib_status_t res = drmodtrack_lookup(drcontext, start, &mod_id, &mod_start);
     /* we do not de-duplicate repeated bbs */
     ASSERT(size < USHRT_MAX, "size overflow");
     bb_entry->size = (ushort)size;
-    if (mod_entry != NULL && mod_entry->data != NULL) {
-        ASSERT(bb_entry->mod_id < USHRT_MAX, "module id overflow");
-        bb_entry->mod_id = (ushort)mod_entry->id;
-        ASSERT(start > mod_entry->data->start, "wrong module");
-        bb_entry->start = (uint)(start - mod_entry->data->start);
+    if (res == DRCOVLIB_SUCCESS) {
+        ASSERT(mod_id < USHRT_MAX, "module id overflow");
+        bb_entry->mod_id = (ushort)mod_id;
+        ASSERT(start > mod_start, "wrong module");
+        bb_entry->start = (uint)(start - mod_start);
     } else {
         /* XXX: we just truncate the address, which may have wrong value
          * in x64 arch. It should be ok now since it is an unknown module,
@@ -212,8 +206,16 @@ version_print(file_t log)
 static void
 dump_drcov_data(void *drcontext, per_thread_t *data)
 {
+    if (data->log == INVALID_FILE) {
+        /* It is possible that failure on log file creation is caused by the
+         * running process not having enough privilege, so this is not a
+         * release-build fatal error
+         */
+        ASSERT(false, "invalid log file");
+        return;
+    }
     version_print(data->log);
-    module_table_print(module_table, data->log, false);
+    drmodtrack_dump(data->log);
     bb_table_print(drcontext, data);
 }
 
@@ -247,7 +249,6 @@ thread_data_create(void *drcontext)
      * if so, no lock is required for bb_table operation.
      */
     data->bb_table = bb_table_create(drcontext == NULL ? true : false);
-    memset(data->cache, 0, sizeof(data->cache));
     log_file_create(drcontext, data);
     return data;
 }
@@ -366,19 +367,6 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
         return DR_EMIT_GO_NATIVE;
     else
         return DR_EMIT_DEFAULT;
-}
-
-static void
-event_module_unload(void *drcontext, const module_data_t *info)
-{
-    /* we do not delete the module entry but clean the cache only. */
-    module_table_unload(module_table, info);
-}
-
-static void
-event_module_load(void *drcontext, const module_data_t *info, bool loaded)
-{
-    module_table_load(module_table, info);
 }
 
 static void
@@ -510,7 +498,7 @@ drcovlib_exit(void)
         global_data_destroy(global_data);
     }
     /* destroy module table */
-    module_table_destroy(module_table);
+    drmodtrack_exit();
 
     drmgr_unregister_tls_field(tls_idx);
 
@@ -523,6 +511,7 @@ drcovlib_exit(void)
 static drcovlib_status_t
 event_init(void)
 {
+    drcovlib_status_t res;
     uint64 max_elide_jmp  = 0;
     uint64 max_elide_call = 0;
     /* assuming no elision */
@@ -532,7 +521,10 @@ event_init(void)
         return DRCOVLIB_ERROR_INVALID_SETUP;
 
     /* create module table */
-    module_table = module_table_create();
+    res = drmodtrack_init();
+    if (res != DRCOVLIB_SUCCESS)
+        return res;
+
     /* create process data if whole process bb coverage. */
     if (!drcov_per_thread)
         global_data = global_data_create();
@@ -579,8 +571,6 @@ drcovlib_init(drcovlib_options_t *ops)
     drmgr_register_thread_init_event(event_thread_init);
     drmgr_register_thread_exit_event(event_thread_exit);
     drmgr_register_bb_instrumentation_event(event_basic_block_analysis, NULL, NULL);
-    drmgr_register_module_load_event(event_module_load);
-    drmgr_register_module_unload_event(event_module_unload);
     dr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
 #ifdef UNIX

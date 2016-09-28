@@ -58,6 +58,7 @@ typedef enum {
     DRCOVLIB_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
     DRCOVLIB_ERROR_INVALID_SETUP,      /**< Operation failed: invalid DynamoRIO setup */
     DRCOVLIB_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
+    DRCOVLIB_ERROR_NOT_FOUND,          /**< Operation failed: query not found. */
 } drcovlib_status_t;
 
 /** Bitmask flags for use in #drcovlib_options_t.flags. */
@@ -136,7 +137,7 @@ typedef struct _bb_entry_t {
 } bb_entry_t;
 
 /***************************************************************************
- * Exported functions
+ * Coverage interface
  */
 
 DR_EXPORT
@@ -199,6 +200,77 @@ DR_EXPORT
 drcovlib_status_t
 drcovlib_dump(void *drcontext);
 
+/***************************************************************************
+ * Module tracking
+ */
+
+DR_EXPORT
+/**
+ * Initializes drcovlib's module tracking feature.  Must be called
+ * prior to any of the other online routines.  Can be called multiple
+ * times (by separate components, normally) but each call must be
+ * paired with a corresponding call to drmodtrack_exit().
+ *
+ * @return whether successful or an error code on failure.
+ */
+drcovlib_status_t
+drmodtrack_init(void);
+
+DR_EXPORT
+/**
+ * Returns the base address in \p mod_base and the unique index identifier in \p
+ * mod_index for the module that contains \p pc.  If there is no such module,
+ * returns DRCOVLIB_ERROR_NOT_FOUND.
+ */
+drcovlib_status_t
+drmodtrack_lookup(void *drcontext, app_pc pc, OUT int *mod_index, OUT app_pc *mod_base);
+
+DR_EXPORT
+/**
+ * Writes the complete module information to \p file.  The information can be read
+ * back in using \p drmodtrack_offline_read().
+ */
+drcovlib_status_t
+drmodtrack_dump(file_t file);
+
+DR_EXPORT
+/**
+ * Cleans up the module tracking state.
+ */
+drcovlib_status_t
+drmodtrack_exit(void);
+
+DR_EXPORT
+/**
+ * Usable from standalone mode (hence the "offline" name).  Reads a file written
+ * by drmodtrack_dump().  If \p file is not INVALID_FILE, reads from \p file;
+ * otherwise, assumes the target file has been mapped into memory at \p *map and
+ * reads from there, returning in \p *map the end of the module list region.
+ * Returns an identifier in \p handle to use with other offline routines, along
+ * with the number of modules read in \p num_mods.  Information on each module
+ * can be obtained by calling drmodtrack_offline_lookup() and passing integers
+ * from 0 to the number of modules minus one as the \p index.
+ */
+drcovlib_status_t
+drmodtrack_offline_read(file_t file, const char **map,
+                        OUT void **handle, OUT uint *num_mods);
+
+DR_EXPORT
+/**
+ * Queries the information read by drmodtrack_offline_read() into \p handle
+ * Returns the base address in \p mod_base and the full path in \p mod_path for
+ * the module corresponding to the unique index identifier \p index.
+ */
+drcovlib_status_t
+drmodtrack_offline_lookup(void *handle, uint index, OUT app_pc *mod_base,
+                          OUT size_t *mod_size, OUT const char **mod_path);
+
+DR_EXPORT
+/**
+ * Cleans up the offline module state for \p handle.
+ */
+drcovlib_status_t
+drmodtrack_offline_exit(void *handle);
 
 /*@}*/ /* end doxygen group */
 

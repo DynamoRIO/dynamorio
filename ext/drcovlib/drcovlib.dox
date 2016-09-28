@@ -45,6 +45,7 @@ makes use of \p drcovlib.
  - \ref sec_drcovlib
  - \ref sec_elision
  - \ref sec_postproc
+ - \ref sec_modtrack
 
 \section sec_drcovlib The Code Coverage Interface
 
@@ -74,5 +75,15 @@ them to non-zero values.
 
 To post-process \p drcovlib's log files and create human-readable output,
 see instructinons for running the \p drcov2lcov utility: \ref sec_drcov2lcov.
+
+\section sec_modtrack Module Tracking Feature
+
+In addition to code coverage, \p drcovlib provides a module (library)
+tracking feature that is useful for using an index and an offset as a
+persistent representation of the location of an application program counter
+for later symbolization.  This feature handles unloaded and reloaded
+libraries and offers fast lookup.  The module information can be written to
+a file and read back in either online or offline using DR's standalone API
+via the drmodtrack_offline_* interface.
 
 */
