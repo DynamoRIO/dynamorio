@@ -62,6 +62,8 @@
         dr_fprintf(STDERR, __VA_ARGS__);   \
 } while (0)
 
+static char logsubdir[MAXIMUM_PATH];
+
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
  */
@@ -579,9 +581,10 @@ event_thread_init(void *drcontext)
 
     if (op_offline.get_value()) {
         /* We do not need to call drx_init before using drx_open_unique_appid_file.
-         * Should we create a subdir for this process to group all of its thread files?
+         * Since we're now in a subdir we could make the name simpler but this
+         * seems nice and complete.
          */
-        data->file = drx_open_unique_appid_file(op_outdir.get_value().c_str(),
+        data->file = drx_open_unique_appid_file(logsubdir,
                                                 dr_get_thread_id(drcontext),
                                                 "memtrace", "log",
 #ifndef WINDOWS
@@ -679,6 +682,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     if (op_offline.get_value()) {
+        /* We do not need to call drx_init before using drx_open_unique_appid_dir. */
+        if (!drx_open_unique_appid_dir(op_outdir.get_value().c_str(),
+                                       dr_get_process_id(),
+                                       "memtrace", "dir",
+                                       logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir))) {
+            NOTIFY(0, "Failed to create a subdir in %s", op_outdir.get_value().c_str());
+            dr_abort();
+        }
         instru = new offline_instru_t(insert_load_buf_ptr);
     } else {
         instru = new online_instru_t(insert_load_buf_ptr);

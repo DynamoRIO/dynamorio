@@ -2416,7 +2416,7 @@ if (CLIENT_INTERFACE)
 
       # Test offline traces.
       # XXX: we could exclude the pipe files and build the offline trace
-      # support by itself for Windows and Android.
+      # support by itself for Android.
       macro (torunonly_drcacheoff testname exetgt)
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
@@ -2430,9 +2430,9 @@ if (CLIENT_INTERFACE)
         set(tool.drcacheoff.${testname}_runcmp
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
         set(tool.drcacheoff.${testname}_precmd
-          "${CMAKE_COMMAND}@-E@remove@memtrace.${exetgt}.*.log")
+          "${CMAKE_COMMAND}@-E@remove_directory@memtrace.${exetgt}.*.dir")
         set(tool.drcacheoff.${testname}_postcmd
-          "${drcachesim_path}@-infile@memtrace.${exetgt}.*.log")
+          "${drcachesim_path}@-infile@memtrace.${exetgt}.*.dir/memtrace.${exetgt}.*.log")
       endmacro()
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
