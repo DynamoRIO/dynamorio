@@ -294,10 +294,10 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
     if (disp != 0 || (base == REG_NULL && index == REG_NULL) ||
         opnd_is_disp_encode_zero(opnd)) {
         if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))
-            /* Always negating for ARM.  I would do the same for x86 but I don't
-             * want to break any existing scripts.
+            /* Always negating for ARM and AArch64.  I would do the same for x86 but
+             * I don't want to break any existing scripts.
              */
-            IF_ARM(|| true)) {
+            IF_NOT_X86(|| true)) {
             /* windbg negates if top byte is 0xff
              * for x64 udis86 negates if at all negative
              */
@@ -315,10 +315,10 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
         }
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
             print_to_buffer(buf, bufsz, sofar, "%d", disp);
-        else if (disp >= INT8_MIN && disp <= INT8_MAX &&
-            !opnd_is_disp_force_full(opnd))
+        else if ((unsigned)disp <= 0xff && !opnd_is_disp_force_full(opnd))
             print_to_buffer(buf, bufsz, sofar, "0x%02x", disp);
-        else if (opnd_is_disp_short_addr(opnd))
+        else if ((unsigned)disp <= 0xffff
+                 IF_X86(&& opnd_is_disp_short_addr(opnd)))
             print_to_buffer(buf, bufsz, sofar, "0x%04x", disp);
         else /* there are no 64-bit displacements */
             print_to_buffer(buf, bufsz, sofar, "0x%08x", disp);
