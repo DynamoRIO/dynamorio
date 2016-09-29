@@ -1985,7 +1985,7 @@ elf_loader_read_headers(elf_loader_t *elf, const char *filename)
 
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func, bool reachable)
+                     unmap_fn_t unmap_func, prot_fn_t prot_func, modload_flags_t flags)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -2016,7 +2016,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 
     /* reserve the memory from os for library */
     initial_map_size = elf->image_size;
-    if (INTERNAL_OPTION(separate_private_bss)) {
+    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, flags)) {
         /* place an extra no-access page after .bss */
         /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
         /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
@@ -2030,7 +2030,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                             * base, in which case the map can be anywhere
                             */
                            ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
-                           (reachable ? MAP_FILE_REACHABLE : 0));
+                           (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
     if (INTERNAL_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
@@ -2059,6 +2059,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
         ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
             ((byte *)elf->phdrs + i * elf_hdr->e_phentsize);
         if (prog_hdr->p_type == PT_LOAD) {
+            bool do_mmap = true;
             seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE)
                        + delta;
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
@@ -2073,6 +2074,16 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             }
             seg_prot = module_segment_prot_to_osprot(prog_hdr);
             pg_offs  = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
+            if (TEST(MODLOAD_SKIP_WRITABLE, flags) &&
+                TEST(MEMPROT_WRITE, seg_prot) &&
+                seg_end == lib_end) {
+                /* We only actually skip if it's the final segment, to allow
+                 * unmapping with a single mmap and not worrying about sthg
+                 * else having been unmapped at the end in the meantime.
+                 */
+                do_mmap = false;
+                elf->image_size = last_end - lib_base;
+            }
             /* XXX:
              * This function can be called after dynamorio_heap_initialized,
              * and we will use map_file instead of os_map_file.
@@ -2085,34 +2096,36 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
              */
             if (seg_size > 0) { /* i#1872: handle empty segments */
                 (*unmap_func)(seg_base, seg_size);
-                map = (*map_func)
-                    (elf->fd, &seg_size, pg_offs,
-                     seg_base /* base */,
-                     seg_prot | MEMPROT_WRITE /* prot */,
-                     MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
-                     MAP_FILE_IMAGE |
-                     /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
-                     MAP_FILE_FIXED);
-                ASSERT(map != NULL);
-                /* fill zeros at extend size */
-                file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
-                if (seg_end > file_end + delta) {
+                if (do_mmap) {
+                    map = (*map_func)
+                        (elf->fd, &seg_size, pg_offs,
+                         seg_base /* base */,
+                         seg_prot | MEMPROT_WRITE /* prot */,
+                         MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                         MAP_FILE_IMAGE |
+                         /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
+                         MAP_FILE_FIXED);
+                    ASSERT(map != NULL);
+                    /* fill zeros at extend size */
+                    file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
+                    if (seg_end > file_end + delta) {
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-                    memset(file_end + delta, 0, seg_end - (file_end + delta));
+                        memset(file_end + delta, 0, seg_end - (file_end + delta));
 #else
-                    /* FIXME i#37: use a remote memset to zero out this gap or fix
-                     * it up in the child.  There is typically one RW PT_LOAD
-                     * segment for .data and .bss.  If .data ends and .bss starts
-                     * before filesz bytes, we need to zero the .bss bytes manually.
-                     */
+                        /* FIXME i#37: use a remote memset to zero out this gap or fix
+                         * it up in the child.  There is typically one RW PT_LOAD
+                         * segment for .data and .bss.  If .data ends and .bss starts
+                         * before filesz bytes, we need to zero the .bss bytes manually.
+                         */
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
+                    }
                 }
             }
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
                                              prog_hdr->p_memsz,
                                              PAGE_SIZE) + delta;
             seg_size = seg_end - seg_base;
-            if (seg_size > 0)
+            if (seg_size > 0 && do_mmap)
                 (*prot_func)(seg_base, seg_size, seg_prot);
             last_end = seg_end;
         }

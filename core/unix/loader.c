@@ -432,7 +432,7 @@ privload_unload_imports(privmod_t *privmod)
  * which we have to delay at init time at least.
  */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
+privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_t flags)
 {
 #ifdef LINUX
     map_fn_t map_func;
@@ -441,7 +441,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     app_pc base = NULL;
     elf_loader_t loader;
 
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
     /* get appropriate function */
     /* NOTE: all but the client lib will be added to DR areas list b/c using
      * map_file()
@@ -463,7 +463,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
          */
         ELF_HEADER_TYPE *elf_header = (ELF_HEADER_TYPE *) loader.buf;
         ELF_ALTARCH_HEADER_TYPE *altarch = (ELF_ALTARCH_HEADER_TYPE *) elf_header;
-        if (elf_header->e_version == 1 &&
+        if (!TEST(MODLOAD_NOT_PRIVLIB, flags) &&
+            elf_header->e_version == 1 &&
             altarch->e_ehsize == sizeof(ELF_ALTARCH_HEADER_TYPE) &&
             altarch->e_machine == IF_X64_ELSE(EM_386, EM_X86_64)) {
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3,
@@ -473,13 +474,14 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     }
 
     base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func,
-                                unmap_func, prot_func, reachable);
+                                unmap_func, prot_func, flags);
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-        privload_add_gdb_cmd(&loader, filename, reachable);
+        if (!TEST(MODLOAD_NOT_PRIVLIB, flags))
+            privload_add_gdb_cmd(&loader, filename, TEST(MODLOAD_REACHABLE, flags));
 #endif
     }
     elf_loader_destroy(&loader);
@@ -1635,7 +1637,7 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 
     /* Now load the 2nd libdynamorio.so */
     dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file,
-                                  os_unmap_file, os_set_protection, false/*!reachable*/);
+                                  os_unmap_file, os_set_protection, 0/*!reachable*/);
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -1750,7 +1752,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                     */
                                    true,
                                    os_map_file,
-                                   os_unmap_file, os_set_protection, false/*!reachable*/);
+                                   os_unmap_file, os_set_protection, 0/*!reachable*/);
     apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");
     ASSERT(is_elf_so_header(exe_map, 0));
@@ -1796,7 +1798,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(&interp_ld, false /* fixed */,
                                           os_map_file, os_unmap_file,
-                                          os_set_protection, false/*!reachable*/);
+                                          os_set_protection, 0/*!reachable*/);
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself

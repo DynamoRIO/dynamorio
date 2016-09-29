@@ -3235,6 +3235,39 @@ bool
 dr_get_proc_address_ex(module_handle_t lib, const char *name,
                        dr_export_info_t *info OUT, size_t info_len);
 
+/* DR_API EXPORT BEGIN */
+/** Flags for use with dr_map_executable_file(). */
+typedef enum {
+    /**
+     * Requests that writable segments are not mapped, to save address space.
+     * This may be ignored on some platforms and may only be honored for
+     * a writable segment that is at the very end of the loaded module.
+     */
+    DR_MAPEXE_SKIP_WRITABLE         = 0x0002,
+} dr_map_executable_flags_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Loads \p filename as an executable file for examination, rather
+ * than for execution.  No entry point, initialization, or constructor
+ * code is executed, nor is any thread-local storage or other
+ * resources set up.  Returns the size (which may include unmappped
+ * gaps) in \p size.  The return value of the function is the base
+ * address at which the file is mapped.
+ *
+ * \note Not currently supported on Mac OSX.
+ */
+byte *
+dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
+                       size_t *size OUT);
+
+DR_API
+/**
+ * Unmaps a file loaded by dr_map_executable_file().
+ */
+bool
+dr_unmap_executable_file(byte *base, size_t size);
 
 /* DR_API EXPORT BEGIN */
 /**************************************************

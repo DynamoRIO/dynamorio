@@ -3864,6 +3864,29 @@ dr_get_proc_address_ex(module_handle_t lib, const char *name,
     return (info->address != NULL);
 }
 
+byte *
+dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
+                       size_t *size OUT)
+{
+#ifdef MACOS
+    /* XXX i#1285: implement private loader on Mac */
+    return NULL;
+#else
+    modload_flags_t mflags = MODLOAD_NOT_PRIVLIB;
+    if (TEST(DR_MAPEXE_SKIP_WRITABLE, flags))
+        mflags |= MODLOAD_SKIP_WRITABLE;
+    if (filename == NULL)
+        return NULL;
+    return privload_map_and_relocate(filename, size, mflags);
+#endif
+}
+
+bool
+dr_unmap_executable_file(byte *base, size_t size)
+{
+    return unmap_file(base, size);
+}
+
 DR_API
 /* Creates a new directory.  Fails if the directory already exists
  * or if it can't be created.

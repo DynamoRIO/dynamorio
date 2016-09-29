@@ -158,6 +158,7 @@ Further non-compatibility-affecting changes include:
    the \p drcovlib Extension.  See #drmodtrack_init() and related functions.
  - Added drx_open_unique_appid_dir().
  - Added %[] support to dr_sscanf.
+ - Added dr_map_executable_file() and dr_unmap_executable_file().
 
 **************************************************
 <hr>

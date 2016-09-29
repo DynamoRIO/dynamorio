@@ -543,7 +543,7 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
 
     LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s\n", __FUNCTION__, filename);
 
-    map = privload_map_and_relocate(filename, &size, client);
+    map = privload_map_and_relocate(filename, &size, client ? MODLOAD_REACHABLE : 0);
     if (map == NULL) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to map %s\n", __FUNCTION__, filename);
         return NULL;

@@ -875,7 +875,7 @@ privload_unload_imports(privmod_t *mod)
 
 /* if anything fails, undoes the mapping and returns NULL */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
+privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_t flags)
 {
     file_t fd;
     app_pc map;
@@ -883,7 +883,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, map_flags_t);
     bool (*unmap_func)(file_t, size_t);
     ASSERT(size != NULL);
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
 
     /* On win32 OS_EXECUTE is required to create a section w/ rwx
      * permissions, which is in turn required to map a view w/ rwx
@@ -915,7 +915,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
         unmap_func = os_unmap_file;
     }
     /* On Windows, SEC_IMAGE => the kernel sets up the different segments w/
-     * proper protections for us, all on this single map syscall
+     * proper protections for us, all on this single map syscall.
+     * Thus, we ignore MODLOAD_SKIP_*.
      */
     /* First map: let kernel pick base.
      * Even for a lib that needs to be reachable, we'd need to read or map
@@ -938,7 +939,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
         return NULL;
     }
 #ifdef X64
-    if (reachable) {
+    if (TEST(MODLOAD_REACHABLE, flags)) {
         bool reloc = module_file_relocatable(map);
         (*unmap_func)(map, *size);
         map = NULL;

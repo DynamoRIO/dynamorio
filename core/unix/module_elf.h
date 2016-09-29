@@ -35,6 +35,7 @@
 #define MODULE_ELF_H
 
 #include <elf.h> /* for ELF types */
+#include "../module_shared.h"
 
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
  * There is no official support for that on Linux or Mac and for now we do
@@ -292,7 +293,7 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
  */
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func, bool reachable);
+                     unmap_fn_t unmap_func, prot_fn_t prot_func, modload_flags_t flags);
 
 /* Iterate program headers of a mapped ELF image and find the string that
  * PT_INTERP points to.  Typically this comes early in the file and is always

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,8 +54,10 @@
 static void test_dr_rename_delete(void);
 static void test_dir(void);
 static void test_relative(void);
+static void test_map_exe(void);
 
-byte * find_prot_edge(const byte *start, uint prot_flag)
+byte *
+find_prot_edge(const byte *start, uint prot_flag)
 {
     uint prot;
     byte *base = (byte *)start;
@@ -91,6 +93,7 @@ byte safe_buf[2*PAGE_SIZE_MAX+100] = {1};
 byte writable_buf[2*PAGE_SIZE_MAX] = {1};
 
 static file_t file;
+static client_id_t client_id;
 
 bool dummy_func()
 {
@@ -127,6 +130,7 @@ void dr_init(client_id_t id)
     byte *edge, *mbuf;
     bool ok;
     byte *f_map;
+    client_id = id;
 
     /* The Makefile will pass a full absolute path (for Windows and Linux) as the client
      * option to a dummy file in the which we use to exercise the file api routines.
@@ -292,6 +296,8 @@ void dr_init(client_id_t id)
     test_dir();
 
     test_relative();
+
+    test_map_exe();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -438,4 +444,29 @@ test_relative(void)
         dr_fprintf(STDERR, "failed to detect dir abs\n");
     if (!dr_delete_dir("newdir"))
         dr_fprintf(STDERR, "failed to delete newly created dir\n");
+}
+
+static void
+test_map_exe(void)
+{
+    /* Test dr_map_executable_file() */
+    app_pc base_pc;
+    size_t size_full, size_code;
+
+    base_pc = dr_map_executable_file(dr_get_client_path(client_id), 0, &size_full);
+    if (base_pc == NULL || size_full == 0)
+        dr_fprintf(STDERR, "Failed to map exe\n");
+    if (!dr_unmap_executable_file(base_pc, size_full))
+        dr_fprintf(STDERR, "Failed to unmap exe\n");
+
+    base_pc = dr_map_executable_file(dr_get_client_path(client_id),
+                                     DR_MAPEXE_SKIP_WRITABLE, &size_code);
+    if (base_pc == NULL || size_code == 0)
+        dr_fprintf(STDERR, "Failed to map exe just code\n");
+#ifdef LINUX /* on Windows we always map the whole thing */
+    if (size_code >= size_full)
+        dr_fprintf(STDERR, "Failed to avoid mapping the data segment\n");
+#endif
+    if (!dr_unmap_executable_file(base_pc, size_code))
+        dr_fprintf(STDERR, "Failed to unmap exe\n");
 }
