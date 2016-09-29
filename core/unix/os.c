@@ -4004,7 +4004,7 @@ os_delete_file(const char *name)
 #ifdef SYS_unlink
     return (dynamorio_syscall(SYS_unlink, 1, name) == 0);
 #else
-    return (dynamorio_syscall(SYS_unlinkat, 2, AT_FDCWD, name) == 0);
+    return (dynamorio_syscall(SYS_unlinkat, 3, AT_FDCWD, name, 0) == 0);
 #endif
 }
 
