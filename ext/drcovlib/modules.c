@@ -420,9 +420,8 @@ drmodtrack_offline_read(file_t file, const char **map,
     for (i = 0; i < *num_mods; i++) {
         uint mod_id;
         /* assuming the string is something like:  "0, 2207744, /bin/ls" */
-        /* XXX: i#1143: we do not use dr_sscanf since it does not support %[] */
-        if (sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]",
-                   &mod_id, &info->mod[i].size, info->mod[i].path) != 3 ||
+        if (dr_sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]",
+                      &mod_id, &info->mod[i].size, info->mod[i].path) != 3 ||
             mod_id != i)
             goto read_error;
         /* FIXME i#1729: we need to include the base on writing. */

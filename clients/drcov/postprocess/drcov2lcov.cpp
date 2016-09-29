@@ -874,8 +874,7 @@ read_file_header(const char *buf)
 
     /* flavor */
     PRINT(4, "Reading flavor\n");
-    /* XXX i#1143: switch to dr_sscanf once it supports %[] */
-    if (sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
+    if (dr_sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
         WARN(2, "Failed to read version number");
         return NULL;
     }
