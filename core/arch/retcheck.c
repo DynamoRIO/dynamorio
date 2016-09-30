@@ -1391,11 +1391,11 @@ at_vbpop_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc)
      110045E2                 push    offset loc_1100462A
      110045E7                 jmp     short loc_11004620
 
-     11004620 loc_11004620:  ; CODE XREF: sub_11004510+D7j
+     11004620 loc_11004620:  ; CODE XREF: sub_11004510+D7
      11004620                 lea     ecx, [ebp+var_20]
      11004623                 call    ds:__vbaFreeStr
      11004629                 retn
-     1100462A loc_1100462A:  ; DATA XREF: sub_11004510+D2o
+     1100462A loc_1100462A:  ; DATA XREF: sub_11004510+D2
      1100462A                 mov     ecx, [ebp-14h]
      */
     /* FIXME: make this part of at_vbjmp_exception() */
