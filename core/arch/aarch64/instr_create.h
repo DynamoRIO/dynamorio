@@ -97,7 +97,10 @@
 #define XINST_CREATE_store(dc, m, r) \
   (opnd_is_base_disp(m) && \
    opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0 ? \
-   INSTR_CREATE_stur(dc, m, r) : INSTR_CREATE_str(dc, m, r))
+    INSTR_CREATE_stur(dc, m, \
+      opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))) : \
+    INSTR_CREATE_str(dc, m, \
+      opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -106,8 +109,8 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_1byte(dc, m, r) \
-  ((void)(m), (void)(r), INSTR_CREATE_xx((dc), 0x25865b)) /* FIXME i#1569 */
+#define XINST_CREATE_store_1byte(dc, m, r) INSTR_CREATE_strb(dc, m, \
+   opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
  * This platform-independent macro creates an instr_t for a 2-byte
@@ -116,7 +119,8 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_strh((dc), (m), (r))
+#define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_strh(dc, m, \
+  opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
  * This platform-independent macro creates an instr_t for a register
@@ -294,6 +298,8 @@
   instr_create_0dst_1src((dc), OP_ret, (Rn))
 #define INSTR_CREATE_str(dc, mem, rt) \
   instr_create_1dst_1src(dc, OP_str, mem, rt)
+#define INSTR_CREATE_strb(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_strb, mem, rt)
 #define INSTR_CREATE_strh(dc, mem, rt) \
   instr_create_1dst_1src(dc, OP_strh, mem, rt)
 #define INSTR_CREATE_stur(dc, mem, rt) \

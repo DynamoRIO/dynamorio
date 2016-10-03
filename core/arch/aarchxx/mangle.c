@@ -534,18 +534,18 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                                    opnd_create_reg(regparms[i]),
                                    ilist, instr_get_next(mark), NULL, NULL);
         } else if (opnd_is_reg(args[i])) {
-            ASSERT_NOT_IMPLEMENTED(opnd_get_size(args[i]) == OPSZ_PTR);
-            if (opnd_get_reg(args[i]) == DR_REG_XSP) {
+            opnd_t arg = opnd_create_reg(reg_to_pointer_sized(opnd_get_reg(args[i])));
+            if (opnd_get_reg(arg) == DR_REG_XSP) {
                 instr_t *loc = instr_get_next(mark);
                 PRE(ilist, loc, instr_create_save_to_tls
                     (dcontext, regparms[i], TLS_REG0_SLOT));
                 insert_get_mcontext_base(dcontext, ilist, loc, regparms[i]);
                 PRE(ilist, loc, instr_create_restore_from_dc_via_reg
                     (dcontext, regparms[i], regparms[i], XSP_OFFSET));
-            } else if (opnd_get_reg(args[i]) != regparms[i]) {
+            } else if (opnd_get_reg(arg) != regparms[i]) {
                 POST(ilist, mark, XINST_CREATE_move(dcontext,
                                                     opnd_create_reg(regparms[i]),
-                                                    args[i]));
+                                                    arg));
             }
         } else {
             /* FIXME i#1551, i#1569: we only implement naive parameter preparation,

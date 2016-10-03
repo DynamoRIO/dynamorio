@@ -420,6 +420,27 @@ drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf, instrlist_t
             (drcontext,
              OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
              opnd_create_reg(buf_ptr)));
+#elif defined(AARCH64)
+    if (stride > 0xfff) {
+        /* Fall back to XINST_CREATE_load_int() if stride has more than 12 bits.
+         * Another possibility, avoiding a scratch register, would be:
+         * add x4, x4, #0x1, lsl #12
+         * add x4, x4, #0x234
+         */
+        MINSERT(ilist, where, XINST_CREATE_load_int
+                (drcontext, opnd_create_reg(scratch), OPND_CREATE_INT16(stride)));
+        MINSERT(ilist, where, XINST_CREATE_add
+                (drcontext, opnd_create_reg(buf_ptr), opnd_create_reg(scratch)));
+    } else {
+        MINSERT(ilist, where, XINST_CREATE_add
+                (drcontext, opnd_create_reg(buf_ptr), OPND_CREATE_INT16(stride)));
+    }
+    MINSERT(ilist, where, XINST_CREATE_store_2bytes
+            (drcontext,
+             OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
+             opnd_create_reg(reg_64_to_32(buf_ptr))));
+#else
+# error NYI
 #endif
 }
 
@@ -449,7 +470,7 @@ drx_buf_insert_buf_store_1byte(void *drcontext, drx_buf_t *buf, instrlist_t *ili
         instr = XINST_CREATE_store_1byte
             (drcontext,
              OPND_CREATE_MEM8(buf_ptr, offset), opnd);
-#elif defined(ARM)
+#elif defined(AARCHXX)
         /* this will certainly not fault, so don't set a translation */
         MINSERT(ilist, where, XINST_CREATE_load_int
                 (drcontext,
@@ -459,9 +480,7 @@ drx_buf_insert_buf_store_1byte(void *drcontext, drx_buf_t *buf, instrlist_t *ili
              OPND_CREATE_MEM8(buf_ptr, offset),
              opnd_create_reg(scratch));
 #else
-        /* FIXME i#1569: NYI */
-        DR_ASSERT(false);
-        instr = NULL;
+# error NYI
 #endif
     } else {
         instr = XINST_CREATE_store_1byte
@@ -487,7 +506,7 @@ drx_buf_insert_buf_store_2bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
         instr = XINST_CREATE_store_2bytes
             (drcontext,
              OPND_CREATE_MEM16(buf_ptr, offset), opnd);
-#elif defined(ARM)
+#elif defined(AARCHXX)
         /* this will certainly not fault, so don't set a translation */
         MINSERT(ilist, where, XINST_CREATE_load_int
                 (drcontext,
@@ -497,9 +516,7 @@ drx_buf_insert_buf_store_2bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
              OPND_CREATE_MEM16(buf_ptr, offset),
              opnd_create_reg(scratch));
 #else
-        /* FIXME i#1569: NYI */
-        DR_ASSERT(false);
-        instr = NULL;
+# error NYI
 #endif
     } else {
         instr = XINST_CREATE_store_2bytes
@@ -529,9 +546,9 @@ drx_buf_insert_buf_store_4bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
              OPND_CREATE_MEM32(buf_ptr, offset), opnd);
 #elif defined(AARCH64)
         /* this will certainly not fault, so don't set a translation */
-        MINSERT(ilist, where, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch), opnd));
+        instrlist_insert_mov_immed_ptrsz(drcontext, opnd_get_immed_int(opnd),
+                                         opnd_create_reg(scratch),
+                                         ilist, where, NULL, NULL);
         instr = XINST_CREATE_store
             (drcontext,
              OPND_CREATE_MEM32(buf_ptr, offset),
@@ -568,7 +585,7 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
             if (last == NULL || first == last)
                 break;
         }
-#elif defined(ARM)
+#elif defined(AARCHXX)
         instr_t *instr;
         instrlist_insert_mov_immed_ptrsz(drcontext, immed,
                                          opnd_create_reg(scratch),
@@ -580,11 +597,7 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
         INSTR_XL8(instr, instr_get_app_pc(where));
         MINSERT(ilist, where, instr);
 #else
-        /* FIXME i#1569: NYI */
-        DR_ASSERT(false);
-        first = NULL;
-        last = NULL;
-        immed = 0;
+# error NYI
 #endif
     } else {
         instr_t *instr = XINST_CREATE_store

@@ -690,6 +690,11 @@ ASSUME fs:_DATA @N@\
 # else
 #  define RETURN  bx lr
 # endif
+# ifdef X64
+#  define MOV16   mov
+# else
+#  define MOV16   movw
+# endif
 # define INC(reg) add reg, reg, POUND 1
 # define DEC(reg) sub reg, reg, POUND 1
 #endif /* X86/ARM */

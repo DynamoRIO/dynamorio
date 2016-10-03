@@ -1996,16 +1996,14 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drmgr-test ${libpthread})
   endif ()
 
-  if (NOT AARCH64) # FIXME i#1569: get working on AArch64
-    tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
-    use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
-    use_DynamoRIO_extension(client.drx_buf-test.dll drx)
-    if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
-      target_link_libraries(client.drx_buf-test ${libpthread})
-    endif ()
-    target_include_directories(client.drx_buf-test PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
-  endif (NOT AARCH64)
+  tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
+  use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
+  use_DynamoRIO_extension(client.drx_buf-test.dll drx)
+  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
+    target_link_libraries(client.drx_buf-test ${libpthread})
+  endif ()
+  target_include_directories(client.drx_buf-test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
