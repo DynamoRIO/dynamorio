@@ -94,16 +94,33 @@ endmacro()
 add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
 
-# Restore debug and other flags to our non-client executable
-set_target_properties(drcachesim PROPERTIES
-  COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
-if (NOT DEBUG)
-  append_property_list(TARGET drcachesim COMPILE_DEFINITIONS "NDEBUG")
-endif ()
-# However, we need the target os and arch defines (XXX: better way?) for
-# the config, inject, and frontend headers:
-DynamoRIO_extra_cflags(extra_cflags "" ON)
-append_property_string(TARGET drcachesim COMPILE_FLAGS "${extra_cflags}")
+add_executable(drraw2trace
+  tracer/raw2trace.cpp
+  tracer/instru.cpp
+  tracer/instru_online.cpp
+  )
+configure_DynamoRIO_standalone(drraw2trace)
+target_link_libraries(drraw2trace drfrontendlib)
+use_DynamoRIO_extension(drraw2trace droption)
+use_DynamoRIO_extension(drraw2trace drcovlib_static)
+# Because we're leveraging instru_online code we have to link with drutil:
+use_DynamoRIO_extension(drraw2trace drutil_static)
+
+macro(restore_nonclient_flags target)
+  # Restore debug and other flags to our non-client executables
+  set_target_properties(${target} PROPERTIES
+    COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
+  if (NOT DEBUG)
+    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "NDEBUG")
+  endif ()
+  # However, we need the target os and arch defines (XXX: better way?) for
+  # the config, inject, and frontend headers:
+  DynamoRIO_extra_cflags(extra_cflags "" ON)
+  append_property_string(TARGET ${target} COMPILE_FLAGS "${extra_cflags}")
+endmacro()
+
+restore_nonclient_flags(drcachesim)
+restore_nonclient_flags(drraw2trace)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -121,9 +138,12 @@ macro(add_win32_flags target)
 endmacro ()
 
 add_win32_flags(drcachesim)
+add_win32_flags(drraw2trace)
 if (WIN32 AND DEBUG)
-  # The client had /MT added so we need to override.
-  foreach (src ${client_and_sim_srcs})
+  get_target_property(raw2trace_srcs drraw2trace SOURCES)
+  # The client, and our standalone DR users, had /MT added so we need to override.
+  # XXX: solve this by avoiding the /MT in the first place!
+  foreach (src ${client_and_sim_srcs} ${raw2trace_srcs})
     get_property(cur SOURCE ${src} PROPERTY COMPILE_FLAGS)
     string(REPLACE "/MT " "" cur ${cur}) # Avoid override warning.
     set_source_files_properties(${src} COMPILE_FLAGS "${cur} /MTd")

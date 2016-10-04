@@ -48,6 +48,7 @@
 #include "drx.h"
 #include "droption.h"
 #include "instru.h"
+#include "raw2trace.h"
 #include "physaddr.h"
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
@@ -71,7 +72,6 @@
 #endif
 
 static char logsubdir[MAXIMUM_PATH];
-#define MODULE_FILENAME "modules.log"
 static file_t module_file;
 
 /* Max number of entries a buffer can have. It should be big enough
@@ -688,7 +688,7 @@ init_offline_dir(void)
                                    logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir)))
         return false;
     dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%c%s", logsubdir, DIRSEP,
-                MODULE_FILENAME);
+                MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(buf);
     module_file = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW
                                IF_WINDOWS(| DR_FILE_CLOSE_ON_FORK));

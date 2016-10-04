@@ -161,6 +161,10 @@ typedef enum {
     OFFLINE_TYPE_TIMESTAMP,
     // An ARM SYS_cacheflush: always has two addr entries for [start, end).
     OFFLINE_TYPE_IFLUSH,
+
+    // A slot is available here at 6.
+
+    OFFLINE_TYPE_MEMREF_HIGH = 7,
 } offline_type_t;
 
 START_PACKED_STRUCTURE
