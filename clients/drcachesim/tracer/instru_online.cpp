@@ -367,3 +367,10 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
     }
     return adjust;
 }
+
+void
+online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
+                             instrlist_t *ilist, bool repstr_expanded)
+{
+    // Nothing to do.
+}

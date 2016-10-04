@@ -168,28 +168,29 @@ struct _offline_entry_t {
     union {
         // Unfortunately the compiler won't combine bitfields across the union border
         // so we have to duplicate the type field in each alternative.
-        // It is simplest to set a whole byte so we use 8 bits.
         struct {
-            uint64_t addr:56;
-            uint64_t type:8;
+            uint64_t addr:61;
+            uint64_t type:3;
         } addr;
         struct {
-            uint64_t modoffs:40;
-            uint64_t modidx:16;
-            uint64_t type:8;
+            // This describes the entire basic block.
+            uint64_t modoffs:33;
+            uint64_t modidx:12;
+            uint64_t instr_count:16;
+            uint64_t type:3;
         } pc;
         struct {
-            uint64_t tid:56;
-            uint64_t type:8;
+            uint64_t tid:61;
+            uint64_t type:3;
         } tid;
         struct {
-            uint64_t pid:56;
-            uint64_t type:8;
+            uint64_t pid:61;
+            uint64_t type:3;
         } pid;
         struct {
             uint32_t tv_sec;
-            uint32_t tv_usec:24; // We only need 20 bits here.
-            uint32_t type:8;
+            uint32_t tv_usec:29; // We only need 20 bits here.
+            uint32_t type:3;
         } timestamp;
         uint64_t combined_value;
         // XXX: add a CPU id entry for more faithful thread scheduling.

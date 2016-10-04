@@ -42,6 +42,8 @@
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 
+static const ptr_uint_t MAX_INSTR_COUNT = 64*1024;
+
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
                                    file_t module_file)
@@ -217,6 +219,7 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     return (adjust + sizeof(offline_entry_t));
 }
 
+// We stored the instr count in *bb_field in bb_analysis().
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                    instrlist_t *ilist, instr_t *where,
@@ -227,7 +230,7 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     uint modidx;
     offline_entry_t entry;
     // We write just once per bb.
-    if (*bb_field != NULL)
+    if ((ptr_uint_t)*bb_field > MAX_INSTR_COUNT)
         return adjust;
 
     pc = dr_fragment_app_pc(tag);
@@ -243,6 +246,7 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     entry.pc.type = OFFLINE_TYPE_PC;
     entry.pc.modoffs = pc - modbase;
     entry.pc.modidx = modidx;
+    entry.pc.instr_count = (ptr_uint_t)*bb_field;
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                    entry.combined_value);
     *bb_field = tag;
@@ -256,4 +260,29 @@ offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_
 {
     // The post-processor fills in all instr info other than our once-per-bb entry.
     return adjust;
+}
+
+void
+offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
+                             instrlist_t *ilist, bool repstr_expanded)
+{
+    instr_t *instr;
+    ptr_uint_t count = 0;
+    app_pc last_xl8 = NULL;
+    if (repstr_expanded) {
+        // The same-translation check below is not sufficient as drutil uses
+        // two different translations to deal with complexities.
+        // Thus we hardcode this.
+        count = 1;
+    } else {
+        for (instr = instrlist_first_app(ilist); instr != NULL;
+             instr = instr_get_next_app(instr)) {
+            // To deal with app2app changes, we do not double-count consecutive instrs
+            // with the same translation.
+            if (instr_get_app_pc(instr) != last_xl8)
+                ++count;
+            last_xl8 = instr_get_app_pc(instr);
+        }
+    }
+    *bb_field = (void *)count;
 }

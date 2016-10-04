@@ -103,6 +103,7 @@ typedef struct {
     instr_t *strex;
     int num_delay_instrs;
     instr_t *delay_instrs[MAX_NUM_DELAY_INSTRS];
+    bool repstr;
     void *instru_field; /* for use by instru_t */
 } user_data_t;
 
@@ -377,12 +378,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     reg_id_t reg_ptr, reg_tmp = DR_REG_NULL;
     drvector_t rvec;
 
-    if (!instr_is_app(instr) ||
-        /* Skip identical app pc, which happens with rep str expansion.
-         * XXX: the expansion means our instr fetch trace is not perfect,
-         * but we live with having the wrong instr length.
-         */
-        ud->last_app_pc == instr_get_app_pc(instr))
+    if ((!instr_is_app(instr) ||
+         /* Skip identical app pc, which happens with rep str expansion.
+          * XXX: the expansion means our instr fetch trace is not perfect,
+          * but we live with having the wrong instr length.
+          */
+         ud->last_app_pc == instr_get_app_pc(instr)) &&
+        ud->strex == NULL &&
+        // Ensure we have an instr entry for the start of the bb, for offline.
+        (!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)))
         return DR_EMIT_DEFAULT;
 
     // FIXME i#1698: there are constraints for code between ldrex/strex pairs.
@@ -403,12 +407,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     // Optimization: delay the simple instr trace instrumentation if possible.
-    // For offline traces we don't need this logic as we do not have per-instr
-    // entries, but for code simplicity we pay the slight cost for this to keep
-    // app-instr event logic out of instru_t.
-    if (!(instr_reads_memory(instr) ||instr_writes_memory(instr)) &&
+    // For offline traces we want a single instr entry for the start of the bb.
+    if ((!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)) &&
+        !(instr_reads_memory(instr) ||instr_writes_memory(instr)) &&
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
+        ud->strex == NULL &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
         ud->delay_instrs[ud->num_delay_instrs++] = instr;
@@ -523,7 +527,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
     data->num_delay_instrs = 0;
     data->instru_field = NULL;
     *user_data = (void *)data;
-    if (!drutil_expand_rep_string(drcontext, bb)) {
+    if (!drutil_expand_rep_string_ex(drcontext, bb, &data->repstr, NULL)) {
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
@@ -534,7 +538,8 @@ static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating, void *user_data)
 {
-    /* do nothing */
+    user_data_t *ud = (user_data_t *) user_data;
+    instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
     return DR_EMIT_DEFAULT;
 }
 

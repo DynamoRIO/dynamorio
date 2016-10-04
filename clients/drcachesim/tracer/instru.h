@@ -43,7 +43,7 @@
 
 class instru_t
 {
- public:
+public:
     // The one dependence we have on the user is that we need to know how
     // to insert code to re-load the current trace buffer pointer into a register.
     // We require that this is passed at construction time:
@@ -66,7 +66,7 @@ class instru_t
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
 
-    // These insert inlined code to add an entry into the trace buffer. */
+    // These insert inlined code to add an entry into the trace buffer.
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                   opnd_t ref, bool write, dr_pred_type_t pred) = 0;
@@ -78,16 +78,19 @@ class instru_t
                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs) = 0;
 
- protected:
+    virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
+                             instrlist_t *ilist, bool repstr_expanded) = 0;
+
+protected:
     void (*insert_load_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t);
 
- private:
+private:
     instru_t() {}
 };
 
 class online_instru_t : public instru_t
 {
- public:
+public:
     explicit online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                      instr_t *, reg_id_t));
     virtual ~online_instru_t();
@@ -115,7 +118,10 @@ class online_instru_t : public instru_t
                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs);
 
- private:
+    virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
+                             instrlist_t *ilist, bool repstr_expanded);
+
+private:
     void insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t base, reg_id_t scratch, app_pc pc, int adjust);
     void insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -127,7 +133,7 @@ class online_instru_t : public instru_t
 
 class offline_instru_t : public instru_t
 {
- public:
+public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                              instr_t *, reg_id_t),
                      file_t module_file);
@@ -156,7 +162,10 @@ class offline_instru_t : public instru_t
                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs);
 
- private:
+    virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
+                             instrlist_t *ilist, bool repstr_expanded);
+
+private:
     void insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_ptr, reg_id_t scratch, int adjust, uint64_t value);
     void insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
