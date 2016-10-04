@@ -37,6 +37,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#define MODULE_FILE_VERSION 2
+
 #define NUM_GLOBAL_MODULE_CACHE 8
 #define NUM_THREAD_MODULE_CACHE 4
 
@@ -316,22 +318,12 @@ module_table_entry_print(module_entry_t *entry, file_t log)
     if (data->full_path != NULL && data->full_path[0] != '\0')
         full_path = data->full_path;
 
-    /* FIXME i#1729: we need to add the base, and may as well always print everything
-     * and include a version field.  The reader should handle the legacy format.
-     */
-    if (false) {
-        dr_fprintf(log, "%3u, "PFX", "PFX", "PFX", %s, %s",
-                   entry->id, data->start, data->end, data->entry_point,
-                   (name == NULL || name[0] == '\0') ? "<unknown>" : name,
-                   full_path);
+    dr_fprintf(log, "%3u, "PFX", "PFX", "PFX"",
+               entry->id, data->start, data->end, data->entry_point);
 #ifdef WINDOWS
-        dr_fprintf(log, ", 0x%08x, 0x%08x", data->checksum, data->timestamp);
-#endif /* WINDOWS */
-        dr_fprintf(log, "\n");
-    } else {
-        dr_fprintf(log, " %u, %llu, %s\n", entry->id,
-                   (uint64)(data->end - data->start), full_path);
-    }
+    dr_fprintf(log, ", 0x%08x, 0x%08x", data->checksum, data->timestamp);
+#endif
+    dr_fprintf(log, ", %s\n", full_path);
 }
 
 drcovlib_status_t
@@ -342,16 +334,14 @@ drmodtrack_dump(file_t log)
     if (log == INVALID_FILE)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     drvector_lock(&module_table.vector);
-    dr_fprintf(log, "Module Table: %u\n", module_table.vector.entries);
+    dr_fprintf(log, "Module Table: version %u, count %u\n", MODULE_FILE_VERSION,
+               module_table.vector.entries);
 
-    /* FIXME i#1729: we plan to add more info by default later. */
-    if (false) {
-        dr_fprintf(log, "Module Table: id, base, end, entry, unload, name, path");
+    dr_fprintf(log, "Columns: id, base, end, entry");
 #ifdef WINDOWS
-        dr_fprintf(log, ", checksum, timestamp");
+    dr_fprintf(log, ", checksum, timestamp");
 #endif
-        dr_fprintf(log, "\n");
-    }
+    dr_fprintf(log, ", path\n");
 
     for (i = 0; i < module_table.vector.entries; i++) {
         entry = drvector_get_entry(&module_table.vector, i);
@@ -383,6 +373,7 @@ drmodtrack_offline_read(file_t file, const char **map,
     uint64 file_size;
     size_t map_size = 0;
     const char *buf, *map_start;
+    uint version;
 
     if (handle == NULL || num_mods == NULL)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
@@ -402,10 +393,18 @@ drmodtrack_offline_read(file_t file, const char **map,
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     buf = map_start;
 
-    /* module table header */
-    if (dr_sscanf(buf, "Module Table: %u\n", num_mods) != 1)
+    /* Module table header, handling the pre-versioning legacy format. */
+    if (dr_sscanf(buf, "Module Table: %u\n", num_mods) == 1)
+        version = 1;
+    else if (dr_sscanf(buf, "Module Table: version %u, count %u\n", &version,
+                       num_mods) != 2 ||
+             version != MODULE_FILE_VERSION)
         goto read_error;
     buf = move_to_next_line(buf);
+    if (version > 1) {
+        // Skip header line
+        buf = move_to_next_line(buf);
+    }
 
     info = (module_read_info_t *)dr_global_alloc(sizeof(*info));
     if (file != INVALID_FILE) {
@@ -419,13 +418,30 @@ drmodtrack_offline_read(file_t file, const char **map,
     /* module lists */
     for (i = 0; i < *num_mods; i++) {
         uint mod_id;
-        /* assuming the string is something like:  "0, 2207744, /bin/ls" */
-        if (dr_sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]",
-                      &mod_id, &info->mod[i].size, info->mod[i].path) != 3 ||
-            mod_id != i)
-            goto read_error;
-        /* FIXME i#1729: we need to include the base on writing. */
-        info->mod[i].base = NULL;
+        if (version == 1) {
+            if (dr_sscanf(buf, " %u, %" INT64_FORMAT"u, %[^\n\r]",
+                          &mod_id, &info->mod[i].size, info->mod[i].path) != 3 ||
+                mod_id != i)
+                goto read_error;
+        } else {
+            app_pc end, entry;
+#ifdef WINDOWS
+            uint checksum, timestamp;
+            if (dr_sscanf(buf, " %u, "PIFX", "PIFX", "PIFX", 0x%x, 0x%x, %[^\n\r]",
+                          &mod_id, &info->mod[i].base, &end, &entry,
+                          &checksum, &timestamp,
+                          info->mod[i].path) != 7 ||
+                mod_id != i)
+                goto read_error;
+#else
+            if (dr_sscanf(buf, " %u, "PIFX", "PIFX", "PIFX", %[^\n\r]",
+                          &mod_id, &info->mod[i].base, &end, &entry,
+                          info->mod[i].path) != 5 ||
+                mod_id != i)
+                goto read_error;
+#endif
+            info->mod[i].size = end - info->mod[i].base;
+        }
         buf = move_to_next_line(buf);
     }
     if (file == INVALID_FILE)
