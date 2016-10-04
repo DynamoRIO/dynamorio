@@ -132,48 +132,6 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
     return (int)((byte *)entry + sizeof(trace_entry_t) - buf_ptr);
 }
 
-/* XXX i#1729: for offline traces we'll want to share this w/ the postprocessor. */
-static unsigned short
-instr_to_prefetch_type(instr_t *instr)
-{
-    int opcode = instr_get_opcode(instr);
-    DR_ASSERT(instr_is_prefetch(instr));
-    switch (opcode) {
-#ifdef X86
-    case OP_prefetcht0:
-        return TRACE_TYPE_PREFETCHT0;
-    case OP_prefetcht1:
-        return TRACE_TYPE_PREFETCHT1;
-    case OP_prefetcht2:
-        return TRACE_TYPE_PREFETCHT2;
-    case OP_prefetchnta:
-        return TRACE_TYPE_PREFETCHNTA;
-#endif
-#ifdef ARM
-    case OP_pld:
-        return TRACE_TYPE_PREFETCH_READ;
-    case OP_pldw:
-        return TRACE_TYPE_PREFETCH_WRITE;
-    case OP_pli:
-        return TRACE_TYPE_PREFETCH_INSTR;
-#endif
-    default:
-        return TRACE_TYPE_PREFETCH;
-    }
-}
-
-/* XXX i#1729: for offline traces we'll want to share this w/ the postprocessor. */
-static bool
-instr_is_flush(instr_t *instr)
-{
-    // Assuming we won't see any privileged instructions.
-#ifdef X86
-    if (instr_get_opcode(instr) == OP_clflush)
-        return true;
-#endif
-    return false;
-}
-
 void
 online_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                                 reg_id_t base, reg_id_t scratch, app_pc pc, int adjust)
@@ -303,10 +261,10 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     MINSERT(ilist, where, label);
     // Special handling for prefetch instruction
     if (instr_is_prefetch(where)) {
-        type = instr_to_prefetch_type(where);
+        type = instru_t::instr_to_prefetch_type(where);
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
-    } else if (instr_is_flush(where)) {
+    } else if (instru_t::instr_is_flush(where)) {
         // XXX: OP_clflush invalidates all levels of the processor cache
         // hierarchy (data and instruction)
         type = TRACE_TYPE_DATA_FLUSH;

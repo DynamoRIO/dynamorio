@@ -81,6 +81,10 @@ public:
     virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded) = 0;
 
+    // Utilities.
+    static unsigned short instr_to_prefetch_type(instr_t *instr);
+    static bool instr_is_flush(instr_t *instr);
+
 protected:
     void (*insert_load_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t);
 
