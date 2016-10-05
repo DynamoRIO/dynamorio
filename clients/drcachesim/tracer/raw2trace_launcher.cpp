@@ -30,56 +30,50 @@
  * DAMAGE.
  */
 
-/* raw2trace.h: shared defines between the tracer and the converter.
- */
-
-#ifndef _RAW2TRACE_H_
-#define _RAW2TRACE_H_ 1
+/* Standalone raw2trace converter. */
 
 #include "dr_api.h"
-#include "../common/trace_entry.h"
-#include <fstream>
-#include <vector>
+#include "droption.h"
+#include "dr_frontend.h"
+#include "raw2trace.h"
 
-#define OUTFILE_PREFIX "drmemtrace"
-#define OUTFILE_SUFFIX "raw"
-#define OUTFILE_SUBDIR "raw"
-#define MODULE_LIST_FILENAME "modules.log"
-#define TRACE_FILENAME "drmemtrace.trace"
+#define FATAL_ERROR(msg, ...) do { \
+    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
+    fflush(stderr); \
+    exit(1); \
+} while (0)
 
-struct module_t {
-    module_t(const char *path, app_pc orig, byte *map, size_t size) :
-        path(path), orig_base(orig), map_base(map), map_size(size) {}
-    const char *path;
-    app_pc orig_base;
-    byte *map_base;
-    size_t map_size;
-};
+static droption_t<std::string> op_indir
+(DROPTION_SCOPE_FRONTEND, "indir", "", "[Required] Directory with trace input files",
+ "Specifies a directory within which all *.log files will be processed.");
 
-class raw2trace_t {
-public:
-    raw2trace_t(std::string indir, std::string outname);
-    ~raw2trace_t();
-    void do_conversion();
+static droption_t<std::string> op_out
+(DROPTION_SCOPE_FRONTEND, "out", "", "[Required] Path to output file",
+ "Specifies the path to the output file.");
 
-private:
-    void read_and_map_modules(void);
-    void unmap_modules(void);
-    void open_thread_log_file(const char *basename);
-    void open_thread_files();
-    void merge_and_process_thread_files();
-    bool append_bb_entries(uint tidx, offline_entry_t *in_entry);
-    trace_entry_t *append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
-                                 opnd_t ref, bool write);
+// Non-static for use by raw2trace.cpp
+droption_t<unsigned int> op_verbose
+(DROPTION_SCOPE_FRONTEND, "verbose", 0, "Verbosity level for diagnostic output",
+ "Verbosity level for diagnostic output.");
 
-    std::string indir;
-    std::string outname;
-    std::ofstream out_file;
-    static const uint MAX_COMBINED_ENTRIES = 64;
-    void *modhandle;
-    std::vector<module_t> modvec;
-    std::vector<std::ifstream*> thread_files;
-    void *dcontext;
-};
+int
+main(int argc, const TCHAR *targv[])
+{
+    // Convert to UTF-8 if necessary
+    char **argv;
+    drfront_status_t sc = drfront_convert_args(targv, &argv, argc);
+    if (sc != DRFRONT_SUCCESS)
+        FATAL_ERROR("Failed to process args: %d", sc);
 
-#endif /* _RAW2TRACE_H_ */
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
+                                       &parse_err, NULL) ||
+        op_indir.get_value().empty() ||
+        op_out.get_value().empty()) {
+        FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
+                    droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+    }
+    raw2trace_t raw2trace(op_indir.get_value(), op_out.get_value());
+    raw2trace.do_conversion();
+    return 0;
+}

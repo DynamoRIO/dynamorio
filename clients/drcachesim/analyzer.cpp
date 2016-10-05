@@ -38,6 +38,8 @@
 #include "reader/ipc_reader.h"
 #include "simulator/cache_simulator.h"
 #include "simulator/tlb_simulator.h"
+#include "tracer/raw2trace.h"
+#include <fstream>
 
 analyzer_t::analyzer_t() :
     success(true), trace_iter(NULL), trace_end(NULL), num_tools(0)
@@ -54,7 +56,19 @@ analyzer_t::analyzer_t() :
         success = false;
         return;
     }
-    if (op_infile.get_value().empty()) {
+    if (!op_indir.get_value().empty()) {
+        // XXX: better to put in app name + pid, or rely on staying inside subdir?
+        std::string tracefile = op_indir.get_value() + std::string(DIRSEP) +
+            TRACE_FILENAME;
+        std::ifstream exists(tracefile.c_str());
+        if (!exists.good()) {
+            raw2trace_t raw2trace(op_indir.get_value(), tracefile);
+            raw2trace.do_conversion();
+        }
+        exists.close();
+        trace_iter = new file_reader_t(tracefile.c_str());
+        trace_end = new file_reader_t();
+    } else if (op_infile.get_value().empty()) {
         trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
         trace_end = new ipc_reader_t();
     } else {

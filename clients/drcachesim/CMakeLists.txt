@@ -62,9 +62,20 @@ add_executable(drcachesim
   simulator/cache_simulator.cpp
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
+  # We embed the raw2trace conversion for convenience:
+  tracer/raw2trace.cpp
+  tracer/instru.cpp
+  tracer/instru_online.cpp
   )
-target_link_libraries(drcachesim drinjectlib drconfiglib drfrontendlib)
+# In order to embed raw2trace we need to be standalone:
+configure_DynamoRIO_standalone(drcachesim)
+# To avoid dup symbol errors between drinjectlib and the drdecode brought in
+# by drfrontendlib we have to explicitly list drdecode up front:
+target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
 use_DynamoRIO_extension(drcachesim droption)
+# These are also for raw2trace:
+use_DynamoRIO_extension(drcachesim drcovlib_static)
+use_DynamoRIO_extension(drcachesim drutil_static)
 
 macro(add_drmemtrace name type)
   if (${type} STREQUAL "STATIC")
@@ -95,6 +106,7 @@ add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
 
 add_executable(drraw2trace
+  tracer/raw2trace_launcher.cpp
   tracer/raw2trace.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
@@ -140,10 +152,11 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 if (WIN32 AND DEBUG)
+  get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
   # The client, and our standalone DR users, had /MT added so we need to override.
   # XXX: solve this by avoiding the /MT in the first place!
-  foreach (src ${client_and_sim_srcs} ${raw2trace_srcs})
+  foreach (src ${client_and_sim_srcs} ${sim_srcs} ${raw2trace_srcs})
     get_property(cur SOURCE ${src} PROPERTY COMPILE_FLAGS)
     string(REPLACE "/MT " "" cur ${cur}) # Avoid override warning.
     set_source_files_properties(${src} COMPILE_FLAGS "${cur} /MTd")

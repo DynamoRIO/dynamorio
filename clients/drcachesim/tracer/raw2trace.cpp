@@ -40,12 +40,11 @@
 #include "droption.h"
 #include "drcovlib.h"
 #include "dr_frontend.h"
-#include "postprocess.h"
+#include "raw2trace.h"
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
 #include <fstream>
-#include <iostream>
 #include <vector>
 
 #ifdef UNIX
@@ -56,6 +55,13 @@
 # include <direct.h> /* _getcwd */
 # pragma comment(lib, "User32.lib")
 #endif
+
+// XXX: currently the error handling and diagnostics are *not* modular:
+// this class assumes an option op_verbose, and for errors it just
+// prints directly and exits the process.
+// The original plan was to have drcachesim launch this as a separate
+// executable.
+extern droption_t<unsigned int> op_verbose;
 
 // XXX: DR should export this
 #define INVALID_THREAD_ID 0
@@ -89,60 +95,6 @@
 } while (0)
 
 /***************************************************************************
- * Types
- */
-
-struct module_t {
-    module_t(const char *path, app_pc orig, byte *map, size_t size) :
-        path(path), orig_base(orig), map_base(map), map_size(size) {}
-    const char *path;
-    app_pc orig_base;
-    byte *map_base;
-    size_t map_size;
-};
-
-class raw2trace_t {
-public:
-    raw2trace_t(std::string logdir, std::string outname);
-    ~raw2trace_t();
-    void read_and_map_modules(void);
-    void open_thread_files();
-    void merge_and_process_thread_files();
-
-private:
-    void unmap_modules(void);
-    void open_thread_log_file(const char *basename);
-    bool append_bb_entries(uint tidx, offline_entry_t *in_entry);
-    trace_entry_t *append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
-                                 opnd_t ref, bool write);
-
-    std::string logdir;
-    std::string outname;
-    std::ofstream out_file;
-    static const uint MAX_COMBINED_ENTRIES = 64;
-    void *modhandle;
-    std::vector<module_t> modvec;
-    std::vector<std::ifstream*> thread_files;
-    void *dcontext;
-};
-
-/***************************************************************************
- * Options
- */
-
-static droption_t<std::string> op_logdir
-(DROPTION_SCOPE_FRONTEND, "logdir", "", "[Required] Directory with trace input files",
- "Specifies a directory within which all *.log files will be processed.");
-
-static droption_t<std::string> op_out
-(DROPTION_SCOPE_FRONTEND, "out", "", "[Required] Path to output file",
- "Specifies the path to the output file.");
-
-static droption_t<int> op_verbose
-(DROPTION_SCOPE_FRONTEND, "verbose", 0, "Verbosity level for diagnostic output",
- "Verbosity level for diagnostic output.");
-
-/***************************************************************************
  * Module list
  */
 
@@ -150,8 +102,7 @@ void
 raw2trace_t::read_and_map_modules(void)
 {
     // Read and load all of the modules.
-    std::string modfilename = op_logdir.get_value() + std::string("/") +
-        MODULE_LIST_FILENAME;
+    std::string modfilename = indir + std::string(DIRSEP) + MODULE_LIST_FILENAME;
     uint num_mods;
     VPRINT(1, "Reading module file %s\n", modfilename.c_str());
     file_t modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
@@ -221,11 +172,11 @@ raw2trace_t::open_thread_log_file(const char *basename)
     // Skip the module list log.
     if (strcmp(basename, MODULE_LIST_FILENAME) == 0)
         return;
-    // Skip any non-.logfile in case someone put some other file in there.
-    if (strstr(basename, ".log") == NULL)
+    // Skip any non-.raw in case someone put some other file in there.
+    if (strstr(basename, OUTFILE_SUFFIX) == NULL)
         return;
-    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path),
-                    "%s/%s", logdir.c_str(), basename) <= 0) {
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s",
+                    indir.c_str(), DIRSEP, basename) <= 0) {
         FATAL_ERROR("Failed to get full path of file %s", basename);
     }
     NULL_TERMINATE_BUFFER(path);
@@ -240,10 +191,10 @@ void
 raw2trace_t::open_thread_files()
 {
     struct dirent *ent;
-    DIR *dir = opendir(logdir.c_str());
-    VPRINT(1, "Iterating dir %s\n", logdir.c_str());
+    DIR *dir = opendir(indir.c_str());
+    VPRINT(1, "Iterating dir %s\n", indir.c_str());
     if (dir == NULL)
-        FATAL_ERROR("Failed to list directory %s", logdir.c_str());
+        FATAL_ERROR("Failed to list directory %s", indir.c_str());
     while ((ent = readdir(dir)) != NULL)
         open_thread_log_file(ent->d_name);
     closedir (dir);
@@ -256,15 +207,16 @@ raw2trace_t::open_thread_files()
     WIN32_FIND_DATAW data;
     char path[MAXIMUM_PATH];
     TCHAR wpath[MAXIMUM_PATH];
-    VPRINT(1, "Iterating dir %s\n", logdir.c_str());
-    /* append \* to the end */
-    dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s\\*", logdir.c_str());
+    VPRINT(1, "Iterating dir %s\n", indir.c_str());
+    // Append \*
+    dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s\\*", indir.c_str());
+    NULL_TERMINATE_BUFFER(path);
     if (drfront_char_to_tchar(path, wpath, BUFFER_SIZE_ELEMENTS(wpath)) !=
         DRFRONT_SUCCESS)
         FATAL_ERROR("Failed to convert from utf-8 to utf-16");
     find = FindFirstFileW(wpath, &data);
     if (find == INVALID_HANDLE_VALUE)
-        FATAL_ERROR("Failed to list directory %s\n", logdir.c_str());
+        FATAL_ERROR("Failed to list directory %s\n", indir.c_str());
     do {
         if (!TESTANY(data.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY)) {
             if (drfront_tchar_to_char(data.cFileName, path, BUFFER_SIZE_ELEMENTS(path)) !=
@@ -456,12 +408,24 @@ raw2trace_t::merge_and_process_thread_files()
     } while (thread_count > 0);
 }
 
-raw2trace_t::raw2trace_t(std::string logdir, std::string outname)
-    : logdir(logdir), outname(outname)
+void
+raw2trace_t::do_conversion()
 {
+    read_and_map_modules();
+    open_thread_files();
+    merge_and_process_thread_files();
+}
+
+raw2trace_t::raw2trace_t(std::string indir_in, std::string outname_in)
+    : indir(indir_in), outname(outname_in)
+{
+    // Support passing both base dir and raw/ subdir.
+    if (indir.find(OUTFILE_SUBDIR) == std::string::npos)
+        indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
     out_file.open(outname.c_str(), std::ofstream::binary);
     if (!out_file)
-        FATAL_ERROR("Failed to open output file %s", op_out.get_value().c_str());
+        FATAL_ERROR("Failed to open output file %s", outname.c_str());
+    VPRINT(1, "Writing to %s\n", outname.c_str());
 
     dcontext = dr_standalone_init();
 }
@@ -473,32 +437,4 @@ raw2trace_t::~raw2trace_t()
          fi != thread_files.end(); ++fi)
         (*fi)->close();
     unmap_modules();
-}
-
-int
-main(int argc, const TCHAR *targv[])
-{
-    // Convert to UTF-8 if necessary
-    char **argv;
-    drfront_status_t sc = drfront_convert_args(targv, &argv, argc);
-    if (sc != DRFRONT_SUCCESS)
-        FATAL_ERROR("Failed to process args: %d", sc);
-
-    std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
-                                       &parse_err, NULL) ||
-        op_logdir.get_value().empty() ||
-        op_out.get_value().empty()) {
-        FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
-                    droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-    }
-    raw2trace_t raw2trace(op_logdir.get_value(), op_out.get_value());
-
-    raw2trace.read_and_map_modules();
-
-    raw2trace.open_thread_files();
-
-    raw2trace.merge_and_process_thread_files();
-
-    return 0;
 }

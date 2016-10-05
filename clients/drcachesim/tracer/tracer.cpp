@@ -63,14 +63,6 @@
         dr_fprintf(STDERR, __VA_ARGS__);   \
 } while (0)
 
-#ifdef WINDOWS
-# define DIRSEP '\\'
-# define IF_WINDOWS(x) x
-#else
-# define DIRSEP '/'
-# define IF_WINDOWS(x)
-#endif
-
 static char logsubdir[MAXIMUM_PATH];
 static file_t module_file;
 
@@ -604,7 +596,7 @@ event_thread_init(void *drcontext)
          */
         data->file = drx_open_unique_appid_file(logsubdir,
                                                 dr_get_thread_id(drcontext),
-                                                "memtrace", "log",
+                                                OUTFILE_PREFIX, OUTFILE_SUFFIX,
 #ifndef WINDOWS
                                                 DR_FILE_CLOSE_ON_FORK |
 #endif
@@ -684,10 +676,18 @@ init_offline_dir(void)
     /* We do not need to call drx_init before using drx_open_unique_appid_dir. */
     if (!drx_open_unique_appid_dir(op_outdir.get_value().c_str(),
                                    dr_get_process_id(),
-                                   "memtrace", "dir",
-                                   logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir)))
+                                   OUTFILE_PREFIX, "dir",
+                                   buf, BUFFER_SIZE_ELEMENTS(buf)))
         return false;
-    dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%c%s", logsubdir, DIRSEP,
+    /* We group the raw thread files in a further subdir to isolate from the
+     * processed trace file.
+     */
+    dr_snprintf(logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir), "%s%s%s", buf, DIRSEP,
+                OUTFILE_SUBDIR);
+    NULL_TERMINATE_BUFFER(logsubdir);
+    if (!dr_create_dir(logsubdir))
+        return false;
+    dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%s%s", logsubdir, DIRSEP,
                 MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(buf);
     module_file = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW

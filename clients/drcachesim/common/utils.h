@@ -68,6 +68,14 @@
 # define END_PACKED_STRUCTURE __attribute__ ((__packed__))
 #endif
 
+#ifdef WINDOWS
+# define DIRSEP "\\"
+# define IF_WINDOWS(x) x
+#else
+# define DIRSEP "/"
+# define IF_WINDOWS(x)
+#endif
+
 static inline int
 compute_log2(int value)
 {

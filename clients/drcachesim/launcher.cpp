@@ -163,6 +163,7 @@ _tmain(int argc, const TCHAR *targv[])
 #ifdef UNIX
     pid_t child = 0;
 #endif
+    bool have_trace_file;
 
 #if defined(WINDOWS) && !defined(_UNICODE)
 # error _UNICODE must be defined
@@ -191,8 +192,9 @@ _tmain(int argc, const TCHAR *targv[])
                         droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         }
     }
+    have_trace_file = !op_infile.get_value().empty() || !op_indir.get_value().empty();
 
-    if (op_infile.get_value().empty()) {
+    if (!have_trace_file) {
         if (app_idx >= argc) {
             FATAL_ERROR("Usage error: no application specified\nUsage:\n%s",
                         droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
@@ -224,7 +226,7 @@ _tmain(int argc, const TCHAR *targv[])
         }
     }
 
-    if (op_offline.get_value() && op_infile.get_value().empty()) {
+    if (op_offline.get_value() && !have_trace_file) {
         // Initial sanity check: may still be unwritable by this user, but this
         // serves as at least an existence check.
         if (!file_is_writable(op_outdir.get_value().c_str())) {
@@ -240,7 +242,7 @@ _tmain(int argc, const TCHAR *targv[])
 
     tracer_ops = op_tracer_ops.get_value();
 
-    if (op_infile.get_value().empty()) {
+    if (!have_trace_file) {
         /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
         dr_get_config_dir(false/*local*/, true/*use temp*/, buf,
                           BUFFER_SIZE_ELEMENTS(buf));
@@ -273,13 +275,13 @@ _tmain(int argc, const TCHAR *targv[])
 #endif
     }
 
-    if (!op_offline.get_value() || !op_infile.get_value().empty()) {
+    if (!op_offline.get_value() || have_trace_file) {
         if (!analyzer->run()) {
             FATAL_ERROR("failed to run analyzer");
         }
     }
 
-    if (op_infile.get_value().empty()) {
+    if (!have_trace_file) {
 #ifdef WINDOWS
         NOTIFY(1, "INFO", "waiting for app to exit...");
         errcode = WaitForSingleObject(dr_inject_get_process_handle(inject_data),

@@ -2428,26 +2428,21 @@ if (CLIENT_INTERFACE)
         set(tool.drcacheoff.${testname}_runcmp
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
         set(tool.drcacheoff.${testname}_precmd
-          "${CMAKE_COMMAND}@-E@remove_directory@memtrace.${exetgt}.*.dir")
+          "${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
         set(tool.drcacheoff.${testname}_postcmd
-          "${drcachesim_path}@-infile@memtrace.${exetgt}.*.dir/memtrace.${exetgt}.*.log")
+          "${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir")
       endmacro()
 
-      # FIXME i#1729: re-enable after offline refactoring.  To allow staging
-      # the refactoring by separating module and postprocessing we temporarily
-      # disable the offline tests.
-      if (OFF)
-        # We could share drcachesim-simple.templatex if we had the launcher fork
-        # and print out the "---- <application exited with code 0> ----".
-        torunonly_drcacheoff(simple ${ci_shared_app})
+      # We could share drcachesim-simple.templatex if we had the launcher fork
+      # and print out the "---- <application exited with code 0> ----".
+      torunonly_drcacheoff(simple ${ci_shared_app})
 
-        # FIXME i#2007: fails to link on A64
-        # XXX i#1551: startstop API is NYI on ARM
-        # XXX i#1997: dynamorio_static is not supported on Mac yet
-        if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
-          torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
-          set(tool.drcacheoff.burst_static_nodr ON)
-        endif ()
+      # FIXME i#2007: fails to link on A64
+      # XXX i#1551: startstop API is NYI on ARM
+      # XXX i#1997: dynamorio_static is not supported on Mac yet
+      if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
+        set(tool.drcacheoff.burst_static_nodr ON)
       endif ()
 
     endif (NOT ANDROID)
