@@ -9147,11 +9147,11 @@ os_check_option_compatibility(void)
     return changed_options;
 }
 
+#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
+
 size_t
 os_page_size(void)
 {
     /* FIXME i#1680: Determine page size using system call. */
     return 4096;
 }
-
-#endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */

@@ -364,7 +364,7 @@ code_cache_init(void)
     dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
     /* Encodes the instructions into memory and then cleans up. */
     end = instrlist_encode(drcontext, ilist, code_cache, false);
-    DR_ASSERT((end - code_cache) < page_size);
+    DR_ASSERT((size_t)(end - code_cache) < page_size);
     instrlist_clear_and_destroy(drcontext, ilist);
     /* set the memory as just +rx now */
     dr_memory_protect(code_cache, page_size, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
