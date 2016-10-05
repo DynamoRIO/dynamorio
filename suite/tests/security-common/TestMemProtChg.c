@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -94,7 +94,7 @@ test_alloc_overlap(void)
      * modifying mmap can have its prot match the region base's prot to
      * make it harder for DR to detect.
      */
-    char *buf = allocate_mem(PAGE_SIZE*2, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    char *buf = allocate_mem((int)PAGE_SIZE*2, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     char *code = copy_to_buf(buf + PAGE_SIZE, PAGE_SIZE, NULL, CODE_INC, COPY_NORMAL);
     protect_mem(code, PAGE_SIZE, ALLOW_READ|ALLOW_EXEC);
     test_print(code, 42);

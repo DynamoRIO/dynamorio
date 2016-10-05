@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,7 +48,7 @@ funny_target()
 {
     __asm {
         mov eax,1
-        jmp over
+        jmp short over
         mov eax,2               /* bad target */
 over:
         add eax,eax
