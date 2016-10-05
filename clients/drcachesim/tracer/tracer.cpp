@@ -276,6 +276,14 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
                         user_data_t *ud, instr_t *where,
                         reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
 {
+    if (ud->repstr) {
+        // We assume that drutil restricts repstr to a single bb on its own, and
+        // we avoid its mix of translations resulting in incorrect ifetch stats
+        // (it can be significant: i#2011).  The original app bb has just one instr,
+        // which is a memref, so the pre-memref entry will suffice.
+        ud->num_delay_instrs = 0;
+        return adjust;
+    }
     // Instrument to add a full instr entry for the first instr.
     adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field,
                                       ilist, where, reg_ptr, reg_tmp, adjust,
@@ -369,6 +377,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     dr_pred_type_t pred;
     reg_id_t reg_ptr, reg_tmp = DR_REG_NULL;
     drvector_t rvec;
+    bool is_memref;
 
     if ((!instr_is_app(instr) ||
          /* Skip identical app pc, which happens with rep str expansion.
@@ -459,8 +468,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      * trace_entry_t than require a separate instr entry for every memref
      * instr (if average # of memrefs per instr is < 2, PC field is better).
      */
-    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, bb,
-                                      instr, reg_ptr, reg_tmp, adjust, instr);
+    is_memref = instr_reads_memory(instr) || instr_writes_memory(instr);
+    // See comment in instrument_delay_instrs: we only want the original string
+    // ifetch and not any of the expansion instrs.
+    if (is_memref || !ud->repstr) {
+        adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, bb,
+                                          instr, reg_ptr, reg_tmp, adjust, instr);
+    }
     ud->last_app_pc = instr_get_app_pc(instr);
 
     if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
