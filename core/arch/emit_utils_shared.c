@@ -5399,7 +5399,7 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
                                OPSZ_lea)));
 
     /* save all registers */
-    insert_push_all_registers(dcontext, NULL, &ilist, NULL, PAGE_SIZE,
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE,
                               OPND_CREATE_INT32(0), REG_NULL);
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
@@ -5483,7 +5483,7 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
          opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
                                (int)XSP_SZ, OPSZ_lea)));
     /* restore all registers */
-    insert_pop_all_registers(dcontext, NULL, &ilist, NULL, PAGE_SIZE);
+    insert_pop_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE);
     /* return back */
     /* we adjust lea + ret_imm instead of ind jmp to take advantage of RSB */
     APP(&ilist, INSTR_CREATE_lea

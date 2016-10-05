@@ -1429,7 +1429,7 @@ get_image_section_size(IMAGE_SECTION_HEADER *sec, IMAGE_NT_HEADERS *nt)
     /* Xref case 9797, drivers (which we've seen mapped in on Vista) don't
      * usually use page size section alignment (use 0x80 alignment instead). */
     size_t unpadded_size = get_image_section_unpadded_size(sec _IF_DEBUG(nt));
-    uint alignment = MIN(PAGE_SIZE, nt->OptionalHeader.SectionAlignment);
+    uint alignment = MIN((uint)PAGE_SIZE, nt->OptionalHeader.SectionAlignment);
     return ALIGN_FORWARD(unpadded_size, alignment);
 }
 

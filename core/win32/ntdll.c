@@ -1369,7 +1369,7 @@ static bool alt_tls_spare_taken[TLS_SPAREBYTES_SLOTS];
 # define TLS_POSTTEB_SLOTS 64
 static bool alt_tls_post_taken[TLS_POSTTEB_SLOTS];
 /* Use the slots at the end of the 2nd page */
-# define TLS_POSTTEB_BASE_OFFS (PAGE_SIZE*2 - TLS_POSTTEB_SLOTS*sizeof(void*))
+# define TLS_POSTTEB_BASE_OFFS ((uint)PAGE_SIZE*2 - TLS_POSTTEB_SLOTS*sizeof(void*))
 #endif
 
 static void
@@ -4617,7 +4617,7 @@ our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
         ((byte *)stack.ExpandableStackBottom) + stack_reserve;
     stack.ExpandableStackLimit =
         ((byte *)stack.ExpandableStackBase) - stack_commit;
-    num_commit_bytes = stack_commit + PAGE_SIZE;
+    num_commit_bytes = stack_commit + (uint)PAGE_SIZE;
     p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
     if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(hProcess, &p, num_commit_bytes,
                                                       PAGE_READWRITE, MEM_COMMIT))) {

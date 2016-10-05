@@ -674,7 +674,7 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
     }                                                                     \
     /* case 7626: don't short-circuit checks, as later ones may be needed */ \
     ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_max),           \
-                             PAGE_SIZE,                                   \
+                             (uint)PAGE_SIZE,                             \
                              0,                                           \
                              name" cache max size")                       \
         || ret;                                                           \
@@ -697,12 +697,12 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
     ret = check_param_bounds(&FCACHE_OPTION(cache_##who##_unit_init),     \
                              /* x64 does not support resizing fcache units */ \
                              IF_X64_ELSE(FCACHE_OPTION(cache_##who##_unit_max), \
-                                         PAGE_SIZE),                      \
+                                         (uint)PAGE_SIZE),                \
                              FCACHE_OPTION(cache_##who##_unit_max),       \
                              name" cache unit init size")                 \
         || ret;                                                           \
     ret = check_param_bounds(&FCACHE_OPTION(cache_commit_increment),      \
-                             PAGE_SIZE,                                   \
+                             (uint)PAGE_SIZE,                             \
                              FCACHE_OPTION(cache_##who##_unit_init),      \
                              name" cache_commit_increment")               \
         || ret;                                                           \
@@ -1459,11 +1459,11 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
 /* assuming size will either be aligned at VM_ALLOCATION_BOUNDARY or
  * smaller where no adjustment is necessary
  */
-#define FCACHE_GUARDED(size)                                    \
-        ((size) -                                               \
-         ((DYNAMO_OPTION(guard_pages) &&                        \
-           ((size) >= VM_ALLOCATION_BOUNDARY - 2 * PAGE_SIZE))  \
-          ? (2 * PAGE_SIZE) : 0))
+#define FCACHE_GUARDED(size)                                            \
+        ((size) -                                                       \
+         ((DYNAMO_OPTION(guard_pages) &&                                \
+           ((size) >= VM_ALLOCATION_BOUNDARY - 2 * (uint)PAGE_SIZE))    \
+          ? (2 * (uint)PAGE_SIZE) : 0))
 
 #define SET_CACHE_PARAMS(cache, which) do {                             \
     cache->max_size =                                                   \

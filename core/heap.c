@@ -1475,11 +1475,11 @@ heap_check_option_compatibility()
                               * for just about every alloc!  so round up to
                               * at least a page.
                               */
-                             ALIGN_FORWARD(UNITOVERHEAD + 1, PAGE_SIZE),
+                             ALIGN_FORWARD(UNITOVERHEAD + 1, (uint)PAGE_SIZE),
                              HEAP_UNIT_MAX_SIZE, "initial_heap_unit_size")
         || ret;
     ret = check_param_bounds(&dynamo_options.initial_global_heap_unit_size,
-                             ALIGN_FORWARD(UNITOVERHEAD + 1, PAGE_SIZE),
+                             ALIGN_FORWARD(UNITOVERHEAD + 1, (uint)PAGE_SIZE),
                              HEAP_UNIT_MAX_SIZE, "initial_global_heap_unit_size")
         || ret;
     ret = check_param_bounds(&dynamo_options.max_heap_unit_size,
@@ -1997,7 +1997,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
                         _IF_DEBUG(const char *comment))
 {
     vm_addr_t p = NULL;
-    uint guard_size = PAGE_SIZE;
+    uint guard_size = (uint)PAGE_SIZE;
     heap_error_code_t error_code;
     bool try_vmm = true;
     ASSERT(reserve_size >= commit_size);
@@ -2522,7 +2522,7 @@ heap_vmareas_synch_units()
 {
     heap_unit_t *u, *next;
     /* make sure to add guard page on each side, as well */
-    uint offs = (dynamo_options.guard_pages) ? PAGE_SIZE : 0;
+    uint offs = (dynamo_options.guard_pages) ? (uint)PAGE_SIZE : 0;
     /* we again have circular dependence w/ vmareas if it happens to need a
      * new unit in the course of adding these areas, so we use a recursive lock!
      * furthermore, we need to own the global lock now, to avoid deadlock with

@@ -5347,7 +5347,7 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
          * reservations.
          */
 #       define MAX_BACK_QUERY_HEURISTIC 14
-        if (pc - alloc_base > PAGE_SIZE) {
+        if ((size_t)(pc - alloc_base) > PAGE_SIZE) {
             uint exponential = 1;
             /* The sub can't underflow b/c of the if() above */
             pb = (byte *) ALIGN_BACKWARD(pc - PAGE_SIZE, PAGE_SIZE);

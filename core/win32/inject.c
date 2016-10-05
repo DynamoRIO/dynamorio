@@ -1107,8 +1107,8 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, void *hook_locat
     instrlist_t ilist;
     byte *remote_code_buf = NULL, *local_code_buf = NULL, *pc, *remote_data;
     byte *hook_code_buf = NULL;
-    static const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
-    static const size_t code_alloc_sz = PAGE_SIZE;
+    const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
+    const size_t code_alloc_sz = PAGE_SIZE;
     size_t hook_code_sz = PAGE_SIZE;
     void *switch_code_location = hook_location;
 #ifdef X64

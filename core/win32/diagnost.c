@@ -265,7 +265,7 @@ report_addr_info(file_t diagnostics_file, app_pc addr, const char *tag)
 
     /* Also dump 1 page around address */
     print_file(diagnostics_file, "\t\t><content>\n");
-    print_memory_buffer(diagnostics_file, addr, PAGE_SIZE, tag,
+    print_memory_buffer(diagnostics_file, addr, (uint)PAGE_SIZE, tag,
                         PRINT_MEM_BUF_BYTE | PRINT_MEM_BUF_ASCII);
     print_file(diagnostics_file, "\t\t</content>\n");
 }
@@ -421,7 +421,7 @@ report_dcontext_info(IN file_t diagnostics_file, IN dcontext_t *dcontext,
                    (byte *) get_mcontext(dcontext)->xsp);
         print_memory_buffer(diagnostics_file,
                             (byte *) get_mcontext(dcontext)->xsp,
-                            PAGE_SIZE,
+                            (uint)PAGE_SIZE,
                             "Current Stack",
                              PRINT_MEM_BUF_ASCII);
         print_file(diagnostics_file, "\t\t</content>\n\t</stack>\n");
@@ -494,7 +494,7 @@ report_internal_data_structures(IN file_t diagnostics_file,
         print_file(diagnostics_file, "ebp="PFX" esp="PFX"\n",
                    our_ebp, our_esp);
         print_memory_buffer(diagnostics_file, (byte *)
-                            ALIGN_BACKWARD(our_esp, PAGE_SIZE), 3*PAGE_SIZE,
+                            ALIGN_BACKWARD(our_esp, PAGE_SIZE), 3*(uint)PAGE_SIZE,
                             "DR Stack", PRINT_MEM_BUF_START);
         /* application call stack is printed by report_dcontext_info */
     }

@@ -257,7 +257,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
             insert_out_of_line_context_switch(dcontext, ilist, instr, true);
     } else {
         dstack_offs +=
-            insert_push_all_registers(dcontext, cci, ilist, instr, PAGE_SIZE,
+            insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
                                       OPND_CREATE_INT32(0), REG_NULL);
         insert_clear_eflags(dcontext, cci, ilist, instr);
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
@@ -327,7 +327,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
-                                 PAGE_SIZE);
+                                 (uint)PAGE_SIZE);
     }
 
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
