@@ -38,6 +38,9 @@
 #include "drvector.h"
 #include <string.h>
 
+#undef PAGE_SIZE
+#define PAGE_SIZE dr_page_size()
+
 #define DRTABLE_MAGIC 0x42545244  /* "DRTB" */
 #define MAX_ENTRY_SIZE  PAGE_SIZE
 #ifdef UNIX

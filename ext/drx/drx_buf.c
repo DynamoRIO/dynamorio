@@ -332,6 +332,7 @@ per_thread_init_2byte(void *drcontext, drx_buf_t *buf)
 static per_thread_t *
 per_thread_init_fault(void *drcontext, drx_buf_t *buf)
 {
+    size_t page_size = dr_page_size();
     per_thread_t *per_thread = dr_thread_alloc(drcontext, sizeof(per_thread_t));
     byte *ret;
     bool ok;
@@ -344,15 +345,15 @@ per_thread_init_fault(void *drcontext, drx_buf_t *buf)
      * page. Then, we return an address such that we have exactly
      * buf_size bytes usable before we hit the ro page.
      */
-    per_thread->total_size = ALIGN_FORWARD(buf->buf_size, PAGE_SIZE) + PAGE_SIZE;
+    per_thread->total_size = ALIGN_FORWARD(buf->buf_size, page_size) + page_size;
     ret = dr_raw_mem_alloc(per_thread->total_size,
                            DR_MEMPROT_READ | DR_MEMPROT_WRITE,
                            NULL);
-    ok = dr_memory_protect(ret + per_thread->total_size - PAGE_SIZE,
-                           PAGE_SIZE, DR_MEMPROT_READ);
+    ok = dr_memory_protect(ret + per_thread->total_size - page_size,
+                           page_size, DR_MEMPROT_READ);
     DR_ASSERT(ok);
     per_thread->buf_base = ret;
-    per_thread->cli_base = ret + ALIGN_FORWARD(buf->buf_size, PAGE_SIZE) - buf->buf_size;
+    per_thread->cli_base = ret + ALIGN_FORWARD(buf->buf_size, page_size) - buf->buf_size;
     return per_thread;
 }
 
@@ -686,6 +687,7 @@ static bool
 fault_event_helper(void *drcontext, byte *target,
                    dr_mcontext_t *raw_mcontext)
 {
+    size_t page_size = dr_page_size();
     per_thread_t *data;
     drx_buf_t *buf;
     unsigned int i;
@@ -704,7 +706,7 @@ fault_event_helper(void *drcontext, byte *target,
             ro_lo = data->cli_base + buf->buf_size;
 
             /* we found the right client */
-            if (target >= ro_lo && target < ro_lo + PAGE_SIZE) {
+            if (target >= ro_lo && target < ro_lo + page_size) {
                 drvector_unlock(&clients);
                 return reset_buf_ptr(drcontext, raw_mcontext, data->seg_base,
                                      data->cli_base, buf);

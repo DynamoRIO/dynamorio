@@ -9620,6 +9620,13 @@ __umoddi3(uint64 dividend, uint64 divisor)
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 
+size_t
+os_page_size(void)
+{
+    /* FIXME i#1680: Determine page size from AT_PAGESZ, /proc, or system calls. */
+    return 4096;
+}
+
 #if defined(STANDALONE_UNIT_TEST)
 
 void

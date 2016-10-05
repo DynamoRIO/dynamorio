@@ -52,14 +52,6 @@
  * @brief Utility routines for identifying features of the processor.
  */
 
-/* page size is 4K on all DR-supported platforms */
-#ifndef PAGE_SIZE /* defined on Mac and Android */
-# define PAGE_SIZE (4*1024) /**< Size of a page of memory. */
-#endif
-
-/**< Convenience macro to align to the start of a page of memory. */
-#define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE)-1))
-
 /**
  * The maximum possible required size of floating point state buffer for
  * processors with different features (i.e., the processors with the FXSR

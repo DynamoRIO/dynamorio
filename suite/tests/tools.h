@@ -93,11 +93,23 @@ extern "C" {
 # ifndef _DR_API_H_
 #  error "must include dr_api.h before tools.h"
 # endif
-#else
-# ifndef PAGE_SIZE
-#  define PAGE_SIZE 0x00001000
-# endif
 #endif
+
+/* Ignore any PAGE_SIZE provided by the tool chain. */
+#undef PAGE_SIZE
+#define PAGE_SIZE page_size()
+
+static size_t
+page_size(void)
+{
+    /* FIXME i#1680: Determine page size from AT_PAGESZ, /proc, or system calls. */
+    return 4096;
+}
+
+/* Some tests want to define a static array that contains a whole page. This
+ * should be large enough.
+ */
+#define PAGE_SIZE_MAX (64 * 1024)
 
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
@@ -544,10 +556,12 @@ test_print(void *buf, int n)
     print("%d\n", test(buf, n));
 }
 
+#define INIT() do { assert(page_size() <= PAGE_SIZE_MAX); OS_INIT(); } while (0)
+
 #ifdef UNIX
 # define USE_USER32()
 # ifdef NEED_HANDLER
-#  define INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
+#  define OS_INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
 
 static void
 signal_handler(int sig)
@@ -560,12 +574,12 @@ signal_handler(int sig)
     exit(-1);
 }
 # else
-#  define INIT()
+#  define OS_INIT()
 # endif /* NEED_HANDLER */
 #else
 #  define USE_USER32() do { if (argc > 5) MessageBeep(0); } while (0)
 
-#  define INIT() set_global_filter()
+#  define OS_INIT() set_global_filter()
 
 /* XXX: when updating here, update core/os_exports.h too */
 # define WINDOWS_VERSION_10_1607 102

@@ -496,6 +496,20 @@ typedef struct _dr_mem_info_t {
 #define MEMPROT_HAS_COMMENT DR_MEMPROT_GUARD /* Android-only */
 #define MEMPROT_META_FLAGS (MEMPROT_VDSO | MEMPROT_HAS_COMMENT)
 
+/* Ignore any PAGE_SIZE provided by the tool chain and define a new
+ * version for DynamoRIO's internal use. Since PAGE_SIZE looks like
+ * it might be a constant, in new code it would be better to use an
+ * explicit function call.
+ */
+#undef PAGE_SIZE
+#define PAGE_SIZE os_page_size()
+
+/* Convenience macro to align to the start of a page of memory.
+ * It uses a function call so be careful where performance is critical.
+ */
+#define PAGE_START(x) (((ptr_uint_t)(x)) & ~(os_page_size()-1))
+
+size_t os_page_size(void);
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 /* We provide this b/c getting the bounds is expensive on Windows (i#1462) */

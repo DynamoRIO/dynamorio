@@ -80,15 +80,15 @@ memchk(byte *start, byte value, size_t size)
     return i == size;
 }
 
-const byte read_only_buf[2*PAGE_SIZE] = {0};
+const byte read_only_buf[2*PAGE_SIZE_MAX] = {0};
 
 /* NOTE - we need to initialize the writable buffers to some non-zero value so that they
  * will all be placed in the same memory region (on Linux only the first page is part
  * of the map and the remaining pages are just allocated instead of mapped if these are
  * 0). */
-byte safe_buf[2*PAGE_SIZE+100] = {1};
+byte safe_buf[2*PAGE_SIZE_MAX+100] = {1};
 
-byte writable_buf[2*PAGE_SIZE] = {1};
+byte writable_buf[2*PAGE_SIZE_MAX] = {1};
 
 static file_t file;
 

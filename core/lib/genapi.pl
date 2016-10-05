@@ -267,7 +267,8 @@ sub keep_define($)
             $def eq "X86" || $def eq "AARCH64" || $def eq "AARCHXX" || $def eq "ARM" ||
             $def eq "X86_32" || $def eq "X86_64" ||
             $def eq "ANDROID" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
-            $def eq "DR_FAST_IR" || $def eq "__cplusplus" || $def eq "PAGE_SIZE");
+            $def eq "DR_FAST_IR" || $def eq "__cplusplus" || $def eq "PAGE_SIZE" ||
+            $def eq "DR_PAGE_SIZE_COMPATIBILITY");
 }
 
 foreach $file (@headers) {

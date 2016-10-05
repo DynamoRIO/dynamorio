@@ -36,6 +36,18 @@
 
 /* Common definitions for test suite clients. */
 
+/* Ignore any PAGE_SIZE provided by the tool chain and define a new version
+ * using dr_api.h.
+ */
+#undef PAGE_SIZE
+#define PAGE_SIZE dr_page_size()
+
+/* Some tests want to define a static array that contains a whole page. This
+ * should be large enough, but a careful user may wish to
+ * ASSERT(dr_page_size() <= PAGE_SIZE_MAX).
+ */
+#define PAGE_SIZE_MAX (64 * 1024)
+
 /* Provide assertion macros that only use dr_fprintf.  The asserts provided by
  * dr_api.h cannot be used in the test suite because they pop up message boxes
  * on Windows.

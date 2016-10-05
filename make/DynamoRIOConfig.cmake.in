@@ -159,6 +159,10 @@
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
 #
+# To request that PAGE_SIZE and PAGE_START be defined set this variable:
+#
+#  set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON)
+#
 # To request a preferred base even when not targeting 64-bit:
 # (the actual base will use PREFERRED_BASE if set)
 #
@@ -571,6 +575,10 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   if (DynamoRIO_REG_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_REG_ENUM_COMPATIBILITY")
   endif (DynamoRIO_REG_COMPATIBILITY)
+
+  if (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
+    set(extra_cflags "${extra_cflags} -DDR_PAGE_SIZE_COMPATIBILITY")
+  endif (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
 
   if (DynamoRIO_FAST_IR)
     set(extra_cflags "${extra_cflags} -DDR_FAST_IR")

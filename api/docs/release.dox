@@ -138,6 +138,13 @@ following minor compatibility changes:
 
  - Changed dr_app_stop() to send all threads native instead of only the
    calling thread.
+ - Replaced PAGE_SIZE with dr_page_size() and removed PAGE_START from the API.
+   However, clients may set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON), in which
+   case definitions of PAGE_SIZE and PAGE_START using dr_page_size() are
+   provided, though code that uses these macros in a constant expression,
+   such as a static initialiser, will still need to be rewritten.
+   DynamoRIO_PAGE_SIZE_COMPATIBILITY will be set automatically if the
+   client targets version 6.2 or earlier.
 
 Further non-compatibility-affecting changes include:
 

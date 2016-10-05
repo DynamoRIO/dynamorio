@@ -714,7 +714,7 @@ static module_table_t *
 module_table_create(const char *module, size_t size)
 {
     module_table_t *table;
-    ASSERT(ALIGNED(size, PAGE_SIZE), "Module size is not aligned");
+    ASSERT(ALIGNED(size, dr_page_size()), "Module size is not aligned");
 
     table = (module_table_t *) calloc(1, sizeof(*table));
     ASSERT(table != NULL, "Failed to allocate module table");

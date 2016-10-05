@@ -3061,6 +3061,13 @@ dr_memory_protect(void *base, size_t size, uint new_prot)
 }
 
 DR_API
+size_t
+dr_page_size(void)
+{
+    return os_page_size();
+}
+
+DR_API
 /* checks to see that all bytes with addresses from pc to pc+size-1
  * are readable and that reading from there won't generate an exception.
  */

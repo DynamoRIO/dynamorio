@@ -33,7 +33,7 @@
 
 #include "tools.h"
 
-#define BUFFER_SIZE 3*PAGE_SIZE
+#define BUFFER_SIZE (3*PAGE_SIZE_MAX)
 
 static char buffer[BUFFER_SIZE];
 
@@ -109,14 +109,22 @@ test_alloc_overlap(void)
     /* Hmm, there is no free_mem()... */
 }
 
+/* The stack tests require a variable-length array. */
+#undef DO_STACK_TESTS
+/* Variable-length arrays are always available in C99, but optional in C11. */
+#if __STDC_VERSION__ >= 199901L && !defined(__STDC_NO_VLA__)
+# define DO_STACK_TESTS 1
+#endif
+
 int
 main()
 {
     /* get aligned test buffers */
-    char buffer_stack[BUFFER_SIZE];
-
-    char *buf = page_align(buffer);
+#ifdef DO_STACK_TESTS
+    char buffer_stack[3 * PAGE_SIZE]; /* PAGE_SIZE may not be a constant. */
     char *buf_stack = page_align(buffer_stack);
+#endif
+    char *buf = page_align(buffer);
     INIT();
 
 #if USE_DYNAMO
@@ -127,7 +135,12 @@ main()
     print("starting up\n");
     do_test(buf, 2*PAGE_SIZE);
     print("starting stack tests\n");
+#ifdef DO_STACK_TESTS
     do_test(buf_stack, 2*PAGE_SIZE);
+#else
+    /* Run the test on the static buffer, again, to get the expected test output. */
+    do_test(buf, 2*PAGE_SIZE);
+#endif
 
     print("starting overlap tests\n");
     test_alloc_overlap();

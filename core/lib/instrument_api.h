@@ -2181,7 +2181,30 @@ __wrap_free(void *mem);
 /**************************************************
  * MEMORY QUERY/ACCESS ROUTINES
  */
+
+#ifdef DR_PAGE_SIZE_COMPATIBILITY
+
+# undef PAGE_SIZE
+/**
+ * Size of a page of memory. This uses a function call so be careful
+ * where performance is critical.
+ */
+# define PAGE_SIZE dr_page_size()
+
+/**
+ * Convenience macro to align to the start of a page of memory.
+ * It uses a function call so be careful where performance is critical.
+ */
+# define PAGE_START(x) (((ptr_uint_t)(x)) & ~(dr_page_size()-1))
+
+#endif /* DR_PAGE_SIZE_COMPATIBILITY */
+
 /* DR_API EXPORT END */
+
+DR_API
+/** Returns the size of a page of memory. */
+size_t
+dr_page_size(void);
 
 DR_API
 /**

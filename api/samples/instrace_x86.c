@@ -85,6 +85,7 @@ typedef struct {
     uint64  num_refs;
 } per_thread_t;
 
+static size_t page_size;
 static client_id_t client_id;
 static app_pc code_cache;
 static void  *mutex;    /* for multithread support */
@@ -119,6 +120,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         0};               /* numeric priority */
     dr_set_client_name("DynamoRIO Sample Client 'instrace'",
                        "http://dynamorio.org/issues");
+    page_size = dr_page_size();
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
     client_id = id;
@@ -297,7 +299,7 @@ code_cache_init(void)
     byte         *end;
 
     drcontext  = dr_get_current_drcontext();
-    code_cache = dr_nonheap_alloc(PAGE_SIZE,
+    code_cache = dr_nonheap_alloc(page_size,
                                   DR_MEMPROT_READ  |
                                   DR_MEMPROT_WRITE |
                                   DR_MEMPROT_EXEC);
@@ -310,17 +312,17 @@ code_cache_init(void)
     dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
     /* Encode the instructions into memory and clean up. */
     end = instrlist_encode(drcontext, ilist, code_cache, false);
-    DR_ASSERT((end - code_cache) < PAGE_SIZE);
+    DR_ASSERT((end - code_cache) < page_size);
     instrlist_clear_and_destroy(drcontext, ilist);
     /* Set the memory as just +rx now. */
-    dr_memory_protect(code_cache, PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
+    dr_memory_protect(code_cache, page_size, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
 }
 
 
 static void
 code_cache_exit(void)
 {
-    dr_nonheap_free(code_cache, PAGE_SIZE);
+    dr_nonheap_free(code_cache, page_size);
 }
 
 /* instrument_instr is called whenever a memory reference is identified.
