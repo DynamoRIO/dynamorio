@@ -2061,14 +2061,26 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
                 ma->full_path = dr_strdup(file_path HEAPACCT(which));
         } else if (!dynamo_initialized) {
             const char *path = buf;
+            buf[0] = '\0';
             get_module_name(base, buf, BUFFER_SIZE_ELEMENTS(buf));
             if (buf[0] == '\0' && is_in_dynamo_dll(base))
                 path = get_dynamorio_library_path();
             IF_CLIENT_INTERFACE({
                 if (path[0] == '\0' && is_in_client_lib(base))
                     path = get_client_path_from_addr(base);
+                if (path[0] == '\0' && INTERNAL_OPTION(private_loader)) {
+                    privmod_t *privmod;
+                    acquire_recursive_lock(&privload_lock);
+                    privmod = privload_lookup_by_base(base);
+                    if (privmod != NULL) {
+                        dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s", privmod->path);
+                        path = buf;
+                    }
+                    release_recursive_lock(&privload_lock);
+                }
             });
-            name = get_short_name(path);
+            if (path[0] != '\0')
+                name = get_short_name(path);
             /* Set the path too.  We could avoid a strdup by sharing the
              * same alloc w/ the short name, but simpler to separate.
              */
