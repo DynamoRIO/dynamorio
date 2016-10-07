@@ -82,14 +82,14 @@ extern droption_t<unsigned int> op_verbose;
 } while (0)
 
 #define VPRINT(level, ...) do { \
-    if (op_verbose.get_value() >= level) { \
+    if (op_verbose.get_value() >= (level)) { \
         fprintf(stderr, "[drmemtrace]: "); \
         fprintf(stderr, __VA_ARGS__); \
     } \
 } while (0)
 
 #define DO_VERBOSE(level, x) do { \
-    if (op_verbose.get_value() >= level) { \
+    if (op_verbose.get_value() >= (level)) { \
         x \
     } \
 } while (0)
@@ -245,7 +245,8 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
         in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
         // XXX: if there are multiple predicated memrefs, we may not be able to tell
         // which one(s) executed.
-        VPRINT(3, "Missing memref (next type is 0x"ZHEX64_FORMAT_STRING")\n",
+        VPRINT((instr_get_predicate(instr) != DR_PRED_NONE) ? 3U : 0U,
+               "Missing memref (next type is 0x"ZHEX64_FORMAT_STRING")\n",
                in_entry.combined_value);
         CHECK(instr_get_predicate(instr) != DR_PRED_NONE, "missing memref entry");
         return buf;
