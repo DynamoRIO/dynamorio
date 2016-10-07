@@ -111,6 +111,8 @@ add_executable(drraw2trace
   tracer/instru.cpp
   tracer/instru_online.cpp
   )
+# To avoid dup symbol errors on some VS builds we list drdecode before DR:
+target_link_libraries(drraw2trace drdecode)
 configure_DynamoRIO_standalone(drraw2trace)
 target_link_libraries(drraw2trace drfrontendlib)
 use_DynamoRIO_extension(drraw2trace droption)
