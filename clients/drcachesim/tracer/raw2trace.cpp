@@ -265,7 +265,7 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
     }
     // We take the full value, to handle low or high.
     buf->addr = (addr_t) in_entry.combined_value;
-    VPRINT(3, "Appended memref to "PFX"\n", buf->addr);
+    VPRINT(3, "Appended memref to "PFX"\n", (ptr_uint_t)buf->addr);
     ++buf;
     return buf;
 }
@@ -288,7 +288,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
     } else {
         VPRINT(2, "Appending %u instrs in bb "PFX" in mod %u +"PIFX" = %s\n",
                instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
-               (size_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
+               (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
     }
     instr_init(dcontext, &instr);
     for (uint i = 0; i < instr_count; ++i) {
@@ -305,7 +305,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         });
         if (pc == NULL || !instr_valid(&instr)) {
             WARN("Encountered invalid/undecodable instr @ %s+"PFX,
-                 modvec[in_entry->pc.modidx].path, (size_t)in_entry->pc.modoffs);
+                 modvec[in_entry->pc.modidx].path, (ptr_uint_t)in_entry->pc.modoffs);
             break;
         }
         CHECK(!instr_is_cti(&instr) || i == instr_count - 1, "invalid cti");
@@ -362,7 +362,7 @@ raw2trace_t::merge_and_process_thread_files()
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
-                VPRINT(2, "Thread %d exit\n", tids[tidx]);
+                VPRINT(2, "Thread %d exit\n", (int)tids[tidx]);
                 size = instru.append_thread_exit(buf, tids[tidx]);
                 --thread_count;
                 if (thread_count == 0)
@@ -382,7 +382,8 @@ raw2trace_t::merge_and_process_thread_files()
                 entry->type = TRACE_TYPE_READ; // Guess.
                 entry->size = 1; // Guess.
                 entry->addr = (addr_t) in_entry.combined_value;
-                VPRINT(3, "Appended non-module memref to "PFX"\n", entry->addr);
+                VPRINT(3, "Appended non-module memref to "PFX"\n",
+                       (ptr_uint_t)entry->addr);
                 size = sizeof(*entry);
             } else {
                 // We should see an instr entry first
