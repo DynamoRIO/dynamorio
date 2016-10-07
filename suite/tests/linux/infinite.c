@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,9 +52,9 @@ int main()
 #elif defined (__arm__)
     __asm__("b      aroundexit");
     __asm__("doexit:          ");
-    __asm__("       mov    r7, #248      // exit_group");
-    __asm__("       mov    r0, #0        // exit code");
-    __asm__("       svc    0             // kernel");
+    __asm__("       mov    r7, #248      @ exit_group");
+    __asm__("       mov    r0, #0        @ exit code");
+    __asm__("       svc    0             @ kernel");
     __asm__("aroundexit: bl doexit");
 #else
 # error NYI
