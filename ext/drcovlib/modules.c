@@ -482,8 +482,8 @@ drmodtrack_offline_exit(void *handle)
     if (info == NULL)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     dr_global_free(info->mod, info->num_mods * sizeof(*info->mod));
-    dr_global_free(info, sizeof(*info));
     if (info->map != NULL)
         dr_unmap_file((char *)info->map, info->map_size);
+    dr_global_free(info, sizeof(*info));
     return DRCOVLIB_SUCCESS;
 }
