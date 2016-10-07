@@ -244,12 +244,14 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
         modbase = pc;
     }
     entry.pc.type = OFFLINE_TYPE_PC;
-    entry.pc.modoffs = pc - modbase;
+    // We put the ARM vs Thumb mode into the modoffs to ensure proper decoding.
+    entry.pc.modoffs =
+        dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
     entry.pc.modidx = modidx;
     entry.pc.instr_count = (ptr_uint_t)*bb_field;
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                    entry.combined_value);
-    *bb_field = tag;
+    *(ptr_uint_t*)bb_field = MAX_INSTR_COUNT + 1;
     return (adjust + sizeof(offline_entry_t));
 }
 

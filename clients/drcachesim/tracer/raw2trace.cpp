@@ -243,12 +243,15 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
         FATAL_ERROR("Trace ends mid-block");
     if (in_entry.addr.type != OFFLINE_TYPE_MEMREF &&
         in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
-        // XXX: if there are multiple predicated memrefs, we may not be able to tell
-        // which one(s) executed.
-        VPRINT((instr_get_predicate(instr) != DR_PRED_NONE) ? 3U : 0U,
-               "Missing memref (next type is 0x"ZHEX64_FORMAT_STRING")\n",
+        // This happens when there are predicated memrefs in the bb.
+        // They could be earlier, so "instr" may not itself be predicated.
+        // XXX i#2015: if there are multiple predicated memrefs, our instr vs
+        // data stream may not be in the correct order here.
+        VPRINT(3, "Missing memref (next type is 0x"ZHEX64_FORMAT_STRING")\n",
                in_entry.combined_value);
-        CHECK(instr_get_predicate(instr) != DR_PRED_NONE, "missing memref entry");
+        // Put back the entry.
+        thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
+                                  thread_files[tidx]->cur);
         return buf;
     }
     if (instr_is_prefetch(instr)) {
@@ -430,6 +433,11 @@ raw2trace_t::raw2trace_t(std::string indir_in, std::string outname_in)
     VPRINT(1, "Writing to %s\n", outname.c_str());
 
     dcontext = dr_standalone_init();
+#ifdef ARM
+    // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
+    // to trigger Thumb decoding.
+    dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
+#endif
 }
 
 raw2trace_t::~raw2trace_t()
