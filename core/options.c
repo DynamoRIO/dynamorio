@@ -866,6 +866,12 @@ check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
 #ifdef EXPOSE_INTERNAL_OPTIONS
+    if (INTERNAL_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
+        USAGE_ERROR("vmm_block_size (%d) must be >= %d, setting to min",
+                    INTERNAL_OPTION(vmm_block_size), MIN_VMM_BLOCK_SIZE);
+        dynamo_options.vmm_block_size = MIN_VMM_BLOCK_SIZE;
+        changed_options = true;
+    }
     if (!INTERNAL_OPTION(inline_calls) && !DYNAMO_OPTION(disable_traces)) {
         /* cannot disable inlining of calls and build traces (currently) */
         USAGE_ERROR("-no_inline_calls not compatible with -disable_traces, setting to default");

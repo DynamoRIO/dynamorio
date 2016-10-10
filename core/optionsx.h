@@ -1101,6 +1101,21 @@
 
     OPTION_INTERNAL(bool, simulate_contention, "simulate lock contention for testing purposes only")
 
+    /* Virtual memory manager.
+     * Our current default allocation unit matches the allocation granularity on
+     * windows, to avoid worrying about external fragmentation
+     * Since most of our allocations fall within this range this makes the
+     * common operation be finding a single empty block.
+     *
+     * On Linux we save a lot of wasted alignment space by using a smaller
+     * granularity (PR 415959).
+     *
+     * FIXME: for Windows, if we reserve the whole region up front and
+     * just commit pieces, why do we need to match the Windows kernel
+     * alloc granularity?
+     */
+    OPTION_DEFAULT_INTERNAL(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,16)*1024),
+                            "allocation unit for virtual memory manager")
     OPTION_DEFAULT_INTERNAL(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
     OPTION_DEFAULT_INTERNAL(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
     /* if this is too small then once past the vm reservation we have too many
