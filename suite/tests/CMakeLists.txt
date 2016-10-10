@@ -1641,6 +1641,14 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
   append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -Wl,-static")
 endif ()
 
+if (AARCH64)
+  tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
+    "-early_inject" "") # FIXME i#1569: -enable_traces here
+  set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(common.allasm_aarch64_isa
+    "-nostartfiles -nodefaultlibs -Wl,-static")
+endif ()
+
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
   tobuild_api(libutil.frontend_test libutil/frontend_test.c "" "" OFF OFF)
   target_link_libraries(libutil.frontend_test drfrontendlib)
