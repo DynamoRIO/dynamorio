@@ -2556,8 +2556,14 @@ dr_app_setup(void)
      * We should share the suspend-and-takeover loop (and for dr_app_setup_and_start
      * share the takeover portion) from dr_app_start().
      */
+    int res;
     dr_api_entry = true;
-    return dynamorio_app_init();
+    res = dynamorio_app_init();
+    /* It would be more efficient to avoid setting up signal handlers and
+     * avoid hooking vsyscall during init, but the code is simpler this way.
+     */
+    os_process_not_under_dynamorio(get_thread_private_dcontext());
+    return res;
 }
 
 /* API routine to exit DR */
@@ -2565,6 +2571,9 @@ DR_APP_API int
 dr_app_cleanup(void)
 {
     thread_record_t *tr;
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    dr_api_exit = true;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT); /* to keep properly nested */
 
     /* XXX: The dynamo_thread_[not_]under_dynamo() routines are not idempotent,
      * and must be balanced!  On Linux, they track the shared itimer refcount,
@@ -2577,12 +2586,10 @@ dr_app_cleanup(void)
      * dynamo_thread_not_under_dynamo() about updating tr->under_dynamo_control.
      */
     tr = thread_lookup(get_thread_id());
-    if (tr != NULL && tr->dcontext != NULL)
+    if (tr != NULL && tr->dcontext != NULL) {
+        os_process_under_dynamorio(tr->dcontext);
         dynamo_thread_under_dynamo(tr->dcontext);
-
-    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    dr_api_exit = true;
-    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT); /* to keep properly nested */
+    }
     return dynamorio_app_exit();
 }
 
@@ -2690,6 +2697,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     bool found_threads;
     uint attempts = 0;
 
+    os_process_under_dynamorio(dcontext);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.
      */

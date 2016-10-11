@@ -304,9 +304,6 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc);
 
 void init_emulated_brk(app_pc exe_end);
 
-/* in arch.c */
-bool unhook_vsyscall(void);
-
 /***************************************************************************/
 /* in signal.c */
 
@@ -409,6 +406,9 @@ signal_fork_init(dcontext_t *dcontext);
 
 void
 signal_remove_handlers(dcontext_t *dcontext);
+
+void
+signal_reinstate_handlers(dcontext_t *dcontext);
 
 bool
 set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,

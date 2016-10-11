@@ -2293,6 +2293,24 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     os_swap_context(dcontext, true/*to app*/, DR_STATE_ALL);
 }
 
+void
+os_process_under_dynamorio(dcontext_t *dcontext)
+{
+    LOG(GLOBAL, LOG_THREADS, 1, "process now under DR\n");
+    /* We only support regular process-wide signal handlers for delayed takeover. */
+    signal_reinstate_handlers(dcontext);
+    hook_vsyscall(dcontext, false);
+}
+
+void
+os_process_not_under_dynamorio(dcontext_t *dcontext)
+{
+    /* We only support regular process-wide signal handlers for mixed-mode control. */
+    signal_remove_handlers(dcontext);
+    unhook_vsyscall();
+    LOG(GLOBAL, LOG_THREADS, 1, "process no longer under DR\n");
+}
+
 bool
 detach_do_not_translate(thread_record_t *tr)
 {
@@ -9225,6 +9243,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
             /* Re-takeover known threads that are currently native as well.
              * XXX i#95: we need a synchall-style loop for known threads as
              * they can be in DR for syscall hook handling.
+             * Update: we now remove the hook for start/stop: but native_exec
+             * or other individual threads going native could still hit this.
              */
             (is_thread_currently_native(tr)
              IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(tr->dcontext))))

@@ -4089,7 +4089,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         /* i#1582: required for now on ARM */
         IF_UNIX(os_swap_context_go_native(dcontext, 0));
         /* i#1921: for now we do not support re-attach, so remove handlers */
-        IF_UNIX(signal_remove_handlers(dcontext));
+        os_process_not_under_dynamorio(dcontext);
         bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
         return;
     }

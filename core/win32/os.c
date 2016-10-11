@@ -1697,6 +1697,18 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     set_asynch_interception(get_thread_id(), false);
 }
 
+void
+os_process_under_dynamorio(dcontext_t *dcontext)
+{
+    /* Nothing. */
+}
+
+void
+os_process_not_under_dynamorio(dcontext_t *dcontext)
+{
+    /* Nothing. */
+}
+
 /***************************************************************************
  * THREAD TAKEOVER
  */

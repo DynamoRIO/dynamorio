@@ -2778,8 +2778,8 @@ unhook_vsyscall(void)
 
 #define VSYS_DISPLACED_LEN 4
 
-static bool
-hook_vsyscall(dcontext_t *dcontext)
+bool
+hook_vsyscall(dcontext_t *dcontext, bool method_changing)
 {
 #ifdef X86
     bool res = true;
@@ -2788,8 +2788,14 @@ hook_vsyscall(dcontext_t *dcontext)
     uint num_nops = 0;
     uint prot;
 
+# ifdef X64
+    return false;
+# endif
+    /* On a call on a method change the method is not yet finalized so we always try */
+    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER && !method_changing)
+        return false;
+
     ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
-    IF_X64(ASSERT_NOT_REACHED()); /* no sysenter support on x64 */
     ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL &&
            vsyscall_page_start == (app_pc)PAGE_START(vsyscall_syscall_end_pc));
 
@@ -2894,8 +2900,10 @@ hook_vsyscall(dcontext_t *dcontext)
     return res;
 # undef CHECK
 #elif defined(AARCHXX)
-    /* No vsyscall support needed for our ARM targets */
-    ASSERT_NOT_REACHED();
+    /* No vsyscall support needed for our ARM targets -- still called on
+     * os_process_under_dynamorio().
+     */
+    ASSERT(!method_changing);
     return false;
 #endif /* X86/ARM */
 }
@@ -3065,7 +3073,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
             }
 #  endif
             /* Hook the sysenter continuation point so we don't lose control */
-            if (!sysenter_hook_failed && !hook_vsyscall(dcontext)) {
+            if (!sysenter_hook_failed && !hook_vsyscall(dcontext, true/*force*/)) {
                 /* PR 212570: for now we bail out to using int;
                  * for performance we should clobber the retaddr and
                  * keep the sysenters.

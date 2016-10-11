@@ -1823,6 +1823,8 @@ send_all_other_threads_native(void)
 
     end_synch_with_all_threads(threads, num_threads, true/*resume*/);
 
+    os_process_not_under_dynamorio(my_dcontext);
+
     if (waslinking)
         enter_couldbelinking(my_dcontext, NULL, false);
     return;

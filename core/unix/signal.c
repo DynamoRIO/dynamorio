@@ -992,7 +992,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 
     unblock_all_signals(&info->app_sigblocked);
     DOLOG(2, LOG_ASYNCH, {
-        LOG(THREAD, LOG_ASYNCH, 2, "thread's initial app signal mask:\n");
+        LOG(THREAD, LOG_ASYNCH, 2, "thread %d's initial app signal mask:\n",
+            get_thread_id());
         dump_sigset(dcontext, &info->app_sigblocked);
     });
 
@@ -1112,37 +1113,6 @@ sigsegv_handler_is_ours(void)
     return (rc == 0 && oldact.handler == (handler_t)master_signal_handler);
 }
 #endif /* DEBUG */
-
-/* i#1921: For proper native execution with re-takeover we need to propagate
- * signals.  For now we only support going completely native in this thread but
- * without a full detach, so we abandon our signal handlers w/o freeing memory
- * up front.
- */
-void
-signal_remove_handlers(dcontext_t *dcontext)
-{
-    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    int i;
-    kernel_sigaction_t act;
-    memset(&act, 0, sizeof(act));
-    act.handler = (handler_t) SIG_DFL;
-    kernel_sigemptyset(&act.mask);
-    for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (info->app_sigaction[i] != NULL) {
-            /* restore to old handler, but not if exiting whole
-             * process: else may get itimer during cleanup, so we
-             * set to SIG_IGN (we'll have to fix once we impl detach)
-             */
-            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
-                info->app_sigaction[i]->handler, i);
-            sigaction_syscall(i, info->app_sigaction[i], NULL);
-        } else if (info->we_intercept[i]) {
-            /* restore to default */
-            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
-            sigaction_syscall(i, &act, NULL);
-        }
-    }
-}
 
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread)
@@ -1383,6 +1353,55 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
 
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
     info->we_intercept[sig] = true;
+}
+
+/* i#1921: For proper single-threaded native execution with re-takeover we need
+ * to propagate signals.  For now we only support going completely native in
+ * this thread but without a full detach, so we abandon our signal handlers w/o
+ * freeing memory up front.
+ * We also use this for the start/stop interface where we are going fully native
+ * for all threads.
+ */
+void
+signal_remove_handlers(dcontext_t *dcontext)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int i;
+    kernel_sigaction_t act;
+    memset(&act, 0, sizeof(act));
+    act.handler = (handler_t) SIG_DFL;
+    kernel_sigemptyset(&act.mask);
+    for (i = 1; i <= MAX_SIGNUM; i++) {
+        if (info->app_sigaction[i] != NULL) {
+            /* restore to old handler, but not if exiting whole
+             * process: else may get itimer during cleanup, so we
+             * set to SIG_IGN (we'll have to fix once we impl detach)
+             */
+            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
+                info->app_sigaction[i]->handler, i);
+            sigaction_syscall(i, info->app_sigaction[i], NULL);
+        } else if (info->we_intercept[i]) {
+            /* restore to default */
+            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring SIG_DFL as handler for %d\n", i);
+            sigaction_syscall(i, &act, NULL);
+        }
+    }
+}
+
+/* We assume regular POSIX with handlers global to just one thread group in the
+ * process.
+ */
+void
+signal_reinstate_handlers(dcontext_t *dcontext)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int i;
+    for (i = 1; i <= MAX_SIGNUM; i++) {
+        if (info->we_intercept[i]) {
+            LOG(THREAD, LOG_ASYNCH, 2, "\trestoring DR handler for %d\n", i);
+            intercept_signal(dcontext, info, i);
+        }
+    }
 }
 
 /**** system call handlers ***********************************************/
@@ -6229,7 +6248,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
 
     if (!doing_detach &&
         is_thread_currently_native(dcontext->thread_record) &&
-        !IS_CLIENT_THREAD(dcontext)) {
+        !IS_CLIENT_THREAD(dcontext)
+        IF_APP_EXPORTS(&& !dr_api_exit)) {
         sig_take_over(ucxt);  /* no return */
         ASSERT_NOT_REACHED();
     }
