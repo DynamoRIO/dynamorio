@@ -187,7 +187,7 @@ typedef struct ptrace_stack_args_t {
 } ptrace_stack_args_t;
 
 /* in os.c */
-void os_thread_take_over(priv_mcontext_t *mc);
+void os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
 
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
@@ -284,6 +284,9 @@ set_default_signal_action(int sig);
 
 void
 share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc);
+
+void
+signal_set_mask(dcontext_t *dcontext, kernel_sigset_t *sigset);
 
 void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig);

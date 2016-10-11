@@ -1706,6 +1706,12 @@ set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
 #endif
 }
 
+void
+signal_set_mask(dcontext_t *dcontext, kernel_sigset_t *sigset)
+{
+    set_blocked(dcontext, sigset, true/*absolute*/);
+}
+
 /* Scans over info->sigpending to see if there are any unblocked, pending
  * signals, and sets dcontext->signals_pending if there are.  Do this after
  * modifying the set of signals blocked by the application.
@@ -4014,7 +4020,8 @@ sig_take_over(kernel_ucontext_t *uc)
 {
     priv_mcontext_t mc;
     ucontext_to_mcontext(&mc, uc);
-    os_thread_take_over(&mc);
+    /* We don't want our own blocked signals: we want the app's, stored in the frame. */
+    os_thread_take_over(&mc, SIGMASK_FROM_UCXT(uc));
     ASSERT_NOT_REACHED();
 }
 

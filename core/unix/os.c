@@ -9314,7 +9314,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
  * that signaled us by signalling our event in thread_takeover_records.
  */
 void
-os_thread_take_over(priv_mcontext_t *mc)
+os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 {
     uint i;
     thread_id_t mytid;
@@ -9341,6 +9341,7 @@ os_thread_take_over(priv_mcontext_t *mc)
         dcontext = get_thread_private_dcontext();
         ASSERT(dcontext != NULL);
     }
+    signal_set_mask(dcontext, sigset);
     dynamo_thread_under_dynamo(dcontext);
     dc_mc = get_mcontext(dcontext);
     *dc_mc = *mc;
