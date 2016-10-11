@@ -455,12 +455,21 @@ signal_exit()
 #endif
 }
 
+#ifdef HAVE_SIGALTSTACK
+/* Separated out to run from the dstack (i#2016: see below). */
+static void
+set_our_alt_stack(void *arg)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) arg;
+    DEBUG_DECLARE(int rc =)
+        sigaltstack_syscall(&info->sigstack, &info->app_sigstack);
+    ASSERT(rc == 0);
+}
+#endif
+
 void
 signal_thread_init(dcontext_t *dcontext)
 {
-#ifdef HAVE_SIGALTSTACK
-    int rc;
-#endif
     thread_sig_info_t *info = HEAP_TYPE_ALLOC(dcontext, thread_sig_info_t,
                                               ACCT_OTHER, PROTECTED);
 
@@ -489,8 +498,17 @@ signal_thread_init(dcontext_t *dcontext)
     info->sigstack.ss_size = SIGSTACK_SIZE;
     /* kernel will set xsp to sp+size to grow down from there, we don't have to */
     info->sigstack.ss_flags = 0;
-    rc = sigaltstack_syscall(&info->sigstack, &info->app_sigstack);
-    ASSERT(rc == 0);
+
+    /* i#2016: for late takeover, this app thread may already be on its own alt
+     * stack.  Not setting SA_ONSTACK for SUSPEND_SIGNAL is not sufficient to avoid
+     * this, as our SUSPEND_SIGNAL can interrupt the app inside its own signal
+     * handler.  Thus, we simply swap to another stack temporarily to avoid the
+     * kernel complaining.  The dstack is set up but it has the clone record and
+     * initial mcxt, so we use the new alt stack.
+     */
+    call_switch_stack((void *)info,
+                      (byte *)info->sigstack.ss_sp + info->sigstack.ss_size,
+                      set_our_alt_stack, NULL, true/*return*/);
     LOG(THREAD, LOG_ASYNCH, 1, "signal stack is "PFX" - "PFX"\n",
         info->sigstack.ss_sp, info->sigstack.ss_sp + info->sigstack.ss_size);
     /* app_sigstack dealt with below, based on parentage */

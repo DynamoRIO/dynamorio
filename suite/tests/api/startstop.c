@@ -190,7 +190,7 @@ int main(void)
 #endif
     }
 
-    /* Initialized DR */
+    /* Initialize DR */
     dr_app_setup();
     /* XXX: Calling the client interface from the app is not supported.  We're
      * just using it for testing.
