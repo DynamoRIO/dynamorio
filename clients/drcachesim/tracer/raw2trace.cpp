@@ -134,7 +134,7 @@ raw2trace_t::read_and_map_modules(void)
                 else
                     FATAL_ERROR("Failed to map module %s", path);
             } else {
-                VPRINT(1, "Mapped module %d @"PFX" = %s\n", (int)modvec.size(),
+                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(),
                        (ptr_uint_t)base_pc, path);
                 modvec.push_back(module_t(path, modbase, base_pc, map_size));
             }
@@ -247,7 +247,7 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
         // They could be earlier, so "instr" may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
-        VPRINT(3, "Missing memref (next type is 0x"ZHEX64_FORMAT_STRING")\n",
+        VPRINT(3, "Missing memref (next type is 0x" ZHEX64_FORMAT_STRING ")\n",
                in_entry.combined_value);
         // Put back the entry.
         thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
@@ -269,7 +269,7 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
     }
     // We take the full value, to handle low or high.
     buf->addr = (addr_t) in_entry.combined_value;
-    VPRINT(3, "Appended memref to "PFX"\n", (ptr_uint_t)buf->addr);
+    VPRINT(3, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
     ++buf;
     return buf;
 }
@@ -290,7 +290,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         VPRINT(2, "Skipping ifetch for %u instrs not in a module\n", instr_count);
         return false;
     } else {
-        VPRINT(2, "Appending %u instrs in bb "PFX" in mod %u +"PIFX" = %s\n",
+        VPRINT(2, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
                instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
                (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
     }
@@ -308,7 +308,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
             dr_print_instr(dcontext, STDOUT, &instr, "");
         });
         if (pc == NULL || !instr_valid(&instr)) {
-            WARN("Encountered invalid/undecodable instr @ %s+"PFX,
+            WARN("Encountered invalid/undecodable instr @ %s+" PFX,
                  modvec[in_entry->pc.modidx].path, (ptr_uint_t)in_entry->pc.modoffs);
             break;
         }
@@ -386,7 +386,7 @@ raw2trace_t::merge_and_process_thread_files()
                 entry->type = TRACE_TYPE_READ; // Guess.
                 entry->size = 1; // Guess.
                 entry->addr = (addr_t) in_entry.combined_value;
-                VPRINT(3, "Appended non-module memref to "PFX"\n",
+                VPRINT(3, "Appended non-module memref to " PFX "\n",
                        (ptr_uint_t)entry->addr);
                 size = sizeof(*entry);
             } else {
