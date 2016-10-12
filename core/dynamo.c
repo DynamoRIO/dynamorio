@@ -1170,6 +1170,25 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res)
     end_synch_with_all_threads(threads, num_threads, false/*don't resume*/);
 }
 
+static thread_synch_state_t
+exit_synch_state(void)
+{
+    thread_synch_state_t synch_res =
+        IF_WINDOWS_ELSE(THREAD_SYNCH_SUSPENDED_AND_CLEANED,
+                        THREAD_SYNCH_TERMINATED_AND_CLEANED);
+#if defined(DR_APP_EXPORTS) && defined(UNIX)
+    if (dr_api_exit) {
+        /* Don't terminate the app's threads in case the app plans to continue
+         * after dr_app_cleanup().  Note that today we don't fully support that
+         * anyway: the app should use dr_app_stop_and_cleanup() whose detach
+         * code won't come here.
+         */
+        synch_res = THREAD_SYNCH_SUSPENDED_AND_CLEANED;
+    }
+#endif
+    return synch_res;
+}
+
 #ifdef DEBUG
 /* cleanup after the application has exited */
 static int
@@ -1211,9 +1230,7 @@ dynamo_process_exit_cleanup(void)
          * we don't check control_all_threads b/c we're just killing
          * the threads we know about here
          */
-        synch_with_threads_at_exit(IF_WINDOWS_ELSE
-                                   (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
-                                    THREAD_SYNCH_TERMINATED_AND_CLEANED));
+        synch_with_threads_at_exit(exit_synch_state());
         /* now that APC interception point is unpatched and
          * dynamorio_exited is set and we've killed all the theads we know
          * about, assumption is that no other threads will be running in
@@ -1350,9 +1367,7 @@ dynamo_process_exit(void)
         /* needed primarily for CLIENT_INTERFACE but technically all configurations
          * can have racy crashes at exit time (xref PR 470957)
          */
-        synch_with_threads_at_exit(IF_WINDOWS_ELSE
-                                   (THREAD_SYNCH_SUSPENDED_AND_CLEANED,
-                                    THREAD_SYNCH_TERMINATED_AND_CLEANED));
+        synch_with_threads_at_exit(exit_synch_state());
     } else
         dynamo_exited = true;
 
@@ -2623,6 +2638,11 @@ dr_app_stop(void)
 DR_APP_API void
 dr_app_stop_and_cleanup(void)
 {
+    /* XXX i#95: today this is a full detach, while a separated dr_app_cleanup()
+     * is not.  We should try and have dr_app_cleanup() take this detach path
+     * here (and then we can simplify exit_synch_state()) but it's more complicated
+     * and we need to resolve the unbounded dr_app_stop() time.
+     */
     if (dynamo_initialized && !dynamo_exited && !doing_detach) {
         detach_on_permanent_stack(true/*internal*/, true/*do cleanup*/);
     }

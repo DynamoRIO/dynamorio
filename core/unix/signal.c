@@ -737,11 +737,11 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     for (i = 1; i <= MAX_SIGNUM; i++) {
         if (!other_thread) {
             if (info->app_sigaction[i] != NULL) {
-                /* restore to old handler, but not if exiting whole
+                /* Restore to old handler, but not if exiting whole
                  * process: else may get itimer during cleanup, so we
-                 * set to SIG_IGN (we'll have to fix once we impl detach)
+                 * set to SIG_IGN.  XXX: we need to handle for detach.
                  */
-                if (dynamo_exited) {
+                if (dynamo_exited && !doing_detach) {
                     info->app_sigaction[i]->handler = (handler_t) SIG_IGN;
                     sigaction_syscall(i, info->app_sigaction[i], NULL);
                 }

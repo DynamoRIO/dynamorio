@@ -926,8 +926,10 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
             if (!os_thread_suspend(trec)) {
                 /* FIXME : eventually should be a real assert once we figure out
                  * how to handle threads with low privilege handles */
-                ASSERT_CURIOSITY_ONCE(false && "Thead synch unable to suspend target"
-                                      " thread, case 2096?");
+                /* For dr_api_exit, we may have missed a thread exit. */
+                ASSERT_CURIOSITY_ONCE(IF_APP_EXPORTS(dr_api_exit ||)
+                                      (false && "Thead synch unable to suspend target"
+                                       " thread, case 2096?"));
                 res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags) ?
                        THREAD_SYNCH_RESULT_SUCCESS : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
                 IF_UNIX(actually_suspended = false);
@@ -1815,7 +1817,7 @@ send_all_other_threads_native(void)
              * unbounded.  this means that dr_app_cleanup() needs to synch the
              * threads and force-xl8 these.  We should share code with detach.
              * Right now we rely on the app joining all its threads *before*
-             * calling dr_app_cleanup().
+             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup().
              */
             translate_from_synchall_to_dispatch(threads[i], desired_state);
         }
