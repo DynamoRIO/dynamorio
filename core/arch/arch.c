@@ -2793,9 +2793,6 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
     uint num_nops = 0;
     uint prot;
 
-# ifdef X64
-    return false;
-# endif
     /* On a call on a method change the method is not yet finalized so we always try */
     if (get_syscall_method() != SYSCALL_METHOD_SYSENTER && !method_changing)
         return false;
