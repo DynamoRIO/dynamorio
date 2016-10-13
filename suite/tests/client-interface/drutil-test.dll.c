@@ -112,6 +112,8 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
                  bool for_trace, bool translating)
 {
     instr_t *inst;
+    bool expanded;
+
     for (inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
         if (instr_is_stringop_loop(inst))
             repstr_seen++;
@@ -121,8 +123,17 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
     instrlist_meta_preinsert(bb, instrlist_first(bb), INSTR_CREATE_label(drcontext));
 
     if (!drutil_expand_rep_string(drcontext, bb)) {
-        CHECK(false, "drutil rep expansion failed");
+        CHECK(false, "drutil_expand_rep_string failed");
     }
+
+    expanded = true;
+    inst = instrlist_first(bb);
+    if (!drutil_expand_rep_string_ex(drcontext, bb, &expanded, &inst)) {
+        CHECK(false, "drutil_expand_rep_string_ex failed");
+    }
+    CHECK(repstr_seen != 0 || (!expanded && inst == NULL),
+          "drutil_expand_rep_string_ex bad OUT values");
+
     return DR_EMIT_DEFAULT;
 }
 
