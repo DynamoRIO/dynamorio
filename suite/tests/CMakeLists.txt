@@ -1647,6 +1647,12 @@ if (AARCH64)
   set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_aarch64_isa
     "-nostartfiles -nodefaultlibs -Wl,-static")
+
+  tobuild_ops(common.allasm_aarch64_cache common/allasm_aarch64_cache.asm
+    "-early_inject" "")
+  set_target_properties(common.allasm_aarch64_cache PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(common.allasm_aarch64_cache
+    "-nostartfiles -nodefaultlibs -Wl,-static")
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
@@ -2406,6 +2412,16 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.arm_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.arm_rawtemp ON) # no preprocessor
+      endif ()
+
+      if (AARCH64)
+        torunonly_ci(tool.drcachesim.aarch64 common.allasm_aarch64_cache drcachesim
+          "allasm-aarch64-cache.c" # for expect basename
+          "-ipc_name drtestpipe_aarch64" "" "")
+        set(tool.drcachesim.aarch64_toolname "drcachesim")
+        set(tool.drcachesim.aarch64_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.aarch64_rawtemp ON) # no preprocessor
       endif ()
 
       # FIXME i#1703: add more dedicated tests (in suite/tests/clients/) for which
