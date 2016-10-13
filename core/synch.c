@@ -2049,6 +2049,9 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
          * the thread_initexit_lock is held so that we can clean up thread
          * data later.
          */
+#ifdef UNIX
+        os_signal_thread_detach(threads[i]->dcontext);
+#endif
         LOG(GLOBAL, LOG_ALL, 1,
             "Detach: thread "TIDFMT" is being resumed as native\n", threads[i]->id);
         os_thread_resume(threads[i]);

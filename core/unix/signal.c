@@ -6330,7 +6330,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
         ostd->retakeover = false;
         sig_take_over(ucxt);  /* no return */
         ASSERT_NOT_REACHED();
-    } else if (doing_detach) {
+    } else if (ostd->do_detach) {
+        ostd->do_detach = false;
         sig_detach(dcontext, frame, &ostd->detached);  /* no return */
         ASSERT_NOT_REACHED();
      }

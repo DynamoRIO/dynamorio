@@ -159,6 +159,7 @@ typedef struct _os_thread_data_t {
     KSYNCH_TYPE terminated;
 
     KSYNCH_TYPE detached;
+    volatile bool do_detach;
 
     volatile bool retakeover; /* for re-attach */
 

@@ -3276,6 +3276,14 @@ os_wait_thread_detached(dcontext_t *dcontext)
     os_wait_thread_futex(&ostd->detached);
 }
 
+void
+os_signal_thread_detach(dcontext_t *dcontext)
+{
+    os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
+    ASSERT(ostd != NULL);
+    ostd->do_detach = true;
+}
+
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
