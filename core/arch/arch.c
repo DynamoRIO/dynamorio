@@ -2714,6 +2714,11 @@ get_cleanup_and_terminate_global_do_syscall_entry()
  * the caller's retaddr in edx.  Thus, there is nothing to hook.
  */
 bool
+hook_vsyscall(dcontext_t *dcontext, bool method_changing)
+{
+    return false;
+}
+bool
 unhook_vsyscall(void)
 {
     return false;

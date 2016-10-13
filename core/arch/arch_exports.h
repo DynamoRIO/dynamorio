@@ -1079,9 +1079,9 @@ bool does_syscall_ret_to_callsite(void);
 void set_syscall_method(int method);
 #ifdef LINUX
 bool should_syscall_method_be_sysenter(void);
+#endif
 bool hook_vsyscall(dcontext_t *dcontext, bool method_changing);
 bool unhook_vsyscall(void);
-#endif
 /* returns the address of the first app syscall instruction we saw (see hack
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *get_app_sysenter_addr(void);
