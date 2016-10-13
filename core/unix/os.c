@@ -4892,6 +4892,10 @@ sys_param_addr(dcontext_t *dcontext, int num)
      * See the #if 0 below, as well. */
     case 5: return IF_X86_ELSE((dcontext->sys_was_int ? &mc->xbp : ((reg_t*)mc->xsp)),
                                &mc->r5);
+# ifdef ARM
+    /* AArch32 supposedly has 7 args in some cases. */
+    case 6: return &mc->r6;
+# endif
     default: CLIENT_ASSERT(false, "invalid system call parameter number");
     }
 #endif
