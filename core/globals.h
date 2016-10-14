@@ -278,14 +278,14 @@ typedef struct _module_data_t module_data_t;
  * Structure written by dr_get_time() to specify the current time.
  */
 typedef struct {
-    uint year;         /**< */
-    uint month;        /**< */
-    uint day_of_week;  /**< */
-    uint day;          /**< */
-    uint hour;         /**< */
-    uint minute;       /**< */
-    uint second;       /**< */
-    uint milliseconds; /**< */
+    uint year;         /**< The current year. */
+    uint month;        /**< The current month, in the range 1 to 12. */
+    uint day_of_week;  /**< The day of the week, in the range 0 to 6. */
+    uint day;          /**< The day of the month, in the range 1 to 31. */
+    uint hour;         /**< The hour of the day, in the range 0 to 23. */
+    uint minute;       /**< The minutes past the hour. */
+    uint second;       /**< The seconds past the minute. */
+    uint milliseconds; /**< The milliseconds past the second. */
 } dr_time_t;
 /* DR_API EXPORT END */
 

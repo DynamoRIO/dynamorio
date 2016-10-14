@@ -2666,6 +2666,13 @@ dr_get_milliseconds(void)
 }
 
 DR_API
+uint64
+dr_get_microseconds(void)
+{
+    return query_time_micros();
+}
+
+DR_API
 uint
 dr_get_random_value(uint max)
 {

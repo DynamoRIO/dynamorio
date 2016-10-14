@@ -42,6 +42,7 @@
 #else
 # include <stdlib.h>
 # include <unistd.h>
+# include <time.h>
 #endif
 
 /* check if all bits in mask are set in var */
@@ -55,6 +56,7 @@ static void test_dr_rename_delete(void);
 static void test_dir(void);
 static void test_relative(void);
 static void test_map_exe(void);
+static void test_times(void);
 
 byte *
 find_prot_edge(const byte *start, uint prot_flag)
@@ -298,6 +300,8 @@ void dr_init(client_id_t id)
     test_relative();
 
     test_map_exe();
+
+    test_times();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -469,4 +473,42 @@ test_map_exe(void)
 #endif
     if (!dr_unmap_executable_file(base_pc, size_code))
         dr_fprintf(STDERR, "Failed to unmap exe\n");
+}
+
+static void
+test_times(void)
+{
+    /* Test time functions */
+    uint64 micro = dr_get_microseconds();
+    uint64 milli = dr_get_milliseconds();
+    uint64 micro2 = dr_get_microseconds();
+    dr_time_t drtime;
+    dr_get_time(&drtime);
+    if (micro < milli || micro2 < micro)
+        dr_fprintf(STDERR, "times are way off\n");
+#ifdef UNIX
+    {
+        time_t mytime = time(NULL);
+        struct tm systime = *localtime(&mytime);
+        if (systime.tm_year + 1900 != drtime.year ||
+            systime.tm_mon + 1 != drtime.month ||
+            systime.tm_wday != drtime.day_of_week ||
+            systime.tm_mday != drtime.day ||
+            /* We do not check the hour due to UTC vs time zone differences. */
+            systime.tm_min != drtime.minute)
+            dr_fprintf(STDERR, "DR time does not match libc time\n");
+    }
+#else
+    {
+        SYSTEMTIME systime;
+        GetSystemTime(&systime);
+        if (systime.wYear != drtime.year ||
+            systime.wMonth != drtime.month ||
+            systime.wDayOfWeek != drtime.day_of_week ||
+            systime.wDay != drtime.day ||
+            /* We do not check the hour due to UTC vs time zone differences. */
+            systime.wMinute != drtime.minute)
+            dr_fprintf(STDERR, "DR time does not match libc time\n");
+    }
+#endif
 }

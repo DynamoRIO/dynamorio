@@ -2051,6 +2051,7 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
                    void *output, uint output_size, uint timeout_ms);
 
 #define TIMER_UNITS_PER_MILLISECOND (1000 * 10) /* 100ns intervals */
+#define TIMER_UNITS_PER_MICROSECOND (10) /* 100ns intervals */
 
 wchar_t *
 get_process_param_buf(RTL_USER_PROCESS_PARAMETERS *params, wchar_t *buf);
