@@ -143,7 +143,7 @@ analyzer_t::create_analysis_tools()
         tools[0] = new histogram_t;
     else {
         ERRMSG("Usage error: unsupported analyzer type. "
-               "Please choose " CPU_CACHE", " TLB", or "HISTOGRAM".\n");
+               "Please choose " CPU_CACHE ", " TLB ", or " HISTOGRAM ".\n");
         return false;
     }
     if (!tools[0])
