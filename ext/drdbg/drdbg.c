@@ -67,6 +67,7 @@ drlist_t *drdbg_bps_pending;
 drqueue_t *drdbg_event_queue;
 
 drdbg_event_data_bp_t *current_bp_event;
+drdbg_event_t *current_event;
 
 /* DynamoRIO interactions */
 drdbg_bp_t *
@@ -158,17 +159,18 @@ drdbg_bp_cc_handler(drdbg_bp_t *bp)
     /* Create bp event and push into event queue */
     event = dr_global_alloc(sizeof(drdbg_event_t));
     event->event = DRDBG_EVENT_BP;
+    event->drcontext = dr_get_current_drcontext();
     data = dr_global_alloc(sizeof(drdbg_event_data_bp_t));
     data->bp = bp;
     data->mcontext.flags = DR_MC_INTEGER|DR_MC_CONTROL;
     data->mcontext.size = sizeof(dr_mcontext_t);
-    dr_get_mcontext(dr_get_current_drcontext(), &data->mcontext);
+    dr_get_mcontext(event->drcontext, &data->mcontext);
     data->mcontext.xip = bp->pc;
     data->keep_waiting = true;
     event->data = data;
 
     /* enter safe spot and wait */
-    dr_mark_safe_to_suspend(dr_get_current_drcontext(), true);
+    dr_mark_safe_to_suspend(event->drcontext, true);
 
     drqueue_push(drdbg_event_queue, event);
 
@@ -178,16 +180,17 @@ drdbg_bp_cc_handler(drdbg_bp_t *bp)
 }
 
 drdbg_status_t
-drdbg_bp_insert(void *drcontext, instrlist_t *bb, drdbg_bp_t *bp)
+drdbg_bp_insert(void *drcontext, instrlist_t *bb, instr_t *instr, drdbg_bp_t *bp)
 {
     if (bp == NULL)
         return DRDBG_ERROR;
 
     bp->bb = bb;
+    bp->instr = instr;
     bp->status = DRDBG_BP_ENABLED;
 
     /* Insert clean-call to bp handler */
-    dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), drdbg_bp_cc_handler, false, 1, OPND_CREATE_INTPTR(bp));
+    dr_insert_clean_call(drcontext, bb, instr, drdbg_bp_cc_handler, false, 1, OPND_CREATE_INTPTR(bp));
 
     return DRDBG_SUCCESS;
 }
@@ -220,23 +223,30 @@ instrlist_truncate(void *drcontext, instrlist_t *ilist, instr_t *start)
 }
 
 static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating, void **user_data)
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                  bool for_trace, bool translating, void *user_data)
 {
     drlist_node_t *node = NULL;
     drlist_node_t *del_node = NULL;
-    app_pc bb_first_pc = instr_get_app_pc(instrlist_first_app(bb));
+    //app_pc bb_first_pc = instr_get_app_pc(inst);
 
     /* Insert any pending breakpoints */
     node = drdbg_bps_pending->head;
     while (node != NULL) {
         if (node->data != NULL &&
-            bb_first_pc == ((drdbg_bp_t *)(node->data))->pc) {
-            if (drdbg_bp_insert(drcontext, bb, node->data) == DRDBG_SUCCESS) {
+            tag == ((drdbg_bp_t *)(node->data))->pc) {
+            char tmp[32];
+            instr_disassemble_to_buffer(drcontext, inst, tmp, 32);
+            dr_fprintf(STDERR, "dis_c: %s\n", tmp);
+            if (drdbg_bp_insert(drcontext, bb, inst, node->data) == DRDBG_SUCCESS) {
                 del_node = node;
                 node = node->next;
                 drlist_remove(drdbg_bps_pending, del_node);
             }
+            instr_disassemble_to_buffer(drcontext, inst, tmp, 32);
+            dr_fprintf(STDERR, "dis_d: %s\n", tmp);
+
+            dr_fprintf(STDERR, "ptrs_a: %p %p\n", bb, inst);
         }
         if (del_node != NULL) {
             del_node = NULL;
@@ -273,9 +283,16 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
         if (node->data != NULL) {
             bp_pc = ((drdbg_bp_t *)(node->data))->pc;
             if (bb_first_pc == bp_pc) {
+                char tmp[32];
+                instr_disassemble_to_buffer(drcontext, instrlist_first_app(bb), tmp, 32);
+                dr_fprintf(STDERR, "dis_a: %s\n", tmp);
                 /* Remove the instructions after the bp */
                 instrlist_truncate(drcontext, bb,
                                    instr_get_next(instrlist_first_app(bb)));
+
+                instr_disassemble_to_buffer(drcontext, instrlist_first_app(bb), tmp, 32);
+                dr_fprintf(STDERR, "dis_b: %s\n", tmp);
+
             } else if (bb_first_pc < bp_pc && bp_pc <= bb_last_pc) {
                 /* Remove the instructions starting at the bp */
                 instrlist_truncate(drcontext, bb, instrlist_find_pc(bb, bp_pc));
@@ -378,12 +395,21 @@ drdbg_cmd_step(drdbg_srv_int_cmd_data_t *cmd_data)
     app_pc tgt;
     if (current_bp_event == NULL)
         return DRDBG_ERROR;
-    i = instrlist_first_app(current_bp_event->bp->bb);
+    //i = instrlist_first_app(current_bp_event->bp->bb);
+    i = current_bp_event->bp->instr;
+    dr_fprintf(STDERR, "i: %p\n", i);
     if (instr_is_cti(i)) {
+        dr_fprintf(STDERR, "wat2.0\n");
         tgt = opnd_get_pc(instr_get_target(i));
     } else {
-        tgt = current_bp_event->bp->pc + instr_length(dr_get_current_drcontext(), i);
+        dr_fprintf(STDERR, "ptrs_b: %p %p\n", current_bp_event->bp->bb, i);
+        //char tmp[32];
+        //instr_disassemble_to_buffer(dr_get_current_drcontext(), i, tmp, 32);
+        //dr_fprintf(STDERR, "dis: %s", tmp);
+        dr_fprintf(STDERR, "pc,len: %d,%p,%p\n", instr_needs_encoding(i) ? 1 : 0,current_bp_event->bp->pc,instr_length(current_event->drcontext, i));
+        tgt = current_bp_event->bp->pc + instr_length(current_event->drcontext, i);
     }
+    dr_fprintf(STDERR, "stepping to %p\n", tgt);
     drdbg_bp_queue(tgt);
     current_bp_event->keep_waiting = false;
     dr_resume_all_other_threads(drcontexts, num_suspended);
@@ -458,9 +484,11 @@ drdbg_server_loop(void *arg)
         /* Handle drdbg events */
         if (!drqueue_isempty(drdbg_event_queue)) {
             while ((drdbg_event = drqueue_pop(drdbg_event_queue)) != NULL) {
+                current_event = drdbg_event;
                 switch (drdbg_event->event) {
                 case DRDBG_EVENT_BP:
                     dr_suspend_all_other_threads(&drcontexts, &num_suspended, &num_unsuspended);
+                    dr_fprintf(STDERR, "%d %d\n", num_suspended, num_unsuspended);
                     if (drdbg_break_on_entry) {
                         drdbg_srv_accept();
                         drdbg_break_on_entry = false;
@@ -561,7 +589,7 @@ drdbg_init_events(void)
     if (!drmgr_init()) {
         return DRDBG_ERROR;
     }
-    drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
+    drmgr_register_bb_instrumentation_event(NULL, event_bb_analysis, NULL);
     drmgr_register_bb_app2app_event(event_bb_app2app, NULL);
 
     return DRDBG_SUCCESS;

@@ -54,7 +54,7 @@ typedef enum {
     DRDBG_CMD_MEM_READ,        /* Read memory */
     DRDBG_CMD_MEM_WRITE,       /* Write memory */
     DRDBG_CMD_CONTINUE,        /* Continue execution */
-    DRDBG_CMD_STEP,
+    DRDBG_CMD_STEP,            /* Single Step */
     DRDBG_CMD_SWBREAK,         /* Software breakpoint */
     DRDBG_CMD_KILL,            /* Kill process */
 

@@ -68,6 +68,7 @@ typedef enum {
 
 typedef struct _drdbg_event_t {
     DRDBG_EVENT event;
+    void *drcontext;
     void *data;
 } drdbg_event_t;
 
@@ -82,6 +83,7 @@ typedef struct _drdbg_bp_t {
     app_pc pc;
     DRDBG_BP_STATUS status;
     instrlist_t *bb;
+    instr_t *instr;
 } drdbg_bp_t;
 
 typedef struct _drdbg_event_data_bp_t {
