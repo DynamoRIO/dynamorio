@@ -143,6 +143,19 @@ offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
     return 2 * sizeof(offline_entry_t);
 }
 
+int
+offline_instru_t::append_header(byte *buf_ptr, thread_id_t tid)
+{
+    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
+    // We use dr_get_microseconds() for a simple, cross-platform implementation.
+    // This is once per buffer write, so a syscall here should be ok.
+    // If we want something faster we can try to use the VDSO gettimeofday (via
+    // libc) or KUSER_SHARED_DATA on Windows.
+    entry->timestamp.usec = dr_get_microseconds();
+    return sizeof(offline_entry_t);
+}
+
 void
 offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t scratch, int adjust,

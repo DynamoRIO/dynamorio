@@ -247,7 +247,7 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
         // They could be earlier, so "instr" may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
-        VPRINT(3, "Missing memref (next type is 0x" ZHEX64_FORMAT_STRING ")\n",
+        VPRINT(4, "Missing memref (next type is 0x" ZHEX64_FORMAT_STRING ")\n",
                in_entry.combined_value);
         // Put back the entry.
         thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
@@ -269,7 +269,7 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
     }
     // We take the full value, to handle low or high.
     buf->addr = (addr_t) in_entry.combined_value;
-    VPRINT(3, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
+    VPRINT(4, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
     ++buf;
     return buf;
 }
@@ -287,10 +287,10 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         // FIXME i#1729: add support for code not in a module (vsyscall, JIT, etc.).
         // Once that support is in we can remove the bool return value and handle
         // the memrefs up here.
-        VPRINT(2, "Skipping ifetch for %u instrs not in a module\n", instr_count);
+        VPRINT(3, "Skipping ifetch for %u instrs not in a module\n", instr_count);
         return false;
     } else {
-        VPRINT(2, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
+        VPRINT(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
                instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
                (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
     }
@@ -349,34 +349,71 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
 void
 raw2trace_t::merge_and_process_thread_files()
 {
-    uint tidx = 0;
+    // The current thread we're processing is tidx.  If it's set to thread_files.size()
+    // that means we need to pick a new thread.
+    uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
     online_instru_t instru(NULL);
     bool last_bb_handled = true;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
-    byte buf[MAX_COMBINED_ENTRIES * sizeof(trace_entry_t)];
+    std::vector<uint64> times(thread_files.size(), 0);
+    byte buf_base[MAX_COMBINED_ENTRIES * sizeof(trace_entry_t)];
 
     // We read the thread files simultaneously in lockstep and merge them into
     // a single output file in timestamp order.
+    // When a thread file runs out we leave its times[] entry as 0 and its file at eof.
     // We convert each offline entry into a trace_entry_t.
     // We fill in instr entries and memref type and size.
     do {
         int size = 0;
+        byte *buf = buf_base;
+        if (tidx >= thread_files.size()) {
+            // Pick the next thread by looking for the smallest timestamp.
+            uint64 min_time = 0xffffffffffffffff;
+            uint next_tidx = 0;
+            for (uint i=0; i<times.size(); ++i) {
+                if (times[i] == 0 && !thread_files[i]->eof()) {
+                    offline_entry_t entry;
+                    if (!thread_files[i]->read((char*)&entry, sizeof(entry)))
+                        FATAL_ERROR("Failed to read from input file");
+                    if (entry.timestamp.type != OFFLINE_TYPE_TIMESTAMP)
+                        FATAL_ERROR("Missing timestamp entry");
+                    times[i] = entry.timestamp.usec;
+                    VPRINT(3, "Thread %u timestamp is @0x" ZHEX64_FORMAT_STRING
+                           "\n", (uint)tids[i], times[i]);
+                }
+                if (times[i] != 0 && times[i] < min_time) {
+                    min_time = times[i];
+                    next_tidx = i;
+                }
+            }
+            VPRINT(2, "Next thread in timestamp order is %u @0x" ZHEX64_FORMAT_STRING
+                   "\n", (uint)tids[next_tidx], times[next_tidx]);
+            tidx = next_tidx;
+            times[tidx] = 0; // Read from file for this thread's next timestamp.
+            size += instru.append_tid(buf, tids[tidx]);
+            buf += size;
+        }
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
-                VPRINT(2, "Thread %d exit\n", (int)tids[tidx]);
-                size = instru.append_thread_exit(buf, tids[tidx]);
+                VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
+                size += instru.append_thread_exit(buf, tids[tidx]);
+                buf += size;
                 --thread_count;
                 if (thread_count == 0)
                     break;
-                // FIXME i#1729: pick new thread based on timestamps
+                tidx = (uint)thread_files.size(); // Request thread scan.
+                continue;
             } else
                 FATAL_ERROR("Failed to read from input file");
         }
         if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-            // FIXME i#1729: pick new thread based on timestamps
+            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+                   tids[tidx], in_entry.timestamp.usec);
+            times[tidx] = in_entry.timestamp.usec;
+            tidx = (uint)thread_files.size(); // Request thread scan.
         } else if (in_entry.addr.type == OFFLINE_TYPE_MEMREF ||
                    in_entry.addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
             if (!last_bb_handled) {
@@ -386,9 +423,10 @@ raw2trace_t::merge_and_process_thread_files()
                 entry->type = TRACE_TYPE_READ; // Guess.
                 entry->size = 1; // Guess.
                 entry->addr = (addr_t) in_entry.combined_value;
-                VPRINT(3, "Appended non-module memref to " PFX "\n",
+                VPRINT(4, "Appended non-module memref to " PFX "\n",
                        (ptr_uint_t)entry->addr);
-                size = sizeof(*entry);
+                size += sizeof(*entry);
+                buf += size;
             } else {
                 // We should see an instr entry first
                 CHECK(false, "memref entry found outside of bb");
@@ -399,15 +437,17 @@ raw2trace_t::merge_and_process_thread_files()
             VPRINT(2, "Thread %u entry\n", (uint)in_entry.tid.tid);
             if (tids[tidx] == INVALID_THREAD_ID)
                 tids[tidx] = in_entry.tid.tid;
-            size = instru.append_tid(buf, in_entry.tid.tid);
+            size += instru.append_tid(buf, in_entry.tid.tid);
+            buf += size;
         } else if (in_entry.pid.type == OFFLINE_TYPE_PID) {
             VPRINT(2, "Process %u entry\n", (uint)in_entry.pid.pid);
-            size = instru.append_pid(buf, in_entry.pid.pid);
+            size += instru.append_pid(buf, in_entry.pid.pid);
+            buf += size;
         } else
-            FATAL_ERROR("Unknown trace type %d", in_entry.timestamp.type);
+            FATAL_ERROR("Unknown trace type %d", (int)in_entry.timestamp.type);
         if (size > 0) {
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-            if (!out_file.write((char*)buf, size))
+            if (!out_file.write((char*)buf_base, size))
                 FATAL_ERROR("Failed to write to output file");
         }
     } while (thread_count > 0);

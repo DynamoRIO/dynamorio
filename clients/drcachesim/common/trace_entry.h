@@ -192,9 +192,8 @@ struct _offline_entry_t {
             uint64_t type:3;
         } pid;
         struct {
-            uint32_t tv_sec;
-            uint32_t tv_usec:29; // We only need 20 bits here.
-            uint32_t type:3;
+            uint64_t usec:61; // Microseconds since Jan 1, 1601.
+            uint64_t type:3;
         } timestamp;
         uint64_t combined_value;
         // XXX: add a CPU id entry for more faithful thread scheduling.

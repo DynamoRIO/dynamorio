@@ -132,6 +132,12 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
     return (int)((byte *)entry + sizeof(trace_entry_t) - buf_ptr);
 }
 
+int
+online_instru_t::append_header(byte *buf_ptr, thread_id_t tid)
+{
+    return append_tid(buf_ptr, tid);
+}
+
 void
 online_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                                 reg_id_t base, reg_id_t scratch, app_pc pc, int adjust)

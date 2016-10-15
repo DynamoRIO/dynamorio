@@ -235,13 +235,21 @@ endif ()
 # We build larger executables here.  All tests are added in suite/tests/.
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
-# FIXME i#2007: fails to link on A64
-# XXX i#1997: dynamorio_static is not supported on Mac yet
-if (NOT AARCH64 AND NOT APPLE)
-  add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
-  configure_DynamoRIO_static(tool.drcacheoff.burst_static)
-  use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
-  add_win32_flags(tool.drcacheoff.burst_static)
+if (BUILD_TESTS)
+  # FIXME i#2007: fails to link on A64
+  # XXX i#1997: dynamorio_static is not supported on Mac yet
+  if (NOT AARCH64 AND NOT APPLE)
+    add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_static)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_static)
+
+    add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_threads)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_threads drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_threads)
+    target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
+  endif ()
 endif ()
 
 ##################################################

@@ -1583,6 +1583,40 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
+# Used by tests in multiple places.
+if (BUILD_TESTS AND UNIX)
+  if (ANDROID)
+    # pthreads is inside Bionic on Android, and for some reason find_library() can't
+    # locate libm or libdl within the Android toolchain: we just assume they're there.
+    set(libmath m)
+    set(libdl dl)
+    set(libpthread "")
+  else ()
+    # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
+    # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
+    # multi-arch compilation, whose value is x86_64-linux-gnu or i386-linux-gnu
+    # for 64/32-bit. However, in Ubuntu 11.10, some of the 32-bit libraries
+    # like libm.so, libdl.so, and libpthread.so are in /usr/lib32 or /lib32
+    # instead of /lib/i386-linux-gnu, so cmake cannot to find them.
+    # solution: add explicit paths for lookup.
+    find_library(libmath m)
+    if (NOT libmath AND NOT X64)
+      find_library(libmath m PATHS /usr/lib32 /lib32)
+    endif ()
+    find_library(libdl dl)
+    if (NOT libdl AND NOT X64)
+      find_library(libdl dl PATHS /usr/lib32 /lib32)
+    endif ()
+    find_library(libpthread pthread)
+    if (NOT libpthread AND NOT X64)
+      find_library(libpthread pthread PATHS /usr/lib32 /lib32)
+    endif ()
+    if (NOT libmath OR NOT libdl OR NOT libpthread)
+      message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
+    endif ()
+  endif ()
+endif ()
+
 if (BUILD_CLIENTS)
   # Must be prior to api/docs
   add_subdirectory(clients)

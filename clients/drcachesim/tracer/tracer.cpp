@@ -166,9 +166,8 @@ memtrace(void *drcontext)
     bool do_write = true;
 
     buf_ptr = BUF_PTR(data->seg_base);
-    /* The initial slot is left empty for the thread entry, which we add here */
-    /* FIXME i#1729: for offline, change this to a timestamp entry */
-    instru->append_tid(data->buf_base, dr_get_thread_id(drcontext));
+    /* The initial slot is left empty for the header entry, which we add here */
+    instru->append_header(data->buf_base, dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (op_max_trace_size.get_value() > 0 &&
@@ -640,7 +639,9 @@ event_thread_init(void *drcontext)
 
     /* pass pid and tid to the simulator to register current thread */
     proc_info = (byte *)buf;
-    DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 2*instru->sizeof_entry());
+    DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
+    /* The trace must start with a timestamp */
+    proc_info += instru->append_header(proc_info, dr_get_thread_id(drcontext));
     proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
     proc_info += instru->append_pid(proc_info, dr_get_process_id());
     write_trace_data(drcontext, (byte *)buf, proc_info);
