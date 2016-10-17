@@ -81,7 +81,7 @@ typedef struct _drdbg_srv_int_cmd_data_t {
 
 typedef
 drdbg_status_t
-(*drdbg_srv_int_comm_t)(drdbg_srv_int_cmd_data_t *data);
+(*drdbg_srv_int_comm_t)(drdbg_srv_int_cmd_data_t *data, bool blocking);
 
 typedef struct _drdbg_srv_int_t {
     drdbg_srv_int_start_t start;

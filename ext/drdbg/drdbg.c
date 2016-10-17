@@ -370,8 +370,15 @@ drdbg_cmd_continue(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     if (current_bp_event == NULL)
         return DRDBG_ERROR;
+
+    /* NB: This function is called to continue from drdbg_cmd_step to avoid code
+     * reuse/divergence. If this function is updated in a way that may adversely affect
+     * that, also update drdbg_cmd_step.
+     */
     current_bp_event->keep_waiting = false;
+    current_bp_event = NULL;
     dr_resume_all_other_threads(drcontexts, num_suspended);
+
     return DRDBG_SUCCESS;
 }
 
@@ -402,9 +409,8 @@ drdbg_cmd_step(drdbg_srv_int_cmd_data_t *cmd_data)
         tgt = current_bp_event->bp->pc + instr_length(current_event->drcontext, &i);
     }
     drdbg_bp_queue(tgt);
-    current_bp_event->keep_waiting = false;
-    dr_resume_all_other_threads(drcontexts, num_suspended);
-    return DRDBG_SUCCESS;
+
+    return drdbg_cmd_continue(cmd_data);
 }
 
 drdbg_status_t
@@ -465,11 +471,11 @@ drdbg_server_loop(void *arg)
     /* Command loop */
     while (1) {
         /* Get command from server */
-        cmd_data.status = dbg_server.get_cmd(&cmd_data);
+        cmd_data.status = dbg_server.get_cmd(&cmd_data, current_bp_event ? true : false);
         if (cmd_data.status == DRDBG_SUCCESS) {
             cmd_data.status = cmd_handlers[cmd_data.cmd_id](&cmd_data);
             /* Send results to server */
-            cmd_data.status = dbg_server.put_cmd(&cmd_data);
+            cmd_data.status = dbg_server.put_cmd(&cmd_data, false);
         }
 
         /* Handle drdbg events */
@@ -493,7 +499,7 @@ drdbg_server_loop(void *arg)
                     } else {
                         cmd_data.cmd_id = DRDBG_CMD_QUERY_STOP_RSN;
                         cmd_handlers[cmd_data.cmd_id](&cmd_data);
-                        dbg_server.put_cmd(&cmd_data);
+                        dbg_server.put_cmd(&cmd_data, false);
                     }
                     break;
                 default:

@@ -173,16 +173,18 @@ gdb_sendpkt(const char *buf, int len)
 
 static
 drdbg_status_t
-gdb_recvpkt(char *buf, ssize_t len, ssize_t *bread)
+gdb_recvpkt(char *buf, ssize_t len, ssize_t *bread, bool blocking)
 {
     int ret;
     *bread = 0;
 
     while (*bread < len) {
         /* Check for data */
-        ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 1, MSG_PEEK|MSG_DONTWAIT);
-        if (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-            return DRDBG_ERROR;
+        if (!blocking) {
+            ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 1, MSG_PEEK|MSG_DONTWAIT);
+            if (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                return DRDBG_ERROR;
+            }
         }
         ret = recv(drdbg_srv_gdb_conn, buf+(*bread), 1, 0);
         if (ret == -1) {
@@ -568,7 +570,7 @@ drdbg_srv_gdb_parse_cmd(char *buf, int len,
 
 static
 drdbg_status_t
-drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
+drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_data_t *cmd_data, bool blocking)
 {
     char buf[MAX_PACKET_SIZE];
     ssize_t bread = 0;
@@ -581,7 +583,7 @@ drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
     }
 
     /* recv packet */
-    status = gdb_recvpkt(buf, MAX_PACKET_SIZE, &bread);
+    status = gdb_recvpkt(buf, MAX_PACKET_SIZE, &bread, blocking);
     if (status != DRDBG_SUCCESS) {
         return status;
     }
@@ -601,7 +603,7 @@ drdbg_srv_gdb_get_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
 
 static
 drdbg_status_t
-drdbg_srv_gdb_put_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
+drdbg_srv_gdb_put_cmd(drdbg_srv_int_cmd_data_t *cmd_data, bool blocking)
 {
     switch (cmd_data->cmd_id) {
     case DRDBG_CMD_QUERY_STOP_RSN:
