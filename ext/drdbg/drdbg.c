@@ -235,18 +235,11 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     while (node != NULL) {
         if (node->data != NULL &&
             tag == ((drdbg_bp_t *)(node->data))->pc) {
-            char tmp[32];
-            instr_disassemble_to_buffer(drcontext, inst, tmp, 32);
-            dr_fprintf(STDERR, "dis_c: %s\n", tmp);
             if (drdbg_bp_insert(drcontext, bb, inst, node->data) == DRDBG_SUCCESS) {
                 del_node = node;
                 node = node->next;
                 drlist_remove(drdbg_bps_pending, del_node);
             }
-            instr_disassemble_to_buffer(drcontext, inst, tmp, 32);
-            dr_fprintf(STDERR, "dis_d: %s\n", tmp);
-
-            dr_fprintf(STDERR, "ptrs_a: %p %p\n", bb, inst);
         }
         if (del_node != NULL) {
             del_node = NULL;
@@ -283,15 +276,9 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
         if (node->data != NULL) {
             bp_pc = ((drdbg_bp_t *)(node->data))->pc;
             if (bb_first_pc == bp_pc) {
-                char tmp[32];
-                instr_disassemble_to_buffer(drcontext, instrlist_first_app(bb), tmp, 32);
-                dr_fprintf(STDERR, "dis_a: %s\n", tmp);
                 /* Remove the instructions after the bp */
                 instrlist_truncate(drcontext, bb,
                                    instr_get_next(instrlist_first_app(bb)));
-
-                instr_disassemble_to_buffer(drcontext, instrlist_first_app(bb), tmp, 32);
-                dr_fprintf(STDERR, "dis_b: %s\n", tmp);
 
             } else if (bb_first_pc < bp_pc && bp_pc <= bb_last_pc) {
                 /* Remove the instructions starting at the bp */
@@ -391,25 +378,29 @@ drdbg_cmd_continue(drdbg_srv_int_cmd_data_t *cmd_data)
 drdbg_status_t
 drdbg_cmd_step(drdbg_srv_int_cmd_data_t *cmd_data)
 {
-    instr_t *i;
+    instr_t i;
     app_pc tgt;
+    size_t bread;
+
     if (current_bp_event == NULL)
         return DRDBG_ERROR;
-    //i = instrlist_first_app(current_bp_event->bp->bb);
-    i = current_bp_event->bp->instr;
-    dr_fprintf(STDERR, "i: %p\n", i);
-    if (instr_is_cti(i)) {
-        dr_fprintf(STDERR, "wat2.0\n");
-        tgt = opnd_get_pc(instr_get_target(i));
+
+    instr_init(current_event->drcontext, &i);
+    decode(current_event->drcontext, current_bp_event->bp->pc, &i);
+    if (instr_is_cti(&i)) {
+        if (instr_is_return(&i)) {
+            /* XXX: ARM uses lr register not the stack */
+            dr_safe_read((void*)current_bp_event->mcontext.xsp, sizeof(void*), &tgt, &bread);
+        } else {
+            if (instr_is_cbr(&i) && !instr_jcc_taken(&i, current_bp_event->mcontext.xflags)) {
+                tgt = current_bp_event->bp->pc + instr_length(current_event->drcontext, &i);
+            } else {
+                tgt = opnd_get_pc(instr_get_target(&i));
+            }
+        }
     } else {
-        dr_fprintf(STDERR, "ptrs_b: %p %p\n", current_bp_event->bp->bb, i);
-        //char tmp[32];
-        //instr_disassemble_to_buffer(dr_get_current_drcontext(), i, tmp, 32);
-        //dr_fprintf(STDERR, "dis: %s", tmp);
-        dr_fprintf(STDERR, "pc,len: %d,%p,%p\n", instr_needs_encoding(i) ? 1 : 0,current_bp_event->bp->pc,instr_length(current_event->drcontext, i));
-        tgt = current_bp_event->bp->pc + instr_length(current_event->drcontext, i);
+        tgt = current_bp_event->bp->pc + instr_length(current_event->drcontext, &i);
     }
-    dr_fprintf(STDERR, "stepping to %p\n", tgt);
     drdbg_bp_queue(tgt);
     current_bp_event->keep_waiting = false;
     dr_resume_all_other_threads(drcontexts, num_suspended);
@@ -488,7 +479,6 @@ drdbg_server_loop(void *arg)
                 switch (drdbg_event->event) {
                 case DRDBG_EVENT_BP:
                     dr_suspend_all_other_threads(&drcontexts, &num_suspended, &num_unsuspended);
-                    dr_fprintf(STDERR, "%d %d\n", num_suspended, num_unsuspended);
                     if (drdbg_break_on_entry) {
                         drdbg_srv_accept();
                         drdbg_break_on_entry = false;
@@ -618,6 +608,8 @@ drdbg_init(drdbg_options_t *ops_in)
         dr_fprintf(STDERR, "Failed to initialize\n");
         return DRDBG_ERROR;
     }
+
+    dr_flush_region(0, -1);
 
     /* Start server thread */
     if (!dr_create_client_thread(drdbg_start_server, NULL))
