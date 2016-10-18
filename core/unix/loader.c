@@ -275,10 +275,15 @@ os_loader_init_prologue(void)
 # if defined(LINUX)/*i#1285*/ && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
     if (DYNAMO_OPTION(early_inject)) {
         /* libdynamorio isn't visible to gdb so add to the cmd list */
+        byte *dr_base = get_dynamorio_dll_start(), *pref_base;
         elf_loader_t dr_ld;
         IF_DEBUG(bool success = )
             elf_loader_read_headers(&dr_ld, get_dynamorio_library_path());
         ASSERT(success);
+        module_walk_program_headers(dr_base, get_dynamorio_dll_end() - dr_base,
+                                    false, false, (byte **)&pref_base,
+                                    NULL, NULL, NULL, NULL);
+        dr_ld.load_delta = dr_base - pref_base;
         privload_add_gdb_cmd(&dr_ld, get_dynamorio_library_path(), false/*!reach*/);
         elf_loader_destroy(&dr_ld);
     }
