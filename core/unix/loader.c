@@ -1579,9 +1579,14 @@ privload_mem_is_elf_so_header(byte *mem)
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
 void
-relocate_dynamorio(byte *dr_map, size_t dr_size)
+relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
 {
+    ptr_uint_t argc = *(ptr_uint_t *)sp;
+    /* Plus 2 to skip argc and null pointer that terminates argv[]. */
+    const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { {0}};
+
+    os_page_size_init(env);
 
     if (dr_map == NULL) {
         /* we do not know where dynamorio is, so check backward page by page */

@@ -111,6 +111,10 @@ struct compat_rlimit {
 #include "module.h" /* elf */
 #include "tls.h"
 
+#ifdef LINUX
+# include "module_private.h" /* for ELF_AUXV_TYPE and AT_PAGESZ */
+#endif
+
 #ifndef F_DUPFD_CLOEXEC /* in linux 2.6.24+ */
 # define F_DUPFD_CLOEXEC 1030
 #endif
@@ -9653,12 +9657,111 @@ __umoddi3(uint64 dividend, uint64 divisor)
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 
+/****************************************************************************
+ * Page size discovery and query
+ */
+
+/* This variable is only used by os_set_page_size and os_page_size, but those
+ * functions may be called before libdynamorio.so has been relocated. So check
+ * the disassembly of those functions: there should be no relocations.
+ */
+static size_t page_size = 0;
+
+/* Return true if size is a multiple of the page size.
+ * XXX: This function may be called when DynamoRIO is in a fragile state, or not
+ * yet relocated, so keep this self-contained and do not use global variables or
+ * logging.
+ */
+static bool
+os_try_page_size(size_t size)
+{
+    byte *addr = mmap_syscall(NULL, size * 2,
+                              PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if ((ptr_uint_t)addr >= (ptr_uint_t)-4096) /* mmap failed: should not happen */
+        return false;
+    if (munmap_syscall(addr + size, size) == 0) {
+        /* munmap of top half succeeded: munmap bottom half and return true */
+        munmap_syscall(addr, size);
+        return true;
+    }
+    /* munmap of top half failed: munmap whole region and return false */
+    munmap_syscall(addr, size * 2);
+    return false;
+}
+
+/* Directly determine the granularity of memory allocation using mmap and munmap.
+ * This is used as a last resort if the page size is required before it has been
+ * discovered in any other way, such as from AT_PAGESZ.
+ * XXX: This function may be called when DynamoRIO is in a fragile state, or not
+ * yet relocated, so keep this self-contained and do not use global variables or
+ * logging.
+ */
+static size_t
+os_find_page_size(void)
+{
+    size_t size = 4096;
+    if (os_try_page_size(size)) {
+        /* Try smaller sizes. */
+        for (size /= 2; size > 0; size /= 2) {
+            if (!os_try_page_size(size))
+                return size * 2;
+        }
+    } else {
+        /* Try larger sizes. */
+        for (size *= 2; size * 2 > 0; size *= 2) {
+            if (os_try_page_size(size))
+                return size;
+        }
+    }
+    /* Something went wrong... */
+    return 4096;
+}
+
+static void
+os_set_page_size(size_t size)
+{
+    page_size = size; /* atomic write */
+}
+
 size_t
 os_page_size(void)
 {
-    /* FIXME i#1680: Determine page size from AT_PAGESZ, /proc, or system calls. */
-    return 4096;
+    size_t size = page_size; /* atomic read */
+    if (size == 0) {
+        /* XXX: On Mac OSX we should use sysctl_query on hw.pagesize. */
+        size = os_find_page_size();
+        os_set_page_size(size);
+    }
+    return size;
 }
+
+void
+os_page_size_init(const char **env)
+{
+#ifdef LINUX
+    /* On Linux we get the page size from the auxiliary vector, which is what
+     * the C library typically does for implementing sysconf(_SC_PAGESIZE).
+     */
+    size_t size = page_size; /* atomic read */
+    if (size == 0) {
+        ELF_AUXV_TYPE *auxv;
+        /* Skip environment. */
+        while (*env != 0)
+            ++env;
+        /* Look for AT_PAGESZ in the auxiliary vector. */
+        for (auxv = (ELF_AUXV_TYPE *)(env + 1); auxv->a_type != AT_NULL; auxv++) {
+            if (auxv->a_type == AT_PAGESZ) {
+                os_set_page_size(auxv->a_un.a_val);
+                break;
+            }
+        }
+    }
+#endif /* LINUX */
+}
+
+/****************************************************************************
+ * Tests
+ */
 
 #if defined(STANDALONE_UNIT_TEST)
 

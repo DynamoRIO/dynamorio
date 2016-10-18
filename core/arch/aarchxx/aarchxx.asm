@@ -47,7 +47,7 @@ GLOBAL_LABEL(_start:)
          * We call this here to ensure it's safe to access globals once in C code
          * (xref i#1865).
          */
-        CALLC2(GLOBAL_REF(relocate_dynamorio), #0, #0)
+        CALLC3(GLOBAL_REF(relocate_dynamorio), #0, #0, sp)
 
         /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr */
         mov      ARG2, #0

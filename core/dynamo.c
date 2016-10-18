@@ -367,6 +367,9 @@ dynamorio_app_init(void)
 
     if (!dynamo_initialized /* we do enter if nullcalls is on */) {
 
+#ifdef UNIX
+        os_page_size_init((const char **)our_environ);
+#endif
 #ifdef WINDOWS
         /* MUST do this before making any system calls */
         syscalls_init();
@@ -836,6 +839,9 @@ standalone_init(void)
 #if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
     /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
     dynamo_options.deadlock_avoidance = false;
+#endif
+#ifdef UNIX
+    os_page_size_init((const char **)our_environ);
 #endif
 #ifdef WINDOWS
     /* MUST do this before making any system calls */

@@ -512,6 +512,9 @@ typedef struct _dr_mem_info_t {
 #define PAGE_START(x) (((ptr_uint_t)(x)) & ~(os_page_size()-1))
 
 size_t os_page_size(void);
+#ifdef UNIX
+void os_page_size_init(const char **env);
+#endif
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
 /* We provide this b/c getting the bounds is expensive on Windows (i#1462) */
