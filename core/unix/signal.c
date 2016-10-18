@@ -1106,7 +1106,7 @@ signal_fork_init(dcontext_t *dcontext)
     info->num_unstarted_children = 0;
     for (i = 1; i <= MAX_SIGNUM; i++) {
         /* "A child created via fork(2) initially has an empty pending signal set" */
-        dcontext->signals_pending = false;
+        dcontext->signals_pending = 0;
         while (info->sigpending[i] != NULL) {
             sigpending_t *temp = info->sigpending[i];
             info->sigpending[i] = temp->next;
@@ -1739,18 +1739,19 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
 {
     int i;
 
-    if (dcontext->signals_pending)
+    if (dcontext->signals_pending != 0)
         return;
 
     for (i=1; i<=MAX_SIGNUM; i++) {
         if (info->sigpending[i] != NULL &&
-            !kernel_sigismember(&info->app_sigblocked, i)) {
+            !kernel_sigismember(&info->app_sigblocked, i) &&
+            !dcontext->signals_pending) {
             /* We only update the application's set of blocked signals from
              * syscall handlers, so we know we'll go back to dispatch and see
              * this flag right away.
              */
             LOG(THREAD, LOG_ASYNCH, 3, "\tsetting signals_pending flag\n");
-            dcontext->signals_pending = true;
+            dcontext->signals_pending = 1;
             break;
         }
     }
@@ -3120,6 +3121,7 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
                            byte *pc/*interruption pc*/)
 {
     /* We only come here if we interrupted a fragment in the cache,
+     * or interrupted transition gencode (i#2019),
      * which means that this thread's DR state is safe, and so it
      * should be ok to acquire a lock.  xref PR 596069.
      *
@@ -3197,17 +3199,8 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
             /* pre-syscall but post-jmp so can't skip syscall */
             pre_or_post_syscall = true;
         } else {
-            size_t syslen;
+            size_t syslen = syscall_instr_length(FRAG_ISA_MODE(f->flags));
             instr_reset(dcontext, &instr);
-            IF_X86_ELSE({
-                ASSERT(INT_LENGTH == SYSCALL_LENGTH);
-                ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
-                syslen = SYSCALL_LENGTH;
-            }, {
-                syslen = IF_ARM_ELSE((FRAG_IS_THUMB(f->flags) ?
-                                      SVC_THUMB_LENGTH : SVC_ARM_LENGTH),
-                                     SVC_LENGTH);
-            });
             nxt_pc = decode(dcontext, pc - syslen, &instr);
             if (nxt_pc != NULL && instr_valid(&instr) &&
                 instr_is_syscall(&instr)) {
@@ -3559,6 +3552,48 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                     "WARNING: signal %d in gen routine: may cause problems!\n", sig);
             }
         });
+        /* i#2019: for a signal arriving in gencode before entry to a fragment,
+         * we need to unlink the fragment just like for a signal arriving inside
+         * the fragment itself.
+         * Multiple signals should all have the same asynch_target so we should
+         * only need a single info->interrupted.
+         */
+        if (info->interrupted == NULL && !get_at_syscall(dcontext)) {
+            /* Try to find the target if the signal arrived in the IBL.
+             * We could try to be a lot more precise by hardcoding the IBL
+             * sequence here but that would make the code less maintainable.
+             * Instead we try the registers that hold the target app address.
+             *
+             * FIXME i#2042: we'll still fail if the signal arrives at the
+             * actual jmp* in the hit path b/c the reg holding the target is
+             * restored on the prior instr.
+             *
+             * XXX: better to get this code inside arch/ but we'd have to
+             * convert to an mcontext which seems overkill.
+             */
+#ifdef AARCHXX
+            /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
+            if (sc->SC_R2 != 0)
+                f = fragment_lookup(dcontext, ENTRY_PC_TO_DECODE_PC(sc->SC_R2));
+#elif defined(X86)
+            /* The target is initially in xcx but is then copied to xbx. */
+            if (sc->SC_XBX != 0)
+                f = fragment_lookup(dcontext, (app_pc)sc->SC_XBX);
+            if (f == NULL && sc->SC_XCX != 0)
+                f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
+#else
+# error Unsupported arch.
+#endif
+            /* If in fcache_enter, we stored the next_tag in asynch_target in dispatch. */
+            if (f == NULL && dcontext->asynch_target != NULL)
+                f = fragment_lookup(dcontext, dcontext->asynch_target);
+            if (f != NULL && !TEST(FRAG_COARSE_GRAIN, f->flags)) {
+                if (unlink_fragment_for_signal(dcontext, f, FCACHE_ENTRY_PC(f))) {
+                    info->interrupted = f;
+                    info->interrupted_pc = FCACHE_ENTRY_PC(f);
+                }
+            }
+        }
     } else if (pc == vsyscall_sysenter_return_pc) {
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from vsyscall "PFX"\n", sig, pc);
@@ -3567,9 +3602,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         at_syscall = true;
     } else {
-        /* the signal interrupted dynamo => do not run handler now! */
+        /* the signal interrupted DR itself => do not run handler now! */
         LOG(THREAD, LOG_ASYNCH, 2,
-            "record_pending_signal(%d) from dynamo or lib at pc "PFX"\n", sig, pc);
+            "record_pending_signal(%d) from DR at pc "PFX"\n", sig, pc);
         if (!forged &&
             !can_always_delay[sig] &&
             !is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info)) {
@@ -3760,8 +3795,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 "\tnon-rt signal already in queue, ignoring this one!\n");
         }
 
-        if (!blocked)
-            dcontext->signals_pending = true;
+        if (!blocked && !dcontext->signals_pending)
+            dcontext->signals_pending = 1;
     }
     ostd->processing_signal--;
 }
@@ -5130,9 +5165,10 @@ receive_pending_signal(dcontext_t *dcontext)
             /* restore syscall (they're a barrier to signals, so signal
              * handler has cur frag exit before it does a syscall)
              */
-            ASSERT(info->interrupted_pc != NULL);
-            mangle_syscall_code(dcontext, info->interrupted,
-                                info->interrupted_pc, true/*skip exit cti*/);
+            if (info->interrupted_pc != NULL) {
+                mangle_syscall_code(dcontext, info->interrupted,
+                                    info->interrupted_pc, true/*skip exit cti*/);
+            }
         }
         info->interrupted = NULL;
         info->interrupted_pc = NULL;
@@ -5164,8 +5200,13 @@ receive_pending_signal(dcontext_t *dcontext)
             special_heap_free(info->sigheap, temp);
 
             /* only one signal at a time! */
-            if (executing)
+            if (executing) {
+                /* Make negative so our fcache_enter check makes progress but
+                 * our C code still considers there to be pending signals.
+                 */
+                dcontext->signals_pending = -1;
                 break;
+            }
         }
     }
     /* barrier to prevent compiler from moving the below write above the loop */
@@ -5175,7 +5216,7 @@ receive_pending_signal(dcontext_t *dcontext)
     /* we only clear this on a call to us where we find NO pending signals */
     if (sig > MAX_SIGNUM) {
         LOG(THREAD, LOG_ASYNCH, 3, "\tclearing signals_pending flag\n");
-        dcontext->signals_pending = false;
+        dcontext->signals_pending = 0;
     }
 }
 

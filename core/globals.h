@@ -775,7 +775,10 @@ struct _dcontext_t {
         coarse_info_t *dir_exit;
     } coarse_exit;
 
-    where_am_i_t       whereami;        /* where control is at the moment */
+    where_am_i_t   whereami;        /* where control is at the moment */
+#ifdef UNIX
+    char           signals_pending; /* != 0: pending; < 0: currently handling one */
+#endif
 
     /************* end of offset-crucial fields *********************/
 
@@ -843,7 +846,6 @@ struct _dcontext_t {
 #ifdef UNIX
     void *         signal_field;
     void *         pcprofile_field;
-    bool           signals_pending;
 #endif
     void *         private_code;          /* various thread-private routines */
 

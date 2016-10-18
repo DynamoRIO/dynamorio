@@ -1634,6 +1634,8 @@ int decode_syscall_num(dcontext_t *dcontext, byte *entry);
 void link_shared_syscall(dcontext_t *dcontext);
 void unlink_shared_syscall(dcontext_t *dcontext);
 #endif
+size_t syscall_instr_length(dr_isa_mode_t mode);
+bool is_syscall_at_pc(dcontext_t *dcontext, app_pc pc);
 
 /* Coarse-grain fragment support */
 cache_pc

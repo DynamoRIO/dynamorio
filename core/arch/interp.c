@@ -7080,10 +7080,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
      * the following conditions are satisfied. */
     bool possible_ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
-        /* FIXME Traces don't have FRAG_HAS_SYSCALL set so we can't filter on
-         * that flag for all fragments. We should propagate this flag from
-         * a BB to a trace. */
-        (TEST(FRAG_HAS_SYSCALL, f->flags) || TEST(FRAG_IS_TRACE, f->flags));
+        TEST(FRAG_HAS_SYSCALL, f->flags);
 #endif
     instrlist_t intra_ctis;
     coarse_info_t *info = NULL;

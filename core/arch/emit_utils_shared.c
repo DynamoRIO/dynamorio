@@ -1923,6 +1923,10 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *      RESTORE_FROM_UPCONTEXT PROT_OFFSET, %xsi
  *    endif
  *  endif
+ *  cmp signals_pending_OFFSET(SCRATCH_REG5), 0
+ *  jle no_signals
+ *  ret
+ * no_signals:
  *
  *  # append_load_tls_base (ARM only)
  *  mrc p15, 0, r0, c13, c0, 2

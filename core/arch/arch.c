@@ -3157,6 +3157,37 @@ get_app_sysenter_addr()
     return app_sysenter_instr_addr;
 }
 
+size_t
+syscall_instr_length(dr_isa_mode_t mode)
+{
+    size_t syslen;
+    IF_X86_ELSE({
+        ASSERT(INT_LENGTH == SYSCALL_LENGTH);
+        ASSERT(SYSENTER_LENGTH == SYSCALL_LENGTH);
+        syslen = SYSCALL_LENGTH;
+    }, {
+        syslen = IF_ARM_ELSE((mode == DR_ISA_ARM_THUMB ?
+                              SVC_THUMB_LENGTH : SVC_ARM_LENGTH),
+                             SVC_LENGTH);
+    });
+    return syslen;
+}
+
+bool
+is_syscall_at_pc(dcontext_t *dcontext, app_pc pc)
+{
+    instr_t instr;
+    bool res = false;
+    instr_init(dcontext, &instr);
+    TRY_EXCEPT(dcontext, {
+        pc = decode(dcontext, pc, &instr);
+        res = (pc != NULL && instr_valid(&instr) && instr_is_syscall(&instr));
+    }, {
+    });
+    instr_free(dcontext, &instr);
+    return res;
+}
+
 void
 copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst)
 {

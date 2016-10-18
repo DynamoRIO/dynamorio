@@ -444,6 +444,11 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
         mcontext->pc = save_pc;
     }
 
+#ifdef UNIX
+    /* We store this for purposes like signal unlinking (i#2019) */
+    dcontext->asynch_target = dcontext->next_tag;
+#endif
+
 #if defined(UNIX) && defined(DEBUG)
     /* i#238/PR 499179: check that libc errno hasn't changed.  It's
      * not worth actually saving+restoring since to we'd also need to
@@ -493,8 +498,28 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
                                FCACHE_ENTRY_PC(targetf))
 #endif
                  );
+#ifdef UNIX
+    if (dcontext->signals_pending) {
+        /* i#2019: the fcache_enter generated code starts with a check for pending
+         * signals, allowing the signal handling code to simply queue signals that
+         * arrive in DR code and only attempt to unlink for interruption points known
+         * to be safe for unlinking.
+         */
+        KSTOP_NOT_MATCHING(fcache_default);
+        dcontext->whereami = WHERE_DISPATCH;
+        enter_couldbelinking(dcontext, NULL, true);
+        dcontext->next_tag = dcontext->asynch_target;
+        LOG(THREAD, LOG_DISPATCH, 2,
+            "Signal arrived while in DR: aborting fcache_enter; next_tag is "PFX"\n",
+            dcontext->next_tag);
+        STATS_INC(num_entrances_aborted);
+        trace_abort(dcontext);
+        receive_pending_signal(dcontext);
+        return false;
+    }
+#endif
     ASSERT_NOT_REACHED();
-    return true;
+    return false;
 }
 
 /* Enters the cache at the specified entrance routine to execute the
@@ -535,7 +560,7 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
 
     dcontext->whereami = WHERE_FCACHE;
     (*entry)(dcontext);
-    ASSERT_NOT_REACHED();
+    IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
 
 /* Handles special tags in DR or elsewhere that do interesting things.
@@ -1741,6 +1766,8 @@ handle_system_call(dcontext_t *dcontext)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     int sysnum = os_normalized_sysnum((int)MCXT_SYSNUM_REG(mc), NULL, dcontext);
 #endif
+    app_pc saved_next_tag = dcontext->next_tag;
+    bool repeat = false;
 #ifdef WINDOWS
     /* make sure to ask about syscall before pre_syscall, which will swap new mc in! */
     bool use_prev_dcontext = is_cb_return_syscall(dcontext);
@@ -1975,13 +2002,58 @@ handle_system_call(dcontext_t *dcontext)
 
         set_at_syscall(dcontext, true);
         KSTART_DC(dcontext, syscall_fcache); /* stopped in dispatch_exit_fcache_stats */
-        enter_fcache(dcontext, (fcache_enter_func_t)
-                     /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
-                     convert_data_to_function
-                     (PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
-                     PC_AS_JMP_TGT(DEFAULT_ISA_MODE, do_syscall));
-        /* will handle post processing in handle_post_system_call */
-        ASSERT_NOT_REACHED();
+        do {
+#ifdef UNIX
+            /* We've already updated the signal mask as though the handler is
+             * completely finished, so we cannot go and receive a signal before
+             * executing the sigreturn syscall.
+             * Sigreturn will come back to dispatch so there's no worry about
+             * unbounded delay.
+             */
+            if (is_sigreturn_syscall(dcontext) && dcontext->signals_pending > 0)
+                dcontext->signals_pending = -1;
+#endif
+            enter_fcache(dcontext, (fcache_enter_func_t)
+                         /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
+                         convert_data_to_function
+                         (PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
+                         PC_AS_JMP_TGT(DEFAULT_ISA_MODE, do_syscall));
+#ifdef UNIX
+            if (is_sigreturn_syscall(dcontext) && dcontext->signals_pending)
+                repeat = true;
+            else
+                break;
+#endif
+        } while (repeat);
+#ifdef UNIX
+        if (dcontext->signals_pending) {
+            /* i#2019: see comments in dispatch_enter_fcache() */
+            KSTOP(syscall_fcache);
+            dcontext->whereami = WHERE_DISPATCH;
+            set_at_syscall(dcontext, false);
+            /* We need to remember both the post-syscall resumption point and
+             * the fact that we need to execute a syscall, but we only have
+             * a single PC field to place it into inside our sigreturn frame
+             * and other places.  Our solution is to point back at the
+             * syscall instruction itself.  The walk-backward scheme here is a
+             * little hacky perhaps.  We'll make a bb just for this syscall, which
+             * will not know the syscall number: but any re-execution in a loop
+             * will go back to the main bb.
+             */
+            dcontext->next_tag = saved_next_tag -
+                syscall_instr_length(dcontext->last_fragment == NULL ? DEFAULT_ISA_MODE :
+                                     FRAG_ISA_MODE(dcontext->last_fragment->flags));
+            ASSERT(is_syscall_at_pc(dcontext, dcontext->next_tag));
+            LOG(THREAD, LOG_DISPATCH, 2,
+                "Signal arrived in DR: aborting syscall enter; interrupted "PFX"\n",
+                dcontext->next_tag);
+            STATS_INC(num_entrances_aborted);
+            trace_abort(dcontext);
+            receive_pending_signal(dcontext);
+        } else
+#endif
+            /* will handle post processing in handle_post_system_call */
+            ASSERT_NOT_REACHED();
     }
     else {
 #ifdef CLIENT_INTERFACE

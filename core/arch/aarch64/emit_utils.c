@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -392,6 +392,10 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
                                  opnd_create_reg(DR_REG_X0)));
     /* set up stolen reg */
     insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
+
+    /* FIXME i#2019: check dcontext->signals_pending.  First we need a way to
+     * create a conditional branch b.le.
+     */
 }
 
 void
