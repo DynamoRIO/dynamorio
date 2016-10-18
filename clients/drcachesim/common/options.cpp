@@ -220,3 +220,10 @@ droption_t<unsigned int> op_report_top
 (DROPTION_SCOPE_FRONTEND, "report_top", 10,
  "Number of top results to be reported",
  "Specifies the number of top results to be reported.");
+
+droption_t<unsigned int> op_reuse_distance_threshold
+(DROPTION_SCOPE_FRONTEND, "reuse_distance_threshold", 100,
+ "The reuse distance threshold for reporting the distant repeated references.",
+ "Specifies the reuse distance threshold for reporting the distant repeated references. "
+ "A reference is a distant repeated reference if the distance to the previous reference"
+ " on the same cache line exceeds the threshold.");

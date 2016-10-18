@@ -39,6 +39,7 @@
 #include "simulator/cache_simulator.h"
 #include "simulator/tlb_simulator.h"
 #include "tools/histogram.h"
+#include "tools/reuse_distance.h"
 #include "tracer/raw2trace.h"
 #include <fstream>
 
@@ -141,9 +142,12 @@ analyzer_t::create_analysis_tools()
         tools[0] = new tlb_simulator_t;
     else if (op_simulator_type.get_value() == HISTOGRAM)
         tools[0] = new histogram_t;
+    else if (op_simulator_type.get_value() == REUSE_DIST)
+        tools[0] = new reuse_distance_t;
     else {
         ERRMSG("Usage error: unsupported analyzer type. "
-               "Please choose " CPU_CACHE ", " TLB ", or " HISTOGRAM ".\n");
+               "Please choose " CPU_CACHE ", " TLB ", "
+               HISTOGRAM ", or " REUSE_DIST ".\n");
         return false;
     }
     if (!tools[0])

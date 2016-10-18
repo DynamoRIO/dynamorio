@@ -63,6 +63,7 @@ add_executable(drcachesim
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
   tools/histogram.cpp
+  tools/reuse_distance.cpp
   # We embed the raw2trace conversion for convenience:
   tracer/raw2trace.cpp
   tracer/instru.cpp

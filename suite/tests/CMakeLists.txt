@@ -2418,9 +2418,16 @@ if (CLIENT_INTERFACE)
       # Test other analysis tools
       torunonly_ci(tool.histogram ${ci_shared_app} drcachesim
         "histogram.c" # for templatex basename
-        "-ipc_name drtestpipe5 -simulator_type histogram" "" "")
+        "-ipc_name drtestpipe5 -simulator_type histogram -report_top 20" "" "")
       set(tool.histogram_toolname "drcachesim")
       set(tool.histogram_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+
+      torunonly_ci(tool.reuse ${ci_shared_app} drcachesim
+        "reuse_distance.c" # for templatex basename
+        "-ipc_name drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
+      set(tool.reuse_toolname "drcachesim")
+      set(tool.reuse_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
       # Test offline traces.
