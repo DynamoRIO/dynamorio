@@ -3165,8 +3165,8 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
          * changing the target of a short jmp, which is atomic
          * since a one-byte write, so we don't need the change_linking_lock.
          */
-        changed = changed ||
-            mangle_syscall_code(dcontext, f, pc, false/*do not skip exit cti*/);
+        if (mangle_syscall_code(dcontext, f, pc, false/*do not skip exit cti*/))
+            changed = true;
     }
     if (!waslinking)
         enter_nolinking(dcontext, NULL, false);

@@ -746,7 +746,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
             return false;
         }
     } while (!instr_is_syscall(&instr));
-    if (skip_pc != NULL) {
+    if (skip_pc == NULL) {
         /* signal happened after skip jmp: nothing we can do here
          *
          * FIXME PR 213040: we should tell caller difference between
@@ -791,7 +791,8 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         LOG(THREAD, LOG_SYSCALLS, 3,
             "\tmodifying target of syscall jmp to "PFX"\n", target);
         instr_set_target(&instr, opnd_create_pc(target));
-        DEBUG_DECLARE(nxt_pc = ) instr_encode(dcontext, &instr, skip_pc);
+        DEBUG_DECLARE(nxt_pc = )
+            instr_encode(dcontext, &instr, skip_pc);
         ASSERT(nxt_pc != NULL && nxt_pc == cti_pc);
     } else {
         LOG(THREAD, LOG_SYSCALLS, 3,
