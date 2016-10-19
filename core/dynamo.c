@@ -2576,12 +2576,15 @@ dr_app_setup(void)
      * share the takeover portion) from dr_app_start().
      */
     int res;
+    dcontext_t *dcontext;
     dr_api_entry = true;
     res = dynamorio_app_init();
     /* It would be more efficient to avoid setting up signal handlers and
      * avoid hooking vsyscall during init, but the code is simpler this way.
      */
-    os_process_not_under_dynamorio(get_thread_private_dcontext());
+    dcontext = get_thread_private_dcontext();
+    os_process_not_under_dynamorio(dcontext);
+    dynamo_thread_not_under_dynamo(dcontext);
     return res;
 }
 
@@ -2668,6 +2671,8 @@ dr_app_setup_and_start(void)
 void
 dynamo_thread_under_dynamo(dcontext_t *dcontext)
 {
+    LOG(THREAD, LOG_ASYNCH, 2, "thread %d under DR control\n",
+        dcontext->owning_thread);
     ASSERT(dcontext != NULL);
     /* FIXME: mark under_dynamo_control?
      * see comments in not routine below
@@ -2694,6 +2699,8 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
                    dcontext == get_thread_private_dcontext());
     if (dcontext == NULL)
         return;
+    LOG(THREAD, LOG_ASYNCH, 2, "thread %d not under DR control\n",
+        dcontext->owning_thread);
     dcontext->currently_stopped = true;
     os_thread_not_under_dynamo(dcontext);
 #ifdef SIDELINE
