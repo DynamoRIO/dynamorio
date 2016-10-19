@@ -307,48 +307,117 @@ typedef struct _module_read_info_t {
 } module_read_info_t;
 
 /* assuming caller holds the lock */
-static void
-module_table_entry_print(module_entry_t *entry, file_t log)
+static int
+module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
 {
     const char *name;
     module_data_t *data;
     const char *full_path = "<unknown>";
+    int len, total_len = 0;
     data = entry->data;
     name = dr_module_preferred_name(data);
     if (data->full_path != NULL && data->full_path[0] != '\0')
         full_path = data->full_path;
 
-    dr_fprintf(log, "%3u, "PFX", "PFX", "PFX"",
-               entry->id, data->start, data->end, data->entry_point);
+    len = dr_snprintf(buf, size, "%3u, " PFX ", " PFX ", " PFX "",
+                      entry->id, data->start, data->end, data->entry_point);
+    if (len == -1)
+        return -1;
+    buf += len;
+    total_len += len;
+    size -= len;
 #ifdef WINDOWS
-    dr_fprintf(log, ", 0x%08x, 0x%08x", data->checksum, data->timestamp);
+    len = dr_snprintf(buf, size, ", 0x%08x, 0x%08x",
+                      data->checksum, data->timestamp);
+    if (len == -1)
+        return -1;
+    buf += len;
+    total_len += len;
+    size -= len;
 #endif
-    dr_fprintf(log, ", %s\n", full_path);
+    len = dr_snprintf(buf, size, ", %s\n", full_path);
+    if (len == -1)
+        return -1;
+    buf += len;
+    total_len += len;
+    size -= len;
+    return total_len;
+}
+
+drcovlib_status_t
+drmodtrack_dump_buf(char *buf, size_t size) {
+    uint i;
+    module_entry_t *entry;
+    int len;
+    if (buf == NULL || size == 0)
+        return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    size--;  /* for the terminating null character */
+    drvector_lock(&module_table.vector);
+    len = dr_snprintf(buf, size, "Module Table: version %u, count %u\n",
+                      MODULE_FILE_VERSION, module_table.vector.entries);
+    if (len == -1) {
+        drvector_unlock(&module_table.vector);
+        return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+    }
+    buf += len;
+    size -= len;
+
+    len = dr_snprintf(buf, size, "Columns: id, base, end, entry");
+    if (len == -1) {
+        drvector_unlock(&module_table.vector);
+        return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+    }
+#ifdef WINDOWS
+    buf += len;
+    size -= len;
+
+    len = dr_snprintf(buf, size, ", checksum, timestamp");
+    if (len == -1) {
+        drvector_unlock(&module_table.vector);
+        return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+    }
+#endif
+
+    buf += len;
+    size -= len;
+    len = dr_snprintf(buf, size, ", path\n");
+    if (len == -1) {
+        drvector_unlock(&module_table.vector);
+        return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+    }
+
+    buf += len;
+    size -= len;
+    for (i = 0; i < module_table.vector.entries; i++) {
+        entry = drvector_get_entry(&module_table.vector, i);
+        len = module_table_entry_print(entry, buf, size);
+        if (len == -1) {
+            drvector_unlock(&module_table.vector);
+            return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+        }
+        buf += len;
+        size -= len;
+     }
+    buf[0] = '\0';
+    drvector_unlock(&module_table.vector);
+    return DRCOVLIB_SUCCESS;
 }
 
 drcovlib_status_t
 drmodtrack_dump(file_t log)
 {
-    uint i;
-    module_entry_t *entry;
-    if (log == INVALID_FILE)
-        return DRCOVLIB_ERROR_INVALID_PARAMETER;
-    drvector_lock(&module_table.vector);
-    dr_fprintf(log, "Module Table: version %u, count %u\n", MODULE_FILE_VERSION,
-               module_table.vector.entries);
-
-    dr_fprintf(log, "Columns: id, base, end, entry");
-#ifdef WINDOWS
-    dr_fprintf(log, ", checksum, timestamp");
-#endif
-    dr_fprintf(log, ", path\n");
-
-    for (i = 0; i < module_table.vector.entries; i++) {
-        entry = drvector_get_entry(&module_table.vector, i);
-        module_table_entry_print(entry, log);
-    }
-    drvector_unlock(&module_table.vector);
-    return DRCOVLIB_SUCCESS;
+    drcovlib_status_t res;
+    size_t size = 200 + module_table.vector.entries * (MAXIMUM_PATH + 40);
+    char *buf;
+    do {
+        buf = dr_global_alloc(size);
+        res = drmodtrack_dump_buf(buf, size);
+        if (res == DRCOVLIB_SUCCESS)
+            dr_write_file(log, buf, strlen(buf));
+        dr_global_free(buf, size);
+        size *= 2;
+    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
+    return res;
 }
 
 static inline const char *

@@ -59,6 +59,7 @@ typedef enum {
     DRCOVLIB_ERROR_INVALID_SETUP,      /**< Operation failed: invalid DynamoRIO setup */
     DRCOVLIB_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
     DRCOVLIB_ERROR_NOT_FOUND,          /**< Operation failed: query not found. */
+    DRCOVLIB_ERROR_BUF_TOO_SMALL,      /**< Operation failed: buffer too small. */
 } drcovlib_status_t;
 
 /** Bitmask flags for use in #drcovlib_options_t.flags. */
@@ -232,6 +233,15 @@ DR_EXPORT
  */
 drcovlib_status_t
 drmodtrack_dump(file_t file);
+
+DR_EXPORT
+/**
+ * Writes the complete module information string to \p buf.
+ * Returns DRCOVLIB_SUCCESS on success.
+ * If the buffer is too small, returns DRCOVLIB_ERROR_BUF_TOO_SMALL.
+ */
+drcovlib_status_t
+drmodtrack_dump_buf(char *buf, size_t size);
 
 DR_EXPORT
 /**
