@@ -440,10 +440,20 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
              * are holes in all_memory_areas
              */
             from_os_prot != MEMPROT_NONE) {
-            SYSLOG_INTERNAL_ERROR("all_memory_areas is missing region "PFX"-"PFX"!",
-                                  from_os_base_pc, from_os_base_pc + from_os_size);
+            /* FIXME i#2037: today the start/stop API does not re-scan on start,
+             * so our cache is wrong.  Worse than a false negative here, which we
+             * can handle as lazy lookup, is a false positive: we need to clear the
+             * cache at start.  For now we just quiet the complaints here.
+             */
+            DODEBUG({
+                if (!dr_api_entry) {
+                    SYSLOG_INTERNAL_ERROR
+                        ("all_memory_areas is missing region " PFX"-"PFX"!",
+                         from_os_base_pc, from_os_base_pc + from_os_size);
+                }
+            });
             DOLOG(4, LOG_VMAREAS, memcache_print(THREAD_GET, ""););
-            ASSERT_NOT_REACHED();
+            ASSERT(dr_api_entry);
             /* be paranoid */
             out_info->base_pc = from_os_base_pc;
             out_info->size = from_os_size;
