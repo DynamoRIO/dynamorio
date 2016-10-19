@@ -1405,12 +1405,15 @@ static bool
 is_thread_tls_initialized(void)
 {
 #ifdef X86
+    os_local_state_t *os_tls = NULL;
     ptr_uint_t cur_seg = read_thread_register(SEG_TLS);
-    /* Handle WSL (i#1896) where fs and gs start out equal to ss (0x2b) */
-    if (cur_seg != 0 && cur_seg != read_thread_register(SEG_SS))
-        return true;
+    /* Handle WSL (i#1986) where fs and gs start out equal to ss (0x2b) */
+    if (cur_seg != 0 && cur_seg != read_thread_register(SEG_SS)) {
+        /* XXX: make this a safe read: but w/o dcontext we need special asm support */
+        READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
+    }
 # ifdef X64
-    if (tls_dr_using_msr()) {
+    if (os_tls == NULL && tls_dr_using_msr()) {
         /* When the MSR is used, the selector in the register remains 0.
          * We can't clear the MSR early in a new thread and then look for
          * a zero base here b/c if kernel decides to use GDT that zeroing
@@ -1422,15 +1425,17 @@ is_thread_tls_initialized(void)
         byte *base = tls_get_fs_gs_segment_base(SEG_TLS);
         ASSERT(tls_global_type == TLS_TYPE_ARCH_PRCTL);
         if (base != (byte *) POINTER_MAX && base != NULL) {
-            os_local_state_t *os_tls = (os_local_state_t *) base;
-            return (os_tls->tid == get_sys_thread_id() ||
-                    /* The child of a fork will initially come here */
-                    os_tls->state.spill_space.dcontext->owning_process ==
-                    get_parent_id());
+            os_tls = (os_local_state_t *) base;
         }
     }
 # endif
-    return false;
+    if (os_tls != NULL) {
+        return (os_tls->tid == get_sys_thread_id() ||
+                /* The child of a fork will initially come here */
+                os_tls->state.spill_space.dcontext->owning_process ==
+                get_parent_id());
+    } else
+        return false;
 #elif defined(AARCHXX)
     byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
@@ -1814,7 +1819,7 @@ os_tls_init(void)
     memset(segment, 0, PAGE_SIZE);
     /* store key data in the tls itself */
     os_tls->self = os_tls;
-    os_tls->tid = get_thread_id();
+    os_tls->tid = get_sys_thread_id();
     os_tls->tls_type = TLS_TYPE_NONE;
     /* We save DR's TLS segment base here so that os_get_dr_seg_base() will work
      * even when -no_mangle_app_seg is set.  If -mangle_app_seg is set, this
