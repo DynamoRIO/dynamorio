@@ -1215,6 +1215,12 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                     uint DR_min_offs =
                         opnd_get_disp(dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1));
                     slot = (offs - DR_min_offs) / sizeof(reg_t);
+                    if (slot > SPILL_SLOT_MAX) {
+                        /* This is not a drreg spill, but some TLS access by
+                         * tool instrumentation (i#2035).
+                         */
+                        continue;
+                    }
                 } else {
                     /* We assume mcontext spill offs is 0 */
                     slot = offs / sizeof(reg_t);
