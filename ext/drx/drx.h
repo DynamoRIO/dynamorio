@@ -219,16 +219,30 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
  * LOGGING
  */
 
+/**
+ * Flag for use with drx_open_unique_file() or drx_open_unique_appid_file()
+ * in \p extra_flags to skip the file open and get the path string only.
+ *
+ * \note This flag value must not conflict with any DR_FILE_* flag value
+ * used by dr_open_file().
+ */
+#define DRX_FILE_SKIP_OPEN  0x8000
+
 DR_EXPORT
 /**
  * Opens a new file with a name constructed from "dir/prefix.xxxx.suffix",
  * where xxxx is a 4-digit number incremented until a unique name is found
  * that does not collide with any existing file.
  *
- * Passes \p extra_flags through to the dr_open_file() call.
+ * Passes \p extra_flags through to the dr_open_file() call if \p extra_flags
+ * is not DRX_FILE_SKIP_OPEN.
  *
  * On success, returns the file handle and optionally the resulting path
  * in \p result.  On failure, returns INVALID_FILE.
+ *
+ * Skips dr_open_file() if \p extra_flags is DRX_FILE_SKIP_OPEN.
+ * Returns INVALID_FILE and optionally the resulting path in \p result.
+ * Unique name is not guaranteed and xxxx is set randomly.
  *
  * \note May be called without calling drx_init().
  */
@@ -244,10 +258,15 @@ DR_EXPORT
  * from dr_get_application_name().  The id portion of the string is from \p id,
  * which is meant to be either the process id or the thread id.
  *
- * Passes \p extra_flags through to the dr_open_file() call.
+ * Passes \p extra_flags through to the dr_open_file() call if \p extra_flags
+ * is not DRX_FILE_SKIP_OPEN.
  *
  * On success, returns the file handle and optionally the resulting path
  * in \p result.  On failure, returns INVALID_FILE.
+ *
+ * Skips dr_open_file() if \p extra_flags is DRX_FILE_SKIP_OPEN.
+ * Returns INVALID_FILE and optionally the resulting path in \p result.
+ * Unique name is not guaranteed and xxxx is set randomly.
  *
  * \note May be called without calling drx_init().
  */

@@ -36,6 +36,7 @@
 #include "dr_api.h"
 #include "drx.h"
 #include "client_tools.h"
+#include "string.h"
 
 #define CHECK(x, msg) do {               \
     if (!(x)) {                          \
@@ -114,6 +115,12 @@ test_unique_files(void)
 #endif
 
     f = drx_open_unique_file(cwd, "drx-test", "log",
+                             DRX_FILE_SKIP_OPEN,
+                             buf, BUFFER_SIZE_ELEMENTS(buf));
+    CHECK(f == INVALID_FILE, "drx_open_unique_file should skip file open");
+    CHECK(strstr(buf, "drx-test.") != NULL,
+          "drx_open_unique_file fail to return path string");
+    f = drx_open_unique_file(cwd, "drx-test", "log",
                              0, buf, BUFFER_SIZE_ELEMENTS(buf));
     CHECK(f != INVALID_FILE, "drx_open_unique_file failed");
     CHECK(dr_file_exists(buf), "drx_open_unique_file failed");
@@ -121,6 +128,13 @@ test_unique_files(void)
     res = dr_delete_file(buf);
     CHECK(res, "drx_open_unique_file failed");
 
+    f = drx_open_unique_appid_file(cwd, 1234, "drx-test", "txt",
+                                   DRX_FILE_SKIP_OPEN,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf));
+    CHECK(f == INVALID_FILE, "drx_open_unique_appid_file should skip file open");
+    CHECK(strstr(buf,
+                 "drx-test.client.drx-test.") != NULL,
+          "drx_open_unique_appid_file fail to return path string");
     f = drx_open_unique_appid_file(cwd, dr_get_process_id(), "drx-test", "txt",
                                    0, buf, BUFFER_SIZE_ELEMENTS(buf));
     CHECK(f != INVALID_FILE, "drx_open_unique_appid_file failed");

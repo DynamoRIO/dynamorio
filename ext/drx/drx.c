@@ -1304,17 +1304,21 @@ drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
                      uint extra_flags, char *result OUT, size_t result_len)
 {
     char buf[MAXIMUM_PATH];
-    file_t f;
+    file_t f = INVALID_FILE;
     int i;
     ssize_t len;
     for (i = 0; i < 10000; i++) {
         len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                          "%s%c%s.%04d.%s", dir, DIRSEP, prefix, i, suffix);
+                          "%s%c%s.%04d.%s", dir, DIRSEP, prefix,
+                          (extra_flags == DRX_FILE_SKIP_OPEN) ?
+                          dr_get_random_value(9999) : i,
+                          suffix);
         if (len < 0)
-            return false;
+            return INVALID_FILE;
         NULL_TERMINATE_BUFFER(buf);
-        f = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW | extra_flags);
-        if (f != INVALID_FILE) {
+        if (extra_flags != DRX_FILE_SKIP_OPEN)
+            f = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW | extra_flags);
+        if (f != INVALID_FILE || extra_flags == DRX_FILE_SKIP_OPEN) {
             if (result != NULL)
                 dr_snprintf(result, result_len, "%s", buf);
             return f;
