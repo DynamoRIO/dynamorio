@@ -2471,6 +2471,15 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext)
     return os_take_over_thread(dcontext, tr->handle, tr->id, true/*suspended*/);
 }
 
+/* Called for os-specific takeover of a secondary thread from the one
+ * that called dr_app_setup().
+ */
+void
+os_thread_take_over_secondary(dcontext_t *dcontext)
+{
+    /* Nothing yet. */
+}
+
 bool
 os_take_over_all_unknown_threads(dcontext_t *dcontext)
 {

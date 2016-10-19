@@ -9272,6 +9272,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
             tids[threads_to_signal++] = tids[i];
     }
 
+    LOG(GLOBAL, LOG_THREADS, 1,
+        "TAKEOVER: %d threads to take over\n", threads_to_signal);
     if (threads_to_signal > 0) {
         takeover_record_t *records;
 
@@ -9411,6 +9413,26 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext)
     ASSERT_NOT_TESTED();
     ostd->retakeover = true;
     return true;
+}
+
+/* Called for os-specific takeover of a secondary thread from the one
+ * that called dr_app_setup().
+ */
+void
+os_thread_take_over_secondary(dcontext_t *dcontext)
+{
+    thread_record_t **list;
+    int num_threads;
+    /* We want to share with the thread that called dr_app_setup. */
+    mutex_lock(&thread_initexit_lock);
+    get_list_of_threads(&list, &num_threads);
+    ASSERT(num_threads >= 1);
+    /* Assuming pthreads, prepare signal_field for sharing. */
+    handle_clone(list[0]->dcontext, PTHREAD_CLONE_FLAGS);
+    share_siginfo_after_take_over(dcontext, list[0]->dcontext);
+    mutex_unlock(&thread_initexit_lock);
+    global_heap_free(list, num_threads*sizeof(thread_record_t*)
+                     HEAPACCT(ACCT_THREAD_MGT));
 }
 
 /***************************************************************************/

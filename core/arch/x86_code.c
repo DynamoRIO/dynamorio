@@ -85,7 +85,18 @@ dynamo_start(priv_mcontext_t *mc)
 {
     priv_mcontext_t *mcontext;
     dcontext_t *dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
+    if (dcontext == NULL) {
+        /* If dr_app_start is called from a different thread than the one
+         * that called dr_app_setup, we'll need to initialize this thread here.
+         */
+        IF_DEBUG(int r =)
+            dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
+        ASSERT(r == SUCCESS);
+        ASSERT(dr_api_entry);
+        dcontext = get_thread_private_dcontext();
+        ASSERT(dcontext != NULL);
+        os_thread_take_over_secondary(dcontext);
+    }
     thread_starting(dcontext);
 
     /* Signal other threads for take over. */

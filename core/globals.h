@@ -505,11 +505,9 @@ extern bool    dr_late_injected_primary_thread;
 #ifdef RETURN_AFTER_CALL
 extern bool    dr_preinjected;
 #endif
-#ifdef DR_APP_EXPORTS
 /* flags to indicate when DR is being initialized / exited using the API */
 extern bool    dr_api_entry;
 extern bool    dr_api_exit;
-#endif
 
 /* in dynamo.c */
 /* 9-bit addressed hash table takes up 2K, has capacity of 512

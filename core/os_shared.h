@@ -171,6 +171,9 @@ void thread_set_self_mcontext(priv_mcontext_t *mc);
 bool
 os_thread_take_over_suspended_native(dcontext_t *dcontext);
 
+void
+os_thread_take_over_secondary(dcontext_t *dcontext);
+
 dcontext_t *get_thread_private_dcontext(void);
 void set_thread_private_dcontext(dcontext_t *dcontext);
 

@@ -111,11 +111,9 @@ bool    dr_injected_secondary_thread = false;
 /* should be set once we retakeover the primary thread for -inject_primary */
 bool    dr_late_injected_primary_thread = false;
 #endif /* WINDOWS */
-#ifdef DR_APP_EXPORTS
 /* flags to indicate when DR is being initialized / exited using the API */
 bool    dr_api_entry = false;
 bool    dr_api_exit  = false;
-#endif
 #ifdef RETURN_AFTER_CALL
 bool    dr_preinjected = false;
 #endif /* RETURN_AFTER_CALL */
