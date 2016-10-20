@@ -868,6 +868,7 @@ elf_hash_lookup(const char   *name,
             ASSERT(false && "malformed ELF symbol entry");
             continue;
         }
+        /* Keep this consistent with symbol_is_import. */
         if (sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS)
             continue; /* no value */
         if (elf_sym_matches(sym, strtab, name, is_indirect_code))
@@ -1522,12 +1523,22 @@ symbol_iterator_stop(elf_symbol_iterator_t *iter)
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
 
+static bool
+symbol_is_import(ELF_SYM_TYPE *sym)
+{
+    /* Keep this consistent with elf_hash_lookup.
+     * With some older ARM and AArch64 tool chains we have st_shndx == STN_UNDEF
+     * with a non-zero st_value pointing at the PLT. See i#2008.
+     */
+    return ((sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS) ||
+            sym->st_shndx == STN_UNDEF);
+}
+
 static void
 symbol_iterator_next_import(elf_symbol_iterator_t *iter)
 {
     ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
-    /* Imports have zero st_value fields. Anything else is something else. */
-    while (sym != NULL && sym->st_value != 0)
+    while (sym != NULL && !symbol_is_import(sym))
         sym = symbol_iterator_next(iter);
 }
 
@@ -1582,8 +1593,7 @@ static void
 symbol_iterator_next_export(elf_symbol_iterator_t *iter)
 {
     ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
-    /* Assume that eports have non-zero st_value fields. */
-    while (sym != NULL && sym->st_value == 0)
+    while (sym != NULL && symbol_is_import(sym))
         sym = symbol_iterator_next(iter);
 }
 
