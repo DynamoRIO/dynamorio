@@ -112,6 +112,13 @@ droption_t<unsigned int> op_virt2phys_freq
  "The units are the number of memory accesses per forced access.  A value of 0 "
  "uses the cached values for the entire application execution.");
 
+droption_t<bytesize_t> op_max_trace_size
+(DROPTION_SCOPE_CLIENT, "max_trace_size", 0, "Cap on the raw trace size for each thread",
+ "If non-zero, this sets a maximum size on the amount of raw trace data gathered "
+ "for each thread.  This is not an exact limit: it may be exceeded by the size "
+ "of one internal buffer.  Once reached, instrumentation continues for that thread, "
+ "but no further data is recorded.");
+
 droption_t<std::string> op_replace_policy
 (DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
  "Cache replacement policy", "Specifies the replacement policy for caches. "

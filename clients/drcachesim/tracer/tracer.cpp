@@ -85,6 +85,7 @@ typedef struct {
     byte *seg_base;
     byte *buf_base;
     uint64 num_refs;
+    uint64 bytes_written;
     file_t file; /* For offline traces */
 } per_thread_t;
 
@@ -162,6 +163,7 @@ memtrace(void *drcontext)
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
     byte *pipe_start, *pipe_end, *redzone;
+    bool do_write = true;
 
     buf_ptr = BUF_PTR(data->seg_base);
     /* The initial slot is left empty for the thread entry, which we add here */
@@ -169,53 +171,64 @@ memtrace(void *drcontext)
     instru->append_tid(data->buf_base, dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
+    if (op_max_trace_size.get_value() > 0 &&
+        data->bytes_written > op_max_trace_size.get_value()) {
+        /* We don't guarantee to match the limit exactly so we allow one buffer
+         * beyond.  We also don't put much effort into reducing overhead once
+         * beyond the limit: we still instrument and come here.
+         */
+        do_write = false;
+    } else
+        data->bytes_written += buf_ptr - pipe_start;
 
-    for (mem_ref = data->buf_base + buf_hdr_slots_size; mem_ref < buf_ptr;
-         mem_ref += instru->sizeof_entry()) {
-        data->num_refs++;
-        if (have_phys && op_use_physical.get_value()) {
-            trace_type_t type = instru->get_entry_type(mem_ref);
-            if (type != TRACE_TYPE_THREAD &&
-                type != TRACE_TYPE_THREAD_EXIT &&
-                type != TRACE_TYPE_PID) {
-                addr_t virt = instru->get_entry_addr(mem_ref);
-                addr_t phys = physaddr.virtual2physical(virt);
-                DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
-                if (phys != 0)
-                    instru->set_entry_addr(mem_ref, phys);
-                else {
-                    // XXX i#1735: use virtual address and continue?
-                    // There are cases the xl8 fail, e.g.,:
-                    // - vsyscall/kernel page,
-                    // - wild access (NULL or very large bogus address) by app
-                    NOTIFY(1, "virtual2physical translation failure for "
-                           "<%2d, %2d, " PFX">\n",
-                           type, instru->get_entry_size(mem_ref), virt);
+    if (do_write) {
+        for (mem_ref = data->buf_base + buf_hdr_slots_size; mem_ref < buf_ptr;
+             mem_ref += instru->sizeof_entry()) {
+            data->num_refs++;
+            if (have_phys && op_use_physical.get_value()) {
+                trace_type_t type = instru->get_entry_type(mem_ref);
+                if (type != TRACE_TYPE_THREAD &&
+                    type != TRACE_TYPE_THREAD_EXIT &&
+                    type != TRACE_TYPE_PID) {
+                    addr_t virt = instru->get_entry_addr(mem_ref);
+                    addr_t phys = physaddr.virtual2physical(virt);
+                    DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
+                    if (phys != 0)
+                        instru->set_entry_addr(mem_ref, phys);
+                    else {
+                        // XXX i#1735: use virtual address and continue?
+                        // There are cases the xl8 fail, e.g.,:
+                        // - vsyscall/kernel page,
+                        // - wild access (NULL or very large bogus address) by app
+                        NOTIFY(1, "virtual2physical translation failure for "
+                               "<%2d, %2d, " PFX">\n",
+                               type, instru->get_entry_size(mem_ref), virt);
+                    }
+                }
+            }
+            if (!op_offline.get_value()) {
+                // Split up the buffer into multiple writes to ensure atomic pipe writes.
+                // We can only split before TRACE_TYPE_INSTR, assuming only a few data
+                // entries in between instr entries.
+                if (instru->get_entry_type(mem_ref) == TRACE_TYPE_INSTR) {
+                    if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
+                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+                    // Advance pipe_end pointer
+                    pipe_end = mem_ref;
                 }
             }
         }
-        if (!op_offline.get_value()) {
-            // Split up the buffer into multiple writes to ensure atomic pipe writes.
-            // We can only split before TRACE_TYPE_INSTR, assuming only a few data
-            // entries in between instr entries.
-            if (instru->get_entry_type(mem_ref) == TRACE_TYPE_INSTR) {
-                if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
-                    pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-                // Advance pipe_end pointer
-                pipe_end = mem_ref;
-            }
+        if (op_offline.get_value()) {
+            write_trace_data(drcontext, pipe_start, buf_ptr);
+        } else {
+            // Write the rest to pipe
+            // The last few entries (e.g., instr + refs) may exceed the atomic write size,
+            // so we may need two writes.
+            if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
+                pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+            if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
+                atomic_pipe_write(drcontext, pipe_start, buf_ptr);
         }
-    }
-    if (op_offline.get_value()) {
-        write_trace_data(drcontext, pipe_start, buf_ptr);
-    } else {
-        // Write the rest to pipe
-        // The last few entries (e.g., instr + refs) may exceed the atomic write size,
-        // so we may need two writes.
-        if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
-            pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-        if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
-            atomic_pipe_write(drcontext, pipe_start, buf_ptr);
     }
 
     // Our instrumentation reads from buffer and skips the clean call if the
@@ -602,6 +615,7 @@ event_thread_init(void *drcontext)
     /* put buf_base to TLS plus header slots as starting buf_ptr */
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
     data->num_refs = 0;
+    data->bytes_written = 0;
 
     if (op_offline.get_value()) {
         /* We do not need to call drx_init before using drx_open_unique_appid_file.
