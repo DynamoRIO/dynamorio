@@ -409,7 +409,6 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
          */
     });
 
-#ifdef WINDOWS
     /* synch point for suspend, terminate, and detach */
     /* assumes mcontext is valid including errno but not pc (which we fix here)
      * assumes that thread is holding no locks
@@ -444,7 +443,6 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
         }
         mcontext->pc = save_pc;
     }
-#endif
 
 #if defined(UNIX) && defined(DEBUG)
     /* i#238/PR 499179: check that libc errno hasn't changed.  It's

@@ -985,9 +985,7 @@
     STATS_DEF("Number of landing pad areas allocated", num_landing_pad_areas)
     STATS_DEF("Total times mutexes acquired", total_acquired)
     STATS_DEF("Total times mutexes contended", total_contended)
-#ifdef WINDOWS
     STATS_DEF("Unable to wait_at_safe_spot cache entries", no_wait_entries)
-#endif
     STATS_DEF("Interoperability fixups for apc_policy", num_used_apc_policy)
     STATS_DEF("Interoperability fixups for thread_policy", num_used_thread_policy)
     STATS_DEF("Number of safe reads", num_safe_reads)
