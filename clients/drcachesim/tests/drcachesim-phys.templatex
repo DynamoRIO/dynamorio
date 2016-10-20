@@ -17,4 +17,4 @@ LL stats:
     Misses:                       *[0-9]*[,\.]?..?.?
 .*   Local miss rate:                 [0-9].[,\.]..%
     Child hits:                   *[0-9]..[,\.]?...
-    Total miss rate:                  [0-1][,\.]..%
+    Total miss rate:                  [0-2][,\.]..%
