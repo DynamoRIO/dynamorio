@@ -1653,6 +1653,11 @@ if (AARCH64)
   set_target_properties(common.allasm_aarch64_cache PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_aarch64_cache
     "-nostartfiles -nodefaultlibs -Wl,-static")
+  append_property_string(TARGET common.allasm_aarch64_cache LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+    # is not properly static. Adding --no-export-dynamic avoids the problem.
+    "-Wl,--no-export-dynamic")
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
