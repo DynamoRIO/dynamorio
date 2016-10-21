@@ -411,7 +411,7 @@ raw2trace_t::merge_and_process_thread_files()
         }
         if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                   tids[tidx], in_entry.timestamp.usec);
+                   (uint)tids[tidx], in_entry.timestamp.usec);
             times[tidx] = in_entry.timestamp.usec;
             tidx = (uint)thread_files.size(); // Request thread scan.
         } else if (in_entry.addr.type == OFFLINE_TYPE_MEMREF ||
