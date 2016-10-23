@@ -324,6 +324,37 @@ drdbg_cmd_reg_read(drdbg_srv_int_cmd_data_t *cmd_data)
 }
 
 drdbg_status_t
+drdbg_cmd_reg_write(drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    dr_mcontext_t *ctxt = &current_bp_event->mcontext;
+    dr_mcontext_t *data = cmd_data->cmd_data;
+    ctxt->xax = data->xax;
+    ctxt->xbx = data->xbx;
+    ctxt->xcx = data->xcx;
+    ctxt->xdx = data->xdx;
+    ctxt->xsi = data->xsi;
+    ctxt->xdi = data->xdi;
+    ctxt->xbp = data->xbp;
+    ctxt->xsp = data->xsp;
+#ifdef X64
+    ctxt->r8 = data->r8;
+    ctxt->r9 = data->r9;
+    ctxt->r10 = data->r10;
+    ctxt->r11 = data->r11;
+    ctxt->r12 = data->r12;
+    ctxt->r13 = data->r13;
+    ctxt->r14 = data->r14;
+    ctxt->r15 = data->r15;
+#endif
+    //ctxt->xip = data->xip;
+    ctxt->xflags = data->xflags;
+    if (!dr_set_mcontext(current_event->drcontext, ctxt)) {
+        dr_fprintf(STDERR, "FAILED TO WRITE REG\n");
+    }
+    return DRDBG_SUCCESS;
+}
+
+drdbg_status_t
 drdbg_cmd_mem_read(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     typedef drdbg_cmd_data_mem_op_t mydata_t;
@@ -568,6 +599,7 @@ drdbg_init_cmd_handlers(void)
     /* Assign implemented command handlers */
     cmd_handlers[DRDBG_CMD_QUERY_STOP_RSN] = drdbg_cmd_query_stop_rsn;
     cmd_handlers[DRDBG_CMD_REG_READ] = drdbg_cmd_reg_read;
+    cmd_handlers[DRDBG_CMD_REG_WRITE] = drdbg_cmd_reg_write;
     cmd_handlers[DRDBG_CMD_MEM_READ] = drdbg_cmd_mem_read;
     cmd_handlers[DRDBG_CMD_MEM_WRITE] = drdbg_cmd_mem_write;
     cmd_handlers[DRDBG_CMD_SWBREAK] = drdbg_cmd_swbreak;

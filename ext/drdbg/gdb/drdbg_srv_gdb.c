@@ -407,27 +407,65 @@ drdbg_srv_gdb_cmd_put_reg_read(drdbg_srv_int_cmd_data_t *cmd_data)
     char pkt[MAX_PACKET_SIZE];
     ssize_t len = 0;
     ssize_t ret = 0;
-    ret = snprintf(pkt, MAX_PACKET_SIZE, PFMT PFMT PFMT PFMT PFMT PFMT PFMT PFMT,
-                   END_SWAP_PTR(data->xax),END_SWAP_PTR(data->xbx),
-                   END_SWAP_PTR(data->xcx),END_SWAP_PTR(data->xdx),
-                   END_SWAP_PTR(data->xsi),END_SWAP_PTR(data->xdi),
-                   END_SWAP_PTR(data->xbp),END_SWAP_PTR(data->xsp));
+    ret = dr_snprintf(pkt, MAX_PACKET_SIZE, PFMT PFMT PFMT PFMT PFMT PFMT PFMT PFMT,
+                      END_SWAP_PTR(data->xax),END_SWAP_PTR(data->xbx),
+                      END_SWAP_PTR(data->xcx),END_SWAP_PTR(data->xdx),
+                      END_SWAP_PTR(data->xsi),END_SWAP_PTR(data->xdi),
+                      END_SWAP_PTR(data->xbp),END_SWAP_PTR(data->xsp));
     len += ret;
 #ifdef X64
-    ret = snprintf(pkt+len, MAX_PACKET_SIZE-len, PFMT PFMT PFMT PFMT PFMT PFMT PFMT PFMT,
-                   END_SWAP_PTR(data->r8),END_SWAP_PTR(data->r9),
-                   END_SWAP_PTR(data->r10),END_SWAP_PTR(data->r11),
-                   END_SWAP_PTR(data->r12),END_SWAP_PTR(data->r13),
-                   END_SWAP_PTR(data->r14),END_SWAP_PTR(data->r15));
+    ret = dr_snprintf(pkt+len, MAX_PACKET_SIZE-len, PFMT PFMT PFMT PFMT PFMT PFMT PFMT PFMT,
+                      END_SWAP_PTR(data->r8),END_SWAP_PTR(data->r9),
+                      END_SWAP_PTR(data->r10),END_SWAP_PTR(data->r11),
+                      END_SWAP_PTR(data->r12),END_SWAP_PTR(data->r13),
+                      END_SWAP_PTR(data->r14),END_SWAP_PTR(data->r15));
     len += ret;
 #endif
-    ret = snprintf(pkt+len, MAX_PACKET_SIZE-len, PFMT PFMT,
-                   END_SWAP_PTR((uint64)data->xip), END_SWAP_PTR(data->xflags));
+    ret = dr_snprintf(pkt+len, MAX_PACKET_SIZE-len, PFMT PFMT,
+                      END_SWAP_PTR((reg_t)data->xip), END_SWAP_PTR(data->xflags));
     len += ret;
 
-    gdb_sendpkt(pkt, len);
+    return gdb_sendpkt(pkt, len);
+}
 
-    return DRDBG_ERROR;
+static
+drdbg_status_t
+drdbg_srv_gdb_cmd_reg_write(char *buf, int len, drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    typedef dr_mcontext_t mydata_t;
+    mydata_t *data = dr_global_alloc(sizeof(mydata_t));
+    ssize_t ret = 0;
+    buf = buf + 2;
+#define SSCANF_PTR_SWAP(_dest)             \
+    do {                                   \
+        ret = dr_sscanf(buf, PFMT, _dest); \
+        *_dest = END_SWAP_PTR(*_dest);     \
+        buf += 2*sizeof(reg_t);            \
+    } while (0)
+    SSCANF_PTR_SWAP(&data->xax);
+    SSCANF_PTR_SWAP(&data->xbx);
+    SSCANF_PTR_SWAP(&data->xcx);
+    SSCANF_PTR_SWAP(&data->xdx);
+    SSCANF_PTR_SWAP(&data->xsi);
+    SSCANF_PTR_SWAP(&data->xdi);
+    SSCANF_PTR_SWAP(&data->xbp);
+    SSCANF_PTR_SWAP(&data->xsp);
+#ifdef X64
+    SSCANF_PTR_SWAP(&data->r8);
+    SSCANF_PTR_SWAP(&data->r9);
+    SSCANF_PTR_SWAP(&data->r10);
+    SSCANF_PTR_SWAP(&data->r11);
+    SSCANF_PTR_SWAP(&data->r12);
+    SSCANF_PTR_SWAP(&data->r13);
+    SSCANF_PTR_SWAP(&data->r14);
+    SSCANF_PTR_SWAP(&data->r15);
+#endif
+    SSCANF_PTR_SWAP((reg_t*)&data->xip);
+    SSCANF_PTR_SWAP(&data->xflags);
+
+    cmd_data->cmd_data = data;
+
+    return DRDBG_SUCCESS;
 }
 
 static
@@ -543,6 +581,10 @@ drdbg_srv_gdb_parse_cmd(char *buf, int len,
     case 'g':
         cmd_data->cmd_id = DRDBG_CMD_REG_READ;
         return DRDBG_SUCCESS;
+    case 'G':
+        cmd_data->cmd_id = DRDBG_CMD_REG_WRITE;
+        return drdbg_srv_gdb_cmd_reg_write(buf, len, cmd_data);
+        break;
     case 'm':
         cmd_data->cmd_id = DRDBG_CMD_MEM_READ;
         return drdbg_srv_gdb_cmd_mem_read(buf, len, cmd_data);
@@ -611,6 +653,10 @@ drdbg_srv_gdb_put_cmd(drdbg_srv_int_cmd_data_t *cmd_data, bool blocking)
         break;
     case DRDBG_CMD_REG_READ:
         return drdbg_srv_gdb_cmd_put_reg_read(cmd_data);
+        break;
+    case DRDBG_CMD_REG_WRITE:
+        dr_global_free(cmd_data->cmd_data, sizeof(dr_mcontext_t));
+        return drdbg_srv_gdb_cmd_put_result_code(cmd_data);
         break;
     case DRDBG_CMD_MEM_READ:
         return drdbg_srv_gdb_cmd_put_mem_read(cmd_data);

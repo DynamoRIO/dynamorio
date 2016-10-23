@@ -51,6 +51,7 @@ typedef enum {
     DRDBG_CMD_SERVER_INTERNAL, /* Reserved for server specific packets */
     DRDBG_CMD_QUERY_STOP_RSN,  /* Ask why target stopped */
     DRDBG_CMD_REG_READ,        /* Read register(s) */
+    DRDBG_CMD_REG_WRITE,       /* Write register(s) */
     DRDBG_CMD_MEM_READ,        /* Read memory */
     DRDBG_CMD_MEM_WRITE,       /* Write memory */
     DRDBG_CMD_CONTINUE,        /* Continue execution */
