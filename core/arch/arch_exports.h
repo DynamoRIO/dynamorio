@@ -1321,7 +1321,7 @@ typedef enum _dr_isa_mode_t {
 #ifdef ARM
 # define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
 #else
-# define ENTRY_PC_TO_DECODE_PC(pc) pc
+# define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(pc))
 #endif
 
 DR_API
