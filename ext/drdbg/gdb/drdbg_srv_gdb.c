@@ -54,7 +54,6 @@ static int drdbg_srv_gdb_conn = -1;
 struct sockaddr_in drdbg_srv_gdb_client_addr;
 
 #define DEBUG_MSG(...) do {          \
-  /* XXX: make an option */          \
   if (drdbg_options.debug)           \
     dr_fprintf(STDERR, __VA_ARGS__); \
   } while (0)

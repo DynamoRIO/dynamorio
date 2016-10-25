@@ -65,6 +65,7 @@ drvector_t *drdbg_bps;
 drlist_t *drdbg_bps_pending;
 
 drqueue_t *drdbg_event_queue;
+drqueue_t *drdbg_app_jobs;
 
 drdbg_event_data_bp_t *current_bp_event;
 drdbg_event_t *current_event;
@@ -93,6 +94,8 @@ drdbg_bp_find_by_pc(void *pc)
 drdbg_status_t
 drdbg_bp_queue_ex(void *pc, bool flush_pc)
 {
+    drdbg_app_job_t *job;
+    drdbg_app_job_data_flush_t *data;
     /* Check if breakpoint already exists, if so, enable it */
     drdbg_bp_t *bp;
     bp = drdbg_bp_find_by_pc(pc);
@@ -106,7 +109,20 @@ drdbg_bp_queue_ex(void *pc, bool flush_pc)
      * that pc is at the start of a BB, so we must always flush for now.
      */
     if (flush_pc) {
-        //dr_flush_region(pc, 1);
+        /* Just realized that this doesn't work b/c it's getting my current threads
+         * drcontext, which isn't valid, and flushing code in this thread is useless
+         * anyway. Proposed solutions are to make a client job event queue that the
+         * while loop in the client will handle (but it's suspended grrr), maybe
+         * we can move away from the suspend/resume_all_other_threads model? Or somehow
+         * use a different drcontext for the flush.
+         */
+        job = dr_global_alloc(sizeof(drdbg_app_job_t));
+        job->type = DRDBG_JOB_FLUSH;
+        data = dr_global_alloc(sizeof(drdbg_app_job_data_flush_t));
+        data->pc = pc;
+        data->size = 1;
+        job->data = data;
+        drqueue_push(drdbg_app_jobs, job); //  dr_flush_region(pc, 1);
     }
     /* Fill bp info */
     bp = dr_global_alloc(sizeof(drdbg_bp_t));
@@ -149,6 +165,8 @@ drdbg_bp_disable(void *pc)
 static void
 drdbg_bp_cc_handler(drdbg_bp_t *bp)
 {
+    bool did_flush = false;
+    drdbg_app_job_t *job = NULL;
     drdbg_event_t *event = NULL;
     drdbg_event_data_bp_t *data = NULL;
     if (bp == NULL)
@@ -162,7 +180,7 @@ drdbg_bp_cc_handler(drdbg_bp_t *bp)
     event->drcontext = dr_get_current_drcontext();
     data = dr_global_alloc(sizeof(drdbg_event_data_bp_t));
     data->bp = bp;
-    data->mcontext.flags = DR_MC_INTEGER|DR_MC_CONTROL;
+    data->mcontext.flags = DR_MC_INTEGER|DR_MC_CONTROL|DR_MC_ALL;
     data->mcontext.size = sizeof(dr_mcontext_t);
     dr_get_mcontext(event->drcontext, &data->mcontext);
     data->mcontext.xip = bp->pc;
@@ -170,13 +188,34 @@ drdbg_bp_cc_handler(drdbg_bp_t *bp)
     event->data = data;
 
     /* enter safe spot and wait */
-    dr_mark_safe_to_suspend(event->drcontext, true);
+    //dr_mark_safe_to_suspend(event->drcontext, true);
 
     drqueue_push(drdbg_event_queue, event);
 
-    /* XXX: would be nice if os_thread_yield() was exposed */
-    while (data->keep_waiting)
-        dr_sleep(10);
+    dr_suspend_all_other_threads(&drcontexts, &num_suspended, &num_unsuspended);
+    while (data->keep_waiting) {
+        dr_thread_yield();
+        /* Handle drdbg events */
+        if (!drqueue_isempty(drdbg_app_jobs)) {
+            while ((job = drqueue_pop(drdbg_app_jobs)) != NULL) {
+                switch (job->type) {
+                case DRDBG_JOB_FLUSH:
+                {
+                    typedef drdbg_app_job_data_flush_t mydata_t;
+                    dr_flush_region(((mydata_t *)job->data)->pc,
+                                    ((mydata_t *)job->data)->size);
+                    did_flush = true;
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+        }
+    }
+    dr_resume_all_other_threads(drcontexts, num_suspended);
+    if (did_flush)
+        dr_redirect_execution(&data->mcontext);
 }
 
 drdbg_status_t
@@ -408,7 +447,7 @@ drdbg_cmd_continue(drdbg_srv_int_cmd_data_t *cmd_data)
      */
     current_bp_event->keep_waiting = false;
     current_bp_event = NULL;
-    dr_resume_all_other_threads(drcontexts, num_suspended);
+    //dr_resume_all_other_threads(drcontexts, num_suspended);
 
     return DRDBG_SUCCESS;
 }
@@ -417,7 +456,7 @@ drdbg_status_t
 drdbg_cmd_step(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     instr_t i;
-    app_pc tgt;
+    app_pc tgt = NULL;
     size_t bread;
 
     if (current_bp_event == NULL)
@@ -439,6 +478,8 @@ drdbg_cmd_step(drdbg_srv_int_cmd_data_t *cmd_data)
     } else {
         tgt = current_bp_event->bp->pc + instr_length(current_event->drcontext, &i);
     }
+    dr_fprintf(STDERR, "Stepping to %p\n", tgt);
+
     drdbg_bp_queue(tgt);
 
     return drdbg_cmd_continue(cmd_data);
@@ -515,7 +556,7 @@ drdbg_server_loop(void *arg)
                 current_event = drdbg_event;
                 switch (drdbg_event->event) {
                 case DRDBG_EVENT_BP:
-                    dr_suspend_all_other_threads(&drcontexts, &num_suspended, &num_unsuspended);
+                    //dr_suspend_all_other_threads(&drcontexts, &num_suspended, &num_unsuspended);
                     if (drdbg_break_on_entry) {
                         drdbg_srv_accept();
                         drdbg_break_on_entry = false;
@@ -581,6 +622,10 @@ drdbg_init_data(void)
     if (drdbg_memmaps == NULL || !drlist_init(drdbg_memmaps, true, NULL))
         return DRDBG_ERROR;
 
+    drdbg_app_jobs = dr_global_alloc(sizeof(drqueue_t));
+    if (drdbg_app_jobs == NULL || !drqueue_init(drdbg_app_jobs, 10, true, NULL))
+        return DRDBG_ERROR;
+
     return DRDBG_SUCCESS;
 }
 
@@ -599,7 +644,7 @@ drdbg_init_cmd_handlers(void)
     /* Assign implemented command handlers */
     cmd_handlers[DRDBG_CMD_QUERY_STOP_RSN] = drdbg_cmd_query_stop_rsn;
     cmd_handlers[DRDBG_CMD_REG_READ] = drdbg_cmd_reg_read;
-    cmd_handlers[DRDBG_CMD_REG_WRITE] = drdbg_cmd_reg_write;
+    //cmd_handlers[DRDBG_CMD_REG_WRITE] = drdbg_cmd_reg_write;
     cmd_handlers[DRDBG_CMD_MEM_READ] = drdbg_cmd_mem_read;
     cmd_handlers[DRDBG_CMD_MEM_WRITE] = drdbg_cmd_mem_write;
     cmd_handlers[DRDBG_CMD_SWBREAK] = drdbg_cmd_swbreak;
@@ -665,5 +710,18 @@ drdbg_exit(void)
     if (ret != DRDBG_SUCCESS)
         return ret;
 
+    return DRDBG_SUCCESS;
+}
+
+drdbg_status_t
+drdbg_api_break(app_pc pc)
+{
+    // Setup bp structure
+    drdbg_bp_t bp;
+    bp.pc = pc;
+    bp.status = DRDBG_BP_ENABLED;
+    // Call bp cc handler
+    dr_fprintf(STDERR, "SEMANTIC BREAKPOINT @%p\n", pc);
+    drdbg_bp_cc_handler(&bp);
     return DRDBG_SUCCESS;
 }

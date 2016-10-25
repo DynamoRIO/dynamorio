@@ -106,6 +106,20 @@ drdbg_options_t drdbg_options;
 typedef struct _drdbg_srv_int_cmd_data_t drdbg_srv_int_cmd_data_t;
 typedef drdbg_status_t (*drdbg_handler_t)(drdbg_srv_int_cmd_data_t *cmd_data);
 
+typedef enum {
+    DRDBG_JOB_FLUSH, /* Flush region */
+} drdbg_app_job_type_t;
+
+typedef struct _drdbg_app_job_t {
+    drdbg_app_job_type_t type;
+    void *data;
+} drdbg_app_job_t;
+
+typedef struct _drdbg_app_job_data_flush_t {
+    app_pc pc;
+    size_t size;
+} drdbg_app_job_data_flush_t;
+
 DR_EXPORT
 drdbg_status_t
 drdbg_init(drdbg_options_t *ops);
@@ -114,6 +128,10 @@ DR_EXPORT
 __attribute__((destructor))
 drdbg_status_t
 drdbg_exit(void);
+
+DR_EXPORT
+drdbg_status_t
+drdbg_api_break(app_pc pc);
 
 #ifdef __cplusplus
 }
