@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* This is the data format that the simulator takes as input */
+/* This is the data format that the simulator and analysis tools take as input. */
 
 #ifndef _MEMREF_H_
 #define _MEMREF_H_ 1
@@ -47,12 +47,17 @@ typedef int_least64_t memref_tid_t;
 typedef struct _memref_t {
     memref_pid_t pid;
     memref_tid_t tid;
+
+    // The types are shared with trace_entry_t, but the types
+    // TRACE_TYPE_INSTR_BUNDLE, TRACE_TYPE_*_FLUSH_END, TRACE_TYPE_THREAD, and
+    // TRACE_TYPE_PID never show up here and are only found in trace_entry_t.
+    // The reader_t class places their data into other parts of memref_t.
     unsigned short type; // trace_type_t
 
-    // Fields below are here at not valid for TRACE_TYPE_THREAD_EXIT.
+    // Fields below here are not valid for TRACE_TYPE_THREAD_EXIT.
 
     size_t size;
-    addr_t addr;
+    addr_t addr; // Data or instruction address.
 
     // The pc field is only used for read, write, and prefetch entries.
     // XXX: should we remove it from here and have the simulator compute it
