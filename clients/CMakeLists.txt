@@ -54,6 +54,15 @@ set(INSTALL_CLIENTS_BIN ${INSTALL_CLIENTS_BASE}/${INSTALL_BIN})
 set(INSTALL_CLIENTS_LIB ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB})
 set(INSTALL_CLIENTS_CONFIG ${INSTALL_CLIENTS_BASE})
 set(INSTALL_CLIENTS_CMAKE ${INSTALL_CLIENTS_BASE}/cmake)
+# We install client header files to ext/include
+set(INSTALL_CLIENTS_INCLUDE ${INSTALL_CLIENTS_BASE}/../ext/include)
+
+macro(install_client_header header)
+  DR_install(FILES ${header} DESTINATION ${INSTALL_CLIENTS_INCLUDE})
+  # We also need a copy in the build dir for our --build-and-test (i#1586)
+  get_filename_component(file ${header} NAME)
+  configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${file} COPYONLY)
+endmacro()
 
 disable_compiler_warnings()
 # Clients don't include configure.h so they don't get DR defines

@@ -1033,6 +1033,9 @@ endfunction (get_DynamoRIO_defines)
 # in your ${extname}Config.cmake file
 set(DynamoRIO_EXT_drgui_NOLIB ON)
 set(DynamoRIO_EXT_droption_NOLIB ON)
+# Not really an extension, just for including drmemtrace.h
+# via use_DynamoRIO_extension(target, drmemtrace_static)
+set(DynamoRIO_EXT_drmemtrace_static_NOLIB ON)
 
 # DynamoRIO Extensions
 function (use_DynamoRIO_extension target extname)

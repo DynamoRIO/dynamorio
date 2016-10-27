@@ -41,24 +41,40 @@
 #include "../common/trace_entry.h"
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
+#include <string.h> /* for strlen */
 
 static const ptr_uint_t MAX_INSTR_COUNT = 64*1024;
 
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
+                                   ssize_t (*write_file)(file_t file,
+                                                         const void *data,
+                                                         size_t count),
                                    file_t module_file)
-    : instru_t(insert_load_buf), modfile(module_file)
+    : instru_t(insert_load_buf), write_file_func(write_file), modfile(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
+    DR_ASSERT(write_file != NULL);
     // Ensure every compiler is packing our struct how we want:
     DR_ASSERT(sizeof(offline_entry_t) == 8);
 }
 
 offline_instru_t::~offline_instru_t()
 {
-    drcovlib_status_t res = drmodtrack_dump(modfile);
-    DR_ASSERT(res == DRCOVLIB_SUCCESS);
+    drcovlib_status_t res;
+    size_t size = 8192;
+    char *buf;
+    do {
+        buf = (char *)dr_global_alloc(size);
+        res = drmodtrack_dump_buf(buf, size);
+        if (res == DRCOVLIB_SUCCESS) {
+            ssize_t written = write_file_func(modfile, buf, strlen(buf));
+            DR_ASSERT(written == (ssize_t)strlen(buf));
+        }
+        dr_global_free(buf, size);
+        size *= 2;
+    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     res = drmodtrack_exit();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
 }

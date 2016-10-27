@@ -35,10 +35,11 @@
 ***************************************************************************
 \page page_drcachesim Cache Simulator
 
-\p drcachesim is a DynamoRIO client tool that collects memory access traces
-and feeds them to an online simulator which simulates a set of specific caching
-devices, e.g., CPU caches and TLBs.  The tool supports multiple
-processes each with multiple threads.
+\p drcachesim is a DynamoRIO client that collects memory access traces
+and feeds them to an online or offline tool for analysis.
+The default analysis tool is a cache simulator which simulates a set of
+specific caching devices, e.g., CPU caches and TLBs.  The trace collector and
+simulator support multiple processes each with multiple threads.
 
  - \ref sec_drcachesim
  - \ref sec_drcachesim_run
@@ -51,13 +52,16 @@ processes each with multiple threads.
 
 \section sec_drcachesim Overview
 
-The DynamoRIO tool \p drcachesim analyzes the architectural behavior of caching
-devices for a target application (or multiple applications).  The tool collects
-a memory access trace from each thread within each application process and feeds
-each trace to an online simulator.  The simulator is designed to be extensible,
-allowing users to easily implement different devices, such as CPU caches, TLBs,
-page caches, etc. (see \ref sec_drcachesim_extend).
-
+\p drcachesim consists of two components: a tracer and an analyzer.
+The tracer collects a memory access trace from each thread within each
+application process.
+The analyzer consumes the traces (online or offline) and performs
+customized analysis.
+It is designed to be extensible, allowing users to easily implement a
+simulator for different devices, such as CPU caches, TLBs, page
+caches, etc. (see \ref sec_drcachesim_extend).
+The default analyzer simulates the architectural behavior of caching
+devices for a target application (or multiple applications).
 
 \section sec_drcachesim_run Running the Simulator
 
@@ -67,11 +71,22 @@ To launch \p drcachesim, use the \p -t flag to \p drrun:
 bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>
 \endcode
 
-The target application will be launched under a DynamoRIO client that
-gathers all of its memory references and passes them to the simulator.  Any
-child processes will be followed into and profiled, with their memory
-references passed to the simulator as well.
+The target application will be launched under a DynamoRIO tracer
+client that gathers all of its memory references and passes them to
+the simulator via a pipe.
+Any child processes will be followed into and profiled, with their
+memory references passed to the simulator as well.
 
+To dump the trace for future offline analysis:
+\code
+bin64/drrun -t drcachesim -offline -- /path/to/target/app <args> <for> <app>
+\endcode
+
+The collected traces will be dumpped into a newly created directory,
+which can be passed to drcachesim for offline cache simulation.
+\code
+bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
+\endcode
 
 \section sec_drcachesim_sim Simulator Details
 

@@ -106,6 +106,7 @@ endmacro()
 
 add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
+install_client_header(tracer/drmemtrace.h)
 
 add_executable(drraw2trace
   tracer/raw2trace_launcher.cpp
@@ -244,6 +245,13 @@ if (BUILD_TESTS)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_static)
+
+    add_executable(tool.drcacheoff.burst_replace tests/burst_replace.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_replace)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_replace drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_replace)
+    # Not really using an extension, just for including drmemtrace.h.
+    use_DynamoRIO_extension(tool.drcacheoff.burst_replace drmemtrace_static)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)

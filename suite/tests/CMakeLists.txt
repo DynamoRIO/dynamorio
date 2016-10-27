@@ -2465,6 +2465,9 @@ if (CLIENT_INTERFACE)
         torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
         set(tool.drcacheoff.burst_static_nodr ON)
 
+        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace)
+        set(tool.drcacheoff.burst_replace_nodr ON)
+
         # FIXME i#2040: this hits static client issues on Windows
         if (UNIX)
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads)

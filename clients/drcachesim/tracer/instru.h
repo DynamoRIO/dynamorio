@@ -146,6 +146,9 @@ class offline_instru_t : public instru_t
 public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                              instr_t *, reg_id_t),
+                     ssize_t (*write_file)(file_t file,
+                                           const void *data,
+                                           size_t count),
                      file_t module_file);
     virtual ~offline_instru_t();
 
@@ -182,6 +185,7 @@ private:
                         reg_id_t reg_ptr, reg_id_t scratch, int adjust, uint64_t value);
     void insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                           reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref);
+    ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
     file_t modfile;
 };
 

@@ -43,6 +43,7 @@
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drmemtrace.h"
 #include "drreg.h"
 #include "drutil.h"
 #include "drx.h"
@@ -114,6 +115,38 @@ static uint64 num_refs; /* keep a global memory reference count */
 static bool have_phys;
 static physaddr_t physaddr;
 
+/* file operations functions */
+struct file_ops_func_t {
+    drmemtrace_open_file_func_t  open_file;
+    drmemtrace_read_file_func_t  read_file;
+    drmemtrace_write_file_func_t write_file;
+    drmemtrace_close_file_func_t close_file;
+    drmemtrace_create_dir_func_t create_dir;
+};
+static struct file_ops_func_t file_ops_func = {
+    dr_open_file, dr_read_file, dr_write_file, dr_close_file, dr_create_dir,
+};
+
+drmemtrace_status_t
+drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
+                            drmemtrace_read_file_func_t  read_file_func,
+                            drmemtrace_write_file_func_t write_file_func,
+                            drmemtrace_close_file_func_t close_file_func,
+                            drmemtrace_create_dir_func_t create_dir_func)
+{
+    if (open_file_func != NULL)
+        file_ops_func.open_file = open_file_func;
+    if (read_file_func != NULL)
+        file_ops_func.read_file = read_file_func;
+    if (write_file_func != NULL)
+        file_ops_func.write_file = write_file_func;
+    if (close_file_func != NULL)
+        file_ops_func.close_file = close_file_func;
+    if (create_dir_func != NULL)
+        file_ops_func.create_dir = create_dir_func;
+    return DRMEMTRACE_SUCCESS;
+}
+
 /* Allocated TLS slot offsets */
 enum {
     MEMTRACE_TLS_OFFS_BUF_PTR,
@@ -149,7 +182,7 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
     if (op_offline.get_value()) {
         per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
-        if (dr_write_file(data->file, towrite_start, size) < size) {
+        if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
             NOTIFY(0, "Fatal error: failed to write trace");
             dr_abort();
         }
@@ -638,16 +671,26 @@ event_thread_init(void *drcontext)
          * Since we're now in a subdir we could make the name simpler but this
          * seems nice and complete.
          */
-        data->file = drx_open_unique_appid_file(logsubdir,
-                                                dr_get_thread_id(drcontext),
-                                                OUTFILE_PREFIX, OUTFILE_SUFFIX,
-#ifndef WINDOWS
-                                                DR_FILE_CLOSE_ON_FORK |
-#endif
-                                                DR_FILE_ALLOW_LARGE,
-                                                buf, BUFFER_SIZE_ELEMENTS(buf));
-        NULL_TERMINATE_BUFFER(buf);
-        if (data->file == INVALID_FILE) {
+        int i;
+        const int NUM_OF_TRIES = 10000;
+        uint flags = IF_WINDOWS(DR_FILE_CLOSE_ON_FORK |)
+            DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_REQUIRE_NEW;
+        /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
+         * file name for creation.  Retry if the same name file already exists.
+         * Abort if we fail too many times.
+         */
+        for (i = 0; i < NUM_OF_TRIES; i++) {
+            drx_open_unique_appid_file(logsubdir,
+                                       dr_get_thread_id(drcontext),
+                                       OUTFILE_PREFIX, OUTFILE_SUFFIX,
+                                       DRX_FILE_SKIP_OPEN,
+                                       buf, BUFFER_SIZE_ELEMENTS(buf));
+            NULL_TERMINATE_BUFFER(buf);
+            data->file = file_ops_func.open_file(buf, flags);
+            if (data->file != INVALID_FILE)
+                break;
+        }
+        if (i == NUM_OF_TRIES) {
             NOTIFY(0, "Fatal error: failed to create trace file %s", buf);
             dr_abort();
         }
@@ -681,7 +724,7 @@ event_thread_exit(void *drcontext)
     memtrace(drcontext, true);
 
     if (op_offline.get_value())
-        dr_close_file(data->file);
+        file_ops_func.close_file(data->file);
 
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
@@ -699,7 +742,7 @@ event_exit(void)
     dr_global_free(instru, MAX_INSTRU_SIZE);
 
     if (op_offline.get_value())
-        dr_close_file(module_file);
+        file_ops_func.close_file(module_file);
     else
         ipc_pipe.close();
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
@@ -725,11 +768,26 @@ static bool
 init_offline_dir(void)
 {
     char buf[MAXIMUM_PATH];
-    /* We do not need to call drx_init before using drx_open_unique_appid_dir. */
-    if (!drx_open_unique_appid_dir(op_outdir.get_value().c_str(),
+    int i;
+    const int NUM_OF_TRIES = 10000;
+    /* open unique dir */
+    /* We do not need to call drx_init before using drx_open_unique_appid_file. */
+    for (i = 0; i < NUM_OF_TRIES; i++) {
+        /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
+         * directory name for creation.  Retry if the same name directory already
+         * exists.  Abort if we fail too many times.
+         */
+        drx_open_unique_appid_file(op_outdir.get_value().c_str(),
                                    dr_get_process_id(),
                                    OUTFILE_PREFIX, "dir",
-                                   buf, BUFFER_SIZE_ELEMENTS(buf)))
+                                   DRX_FILE_SKIP_OPEN,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf));
+        NULL_TERMINATE_BUFFER(buf);
+        /* open the dir */
+        if (file_ops_func.create_dir(buf))
+            break;
+    }
+    if (i == NUM_OF_TRIES)
         return false;
     /* We group the raw thread files in a further subdir to isolate from the
      * processed trace file.
@@ -737,13 +795,13 @@ init_offline_dir(void)
     dr_snprintf(logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir), "%s%s%s", buf, DIRSEP,
                 OUTFILE_SUBDIR);
     NULL_TERMINATE_BUFFER(logsubdir);
-    if (!dr_create_dir(logsubdir))
+    if (!file_ops_func.create_dir(logsubdir))
         return false;
     dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%s%s", logsubdir, DIRSEP,
                 MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(buf);
-    module_file = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW
-                               IF_WINDOWS(| DR_FILE_CLOSE_ON_FORK));
+    module_file = file_ops_func.open_file(buf, DR_FILE_WRITE_REQUIRE_NEW
+                                          IF_WINDOWS(| DR_FILE_CLOSE_ON_FORK));
     return (module_file != INVALID_FILE);
 }
 
@@ -782,7 +840,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         buf = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new(buf) offline_instru_t(insert_load_buf_ptr, module_file);
+        instru = new(buf) offline_instru_t(insert_load_buf_ptr,
+                                           file_ops_func.write_file,
+                                           module_file);
     } else {
         void *buf;
         /* we use placement new for better isolation */
