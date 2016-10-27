@@ -119,7 +119,7 @@ typedef enum {
 extern const char * const trace_type_names[];
 
 static inline bool
-type_is_prefetch(unsigned short type)
+type_is_prefetch(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR);
 }
