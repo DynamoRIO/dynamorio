@@ -85,35 +85,33 @@ reader_t::operator++()
         case TRACE_TYPE_PREFETCH_WRITE:
         case TRACE_TYPE_PREFETCH_INSTR:
             have_memref = true;
-            cur_ref.pid = cur_pid;
-            cur_ref.tid = cur_tid;
-            cur_ref.type = input_entry->type;
-            cur_ref.size = input_entry->size;
-            cur_ref.addr = input_entry->addr;
+            cur_ref.data.pid = cur_pid;
+            cur_ref.data.tid = cur_tid;
+            cur_ref.data.type = (trace_type_t) input_entry->type;
+            cur_ref.data.size = input_entry->size;
+            cur_ref.data.addr = input_entry->addr;
             // The trace stream always has the instr fetch first, which we
             // use to obtain the PC for subsequent data references.
-            cur_ref.pc = cur_pc;
+            cur_ref.data.pc = cur_pc;
             break;
         case TRACE_TYPE_INSTR:
             have_memref = true;
-            cur_ref.pid = cur_pid;
-            cur_ref.tid = cur_tid;
-            cur_ref.type = input_entry->type;
-            cur_ref.size = input_entry->size;
+            cur_ref.instr.pid = cur_pid;
+            cur_ref.instr.tid = cur_tid;
+            cur_ref.instr.type = (trace_type_t) input_entry->type;
+            cur_ref.instr.size = input_entry->size;
             cur_pc = input_entry->addr;
-            cur_ref.addr = cur_pc;
-            cur_ref.pc = cur_pc;
-            next_pc = cur_pc + cur_ref.size;
+            cur_ref.instr.addr = cur_pc;
+            next_pc = cur_pc + cur_ref.instr.size;
             break;
         case TRACE_TYPE_INSTR_BUNDLE:
             have_memref = true;
             // The trace stream always has the instr fetch first, which we
             // use to compute the starting PC for the subsequent instructions.
-            cur_ref.size = input_entry->length[bundle_idx++];
+            cur_ref.instr.size = input_entry->length[bundle_idx++];
             cur_pc = next_pc;
-            cur_ref.pc = cur_pc;
-            cur_ref.addr = cur_pc;
-            next_pc = cur_pc + cur_ref.size;
+            cur_ref.instr.addr = cur_pc;
+            next_pc = cur_pc + cur_ref.instr.size;
             // input_entry->size stores the number of instrs in this bundle
             assert(input_entry->size <= sizeof(input_entry->length));
             if (bundle_idx == input_entry->size)
@@ -121,17 +119,17 @@ reader_t::operator++()
             break;
         case TRACE_TYPE_INSTR_FLUSH:
         case TRACE_TYPE_DATA_FLUSH:
-            cur_ref.pid = cur_pid;
-            cur_ref.tid = cur_tid;
-            cur_ref.type = input_entry->type;
-            cur_ref.size = input_entry->size;
-            cur_ref.addr = input_entry->addr;
-            if (cur_ref.size != 0)
+            cur_ref.flush.pid = cur_pid;
+            cur_ref.flush.tid = cur_tid;
+            cur_ref.flush.type = (trace_type_t) input_entry->type;
+            cur_ref.flush.size = input_entry->size;
+            cur_ref.flush.addr = input_entry->addr;
+            if (cur_ref.flush.size != 0)
                 have_memref = true;
             break;
         case TRACE_TYPE_INSTR_FLUSH_END:
         case TRACE_TYPE_DATA_FLUSH_END:
-            cur_ref.size = input_entry->addr - cur_ref.addr;
+            cur_ref.flush.size = input_entry->addr - cur_ref.flush.addr;
             have_memref = true;
             break;
         case TRACE_TYPE_THREAD:
@@ -142,9 +140,9 @@ reader_t::operator++()
             cur_tid = (memref_tid_t) input_entry->addr;
             cur_pid = tid2pid[cur_tid];
             // We do pass this to the caller but only some fields are valid:
-            cur_ref.pid = cur_pid;
-            cur_ref.tid = cur_tid;
-            cur_ref.type = input_entry->type;
+            cur_ref.exit.pid = cur_pid;
+            cur_ref.exit.tid = cur_tid;
+            cur_ref.exit.type = (trace_type_t) input_entry->type;
             have_memref = true;
             break;
         case TRACE_TYPE_PID:

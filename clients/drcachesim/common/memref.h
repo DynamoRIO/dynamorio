@@ -44,27 +44,56 @@
 typedef int_least64_t memref_pid_t;
 typedef int_least64_t memref_tid_t;
 
-typedef struct _memref_t {
+// Each trace entry is one of the following.
+// Although the pc of each data reference is provided, the trace also guarantees that
+// an instruction entry immediately precedes the data references that it is
+// responsible for, with no intervening trace entries.
+
+struct _memref_data_t {
+    // TRACE_TYPE_READ, TRACE_TYPE_WRITE, and TRACE_TYPE_PREFETCH*:
+    // data references.
+    trace_type_t type;
     memref_pid_t pid;
     memref_tid_t tid;
-
-    // The types are shared with trace_entry_t, but the types
-    // TRACE_TYPE_INSTR_BUNDLE, TRACE_TYPE_*_FLUSH_END, TRACE_TYPE_THREAD, and
-    // TRACE_TYPE_PID never show up here and are only found in trace_entry_t.
-    // The reader_t class places their data into other parts of memref_t.
-    unsigned short type; // trace_type_t
-
-    // Fields below here are not valid for TRACE_TYPE_THREAD_EXIT.
-
+    addr_t addr;
     size_t size;
-    addr_t addr; // Data or instruction address.
-
-    // The pc field is only used for read, write, and prefetch entries.
-    // XXX: should we remove it from here and have the simulator compute it
-    // from instr entries?  Though if the user turns off icache simulation
-    // it may be better to keep it as a field here and have the reader
-    // fill it in for us.
     addr_t pc;
+};
+
+struct _memref_instr_t {
+    // TRACE_TYPE_INSTR: instruction fetch.
+    trace_type_t type;
+    memref_pid_t pid;
+    memref_tid_t tid;
+    addr_t addr;
+    size_t size;
+};
+
+struct _memref_flush_t {
+    // TRACE_TYPE_INSTR_FLUSH, TRACE_TYPE_DATA_FLUSH: explicit cache flush.
+    trace_type_t type;
+    memref_pid_t pid;
+    memref_tid_t tid;
+    addr_t addr;
+    size_t size;
+    addr_t pc;
+};
+
+struct _memref_thread_exit_t {
+    // TRACE_TYPE_THREAD_EXIT.
+    trace_type_t type;
+    memref_pid_t pid;
+    memref_tid_t tid;
+};
+
+typedef union _memref_t {
+    // The C standard allows us to reference the type field of any of these, and the
+    // addr and size fields of data, instr, or flush generically if known to be one
+    // of those types, due to the shared fields in our union of structs.
+    struct _memref_data_t data;
+    struct _memref_instr_t instr;
+    struct _memref_flush_t flush;
+    struct _memref_thread_exit_t exit;
 } memref_t;
 
 #endif /* _MEMREF_H_ */

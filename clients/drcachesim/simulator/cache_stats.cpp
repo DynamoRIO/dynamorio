@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,7 +43,7 @@ void
 cache_stats_t::access(const memref_t &memref, bool hit)
 {
     // handle prefetching requests
-    if (type_is_prefetch(memref.type)) {
+    if (type_is_prefetch(memref.data.type)) {
         if (hit)
             num_prefetch_hits++;
         else

@@ -142,29 +142,29 @@ cache_simulator_t::process_memref(const memref_t &memref)
     // not practical to measure which core each thread actually
     // ran on for each memref.
     int core;
-    if (memref.tid == last_thread)
+    if (memref.data.tid == last_thread)
         core = last_core;
     else {
-        core = core_for_thread(memref.tid);
-        last_thread = memref.tid;
+        core = core_for_thread(memref.data.tid);
+        last_thread = memref.data.tid;
         last_core = core;
     }
 
-    if (memref.type == TRACE_TYPE_INSTR ||
-        memref.type == TRACE_TYPE_PREFETCH_INSTR)
+    if (memref.instr.type == TRACE_TYPE_INSTR ||
+        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
         icaches[core]->request(memref);
-    else if (memref.type == TRACE_TYPE_READ ||
-             memref.type == TRACE_TYPE_WRITE ||
+    else if (memref.data.type == TRACE_TYPE_READ ||
+             memref.data.type == TRACE_TYPE_WRITE ||
              // We may potentially handle prefetches differently.
              // TRACE_TYPE_PREFETCH_INSTR is handled above.
-             type_is_prefetch(memref.type))
+             type_is_prefetch(memref.data.type))
         dcaches[core]->request(memref);
-    else if (memref.type == TRACE_TYPE_INSTR_FLUSH)
+    else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH)
         icaches[core]->flush(memref);
-    else if (memref.type == TRACE_TYPE_DATA_FLUSH)
+    else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH)
         dcaches[core]->flush(memref);
-    else if (memref.type == TRACE_TYPE_THREAD_EXIT) {
-        handle_thread_exit(memref.tid);
+    else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        handle_thread_exit(memref.exit.tid);
         last_thread = 0;
     } else {
         ERRMSG("unhandled memref type");
@@ -172,10 +172,10 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (op_verbose.get_value() >= 3) {
-        std::cerr << "::" << memref.pid << "." << memref.tid << ":: " <<
-            " @" << (void *)memref.pc <<
-            " " << trace_type_names[memref.type] << " " <<
-            (void *)memref.addr << " x" << memref.size << std::endl;
+        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+            " @" << (void *)memref.data.pc <<
+            " " << trace_type_names[memref.data.type] << " " <<
+            (void *)memref.data.addr << " x" << memref.data.size << std::endl;
     }
 
     // process counters for warmup and simulated references

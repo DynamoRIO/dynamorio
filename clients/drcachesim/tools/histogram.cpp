@@ -53,15 +53,15 @@ histogram_t::~histogram_t()
 bool
 histogram_t::process_memref(const memref_t &memref)
 {
-    if (memref.type == TRACE_TYPE_INSTR ||
-        memref.type == TRACE_TYPE_PREFETCH_INSTR)
-        ++icache_map[memref.addr >> line_size_bits];
-    else if (memref.type == TRACE_TYPE_READ ||
-             memref.type == TRACE_TYPE_WRITE ||
+    if (memref.instr.type == TRACE_TYPE_INSTR ||
+        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
+        ++icache_map[memref.instr.addr >> line_size_bits];
+    else if (memref.data.type == TRACE_TYPE_READ ||
+             memref.data.type == TRACE_TYPE_WRITE ||
              // We may potentially handle prefetches differently.
              // TRACE_TYPE_PREFETCH_INSTR is handled above.
-             type_is_prefetch(memref.type))
-        ++dcache_map[memref.addr >> line_size_bits];
+             type_is_prefetch(memref.data.type))
+        ++dcache_map[memref.data.addr >> line_size_bits];
     return true;
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,10 +56,10 @@ tlb_t::request(const memref_t &memref_in)
     // We support larger sizes to improve the IPC perf.
     // This means that one memref could touch multiple blocks.
     // We treat each block separately for statistics purposes.
-    addr_t final_addr = memref_in.addr + memref_in.size - 1/*avoid overflow*/;
+    addr_t final_addr = memref_in.data.addr + memref_in.data.size - 1/*avoid overflow*/;
     addr_t final_tag = compute_tag(final_addr);
-    addr_t tag = compute_tag(memref_in.addr);
-    memref_pid_t pid = memref_in.pid;
+    addr_t tag = compute_tag(memref_in.data.addr);
+    memref_pid_t pid = memref_in.data.pid;
 
     // Optimization: check last tag and pid if single-block
     if (tag == final_tag && tag == last_tag && pid == last_pid) {
@@ -81,7 +81,7 @@ tlb_t::request(const memref_t &memref_in)
         int block_idx = compute_block_idx(tag);
 
         if (tag + 1 <= final_tag)
-            memref.size = ((tag + 1) << block_size_bits) - memref.addr;
+            memref.data.size = ((tag + 1) << block_size_bits) - memref.data.addr;
 
         for (way = 0; way < associativity; ++way) {
             if (get_caching_device_block(block_idx, way).tag == tag &&
@@ -112,8 +112,8 @@ tlb_t::request(const memref_t &memref_in)
 
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) << block_size_bits;
-            memref.addr = next_addr;
-            memref.size = final_addr - next_addr + 1/*undo the -1*/;
+            memref.data.addr = next_addr;
+            memref.data.size = final_addr - next_addr + 1/*undo the -1*/;
         }
         // Optimization: remember last tag and pid
         last_tag = tag;
