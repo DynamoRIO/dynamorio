@@ -61,7 +61,7 @@ struct _memref_data_t {
 };
 
 struct _memref_instr_t {
-    // TRACE_TYPE_INSTR: instruction fetch.
+    // TRACE_TYPE_INSTR_* (minus BUNDLE): instruction fetch.
     trace_type_t type;
     memref_pid_t pid;
     memref_tid_t tid;

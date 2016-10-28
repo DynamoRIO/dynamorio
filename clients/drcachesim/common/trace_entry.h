@@ -79,12 +79,20 @@ typedef enum {
     // The trace_entry_t stream always has the instr fetch prior to data refs,
     // which the reader can use to obtain the PC for data references.
     // For memref_t, the instruction address is in the addr field.
+    // An instruction *not* of the types below:
     TRACE_TYPE_INSTR,
+    // Particular categories of instructions:
+    TRACE_TYPE_INSTR_DIRECT_JUMP,
+    TRACE_TYPE_INSTR_INDIRECT_JUMP,
+    TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
+    TRACE_TYPE_INSTR_DIRECT_CALL,
+    TRACE_TYPE_INSTR_INDIRECT_CALL,
+    TRACE_TYPE_INSTR_RETURN,
     // These entries describe a bundle of consecutive instruction fetch
     // memory references.  The trace stream always has a single instr fetch
     // prior to instr bundles which the reader can use to obtain the starting PC.
     // This entry type is hidden by reader_t and expanded into a series of
-    // TRACE_TYPE_INSTR entries for memref_t.
+    // TRACE_TYPE_INSTR* entries for memref_t.
     TRACE_TYPE_INSTR_BUNDLE,
 
     // A cache flush:
@@ -117,6 +125,12 @@ typedef enum {
 } trace_type_t;
 
 extern const char * const trace_type_names[];
+
+static inline bool
+type_is_instr(const trace_type_t type)
+{
+    return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_BUNDLE);
+}
 
 static inline bool
 type_is_prefetch(const trace_type_t type)

@@ -85,6 +85,7 @@ public:
 
     // Utilities.
     static unsigned short instr_to_prefetch_type(instr_t *instr);
+    static unsigned short instr_to_instr_type(instr_t *instr);
     static bool instr_is_flush(instr_t *instr);
 
 protected:

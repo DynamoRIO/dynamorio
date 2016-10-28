@@ -119,6 +119,13 @@ droption_t<bytesize_t> op_max_trace_size
  "of one internal buffer.  Once reached, instrumentation continues for that thread, "
  "but no further data is recorded.");
 
+droption_t<bool> op_online_instr_types
+(DROPTION_SCOPE_CLIENT, "online_instr_types", false,
+ "Whether online traces should distinguish instr types",
+ "By default, offline traces include some information on the types of instructions, "
+ "branches in particular.  For online traces, this comes at a performance cost, so "
+ "it is turned off by default.");
+
 droption_t<std::string> op_replace_policy
 (DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
  "Cache replacement policy", "Specifies the replacement policy for caches. "

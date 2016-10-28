@@ -425,6 +425,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         !(instr_reads_memory(instr) ||instr_writes_memory(instr)) &&
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
+        // Avoid bundling instrs whose types we separate.
+        (instru_t::instr_to_instr_type(instr) == TRACE_TYPE_INSTR ||
+         // We avoid overhead of skipped bundling for online unless the user requested
+         // instr types.  We could use different types for
+         // bundle-ends-in-this-branch-type to avoid this but for now it's not worth it.
+         (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
         ud->strex == NULL &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {

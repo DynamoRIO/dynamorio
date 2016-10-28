@@ -95,6 +95,12 @@ reader_t::operator++()
             cur_ref.data.pc = cur_pc;
             break;
         case TRACE_TYPE_INSTR:
+        case TRACE_TYPE_INSTR_DIRECT_JUMP:
+        case TRACE_TYPE_INSTR_INDIRECT_JUMP:
+        case TRACE_TYPE_INSTR_CONDITIONAL_JUMP:
+        case TRACE_TYPE_INSTR_DIRECT_CALL:
+        case TRACE_TYPE_INSTR_INDIRECT_CALL:
+        case TRACE_TYPE_INSTR_RETURN:
             have_memref = true;
             cur_ref.instr.pid = cur_pid;
             cur_ref.instr.tid = cur_tid;

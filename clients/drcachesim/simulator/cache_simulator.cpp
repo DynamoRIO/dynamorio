@@ -150,7 +150,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
         last_core = core;
     }
 
-    if (memref.instr.type == TRACE_TYPE_INSTR ||
+    if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
         icaches[core]->request(memref);
     else if (memref.data.type == TRACE_TYPE_READ ||

@@ -314,7 +314,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         }
         CHECK(!instr_is_cti(&instr) || i == instr_count - 1, "invalid cti");
         // FIXME i#1729: make bundles via lazy accum until hit memref/end.
-        buf->type = TRACE_TYPE_INSTR;
+        buf->type = instru_t::instr_to_instr_type(&instr);
         buf->size = (ushort) instr_length(dcontext, &instr);
         buf->addr = (addr_t) orig_pc;
         ++buf;

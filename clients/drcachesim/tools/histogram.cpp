@@ -53,7 +53,7 @@ histogram_t::~histogram_t()
 bool
 histogram_t::process_memref(const memref_t &memref)
 {
-    if (memref.instr.type == TRACE_TYPE_INSTR ||
+    if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
         ++icache_map[memref.instr.addr >> line_size_bits];
     else if (memref.data.type == TRACE_TYPE_READ ||

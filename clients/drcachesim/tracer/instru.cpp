@@ -38,6 +38,24 @@
 #include "../common/trace_entry.h"
 
 unsigned short
+instru_t::instr_to_instr_type(instr_t *instr)
+{
+    if (instr_is_call_direct(instr))
+        return TRACE_TYPE_INSTR_DIRECT_CALL;
+    if (instr_is_call_indirect(instr))
+        return TRACE_TYPE_INSTR_INDIRECT_CALL;
+    if (instr_is_return(instr))
+        return TRACE_TYPE_INSTR_RETURN;
+    if (instr_is_ubr(instr))
+        return TRACE_TYPE_INSTR_DIRECT_JUMP;
+    if (instr_is_mbr(instr)) // But not a return or call.
+        return TRACE_TYPE_INSTR_INDIRECT_JUMP;
+    if (instr_is_cbr(instr))
+        return TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
+    return TRACE_TYPE_INSTR;
+}
+
+unsigned short
 instru_t::instr_to_prefetch_type(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);

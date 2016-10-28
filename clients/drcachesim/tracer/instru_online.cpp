@@ -299,7 +299,7 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   instr_t *app)
 {
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              TRACE_TYPE_INSTR,
+                              instr_to_instr_type(app),
                               (ushort)instr_length(drcontext, app), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(app), adjust);
