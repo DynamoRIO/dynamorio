@@ -2014,6 +2014,8 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
  * too long. */
 #ifdef X64
 # define REPORT_MSG_MAX        (271+17*8+8*23+2) /* wider, + more regs */
+#elif defined(ARM)
+# define REPORT_MSG_MAX        (271+17*8) /* more regs */
 #else
 # define REPORT_MSG_MAX        (271)
 #endif
