@@ -103,6 +103,7 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 static named_pipe_t ipc_pipe;
 
+#define MAX_INSTRU_SIZE 64  /* the max obj size of instr_t or its children */
 static instru_t *instru;
 
 static client_id_t client_id;
@@ -680,7 +681,10 @@ static void
 event_exit(void)
 {
     dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
-    delete instru;
+    /* we use placement new for better isolation */
+    instru->~instru_t();
+    dr_global_free(instru, MAX_INSTRU_SIZE);
+
     if (op_offline.get_value())
         dr_close_file(module_file);
     else
@@ -757,13 +761,21 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     if (op_offline.get_value()) {
+        void *buf;
         if (!init_offline_dir()) {
             NOTIFY(0, "Failed to create a subdir in %s", op_outdir.get_value().c_str());
             dr_abort();
         }
-        instru = new offline_instru_t(insert_load_buf_ptr, module_file);
+        /* we use placement new for better isolation */
+        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
+        buf = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new(buf) offline_instru_t(insert_load_buf_ptr, module_file);
     } else {
-        instru = new online_instru_t(insert_load_buf_ptr);
+        void *buf;
+        /* we use placement new for better isolation */
+        DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
+        buf = dr_global_alloc(MAX_INSTRU_SIZE);
+        instru = new(buf) online_instru_t(insert_load_buf_ptr);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX
