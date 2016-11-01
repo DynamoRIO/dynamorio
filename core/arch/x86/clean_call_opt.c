@@ -1253,17 +1253,16 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
             /* 4.2. decode the callee */
             decode_callee_ilist(dcontext, ci);
             /* 4.3. analyze the instrlist */
-            if (!ci->bailout)
+            if (ci->bailout) {
+                callee_info_init(ci);
+                ci->start = (app_pc)callee;
+            } else
                 analyze_callee_ilist(dcontext, ci);
             /* 4.4. add info into callee list */
             ci = callee_info_table_add(ci);
         }
         cci->callee_info = ci;
-        if (ci->bailout) {
-            callee_info_init(ci);
-            ci->start = (app_pc)callee;
-            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: bailout "PFX"\n", callee);
-        } else {
+        if (!ci->bailout) {
             /* 5. aflags optimization analysis */
             analyze_clean_call_aflags(dcontext, cci, where);
             /* 6. register optimization analysis */
