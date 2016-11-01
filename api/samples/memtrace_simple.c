@@ -386,7 +386,7 @@ static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
-    clean_call(); /* dump any remaining buffer entries */
+    memtrace(drcontext); /* dump any remaining buffer entries */
     data = drmgr_get_tls_field(drcontext, tls_idx);
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
