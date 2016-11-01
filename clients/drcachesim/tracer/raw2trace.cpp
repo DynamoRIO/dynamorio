@@ -233,6 +233,19 @@ raw2trace_t::open_thread_files()
  * Disassembly to fill in instr and memref entries
  */
 
+static bool
+instr_is_rep_string(instr_t *instr)
+{
+#ifdef X86
+    uint opc = instr_get_opcode(instr);
+    return (opc == OP_rep_ins || opc == OP_rep_outs || opc == OP_rep_movs ||
+            opc == OP_rep_stos || opc == OP_rep_lods || opc == OP_rep_cmps ||
+            opc == OP_repne_cmps || opc == OP_rep_scas || opc == OP_repne_scas);
+#else
+    return false;
+#endif
+}
+
 trace_entry_t *
 raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
                            opnd_t ref, bool write)
@@ -299,25 +312,38 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         trace_entry_t *buf = buf_start;
         app_pc orig_pc = decode_pc - modvec[in_entry->pc.modidx].map_base +
             modvec[in_entry->pc.modidx].orig_base;
+        bool skip_instr = false;
         instr_reset(dcontext, &instr);
         // We assume the default ISA mode and currently require the 32-bit
         // postprocessor for 32-bit applications.
         pc = decode(dcontext, decode_pc, &instr);
-        DO_VERBOSE(3, {
-            instr_set_translation(&instr, orig_pc);
-            dr_print_instr(dcontext, STDOUT, &instr, "");
-        });
         if (pc == NULL || !instr_valid(&instr)) {
             WARN("Encountered invalid/undecodable instr @ %s+" PFX,
                  modvec[in_entry->pc.modidx].path, (ptr_uint_t)in_entry->pc.modoffs);
             break;
         }
         CHECK(!instr_is_cti(&instr) || i == instr_count - 1, "invalid cti");
+        if (instr_is_rep_string(&instr)) {
+            // We want it to look like the original rep string instead of the
+            // drutil-expanded loop.
+            if (!prev_instr_was_rep_string)
+                prev_instr_was_rep_string = true;
+            else
+                skip_instr = true;
+        } else
+            prev_instr_was_rep_string = false;
         // FIXME i#1729: make bundles via lazy accum until hit memref/end.
-        buf->type = instru_t::instr_to_instr_type(&instr);
-        buf->size = (ushort) instr_length(dcontext, &instr);
-        buf->addr = (addr_t) orig_pc;
-        ++buf;
+        if (!skip_instr) {
+            DO_VERBOSE(3, {
+                instr_set_translation(&instr, orig_pc);
+                dr_print_instr(dcontext, STDOUT, &instr, "");
+            });
+            buf->type = instru_t::instr_to_instr_type(&instr);
+            buf->size = (ushort) instr_length(dcontext, &instr);
+            buf->addr = (addr_t) orig_pc;
+            ++buf;
+        } else
+            VPRINT(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
         decode_pc = pc;
         // We need to interleave instrs with memrefs.
         if (instr_reads_memory(&instr) || instr_writes_memory(&instr)) { // Check OP_lea.

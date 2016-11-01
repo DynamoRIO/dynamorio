@@ -294,6 +294,10 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
         // we avoid its mix of translations resulting in incorrect ifetch stats
         // (it can be significant: i#2011).  The original app bb has just one instr,
         // which is a memref, so the pre-memref entry will suffice.
+        //
+        // XXX i#2051: we also need to limit repstr loops to a single ifetch for the
+        // whole loop, instead of an ifetch per iteration.  For offline we remove
+        // the extras in post-processing, but for online we'll need extra instru...
         ud->num_delay_instrs = 0;
         return adjust;
     }

@@ -80,6 +80,7 @@ private:
     std::vector<module_t> modvec;
     std::vector<std::ifstream*> thread_files;
     void *dcontext;
+    bool prev_instr_was_rep_string;
 };
 
 #endif /* _RAW2TRACE_H_ */
