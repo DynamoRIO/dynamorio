@@ -1917,6 +1917,7 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  * fcache_enter(dcontext_t *dcontext)
  *
  *  # append_fcache_enter_prologue
+ *  mov SCRATCH_REG5, xax # save callee-saved reg in case return for signal
  *  if (!absolute)
  *      mov    ARG1, SCRATCH_REG5 # dcontext param
  *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
@@ -1925,6 +1926,7 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *  endif
  *  cmp signals_pending_OFFSET(SCRATCH_REG5), 0
  *  jle no_signals
+ *  mov xax, SCRATCH_REG5 # restore callee-saved reg
  *  ret
  * no_signals:
  *

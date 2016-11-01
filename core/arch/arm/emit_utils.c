@@ -630,6 +630,10 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
 {
 #ifdef UNIX
     instr_t *no_signals = INSTR_CREATE_label(dcontext);
+    /* save callee-saved reg in case we return for a signal */
+    APP(ilist, XINST_CREATE_move(dcontext,
+                                 opnd_create_reg(DR_REG_R1),
+                                 opnd_create_reg(REG_DCXT)));
 #endif
     ASSERT_NOT_IMPLEMENTED(!absolute &&
                            !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
@@ -637,9 +641,6 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
     APP(ilist, XINST_CREATE_move(dcontext,
                                  opnd_create_reg(REG_DCXT),
                                  OPND_ARG1/*r0*/));
-    /* set up stolen reg */
-    insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
-
 #ifdef UNIX
     APP(ilist, INSTR_CREATE_ldrsb
         (dcontext, opnd_create_reg(DR_REG_R2),
@@ -648,9 +649,16 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
         (dcontext, opnd_create_reg(DR_REG_R2), OPND_CREATE_INT8(0)));
     APP(ilist, INSTR_PRED(INSTR_CREATE_b(dcontext, opnd_create_instr(no_signals)),
                           DR_PRED_LE));
+    /* restore callee-saved reg */
+    APP(ilist, XINST_CREATE_move(dcontext,
+                                 opnd_create_reg(REG_DCXT),
+                                 opnd_create_reg(DR_REG_R1)));
     APP(ilist, INSTR_CREATE_bx(dcontext, opnd_create_reg(DR_REG_LR)));
     APP(ilist, no_signals);
 #endif
+
+    /* set up stolen reg */
+    insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
 }
 
 void

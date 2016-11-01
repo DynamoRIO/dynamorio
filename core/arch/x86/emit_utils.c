@@ -1166,6 +1166,11 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
 #endif
     if (!absolute) {
         /* grab gen routine's parameter dcontext and put it into edi */
+#ifdef UNIX
+        /* first, save callee-saved reg in case we return for a signal */
+        APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_XAX),
+                                     opnd_create_reg(REG_DCXT)));
+#endif
         APP(ilist, XINST_CREATE_load(dcontext, opnd_create_reg(REG_DCXT), OPND_ARG1));
         if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
             APP(ilist, RESTORE_FROM_DC(dcontext, REG_DCXT_PROT, PROT_OFFS));
@@ -1175,6 +1180,11 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
         (dcontext, OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET),
          OPND_CREATE_INT8(0)));
     APP(ilist, INSTR_CREATE_jcc(dcontext, OP_jle, opnd_create_instr(no_signals)));
+    if (!absolute) {
+        /* restore callee-saved reg */
+        APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
+                                     opnd_create_reg(REG_XAX)));
+    }
     APP(ilist, XINST_CREATE_return(dcontext));
     APP(ilist, no_signals);
 #endif
