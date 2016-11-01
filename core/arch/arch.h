@@ -1280,7 +1280,8 @@ clean_call_opt_exit(void);
 #endif /* CLIENT_INTERFACE */
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
+                   void *callee, bool save_fpstate, bool always_out_of_line,
+                   uint num_args, opnd_t *args);
 void
 insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *where, opnd_t *args);

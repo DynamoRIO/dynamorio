@@ -1230,7 +1230,8 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
 
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args)
+                   void *callee, bool save_fpstate, bool always_out_of_line,
+                   uint num_args, opnd_t *args)
 {
     callee_info_t *ci;
     /* by default, no inline optimization */
@@ -1273,9 +1274,14 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
         }
     }
     /* 9. derived fields */
-    if (cci->num_xmms_skip == 0 /* save all xmms */ &&
-        cci->num_regs_skip == 0 /* save all regs */ &&
-        !cci->skip_save_aflags)
+    /* XXX: for x64, skipping a single reg or flags still results in a huge
+     * code sequence to put in place: we may want to still use out-of-line
+     * unless multiple regs are able to be skipped.
+     */
+    if ((cci->num_xmms_skip == 0 /* save all xmms */ &&
+         cci->num_regs_skip == 0 /* save all regs */ &&
+         !cci->skip_save_aflags) ||
+        always_out_of_line)
         cci->out_of_line_swap = true;
 
     return should_inline;
@@ -1531,7 +1537,8 @@ clean_call_opt_exit(void)
  */
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args)
+                   void *callee, bool save_fpstate, bool always_out_of_line,
+                   uint num_args, opnd_t *args)
 {
     CLIENT_ASSERT(callee != NULL, "Clean call target is NULL");
     /* 1. init clean_call_info */

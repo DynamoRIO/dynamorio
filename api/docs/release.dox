@@ -161,6 +161,7 @@ Further non-compatibility-affecting changes include:
  - Added %[] support to dr_sscanf.
  - Added dr_map_executable_file() and dr_unmap_executable_file().
  - Added dr_get_microseconds().
+ - Added #DR_CLEANCALL_ALWAYS_OUT_OF_LINE.
 
 **************************************************
 <hr>

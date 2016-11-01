@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -70,7 +70,8 @@ clean_call_opt_exit(void)
 
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args)
+                   void *callee, bool save_fpstate, bool always_out_of_line,
+                   uint num_args, opnd_t *args)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);

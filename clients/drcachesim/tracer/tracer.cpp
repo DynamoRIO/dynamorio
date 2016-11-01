@@ -333,6 +333,11 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                               OPND_CREATE_MEMPTR(reg_ptr, 0)));
 #ifdef X86
     DR_ASSERT(reg_ptr == DR_REG_XCX);
+    /* i#2049: we use DR_CLEANCALL_ALWAYS_OUT_OF_LINE to ensure our jecxz
+     * reaches across the clean call (o/w we need 2 jmps to invert the jecxz).
+     * Long-term we should try a fault instead (xref drx_buf) or a lean
+     * proc to clean call gencode.
+     */
     MINSERT(ilist, where,
             INSTR_CREATE_jecxz(drcontext, opnd_create_instr(skip_call)));
 #elif defined(ARM)
@@ -369,7 +374,8 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                              opnd_create_instr(skip_call),
                              opnd_create_reg(reg_ptr)));
 #endif
-    dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
+    dr_insert_clean_call_ex(drcontext, ilist, where, (void *)clean_call,
+                            DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
     MINSERT(ilist, where, skip_call);
 #ifdef ARM
     if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_A32)

@@ -5130,7 +5130,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee,
-                           save_fpstate, num_args, args)) {
+                           save_fpstate, TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
+                           num_args, args) &&
+        !TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
 #ifdef CLIENT_INTERFACE
         /* we can perform the inline optimization and return. */
         STATS_INC(cleancall_inlined);

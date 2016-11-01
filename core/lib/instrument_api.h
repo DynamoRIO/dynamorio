@@ -4998,6 +4998,13 @@ typedef enum {
     DR_CLEANCALL_INDIRECT               = 0x0020,
     /* internal use only: maps to META_CALL_RETURNS_TO_NATIVE in insert_meta_call_vargs */
     DR_CLEANCALL_RETURNS_TO_NATIVE      = 0x0040,
+    /**
+     * Requests that out-of-line state save and restore routines be used even
+     * when a subset of the state does not need to be preserved for this callee.
+     * Also disables inlining.
+     * This helps guarantee that the inserted code remains small.
+     */
+    DR_CLEANCALL_ALWAYS_OUT_OF_LINE     = 0x0080,
 } dr_cleancall_save_t;
 /* DR_API EXPORT END */
 

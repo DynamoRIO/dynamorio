@@ -64,7 +64,8 @@ clean_call_opt_exit(void)
 
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args)
+                   void *callee, bool save_fpstate, bool always_out_of_line,
+                   uint num_args, opnd_t *args)
 {
     /* FIXME i#1569: NYI on AArch64 */
     ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);
