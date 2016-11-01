@@ -91,7 +91,6 @@ callee_info_init(callee_info_t *ci)
 static void
 callee_info_free(dcontext_t *dcontext, callee_info_t *ci)
 {
-    ASSERT(callee_info_table_exit);
     if (ci->ilist != NULL) {
         ASSERT(ci->opt_inline);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ci->ilist);
