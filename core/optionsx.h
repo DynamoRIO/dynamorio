@@ -675,6 +675,7 @@
         IF_DEBUG_ELSE_0(60)*3*1000, /* disabled in release */
         "timeout (in ms) before assuming a deadlock had occurred (0 to disable)")
 
+    /* stack_size may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, stack_size,
                    /* the CI build has a larger MAX_OPTIONS_STRING so we need
                     * a larger stack even w/ no client present.
@@ -1113,16 +1114,22 @@
      * FIXME: for Windows, if we reserve the whole region up front and
      * just commit pieces, why do we need to match the Windows kernel
      * alloc granularity?
+     *
+     * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
      */
     OPTION_DEFAULT_INTERNAL(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,16)*1024),
                             "allocation unit for virtual memory manager")
+    /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT_INTERNAL(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
+    /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT_INTERNAL(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
     /* if this is too small then once past the vm reservation we have too many
      * DR areas and subsequent problems with DR areas and allmem synch (i#369)
      */
     OPTION_DEFAULT_INTERNAL(uint_size, max_heap_unit_size, 256*1024, "maximum heap unit size")
+    /* heap_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, heap_commit_increment, 4*1024, "heap commit increment")
+    /* cache_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint, cache_commit_increment, 4*1024, "cache commit increment")
 
     /* cache capacity control
