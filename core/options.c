@@ -197,6 +197,7 @@ DECLARE_CXTSWPROT_VAR(read_write_lock_t options_lock, INIT_READWRITE_LOCK(option
 static void
 adjust_defaults_for_page_size(options_t *options)
 {
+#ifndef NOT_DYNAMORIO_CORE /* XXX: clumsy fix for Windows */
     size_t page_size = PAGE_SIZE;
 
     /* The defaults are known to be appropriate for 4 KiB pages. */
@@ -224,6 +225,7 @@ adjust_defaults_for_page_size(options_t *options)
         ALIGN_FORWARD(options->heap_commit_increment, page_size);
     options->cache_commit_increment =
         ALIGN_FORWARD(options->cache_commit_increment, page_size);
+#endif /* !NOT_DYNAMORIO_CORE */
 }
 
 /* sets defaults just like the above initialization */
