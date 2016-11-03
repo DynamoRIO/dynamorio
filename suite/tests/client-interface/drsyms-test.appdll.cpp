@@ -46,8 +46,10 @@ NOINLINE void
 stack_trace(void)
 {
 #if defined(UNIX) || defined(_MSC_VER)
-    /* i#1801-c#2: call to page_align to make sure tools.h is included in the binary */
-    if (page_align((char *)0x1234) != (char *)0x2000)
+    /* i#1801-c#2: call to page_align to make sure tools.h is included in the binary.
+     * This test should pass with any page size from 1 KiB to 256 MiB.
+     */
+    if (page_align((char *)0x4ffffc12) != (char *)0x50000000)
         print("page_align is wrong %p!\n");
 #endif
 }

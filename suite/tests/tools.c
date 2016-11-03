@@ -461,10 +461,10 @@ nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset
 
 /* Safe munmap.
  */
-void
+int
 nolibc_munmap(void *addr, size_t length)
 {
-    dynamorio_syscall(SYS_munmap, 2, addr, length);
+    return (int)dynamorio_syscall(SYS_munmap, 2, addr, length);
 }
 
 void

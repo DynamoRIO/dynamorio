@@ -95,15 +95,89 @@ extern "C" {
 # endif
 #endif
 
+#ifdef UNIX
+/* Forward decl for nanosleep. */
+struct timespec;
+
+bool find_dynamo_library(void);
+
+/* Staticly linked versions of libc routines that don't touch globals or errno.
+ */
+void nolibc_print(const char *str);
+void nolibc_print_int(int d);
+void nolibc_nanosleep(struct timespec *req);
+int  nolibc_strlen(const char *str);
+void *nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd,
+                off_t offset);
+int  nolibc_munmap(void *addr, size_t length);
+void nolibc_memset(void *dst, int val, size_t size);
+#endif
+
 /* Ignore any PAGE_SIZE provided by the tool chain. */
 #undef PAGE_SIZE
 #define PAGE_SIZE page_size()
 
+#ifdef UNIX
+/* This is a slightly simplified version of dr_page_size. Performance hardly matters
+ * here. We cannot use dr_page_size as this header is also used without DynamoRIO's API.
+ */
+
+/* Return true if size is a multiple of the page size. */
+static bool
+try_page_size(size_t size)
+{
+    byte *addr = (byte *)nolibc_mmap(NULL, size * 2,
+                                     PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if ((ptr_uint_t)addr >= (ptr_uint_t)-4096) /* mmap failed: should not happen */
+        return false;
+    if (nolibc_munmap(addr + size, size) == 0) {
+        /* munmap of top half succeeded: munmap bottom half and return true */
+        nolibc_munmap(addr, size);
+        return true;
+    }
+    /* munmap of top half failed: munmap whole region and return false */
+    nolibc_munmap(addr, size * 2);
+    return false;
+}
+
+/* Directly determine the granularity of memory allocation using mmap and munmap. */
+static size_t
+find_page_size(void)
+{
+    size_t size = 4096;
+    if (try_page_size(size)) {
+        /* Try smaller sizes. */
+        for (size /= 2; size > 0; size /= 2) {
+            if (!try_page_size(size))
+                return size * 2;
+        }
+    } else {
+        /* Try larger sizes. */
+        for (size *= 2; size * 2 > 0; size *= 2) {
+            if (try_page_size(size))
+                return size;
+        }
+    }
+    /* Something went wrong... */
+    return 4096;
+}
+#endif
+
 static size_t
 page_size(void)
 {
-    /* FIXME i#1680: Determine page size from AT_PAGESZ, /proc, or system calls. */
+#ifdef UNIX
+    static size_t cached_page_size = 0;
+    size_t size = cached_page_size; /* atomic read */
+    if (size == 0) {
+        size = find_page_size();
+        cached_page_size = size; /* atomic write */
+    }
+    return size;
+#else
+    /* FIXME i#1680: On Windows determine page size using system call. */
     return 4096;
+#endif
 }
 
 /* Some tests want to define a static array that contains a whole page. This
@@ -695,24 +769,6 @@ __asm {             \
     __asm _emit '$' \
     __asm foo:      \
 }
-#endif
-
-#ifdef UNIX
-/* Forward decl for nanosleep. */
-struct timespec;
-
-bool find_dynamo_library(void);
-
-/* Staticly linked versions of libc routines that don't touch globals or errno.
- */
-void nolibc_print(const char *str);
-void nolibc_print_int(int d);
-void nolibc_nanosleep(struct timespec *req);
-int  nolibc_strlen(const char *str);
-void *nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd,
-                off_t offset);
-void nolibc_munmap(void *addr, size_t length);
-void nolibc_memset(void *dst, int val, size_t size);
 #endif
 
 #ifdef __cplusplus
