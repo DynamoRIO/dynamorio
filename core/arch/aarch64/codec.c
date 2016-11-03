@@ -576,7 +576,7 @@ decode_opnd_mem7_postindex(bool post, uint enc, OUT opnd_t *opnd)
 {
     int scale = mem7_scale(enc);
     *opnd = create_base_imm(enc, post ? 0 : extract_int(enc, 15, 7) * (1 << scale),
-                            1 << scale);
+                            2 << scale);
     opnd->value.base_disp.pre_index = !post;
     return true;
 }
@@ -588,7 +588,7 @@ encode_opnd_mem7_postindex(bool post, uint enc, opnd_t opnd, OUT uint *enc_out)
     int disp;
     uint xn;
     if (!is_base_imm(opnd, &xn) ||
-        opnd_get_size(opnd) != opnd_size_from_bytes(1 << scale))
+        opnd_get_size(opnd) != opnd_size_from_bytes(2 << scale))
         return false;
     disp = opnd_get_disp(opnd);
     if (disp == 0 && opnd.value.base_disp.pre_index == post)
@@ -928,18 +928,25 @@ encode_opnd_ext(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(13, 3, false, 0, DR_OPND_IS_EXTEND, opnd, enc_out);
 }
 
-/* extam: extend amount, a left shift from 0 to 7 */
+/* extam: extend amount, a left shift from 0 to 4 */
 
 static inline bool
 decode_opnd_extam(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+    if (extract_uint(enc, 10, 3) > 4) /* shift amount must be <= 4 */
+        return false;
     return decode_opnd_int(10, 3, false, 0, OPSZ_3b, 0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_extam(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_int(10, 3, false, 0, 0, opnd, enc_out);
+    uint t;
+    if (!encode_opnd_int(10, 3, false, 0, 0, opnd, &t) ||
+        extract_uint(t, 10, 3) > 4) /* shift amount must be <= 4 */
+        return false;
+    *enc_out = t;
+    return true;
 }
 
 /* h0: H register at bit position 0 */

@@ -93,22 +93,22 @@
 1c081041 : ldr    s1, 10010208            : ldr    <rel> 0x0000000010010208[4byte] -> %s1
 1c7fffff : ldr    s31, 100ffffc           : ldr    <rel> 0x00000000100ffffc[4byte] -> %s31
 1c800000 : ldr    s0, ff00000             : ldr    <rel> 0x000000000ff00000[4byte] -> %s0
-28000000 : stnp   w0, w0, [x0]            : stnp   %w0 %w0 -> (%x0)[4byte]
-283fffff : stnp   wzr, wzr, [sp,#-4]      : stnp   %wzr %wzr -> -0x04(%sp)[4byte]
-28400000 : ldnp   w0, w0, [x0]            : ldnp   (%x0)[4byte] -> %w0 %w0
-287fffff : ldnp   wzr, wzr, [sp,#-4]      : ldnp   -0x04(%sp)[4byte] -> %wzr %wzr
-28800000 : stp    w0, w0, [x0],#0         : stp    %w0 %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
-28bfffff : stp    wzr, wzr, [sp],#-4      : stp    %wzr %wzr %sp $0xfffffffffffffffc -> (%sp)[4byte] %sp
-28c00000 : ldp    w0, w0, [x0],#0         : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %w0 %w0 %x0
-28ffffff : ldp    wzr, wzr, [sp],#-4      : ldp    (%sp)[4byte] %sp $0xfffffffffffffffc -> %wzr %wzr %sp
-29000000 : stp    w0, w0, [x0]            : stp    %w0 %w0 -> (%x0)[4byte]
-293fffff : stp    wzr, wzr, [sp,#-4]      : stp    %wzr %wzr -> -0x04(%sp)[4byte]
-29400000 : ldp    w0, w0, [x0]            : ldp    (%x0)[4byte] -> %w0 %w0
-297fffff : ldp    wzr, wzr, [sp,#-4]      : ldp    -0x04(%sp)[4byte] -> %wzr %wzr
-29800000 : stp    w0, w0, [x0,#0]!        : stp    %w0 %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
-29bfffff : stp    wzr, wzr, [sp,#-4]!     : stp    %wzr %wzr %sp $0xfffffffffffffffc -> -0x04(%sp)[4byte] %sp
-29c00000 : ldp    w0, w0, [x0,#0]!        : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %w0 %w0 %x0
-29ffffff : ldp    wzr, wzr, [sp,#-4]!     : ldp    -0x04(%sp)[4byte] %sp $0xfffffffffffffffc -> %wzr %wzr %sp
+28000000 : stnp   w0, w0, [x0]            : stnp   %w0 %w0 -> (%x0)[8byte]
+283fffff : stnp   wzr, wzr, [sp,#-4]      : stnp   %wzr %wzr -> -0x04(%sp)[8byte]
+28400000 : ldnp   w0, w0, [x0]            : ldnp   (%x0)[8byte] -> %w0 %w0
+287fffff : ldnp   wzr, wzr, [sp,#-4]      : ldnp   -0x04(%sp)[8byte] -> %wzr %wzr
+28800000 : stp    w0, w0, [x0],#0         : stp    %w0 %w0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+28bfffff : stp    wzr, wzr, [sp],#-4      : stp    %wzr %wzr %sp $0xfffffffffffffffc -> (%sp)[8byte] %sp
+28c00000 : ldp    w0, w0, [x0],#0         : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %w0 %w0 %x0
+28ffffff : ldp    wzr, wzr, [sp],#-4      : ldp    (%sp)[8byte] %sp $0xfffffffffffffffc -> %wzr %wzr %sp
+29000000 : stp    w0, w0, [x0]            : stp    %w0 %w0 -> (%x0)[8byte]
+293fffff : stp    wzr, wzr, [sp,#-4]      : stp    %wzr %wzr -> -0x04(%sp)[8byte]
+29400000 : ldp    w0, w0, [x0]            : ldp    (%x0)[8byte] -> %w0 %w0
+297fffff : ldp    wzr, wzr, [sp,#-4]      : ldp    -0x04(%sp)[8byte] -> %wzr %wzr
+29800000 : stp    w0, w0, [x0,#0]!        : stp    %w0 %w0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+29bfffff : stp    wzr, wzr, [sp,#-4]!     : stp    %wzr %wzr %sp $0xfffffffffffffffc -> -0x04(%sp)[8byte] %sp
+29c00000 : ldp    w0, w0, [x0,#0]!        : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %w0 %w0 %x0
+29ffffff : ldp    wzr, wzr, [sp,#-4]!     : ldp    -0x04(%sp)[8byte] %sp $0xfffffffffffffffc -> %wzr %wzr %sp
 2a031041 : orr    w1, w2, w3, lsl #4      : orr    %w2 %w3 lsl $0x04 -> %w1
 2a231041 : orn    w1, w2, w3, lsl #4      : orn    %w2 %w3 lsl $0x04 -> %w1
 2a9f13ff : mov    wzr, wzr                : orr    %wzr %wzr asr $0x04 -> %wzr
@@ -118,22 +118,22 @@
 2b3f43ff : cmn    wsp, wzr                : adds   %wsp %wzr uxtw $0x00 -> %wzr
 2b5f7fff : cmn    wzr, wzr, lsr #31       : adds   %wzr %wzr lsr $0x1f -> %wzr
 2b9f13ff : cmn    wzr, wzr, asr #4        : adds   %wzr %wzr asr $0x04 -> %wzr
-2c000000 : stnp   s0, s0, [x0]            : stnp   %s0 %s0 -> (%x0)[4byte]
-2c3fffff : stnp   s31, s31, [sp,#-4]      : stnp   %s31 %s31 -> -0x04(%sp)[4byte]
-2c400000 : ldnp   s0, s0, [x0]            : ldnp   (%x0)[4byte] -> %s0 %s0
-2c7fffff : ldnp   s31, s31, [sp,#-4]      : ldnp   -0x04(%sp)[4byte] -> %s31 %s31
-2c800000 : stp    s0, s0, [x0],#0         : stp    %s0 %s0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
-2cbfffff : stp    s31, s31, [sp],#-4      : stp    %s31 %s31 %sp $0xfffffffffffffffc -> (%sp)[4byte] %sp
-2cc00000 : ldp    s0, s0, [x0],#0         : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %s0 %s0 %x0
-2cffffff : ldp    s31, s31, [sp],#-4      : ldp    (%sp)[4byte] %sp $0xfffffffffffffffc -> %s31 %s31 %sp
-2d000000 : stp    s0, s0, [x0]            : stp    %s0 %s0 -> (%x0)[4byte]
-2d3fffff : stp    s31, s31, [sp,#-4]      : stp    %s31 %s31 -> -0x04(%sp)[4byte]
-2d400000 : ldp    s0, s0, [x0]            : ldp    (%x0)[4byte] -> %s0 %s0
-2d7fffff : ldp    s31, s31, [sp,#-4]      : ldp    -0x04(%sp)[4byte] -> %s31 %s31
-2d800000 : stp    s0, s0, [x0,#0]!        : stp    %s0 %s0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
-2dbfffff : stp    s31, s31, [sp,#-4]!     : stp    %s31 %s31 %sp $0xfffffffffffffffc -> -0x04(%sp)[4byte] %sp
-2dc00000 : ldp    s0, s0, [x0,#0]!        : ldp    (%x0)[4byte] %x0 $0x0000000000000000 -> %s0 %s0 %x0
-2dffffff : ldp    s31, s31, [sp,#-4]!     : ldp    -0x04(%sp)[4byte] %sp $0xfffffffffffffffc -> %s31 %s31 %sp
+2c000000 : stnp   s0, s0, [x0]            : stnp   %s0 %s0 -> (%x0)[8byte]
+2c3fffff : stnp   s31, s31, [sp,#-4]      : stnp   %s31 %s31 -> -0x04(%sp)[8byte]
+2c400000 : ldnp   s0, s0, [x0]            : ldnp   (%x0)[8byte] -> %s0 %s0
+2c7fffff : ldnp   s31, s31, [sp,#-4]      : ldnp   -0x04(%sp)[8byte] -> %s31 %s31
+2c800000 : stp    s0, s0, [x0],#0         : stp    %s0 %s0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+2cbfffff : stp    s31, s31, [sp],#-4      : stp    %s31 %s31 %sp $0xfffffffffffffffc -> (%sp)[8byte] %sp
+2cc00000 : ldp    s0, s0, [x0],#0         : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %s0 %s0 %x0
+2cffffff : ldp    s31, s31, [sp],#-4      : ldp    (%sp)[8byte] %sp $0xfffffffffffffffc -> %s31 %s31 %sp
+2d000000 : stp    s0, s0, [x0]            : stp    %s0 %s0 -> (%x0)[8byte]
+2d3fffff : stp    s31, s31, [sp,#-4]      : stp    %s31 %s31 -> -0x04(%sp)[8byte]
+2d400000 : ldp    s0, s0, [x0]            : ldp    (%x0)[8byte] -> %s0 %s0
+2d7fffff : ldp    s31, s31, [sp,#-4]      : ldp    -0x04(%sp)[8byte] -> %s31 %s31
+2d800000 : stp    s0, s0, [x0,#0]!        : stp    %s0 %s0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+2dbfffff : stp    s31, s31, [sp,#-4]!     : stp    %s31 %s31 %sp $0xfffffffffffffffc -> -0x04(%sp)[8byte] %sp
+2dc00000 : ldp    s0, s0, [x0,#0]!        : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %s0 %s0 %x0
+2dffffff : ldp    s31, s31, [sp,#-4]!     : ldp    -0x04(%sp)[8byte] %sp $0xfffffffffffffffc -> %s31 %s31 %sp
 310003ff : cmn    wsp, #0x0               : adds   %wsp $0x0000 lsl $0x00 -> %wzr
 31000c41 : adds   w1, w2, #0x3            : adds   %w2 $0x0003 lsl $0x00 -> %w1
 31000fff : cmn    wsp, #0x3               : adds   %wsp $0x0003 lsl $0x00 -> %wzr
@@ -488,12 +488,12 @@
 58ffffff : ldr    xzr, ffffffc            : ldr    <rel> 0x000000000ffffffc[8byte] -> %xzr
 5c7fffff : ldr    d31, 100ffffc           : ldr    <rel> 0x00000000100ffffc[8byte] -> %d31
 5c800000 : ldr    d0, ff00000             : ldr    <rel> 0x000000000ff00000[8byte] -> %d0
-68c00000 : ldpsw  x0, x0, [x0],#0         : ldpsw  (%x0)[4byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
-68ffffff : ldpsw  xzr, xzr, [sp],#-4      : ldpsw  (%sp)[4byte] %sp $0xfffffffffffffffc -> %xzr %xzr %sp
-69400000 : ldpsw  x0, x0, [x0]            : ldpsw  (%x0)[4byte] -> %x0 %x0
-697fffff : ldpsw  xzr, xzr, [sp,#-4]      : ldpsw  -0x04(%sp)[4byte] -> %xzr %xzr
-69c00000 : ldpsw  x0, x0, [x0,#0]!        : ldpsw  (%x0)[4byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
-69ffffff : ldpsw  xzr, xzr, [sp,#-4]!     : ldpsw  -0x04(%sp)[4byte] %sp $0xfffffffffffffffc -> %xzr %xzr %sp
+68c00000 : ldpsw  x0, x0, [x0],#0         : ldpsw  (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+68ffffff : ldpsw  xzr, xzr, [sp],#-4      : ldpsw  (%sp)[8byte] %sp $0xfffffffffffffffc -> %xzr %xzr %sp
+69400000 : ldpsw  x0, x0, [x0]            : ldpsw  (%x0)[8byte] -> %x0 %x0
+697fffff : ldpsw  xzr, xzr, [sp,#-4]      : ldpsw  -0x04(%sp)[8byte] -> %xzr %xzr
+69c00000 : ldpsw  x0, x0, [x0,#0]!        : ldpsw  (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+69ffffff : ldpsw  xzr, xzr, [sp,#-4]!     : ldpsw  -0x04(%sp)[8byte] %sp $0xfffffffffffffffc -> %xzr %xzr %sp
 6a031041 : ands   w1, w2, w3, lsl #4      : ands   %w2 %w3 lsl $0x04 -> %w1
 6a231041 : bics   w1, w2, w3, lsl #4      : bics   %w2 %w3 lsl $0x04 -> %w1
 6a9f13ff : tst    wzr, wzr, asr #4        : ands   %wzr %wzr asr $0x04 -> %wzr
@@ -504,22 +504,22 @@
 6b3f8fff : cmp    wsp, wzr, sxtb #3       : subs   %wsp %wzr sxtb $0x03 -> %wzr
 6b3fc7ff : cmp    wsp, wzr, sxtw #1       : subs   %wsp %wzr sxtw $0x01 -> %wzr
 6b9f13ff : negs   wzr, wzr, asr #4        : subs   %wzr %wzr asr $0x04 -> %wzr
-6c000000 : stnp   d0, d0, [x0]            : stnp   %d0 %d0 -> (%x0)[8byte]
-6c3fffff : stnp   d31, d31, [sp,#-8]      : stnp   %d31 %d31 -> -0x08(%sp)[8byte]
-6c400000 : ldnp   d0, d0, [x0]            : ldnp   (%x0)[8byte] -> %d0 %d0
-6c7fffff : ldnp   d31, d31, [sp,#-8]      : ldnp   -0x08(%sp)[8byte] -> %d31 %d31
-6c800000 : stp    d0, d0, [x0],#0         : stp    %d0 %d0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
-6cbfffff : stp    d31, d31, [sp],#-8      : stp    %d31 %d31 %sp $0xfffffffffffffff8 -> (%sp)[8byte] %sp
-6cc00000 : ldp    d0, d0, [x0],#0         : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %d0 %d0 %x0
-6cffffff : ldp    d31, d31, [sp],#-8      : ldp    (%sp)[8byte] %sp $0xfffffffffffffff8 -> %d31 %d31 %sp
-6d000000 : stp    d0, d0, [x0]            : stp    %d0 %d0 -> (%x0)[8byte]
-6d3fffff : stp    d31, d31, [sp,#-8]      : stp    %d31 %d31 -> -0x08(%sp)[8byte]
-6d400000 : ldp    d0, d0, [x0]            : ldp    (%x0)[8byte] -> %d0 %d0
-6d7fffff : ldp    d31, d31, [sp,#-8]      : ldp    -0x08(%sp)[8byte] -> %d31 %d31
-6d800000 : stp    d0, d0, [x0,#0]!        : stp    %d0 %d0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
-6dbfffff : stp    d31, d31, [sp,#-8]!     : stp    %d31 %d31 %sp $0xfffffffffffffff8 -> -0x08(%sp)[8byte] %sp
-6dc00000 : ldp    d0, d0, [x0,#0]!        : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %d0 %d0 %x0
-6dffffff : ldp    d31, d31, [sp,#-8]!     : ldp    -0x08(%sp)[8byte] %sp $0xfffffffffffffff8 -> %d31 %d31 %sp
+6c000000 : stnp   d0, d0, [x0]            : stnp   %d0 %d0 -> (%x0)[16byte]
+6c3fffff : stnp   d31, d31, [sp,#-8]      : stnp   %d31 %d31 -> -0x08(%sp)[16byte]
+6c400000 : ldnp   d0, d0, [x0]            : ldnp   (%x0)[16byte] -> %d0 %d0
+6c7fffff : ldnp   d31, d31, [sp,#-8]      : ldnp   -0x08(%sp)[16byte] -> %d31 %d31
+6c800000 : stp    d0, d0, [x0],#0         : stp    %d0 %d0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+6cbfffff : stp    d31, d31, [sp],#-8      : stp    %d31 %d31 %sp $0xfffffffffffffff8 -> (%sp)[16byte] %sp
+6cc00000 : ldp    d0, d0, [x0],#0         : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %d0 %d0 %x0
+6cffffff : ldp    d31, d31, [sp],#-8      : ldp    (%sp)[16byte] %sp $0xfffffffffffffff8 -> %d31 %d31 %sp
+6d000000 : stp    d0, d0, [x0]            : stp    %d0 %d0 -> (%x0)[16byte]
+6d3fffff : stp    d31, d31, [sp,#-8]      : stp    %d31 %d31 -> -0x08(%sp)[16byte]
+6d400000 : ldp    d0, d0, [x0]            : ldp    (%x0)[16byte] -> %d0 %d0
+6d7fffff : ldp    d31, d31, [sp,#-8]      : ldp    -0x08(%sp)[16byte] -> %d31 %d31
+6d800000 : stp    d0, d0, [x0,#0]!        : stp    %d0 %d0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+6dbfffff : stp    d31, d31, [sp,#-8]!     : stp    %d31 %d31 %sp $0xfffffffffffffff8 -> -0x08(%sp)[16byte] %sp
+6dc00000 : ldp    d0, d0, [x0,#0]!        : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %d0 %d0 %x0
+6dffffff : ldp    d31, d31, [sp,#-8]!     : ldp    -0x08(%sp)[16byte] %sp $0xfffffffffffffff8 -> %d31 %d31 %sp
 707fffff : adr    xzr, 100fffff           : adr    <rel> 0x00000000100fffff -> %xzr
 70ffffff : adr    xzr, fffffff            : adr    <rel> 0x000000000fffffff -> %xzr
 71000c41 : subs   w1, w2, #0x3            : subs   %w2 $0x0003 lsl $0x00 -> %w1
@@ -735,22 +735,22 @@
 98ffffff : ldrsw  xzr, ffffffc            : ldrsw  <rel> 0x000000000ffffffc[4byte] -> %xzr
 9c7fffff : ldr    q31, 100ffffc           : ldr    <rel> 0x00000000100ffffc[16byte] -> %q31
 9c800000 : ldr    q0, ff00000             : ldr    <rel> 0x000000000ff00000[16byte] -> %q0
-a8000000 : stnp   x0, x0, [x0]            : stnp   %x0 %x0 -> (%x0)[8byte]
-a83fffff : stnp   xzr, xzr, [sp,#-8]      : stnp   %xzr %xzr -> -0x08(%sp)[8byte]
-a8400000 : ldnp   x0, x0, [x0]            : ldnp   (%x0)[8byte] -> %x0 %x0
-a87fffff : ldnp   xzr, xzr, [sp,#-8]      : ldnp   -0x08(%sp)[8byte] -> %xzr %xzr
-a8800000 : stp    x0, x0, [x0],#0         : stp    %x0 %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
-a8bfffff : stp    xzr, xzr, [sp],#-8      : stp    %xzr %xzr %sp $0xfffffffffffffff8 -> (%sp)[8byte] %sp
-a8c00000 : ldp    x0, x0, [x0],#0         : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
-a8ffffff : ldp    xzr, xzr, [sp],#-8      : ldp    (%sp)[8byte] %sp $0xfffffffffffffff8 -> %xzr %xzr %sp
-a9000000 : stp    x0, x0, [x0]            : stp    %x0 %x0 -> (%x0)[8byte]
-a93fffff : stp    xzr, xzr, [sp,#-8]      : stp    %xzr %xzr -> -0x08(%sp)[8byte]
-a9400000 : ldp    x0, x0, [x0]            : ldp    (%x0)[8byte] -> %x0 %x0
-a97fffff : ldp    xzr, xzr, [sp,#-8]      : ldp    -0x08(%sp)[8byte] -> %xzr %xzr
-a9800000 : stp    x0, x0, [x0,#0]!        : stp    %x0 %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
-a9bfffff : stp    xzr, xzr, [sp,#-8]!     : stp    %xzr %xzr %sp $0xfffffffffffffff8 -> -0x08(%sp)[8byte] %sp
-a9c00000 : ldp    x0, x0, [x0,#0]!        : ldp    (%x0)[8byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
-a9ffffff : ldp    xzr, xzr, [sp,#-8]!     : ldp    -0x08(%sp)[8byte] %sp $0xfffffffffffffff8 -> %xzr %xzr %sp
+a8000000 : stnp   x0, x0, [x0]            : stnp   %x0 %x0 -> (%x0)[16byte]
+a83fffff : stnp   xzr, xzr, [sp,#-8]      : stnp   %xzr %xzr -> -0x08(%sp)[16byte]
+a8400000 : ldnp   x0, x0, [x0]            : ldnp   (%x0)[16byte] -> %x0 %x0
+a87fffff : ldnp   xzr, xzr, [sp,#-8]      : ldnp   -0x08(%sp)[16byte] -> %xzr %xzr
+a8800000 : stp    x0, x0, [x0],#0         : stp    %x0 %x0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+a8bfffff : stp    xzr, xzr, [sp],#-8      : stp    %xzr %xzr %sp $0xfffffffffffffff8 -> (%sp)[16byte] %sp
+a8c00000 : ldp    x0, x0, [x0],#0         : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+a8ffffff : ldp    xzr, xzr, [sp],#-8      : ldp    (%sp)[16byte] %sp $0xfffffffffffffff8 -> %xzr %xzr %sp
+a9000000 : stp    x0, x0, [x0]            : stp    %x0 %x0 -> (%x0)[16byte]
+a93fffff : stp    xzr, xzr, [sp,#-8]      : stp    %xzr %xzr -> -0x08(%sp)[16byte]
+a9400000 : ldp    x0, x0, [x0]            : ldp    (%x0)[16byte] -> %x0 %x0
+a97fffff : ldp    xzr, xzr, [sp,#-8]      : ldp    -0x08(%sp)[16byte] -> %xzr %xzr
+a9800000 : stp    x0, x0, [x0,#0]!        : stp    %x0 %x0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
+a9bfffff : stp    xzr, xzr, [sp,#-8]!     : stp    %xzr %xzr %sp $0xfffffffffffffff8 -> -0x08(%sp)[16byte] %sp
+a9c00000 : ldp    x0, x0, [x0,#0]!        : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %x0 %x0 %x0
+a9ffffff : ldp    xzr, xzr, [sp,#-8]!     : ldp    -0x08(%sp)[16byte] %sp $0xfffffffffffffff8 -> %xzr %xzr %sp
 aa431041 : orr    x1, x2, x3, lsr #4      : orr    %x2 %x3 lsr $0x04 -> %x1
 aa631041 : orn    x1, x2, x3, lsr #4      : orn    %x2 %x3 lsr $0x04 -> %x1
 aadf13ff : mov    xzr, xzr                : orr    %xzr %xzr ror $0x04 -> %xzr
@@ -759,22 +759,22 @@ aaffffff : mvn    xzr, xzr, ror #63       : orn    %xzr %xzr ror $0x3f -> %xzr
 ab431041 : adds   x1, x2, x3, lsr #4      : adds   %x2 %x3 lsr $0x04 -> %x1
 ab9f13ff : cmn    xzr, xzr, asr #4        : adds   %xzr %xzr asr $0x04 -> %xzr
 ab9fffff : cmn    xzr, xzr, asr #63       : adds   %xzr %xzr asr $0x3f -> %xzr
-ac000000 : stnp   q0, q0, [x0]            : stnp   %q0 %q0 -> (%x0)[16byte]
-ac3fffff : stnp   q31, q31, [sp,#-16]     : stnp   %q31 %q31 -> -0x10(%sp)[16byte]
-ac400000 : ldnp   q0, q0, [x0]            : ldnp   (%x0)[16byte] -> %q0 %q0
-ac7fffff : ldnp   q31, q31, [sp,#-16]     : ldnp   -0x10(%sp)[16byte] -> %q31 %q31
-ac800000 : stp    q0, q0, [x0],#0         : stp    %q0 %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
-acbfffff : stp    q31, q31, [sp],#-16     : stp    %q31 %q31 %sp $0xfffffffffffffff0 -> (%sp)[16byte] %sp
-acc00000 : ldp    q0, q0, [x0],#0         : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %q0 %x0
-acffffff : ldp    q31, q31, [sp],#-16     : ldp    (%sp)[16byte] %sp $0xfffffffffffffff0 -> %q31 %q31 %sp
-ad000000 : stp    q0, q0, [x0]            : stp    %q0 %q0 -> (%x0)[16byte]
-ad3fffff : stp    q31, q31, [sp,#-16]     : stp    %q31 %q31 -> -0x10(%sp)[16byte]
-ad400000 : ldp    q0, q0, [x0]            : ldp    (%x0)[16byte] -> %q0 %q0
-ad7fffff : ldp    q31, q31, [sp,#-16]     : ldp    -0x10(%sp)[16byte] -> %q31 %q31
-ad800000 : stp    q0, q0, [x0,#0]!        : stp    %q0 %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
-adbfffff : stp    q31, q31, [sp,#-16]!    : stp    %q31 %q31 %sp $0xfffffffffffffff0 -> -0x10(%sp)[16byte] %sp
-adc00000 : ldp    q0, q0, [x0,#0]!        : ldp    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %q0 %x0
-adffffff : ldp    q31, q31, [sp,#-16]!    : ldp    -0x10(%sp)[16byte] %sp $0xfffffffffffffff0 -> %q31 %q31 %sp
+ac000000 : stnp   q0, q0, [x0]            : stnp   %q0 %q0 -> (%x0)[32byte]
+ac3fffff : stnp   q31, q31, [sp,#-16]     : stnp   %q31 %q31 -> -0x10(%sp)[32byte]
+ac400000 : ldnp   q0, q0, [x0]            : ldnp   (%x0)[32byte] -> %q0 %q0
+ac7fffff : ldnp   q31, q31, [sp,#-16]     : ldnp   -0x10(%sp)[32byte] -> %q31 %q31
+ac800000 : stp    q0, q0, [x0],#0         : stp    %q0 %q0 %x0 $0x0000000000000000 -> (%x0)[32byte] %x0
+acbfffff : stp    q31, q31, [sp],#-16     : stp    %q31 %q31 %sp $0xfffffffffffffff0 -> (%sp)[32byte] %sp
+acc00000 : ldp    q0, q0, [x0],#0         : ldp    (%x0)[32byte] %x0 $0x0000000000000000 -> %q0 %q0 %x0
+acffffff : ldp    q31, q31, [sp],#-16     : ldp    (%sp)[32byte] %sp $0xfffffffffffffff0 -> %q31 %q31 %sp
+ad000000 : stp    q0, q0, [x0]            : stp    %q0 %q0 -> (%x0)[32byte]
+ad3fffff : stp    q31, q31, [sp,#-16]     : stp    %q31 %q31 -> -0x10(%sp)[32byte]
+ad400000 : ldp    q0, q0, [x0]            : ldp    (%x0)[32byte] -> %q0 %q0
+ad7fffff : ldp    q31, q31, [sp,#-16]     : ldp    -0x10(%sp)[32byte] -> %q31 %q31
+ad800000 : stp    q0, q0, [x0,#0]!        : stp    %q0 %q0 %x0 $0x0000000000000000 -> (%x0)[32byte] %x0
+adbfffff : stp    q31, q31, [sp,#-16]!    : stp    %q31 %q31 %sp $0xfffffffffffffff0 -> -0x10(%sp)[32byte] %sp
+adc00000 : ldp    q0, q0, [x0,#0]!        : ldp    (%x0)[32byte] %x0 $0x0000000000000000 -> %q0 %q0 %x0
+adffffff : ldp    q31, q31, [sp,#-16]!    : ldp    -0x10(%sp)[32byte] %sp $0xfffffffffffffff0 -> %q31 %q31 %sp
 b1000c41 : adds   x1, x2, #0x3            : adds   %x2 $0x0003 lsl $0x00 -> %x1
 b1000fff : cmn    sp, #0x3                : adds   %sp $0x0003 lsl $0x00 -> %xzr
 b2400441 : orr    x1, x2, #0x3            : orr    %x2 $0x0000000000000003 -> %x1
