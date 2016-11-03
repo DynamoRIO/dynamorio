@@ -2835,6 +2835,7 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags) ? RAW_ALLOC_RESERVE_ONLY :
         (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
 #endif
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
     if (TEST(DR_ALLOC_NON_DR, flags)) {
         /* use lock to avoid racy update on parallel memory allocation,
          * e.g. allocation from another thread at p happens after os_heap_free
