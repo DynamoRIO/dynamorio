@@ -9423,13 +9423,21 @@ os_thread_take_over_secondary(dcontext_t *dcontext)
 {
     thread_record_t **list;
     int num_threads;
+    int i;
     /* We want to share with the thread that called dr_app_setup. */
     mutex_lock(&thread_initexit_lock);
     get_list_of_threads(&list, &num_threads);
     ASSERT(num_threads >= 1);
+    for (i = 0; i < num_threads; i++) {
+        /* Find a thread that's already set up */
+        if (is_thread_signal_info_initialized(list[i]->dcontext))
+            break;
+    }
+    ASSERT(i < num_threads);
+    ASSERT(list[i]->dcontext != dcontext);
     /* Assuming pthreads, prepare signal_field for sharing. */
-    handle_clone(list[0]->dcontext, PTHREAD_CLONE_FLAGS);
-    share_siginfo_after_take_over(dcontext, list[0]->dcontext);
+    handle_clone(list[i]->dcontext, PTHREAD_CLONE_FLAGS);
+    share_siginfo_after_take_over(dcontext, list[i]->dcontext);
     mutex_unlock(&thread_initexit_lock);
     global_heap_free(list, num_threads*sizeof(thread_record_t*)
                      HEAPACCT(ACCT_THREAD_MGT));

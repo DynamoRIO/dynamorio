@@ -524,6 +524,13 @@ signal_thread_init(dcontext_t *dcontext)
      */
 }
 
+bool
+is_thread_signal_info_initialized(dcontext_t *dcontext)
+{
+    thread_sig_info_t *info = (thread_sig_info_t*)dcontext->signal_field;
+    return info->fully_initialized;
+}
+
 /* i#27: create custom data to pass to the child of a clone
  * since we can't rely on being able to find the caller, or that
  * its syscall data is still valid, once in the child.
