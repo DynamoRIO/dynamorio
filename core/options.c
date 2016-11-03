@@ -198,7 +198,7 @@ static void
 adjust_defaults_for_page_size(options_t *options)
 {
 #ifndef NOT_DYNAMORIO_CORE /* XXX: clumsy fix for Windows */
-    uint page_size = PAGE_SIZE;
+    uint page_size = (uint)PAGE_SIZE;
 
     /* The defaults are known to be appropriate for 4 KiB pages. */
     if (page_size == 4096)
