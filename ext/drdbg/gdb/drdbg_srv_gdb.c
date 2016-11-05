@@ -366,11 +366,21 @@ drdbg_srv_gdb_cmd_kill(int cmd_index, char *buf, int len,
 
 static
 drdbg_status_t
-drdbg_srv_gdb_cmd_query(char *buf, int len)
+drdbg_srv_gdb_cmd_query(char *buf, int len, drdbg_srv_int_cmd_data_t *cmd_data)
 {
     if (!gdb_cmdcmp(buf+1, "qSupported", ":;?#")) {
         const char *pkt = "PacketSize=3fff;multiprocess+;vContSupported+";
         gdb_sendpkt(pkt, strlen(pkt));
+    } else if (!gdb_cmdcmp(buf+1, "qRcmd", ":;?#,")) {
+        typedef drdbg_cmd_data_query_cmd_t my_data_t;
+        my_data_t *data = dr_global_alloc(sizeof(my_data_t));
+        data->len = ((len-(1+strlen("qRcmd")+1+3))/2)+1;
+        data->data = dr_global_alloc(data->len);
+        gdb_unhexify(data->data, data->len,
+                     buf+1+strlen("qRcmd")+1, len-(1+strlen("qRcmd")+1+3));
+        data->data[data->len-1] = '\0';
+        cmd_data->cmd_data = data;
+        cmd_data->cmd_id = DRDBG_CMD_QUERY_CMD;
     } else {
         gdb_sendpkt("", 0);
     }
@@ -395,6 +405,27 @@ drdbg_srv_gdb_cmd_put_query_stop_rsn(drdbg_srv_int_cmd_data_t *cmd_data)
         break;
     }
     return DRDBG_ERROR;
+}
+
+static
+drdbg_status_t
+drdbg_srv_gdb_cmd_put_query_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    typedef drdbg_cmd_data_query_cmd_t mydata_t;
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
+    drdbg_status_t res;
+
+    if (cmd_data->status == DRDBG_SUCCESS && data->data != NULL && data->len != 0) {
+        gdb_sendpkt(data->data, data->len);
+        res = DRDBG_SUCCESS;
+    } else {
+        res = drdbg_srv_gdb_cmd_put_result_code(cmd_data);
+    }
+
+    if (data->data != NULL && data->len != 0)
+        dr_global_free(data->data, data->len);
+
+    return res;
 }
 
 static
@@ -575,7 +606,7 @@ drdbg_srv_gdb_parse_cmd(char *buf, int len,
     case DRDBG_GDB_CMD_PREFIX_QUERY_SET:
         /* Query Command */
         cmd_data->cmd_id = DRDBG_CMD_SERVER_INTERNAL;
-        return drdbg_srv_gdb_cmd_query(buf, len);
+        return drdbg_srv_gdb_cmd_query(buf, len, cmd_data);
         break;
     case 'g':
         cmd_data->cmd_id = DRDBG_CMD_REG_READ;
@@ -649,6 +680,9 @@ drdbg_srv_gdb_put_cmd(drdbg_srv_int_cmd_data_t *cmd_data, bool blocking)
     switch (cmd_data->cmd_id) {
     case DRDBG_CMD_QUERY_STOP_RSN:
         return drdbg_srv_gdb_cmd_put_query_stop_rsn(cmd_data);
+        break;
+    case DRDBG_CMD_QUERY_CMD:
+        return drdbg_srv_gdb_cmd_put_query_cmd(cmd_data);
         break;
     case DRDBG_CMD_REG_READ:
         return drdbg_srv_gdb_cmd_put_reg_read(cmd_data);

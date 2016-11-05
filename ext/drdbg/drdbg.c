@@ -70,6 +70,8 @@ drqueue_t *drdbg_app_jobs;
 drdbg_event_data_bp_t *current_bp_event;
 drdbg_event_t *current_event;
 
+drlist_t *drdbg_monitor_handlers;
+
 /* DynamoRIO interactions */
 drdbg_bp_t *
 drdbg_bp_find_by_pc(void *pc)
@@ -351,6 +353,40 @@ drdbg_cmd_query_stop_rsn(drdbg_srv_int_cmd_data_t *cmd_data)
 }
 
 drdbg_status_t
+drdbg_cmd_query_cmd(drdbg_srv_int_cmd_data_t *cmd_data)
+{
+    typedef drdbg_cmd_data_query_cmd_t mydata_t;
+    mydata_t *data = (mydata_t *)cmd_data->cmd_data;
+    drlist_node_t *node = NULL;
+    mydata_t *out = dr_global_alloc(sizeof(mydata_t));
+    out->data = NULL;
+    out->len = 0;
+
+    /* Send to each registered handler */
+    node = drdbg_monitor_handlers->head;
+    while (node != NULL) {
+        if (node->data != NULL) {
+            ((drdbg_monitor_handler_t)node->data)(data->data, data->len, &out->data, &out->len);
+            /* Check if handler processed data */
+            if (out->data != NULL && out->len != 0) {
+                dr_global_free(data->data, data->len);
+                dr_global_free(data, sizeof(mydata_t));
+                cmd_data->cmd_data = out;
+                return DRDBG_SUCCESS;
+            }
+        }
+        node = node->next;
+    }
+
+    /* No handlers for this command */
+    dr_global_free(data->data, data->len);
+    dr_global_free(data, sizeof(mydata_t));
+    cmd_data->cmd_data = out;
+
+    return DRDBG_SUCCESS;
+}
+
+drdbg_status_t
 drdbg_cmd_reg_read(drdbg_srv_int_cmd_data_t *cmd_data)
 {
     //dr_mcontext_t *mcontext = dr_global_alloc(sizeof(dr_mcontext_t));
@@ -626,6 +662,10 @@ drdbg_init_data(void)
     if (drdbg_app_jobs == NULL || !drqueue_init(drdbg_app_jobs, 10, true, NULL))
         return DRDBG_ERROR;
 
+    drdbg_monitor_handlers = dr_global_alloc(sizeof(drlist_t));
+    if (drdbg_monitor_handlers == NULL || !drlist_init(drdbg_monitor_handlers, true, NULL))
+        return DRDBG_ERROR;
+
     return DRDBG_SUCCESS;
 }
 
@@ -643,6 +683,7 @@ drdbg_init_cmd_handlers(void)
 
     /* Assign implemented command handlers */
     cmd_handlers[DRDBG_CMD_QUERY_STOP_RSN] = drdbg_cmd_query_stop_rsn;
+    cmd_handlers[DRDBG_CMD_QUERY_CMD] = drdbg_cmd_query_cmd;
     cmd_handlers[DRDBG_CMD_REG_READ] = drdbg_cmd_reg_read;
     //cmd_handlers[DRDBG_CMD_REG_WRITE] = drdbg_cmd_reg_write;
     cmd_handlers[DRDBG_CMD_MEM_READ] = drdbg_cmd_mem_read;
@@ -724,4 +765,12 @@ drdbg_api_break(app_pc pc)
     dr_fprintf(STDERR, "SEMANTIC BREAKPOINT @%p\n", pc);
     drdbg_bp_cc_handler(&bp);
     return DRDBG_SUCCESS;
+}
+
+drdbg_status_t
+drdbg_api_register_cmd(drdbg_monitor_handler_t handler)
+{
+    if (drlist_push_back(drdbg_monitor_handlers, handler))
+        return DRDBG_SUCCESS;
+    return DRDBG_ERROR;
 }

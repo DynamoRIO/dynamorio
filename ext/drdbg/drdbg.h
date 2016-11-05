@@ -120,6 +120,9 @@ typedef struct _drdbg_app_job_data_flush_t {
     size_t size;
 } drdbg_app_job_data_flush_t;
 
+typedef drdbg_status_t (*drdbg_monitor_handler_t)(char *buf, ssize_t len,
+                                                  char **outbuf, ssize_t *outlen);
+
 DR_EXPORT
 drdbg_status_t
 drdbg_init(drdbg_options_t *ops);
@@ -132,6 +135,10 @@ drdbg_exit(void);
 DR_EXPORT
 drdbg_status_t
 drdbg_api_break(app_pc pc);
+
+DR_EXPORT
+drdbg_status_t
+drdbg_api_register_cmd(drdbg_monitor_handler_t handler);
 
 #ifdef __cplusplus
 }

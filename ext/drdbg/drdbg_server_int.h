@@ -50,6 +50,7 @@ typedef enum {
     DRDBG_CMD_NOT_IMPLEMENTED, /* Command not implemented */
     DRDBG_CMD_SERVER_INTERNAL, /* Reserved for server specific packets */
     DRDBG_CMD_QUERY_STOP_RSN,  /* Ask why target stopped */
+    DRDBG_CMD_QUERY_CMD,       /* Custom monitor command */
     DRDBG_CMD_REG_READ,        /* Read register(s) */
     DRDBG_CMD_REG_WRITE,       /* Write register(s) */
     DRDBG_CMD_MEM_READ,        /* Read memory */
@@ -116,6 +117,11 @@ typedef struct _drdbg_cmd_data_swbreak_t {
 typedef struct _drdbg_cmd_data_kill_t {
     unsigned int pid;
 } drdbg_cmd_data_kill_t;
+
+typedef struct _drdbg_cmd_data_query_cmd_t {
+    char *data;
+    ssize_t len;
+} drdbg_cmd_data_query_cmd_t;
 
 #ifdef __cplusplus
 }
