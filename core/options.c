@@ -901,9 +901,9 @@ check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
 #ifdef EXPOSE_INTERNAL_OPTIONS
-    if (INTERNAL_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
+    if (DYNAMO_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
         USAGE_ERROR("vmm_block_size (%d) must be >= %d, setting to min",
-                    INTERNAL_OPTION(vmm_block_size), MIN_VMM_BLOCK_SIZE);
+                    DYNAMO_OPTION(vmm_block_size), MIN_VMM_BLOCK_SIZE);
         dynamo_options.vmm_block_size = MIN_VMM_BLOCK_SIZE;
         changed_options = true;
     }

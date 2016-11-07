@@ -187,9 +187,9 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
  * reserving memory in multiples of the allocation granularity and not wasting
  * any virtual address space (beyond our guard pages)
  */
-#define HEAP_UNIT_MIN_SIZE INTERNAL_OPTION(initial_heap_unit_size)
+#define HEAP_UNIT_MIN_SIZE DYNAMO_OPTION(initial_heap_unit_size)
 #define HEAP_UNIT_MAX_SIZE INTERNAL_OPTION(max_heap_unit_size)
-#define GLOBAL_UNIT_MIN_SIZE INTERNAL_OPTION(initial_global_heap_unit_size)
+#define GLOBAL_UNIT_MIN_SIZE DYNAMO_OPTION(initial_global_heap_unit_size)
 
 #define GUARD_PAGE_ADJUSTMENT (dynamo_options.guard_pages ? 2 * PAGE_SIZE : 0)
 
@@ -583,7 +583,7 @@ enum {
      */
 };
 /* minimum will be used only if an invalid option is set */
-#define MIN_VMM_HEAP_UNIT_SIZE INTERNAL_OPTION(vmm_block_size)
+#define MIN_VMM_HEAP_UNIT_SIZE DYNAMO_OPTION(vmm_block_size)
 
 typedef struct {
     vm_addr_t start_addr;         /* base virtual address */
@@ -641,8 +641,8 @@ uint
 vmm_addr_to_block(vm_heap_t *vmh, vm_addr_t p)
 {
     ASSERT(CHECK_TRUNCATE_TYPE_uint((p - vmh->start_addr) /
-                                    INTERNAL_OPTION(vmm_block_size)));
-    return (uint) ((p - vmh->start_addr) / INTERNAL_OPTION(vmm_block_size));
+                                    DYNAMO_OPTION(vmm_block_size)));
+    return (uint) ((p - vmh->start_addr) / DYNAMO_OPTION(vmm_block_size));
 }
 
 static inline
@@ -650,7 +650,7 @@ vm_addr_t
 vmm_block_to_addr(vm_heap_t *vmh, uint block)
 {
     ASSERT(block >=0 && block < vmh->num_blocks);
-    return (vm_addr_t)(vmh->start_addr + block * INTERNAL_OPTION(vmm_block_size));
+    return (vm_addr_t)(vmh->start_addr + block * DYNAMO_OPTION(vmm_block_size));
 }
 
 static bool
@@ -681,8 +681,8 @@ vmm_dump_map(vm_heap_t *vmh)
     LOG(GLOBAL, LOG_HEAP, 1, "\nvmm_dump_map("PFX") virtual regions\n", vmh);
 #define VMM_DUMP_MAP_LOG(i, last_i)                                                     \
     LOG(GLOBAL, LOG_HEAP, 1, PFX"-"PFX" size=%d %s\n", vmm_block_to_addr(vmh, last_i),  \
-        vmm_block_to_addr(vmh, i-1) + INTERNAL_OPTION(vmm_block_size) - 1,                \
-        (i-last_i)*INTERNAL_OPTION(vmm_block_size),                                       \
+        vmm_block_to_addr(vmh, i-1) + DYNAMO_OPTION(vmm_block_size) - 1,                \
+        (i-last_i)*DYNAMO_OPTION(vmm_block_size),                                       \
         is_used ? "reserved" : "free");
 
     for (i=0; i < bitmap_size; i++) {
@@ -723,7 +723,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
     heap_error_code_t error_code;
     ASSIGN_INIT_LOCK_FREE(vmh->lock, vmh_lock);
 
-    size = ALIGN_FORWARD(size, INTERNAL_OPTION(vmm_block_size));
+    size = ALIGN_FORWARD(size, DYNAMO_OPTION(vmm_block_size));
     ASSERT(size <= MAX_VMM_HEAP_UNIT_SIZE);
     vmh->alloc_size = size;
 
@@ -741,9 +741,9 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
     /* Make sure we don't waste the lower bits from our random number */
     preferred = (DYNAMO_OPTION(vm_base)
                  + get_random_offset(DYNAMO_OPTION(vm_max_offset) /
-                                     INTERNAL_OPTION(vmm_block_size)) *
-                 INTERNAL_OPTION(vmm_block_size));
-    preferred = ALIGN_FORWARD(preferred, INTERNAL_OPTION(vmm_block_size));
+                                     DYNAMO_OPTION(vmm_block_size)) *
+                 DYNAMO_OPTION(vmm_block_size));
+    preferred = ALIGN_FORWARD(preferred, DYNAMO_OPTION(vmm_block_size));
     /* overflow check: w/ vm_base shouldn't happen so debug-only check */
     ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
 
@@ -768,21 +768,21 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
          * syslog or assert here
          */
         /* need extra size to ensure alignment */
-        vmh->alloc_size = size + INTERNAL_OPTION(vmm_block_size);
+        vmh->alloc_size = size + DYNAMO_OPTION(vmm_block_size);
 #ifdef X64
         /* PR 215395, make sure allocation satisfies heap reachability contraints */
         vmh->alloc_start = os_heap_reserve_in_region
             ((void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
              (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE),
-             size + INTERNAL_OPTION(vmm_block_size), &error_code,
+             size + DYNAMO_OPTION(vmm_block_size), &error_code,
              true/*+x*/);
 #else
         vmh->alloc_start = (heap_pc)
-            os_heap_reserve(NULL, size + INTERNAL_OPTION(vmm_block_size),
+            os_heap_reserve(NULL, size + DYNAMO_OPTION(vmm_block_size),
                             &error_code, true/*+x*/);
 #endif
         vmh->start_addr = (heap_pc) ALIGN_FORWARD(vmh->alloc_start,
-                                                  INTERNAL_OPTION(vmm_block_size));
+                                                  DYNAMO_OPTION(vmm_block_size));
         LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
             PFX" letting OS place sz=%dM addr="PFX" \n",
             preferred, size/(1024*1024), vmh->start_addr);
@@ -817,14 +817,14 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         ASSERT_NOT_REACHED();
     }
     vmh->end_addr = vmh->start_addr + size;
-    ASSERT_TRUNCATE(vmh->num_blocks, uint, size / INTERNAL_OPTION(vmm_block_size));
-    vmh->num_blocks = (uint) (size / INTERNAL_OPTION(vmm_block_size));
+    ASSERT_TRUNCATE(vmh->num_blocks, uint, size / DYNAMO_OPTION(vmm_block_size));
+    vmh->num_blocks = (uint) (size / DYNAMO_OPTION(vmm_block_size));
     vmh->num_free_blocks = vmh->num_blocks;
     LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_unit_init ["PFX","PFX") total=%d free=%d\n",
         vmh->start_addr, vmh->end_addr, vmh->num_blocks, vmh->num_free_blocks);
 
     /* make sure static bitmap_t size is properly aligned on block boundaries */
-    ASSERT(ALIGNED(MAX_VMM_HEAP_UNIT_SIZE, INTERNAL_OPTION(vmm_block_size)));
+    ASSERT(ALIGNED(MAX_VMM_HEAP_UNIT_SIZE, DYNAMO_OPTION(vmm_block_size)));
     bitmap_initialize_free(vmh->blocks, vmh->num_blocks);
     DOLOG(1, LOG_HEAP, {
         vmm_dump_map(vmh);
@@ -847,7 +847,7 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
     DOLOG(1, LOG_HEAP, { vmm_dump_map(vmh); });
     ASSERT(bitmap_check_consistency(vmh->blocks,
                                     vmh->num_blocks, vmh->num_free_blocks));
-    ASSERT(vmh->num_blocks * INTERNAL_OPTION(vmm_block_size) ==
+    ASSERT(vmh->num_blocks * DYNAMO_OPTION(vmm_block_size) ==
            (ptr_uint_t)(vmh->end_addr - vmh->start_addr));
 
     /* In case there are no tombstones we can just free the unit and
@@ -874,14 +874,14 @@ static
 bool
 vmm_is_reserved_unit(vm_heap_t *vmh, vm_addr_t p, size_t size)
 {
-    size = ALIGN_FORWARD(size, INTERNAL_OPTION(vmm_block_size));
+    size = ALIGN_FORWARD(size, DYNAMO_OPTION(vmm_block_size));
     if (p < vmh->start_addr || vmh->end_addr < p/*overflow*/ ||
         vmh->end_addr < (p + size))
         return false;
-    ASSERT(CHECK_TRUNCATE_TYPE_uint(size/INTERNAL_OPTION(vmm_block_size)));
+    ASSERT(CHECK_TRUNCATE_TYPE_uint(size/DYNAMO_OPTION(vmm_block_size)));
     ASSERT(bitmap_are_reserved_blocks(vmh->blocks, vmh->num_blocks,
                                       vmm_addr_to_block(vmh, p),
-                                      (uint)size/INTERNAL_OPTION(vmm_block_size)));
+                                      (uint)size/DYNAMO_OPTION(vmm_block_size)));
     return true;
 }
 
@@ -959,7 +959,7 @@ rel32_reachable_from_vmcode(byte *tgt)
 #endif
 }
 
-/* Reservations here are done with INTERNAL_OPTION(vmm_block_size) alignment
+/* Reservations here are done with DYNAMO_OPTION(vmm_block_size) alignment
  * (e.g. 64KB) but the caller is not forced to request at that
  * alignment.  We explicitly synchronize reservations and decommits
  * within the vm_heap_t.
@@ -975,9 +975,9 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in)
     uint first_block;
     size_t size;
 
-    size = ALIGN_FORWARD(size_in, INTERNAL_OPTION(vmm_block_size));
-    ASSERT_TRUNCATE(request, uint, size/INTERNAL_OPTION(vmm_block_size));
-    request = (uint) size/INTERNAL_OPTION(vmm_block_size);
+    size = ALIGN_FORWARD(size_in, DYNAMO_OPTION(vmm_block_size));
+    ASSERT_TRUNCATE(request, uint, size/DYNAMO_OPTION(vmm_block_size));
+    request = (uint) size/DYNAMO_OPTION(vmm_block_size);
 
     LOG(GLOBAL, LOG_HEAP, 2,
         "vmm_heap_reserve_blocks: size=%d => %d in blocks=%d free_blocks~=%d\n",
@@ -1024,9 +1024,9 @@ vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size_in)
     uint request;
     size_t size;
 
-    size = ALIGN_FORWARD(size_in, INTERNAL_OPTION(vmm_block_size));
-    ASSERT_TRUNCATE(request, uint, size/INTERNAL_OPTION(vmm_block_size));
-    request = (uint) size/INTERNAL_OPTION(vmm_block_size);
+    size = ALIGN_FORWARD(size_in, DYNAMO_OPTION(vmm_block_size));
+    ASSERT_TRUNCATE(request, uint, size/DYNAMO_OPTION(vmm_block_size));
+    request = (uint) size/DYNAMO_OPTION(vmm_block_size);
 
     LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free_blocks: size=%d blocks=%d p="PFX"\n",
         size, request, p);
@@ -1057,7 +1057,7 @@ at_reset_at_vmm_limit()
          100 * heapmgt->vmheap.num_free_blocks <
          DYNAMO_OPTION(reset_at_vmm_percent_free_limit) * heapmgt->vmheap.num_blocks) ||
         (DYNAMO_OPTION(reset_at_vmm_free_limit) != 0 &&
-         heapmgt->vmheap.num_free_blocks * INTERNAL_OPTION(vmm_block_size) <
+         heapmgt->vmheap.num_free_blocks * DYNAMO_OPTION(vmm_block_size) <
          DYNAMO_OPTION(reset_at_vmm_free_limit));
 }
 
@@ -1372,7 +1372,7 @@ vmm_heap_init_constraints()
 void
 vmm_heap_init()
 {
-    IF_WINDOWS(ASSERT(INTERNAL_OPTION(vmm_block_size) == OS_ALLOC_GRANULARITY));
+    IF_WINDOWS(ASSERT(DYNAMO_OPTION(vmm_block_size) == OS_ALLOC_GRANULARITY));
     if (DYNAMO_OPTION(vm_reserve)) {
         vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vm_size));
     }
@@ -1390,8 +1390,8 @@ vmm_heap_exit()
             uint perstack =
                 ALIGN_FORWARD_UINT(dynamo_options.stack_size +
                                    (dynamo_options.guard_pages ? (2*PAGE_SIZE) : 0),
-                                   INTERNAL_OPTION(vmm_block_size)) /
-                INTERNAL_OPTION(vmm_block_size);
+                                   DYNAMO_OPTION(vmm_block_size)) /
+                DYNAMO_OPTION(vmm_block_size);
             uint unfreed_blocks = perstack * 1 /* initstack */ +
                 /* current stack */
                 perstack * ((doing_detach IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
@@ -2124,7 +2124,7 @@ heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded)
     ASSERT(!DYNAMO_OPTION(vm_reserve) ||
            !DYNAMO_OPTION(stack_shares_gencode) ||
            (ptr_uint_t)p - (guarded ? (GUARD_PAGE_ADJUSTMENT/2) : 0) ==
-           ALIGN_BACKWARD(p, INTERNAL_OPTION(vmm_block_size)) ||
+           ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size)) ||
            at_reset_at_vmm_limit());
     LOG(GLOBAL, LOG_HEAP, 2, "heap_mmap: %d bytes [/ %d] @ "PFX"\n",
         commit_size, reserve_size, p);
@@ -2187,7 +2187,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
     /* 1.5 * guard page adjustment since we'll share the middle one */
     if (DYNAMO_OPTION(stack_size) + reserve_size +
         GUARD_PAGE_ADJUSTMENT +
-        GUARD_PAGE_ADJUSTMENT / 2 > INTERNAL_OPTION(vmm_block_size)) {
+        GUARD_PAGE_ADJUSTMENT / 2 > DYNAMO_OPTION(vmm_block_size)) {
         /* there's not enough room to share the allocation block, stack is too big */
         LOG(GLOBAL, LOG_HEAP, 1, "Not enough room to allocate 0x%08x bytes post stack "
             "of size 0x%08x\n", reserve_size, DYNAMO_OPTION(stack_size));
@@ -2286,7 +2286,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
     dynamo_vm_areas_unlock();
     /* We rely on this for freeing in absence of dcontext */
     ASSERT((ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT/2 !=
-           ALIGN_BACKWARD(p, INTERNAL_OPTION(vmm_block_size)));
+           ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size)));
 #ifdef DEBUG_MEMORY
     memset(p, HEAP_ALLOCATED_BYTE, commit_size);
 #endif
@@ -2312,7 +2312,7 @@ heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size)
             DYNAMO_OPTION(vm_reserve) && DYNAMO_OPTION(stack_shares_gencode)) {
             bool at_stack_end = (p == dcontext->dstack + GUARD_PAGE_ADJUSTMENT/2);
             bool at_block_start = ((ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT/2 ==
-                                   ALIGN_BACKWARD(p, INTERNAL_OPTION(vmm_block_size)));
+                                   ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size)));
             ASSERT((at_stack_end && !at_block_start) ||
                    (!at_stack_end && at_block_start));
         }
@@ -2320,7 +2320,7 @@ heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size)
     if (!DYNAMO_OPTION(vm_reserve) ||
         !DYNAMO_OPTION(stack_shares_gencode) ||
         (ptr_uint_t)p - GUARD_PAGE_ADJUSTMENT/2 ==
-        ALIGN_BACKWARD(p, INTERNAL_OPTION(vmm_block_size))) {
+        ALIGN_BACKWARD(p, DYNAMO_OPTION(vmm_block_size))) {
         heap_munmap(p, reserve_size);
     } else {
         /* Detach makes it a pain to pass in the commit size so

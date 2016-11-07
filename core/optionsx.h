@@ -1117,12 +1117,12 @@
      *
      * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
      */
-    OPTION_DEFAULT_INTERNAL(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,16)*1024),
-                            "allocation unit for virtual memory manager")
+    OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,16)*1024),
+                   "allocation unit for virtual memory manager")
     /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-    OPTION_DEFAULT_INTERNAL(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
+    OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
     /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-    OPTION_DEFAULT_INTERNAL(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
+    OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
     /* if this is too small then once past the vm reservation we have too many
      * DR areas and subsequent problems with DR areas and allmem synch (i#369)
      */
