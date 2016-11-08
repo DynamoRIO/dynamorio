@@ -3015,12 +3015,12 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     dst = instr_get_dst(instr, 0);
     dst_sz = opnd_get_size(dst);
     opnd = opnd_create_sized_tls_slot
-        (os_tls_offset(os_get_app_tls_reg_offset(seg)), dst_sz);
+        (os_tls_offset(os_get_app_tls_reg_offset(seg)), OPSZ_2);
     if (opnd_is_reg(dst)) { /* dst is a register */
         /* mov %gs:off => reg */
         instr_set_src(instr, 0, opnd);
         instr_set_opcode(instr, OP_mov_ld);
-        if (IF_X64_ELSE((dst_sz == OPSZ_8), false))
+        if (dst_sz != OPSZ_2)
             instr_set_opcode(instr, OP_movzx);
     } else { /* dst is memory, need steal a register. */
         reg_id_t reg;
@@ -3052,15 +3052,12 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             IF_X64(reg = reg_64_to_32(reg);)
             reg = reg_32_to_16(reg);
             break;
-        case OPSZ_1:
-            IF_X64(reg = reg_64_to_32(reg);)
-            reg = reg_32_to_8(reg);
         default:
             ASSERT(false);
         }
         /* mov %gs:off => reg */
         ti = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg), opnd);
-        if (IF_X64_ELSE((dst_sz == OPSZ_8), false))
+        if (dst_sz != OPSZ_2)
             instr_set_opcode(ti, OP_movzx);
         PRE(ilist, instr, ti);
         /* change mov_seg to mov_st: mov reg => [mem] */
