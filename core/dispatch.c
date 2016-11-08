@@ -2007,10 +2007,12 @@ handle_system_call(dcontext_t *dcontext)
             /* We've already updated the signal mask as though the handler is
              * completely finished, so we cannot go and receive a signal before
              * executing the sigreturn syscall.
-             * Sigreturn will come back to dispatch so there's no worry about
+             * Similarly, we've already done some clone work.
+             * Sigreturn and clone will come back to dispatch so there's no worry about
              * unbounded delay.
              */
-            if (is_sigreturn_syscall(dcontext) && dcontext->signals_pending > 0)
+            if ((is_sigreturn_syscall(dcontext) || is_thread_create_syscall(dcontext)) &&
+                dcontext->signals_pending > 0)
                 dcontext->signals_pending = -1;
 #endif
             enter_fcache(dcontext, (fcache_enter_func_t)
@@ -2019,7 +2021,8 @@ handle_system_call(dcontext_t *dcontext)
                          (PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
                          PC_AS_JMP_TGT(DEFAULT_ISA_MODE, do_syscall));
 #ifdef UNIX
-            if (is_sigreturn_syscall(dcontext) && dcontext->signals_pending)
+            if ((is_sigreturn_syscall(dcontext) || is_thread_create_syscall(dcontext)) &&
+                dcontext->signals_pending > 0)
                 repeat = true;
             else
                 break;
