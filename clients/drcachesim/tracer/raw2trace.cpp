@@ -118,7 +118,11 @@ raw2trace_t::read_and_map_modules(void)
         if (drmodtrack_offline_lookup(modhandle, i, &modbase, &modsize, &path) !=
             DRCOVLIB_SUCCESS)
             FATAL_ERROR("Failed to query module file");
-        if (strcmp(path, "<unknown>") == 0) {
+        if (strcmp(path, "<unknown>") == 0 ||
+            // i#2062: VDSO is hard to decode so for now we treat is as non-module.
+            // FIXME: currently we're dropping the ifetch data: we need the tracer
+            // to identify it instead of us, which requires drmodtrack changes.
+            strcmp(path, "[vdso]") == 0) {
             // We won't be able to decode.
             modvec.push_back(module_t(path, modbase, NULL, 0));
         } else {
@@ -297,7 +301,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
     app_pc pc, decode_pc = start_pc;
     if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
         modvec[in_entry->pc.modidx].map_base == NULL) {
-        // FIXME i#1729: add support for code not in a module (vsyscall, JIT, etc.).
+        // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
         // Once that support is in we can remove the bool return value and handle
         // the memrefs up here.
         VPRINT(3, "Skipping ifetch for %u instrs not in a module\n", instr_count);

@@ -248,7 +248,7 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
 
     pc = dr_fragment_app_pc(tag);
     if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS) {
-        // FIXME i#1729: add non-module support.  The plan for instrs is to have
+        // FIXME i#2062: add non-module support.  The plan for instrs is to have
         // one entry w/ the start abs pc, and subsequent entries that pack the instr
         // length for 10 instrs, 4 bits each, into a pc.modoffs field.  We will
         // also need to store the type (read/write/prefetch*) and size for the
