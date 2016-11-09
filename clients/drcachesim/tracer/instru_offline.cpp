@@ -75,10 +75,12 @@ offline_instru_t::get_entry_type(byte *buf_ptr) const
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     switch (entry->addr.type) {
     case OFFLINE_TYPE_MEMREF: return TRACE_TYPE_READ;
+    case OFFLINE_TYPE_MEMREF_HIGH: return TRACE_TYPE_READ;
     case OFFLINE_TYPE_PC: return TRACE_TYPE_INSTR;
     case OFFLINE_TYPE_THREAD: return TRACE_TYPE_THREAD;
     case OFFLINE_TYPE_PID: return TRACE_TYPE_PID;
     case OFFLINE_TYPE_TIMESTAMP: return TRACE_TYPE_THREAD; // Closest.
+    case OFFLINE_TYPE_IFLUSH: return TRACE_TYPE_INSTR_FLUSH;
     }
     DR_ASSERT(false);
     return TRACE_TYPE_THREAD_EXIT; // Unknown: returning rarest entry.
