@@ -2359,6 +2359,7 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.threads_rawtemp ON) # no preprocessor
+        set(tool.drcachesim.threads_timeout 150) # This test is long.
 
         # TLB simulator's multi-thread sanity check
         torunonly_ci(tool.drcachesim.TLB-threads client.annotation-concurrency drcachesim
@@ -2368,6 +2369,8 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.TLB-threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.TLB-threads_rawtemp ON) # no preprocessor
+        # i#2063: this test can time out.
+        set(tool.drcachesim.TLB-threads_timeout 150)
       endif ()
 
       if (ARM)
