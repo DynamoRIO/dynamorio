@@ -65,8 +65,9 @@ public:
     virtual int append_tid(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
+    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid) = 0;
     // This is a per-buffer-writeout header.
-    virtual int append_header(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual int append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
 
     // These insert inlined code to add an entry into the trace buffer.
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -113,7 +114,8 @@ public:
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_header(byte *buf_ptr, thread_id_t tid);
+    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
+    virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
@@ -158,7 +160,8 @@ public:
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_header(byte *buf_ptr, thread_id_t tid);
+    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
+    virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,

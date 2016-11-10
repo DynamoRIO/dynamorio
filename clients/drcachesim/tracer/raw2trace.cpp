@@ -187,6 +187,17 @@ raw2trace_t::open_thread_log_file(const char *basename)
     thread_files.push_back(new std::ifstream(path, std::ifstream::binary));
     if (!(*thread_files.back()))
         FATAL_ERROR("Failed to open thread log file %s", path);
+    // Check version header.
+    offline_entry_t ver_entry;
+    if (!thread_files.back()->read((char*)&ver_entry, sizeof(ver_entry)))
+        FATAL_ERROR("Unable to read thread log file %s", path);
+    if (ver_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
+        ver_entry.extended.ext != OFFLINE_EXT_TYPE_HEADER)
+        FATAL_ERROR("Thread log file %s is corrupted: missing version entry", path);
+    if (ver_entry.extended.value != OFFLINE_FILE_VERSION) {
+        FATAL_ERROR("Version mismatch: expect %d vs %d in file %s",
+                    OFFLINE_FILE_VERSION, (int)ver_entry.extended.value, path);
+    }
     VPRINT(1, "Opened thread log file %s\n", path);
 }
 
@@ -430,21 +441,35 @@ raw2trace_t::merge_and_process_thread_files()
             buf = buf_base;
             size = 0;
         }
+        VPRINT(4, "About to read thread %d at pos %d\n",
+               (uint)tids[tidx], (int)thread_files[tidx]->tellg());
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
+                // XXX i#2064: thread exit is sometimes missed on detach.
+                // We try to continue on in that case.  If we fix all such
+                // issues we can turn this into a FATAL_ERROR.
+                WARN("Input file for thread %d is truncated", (uint)tids[tidx]);
+                in_entry.extended.type = OFFLINE_TYPE_EXTENDED;
+                in_entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
+            } else
+                FATAL_ERROR("Failed to read from file for thread %d", (uint)tids[tidx]);
+        }
+        if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED) {
+            if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
+                // Push forward to EOF.
+                offline_entry_t entry;
+                if (thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
+                    !thread_files[tidx]->eof())
+                    FATAL_ERROR("Footer is not the final entry");
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
                 size += instru.append_thread_exit(buf, tids[tidx]);
                 buf += size;
                 --thread_count;
-                if (thread_count == 0)
-                    break;
                 tidx = (uint)thread_files.size(); // Request thread scan.
-                continue;
             } else
-                FATAL_ERROR("Failed to read from input file");
-        }
-        if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+                FATAL_ERROR("Invalid extension type %d", (int)in_entry.extended.ext);
+        } else if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                    (uint)tids[tidx], in_entry.timestamp.usec);
             times[tidx] = in_entry.timestamp.usec;
@@ -491,9 +516,22 @@ raw2trace_t::merge_and_process_thread_files()
 void
 raw2trace_t::do_conversion()
 {
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_HEADER;
+    entry.size = 0;
+    entry.addr = TRACE_ENTRY_VERSION;
+    if (!out_file.write((char*)&entry, sizeof(entry)))
+        FATAL_ERROR("Failed to write header to output file %s", outname.c_str());
+
     read_and_map_modules();
     open_thread_files();
     merge_and_process_thread_files();
+
+    entry.type = TRACE_TYPE_FOOTER;
+    entry.size = 0;
+    entry.addr = 0;
+    if (!out_file.write((char*)&entry, sizeof(entry)))
+        FATAL_ERROR("Failed to write footer to output file %s", outname.c_str());
 }
 
 raw2trace_t::raw2trace_t(std::string indir_in, std::string outname_in)

@@ -48,6 +48,8 @@
 
 typedef uintptr_t addr_t;
 
+#define TRACE_ENTRY_VERSION 1
+
 // The type identifier for trace entries in the raw trace_entry_t passed to
 // reader_t and the exposed memref_t passed to analysis tools.
 // XXX: if we want to rely on a recent C++ standard we could try to get
@@ -122,6 +124,13 @@ typedef enum {
     // The process id is in the addr field.
     // These entries are hidden by reader_t and turned into memref_t.pid.
     TRACE_TYPE_PID,
+
+    // The initial entry in an offline file.  It stores the version (should
+    // match TRACE_ENTRY_VERSION) in the addr field.  Unused for pipes.
+    TRACE_TYPE_HEADER,
+
+    // The final entry in an offline file or a pipe.
+    TRACE_TYPE_FOOTER,
 } trace_type_t;
 
 extern const char * const trace_type_names[];
@@ -185,11 +194,20 @@ typedef enum {
     OFFLINE_TYPE_TIMESTAMP,
     // An ARM SYS_cacheflush: always has two addr entries for [start, end).
     OFFLINE_TYPE_IFLUSH,
-
-    // A slot is available here at 6.
-
+    // The ext field identifies this further.
+    OFFLINE_TYPE_EXTENDED,
     OFFLINE_TYPE_MEMREF_HIGH = 7,
 } offline_type_t;
+
+// Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
+// These differ in what they store in offline_entry_t.extended.value.
+typedef enum {
+    // The initial entry in the file.  The value field holds the version.
+    OFFLINE_EXT_TYPE_HEADER,
+    OFFLINE_EXT_TYPE_FOOTER,
+} offline_ext_type_t;
+
+#define OFFLINE_FILE_VERSION 1
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
@@ -219,6 +237,11 @@ struct _offline_entry_t {
             uint64_t usec:61; // Microseconds since Jan 1, 1601.
             uint64_t type:3;
         } timestamp;
+        struct {
+            uint64_t value:56; // Meaning is specific to ext type.
+            uint64_t ext:5;    // Holds an offline_ext_type_t value.
+            uint64_t type:3;
+        } extended;
         uint64_t combined_value;
         // XXX: add a CPU id entry for more faithful thread scheduling.
     };

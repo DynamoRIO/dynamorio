@@ -78,7 +78,14 @@ ipc_reader_t::read_next_entry()
     if (cur_buf >= end_buf) {
         ssize_t sz = pipe.read(buf, sizeof(buf)); // blocking read
         if (sz < 0 || sz % sizeof(*end_buf) != 0) {
-            return NULL;
+            // We aren't able to easily distinguish truncation from a clean
+            // end (we could at least ensure the prior entry was a thread exit
+            // I suppose).
+            cur_buf = buf;
+            cur_buf->type = TRACE_TYPE_FOOTER;
+            cur_buf->size = 0;
+            cur_buf->addr = 0;
+            return cur_buf;
         }
         cur_buf = buf;
         end_buf = buf + (sz / sizeof(*end_buf));

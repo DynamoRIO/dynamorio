@@ -133,7 +133,14 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-online_instru_t::append_header(byte *buf_ptr, thread_id_t tid)
+online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+{
+    // The caller separately calls append_tid for us which is all we need.
+    return 0;
+}
+
+int
+online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
 {
     return append_tid(buf_ptr, tid);
 }

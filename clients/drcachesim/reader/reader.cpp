@@ -62,6 +62,12 @@ reader_t::operator++()
         if (bundle_idx == 0/*not in instr bundle*/)
             input_entry = read_next_entry();
         if (input_entry == NULL) {
+            ERRMSG("Trace is truncated\n");
+            assert(false);
+            at_eof = true; // bail
+            break;
+        }
+        if (input_entry->type == TRACE_TYPE_FOOTER) {
 #ifdef VERBOSE
             std::cerr << "EOF" << std::endl;
 #endif

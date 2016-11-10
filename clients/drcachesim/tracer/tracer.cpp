@@ -159,7 +159,7 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
 }
 
 static void
-memtrace(void *drcontext)
+memtrace(void *drcontext, bool skip_size_cap)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
@@ -168,10 +168,10 @@ memtrace(void *drcontext)
 
     buf_ptr = BUF_PTR(data->seg_base);
     /* The initial slot is left empty for the header entry, which we add here */
-    instru->append_header(data->buf_base, dr_get_thread_id(drcontext));
+    instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
-    if (op_max_trace_size.get_value() > 0 &&
+    if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
         data->bytes_written > op_max_trace_size.get_value()) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
          * beyond.  We also don't put much effort into reducing overhead once
@@ -248,7 +248,7 @@ static void
 clean_call(void)
 {
     void *drcontext = dr_get_current_drcontext();
-    memtrace(drcontext);
+    memtrace(drcontext, false);
 }
 
 static void
@@ -603,7 +603,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
-    memtrace(drcontext);
+    memtrace(drcontext, false);
     return true;
 }
 
@@ -657,8 +657,7 @@ event_thread_init(void *drcontext)
     /* pass pid and tid to the simulator to register current thread */
     proc_info = (byte *)buf;
     DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
-    /* The trace must start with a timestamp */
-    proc_info += instru->append_header(proc_info, dr_get_thread_id(drcontext));
+    proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
     proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
     proc_info += instru->append_pid(proc_info, dr_get_process_id());
     write_trace_data(drcontext, (byte *)buf, proc_info);
@@ -670,12 +669,16 @@ static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-
     /* let the simulator know this thread has exited */
+    if (op_max_trace_size.get_value() > 0 &&
+        data->bytes_written > op_max_trace_size.get_value()) {
+        // If over the limit, we still want to write the footer, but nothing else.
+        BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+    }
     BUF_PTR(data->seg_base) +=
         instru->append_thread_exit(BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
-    memtrace(drcontext);
+    memtrace(drcontext, true);
 
     if (op_offline.get_value())
         dr_close_file(data->file);

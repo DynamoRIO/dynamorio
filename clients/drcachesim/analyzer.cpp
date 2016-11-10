@@ -62,13 +62,15 @@ analyzer_t::analyzer_t() :
         // XXX: better to put in app name + pid, or rely on staying inside subdir?
         std::string tracefile = op_indir.get_value() + std::string(DIRSEP) +
             TRACE_FILENAME;
-        std::ifstream exists(tracefile.c_str());
-        if (!exists.good()) {
+        file_reader_t *existing = new file_reader_t(tracefile.c_str());
+        if (existing->is_complete())
+            trace_iter = existing;
+        else {
+            delete existing;
             raw2trace_t raw2trace(op_indir.get_value(), tracefile);
             raw2trace.do_conversion();
+            trace_iter = new file_reader_t(tracefile.c_str());
         }
-        exists.close();
-        trace_iter = new file_reader_t(tracefile.c_str());
         trace_end = new file_reader_t();
     } else if (op_infile.get_value().empty()) {
         trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());

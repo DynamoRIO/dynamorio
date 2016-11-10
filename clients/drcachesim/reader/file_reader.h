@@ -50,6 +50,7 @@ class file_reader_t : public reader_t
     explicit file_reader_t(const char *file_name);
     virtual ~file_reader_t();
     virtual bool init();
+    bool is_complete();
 
  protected:
     virtual trace_entry_t * read_next_entry();

@@ -128,9 +128,11 @@ offline_instru_t::append_tid(byte *buf_ptr, thread_id_t tid)
 int
 offline_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 {
-    // The post-process will insert this when it reaches the end of a
-    // per-thread file.
-    return 0;
+    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    entry->extended.type = OFFLINE_TYPE_EXTENDED;
+    entry->extended.ext = OFFLINE_EXT_TYPE_FOOTER;
+    entry->extended.value = 0;
+    return sizeof(offline_entry_t);
 }
 
 int
@@ -146,7 +148,18 @@ offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-offline_instru_t::append_header(byte *buf_ptr, thread_id_t tid)
+offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+{
+    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    entry->extended.type = OFFLINE_TYPE_EXTENDED;
+    entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
+    entry->extended.value = OFFLINE_FILE_VERSION;
+    return sizeof(offline_entry_t) +
+        append_unit_header(buf_ptr + sizeof(offline_entry_t), tid);
+}
+
+int
+offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
 {
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
