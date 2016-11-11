@@ -471,6 +471,8 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
 
     ASSERT(pc < gencode->commit_end_pc);
     gencode->gen_end_pc = pc;
+
+    machine_cache_sync(gencode->gen_start_pc, gencode->gen_end_pc, true);
 }
 
 static void
