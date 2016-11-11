@@ -423,7 +423,12 @@ raw2trace_t::merge_and_process_thread_files()
             tidx = next_tidx;
             times[tidx] = 0; // Read from file for this thread's next timestamp.
             size += instru.append_tid(buf, tids[tidx]);
-            buf += size;
+            // We have to write this now before we append any bb entries.
+            CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
+            if (!out_file.write((char*)buf_base, size))
+                FATAL_ERROR("Failed to write to output file");
+            buf = buf_base;
+            size = 0;
         }
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
