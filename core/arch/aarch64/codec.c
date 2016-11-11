@@ -470,7 +470,7 @@ encode_opnd_dq_plus(int add, int qpos, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
-/* opnd_index: used for opnd_index0, ..., opnd_index3 */
+/* index: used for opnd_index0, ..., opnd_index3 */
 
 static bool
 decode_opnd_index(int n, uint enc, OUT opnd_t *opnd)
@@ -495,7 +495,7 @@ encode_opnd_index(int n, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
-/* opnd_int: used for almost every operand type that is an immediate integer */
+/* int: used for almost every operand type that is an immediate integer */
 
 static bool
 decode_opnd_int(int pos, int len, bool signd, int scale, opnd_size_t size,
@@ -521,6 +521,24 @@ encode_opnd_int(int pos, int len, bool signd, int scale,
         return false;
     *enc_out = (val >> scale & (((ptr_uint_t)1 << (len - 1)) * 2 - 1)) << pos;
     return true;
+}
+
+/* imm_bf: used for bitfield immediate operands  */
+
+static bool
+decode_opnd_imm_bf(int pos, uint enc, OUT opnd_t *opnd)
+{
+    if (!TEST(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
+        return false;
+    return decode_opnd_int(pos, 6, false, 0, OPSZ_6b, 0, enc, opnd);
+}
+
+static bool
+encode_opnd_imm_bf(int pos, uint enc, opnd_t opnd, uint *enc_out)
+{
+    if (!TEST(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
+        return false;
+    return encode_opnd_int(pos, 6, false, 0, 0, opnd, enc_out);
 }
 
 /* mem0_scale: used for mem0, mem0p */
@@ -830,6 +848,20 @@ encode_opnd_b0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(0, 0, opnd, enc_out);
 }
 
+/* cond: condition operand for conditional compare */
+
+static inline bool
+decode_opnd_cond(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(12, 4, false, 0, OPSZ_4b, DR_OPND_IS_CONDITION, enc, opnd);
+}
+
+static inline bool
+encode_opnd_cond(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
+}
+
 /* d0: D register at bit position 0 */
 
 static inline bool
@@ -1054,18 +1086,32 @@ encode_opnd_imm16sh(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return true;
 }
 
-/* isbopt: option for ISB instruction */
+/* imm4: immediate operand for some system instructions */
 
 static inline bool
-decode_opnd_isbopt(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_imm4(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_int(8, 4, false, 0, OPSZ_4b, 0, enc, opnd);
 }
 
 static inline bool
-encode_opnd_isbopt(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_imm4(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(8, 4, false, 0, 0, opnd, enc_out);
+}
+
+/* imm5: immediate operand for conditional compare (immediate) */
+
+static inline bool
+decode_opnd_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(16, 5, false, 0, OPSZ_6b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(16, 5, false, 0, 0, opnd, enc_out);
 }
 
 /* imm6: shift amount for logical and arithmetical instructions */
@@ -1080,6 +1126,34 @@ static inline bool
 encode_opnd_imm6(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(10, 6, false, 0, 0, opnd, enc_out);
+}
+
+/* immr: first immediate operand for bitfield operation */
+
+static inline bool
+decode_opnd_immr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_imm_bf(16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_immr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_imm_bf(16, enc, opnd, enc_out);
+}
+
+/* imms: second immediate operand for bitfield operation */
+
+static inline bool
+decode_opnd_imms(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_imm_bf(10, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imms(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_imm_bf(10, enc, opnd, enc_out);
 }
 
 /* index0: index of B subreg in Q register: 0-15 */
@@ -1478,6 +1552,20 @@ encode_opnd_memvs(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return true;
 }
 
+/* nzcv: flag bit specifier for conditional compare */
+
+static inline bool
+decode_opnd_nzcv(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(0, 4, false, 0, OPSZ_4b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_nzcv(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(0, 4, false, 0, 0, opnd, enc_out);
+}
+
 /* prf12: prefetch variant of mem12 */
 
 static inline bool
@@ -1812,6 +1900,20 @@ encode_opnd_w16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(false, false, 16, opnd, enc_out);
 }
 
+/* w5: W register or WZR at bit position 5 */
+
+static inline bool
+decode_opnd_w5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(false, false, 5, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(false, false, 5, opnd, enc_out);
+}
+
 /* wx0: W/X register or WZR/XZR at bit position 0; bit 31 selects X reg */
 
 static inline bool
@@ -1838,6 +1940,20 @@ static inline bool
 encode_opnd_wx0sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_rn(true, 0, opnd, enc_out);
+}
+
+/* wx10: W/X register or WZR/XZR at bit position 10; bit 31 selects X reg */
+
+static inline bool
+decode_opnd_wx10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_rn(false, 10, enc, opnd);
+}
+
+static inline bool
+encode_opnd_wx10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_rn(false, 10, opnd, enc_out);
 }
 
 /* wx16: W/X register or WZR/XZR at bit position 16; bit 31 selects X reg */
@@ -1908,6 +2024,20 @@ static inline bool
 encode_opnd_x10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxn(true, false, 10, opnd, enc_out);
+}
+
+/* x16: X register or XZR at bit position 16 */
+
+static inline bool
+decode_opnd_x16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(true, false, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(true, false, 16, opnd, enc_out);
 }
 
 /* x16imm: immediate operand for SIMD load/store multiple structures (post-indexed) */

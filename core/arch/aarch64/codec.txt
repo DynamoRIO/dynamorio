@@ -48,6 +48,7 @@
 # In memory operands (e.g. mem7) the number refers to the number of offset bits.
 
 --------------------------------  lsl        # LSL for ADD/MOV (immediate)
+----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
 ---------------------------xxxxx  s0         # S register
@@ -59,6 +60,7 @@
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  x0         # X register (or XZR)
 ---------------------------xxxxx  prfop      # prefetch operation
+----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
 ----------------------xxxxx-----  x5sp       # X register or XSP
 ----------------------xxxxx-----  mem0       # gets size from 31:30; no offset
@@ -69,7 +71,7 @@
 ----------------------xxxxx-----  memvrpost  # gets size from 21, 13 and 11:10
 ----------------------xxxxx-----  memvs      # gets size from 21, 15:13 and 11:10
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
---------------------xxxx--------  isbopt     # option for ISB
+--------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB
 --------------------xxxxxxx-----  memvr      # gets size from 21, 13 and 11:10
 -------------------xxx----------  extam      # extend amount
 -----------------xxxxx----------  ign10      # ignored reg field in load/store exclusive
@@ -79,11 +81,15 @@
 -----------------xxxxx----------  w10        # W register (or WZR)
 -----------------xxxxx----------  x10        # X register (or XZR)
 ----------------xxx-------------  ext        # extend type
+----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  imm6       # shift amount
+----------------xxxxxx----------  imms       # Bitfield immediate, checks 31
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------xxxxx----------------  ign16      # ignored reg field in load/store exclusive
+-----------xxxxx----------------  imm5       # immediate for CCMN, CCMP
 -----------xxxxx----------------  w16        # W register (or WZR)
+-----------xxxxx----------------  x16        # X register (or XZR)
 -----------xxxxx----------------  x16immvr   # computes immed from 21, 13 and 11:10
 -----------xxxxx----------------  x16immvs   # computes immed 21, 15:13 and 11:10
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
@@ -94,6 +100,7 @@
 -----------xxxxxxxxx--xxxxx-----  memregq    # register offset, size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prfreg     # register offset, size is 0 (prefetch)
 -----------xxxxxxxxxxxxxxxx-----  imm16      # immediate for MOVK/MOVN/MOVZ/SVC
+----------xxxxxx----------------  immr       # Bitfield immediate, checks 31
 ----------xxxxxxx---------------  mem7off    # gets size from 31:30 and 26
 ----------xxxxxxx-----xxxxx-----  mem7       # gets size from 31:30 and 26
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
@@ -125,6 +132,7 @@ x--------------------------xxxxx  wx0        # W/X register (or WZR/XZR)
 x--------------------------xxxxx  wx0sp      # W/X register or WSP/XSP
 x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
 x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
+x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
 
 ################################################################################
@@ -176,11 +184,17 @@ x11100100xxxxxxxxxxxxxxxxxxxxxxx  ands   logic_imm
 
 ## Bitfield
 
-# FIXME i#1569: Add: sbfm, bfm, ubfm
+0001001100xxxxxxxxxxxxxxxxxxxxxx  sbfm   w0 : w5 immr imms
+0011001100xxxxxxxxxxxxxxxxxxxxxx  bfm    w0 : w5 immr imms
+0101001100xxxxxxxxxxxxxxxxxxxxxx  ubfm   w0 : w5 immr imms
+1001001101xxxxxxxxxxxxxxxxxxxxxx  sbfm   x0 : x5 immr imms
+1011001101xxxxxxxxxxxxxxxxxxxxxx  bfm    x0 : x5 immr imms
+1101001101xxxxxxxxxxxxxxxxxxxxxx  ubfm   x0 : x5 immr imms
 
 ## Extract
 
-# FIXME i#1569: Add: extr
+00010011100xxxxxxxxxxxxxxxxxxxxx  extr   w0 : w5 w16 imms
+10010011110xxxxxxxxxxxxxxxxxxxxx  extr   x0 : x5 x16 imms
 
 # Branches, Exception Generating and System instructions
 
@@ -206,20 +220,28 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 ## Exception generation
 
 11010100000xxxxxxxxxxxxxxxx00001  svc    : imm16
-# FIXME i#1569: Add: hvc, smc
+11010100000xxxxxxxxxxxxxxxx00010  hvc    : imm16
+11010100000xxxxxxxxxxxxxxxx00011  smc    : imm16
 11010100001xxxxxxxxxxxxxxxx00000  brk    : imm16
-# FIXME i#1569: Add: hlt
+11010100010xxxxxxxxxxxxxxxx00000  hlt    : imm16
 
 ## System
 
-# FIXME i#1569: Add: msr, hint
+# FIXME i#1569: Add: MSR (immediate), HINT
 11010101000000110010000000011111  nop    :
-# FIXME i#1569: Add: yield, wfe, wfi, sev, sevl, hint, clrex, dsb, dmb
-11010101000000110011xxxx11011111  isb    : isbopt
+11010101000000110010000000111111  yield  :
+11010101000000110010000001011111  wfe    :
+11010101000000110010000001111111  wfi    :
+11010101000000110010000010011111  sev    :
+11010101000000110010000010111111  sevl   :
+11010101000000110011xxxx01011111  clrex  : imm4
+11010101000000110011xxxx10011111  dsb    : imm4
+11010101000000110011xxxx10111111  dmb    : imm4
+11010101000000110011xxxx11011111  isb    : imm4
 1101010100001xxxxxxxxxxxxxxxxxxx  sys    : sysops x0
 1101010100101xxxxxxxxxxxxxxxxxxx  sys    x0 : sysops
 110101010001xxxxxxxxxxxxxxxxxxxx  msr    msr
-# FIXME i#1569: Add: sysl
+# FIXME i#1569: Add: SYSL
 110101010011xxxxxxxxxxxxxxxxxxxx  mrs    x0 : sysreg
 
 ## Unconditional branch (register)
@@ -673,5 +695,71 @@ x0001011001xxxxxxxxxxxxxxxxxxxxx  add    wx0sp : wx5sp wx16 ext extam
 x0101011001xxxxxxxxxxxxxxxxxxxxx  adds   wx0   : wx5sp wx16 ext extam
 x1001011001xxxxxxxxxxxxxxxxxxxxx  sub    wx0sp : wx5sp wx16 ext extam
 x1101011001xxxxxxxxxxxxxxxxxxxxx  subs   wx0   : wx5sp wx16 ext extam
+
+## Add/subtract (with carry)
+
+x0011010000xxxxx000000xxxxxxxxxx  adc    wx0 : wx5 wx16
+x0111010000xxxxx000000xxxxxxxxxx  adcs   wx0 : wx5 wx16
+x1011010000xxxxx000000xxxxxxxxxx  sbc    wx0 : wx5 wx16
+x1111010000xxxxx000000xxxxxxxxxx  sbcs   wx0 : wx5 wx16
+
+## Conditional compare (register)
+
+x0111010010xxxxxxxxx00xxxxx0xxxx  ccmn   : wx5 wx16 nzcv cond
+x1111010010xxxxxxxxx00xxxxx0xxxx  ccmp   : wx5 wx16 nzcv cond
+
+## Conditional compare (immediate)
+
+x0111010010xxxxxxxxx10xxxxx0xxxx  ccmn   : wx5 imm5 nzcv cond
+x1111010010xxxxxxxxx10xxxxx0xxxx  ccmp   : wx5 imm5 nzcv cond
+
+## Conditional select
+
+x0011010100xxxxxxxxx00xxxxxxxxxx  csel   wx0 : wx5 wx16 cond
+x0011010100xxxxxxxxx01xxxxxxxxxx  csinc  wx0 : wx5 wx16 cond
+x1011010100xxxxxxxxx00xxxxxxxxxx  csinv  wx0 : wx5 wx16 cond
+x1011010100xxxxxxxxx01xxxxxxxxxx  csneg  wx0 : wx5 wx16 cond
+
+# Data-processing (3 source)
+
+x0011011000xxxxx0xxxxxxxxxxxxxxx  madd   wx0 : wx5 wx16 wx10
+x0011011000xxxxx1xxxxxxxxxxxxxxx  msub   wx0 : wx5 wx16 wx10
+
+10011011001xxxxx0xxxxxxxxxxxxxxx  smaddl x0 : w5 w16 x10
+10011011001xxxxx1xxxxxxxxxxxxxxx  smsubl x0 : w5 w16 x10
+10011011010xxxxx0xxxxxxxxxxxxxxx  smulh  x0 : x5 x16 ign10
+10011011101xxxxx0xxxxxxxxxxxxxxx  umaddl x0 : w5 w16 x10
+10011011101xxxxx1xxxxxxxxxxxxxxx  umsubl x0 : w5 w16 x10
+10011011110xxxxx0xxxxxxxxxxxxxxx  umulh  x0 : x5 x16 ign10
+
+# Data-processing (2 source)
+
+x0011010110xxxxx000010xxxxxxxxxx  udiv   wx0 : wx5 wx16
+x0011010110xxxxx000011xxxxxxxxxx  sdiv   wx0 : wx5 wx16
+x0011010110xxxxx001000xxxxxxxxxx  lslv   wx0 : wx5 wx16
+x0011010110xxxxx001001xxxxxxxxxx  lsrv   wx0 : wx5 wx16
+x0011010110xxxxx001010xxxxxxxxxx  asrv   wx0 : wx5 wx16
+x0011010110xxxxx001011xxxxxxxxxx  rorv   wx0 : wx5 wx16
+
+00011010110xxxxx010000xxxxxxxxxx  crc32b  w0 : w5 w16
+00011010110xxxxx010001xxxxxxxxxx  crc32h  w0 : w5 w16
+00011010110xxxxx010010xxxxxxxxxx  crc32w  w0 : w5 w16
+00011010110xxxxx010100xxxxxxxxxx  crc32cb w0 : w5 w16
+00011010110xxxxx010101xxxxxxxxxx  crc32ch w0 : w5 w16
+00011010110xxxxx010110xxxxxxxxxx  crc32cw w0 : w5 w16
+10011010110xxxxx010011xxxxxxxxxx  crc32x  w0 : w5 x16
+10011010110xxxxx010111xxxxxxxxxx  crc32cx w0 : w5 x16
+
+# Data-processing (1 source)
+
+x101101011000000000000xxxxxxxxxx  rbit    wx0 : wx5
+x101101011000000000001xxxxxxxxxx  rev16   wx0 : wx5
+0101101011000000000010xxxxxxxxxx  rev     w0  : w5
+x101101011000000000100xxxxxxxxxx  clz     wx0 : wx5
+x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
+1101101011000000000010xxxxxxxxxx  rev32   x0 : x5
+1101101011000000000011xxxxxxxxxx  rev     x0 : x5
+
+# Data Processing - Scalar Floating-Point and Advanced SIMD
 
 # FIXME i#1569: Add: more data processing
