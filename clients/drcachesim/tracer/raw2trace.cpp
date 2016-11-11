@@ -445,9 +445,8 @@ raw2trace_t::merge_and_process_thread_files()
                (uint)tids[tidx], (int)thread_files[tidx]->tellg());
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
-                // XXX i#2064: thread exit is sometimes missed on detach.
-                // We try to continue on in that case.  If we fix all such
-                // issues we can turn this into a FATAL_ERROR.
+                // Rather than a FATAL_ERROR we try to continue to provide partial
+                // results in case the disk was full or there was some other issue.
                 WARN("Input file for thread %d is truncated", (uint)tids[tidx]);
                 in_entry.extended.type = OFFLINE_TYPE_EXTENDED;
                 in_entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;

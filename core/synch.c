@@ -2082,12 +2082,10 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
         }
     }
 
-#ifdef DEBUG
     if (my_idx != -1) {
         /* pre-client thread cleanup (PR 536058) */
         dynamo_thread_exit_pre_client(my_dcontext, my_tr->id);
     }
-#endif
 
     LOG(GLOBAL, LOG_ALL, 1, "Detach: Letting slave threads go native\n");
 #ifdef WINDOWS
