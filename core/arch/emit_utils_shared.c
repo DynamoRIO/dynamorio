@@ -4856,6 +4856,8 @@ update_syscall(dcontext_t *dcontext, byte *pc)
         ASSERT(pc - prev_pc < 128);
     } while (1);
 
+    machine_cache_sync(prev_pc, pc, true);
+
     instr_free(dcontext, &instr);
 # ifdef ARM
     dr_set_isa_mode(dcontext, old_mode, NULL);

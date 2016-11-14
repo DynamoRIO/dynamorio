@@ -787,13 +787,13 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
     /* FIXME : this should work out to just a 1 byte write, but let's make
      * it more clear that this is atomic! */
     if (opnd_get_pc(instr_get_target(&instr)) != target) {
-        DEBUG_DECLARE(byte *nxt_pc;)
+        byte *nxt_pc;
         LOG(THREAD, LOG_SYSCALLS, 3,
             "\tmodifying target of syscall jmp to "PFX"\n", target);
         instr_set_target(&instr, opnd_create_pc(target));
-        DEBUG_DECLARE(nxt_pc = )
-            instr_encode(dcontext, &instr, skip_pc);
+        nxt_pc = instr_encode(dcontext, &instr, skip_pc);
         ASSERT(nxt_pc != NULL && nxt_pc == cti_pc);
+        machine_cache_sync(skip_pc, nxt_pc, true);
     } else {
         LOG(THREAD, LOG_SYSCALLS, 3,
             "\ttarget of syscall jmp is already "PFX"\n", target);
