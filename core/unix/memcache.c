@@ -342,9 +342,9 @@ memcache_remove(app_pc start, app_pc end)
     bool ok;
     DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext());
     ok = vmvector_remove(all_memory_areas, start, end);
-    ASSERT(ok);
     LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 3,
-        "remove_from_all_memory_areas: removed: "PFX"-"PFX"\n", start, end);
+        "remove_from_all_memory_areas: %s: "PFX"-"PFX"\n",
+        ok ? "removed" : "not found", start, end);
     return ok;
 }
 
