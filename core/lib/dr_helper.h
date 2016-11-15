@@ -58,6 +58,10 @@ ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 # endif
 #endif
 
+#ifdef AARCH64
+void cache_sync_asm(void *beg, void *end);
+#endif
+
 void dr_fpu_exception_init(void);
 
 #ifdef X86

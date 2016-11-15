@@ -324,7 +324,7 @@ int code_self_mod(int iters);
 int code_inc(int foo);
 int code_dec(int foo);
 int dummy(void);
-#ifdef ARM
+#ifdef AARCHXX
 void flush_icache(byte *start, byte *end);
 #endif
 
@@ -450,7 +450,7 @@ copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet f
         len = buf_len;
     }
     memcpy(buf, start, len);
-#if defined(LINUX) && defined(ARM)
+#if defined(LINUX) && defined(AARCHXX)
     flush_icache((byte *)buf, (byte *)buf + len);
 #endif
     if (copied_len != NULL)

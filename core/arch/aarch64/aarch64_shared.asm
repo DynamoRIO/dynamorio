@@ -73,4 +73,44 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+/* CTR_EL0 [19:16] : Log2 of number of words in smallest dcache line
+ * CTR_EL0 [3:0]   : Log2 of number of words in smallest icache line
+ *
+ * PoC = Point of Coherency
+ * PoU = Point of Unification
+ *
+ * void cache_sync_asm(void *beg, void *end);
+ *
+ * FIXME i#1569: The values read from CTR_EL0 should be cached as
+ * MRS Xt, CTR_EL0 may be emulated by kernel. This function could
+ * be implemented in C with inline assembly.
+ */
+        DECLARE_FUNC(cache_sync_asm)
+GLOBAL_LABEL(cache_sync_asm:)
+        mrs      x3, ctr_el0
+        mov      w4, #4
+        ubfx     w2, w3, #16, #4
+        lsl      w2, w4, w2 /* bytes in dcache line */
+        and      w3, w3, #15
+        lsl      w3, w4, w3 /* bytes in icache line */
+        sub      w4, w2, #1
+        bic      x4, x0, x4 /* aligned beg */
+        b        2f
+1:      dc       cvau, x4 /* Data Cache Clean by VA to PoU */
+        add      x4, x4, x2
+2:      cmp      x4, x1
+        b.cc     1b
+        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
+        sub      w4, w3, #1
+        bic      x4, x0, x4 /* aligned beg */
+        b        4f
+3:      ic       ivau, x4 /* Instruction Cache Invalidate by VA to PoU */
+        add      x4, x4, x3
+4:      cmp      x4, x1
+        b.cc     3b
+        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
+        isb      /* Instruction Synchronization Barrier */
+        ret
+        END_FUNC(cache_sync_asm)
+
 END_FILE

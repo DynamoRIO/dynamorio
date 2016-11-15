@@ -663,7 +663,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         END_FUNC(FUNCNAME)
 
-#ifdef ARM
+#ifdef AARCHXX
     /* gcc's __clear_cache is not easily usable: no header, need lib; so we just
      * roll our own.
      */
@@ -671,6 +671,7 @@ GLOBAL_LABEL(FUNCNAME:)
 # define FUNCNAME flush_icache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+# ifndef X64
         push     {r7}
         mov      r2, #0       /* flags: must be 0 */
         movw     r7, #0x0002  /* SYS_cacheflush bottom half */
@@ -678,6 +679,9 @@ GLOBAL_LABEL(FUNCNAME:)
         svc      #0           /* flush icache */
         pop      {r7}
         bx       lr
+# else
+        b        cache_sync_asm
+# endif
         END_FUNC(FUNCNAME)
 #endif
 
