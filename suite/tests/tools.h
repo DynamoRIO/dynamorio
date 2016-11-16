@@ -325,7 +325,7 @@ int code_inc(int foo);
 int code_dec(int foo);
 int dummy(void);
 #ifdef AARCHXX
-void flush_icache(byte *start, byte *end);
+void tools_clear_icache(void *start, void *end);
 #endif
 
 /* This function implements a trampoline that portably gets its return address
@@ -451,7 +451,7 @@ copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet f
     }
     memcpy(buf, start, len);
 #if defined(LINUX) && defined(AARCHXX)
-    flush_icache((byte *)buf, (byte *)buf + len);
+    tools_clear_icache(buf, buf + len);
 #endif
     if (copied_len != NULL)
         *copied_len = len;

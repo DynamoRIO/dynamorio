@@ -668,7 +668,7 @@ GLOBAL_LABEL(FUNCNAME:)
      * roll our own.
      */
 # undef FUNCNAME
-# define FUNCNAME flush_icache
+# define FUNCNAME tools_clear_icache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # ifndef X64
@@ -680,7 +680,7 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      {r7}
         bx       lr
 # else
-        b        cache_sync_asm
+        b        clear_icache
 # endif
         END_FUNC(FUNCNAME)
 #endif

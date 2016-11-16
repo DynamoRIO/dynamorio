@@ -1185,10 +1185,6 @@ void dr_fxsave32(byte *buf_aligned);
 void dr_fxrstor32(byte *buf_aligned);
 #endif
 
-#ifdef AARCH64
-void cache_sync_asm(void *beg, void *end);
-#endif
-
 /* Keep in synch with x86.asm.  This is the difference between the SP saved in
  * the mcontext and the SP of the caller of dr_app_start() and
  * dynamorio_app_take_over().

@@ -44,3 +44,52 @@ internal_error(const char *file, int line, const char *expr)
 {
     /* do nothing by default */
 }
+
+#ifdef AARCH64
+void
+clear_icache(void *beg, void *end)
+{
+    static uint cache_info = 0;
+    size_t dcache_line_size;
+    size_t icache_line_size;
+    ptr_uint_t beg_uint = (ptr_uint_t)beg;
+    ptr_uint_t end_uint = (ptr_uint_t)end;
+    ptr_uint_t addr;
+
+    if (beg_uint >= end_uint)
+        return;
+
+    /* "Cache Type Register" contains:
+     * CTR_EL0 [31]    : 1
+     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
+     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
+     */
+    if (cache_info == 0)
+        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
+    dcache_line_size = 4 << (cache_info >> 16 & 0xf);
+    icache_line_size = 4 << (cache_info & 0xf);
+
+    /* Flush data cache to point of unification, one line at a time. */
+    addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
+    do {
+        __asm__ __volatile__("dc cvau, %0" : : "r"(addr) : "memory");
+        addr += dcache_line_size;
+    } while (addr != ALIGN_FORWARD(end_uint, dcache_line_size));
+
+    /* Data Synchronization Barrier */
+    __asm__ __volatile__("dsb ish" : : : "memory");
+
+    /* Invalidate instruction cache to point of unification, one line at a time. */
+    addr = ALIGN_BACKWARD(beg_uint, icache_line_size);
+    do {
+        __asm__ __volatile__("ic ivau, %0" : : "r"(addr) : "memory");
+        addr += icache_line_size;
+    } while (addr != ALIGN_FORWARD(end_uint, icache_line_size));
+
+    /* Data Synchronization Barrier */
+    __asm__ __volatile__("dsb ish" : : : "memory");
+
+    /* Instruction Synchronization Barrier */
+    __asm__ __volatile__("isb" : : : "memory");
+}
+#endif
