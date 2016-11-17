@@ -512,10 +512,12 @@ extern bool    dr_api_entry;
 extern bool    dr_api_exit;
 
 /* in dynamo.c */
-/* 9-bit addressed hash table takes up 2K, has capacity of 512
- * we never resize, assuming won't be seeing more than a few hundred threads
+/* 12-bit addressed hash table takes up 16K, has capacity of 4096.
+ * XXX: We currently never resize, assuming won't be seeing more than
+ * a few thousand threads: it should be simple to swap for a resizing
+ * table using generic_table_t though.
  */
-#define ALL_THREADS_HASH_BITS 9
+#define ALL_THREADS_HASH_BITS 12
 extern thread_record_t **all_threads;
 extern mutex_t all_threads_lock;
 DYNAMORIO_EXPORT int dynamorio_app_init(void);
