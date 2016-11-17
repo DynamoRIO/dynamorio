@@ -5900,6 +5900,13 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
 
     /* This alarm could have interrupted an app thread making an itimer syscall */
     if (info->shared_itimer) {
+#ifdef DEADLOCK_AVOIDANCE
+        /* i#2061: in debug build we can get an alarm while in deadlock handling
+         * code that holds innermost_lock.  We just drop such alarms.
+         */
+        if (OWN_MUTEX(&innermost_lock))
+            return pass_to_app;
+#endif
         if (self_owns_recursive_lock(info->shared_itimer_lock)) {
             /* What can we do?  We just go ahead and hope conflicting writes work out.
              * We don't re-acquire in case app was in middle of acquiring.
