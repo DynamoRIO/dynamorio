@@ -324,7 +324,7 @@ typedef enum {
 # define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_XMM_REGS  NUM_XMM_SAVED
+#define NUM_SIMD_REGS NUM_SIMD_SAVED
 #define NUM_GP_REGS   DR_NUM_GPR_REGS
 
 /* Information about each individual clean call invocation site.
@@ -340,7 +340,7 @@ typedef struct _clean_call_info_t {
     bool skip_save_aflags;
     bool skip_clear_eflags;
     uint num_xmms_skip;
-    bool xmm_skip[NUM_XMM_REGS];
+    bool xmm_skip[NUM_SIMD_REGS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
@@ -1253,7 +1253,7 @@ typedef struct _callee_info_t {
     app_pc bwd_tgt;           /* earliest backward branch target */
     app_pc fwd_tgt;           /* last forward branch target */
     int num_xmms_used;        /* number of xmms used by callee */
-    bool xmm_used[NUM_XMM_REGS];  /* xmm/ymm registers usage */
+    bool xmm_used[NUM_SIMD_REGS]; /* xmm/ymm registers usage */
     bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
     int num_callee_save_regs; /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */

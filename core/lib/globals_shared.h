@@ -1789,7 +1789,7 @@ typedef union _dr_ymm_t {
     reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
 
-#ifdef AARCHXX
+#if defined(AARCHXX)
 /**
  * 128-bit ARM SIMD Vn register.
  * In AArch64, align to 16 bytes for better performance.
@@ -1818,28 +1818,38 @@ typedef union _dr_simd_t {
 #  define NUM_SIMD_SLOTS 16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
 # endif
 # define PRE_SIMD_PADDING 0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
-#endif /* ARM */
 
-#ifdef AVOID_API_EXPORT
+#elif defined(X86)
+
+# ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update NUM_XMM_SLOTS in x86.asm and get_xmm_caller_saved.
+ * Also, update NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
  * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
  */
-#endif
-#ifdef X64
-# ifdef WINDOWS
-#  define NUM_XMM_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-5*/
-# else
-#  define NUM_XMM_SLOTS 16 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-15*/
 # endif
-# define PRE_XMM_PADDING 16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+# ifdef X64
+#  ifdef WINDOWS
+    /*xmm0-5*/
+#   define NUM_SIMD_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#  else
+    /*xmm0-15*/
+#   define NUM_SIMD_SLOTS 16 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#  endif
+#  define PRE_XMM_PADDING 16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+# else
+   /*xmm0-7*/
+#  define NUM_SIMD_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#  define PRE_XMM_PADDING 24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+# endif
+
+# define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
+
 #else
-# define NUM_XMM_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-7*/
-# define PRE_XMM_PADDING 24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
-#endif
+# error NYI
+#endif /* AARCHXX/X86 */
 
 /** Values for the flags field of dr_mcontext_t */
 typedef enum {
@@ -1910,10 +1920,10 @@ typedef struct _priv_mcontext_t {
  * have noticable impacts, i.e. pushing bbs over the max size limit,
  * and could have a noticeable performance hit.
  */
-/* We now save everything but we keep separate NUM_XMM_SLOTS vs NUM_XMM_SAVED
+/* We now save everything but we keep separate NUM_SIMD_SLOTS vs NUM_SIMD_SAVED
  * in case we go back to not saving some slots in the future: e.g., w/o
  * CLIENT_INTERFACE we could control our own libs enough to avoid some saves.
  */
-#define NUM_XMM_SAVED NUM_XMM_SLOTS
+#define NUM_SIMD_SAVED NUM_SIMD_SLOTS
 
 #endif /* ifndef _GLOBALS_SHARED_H_ */

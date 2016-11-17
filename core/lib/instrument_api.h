@@ -5347,7 +5347,7 @@ DR_API
  * multimedia registers incurs a higher performance cost.  An invalid
  * flags value will return false.
  *
- * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in,
+ * \note NUM_SIMD_SLOTS in the dr_mcontext_t.xmm array are filled in,
  * but only if dr_mcontext_xmm_fields_valid() returns true and
  * DR_MC_MULTIMEDIA is set in the flags field.
  *

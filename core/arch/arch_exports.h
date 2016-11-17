@@ -59,12 +59,12 @@
 # define XMM_REG_SIZE  16
 # define YMM_REG_SIZE  32
 # define XMM_SAVED_REG_SIZE  YMM_REG_SIZE /* space in priv_mcontext_t for xmm/ymm */
-# define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_SAVED_REG_SIZE)
-# define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_SAVED_REG_SIZE)
+# define XMM_SLOTS_SIZE  (NUM_SIMD_SLOTS*XMM_SAVED_REG_SIZE)
+# define XMM_SAVED_SIZE  (NUM_SIMD_SAVED*XMM_SAVED_REG_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 # define YMM_ENABLED() (proc_avx_enabled())
 # define YMMH_REG_SIZE (YMM_REG_SIZE/2) /* upper half */
-# define YMMH_SAVED_SIZE (NUM_XMM_SLOTS*YMMH_REG_SIZE)
+# define YMMH_SAVED_SIZE (NUM_SIMD_SLOTS*YMMH_REG_SIZE)
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */

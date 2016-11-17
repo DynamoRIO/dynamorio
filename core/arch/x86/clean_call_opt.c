@@ -80,8 +80,8 @@ callee_info_init(callee_info_t *ci)
      * but then later in analyze_callee_regs_usage, we have to use the loop.
      */
     /* assuming all xmm registers are used */
-    ci->num_xmms_used = NUM_XMM_REGS;
-    for (i = 0; i < NUM_XMM_REGS; i++)
+    ci->num_xmms_used = NUM_SIMD_REGS;
+    for (i = 0; i < NUM_SIMD_REGS; i++)
         ci->xmm_used[i] = true;
     for (i = 0; i < NUM_GP_REGS; i++)
         ci->reg_used[i] = true;
@@ -453,7 +453,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     uint i, num_regparm;
 
     ci->num_xmms_used = 0;
-    memset(ci->xmm_used, 0, sizeof(bool) * NUM_XMM_REGS);
+    memset(ci->xmm_used, 0, sizeof(bool) * NUM_SIMD_REGS);
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
     ci->write_aflags = false;
     for (instr  = instrlist_first(ilist);
@@ -466,7 +466,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          * impact unless there are a lot of different clean call callees.
          */
         /* XMM registers usage */
-        for (i = 0; i < NUM_XMM_REGS; i++) {
+        for (i = 0; i < NUM_SIMD_REGS; i++) {
             if (!ci->xmm_used[i] &&
                 instr_uses_reg(instr, (DR_REG_XMM0 + (reg_id_t)i))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
@@ -1060,7 +1060,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
     callee_info_t *info = cci->callee_info;
 
     /* 1. xmm registers */
-    for (i = 0; i < NUM_XMM_REGS; i++) {
+    for (i = 0; i < NUM_SIMD_REGS; i++) {
         if (info->xmm_used[i]) {
             cci->xmm_skip[i] = false;
         } else {
@@ -1071,7 +1071,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_xmms_skip++;
         }
     }
-    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_xmms_skip != NUM_XMM_REGS)
+    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_xmms_skip != NUM_SIMD_REGS)
         cci->should_align = false;
     /* 2. general purpose registers */
     /* set regs not to be saved for clean call */
@@ -1213,7 +1213,7 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
                 }
             }
         }
-        if (cci->num_xmms_skip == NUM_XMM_REGS) {
+        if (cci->num_xmms_skip == NUM_SIMD_REGS) {
             STATS_INC(cleancall_xmm_skipped);
         }
         if (cci->skip_save_aflags) {
@@ -1306,7 +1306,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
 
     /* Save used registers. */
-    ASSERT(cci->num_xmms_skip == NUM_XMM_REGS);
+    ASSERT(cci->num_xmms_skip == NUM_SIMD_REGS);
     for (i = 0; i < NUM_GP_REGS; i++) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;

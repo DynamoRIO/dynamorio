@@ -202,7 +202,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #endif
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
+    if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_SIMD_REGS) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
     }
     /* FIXME i#1551: once we have cci->num_xmms_skip, skip this if possible */

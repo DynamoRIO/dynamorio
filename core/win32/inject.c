@@ -246,7 +246,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
             IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
-            for (i = 0; i < NUM_XMM_SLOTS; i++) {
+            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
                 for (j = 0; j < IF_X64_ELSE(2,4); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }

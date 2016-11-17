@@ -244,5 +244,5 @@
      * DrMi#665: we now preserve all of the xmm registers.
      */
 # endif
-    dr_ymm_t ymm[NUM_XMM_SLOTS];
+    dr_ymm_t ymm[NUM_SIMD_SLOTS];
 #endif /* ARM/X86 */

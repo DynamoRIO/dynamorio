@@ -3379,7 +3379,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #ifdef X86
     if (preserve_xmm_caller_saved()) {
         int i, j;
-        for (i=0; i<NUM_XMM_SAVED; i++) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
             if (YMM_ENABLED()) {
                 print_file(f, dump_xml ? "\t\tymm%d= \"0x" : "\tymm%d= 0x", i);
                 for (j = 0; j < 8; j++) {

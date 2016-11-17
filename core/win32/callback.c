@@ -4513,7 +4513,7 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
         TESTALL(CONTEXT_XMM_FLAG, context->ContextFlags)) {
         int i, j;
         byte *ymmh_area;
-        for (i=0; i<NUM_XMM_SAVED; i++) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
             LOG(file, LOG_ASYNCH, 2, "xmm%d=0x", i);
             /* This would be simpler if we had uint64 fields in dr_xmm_t but
              * that complicates our struct layouts */
