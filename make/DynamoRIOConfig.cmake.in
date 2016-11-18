@@ -1011,7 +1011,11 @@ function (configure_DynamoRIO_static target)
   endif ()
 
   target_link_libraries(${target} dynamorio_static)
-
+  if (UNIX)
+    # i#2070: avoid pulling libdynamorio.so
+    # Assuming LINK_FLAGS goes before target_link_libraries.
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--as-needed")
+  endif ()
 endfunction (configure_DynamoRIO_static)
 
 function (use_DynamoRIO_static_client target client)
