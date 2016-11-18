@@ -343,4 +343,10 @@ bool
 create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
                             client_id_t client_id, uint64 client_arg);
 
+#ifdef X86
+/* In x86.asm */
+void *safe_read_tls_base(void);
+void *safe_read_tls_recover(void);
+#endif
+
 #endif /* _OS_PRIVATE_H_ */

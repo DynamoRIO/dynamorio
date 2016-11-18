@@ -745,11 +745,12 @@ signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
         handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
     memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
     memset(&info->restorer_valid, -1, SIGARRAY_SIZE * sizeof(info->restorer_valid[0]));
-    info->we_intercept = (bool *) handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
+    info->we_intercept = (bool *)
+        handler_alloc(dcontext, SIGARRAY_SIZE * sizeof(bool));
     memset(info->we_intercept, 0, SIGARRAY_SIZE * sizeof(bool));
 }
 
-/* Cleans up info's app_sigaction, restorer_valid, and we_intercept fields */
+/* Cleans up info's app_sigaction and we_intercept entries */
 static void
 signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
                            bool other_thread)
@@ -4143,6 +4144,18 @@ master_signal_handler_C(byte *xsp)
      */
     if (sc->__ss.__fs != 0)
         tls_reinstate_selector(sc->__ss.__fs);
+#endif
+#ifdef X86
+    /* i#2089: For is_thread_tls_initialized() we need a safe_read path that does not
+     * do any logging or call get_thread_private_dcontext() as those will recurse.
+     * This path is global so there's no SELF_PROTECT_LOCAL and we also bypass
+     * the ENTERING_DR() for this short path.
+     */
+    if (sig == SIGSEGV && sc->SC_XIP == (ptr_uint_t)safe_read_tls_base) {
+        sc->SC_RETURN_REG = 0;
+        sc->SC_XIP = (reg_t) safe_read_tls_recover;
+        return;
+    }
 #endif
     dcontext_t *dcontext = get_thread_private_dcontext();
 

@@ -217,7 +217,9 @@ typedef struct _os_local_state_t {
     /* put state first to ensure that it is cache-line-aligned */
     /* On Linux, we always use the extended structure. */
     local_state_extended_t state;
-    /* linear address of tls page */
+    /* Linear address of tls page.
+     * XXX: keep the offset of this consistent with TLS_SELF_OFFSET_ASM in x86.asm.
+     */
     struct _os_local_state_t *self;
     /* store what type of TLS this is so we can clean up properly */
     tls_type_t tls_type;

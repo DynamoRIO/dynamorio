@@ -69,6 +69,7 @@
 START_FILE
 
 #ifdef UNIX
+# include "os_asm_defines.asm"
 # ifdef LINUX
 #  include "include/syscall.h"
 # else
@@ -2328,11 +2329,27 @@ GLOBAL_LABEL(safe_read_asm:)
         /* Copy xdx bytes, align on src. */
         REP_STRING_OP(safe_read_asm, REG_XSI, movs)
 ADDRTAKEN_LABEL(safe_read_asm_recover:)
-        mov     REG_XAX, REG_XSI        /* Return cur_src */
+        mov      REG_XAX, REG_XSI        /* Return cur_src */
         RESTORE_XDI_XSI()
         ret
         END_FUNC(safe_read_asm)
 
+#ifdef UNIX
+DECLARE_GLOBAL(safe_read_tls_base)
+DECLARE_GLOBAL(safe_read_tls_recover)
+
+        DECLARE_FUNC(safe_read_tls_base)
+GLOBAL_LABEL(safe_read_tls_base:)
+        /* gas won't accept SEG_TLS: in the memref so we have to fool it by
+         * using it as a prefix:
+         */
+        SEG_TLS
+        mov      REG_XAX, PTRSZ [TLS_SELF_OFFSET_ASM]
+ADDRTAKEN_LABEL(safe_read_tls_recover:)
+        /* our signal handler sets xax to 0 for us on a fault */
+        ret
+        END_FUNC(safe_read_tls_base)
+#endif
 
 #ifdef UNIX
 /* Replacement for _dl_runtime_resolve() used for catching module transitions

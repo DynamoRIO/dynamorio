@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -109,6 +109,7 @@ typedef struct sigcontext sigcontext_t;
 # endif /* 64/32-bit */
 # define SC_FP SC_XBP
 # define SC_SYSNUM_REG SC_XAX
+# define SC_RETURN_REG SC_XAX
 #elif defined(AARCH64)
    /* FIXME i#1569: NYI */
 # define SC_XIP SC_FIELD(pc)
@@ -139,6 +140,7 @@ typedef struct sigcontext sigcontext_t;
 # define SC_LR  SC_FIELD(arm_lr)
 # define SC_XFLAGS SC_FIELD(arm_cpsr)
 # define SC_SYSNUM_REG SC_R7
+# define SC_RETURN_REG SC_R0
 #endif /* X86/ARM */
 
 #endif /* _OS_PUBLIC_H_ 1 */

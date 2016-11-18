@@ -115,6 +115,10 @@ struct compat_rlimit {
 # include "module_private.h" /* for ELF_AUXV_TYPE and AT_PAGESZ */
 #endif
 
+#if defined(X86) && defined(DEBUG)
+# include "os_asm_defines.asm" /* for TLS_SELF_OFFSET_ASM */
+#endif
+
 #ifndef F_DUPFD_CLOEXEC /* in linux 2.6.24+ */
 # define F_DUPFD_CLOEXEC 1030
 #endif
@@ -234,6 +238,9 @@ char **our_environ;
 /* Guards data written by os_set_app_thread_area(). */
 DECLARE_CXTSWPROT_VAR(static mutex_t set_thread_area_lock,
                       INIT_LOCK_FREE(set_thread_area_lock));
+
+static bool first_thread_tls_initialized;
+static bool last_thread_tls_exited;
 
 tls_type_t tls_global_type;
 
@@ -1400,42 +1407,73 @@ os_timeout(int time_in_milliseconds)
 } while (0)
 #endif /* X86/ARM */
 
-/* FIXME: on X86, we assume that DR's thread register is not already in use by app */
 static bool
 is_thread_tls_initialized(void)
 {
 #ifdef X86
-    os_local_state_t *os_tls = NULL;
-    ptr_uint_t cur_seg = read_thread_register(SEG_TLS);
-    /* Handle WSL (i#1986) where fs and gs start out equal to ss (0x2b) */
-    if (cur_seg != 0 && cur_seg != read_thread_register(SEG_SS)) {
-        /* XXX: make this a safe read: but w/o dcontext we need special asm support */
-        READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
-    }
-# ifdef X64
-    if (os_tls == NULL && tls_dr_using_msr()) {
-        /* When the MSR is used, the selector in the register remains 0.
-         * We can't clear the MSR early in a new thread and then look for
-         * a zero base here b/c if kernel decides to use GDT that zeroing
-         * will set the selector, unless we want to assume we know when
-         * the kernel uses the GDT.
-         * Instead we make a syscall to get the tid.  This should be ok
-         * perf-wise b/c the common case is the non-zero above.
+    if (INTERNAL_OPTION(safe_read_tls_init)) {
+        os_local_state_t *os_tls;
+        /* Avoid faults during early init or during exit when we have no handler.
+         * It's not worth extending the handler as the faults are a perf hit anyway.
          */
-        byte *base = tls_get_fs_gs_segment_base(SEG_TLS);
-        ASSERT(tls_global_type == TLS_TYPE_ARCH_PRCTL);
-        if (base != (byte *) POINTER_MAX && base != NULL) {
-            os_tls = (os_local_state_t *) base;
+        if (!first_thread_tls_initialized || last_thread_tls_exited)
+            return false;
+        /* To handle WSL (i#1986) where fs and gs start out equal to ss (0x2b),
+         * and when the MSR is used having a zero selector, and other complexities,
+         * we just do a blind safe read as the simplest solution once we're past
+         * initial init and have a fault handler.
+         */
+        os_tls = (os_local_state_t *) safe_read_tls_base();
+        if (os_tls != NULL) {
+            thread_id_t tid;
+            size_t size;
+            if (!safe_read_fast(&os_tls->tid, sizeof(tid), &tid, &size) ||
+                size != sizeof(tid))
+                return false;
+            return (tid == get_sys_thread_id() ||
+                    /* We assume we can safely de-ref the dcontext now */
+                    /* The child of a fork will initially come here */
+                    os_tls->state.spill_space.dcontext->owning_process ==
+                    get_parent_id());
+        } else
+            return false;
+    } else {
+        /* XXX i#2089: we're keeping this legacy code around until
+         * we're confident that the safe read code above is safer, more
+         * performant, and more robust.
+         */
+        os_local_state_t *os_tls = NULL;
+        ptr_uint_t cur_seg = read_thread_register(SEG_TLS);
+        /* Handle WSL (i#1986) where fs and gs start out equal to ss (0x2b) */
+        if (cur_seg != 0 && cur_seg != read_thread_register(SEG_SS)) {
+            /* XXX: make this a safe read: but w/o dcontext we need special asm support */
+            READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
         }
-    }
+# ifdef X64
+        if (os_tls == NULL && tls_dr_using_msr()) {
+            /* When the MSR is used, the selector in the register remains 0.
+             * We can't clear the MSR early in a new thread and then look for
+             * a zero base here b/c if kernel decides to use GDT that zeroing
+             * will set the selector, unless we want to assume we know when
+             * the kernel uses the GDT.
+             * Instead we make a syscall to get the tid.  This should be ok
+             * perf-wise b/c the common case is the non-zero above.
+             */
+            byte *base = tls_get_fs_gs_segment_base(SEG_TLS);
+            ASSERT(tls_global_type == TLS_TYPE_ARCH_PRCTL);
+            if (base != (byte *) POINTER_MAX && base != NULL) {
+                os_tls = (os_local_state_t *) base;
+            }
+        }
 # endif
-    if (os_tls != NULL) {
-        return (os_tls->tid == get_sys_thread_id() ||
-                /* The child of a fork will initially come here */
-                os_tls->state.spill_space.dcontext->owning_process ==
-                get_parent_id());
-    } else
-        return false;
+        if (os_tls != NULL) {
+            return (os_tls->tid == get_sys_thread_id() ||
+                    /* The child of a fork will initially come here */
+                    os_tls->state.spill_space.dcontext->owning_process ==
+                    get_parent_id());
+        } else
+            return false;
+    }
 #elif defined(AARCHXX)
     byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
@@ -1802,6 +1840,9 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 void
 os_tls_init(void)
 {
+#ifdef X86
+    ASSERT(TLS_SELF_OFFSET_ASM == TLS_SELF_OFFSET);
+#endif
 #ifdef HAVE_TLS
     /* We create a 1-page segment with an LDT entry for each thread and load its
      * selector into fs/gs.
@@ -1847,6 +1888,8 @@ os_tls_init(void)
         global_heap_alloc(MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     memset(tls_table, 0, MAX_THREADS*sizeof(tls_slot_t));
 #endif
+    if (!first_thread_tls_initialized)
+        first_thread_tls_initialized = true;
     ASSERT(is_thread_tls_initialized());
 }
 
@@ -1874,6 +1917,8 @@ os_tls_thread_exit(local_state_t *local_state)
         }
     }
 # endif
+    if (dynamo_exited && !last_thread_tls_exited)
+        last_thread_tls_exited = true;
 #endif
 }
 
