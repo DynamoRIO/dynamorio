@@ -131,13 +131,15 @@ else ()
             OUTPUT_VARIABLE git_out)
         endif ()
         if (git_result OR git_err)
-          message(FATAL_ERROR "*** ${GIT} remote -v failed: ***\n${git_err}")
+          # Not a fatal error as this can happen when mixing cygwin and windows git.
+          message(STATUS "${GIT} remote -v failed: ${git_err}")
+          set(git_out OFF)
         endif (git_result OR git_err)
         if (NOT git_out)
           # No remotes set up: we assume this is a custom git setup that
           # is only likely to get used on our buildbots, so we skip
           # the diff checks.
-          message("No remotes set up so cannot diff and must skip content checks.  Assuming this is a buildbot.")
+          message(STATUS "No remotes set up so cannot diff and must skip content checks.  Assuming this is a buildbot.")
           set(diff_contents "")
         else ()
           message(FATAL_ERROR "*** Unable to retrieve diff for content checks: do you have a custom remote setup?")
