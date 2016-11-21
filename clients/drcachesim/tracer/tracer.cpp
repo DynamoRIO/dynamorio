@@ -805,8 +805,12 @@ init_offline_dir(void)
     return (module_file != INVALID_FILE);
 }
 
+/* We export drmemtrace_client_main so that a global dr_client_main can initialize
+ * drmemtrace client by calling drmemtrace_client_main in a statically linked
+ * multi-client executable.
+ */
 DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
+drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
     drreg_options_t ops = {sizeof(ops), 3, false};
@@ -914,4 +918,17 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         if (!have_phys)
             NOTIFY(0, "Unable to open pagemap: using virtual addresses.\n");
     }
+}
+
+/* To support statically linked multiple clients, we add drmemtrace_client_main
+ * as the real client init function and make dr_client_main a weak symbol.
+ * We could also use alias to link dr_client_main to drmemtrace_client_main.
+ * A simple call won't add too much overhead, and works both in Windows and Linux.
+ * To automate the process and minimize the code change, we should investigate the
+ * approach that uses command-line link option to alias two symbols.
+ */
+DR_EXPORT WEAK void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    drmemtrace_client_main(id, argc, argv);
 }
