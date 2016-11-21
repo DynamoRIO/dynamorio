@@ -367,10 +367,9 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
     PRE(ilist, where, INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg_base),
                                        opnd_create_reg(DR_REG_TPIDR_EL0)));
     /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
-    PRE(ilist, where, INSTR_CREATE_xx(dcontext, 0xf9400000 |
-                                      (dr_reg_stolen - DR_REG_X0) |
-                                      (reg_base - DR_REG_X0) << 5 |
-                                      DR_TLS_BASE_OFFSET >> 3 << 10));
+    PRE(ilist, where,
+        XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
+                          OPND_CREATE_MEMPTR(reg_base, DR_TLS_BASE_OFFSET)));
 }
 
 /* Having only one thread register (TPIDR_EL0) shared between app and DR,
@@ -428,12 +427,17 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     int i;
     /* add x1, x(dcxt), #(off) */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0x91000000 | 1 |
-                               (REG_DCXT - DR_REG_X0) << 5 |
-                               offsetof(priv_mcontext_t, simd) << 10));
-    for (i = 0; i < 32; i += 4) {
-        /* ld1 {v(i).2d-v(i + 3).2d}, [x1], #64 */
-        APP(ilist, INSTR_CREATE_xx(dcontext, 0x4cdf2c20 + i));
+    APP(ilist,
+        XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_X1),
+                              opnd_create_reg(REG_DCXT),
+                              OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
+    for (i = 0; i < 32; i += 2) {
+        /* ldp q(i), q(i + 1), [x1, #(i * 16)] */
+        APP(ilist, INSTR_CREATE_ldp(dcontext,
+                                    opnd_create_reg(DR_REG_Q0 + i),
+                                    opnd_create_reg(DR_REG_Q0 + i + 1),
+                                    opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0,
+                                                          i * 16, OPSZ_32)));
     }
 }
 
@@ -460,27 +464,33 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 
     i = (REG_DCXT == DR_REG_X0);
     /* ldp x30, x(i), [x(dcxt), #x30_offset] */
-    APP(ilist, INSTR_CREATE_xx(dcontext,
-                               0xa9400000 | 30 | i << 10 |
-                               (REG_DCXT - DR_REG_X0) << 5 |
-                               REG_OFFSET(DR_REG_X30) >> 3 << 15));
+    APP(ilist, INSTR_CREATE_ldp(dcontext,
+                                opnd_create_reg(DR_REG_X30),
+                                opnd_create_reg(DR_REG_X0 + i),
+                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                      REG_OFFSET(DR_REG_X30), OPSZ_16)));
     /* mov sp, x(i) */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0x9100001f | i << 5));
+    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_SP),
+                                 opnd_create_reg(DR_REG_X0 + i)));
     for (i = 0; i < 30; i += 2) {
         if ((REG_DCXT - DR_REG_X0) >> 1 != i >> 1) {
             /* ldp x(i), x(i+1), [x(dcxt), #xi_offset] */
-            APP(ilist, INSTR_CREATE_xx(dcontext,
-                                       0xa9400000 | i | (i + 1) << 10 |
-                                       (REG_DCXT - DR_REG_X0) << 5 |
-                                       REG_OFFSET(DR_REG_X0 + i) >> 3 << 15));
+            APP(ilist, INSTR_CREATE_ldp(dcontext,
+                                        opnd_create_reg(DR_REG_X0 + i),
+                                        opnd_create_reg(DR_REG_X0 + i + 1),
+                                        opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                              REG_OFFSET(DR_REG_X0 + i),
+                                                              OPSZ_16)));
         }
     }
     i = (REG_DCXT - DR_REG_X0) & ~1;
     /* ldp x(i), x(i+1), [x(dcxt), #xi_offset] */
-    APP(ilist, INSTR_CREATE_xx(dcontext,
-                               0xa9400000 | i | (i + 1) << 10 |
-                               (REG_DCXT - DR_REG_X0) << 5 |
-                               REG_OFFSET(DR_REG_X0 + i) >> 3 << 15));
+    APP(ilist, INSTR_CREATE_ldp(dcontext,
+                                opnd_create_reg(DR_REG_X0 + i),
+                                opnd_create_reg(DR_REG_X0 + i + 1),
+                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                      REG_OFFSET(DR_REG_X0 + i),
+                                                      OPSZ_16)));
 }
 
 /* Append instructions to save gpr on fcache return, called after
@@ -506,26 +516,34 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
      */
     for (i = 2; i < 30; i += 2) {
         /* stp x(i), x(i+1), [x(dcxt), #xi_offset] */
-        APP(ilist, INSTR_CREATE_xx(dcontext,
-                                   0xa9000000 | i | (i + 1) << 10 |
-                                   (REG_DCXT - DR_REG_X0) << 5 |
-                                   REG_OFFSET(DR_REG_X0 + i) >> 3 << 15));
+        APP(ilist, INSTR_CREATE_stp(dcontext,
+                                    opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                          REG_OFFSET(DR_REG_X0 + i),
+                                                          OPSZ_16),
+                                    opnd_create_reg(DR_REG_X0 + i),
+                                    opnd_create_reg(DR_REG_X0 + i + 1)));
     }
     /* mov x1, sp */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0x910003e0 | 1));
+    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X1),
+                                 opnd_create_reg(DR_REG_SP)));
     /* stp x30, x1, [x(dcxt), #x30_offset] */
-    APP(ilist, INSTR_CREATE_xx(dcontext,
-                               0xa9000000 | 30 | 1 << 10 |
-                               (REG_DCXT - DR_REG_X0) << 5 |
-                               REG_OFFSET(DR_REG_X30) >> 3 << 15));
+    APP(ilist, INSTR_CREATE_stp(dcontext,
+                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                      REG_OFFSET(DR_REG_X30), OPSZ_16),
+                                opnd_create_reg(DR_REG_X30),
+                                opnd_create_reg(DR_REG_X1)));
 
     /* ldp x1, x2, [x(stolen)]
      * stp x1, x2, [x(dcxt)]
      */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xa9400000 | 1 | 2 << 10 |
-                               (dr_reg_stolen - DR_REG_X0) << 5));
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0xa9000000 | 1 | 2 << 10 |
-                               (REG_DCXT - DR_REG_X0) << 5));
+    APP(ilist, INSTR_CREATE_ldp(dcontext,
+                                opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2),
+                                opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                                      0, OPSZ_16)));
+    APP(ilist, INSTR_CREATE_stp(dcontext,
+                                opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                                      0, OPSZ_16),
+                                opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
 
     if (linkstub != NULL) {
         /* FIXME i#1575: NYI for coarse-grain stub */
@@ -552,12 +570,17 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     int i;
     /* add x1, x(DCXT), #(off) */
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0x91000000 | 1 |
-                               (REG_DCXT - DR_REG_X0) << 5 |
-                               offsetof(priv_mcontext_t, simd) << 10));
-    for (i = 0; i < 32; i += 4) {
-        /* st1 {v(i).2d-v(i + 3).2d}, [x1], #64 */
-        APP(ilist, INSTR_CREATE_xx(dcontext, 0x4c9f2c20 + i));
+    APP(ilist,
+        XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_X1),
+                              opnd_create_reg(REG_DCXT),
+                              OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
+    for (i = 0; i < 32; i += 2) {
+        /* stp q(i), q(i + 1), [x1, #(i * 16)] */
+        APP(ilist, INSTR_CREATE_stp(dcontext,
+                                    opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0,
+                                                          i * 16, OPSZ_32),
+                                    opnd_create_reg(DR_REG_Q0 + i),
+                                    opnd_create_reg(DR_REG_Q0 + i + 1)));
     }
 }
 
@@ -660,9 +683,11 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG3_SLOT));
     /* Load hash mask and base. */
     /* ldp x1, x0, [x28, hash_mask] */
-    APP(&ilist, INSTR_CREATE_xx(dc, 0xa9400000 | 1 | 0 << 10 |
-                                (dr_reg_stolen - DR_REG_X0) << 5 |
-                                TLS_MASK_SLOT(ibl_code->branch_type) >> 3 << 15));
+    APP(&ilist,
+        INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X0),
+                         opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                               TLS_MASK_SLOT(ibl_code->branch_type),
+                                               OPSZ_16)));
     /* and x1, x1, x2 */
     APP(&ilist, XINST_CREATE_and(dc, opnd_create_reg(DR_REG_X1),
                                  opnd_create_reg(DR_REG_X2)));
@@ -680,8 +705,8 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* ldr x0, [x1, #tag_fragment_offset] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
-                         OPND_CREATE_MEM64(DR_REG_X1,
-                                           offsetof(fragment_entry_t, tag_fragment))));
+                         OPND_CREATE_MEMPTR(DR_REG_X1,
+                                            offsetof(fragment_entry_t, tag_fragment))));
     /* Did we hit? */
     APP(&ilist, compare_tag);
     /* cbz x0, not_hit */
@@ -696,16 +721,17 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Hit path: load the app's original value of x0 and x1. */
     /* ldp x0, x2, [x28] */
-    APP(&ilist, INSTR_CREATE_xx(dc, 0xa9400000 | 0 | 2 << 10 |
-                                (dr_reg_stolen - DR_REG_X0) << 5 |
-                                TLS_REG0_SLOT >> 3 << 15));
+    APP(&ilist, INSTR_CREATE_ldp(dc,
+                                 opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2),
+                                 opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                                       TLS_REG0_SLOT, OPSZ_16)));
     /* Store x0 in TLS_REG1_SLOT as requied in the fragment prefix. */
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG1_SLOT));
     /* ldr x0, [x1, #start_pc_fragment_offset] */
     APP(&ilist, INSTR_CREATE_ldr
         (dc, opnd_create_reg(DR_REG_X0),
-         OPND_CREATE_MEM64(DR_REG_X1,
-                           offsetof(fragment_entry_t, start_pc_fragment))));
+         OPND_CREATE_MEMPTR(DR_REG_X1,
+                            offsetof(fragment_entry_t, start_pc_fragment))));
     /* mov x1, x2 */
     APP(&ilist, XINST_CREATE_move(dc, opnd_create_reg(DR_REG_X1),
                                   opnd_create_reg(DR_REG_X2)));
@@ -719,8 +745,12 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* Try next entry, in case of collision. No wraparound check is needed
      * because of the sentinel at the end.
      * ldr x0, [x1, #tag_fragment_offset]! */
-    APP(&ilist, INSTR_CREATE_xx(dc, 0xf8400000 | 0 | (1 << 5) | (3 << 10) |
-                                (sizeof(fragment_entry_t) << 12)));
+    APP(&ilist,
+        instr_create_2dst_3src(dc, OP_ldr, opnd_create_reg(DR_REG_X0),
+                               opnd_create_reg(DR_REG_X1),
+                               OPND_CREATE_MEMPTR(DR_REG_X1, sizeof(fragment_entry_t)),
+                               opnd_create_reg(DR_REG_X1),
+                               OPND_CREATE_INTPTR(sizeof(fragment_entry_t))));
     /* b compare_tag */
     APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(compare_tag)));
 
@@ -729,9 +759,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     if (INTERNAL_OPTION(ibl_sentinel_check)) {
         /* Load start_pc from fragment_entry_t* in the hashtable to x0. */
         /* ldr x0, [x1, #start_pc_fragment] */
-        APP(&ilist, INSTR_CREATE_xx
-            (dc, 0xf9400000 | 0 | (1 << 5) |
-             (offsetof(fragment_entry_t, start_pc_fragment)) >> 3 << 10));
+        APP(&ilist, XINST_CREATE_load(dc, opnd_create_reg(DR_REG_X0),
+                                      OPND_CREATE_MEMPTR(DR_REG_X1,
+                                                         offsetof(fragment_entry_t,
+                                                                  start_pc_fragment))));
         /* To compare with an arbitrary constant we'd need a 4th scratch reg.
          * Instead we rely on the sentinel start PC being 1.
          */
@@ -744,9 +775,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                                       opnd_create_reg(DR_REG_R0)));
         /* Point at the first table slot and then go load and compare its tag */
         /* ldr x1, [x28, #table_base] */
-        APP(&ilist, INSTR_CREATE_xx
-            (dc, 0xf9400000 | 1 | (dr_reg_stolen - DR_REG_R0) << 5 |
-             (TLS_TABLE_SLOT(ibl_code->branch_type)) >> 3 << 10 ));
+        APP(&ilist,
+            XINST_CREATE_load(dc, opnd_create_reg(DR_REG_X1),
+                              OPND_CREATE_MEMPTR(dr_reg_stolen,
+                                                 TLS_TABLE_SLOT(ibl_code->branch_type))));
         /* branch to load_tag */
         APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(load_tag)));
     }

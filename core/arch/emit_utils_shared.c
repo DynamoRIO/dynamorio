@@ -1875,9 +1875,10 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
             /* Load next_tag from FCACHE_ENTER_TARGET_SLOT (TLS_REG0_SLOT):
              * ldr x0, [x28]
              */
-            APP(ilist, INSTR_CREATE_xx(dcontext, 0xf9400380));
+            APP(ilist, XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_X0),
+                                         OPND_CREATE_MEMPTR(dr_reg_stolen, 0)));
             /* br x0 */
-            APP(ilist, INSTR_CREATE_xx(dcontext, 0xd61f0000));
+            APP(ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X0)));
 #else
             APP(ilist,
                 XINST_CREATE_jump_mem(dcontext,
@@ -2067,8 +2068,12 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code,
 
 #ifdef AARCH64
     /* Put app's X0 in TLS_REG1_SLOT: */
-    APP(&ilist, INSTR_CREATE_xx(dcontext, 0xf94000a0)); /* ldr x0, [x5] */
-    APP(&ilist, INSTR_CREATE_xx(dcontext, 0xf9000780)); /* str x0, [x28, #8] */
+    /* ldr x0, [x5] */
+    APP(&ilist, XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_X0),
+                                  OPND_CREATE_MEMPTR(DR_REG_X5, 0)));
+    /* str x0, [x28, #8] */
+    APP(&ilist, XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(dr_reg_stolen, 8),
+                                   opnd_create_reg(DR_REG_X0)));
 #endif
 
     /* restore the original register state */
@@ -2444,7 +2449,8 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
      */
 #ifdef AARCH64
     APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_X1, DSTACK_OFFSET));
-    APP(ilist, INSTR_CREATE_xx(dcontext, 0x9100001f | 1 << 5)); /* mov sp, x1 */
+    APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_SP),
+                                 opnd_create_reg(DR_REG_X1)));
 #else
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSP, DSTACK_OFFSET));
 #endif
@@ -4599,8 +4605,11 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
      * in case the syscall is interrupted. See append_save_gpr.
      * stp x0, x1, [x28]
      */
-    APP(&ilist, INSTR_CREATE_xx(dcontext, 0xa9000000 | 0 | 1 << 10 |
-                                (dr_reg_stolen - DR_REG_X0) << 5));
+    APP(&ilist, INSTR_CREATE_stp(dcontext,
+                                 opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                                       0, OPSZ_16),
+                                 opnd_create_reg(DR_REG_X0),
+                                 opnd_create_reg(DR_REG_X1)));
     *syscall_offs += AARCH64_INSTR_SIZE;
 #endif
 
