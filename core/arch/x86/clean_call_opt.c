@@ -71,18 +71,18 @@ callee_info_init(callee_info_t *ci)
     memset(ci, 0, sizeof(*ci));
     ci->bailout = true;
     /* to be conservative */
-    ci->has_locals   = true;
-    ci->write_aflags = true;
-    ci->read_aflags  = true;
-    ci->tls_used   = true;
+    ci->has_locals  = true;
+    ci->write_flags = true;
+    ci->read_flags  = true;
+    ci->tls_used    = true;
     /* We use loop here and memset in analyze_callee_regs_usage later.
      * We could reverse the logic and use memset to set the value below,
      * but then later in analyze_callee_regs_usage, we have to use the loop.
      */
     /* assuming all xmm registers are used */
-    ci->num_xmms_used = NUM_SIMD_REGS;
+    ci->num_simd_used = NUM_SIMD_REGS;
     for (i = 0; i < NUM_SIMD_REGS; i++)
-        ci->xmm_used[i] = true;
+        ci->simd_used[i] = true;
     for (i = 0; i < NUM_GP_REGS; i++)
         ci->reg_used[i] = true;
     ci->spill_reg = DR_REG_INVALID;
@@ -452,10 +452,10 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     instr_t *instr;
     uint i, num_regparm;
 
-    ci->num_xmms_used = 0;
-    memset(ci->xmm_used, 0, sizeof(bool) * NUM_SIMD_REGS);
+    ci->num_simd_used = 0;
+    memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
-    ci->write_aflags = false;
+    ci->write_flags = false;
     for (instr  = instrlist_first(ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
@@ -467,13 +467,13 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          */
         /* XMM registers usage */
         for (i = 0; i < NUM_SIMD_REGS; i++) {
-            if (!ci->xmm_used[i] &&
+            if (!ci->simd_used[i] &&
                 instr_uses_reg(instr, (DR_REG_XMM0 + (reg_id_t)i))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee "PFX" uses XMM%d at "PFX"\n",
                     ci->start, i, instr_get_app_pc(instr));
-                ci->xmm_used[i] = true;
-                ci->num_xmms_used++;
+                ci->simd_used[i] = true;
+                ci->num_simd_used++;
             }
         }
         /* General purpose registers */
@@ -482,7 +482,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             if (!ci->reg_used[i] &&
                 /* Later we'll rewrite stack accesses to not use XSP or XBP. */
                 reg != DR_REG_XSP &&
-                (reg != DR_REG_XBP || !ci->xbp_is_fp) &&
+                (reg != DR_REG_XBP || !ci->standard_fp) &&
                 instr_uses_reg(instr, reg)) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee "PFX" uses REG %s at "PFX"\n",
@@ -493,25 +493,25 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             }
         }
         /* callee update aflags */
-        if (!ci->write_aflags) {
+        if (!ci->write_flags) {
             if (TESTANY(EFLAGS_WRITE_6,
                         instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee "PFX" updates aflags\n", ci->start);
-                ci->write_aflags = true;
+                ci->write_flags = true;
             }
         }
     }
 
     /* check if callee read aflags from caller */
     /* set it false for the case of empty callee. */
-    ci->read_aflags = false;
+    ci->read_flags = false;
     for (instr  = instrlist_first(ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
         uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTANY(EFLAGS_READ_6, flags)) {
-            ci->read_aflags = true;
+            ci->read_flags = true;
             break;
         }
         if (TESTALL(EFLAGS_WRITE_6, flags))
@@ -519,11 +519,11 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         if (instr_is_return(instr))
             break;
         if (instr_is_cti(instr)) {
-            ci->read_aflags = true;
+            ci->read_flags = true;
             break;
         }
     }
-    if (ci->read_aflags) {
+    if (ci->read_flags) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee "PFX" reads aflags from caller\n", ci->start);
     }
@@ -532,7 +532,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
      * We may or may not use the slot at the call site, but it needs to be
      * reserved just in case.
      */
-    if (ci->read_aflags || ci->write_aflags) {
+    if (ci->read_flags || ci->write_flags) {
         /* XXX: We can optimize away the flags spill to memory if the callee
          * does not use xax.
          */
@@ -616,7 +616,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
         (ci->fwd_tgt == NULL || instr_get_app_pc(leave) >= ci->fwd_tgt)) {
         /* check if xbp is fp */
         if (instr_get_opcode(enter) == OP_enter) {
-            ci->xbp_is_fp = true;
+            ci->standard_fp = true;
         } else {
             /* i#392-c#2: mov xsp => xbp might not be right after push_xbp */
             for (instr  = instr_get_next(enter);
@@ -634,7 +634,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
                     opnd_is_reg(instr_get_dst(instr, 0)) &&
                     opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_XBP) {
                     /* found mov xsp => xbp */
-                    ci->xbp_is_fp = true;
+                    ci->standard_fp = true;
                     /* remove it */
                     instrlist_remove(ilist, instr);
                     instr_destroy(GLOBAL_DCONTEXT, instr);
@@ -642,7 +642,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
                 }
             }
         }
-        if (ci->xbp_is_fp) {
+        if (ci->standard_fp) {
             LOG(THREAD, LOG_CLEANCALL, 2,
                 "CLEANCALL: callee "PFX" use XBP as frame pointer\n", ci->start);
         } else {
@@ -795,7 +795,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
             ci->start);
         opt_inline = false;
     }
-    if (ci->num_xmms_used != 0) {
+    if (ci->num_simd_used != 0) {
         LOG(THREAD, LOG_CLEANCALL, 1,
             "CLEANCALL: callee "PFX" cannot be inlined: uses XMM.\n",
             ci->start);
@@ -836,7 +836,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
         next_instr = instr_get_next(instr);
         /* sanity checks on stack usage */
         if (instr_writes_to_reg(instr, DR_REG_XBP, DR_QUERY_INCLUDE_ALL) &&
-            ci->xbp_is_fp) {
+            ci->standard_fp) {
             /* xbp must not be changed if xbp is used for frame pointer */
             LOG(THREAD, LOG_CLEANCALL, 1,
                 "CLEANCALL: callee "PFX" cannot be inlined: XBP is updated.\n",
@@ -883,7 +883,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                 break;
             }
         } else if (instr_reg_in_src(instr, DR_REG_XSP) ||
-                   (instr_reg_in_src(instr, DR_REG_XBP) && ci->xbp_is_fp)) {
+                   (instr_reg_in_src(instr, DR_REG_XBP) && ci->standard_fp)) {
             /* Detect stack address leakage */
             /* lea [xsp/xbp] */
             if (opc == OP_lea)
@@ -893,7 +893,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                 opnd_t src = instr_get_src(instr, i);
                 if (opnd_is_reg(src) &&
                     (reg_overlap(REG_XSP, opnd_get_reg(src))  ||
-                     (reg_overlap(REG_XBP, opnd_get_reg(src)) && ci->xbp_is_fp)))
+                     (reg_overlap(REG_XBP, opnd_get_reg(src)) && ci->standard_fp)))
                     break;
             }
             if (i != instr_num_srcs(instr))
@@ -915,7 +915,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                 if (!opnd_is_base_disp(opnd))
                     continue;
                 if (opnd_get_base(opnd) != DR_REG_XSP &&
-                    (opnd_get_base(opnd) != DR_REG_XBP || !ci->xbp_is_fp))
+                    (opnd_get_base(opnd) != DR_REG_XBP || !ci->standard_fp))
                     continue;
                 if (!ci->has_locals) {
                     /* We see the first one, remember it. */
@@ -955,7 +955,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                 if (!opnd_is_base_disp(opnd))
                     continue;
                 if (opnd_get_base(opnd) != DR_REG_XSP &&
-                    (opnd_get_base(opnd) != DR_REG_XBP || !ci->xbp_is_fp))
+                    (opnd_get_base(opnd) != DR_REG_XBP || !ci->standard_fp))
                     continue;
                 if (!ci->has_locals) {
                     mem_ref = opnd;
@@ -1028,8 +1028,8 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
 
     /* If there's a flags read, we clear the flags.  If there's a write or read,
      * we save them, because a read creates a clear which is a write. */
-    cci->skip_clear_flags = !ci->read_aflags;
-    cci->skip_save_flags  = !(ci->write_aflags || ci->read_aflags);
+    cci->skip_clear_flags = !ci->read_flags;
+    cci->skip_save_flags  = !(ci->write_flags || ci->read_flags);
     /* XXX: this is a more aggressive optimization by analyzing the ilist
      * to be instrumented. The client may change the ilist, which violate
      * the analysis result. For example,
@@ -1061,7 +1061,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
 
     /* 1. xmm registers */
     for (i = 0; i < NUM_SIMD_REGS; i++) {
-        if (info->xmm_used[i]) {
+        if (info->simd_used[i]) {
             cci->simd_skip[i] = false;
         } else {
             LOG(THREAD, LOG_CLEANCALL, 3,

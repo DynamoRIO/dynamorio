@@ -1252,16 +1252,16 @@ typedef struct _callee_info_t {
     app_pc start;             /* entry point of a function  */
     app_pc bwd_tgt;           /* earliest backward branch target */
     app_pc fwd_tgt;           /* last forward branch target */
-    int num_xmms_used;        /* number of xmms used by callee */
-    bool xmm_used[NUM_SIMD_REGS]; /* xmm/ymm registers usage */
+    int num_simd_used;        /* number of SIMD registers (xmms) used by callee */
+    bool simd_used[NUM_SIMD_REGS]; /* SIMD (xmm/ymm) registers usage */
     bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
     int num_callee_save_regs; /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
     bool has_locals;          /* if reference local via stack */
-    bool xbp_is_fp;           /* if xbp is used as frame pointer */
+    bool standard_fp;         /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;          /* can be inlined or not */
-    bool write_aflags;        /* if the function changes aflags */
-    bool read_aflags;         /* if the function reads aflags from caller */
+    bool write_flags;         /* if the function changes flags */
+    bool read_flags;          /* if the function reads flags from caller */
     bool tls_used;            /* application accesses TLS (errno, etc.) */
     reg_id_t spill_reg;       /* base register for spill slots */
     uint slots_used;          /* scratch slots needed after analysis */

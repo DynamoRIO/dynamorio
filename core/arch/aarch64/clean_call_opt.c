@@ -41,10 +41,10 @@ callee_info_init(callee_info_t *ci)
     memset(ci, 0, sizeof(*ci));
     ci->bailout = true;
     /* to be conservative */
-    ci->has_locals   = true;
-    ci->write_aflags = true;
-    ci->read_aflags  = true;
-    ci->tls_used     = true;
+    ci->has_locals  = true;
+    ci->write_flags = true;
+    ci->read_flags  = true;
+    ci->tls_used    = true;
 }
 
 void
