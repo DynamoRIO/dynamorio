@@ -5148,9 +5148,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     if (TEST(DR_CLEANCALL_NOSAVE_FLAGS, save_flags)) {
         /* even if we remove flag saves we want to keep mcontext shape */
         cci.preserve_mcontext = true;
-        cci.skip_save_aflags = true;
+        cci.skip_save_flags = true;
         /* we assume this implies DF should be 0 already */
-        cci.skip_clear_eflags = true;
+        cci.skip_clear_flags = true;
         /* XXX: should also provide DR_CLEANCALL_NOSAVE_NONAFLAGS to
          * preserve just arith flags on return from a call
          */
@@ -5163,13 +5163,13 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         cci.preserve_mcontext = true;
         /* start w/ all */
 #if defined(X64) && defined(WINDOWS)
-        cci.num_xmms_skip = 6;
+        cci.num_simd_skip = 6;
 #else
         /* all 8 (or 16) are scratch */
-        cci.num_xmms_skip = NUM_SIMD_REGS;
+        cci.num_simd_skip = NUM_SIMD_REGS;
 #endif
-        for (i=0; i<cci.num_xmms_skip; i++)
-            cci.xmm_skip[i] = true;
+        for (i=0; i<cci.num_simd_skip; i++)
+            cci.simd_skip[i] = true;
         /* now remove those used for param/retval */
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
@@ -5179,16 +5179,16 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 # else
             for (i=0; i<3; i++)
 # endif
-                cci.xmm_skip[i] = false;
-            cci.num_xmms_skip -= i;
+                cci.simd_skip[i] = false;
+            cci.num_simd_skip -= i;
         }
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONRET, save_flags)) {
             /* xmm0 (and xmm1 for linux) are used for retvals */
-            cci.xmm_skip[0] = false;
-            cci.num_xmms_skip--;
+            cci.simd_skip[0] = false;
+            cci.num_simd_skip--;
 # ifdef UNIX
-            cci.xmm_skip[1] = false;
-            cci.num_xmms_skip--;
+            cci.simd_skip[1] = false;
+            cci.num_simd_skip--;
 # endif
         }
 #endif

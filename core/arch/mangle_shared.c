@@ -276,7 +276,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     /* check if need adjust stack for alignment. */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_aflags)
+        if (cci->skip_save_flags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
         if ((num_slots % 2) == 1) {
@@ -290,8 +290,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         }
     }
 #endif
-    ASSERT(cci->skip_save_aflags   ||
-           cci->num_xmms_skip != 0 ||
+    ASSERT(cci->skip_save_flags    ||
+           cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == sizeof(priv_mcontext_t) + clean_call_beyond_mcontext());
     return dstack_offs;
@@ -309,7 +309,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_aflags)
+        if (cci->skip_save_flags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
         if ((num_slots % 2) == 1) {

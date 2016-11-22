@@ -301,7 +301,7 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr)
 {
     /* clear eflags for callee's usage */
-    if (cci == NULL || !cci->skip_clear_eflags) {
+    if (cci == NULL || !cci->skip_clear_flags) {
         if (dynamo_options.cleancall_ignore_eflags) {
             /* we still clear DF since some compiler assumes
              * DF is cleared at each function.
@@ -335,9 +335,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     int  offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_SIMD_REGS) {
+    if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
         int offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
-        if (cci->preserve_mcontext && cci->skip_save_aflags) {
+        if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2*XSP_SZ; /* pc and flags */
             offs += offs_beyond_xmm;
         }
@@ -362,7 +362,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i=0; i<NUM_SIMD_SAVED; i++) {
-            if (!cci->xmm_skip[i]) {
+            if (!cci->simd_skip[i]) {
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode,
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0,
@@ -376,7 +376,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
     }
     /* pc and aflags */
-    if (!cci->skip_save_aflags) {
+    if (!cci->skip_save_flags) {
         ASSERT(offs_beyond_xmm == 0);
         if (opnd_is_immed_int(push_pc))
             PRE(ilist, instr, INSTR_CREATE_push_imm(dcontext, push_pc));
@@ -430,8 +430,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
     dstack_offs += 8 * XSP_SZ;
 #endif
-    ASSERT(cci->skip_save_aflags   ||
-           cci->num_xmms_skip != 0 ||
+    ASSERT(cci->skip_save_flags    ||
+           cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
     return dstack_offs;
@@ -490,7 +490,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #else
     PRE(ilist, instr, INSTR_CREATE_popa(dcontext));
 #endif
-    if (!cci->skip_save_aflags) {
+    if (!cci->skip_save_flags) {
         PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
         offs_beyond_xmm = XSP_SZ; /* pc */;
     } else if (cci->preserve_mcontext) {
@@ -505,7 +505,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i=0; i<NUM_SIMD_SAVED; i++) {
-            if (!cci->xmm_skip[i]) {
+            if (!cci->simd_skip[i]) {
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0,

@@ -201,10 +201,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #endif
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_SIMD_REGS) {
+    if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
     }
-    /* FIXME i#1551: once we have cci->num_xmms_skip, skip this if possible */
+    /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 
 #ifdef AARCH64
 
@@ -243,7 +243,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT16(dstack_offs)));
 
     /* save the push_pc operand to the priv_mcontext_t.pc field */
-    if (!(cci->skip_save_aflags)) {
+    if (!(cci->skip_save_flags)) {
         if (opnd_is_immed_int(push_pc)) {
             PRE(ilist, instr,
                 XINST_CREATE_load_int(dcontext, opnd_create_reg(DR_REG_X1), push_pc));
@@ -332,7 +332,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                           SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
     dstack_offs += NUM_SIMD_SLOTS*sizeof(dr_simd_t);
     /* pc and aflags */
-    if (cci->skip_save_aflags) {
+    if (cci->skip_save_flags) {
         /* even if we skip flag saves we want to keep mcontext shape */
         int offs_beyond_xmm = 2 * XSP_SZ;
         dstack_offs += offs_beyond_xmm;
@@ -390,8 +390,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                   DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
     }
     dstack_offs += 15 * XSP_SZ;
-    ASSERT(cci->skip_save_aflags   ||
-           cci->num_xmms_skip != 0 ||
+    ASSERT(cci->skip_save_flags    ||
+           cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
 #endif
@@ -444,7 +444,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT32(current_offs)));
 
     /* load pc and flags */
-    if(!(cci->skip_save_aflags)) {
+    if(!(cci->skip_save_flags)) {
         /* ldp w1, w2, [x0, #8] */
         PRE(ilist, instr,
             INSTR_CREATE_ldp(dcontext,
@@ -503,7 +503,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(DR_REG_LR)));
 
     /* pc and aflags */
-    if (cci->skip_save_aflags) {
+    if (cci->skip_save_flags) {
         /* even if we skip flag saves we still keep mcontext shape */
         int offs_beyond_xmm = 2 * XSP_SZ;
         PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
@@ -521,7 +521,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                            opnd_create_reg(scratch)));
         PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
     }
-    /* FIXME i#1551: once we have cci->num_xmms_skip, skip this if possible */
+    /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
     PRE(ilist, instr, INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
                                            SIMD_REG_LIST_LEN, SIMD_REG_LIST_0_15));
     PRE(ilist, instr, INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),

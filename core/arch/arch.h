@@ -337,10 +337,10 @@ typedef struct _clean_call_info_t {
     bool opt_inline;
     bool should_align;
     bool save_all_regs;
-    bool skip_save_aflags;
-    bool skip_clear_eflags;
-    uint num_xmms_skip;
-    bool xmm_skip[NUM_SIMD_REGS];
+    bool skip_save_flags;
+    bool skip_clear_flags;
+    uint num_simd_skip;
+    bool simd_skip[NUM_SIMD_REGS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */

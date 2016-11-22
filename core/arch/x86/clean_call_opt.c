@@ -1028,8 +1028,8 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
 
     /* If there's a flags read, we clear the flags.  If there's a write or read,
      * we save them, because a read creates a clear which is a write. */
-    cci->skip_clear_eflags = !ci->read_aflags;
-    cci->skip_save_aflags  = !(ci->write_aflags || ci->read_aflags);
+    cci->skip_clear_flags = !ci->read_aflags;
+    cci->skip_save_flags  = !(ci->write_aflags || ci->read_aflags);
     /* XXX: this is a more aggressive optimization by analyzing the ilist
      * to be instrumented. The client may change the ilist, which violate
      * the analysis result. For example,
@@ -1037,7 +1037,7 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
      * after "where" updating all aflags, but later the client can
      * insert an instruction reads the aflags before that instruction.
      */
-    if (INTERNAL_OPTION(opt_cleancall) > 1 && !cci->skip_save_aflags) {
+    if (INTERNAL_OPTION(opt_cleancall) > 1 && !cci->skip_save_flags) {
         for (instr = where; instr != NULL; instr = instr_get_next(instr)) {
             uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
             if (TESTANY(EFLAGS_READ_6, flags) || instr_is_cti(instr))
@@ -1046,7 +1046,7 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: inserting clean call "PFX
                     ", skip saving aflags.\n", ci->start);
-                cci->skip_save_aflags = true;
+                cci->skip_save_flags = true;
                 break;
             }
         }
@@ -1062,16 +1062,16 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
     /* 1. xmm registers */
     for (i = 0; i < NUM_SIMD_REGS; i++) {
         if (info->xmm_used[i]) {
-            cci->xmm_skip[i] = false;
+            cci->simd_skip[i] = false;
         } else {
             LOG(THREAD, LOG_CLEANCALL, 3,
                 "CLEANCALL: if inserting clean call "PFX
                 ", skip saving XMM%d.\n", info->start, i);
-            cci->xmm_skip[i] = true;
-            cci->num_xmms_skip++;
+            cci->simd_skip[i] = true;
+            cci->num_simd_skip++;
         }
     }
-    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_xmms_skip != NUM_SIMD_REGS)
+    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_simd_skip != NUM_SIMD_REGS)
         cci->should_align = false;
     /* 2. general purpose registers */
     /* set regs not to be saved for clean call */
@@ -1088,7 +1088,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
         }
     }
     /* we need save/restore rax if save aflags because rax is used */
-    if (!cci->skip_save_aflags && cci->reg_skip[0]) {
+    if (!cci->skip_save_flags && cci->reg_skip[0]) {
         LOG(THREAD, LOG_CLEANCALL, 3,
             "CLEANCALL: if inserting clean call "PFX
             ", cannot skip saving reg xax.\n", info->start);
@@ -1213,13 +1213,13 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
                 }
             }
         }
-        if (cci->num_xmms_skip == NUM_SIMD_REGS) {
-            STATS_INC(cleancall_xmm_skipped);
+        if (cci->num_simd_skip == NUM_SIMD_REGS) {
+            STATS_INC(cleancall_simd_skipped);
         }
-        if (cci->skip_save_aflags) {
+        if (cci->skip_save_flags) {
             STATS_INC(cleancall_aflags_save_skipped);
         }
-        if (cci->skip_clear_eflags) {
+        if (cci->skip_clear_flags) {
             STATS_INC(cleancall_aflags_clear_skipped);
         }
     } else {
@@ -1278,9 +1278,9 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      * code sequence to put in place: we may want to still use out-of-line
      * unless multiple regs are able to be skipped.
      */
-    if ((cci->num_xmms_skip == 0 /* save all xmms */ &&
+    if ((cci->num_simd_skip == 0 /* save all xmms */ &&
          cci->num_regs_skip == 0 /* save all regs */ &&
-         !cci->skip_save_aflags) ||
+         !cci->skip_save_flags) ||
         always_out_of_line)
         cci->out_of_line_swap = true;
 
@@ -1295,7 +1295,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     int i;
 
     /* Don't spill anything if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_aflags &&
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags &&
         !ci->has_locals) {
         return;
     }
@@ -1306,7 +1306,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
 
     /* Save used registers. */
-    ASSERT(cci->num_xmms_skip == NUM_SIMD_REGS);
+    ASSERT(cci->num_simd_skip == NUM_SIMD_REGS);
     for (i = 0; i < NUM_GP_REGS; i++) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
@@ -1320,7 +1320,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     /* Save aflags if necessary via XAX, which was just saved if needed. */
-    if (!cci->skip_save_aflags) {
+    if (!cci->skip_save_flags) {
         ASSERT(!cci->reg_skip[DR_REG_XAX - DR_REG_XAX]);
         dr_save_arith_flags_to_xax(dcontext, ilist, where);
         PRE(ilist, where, INSTR_CREATE_mov_st
@@ -1343,13 +1343,13 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     callee_info_t *ci = cci->callee_info;
 
     /* Don't restore regs if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_aflags &&
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags &&
         !ci->has_locals) {
         return;
     }
 
     /* Restore aflags before regs because it uses xax. */
-    if (!cci->skip_save_aflags) {
+    if (!cci->skip_save_flags) {
         PRE(ilist, where, INSTR_CREATE_mov_ld
             (dcontext, opnd_create_reg(DR_REG_XAX),
              callee_info_slot_opnd(ci, SLOT_FLAGS, 0)));
