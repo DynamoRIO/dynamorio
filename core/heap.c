@@ -1400,6 +1400,10 @@ vmm_heap_exit()
                detach
             */
             ASSERT(IF_WINDOWS(doing_detach || )  /* not deterministic when detaching */
+                   /* FIXME i#2075: if a thread is being initialized during the
+                    * process exit, the thread will not free its dstack.
+                    */
+                   IF_DEBUG(dynamo_thread_init_during_process_exit || )
                    heapmgt->vmheap.num_free_blocks == heapmgt->vmheap.num_blocks
                    - unfreed_blocks ||
                    /* >=, not ==, b/c if we hit the vmm limit the cur dstack

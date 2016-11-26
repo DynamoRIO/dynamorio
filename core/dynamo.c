@@ -2065,6 +2065,9 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
 /* this bool is protected by reset_pending_lock */
 DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
 
+#ifdef DEBUG
+bool dynamo_thread_init_during_process_exit = false;
+#endif
 /* thread-specific initialization
  * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used
  * as the thread's dstack
@@ -2112,6 +2115,8 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     /* under current implementation of process exit, can happen only under
      * debug build, or app_start app_exit interface */
     while (dynamo_exited) {
+        /* FIXME i#2075: free the dstack. */
+        DODEBUG({dynamo_thread_init_during_process_exit = true; });
         /* logging should be safe, though might not actually result in log
          * message */
         DODEBUG_ONCE(LOG(GLOBAL, LOG_THREADS, 1,
