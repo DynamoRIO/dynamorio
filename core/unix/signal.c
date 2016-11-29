@@ -2200,6 +2200,9 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
         }
     }
     mutex_unlock(&thread_initexit_lock);
+
+    /* FIXME i#2095: restore the app's segment register value(s). */
+
     LOG(THREAD, LOG_ASYNCH, 3,
         "\ttranslate_sigcontext: just set frame's eip to "PFX"\n", sc->SC_XIP);
     return success;
@@ -2244,6 +2247,10 @@ thread_set_self_context(void *cxt)
     sigprocmask_syscall(SIG_SETMASK, NULL, (kernel_sigset_t *) &frame.uc.uc_sigmask,
                         sizeof(frame.uc.uc_sigmask));
     LOG(THREAD_GET, LOG_ASYNCH, 2, "thread_set_self_context: pc="PFX"\n", sc->SC_XIP);
+    LOG(THREAD_GET, LOG_ASYNCH, 3, "full sigcontext\n");
+    DOLOG(LOG_ASYNCH, 3, {
+        dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(&frame));
+    });
     /* set up xsp to point at &frame + sizeof(char*) */
     xsp_for_sigreturn = ((app_pc)&frame) + sizeof(char*);
 #ifdef X86
@@ -2263,6 +2270,22 @@ thread_set_self_context(void *cxt)
     ASSERT_NOT_REACHED();
 }
 
+static void
+thread_set_segment_registers(sigcontext_t *sc)
+{
+#ifdef X86
+    /* Fill in the segment registers */
+    __asm__ __volatile__("mov %%cs, %%ax; mov %%ax, %0" : "=m"(sc->cs) : : "eax");
+# ifndef X64
+    __asm__ __volatile__("mov %%ss, %%ax; mov %%ax, %0" : "=m"(sc->ss) : : "eax");
+    __asm__ __volatile__("mov %%ds, %%ax; mov %%ax, %0" : "=m"(sc->ds) : : "eax");
+    __asm__ __volatile__("mov %%es, %%ax; mov %%ax, %0" : "=m"(sc->es) : : "eax");
+# endif
+    __asm__ __volatile__("mov %%fs, %%ax; mov %%ax, %0" : "=m"(sc->fs) : : "eax");
+    __asm__ __volatile__("mov %%gs, %%ax; mov %%ax, %0" : "=m"(sc->gs) : : "eax");
+#endif
+}
+
 /* Takes a priv_mcontext_t */
 void
 thread_set_self_mcontext(priv_mcontext_t *mc)
@@ -2274,6 +2297,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     sc_full.sc->fpstate = NULL; /* for mcontext_to_sigcontext */
 #endif
     mcontext_to_sigcontext(&sc_full, mc);
+    thread_set_segment_registers(sc_full.sc);
     /* sigreturn takes the mode from cpsr */
     IF_ARM(set_pc_mode_in_cpsr(sc_full.sc,
                                dr_get_isa_mode(get_thread_private_dcontext())));
@@ -5559,14 +5583,17 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 #endif /* LINUX && X86 */
     mcontext_to_ucontext(uc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t) target_pc;
-    /* we'll fill in fpstate at delivery time
-     * FIXME: it seems to work w/o filling in the other state:
-     * I'm leaving segments, cr2, etc. all zero.
-     * Note that x64 kernel restore_sigcontext() only restores cs: it
-     * claims onus is on app's signal handler for other segments.
-     * We should try to share part of the GET_OWN_CONTEXT macro used for
-     * Windows.  Or we can switch to approach #2.
+    /* We'll fill in fpstate at delivery time.
+     * We fill in segment registers to their current values and assume they won't
+     * change and that these are the right values.
+     *
+     * FIXME i#2095: restore the app's segment register value(s).
+     *
+     * XXX: it seems to work w/o filling in the other state:
+     * I'm leaving cr2 and other fields all zero.
+     * If this gets problematic we could switch to approach #2.
      */
+    thread_set_segment_registers(sc);
 #if defined(X86) && defined(LINUX)
     if (sig_has_restorer(info, sig))
         frame->pretcode = (char *) info->app_sigaction[sig]->restorer;
