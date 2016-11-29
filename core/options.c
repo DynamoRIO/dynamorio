@@ -1967,9 +1967,11 @@ check_option_compatibility_helper(int recurse_count)
          * the TLS format match what gdb wants to see.
          * On Linux, we just don't want the libdl.so dependence for -early.
          */
-        USAGE_ERROR("-private_loader must be true on ARM or on Linux");
-        dynamo_options.private_loader = true;
-        changed_options = true;
+        if (IF_ARM_ELSE(true, DYNAMO_OPTION(early_inject))) {
+            USAGE_ERROR("-private_loader must be true on ARM or on Linux");
+            dynamo_options.private_loader = true;
+            changed_options = true;
+        }
     }
 # endif
     if (INTERNAL_OPTION(private_loader)) {
