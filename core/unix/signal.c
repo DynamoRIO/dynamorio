@@ -1963,6 +1963,7 @@ is_on_alt_stack(dcontext_t *dcontext, byte *sp)
 #endif
 }
 
+/* The caller must initialize ucxt, including its fpstate pointer for x86 Linux. */
 static void
 sig_full_initialize(sig_full_cxt_t *sc_full, kernel_ucontext_t *ucxt)
 {
@@ -2268,6 +2269,9 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     kernel_ucontext_t ucxt;
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, &ucxt);
+#if defined(LINUX) && defined(X86)
+    sc_full.sc->fpstate = NULL; /* for mcontext_to_sigcontext */
+#endif
     mcontext_to_sigcontext(&sc_full, mc);
     /* sigreturn takes the mode from cpsr */
     IF_ARM(set_pc_mode_in_cpsr(sc_full.sc,
