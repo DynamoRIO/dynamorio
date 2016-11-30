@@ -633,6 +633,14 @@
     /* PR 304708: we intercept all signals for a better client interface */
     OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
 
+    /* i#2080: we have had some problems using sigreturn to set a thread's
+     * context to a given state.  Turning this off will instead use a direct
+     * mechanism that will set only the GPR's and will assume the target stack
+     * is valid and its beyond-TOS slot can be clobbered.  X86-only.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
+                            "use sigreturn to set a thread's context")
+
     /* i#853: Use our all_memory_areas address space cache when possible.  This
      * avoids expensive reads of /proc/pid/maps, but if the cache becomes stale,
      * we may have incorrect results.

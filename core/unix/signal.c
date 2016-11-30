@@ -2212,6 +2212,37 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
 void
 thread_set_self_context(void *cxt)
 {
+#ifdef X86
+    if (!INTERNAL_OPTION(use_sigreturn_setcontext)) {
+        sigcontext_t *sc = (sigcontext_t *) cxt;
+        dr_jmp_buf_t buf;
+        buf.xbx = sc->SC_XBX;
+        buf.xcx = sc->SC_XCX;
+        buf.xdi = sc->SC_XDI;
+        buf.xsi = sc->SC_XSI;
+        buf.xbp = sc->SC_XBP;
+        /* XXX: this is not fully transparent: it assumes the target stack
+         * is valid and that we can clobber the slot beyond TOS.
+         * Using this instead of sigreturn is meant mainly as a diagnostic
+         * to help debug future issues with sigreturn (xref i#2080).
+         */
+        buf.xsp = sc->SC_XSP - XSP_SZ; /* extra slot for retaddr */
+        buf.xip = sc->SC_XIP;
+# ifdef X64
+        buf.r8  = sc->r8;
+        buf.r9  = sc->r9;
+        buf.r10 = sc->r10;
+        buf.r11 = sc->r11;
+        buf.r12 = sc->r12;
+        buf.r13 = sc->r13;
+        buf.r14 = sc->r14;
+        buf.r15 = sc->r15;
+# endif
+        dr_longjmp(&buf, sc->SC_XAX);
+        return;
+    }
+#endif
+
     dcontext_t *dcontext = get_thread_private_dcontext();
     /* Unlike Windows we can't say "only set this subset of the
      * full machine state", so we need to get the rest of the state,
