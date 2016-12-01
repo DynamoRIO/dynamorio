@@ -221,7 +221,7 @@ find_unused_ldt_index()
     ASSERT(LDT_ENTRIES_TO_CHECK < LDT_ENTRIES);
     /* make sure our struct size jives w/ ldt.h */
     ASSERT(sizeof(raw_ldt_entry_t) == LDT_ENTRY_SIZE);
-    memset(ldt, 0, sizeof(*ldt));
+    memset(ldt, 0, sizeof(ldt));
     bytes = modify_ldt_syscall(0, (void *)ldt, sizeof(ldt));
     if (bytes == 0) {
         /* no indices are taken yet */
