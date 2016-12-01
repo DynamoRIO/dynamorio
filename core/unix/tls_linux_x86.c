@@ -567,6 +567,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     os_tls->ldt_index = index;
 }
 
+/* i#2089: we skip this for non-detach */
 void
 tls_thread_free(tls_type_t tls_type, int index)
 {

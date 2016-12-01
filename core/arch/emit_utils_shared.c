@@ -4997,16 +4997,18 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
          opnd_create_reg(SCRATCH_REG0)));
 
 # ifdef X86
-    /* We avoid get_thread_id syscall in get_thread_private_dcontext()
-     * by clearing the segment register here (cheaper check than syscall)
-     * (xref PR 192231).  If we crash prior to this point though, the
-     * signal handler will get the wrong dcontext, but that's a small window.
-     * See comments in get_thread_private_dcontext() for alternatives.
-     */
-    APP(&ilist, XINST_CREATE_load_int
-        (dcontext, opnd_create_reg(REG_AX), OPND_CREATE_INT16(0)));
-    APP(&ilist, INSTR_CREATE_mov_seg
-        (dcontext, opnd_create_reg(SEG_TLS), opnd_create_reg(REG_AX)));
+    if (!INTERNAL_OPTION(safe_read_tls_init)) {
+        /* We avoid get_thread_id syscall in get_thread_private_dcontext()
+         * by clearing the segment register here (cheaper check than syscall)
+         * (xref PR 192231).  If we crash prior to this point though, the
+         * signal handler will get the wrong dcontext, but that's a small window.
+         * See comments in get_thread_private_dcontext() for alternatives.
+         */
+        APP(&ilist, XINST_CREATE_load_int
+            (dcontext, opnd_create_reg(REG_AX), OPND_CREATE_INT16(0)));
+        APP(&ilist, INSTR_CREATE_mov_seg
+            (dcontext, opnd_create_reg(SEG_TLS), opnd_create_reg(REG_AX)));
+    }
 # endif
 
     /* stack grew down, so priv_mcontext_t at tos */

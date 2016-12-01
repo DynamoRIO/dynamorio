@@ -2335,20 +2335,20 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         END_FUNC(safe_read_asm)
 
 #ifdef UNIX
-DECLARE_GLOBAL(safe_read_tls_base)
+DECLARE_GLOBAL(safe_read_tls_magic)
 DECLARE_GLOBAL(safe_read_tls_recover)
 
-        DECLARE_FUNC(safe_read_tls_base)
-GLOBAL_LABEL(safe_read_tls_base:)
+        DECLARE_FUNC(safe_read_tls_magic)
+GLOBAL_LABEL(safe_read_tls_magic:)
         /* gas won't accept SEG_TLS: in the memref so we have to fool it by
          * using it as a prefix:
          */
         SEG_TLS
-        mov      REG_XAX, PTRSZ [TLS_SELF_OFFSET_ASM]
+        mov      eax, DWORD [TLS_MAGIC_OFFSET_ASM]
 ADDRTAKEN_LABEL(safe_read_tls_recover:)
         /* our signal handler sets xax to 0 for us on a fault */
         ret
-        END_FUNC(safe_read_tls_base)
+        END_FUNC(safe_read_tls_magic)
 #endif
 
 #ifdef UNIX

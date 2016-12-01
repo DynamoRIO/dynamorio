@@ -1593,12 +1593,11 @@
         "Use other parts of the TEB for TLS once out of real TLS slots")
 #endif /* WINDOWS */
 
-    /* i#2089: whether to use a special safe read to determine whether a
-     * thread's TLS is initialized yet.
-     * This is off by default and is an incremental step toward a different
-     * way of handling child thread TLS.
+    /* i#2089: whether to use a special safe read of a magic field to determine
+     * whether a thread's TLS is initialized yet, on x86.
+     * XXX: we plan to remove this once we're sure it's stable.
      */
-    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, false,
+    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, true,
                             "use a safe read to identify uninit TLS")
 
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")

@@ -276,6 +276,9 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 static void handle_execve_post(dcontext_t *dcontext);
 static bool os_switch_lib_tls(dcontext_t *dcontext, bool to_app);
 static bool os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app);
+#ifdef X86
+static bool os_set_dr_tls_base(dcontext_t *dcontext, os_local_state_t *tls, byte *base);
+#endif
 #ifdef LINUX
 static bool handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
                               byte *old_base, size_t old_size,
@@ -1304,6 +1307,9 @@ os_timeout(int time_in_milliseconds)
 #define TLS_SELF_OFFSET        (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, self))
 #define TLS_THREAD_ID_OFFSET   (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, tid))
 #define TLS_DCONTEXT_OFFSET    (TLS_OS_LOCAL_STATE + TLS_DCONTEXT_SLOT)
+#ifdef X86
+# define TLS_MAGIC_OFFSET      (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, magic))
+#endif
 
 /* they should be used with os_tls_offset, so do not need add TLS_OS_LOCAL_STATE here */
 #define TLS_APP_LIB_TLS_BASE_OFFSET (offsetof(os_local_state_t, app_lib_tls_base))
@@ -1407,12 +1413,19 @@ os_timeout(int time_in_milliseconds)
 } while (0)
 #endif /* X86/ARM */
 
+#ifdef X86
+/* We use this at thread init and exit to make it easy to identify
+ * whether TLS is initialized (i#2089).
+ * We assume alignment does not matter.
+ */
+static os_local_state_t uninit_tls; /* has .magic == 0 */
+#endif
+
 static bool
 is_thread_tls_initialized(void)
 {
 #ifdef X86
     if (INTERNAL_OPTION(safe_read_tls_init)) {
-        os_local_state_t *os_tls;
         /* Avoid faults during early init or during exit when we have no handler.
          * It's not worth extending the handler as the faults are a perf hit anyway.
          */
@@ -1422,21 +1435,15 @@ is_thread_tls_initialized(void)
          * and when the MSR is used having a zero selector, and other complexities,
          * we just do a blind safe read as the simplest solution once we're past
          * initial init and have a fault handler.
+         *
+         * i#2089: to avoid the perf cost of syscalls to verify the tid, and to
+         * distinguish a fork child from a separate-group thread, we no longer read
+         * the tid field and check that the TLS belongs to this particular thread:
+         * instead we rely on clearing the .magic field for child threads and at
+         * thread exit (to avoid a fault) and we simply check the field here.
+         * A native app thread is very unlikely to match this.
          */
-        os_tls = (os_local_state_t *) safe_read_tls_base();
-        if (os_tls != NULL) {
-            thread_id_t tid;
-            size_t size;
-            if (!safe_read_fast(&os_tls->tid, sizeof(tid), &tid, &size) ||
-                size != sizeof(tid))
-                return false;
-            return (tid == get_sys_thread_id() ||
-                    /* We assume we can safely de-ref the dcontext now */
-                    /* The child of a fork will initially come here */
-                    os_tls->state.spill_space.dcontext->owning_process ==
-                    get_parent_id());
-        } else
-            return false;
+        return safe_read_tls_magic() == TLS_MAGIC_VALID;
     } else {
         /* XXX i#2089: we're keeping this legacy code around until
          * we're confident that the safe read code above is safer, more
@@ -1493,6 +1500,28 @@ is_thread_tls_initialized(void)
     return true;
 #endif
 }
+
+#if defined(X86) || defined(DEBUG)
+static bool
+is_thread_tls_allocated(void)
+{
+# ifdef X86
+    if (INTERNAL_OPTION(safe_read_tls_init)) {
+        /* We use this routine to allow currently-native threads, for which
+         * is_thread_tls_initialized() (and thus is_thread_initialized()) will
+         * return false.
+         * Caution: this will also return true on a fresh clone child.
+         */
+        uint magic;
+        if (!first_thread_tls_initialized || last_thread_tls_exited)
+            return false;
+        magic = safe_read_tls_magic();
+        return magic == TLS_MAGIC_VALID || magic == TLS_MAGIC_INVALID;
+    }
+# endif
+    return is_thread_tls_initialized();
+}
+#endif
 
 /* converts a local_state_t offset to a segment offset */
 ushort
@@ -1794,7 +1823,9 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     app_lib_tls_base = get_segment_base(TLS_REG_LIB);
     app_alt_tls_base = get_segment_base(TLS_REG_ALT);
 
-    /* If we're a non-initial thread, tls will be set to the parent's value */
+    /* If we're a non-initial thread, tls will be set to the parent's value,
+     * or to &uninit_tls (i#2089), both of which will be is_dynamo_address().
+     */
     os_tls->app_lib_tls_base =
         is_dynamo_address(app_lib_tls_base) ? NULL : app_lib_tls_base;
     os_tls->app_alt_tls_base =
@@ -1825,6 +1856,11 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
                               privload_tls_init(os_tls->app_lib_tls_base));
     }
 
+#ifdef X86
+    LOG(THREAD_GET, LOG_THREADS, 1,
+        "thread "TIDFMT" app lib tls reg: 0x%x, alt tls reg: 0x%x\n",
+        get_thread_id(), os_tls->app_lib_tls_reg, os_tls->app_alt_tls_reg);
+#endif
     LOG(THREAD_GET, LOG_THREADS, 1,
         "thread "TIDFMT" app lib tls base: "PFX", alt tls base: "PFX"\n",
         get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
@@ -1841,7 +1877,7 @@ void
 os_tls_init(void)
 {
 #ifdef X86
-    ASSERT(TLS_SELF_OFFSET_ASM == TLS_SELF_OFFSET);
+    ASSERT(TLS_MAGIC_OFFSET_ASM == TLS_MAGIC_OFFSET);
 #endif
 #ifdef HAVE_TLS
     /* We create a 1-page segment with an LDT entry for each thread and load its
@@ -1862,7 +1898,10 @@ os_tls_init(void)
     os_tls->self = os_tls;
     os_tls->tid = get_sys_thread_id();
     os_tls->tls_type = TLS_TYPE_NONE;
-    /* We save DR's TLS segment base here so that os_get_dr_seg_base() will work
+#ifdef X86
+    os_tls->magic = TLS_MAGIC_VALID;
+#endif
+    /* We save DR's TLS segment base here so that os_get_dr_tls_base() will work
      * even when -no_mangle_app_seg is set.  If -mangle_app_seg is set, this
      * will be overwritten in os_tls_app_seg_init().
      */
@@ -1893,6 +1932,20 @@ os_tls_init(void)
     ASSERT(is_thread_tls_initialized());
 }
 
+static bool
+should_zero_tls_at_thread_exit()
+{
+#ifdef X86
+    /* i#2089: For a thread w/o CLONE_SIGHAND we cannot handle a fault, so we want to
+     * leave &uninit_tls (which was put in place in os_thread_exit()) as long as
+     * possible.  For non-detach, that means until the exit.
+     */
+    return !INTERNAL_OPTION(safe_read_tls_init) || doing_detach;
+#else
+    return true;
+#endif
+}
+
 /* TLS exit for the current thread who must own local_state. */
 void
 os_tls_thread_exit(local_state_t *local_state)
@@ -1906,17 +1959,22 @@ os_tls_thread_exit(local_state_t *local_state)
     ASSERT(offsetof(local_state_t, spill_space) ==
            offsetof(local_state_extended_t, spill_space));
 
-    tls_thread_free(tls_type, index);
+    if (should_zero_tls_at_thread_exit()) {
+        tls_thread_free(tls_type, index);
 
 # if defined(X86) && defined(X64)
-    if (tls_type == TLS_TYPE_ARCH_PRCTL) {
-        /* syscall re-sets gs register so re-clear it */
-        if (read_thread_register(SEG_TLS) != 0) {
-            static const ptr_uint_t zero = 0;
-            WRITE_DR_SEG(zero); /* macro needs lvalue! */
+        if (tls_type == TLS_TYPE_ARCH_PRCTL) {
+            /* syscall re-sets gs register so re-clear it */
+            if (read_thread_register(SEG_TLS) != 0) {
+                static const ptr_uint_t zero = 0;
+                WRITE_DR_SEG(zero); /* macro needs lvalue! */
+            }
         }
-    }
 # endif
+    }
+
+    /* We already set TLS to &uninit_tls in os_thread_exit() */
+
     if (dynamo_exited && !last_thread_tls_exited)
         last_thread_tls_exited = true;
 #endif
@@ -1941,7 +1999,8 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
      */
-    if (!other_thread && read_thread_register(SEG_TLS) != 0) {
+    if (!other_thread && read_thread_register(SEG_TLS) != 0 &&
+        should_zero_tls_at_thread_exit()) {
         WRITE_DR_SEG(zero); /* macro needs lvalue! */
     }
 # endif /* X86 */
@@ -2136,6 +2195,20 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
     ksynch_free_var(&ostd->terminated);
     ksynch_free_var(&ostd->detached);
 
+#ifdef X86
+    if (ostd->clone_tls != NULL) {
+        if (!other_thread) {
+            /* Avoid faults in is_thread_tls_initialized() */
+            /* FIXME i#2088: we need to restore the app's aux seg, if any, instead. */
+            os_set_dr_tls_base(dcontext, NULL, (byte *)&uninit_tls);
+        }
+        DODEBUG({
+            HEAP_TYPE_FREE(dcontext, ostd->clone_tls, os_local_state_t,
+                           ACCT_THREAD_MGT, UNPROTECTED);
+        });
+    }
+#endif
+
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
         if (MACHINE_TLS_IS_DR_TLS) {
@@ -2263,6 +2336,82 @@ os_fork_init(dcontext_t *dcontext)
     TABLE_RWLOCK(fd_table, write, unlock);
 }
 
+static void
+os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
+{
+#ifdef X86
+    /* If the option is off, we really should swap it (xref i#107/i#2088 comments
+     * in os_swap_context()) but there are few consequences of not doing it, and we
+     * have no code set up separate from the i#2089 scheme here.
+     */
+    if (!INTERNAL_OPTION(safe_read_tls_init))
+        return;
+    if (to_app) {
+        /* i#2089: we want the child to inherit a TLS with .magic==0, but we need our
+         * own syscall execution and post-syscall code to have valid scratch and
+         * dcontext values.  We can't clear our own magic b/c we don't know when the
+         * child will be scheduled, so we use a copy of our TLS.  We carefully never
+         * have a non-zero magic there in case a prior child is still unscheduled.
+         *
+         * We assume the child will not modify this TLS copy in any way.  The parent
+         * will use the scratch space returning from the syscall to dispatch, but we
+         * restore via os_clone_post() immediately before anybody calls
+         * get_thread_private_dcontext() or anything.
+         */
+        /* FIXME i#2088: to preserve the app's aux seg, if any, we should pass it
+         * and the seg reg value via the clone record (like we do for ARM today).
+         */
+        os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
+        os_local_state_t *cur_tls = get_os_tls_from_dc(dcontext);
+        if (ostd->clone_tls == NULL) {
+            ostd->clone_tls = (os_local_state_t *)
+                HEAP_TYPE_ALLOC(dcontext, os_local_state_t, ACCT_THREAD_MGT,
+                                UNPROTECTED);
+        }
+        /* Leave no window where a prior uninit child could read valid magic by
+         * invalidating prior to copying.
+         * We want 0 for children, but a special value for going-native threads
+         * to identify for retakeover in os_thread_take_over()..
+         */
+        cur_tls->magic = TLS_MAGIC_INVALID;
+        memcpy(ostd->clone_tls, cur_tls, sizeof(*ostd->clone_tls));
+        cur_tls->magic = TLS_MAGIC_VALID;
+        ostd->clone_tls->self = ostd->clone_tls;
+        os_set_dr_tls_base(dcontext, NULL, (byte *)ostd->clone_tls);
+    } else {
+        /* i#2089: restore the parent's DR TLS */
+        os_local_state_t *real_tls = get_os_tls_from_dc(dcontext);
+        /* For dr_app_start we can end up here with nothing to do, so we check. */
+        if (get_segment_base(SEG_TLS) != (byte *)real_tls) {
+            DEBUG_DECLARE(os_thread_data_t *ostd =
+                          (os_thread_data_t *)dcontext->os_field);
+            ASSERT(get_segment_base(SEG_TLS) == (byte *)ostd->clone_tls);
+            /* We assume there's no need to copy the scratch slots back */
+            os_set_dr_tls_base(dcontext, real_tls, (byte *)real_tls);
+        }
+    }
+#endif
+}
+
+static void
+os_clone_pre(dcontext_t *dcontext)
+{
+    /* We switch the lib tls segment back to app's segment.
+     * Please refer to comment on os_switch_lib_tls.
+     */
+    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        os_switch_lib_tls(dcontext, true/*to app*/);
+    }
+    os_swap_dr_tls(dcontext, true/*to app*/);
+}
+
+/* This is called from dispatch prior to post_system_call() */
+void
+os_clone_post(dcontext_t *dcontext)
+{
+    os_swap_dr_tls(dcontext, false/*to DR*/);
+}
+
 byte *
 os_get_dr_tls_base(dcontext_t *dcontext)
 {
@@ -2308,7 +2457,7 @@ os_using_app_state(dcontext_t *dcontext)
 
 /* Similar to PEB swapping on Windows, this call will switch between DR's
  * private lib segment base and the app's segment base.
- * i#107: If the app wants to use SEG_TLS, we should also switch that back at
+ * i#107/i#2088: If the app wants to use SEG_TLS, we should also switch that back at
  * this boundary, but there are many places where we simply assume it is always
  * installed.
  */
@@ -2317,6 +2466,7 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 {
     if (os_should_swap_state())
         os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
+    os_swap_dr_tls(dcontext, to_app);
 }
 
 void
@@ -2514,7 +2664,7 @@ void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
 #ifdef HAVE_TLS
-    ASSERT(is_thread_tls_initialized());
+    ASSERT(is_thread_tls_allocated());
     WRITE_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
 #else
     thread_id_t tid = get_thread_id();
@@ -6034,24 +6184,16 @@ os_switch_lib_tls(dcontext_t *dcontext, bool to_app)
     return os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
 }
 
+#ifdef X86
+/* dcontext can be NULL if !to_app */
 static bool
-os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
+os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t seg,
+                      bool to_app, app_pc base)
 {
     bool res = false;
-    os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
-#ifdef X86
-    app_pc base;
-
-    /* we can only update the executing thread's segment (i#920) */
-    ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
-                   dcontext == get_thread_private_dcontext());
+    ASSERT(dcontext != NULL);
     ASSERT(IF_X86_ELSE((seg == SEG_FS || seg == SEG_GS),
                        (seg == DR_REG_TPIDRURW || DR_REG_TPIDRURO)));
-    if (to_app) {
-        base = os_get_app_tls_base(dcontext, seg);
-    } else {
-        base = os_get_priv_tls_base(dcontext, seg);
-    }
     switch (os_tls->tls_type) {
 # ifdef X64
     case TLS_TYPE_ARCH_PRCTL: {
@@ -6102,7 +6244,10 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         /* i558 update lib seg reg to enforce the segment changes */
         LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting %s to 0x%x\n",
             __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
-        WRITE_LIB_SEG(selector);
+        if (seg == SEG_TLS)
+            WRITE_DR_SEG(selector);
+        else
+            WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
             "%s %s: set_thread_area successful for thread "TIDFMT" base "PFX"\n",
             __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
@@ -6125,7 +6270,10 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         }
         LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting %s to 0x%x\n",
             __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
-        WRITE_LIB_SEG(selector);
+        if (seg == SEG_TLS)
+            WRITE_DR_SEG(selector);
+        else
+            WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
             "%s %s: ldt selector swap successful for thread "TIDFMT"\n",
             __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id());
@@ -6135,8 +6283,43 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         ASSERT_NOT_REACHED();
         return false;
     }
-    ASSERT(BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
+    ASSERT((!to_app && seg == SEG_TLS) ||
+           BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
+    return res;
+}
+
+static bool
+os_set_dr_tls_base(dcontext_t *dcontext, os_local_state_t *tls, byte *base)
+{
+    if (tls == NULL) {
+        ASSERT(dcontext != NULL);
+        tls = get_os_tls_from_dc(dcontext);
+    }
+    return os_switch_seg_to_base(dcontext, tls, SEG_TLS, false, base);
+}
+#endif /* X86 */
+
+static bool
+os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
+{
+    os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
+#ifdef X86
+    app_pc base;
+    /* we can only update the executing thread's segment (i#920) */
+    ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
+                   /* i#2089: a clone syscall, or when native, temporarily puts in
+                    * invalid TLS, so we don't check get_thread_private_dcontext().
+                    */
+                   is_thread_tls_allocated() &&
+                   dcontext->owning_thread == get_sys_thread_id());
+    if (to_app) {
+        base = os_get_app_tls_base(dcontext, seg);
+    } else {
+        base = os_get_priv_tls_base(dcontext, seg);
+    }
+    return os_switch_seg_to_base(dcontext, os_tls, seg, to_app, base);
 #elif defined(AARCHXX)
+    bool res = false;
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(INTERNAL_OPTION(private_loader));
     if (to_app) {
@@ -6184,11 +6367,12 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2,
         "%s %s: set_tls swap success=%d for thread "TIDFMT"\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, get_thread_id());
+    return res;
 #elif defined(AARCH64)
     (void)os_tls;
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return false;
 #endif /* X86/ARM/AARCH64 */
-    return res;
 }
 
 /* System call interception: put any special handling here
@@ -6581,12 +6765,7 @@ pre_system_call(dcontext_t *dcontext)
          */
         if (is_thread_create_syscall(dcontext)) {
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
-            /* We switch the lib tls segment back to app's segment.
-             * Please refer to comment on os_switch_lib_tls.
-             */
-            if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-                os_switch_lib_tls(dcontext, true/*to app*/);
-            }
+            os_clone_pre(dcontext);
         } else  /* This is really a fork. */
             os_fork_pre(dcontext);
         break;
@@ -6640,13 +6819,7 @@ pre_system_call(dcontext_t *dcontext)
 # else
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
 # endif
-
-        /* We switch the lib tls segment back to app's segment.
-         * Please refer to comment on os_switch_lib_tls.
-         */
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            os_switch_lib_tls(dcontext, true/*to app*/);
-        }
+        os_clone_pre(dcontext);
         break;
     }
 #endif
@@ -7924,14 +8097,15 @@ post_system_call(dcontext_t *dcontext)
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n",
             MCXT_SYSCALL_RES(mc));
-        /* We switch the lib tls segment back to dr's segment.
+        /* We switch the lib tls segment back to dr's privlib segment.
          * Please refer to comment on os_switch_lib_tls.
          * It is only called in parent thread.
          * The child thread's tls setup is done in os_tls_app_seg_init.
          */
-        if (was_thread_create_syscall(dcontext) &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            os_switch_lib_tls(dcontext, false/*to dr*/);
+        if (was_thread_create_syscall(dcontext)) {
+            if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+                os_switch_lib_tls(dcontext, false/*to dr*/);
+            /* i#2089: we already restored the DR tls in os_clone_post() */
         }
         break;
     }
@@ -7973,6 +8147,7 @@ post_system_call(dcontext_t *dcontext)
             if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
                 os_switch_lib_tls(dcontext, false/*to dr*/);
             }
+            /* i#2089: we already restored the DR tls in os_clone_post() */
         }
         break;
     }
@@ -9378,6 +9553,33 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     return threads_to_signal > 0;
 }
 
+bool
+os_thread_re_take_over(void)
+{
+#ifdef X86
+    /* i#2089: is_thread_initialized() will fail for a currently-native app.
+     * We bypass the magic field checks here of is_thread_tls_initialized().
+     * XXX: should this be inside is_thread_initialized()?  But that may mislead
+     * other callers: the caller has to restore the TLs.  Some old code also
+     * used get_thread_private_dcontext() being NULL to indicate an unknown thread:
+     * that should also call here.
+     */
+    if (!is_thread_initialized() && is_thread_tls_allocated()) {
+        /* It's safe to call thread_lookup() for ourself. */
+        thread_record_t *tr = thread_lookup(get_sys_thread_id());
+        if (tr != NULL) {
+            ASSERT(is_thread_currently_native(tr));
+            os_swap_dr_tls(tr->dcontext, false/*to dr*/);
+            ASSERT(is_thread_initialized());
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\tretakeover for cur-native thread "TIDFMT"\n", get_sys_thread_id());
+            return true;
+        }
+    }
+#endif
+    return false;
+}
+
 /* Takes over the current thread from the signal handler.  We notify the thread
  * that signaled us by signalling our event in thread_takeover_records.
  */
@@ -9397,6 +9599,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
      * create_clone_record and new_thread_setup, except we're not putting a
      * clone record on the dstack.
      */
+    os_thread_re_take_over();
     if (!is_thread_initialized()) {
         IF_DEBUG(int r =)
             dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));

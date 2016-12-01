@@ -399,6 +399,9 @@ void
 set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record);
 #endif
 
+void
+os_clone_post(dcontext_t *dcontext);
+
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
 

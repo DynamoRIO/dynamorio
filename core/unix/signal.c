@@ -4206,7 +4206,7 @@ master_signal_handler_C(byte *xsp)
      * This path is global so there's no SELF_PROTECT_LOCAL and we also bypass
      * the ENTERING_DR() for this short path.
      */
-    if (sig == SIGSEGV && sc->SC_XIP == (ptr_uint_t)safe_read_tls_base) {
+    if (sig == SIGSEGV && sc->SC_XIP == (ptr_uint_t)safe_read_tls_magic) {
         sc->SC_RETURN_REG = 0;
         sc->SC_XIP = (reg_t) safe_read_tls_recover;
         return;

@@ -2502,8 +2502,6 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     LOG(GLOBAL, LOG_STATS|LOG_THREADS, 1, "\tdynamo contexts used: %d\n",
         num_dcontext);
 #else /* UNIX */
-    if (!other_thread)
-        set_thread_private_dcontext(NULL);
     delete_dynamo_context(dcontext_tmp, !on_dstack/*do not free own stack*/);
 #endif /* UNIX */
     os_tls_exit(local_state, other_thread);

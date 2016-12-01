@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,7 +61,8 @@ clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
 #endif
 
 /* forward declarations */
-static pid_t create_thread(int (*fcn)(void *), void *arg, void **stack);
+static pid_t create_thread(int (*fcn)(void *), void *arg, void **stack,
+                           bool share_sighand);
 static void delete_thread(pid_t pid, void *stack);
 int run(void *arg);
 static void* stack_alloc(int size);
@@ -79,14 +80,13 @@ static volatile bool child_done;
 
 static struct timespec sleeptime;
 
-int main()
+int
+test_thread(bool share_sighand)
 {
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 10*1000*1000; /* 10ms */
-
+    /* First make a thread that shares signal handlers. */
     child_exit = false;
     child_done = false;
-    child = create_thread(run, NULL, &stack);
+    child = create_thread(run, NULL, &stack, share_sighand);
     assert(child > -1);
 
     /* waste some time */
@@ -97,6 +97,19 @@ int main()
     while (!child_done)
         nanosleep(&sleeptime, NULL);
     delete_thread(child, stack);
+}
+
+int
+main()
+{
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 10*1000*1000; /* 10ms */
+
+    /* First make a thread that shares signal handlers. */
+    test_thread(true);
+
+    /* Now test a thread that does not share (xref i#2089). */
+    test_thread(false);
 }
 
 /* Procedure executed by sideline threads
@@ -131,7 +144,7 @@ void *p_tid, *c_tid;
  * first argument is passed in "arg". Returns the PID of the new
  * thread */
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack)
+create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
 {
     pid_t newpid;
     int flags;
@@ -144,7 +157,8 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     /* we're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
      */
-    flags = (SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
+    flags = (SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES |
+             (share_sighand ? CLONE_SIGHAND : 0));
     newpid = clone(fcn, my_stack, flags, arg, &p_tid, NULL, &c_tid);
 
     if (newpid == -1) {

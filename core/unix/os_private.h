@@ -45,6 +45,7 @@
 #include "instr.h" /* for reg_id_t */
 #include <sys/time.h> /* struct itimerval */
 #include "dr_config.h" /* for dr_platform_t */
+#include "tls.h"
 
 /* for inline asm */
 #ifdef X86
@@ -114,6 +115,8 @@
 /* Maximum number of arguments to Linux syscalls. */
 enum { MAX_SYSCALL_ARGS = 6 };
 
+struct _os_local_state_t;
+
 /* thread-local data that's os-private, for modularity */
 typedef struct _os_thread_data_t {
     /* store stack info at thread startup, since stack can get fragmented in
@@ -175,6 +178,7 @@ typedef struct _os_thread_data_t {
     void *dr_tls_base;
 #ifdef X86
     void *app_thread_areas; /* data structure for app's thread area info */
+    struct _os_local_state_t *clone_tls; /* i#2089: a copy for children to inherit */
 #endif
 } os_thread_data_t;
 
@@ -345,8 +349,8 @@ create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
 
 #ifdef X86
 /* In x86.asm */
-void *safe_read_tls_base(void);
-void *safe_read_tls_recover(void);
+uint safe_read_tls_magic(void);
+void safe_read_tls_recover(void);
 #endif
 
 #endif /* _OS_PRIVATE_H_ */

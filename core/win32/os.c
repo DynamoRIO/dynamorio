@@ -2481,6 +2481,13 @@ os_thread_take_over_secondary(dcontext_t *dcontext)
 }
 
 bool
+os_thread_re_take_over(void)
+{
+    /* Nothing to do. */
+    return false;
+}
+
+bool
 os_take_over_all_unknown_threads(dcontext_t *dcontext)
 {
     uint i, iters;

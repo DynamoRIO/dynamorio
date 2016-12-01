@@ -174,6 +174,12 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext);
 void
 os_thread_take_over_secondary(dcontext_t *dcontext);
 
+/* Readies a known but currently-native thread for takeover.
+ * Returns whether the thread is known.
+ */
+bool
+os_thread_re_take_over(void);
+
 dcontext_t *get_thread_private_dcontext(void);
 void set_thread_private_dcontext(dcontext_t *dcontext);
 

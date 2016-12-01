@@ -2546,6 +2546,11 @@ endif (CLIENT_INTERFACE)
 if (UNIX)
   if (NOT APPLE)
     tobuild(linux.clone linux/clone.c)
+
+    # A PIE build tests MSR-based TLS instead of GDT-based (i#2089).
+    tobuild(linux.clone-pie linux/clone.c)
+    append_property_string(TARGET linux.clone-pie COMPILE_FLAGS "-fPIE")
+    append_property_string(TARGET linux.clone-pie LINK_FLAGS "-pie")
   endif ()
 
   # Cross-arch execve test: can only be done via a suite of tests that

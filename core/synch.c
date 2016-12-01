@@ -1322,7 +1322,8 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     synch_array[i] = SYNCH_WITH_ALL_NOTIFIED;
                 }
                 LOG(THREAD, LOG_SYNCH, 2,
-                    "About to try synch with thread "TIDFMT"\n", threads[i]->id);
+                    "About to try synch with thread #%d/%d "TIDFMT"\n", i, num_threads,
+                    threads[i]->id);
                 synch_res = synch_with_thread(threads[i]->id, false, true,
                                               THREAD_SYNCH_NONE,
                                               desired_synch_state, flags_one);

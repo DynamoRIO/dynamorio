@@ -37,19 +37,19 @@
 #ifndef _OS_ASM_DEFINES_ASM_
 #define _OS_ASM_DEFINES_ASM_ 1
 
-/* XXX: keep in sync with os.c TLS_SELF_OFFSET.  We have a check in os_tls_init(). */
-#ifdef UNIX
+/* XXX: keep in sync with TLS_MAGIC_OFFSET in os.c.  We have a check in os_tls_init(). */
+#if defined(UNIX) && defined(X86)
 # ifdef X64
 #  ifdef HASHTABLE_STATISTICS
-#   define TLS_SELF_OFFSET_ASM 96
+#   define TLS_MAGIC_OFFSET_ASM 104
 #  else
-#   define TLS_SELF_OFFSET_ASM 88
+#   define TLS_MAGIC_OFFSET_ASM  96
 #  endif
 # else
 #  ifdef HASHTABLE_STATISTICS
-#   define TLS_SELF_OFFSET_ASM 48
+#   define TLS_MAGIC_OFFSET_ASM  52
 #  else
-#   define TLS_SELF_OFFSET_ASM 44
+#   define TLS_MAGIC_OFFSET_ASM  48
 #  endif
 # endif
 #endif
