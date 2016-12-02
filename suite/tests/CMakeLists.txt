@@ -1604,11 +1604,11 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
     "-early_inject -max_bb_instrs 6" "")
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
-    "-nostartfiles -nodefaultlibs -Wl,-static")
+    "-nostartfiles -nodefaultlibs -static")
 
   tobuild_ops(common.allasm_arm common/allasm_arm.asm "-early_inject" "")
   set_target_properties(common.allasm_arm PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -Wl,-static")
+  append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -static")
 endif ()
 
 if (AARCH64)
@@ -1616,13 +1616,13 @@ if (AARCH64)
     "-early_inject" "") # FIXME i#1569: -enable_traces here
   set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_aarch64_isa
-    "-nostartfiles -nodefaultlibs -Wl,-static")
+    "-nostartfiles -nodefaultlibs -static")
 
   tobuild_ops(common.allasm_aarch64_cache common/allasm_aarch64_cache.asm
     "-early_inject" "")
   set_target_properties(common.allasm_aarch64_cache PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_aarch64_cache
-    "-nostartfiles -nodefaultlibs -Wl,-static")
+    "-nostartfiles -nodefaultlibs -static")
   append_property_string(TARGET common.allasm_aarch64_cache LINK_FLAGS
     # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
     # with some tool chains (such as SUSE GCC 6.2) results in an executable that
@@ -2489,7 +2489,7 @@ if (CLIENT_INTERFACE)
         macro (add_cpusim_asm_test name model)
           add_exe(tool.${name} ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/${name}.asm)
           set_target_properties(tool.${name} PROPERTIES LINKER_LANGUAGE C)
-          append_link_flags(tool.${name} "-nostartfiles -nodefaultlibs -Wl,-static")
+          append_link_flags(tool.${name} "-nostartfiles -nodefaultlibs -static")
           torunonly_ci(tool.drcpusim.${name} tool.${name} drcpusim
             ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/${name}.asm
             "-cpu ${model}" "" "")
