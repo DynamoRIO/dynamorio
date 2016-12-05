@@ -787,10 +787,18 @@ if (NOT APPLE)
         "${dynamorio_dot_o}" &&
         )
     endif ()
+    set(disable_pie_flag)
+    # Older versions of GCC do not understand "-no-pie". See i#2083.
+    CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
+    if (no_pie_avail)
+      # If the compiler's default is "-pie", we must specify "-no-pie" when using "-r"
+      # to avoid the error "-r and -pie may not be used together". See i#2083.
+      set(disable_pie_flag "-no-pie")
+    endif ()
     add_custom_command(TARGET dynamorio_static POST_BUILD
       COMMAND
       ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
-        -nostartfiles -nodefaultlibs -Wl,-r
+        -nostartfiles -nodefaultlibs -Wl,-r ${disable_pie_flag}
         -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
         -o "${dynamorio_dot_o}" &&
       ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
