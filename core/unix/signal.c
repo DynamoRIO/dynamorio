@@ -4214,7 +4214,15 @@ master_signal_handler_C(byte *xsp)
      */
     if (sig == SIGSEGV && sc->SC_XIP == (ptr_uint_t)safe_read_tls_magic) {
         sc->SC_RETURN_REG = 0;
-        sc->SC_XIP = (reg_t) safe_read_tls_recover;
+        sc->SC_XIP = (reg_t) safe_read_tls_magic_recover;
+        return;
+    } else if (sig == SIGSEGV && sc->SC_XIP == (ptr_uint_t)safe_read_tls_self) {
+        sc->SC_RETURN_REG = 0;
+        sc->SC_XIP = (reg_t) safe_read_tls_self_recover;
+        return;
+    } else if (sig == SIGSEGV && sc->SC_XIP == (ptr_uint_t)safe_read_tls_app_self) {
+        sc->SC_RETURN_REG = 0;
+        sc->SC_XIP = (reg_t) safe_read_tls_app_self_recover;
         return;
     }
 #endif

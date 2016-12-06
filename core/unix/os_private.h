@@ -350,7 +350,11 @@ create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
 #ifdef X86
 /* In x86.asm */
 uint safe_read_tls_magic(void);
-void safe_read_tls_recover(void);
+void safe_read_tls_magic_recover(void);
+byte *safe_read_tls_self(void);
+void safe_read_tls_self_recover(void);
+byte *safe_read_tls_app_self(void);
+void safe_read_tls_app_self_recover(void);
 #endif
 
 #endif /* _OS_PRIVATE_H_ */

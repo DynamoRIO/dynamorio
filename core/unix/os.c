@@ -1878,6 +1878,7 @@ os_tls_init(void)
 {
 #ifdef X86
     ASSERT(TLS_MAGIC_OFFSET_ASM == TLS_MAGIC_OFFSET);
+    ASSERT(TLS_SELF_OFFSET_ASM == TLS_SELF_OFFSET);
 #endif
 #ifdef HAVE_TLS
     /* We create a 1-page segment with an LDT entry for each thread and load its

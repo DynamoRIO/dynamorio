@@ -46,6 +46,7 @@
 
 #ifdef X86
 # include "instr.h" /* for SEG_ constants */
+# include "os_private.h"
 #endif
 
 #ifndef LINUX
@@ -95,6 +96,7 @@ static int lib_tls_gdt_index = -1;
 
 #ifdef X64
 static bool tls_using_msr;
+static bool on_WSL;
 #endif
 
 /* Indicates that on the next request for a GDT entry, we should return the GDT
@@ -443,19 +445,29 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 LOG(GLOBAL, LOG_THREADS, 1,
                     "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
                 res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_GET_GS, &cur_gs);
-                if (res >= 0 && cur_gs != segment) {
-                    /* FIXME i#1896: handle WSL where ARCH_GET_GS is broken and
-                     * does not return the true value.  (Plus, fs and gs start
-                     * out equal to ss (0x2b) and are not set by ARCH_SET_*).
-                     * For now we identify and abort.
+                if (res >= 0 && cur_gs != segment && !on_WSL) {
+                    /* XXX i#1896: on WSL, ARCH_GET_GS is broken and does not return
+                     * the true value.  (Plus, fs and gs start out equal to ss (0x2b)
+                     * and are not set by ARCH_SET_*).  i#2089's safe read TLS
+                     * solution solves this, but we still warn as we haven't fixed
+                     * later issues.  Without the safe read we have to abort.
                      */
-                    SYSLOG(SYSLOG_ERROR, WSL_UNSUPPORTED, 2,
-                           get_application_name(), get_application_pid());
-                    os_terminate(NULL, TERMINATE_PROCESS);
-                    ASSERT_NOT_REACHED();
+                    on_WSL = true;
+                    LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: running on WSL\n");
+                    if (INTERNAL_OPTION(safe_read_tls_init)) {
+                        SYSLOG(SYSLOG_WARNING, WSL_UNSUPPORTED, 2,
+                               get_application_name(), get_application_pid());
+                    } else {
+                        SYSLOG(SYSLOG_ERROR, WSL_UNSUPPORTED_FATAL, 2,
+                               get_application_name(), get_application_pid());
+                        os_terminate(NULL, TERMINATE_PROCESS);
+                        ASSERT_NOT_REACHED();
+                    }
                 }
                 /* Kernel should have written %gs for us if using GDT */
-                if (!dynamo_initialized && read_thread_register(SEG_TLS) == 0) {
+                if (!dynamo_initialized &&
+                    /* We assume that WSL is using MSR */
+                    (on_WSL || read_thread_register(SEG_TLS) == 0)) {
                     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: using MSR\n");
                     tls_using_msr = true;
                 }
@@ -626,6 +638,18 @@ tls_get_fs_gs_segment_base(uint seg)
         int res;
 # ifdef X64
         byte *base;
+        if (running_on_WSL()) {
+            /* i#1986: arch_prctl queries fail, so we try to read from the
+             * self pointer in the DR or lib TLS.
+             */
+            if (seg == SEG_TLS)
+                base = safe_read_tls_self();
+            else
+                base = safe_read_tls_app_self();
+            LOG(THREAD_GET, LOG_THREADS, 4,
+                "safe read of self %s => "PFX"\n", reg_names[seg], base);
+            return base;
+        }
         res = dynamorio_syscall(SYS_arch_prctl, 2,
                                 (seg == SEG_FS ? ARCH_GET_FS : ARCH_GET_GS), &base);
         if (res >= 0) {
@@ -752,6 +776,16 @@ tls_dr_using_msr(void)
 {
 #ifdef X64
     return tls_using_msr;
+#else
+    return false;
+#endif
+}
+
+bool
+running_on_WSL(void)
+{
+#ifdef X64
+    return on_WSL;
 #else
     return false;
 #endif

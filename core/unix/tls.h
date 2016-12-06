@@ -303,6 +303,9 @@ tls_priv_lib_index(void);
 bool
 tls_dr_using_msr(void);
 
+bool
+running_on_WSL(void);
+
 void
 tls_initialize_indices(os_local_state_t *os_tls);
 

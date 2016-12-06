@@ -49,6 +49,9 @@
 #endif
 #include "tls.h"
 #include <stddef.h>
+#if defined(X86) && defined(DEBUG)
+# include "os_asm_defines.asm" /* for TLS_APP_SELF_OFFSET_ASM */
+#endif
 
 /****************************************************************************
  * Thread Local Storage
@@ -207,6 +210,7 @@ privload_mod_tls_init(privmod_t *mod)
     size_t offset;
     int first_byte;
 
+    IF_X86(ASSERT(TLS_APP_SELF_OFFSET_ASM == offsetof(tcb_head_t, self)));
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     opd = (os_privmod_data_t *) mod->os_privmod_data;
     ASSERT(opd != NULL && opd->tls_block_size != 0);

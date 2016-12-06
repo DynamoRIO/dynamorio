@@ -37,20 +37,28 @@
 #ifndef _OS_ASM_DEFINES_ASM_
 #define _OS_ASM_DEFINES_ASM_ 1
 
-/* XXX: keep in sync with TLS_MAGIC_OFFSET in os.c.  We have a check in os_tls_init(). */
+/* XXX: keep in sync with TLS_MAGIC_OFFSET, etc. in os.c.
+ * We have checks in os_tls_init() and privload_mod_tls_init().
+ */
 #if defined(UNIX) && defined(X86)
 # ifdef X64
 #  ifdef HASHTABLE_STATISTICS
-#   define TLS_MAGIC_OFFSET_ASM 104
+#   define TLS_MAGIC_OFFSET_ASM  104
+#   define TLS_SELF_OFFSET_ASM    96
 #  else
-#   define TLS_MAGIC_OFFSET_ASM  96
+#   define TLS_MAGIC_OFFSET_ASM   96
+#   define TLS_SELF_OFFSET_ASM    88
 #  endif
+#  define TLS_APP_SELF_OFFSET_ASM 16
 # else
 #  ifdef HASHTABLE_STATISTICS
-#   define TLS_MAGIC_OFFSET_ASM  52
+#   define TLS_MAGIC_OFFSET_ASM   52
+#   define TLS_SELF_OFFSET_ASM    48
 #  else
-#   define TLS_MAGIC_OFFSET_ASM  48
+#   define TLS_MAGIC_OFFSET_ASM   48
+#   define TLS_SELF_OFFSET_ASM    44
 #  endif
+#  define TLS_APP_SELF_OFFSET_ASM  8
 # endif
 #endif
 
