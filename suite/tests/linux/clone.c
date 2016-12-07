@@ -80,7 +80,7 @@ static volatile bool child_done;
 
 static struct timespec sleeptime;
 
-int
+void
 test_thread(bool share_sighand)
 {
     /* First make a thread that shares signal handlers. */
