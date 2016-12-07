@@ -2306,14 +2306,20 @@ thread_set_segment_registers(sigcontext_t *sc)
 {
 #ifdef X86
     /* Fill in the segment registers */
-    __asm__ __volatile__("mov %%cs, %%ax; mov %%ax, %0" : "=m"(sc->cs) : : "eax");
+    __asm__ __volatile__("mov %%cs, %%ax; mov %%ax, %0" : "=m"(sc->SC_FIELD(cs))
+                         : : "eax");
 # ifndef X64
-    __asm__ __volatile__("mov %%ss, %%ax; mov %%ax, %0" : "=m"(sc->ss) : : "eax");
-    __asm__ __volatile__("mov %%ds, %%ax; mov %%ax, %0" : "=m"(sc->ds) : : "eax");
-    __asm__ __volatile__("mov %%es, %%ax; mov %%ax, %0" : "=m"(sc->es) : : "eax");
+    __asm__ __volatile__("mov %%ss, %%ax; mov %%ax, %0" : "=m"(sc->SC_FIELD(ss))
+                         : : "eax");
+    __asm__ __volatile__("mov %%ds, %%ax; mov %%ax, %0" : "=m"(sc->SC_FIELD(ds))
+                         : : "eax");
+    __asm__ __volatile__("mov %%es, %%ax; mov %%ax, %0" : "=m"(sc->SC_FIELD(es))
+                         : : "eax");
 # endif
-    __asm__ __volatile__("mov %%fs, %%ax; mov %%ax, %0" : "=m"(sc->fs) : : "eax");
-    __asm__ __volatile__("mov %%gs, %%ax; mov %%ax, %0" : "=m"(sc->gs) : : "eax");
+    __asm__ __volatile__("mov %%fs, %%ax; mov %%ax, %0" : "=m"(sc->SC_FIELD(fs))
+                         : : "eax");
+    __asm__ __volatile__("mov %%gs, %%ax; mov %%ax, %0" : "=m"(sc->SC_FIELD(gs))
+                         : : "eax");
 #endif
 }
 
