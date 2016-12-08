@@ -30,72 +30,55 @@
  * DAMAGE.
  */
 
-/* file "clean_call_opt.c" */
+/* file "clean_call_opt.h" - arch-specific clean call optimisation */
 
-#include "../globals.h"
-#include "arch.h"
+#ifndef _CLEAN_CALL_OPT_
+#define _CLEAN_CALL_OPT_ 1
 
-#ifdef CLIENT_INTERFACE
-
-void
-analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-}
+/****************************************************************************
+ * Functions provided by clean_call_opt_shared.c.
+ */
 
 void
-analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-}
+callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, reg_id_t value);
+
+opnd_t
+callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, reg_id_t value);
+
+/****************************************************************************
+ * Functions implemented in arch-specific clean_call_opt.c.
+ */
 
 void
-analyze_callee_tls(dcontext_t *dcontext, callee_info_t *ci)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-}
+analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci);
+
+void
+analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci);
+
+void
+analyze_callee_tls(dcontext_t *dcontext, callee_info_t *ci);
 
 app_pc
 check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc,
-                          app_pc cur_pc, app_pc tgt_pc)
-{
-    /* FIXME i#1569: For opt level greater than 1, we abort. */
-    return NULL;
-}
+                          app_pc cur_pc, app_pc tgt_pc);
 
 bool
-check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-    return false;
-}
+check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci);
 
 void
 analyze_clean_call_aflags(dcontext_t *dcontext,
-                          clean_call_info_t *cci, instr_t *where)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-}
+                          clean_call_info_t *cci, instr_t *where);
 
 void
 insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
-                       instrlist_t *ilist, instr_t *where, opnd_t *args)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-}
+                       instrlist_t *ilist, instr_t *where, opnd_t *args);
 
 void
 insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
-                          instrlist_t *ilist, instr_t *where)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-}
+                          instrlist_t *ilist, instr_t *where);
 
 void
 insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
-                        instrlist_t *ilist, instr_t *where, opnd_t *args)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-}
+                        instrlist_t *ilist, instr_t *where, opnd_t *args);
 
-#endif /* CLIENT_INTERFACE */
+#endif /* _CLEAN_CALL_OPT_ */

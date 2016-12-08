@@ -1271,7 +1271,7 @@ typedef struct _callee_info_t {
 extern callee_info_t     default_callee_info;
 extern clean_call_info_t default_clean_call_info;
 
-/* in clean_call_opt.c */
+/* in clean_call_opt_shared.c */
 #ifdef CLIENT_INTERFACE
 void
 clean_call_opt_init(void);

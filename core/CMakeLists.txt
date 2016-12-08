@@ -212,6 +212,7 @@ set(ARCH_SRCS
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
   arch/${ARCH_NAME_SHARED}/mangle.c
+  arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
   arch/steal_reg.c
   arch/x86_code.c
