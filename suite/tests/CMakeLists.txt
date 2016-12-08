@@ -2657,6 +2657,9 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
+  if (LINUX AND SIGACTION_HAS_BEEN_IMPLEMENTED_PROPERLY) # FIXME i#1984
+    tobuild(linux.sigaction_nosignals linux/sigaction_nosignals.c)
+  endif ()
   # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#58: port test to MacOS
   if (NOT ARM AND NOT AARCH64 AND NOT APPLE)
