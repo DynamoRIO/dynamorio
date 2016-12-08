@@ -2347,16 +2347,18 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
     if (!INTERNAL_OPTION(safe_read_tls_init))
         return;
     if (to_app) {
-        /* i#2089: we want the child to inherit a TLS with .magic==0, but we need our
-         * own syscall execution and post-syscall code to have valid scratch and
-         * dcontext values.  We can't clear our own magic b/c we don't know when the
-         * child will be scheduled, so we use a copy of our TLS.  We carefully never
-         * have a non-zero magic there in case a prior child is still unscheduled.
+        /* i#2089: we want the child to inherit a TLS with invalid .magic, but we
+         * need our own syscall execution and post-syscall code to have valid scratch
+         * and dcontext values.  We can't clear our own magic b/c we don't know when
+         * the child will be scheduled, so we use a copy of our TLS.  We carefully
+         * never have a valid magic there in case a prior child is still unscheduled.
          *
-         * We assume the child will not modify this TLS copy in any way.  The parent
-         * will use the scratch space returning from the syscall to dispatch, but we
-         * restore via os_clone_post() immediately before anybody calls
-         * get_thread_private_dcontext() or anything.
+         * We assume the child will not modify this TLS copy in any way.
+         * CLONE_SETTLS touc * hes the other segment (we'll have to watch for
+         * addition of CLONE_SETTLS_AUX). The parent will use the scratch space
+         * returning from the syscall to dispatch, but we restore via os_clone_post()
+         * immediately before anybody calls get_thread_private_dcontext() or
+         * anything.
          */
         /* FIXME i#2088: to preserve the app's aux seg, if any, we should pass it
          * and the seg reg value via the clone record (like we do for ARM today).
@@ -2370,8 +2372,6 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
         }
         /* Leave no window where a prior uninit child could read valid magic by
          * invalidating prior to copying.
-         * We want 0 for children, but a special value for going-native threads
-         * to identify for retakeover in os_thread_take_over()..
          */
         cur_tls->magic = TLS_MAGIC_INVALID;
         memcpy(ostd->clone_tls, cur_tls, sizeof(*ostd->clone_tls));
@@ -6241,13 +6241,14 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
              */
             res = true;  /* Indicate success. */
         }
+        /* XXX i#2098: it is unsafe to call LOG here in between GDT and register changes */
         /* i558 update lib seg reg to enforce the segment changes */
-        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting %s to 0x%x\n",
-            __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
         if (seg == SEG_TLS)
             WRITE_DR_SEG(selector);
         else
             WRITE_LIB_SEG(selector);
+        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting %s to 0x%x\n",
+            __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
         LOG(THREAD, LOG_LOADER, 2,
             "%s %s: set_thread_area successful for thread "TIDFMT" base "PFX"\n",
             __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
