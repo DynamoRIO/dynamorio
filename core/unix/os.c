@@ -2369,6 +2369,7 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
             ostd->clone_tls = (os_local_state_t *)
                 HEAP_TYPE_ALLOC(dcontext, os_local_state_t, ACCT_THREAD_MGT,
                                 UNPROTECTED);
+            LOG(THREAD, LOG_THREADS, 2, "TLS copy is "PFX"\n", ostd->clone_tls);
         }
         /* Leave no window where a prior uninit child could read valid magic by
          * invalidating prior to copying.
@@ -9570,10 +9571,12 @@ os_thread_re_take_over(void)
         thread_record_t *tr = thread_lookup(get_sys_thread_id());
         if (tr != NULL) {
             ASSERT(is_thread_currently_native(tr));
-            os_swap_dr_tls(tr->dcontext, false/*to dr*/);
-            ASSERT(is_thread_initialized());
             LOG(GLOBAL, LOG_THREADS, 1,
                 "\tretakeover for cur-native thread "TIDFMT"\n", get_sys_thread_id());
+            LOG(tr->dcontext->logfile, LOG_THREADS, 1,
+                "\nretakeover for cur-native thread "TIDFMT"\n", get_sys_thread_id());
+            os_swap_dr_tls(tr->dcontext, false/*to dr*/);
+            ASSERT(is_thread_initialized());
             return true;
         }
     }

@@ -145,7 +145,10 @@ dispatch(dcontext_t *dcontext)
     if (get_at_syscall(dcontext) && was_thread_create_syscall(dcontext))
         os_clone_post(dcontext);
 # endif
-    ASSERT(dcontext == get_thread_private_dcontext());
+    ASSERT(dcontext == get_thread_private_dcontext() ||
+           /* i#813: the app hit our post-sysenter hook while native */
+           (dcontext->whereami == WHERE_APP &&
+            dcontext->last_exit == get_syscall_linkstub()));
 #else
 # ifdef UNIX
     /* CAUTION: for !HAVE_TLS, upon a fork, the child's
@@ -690,7 +693,7 @@ dispatch_enter_native(dcontext_t *dcontext)
         dcontext->native_exec_postsyscall = NULL;
         LOG(THREAD, LOG_DISPATCH, 2, "Entry into native_exec after intercepted syscall\n");
         /* restore state as though never came out for syscall */
-        KSTOP_NOT_MATCHING(dispatch_num_exits);
+        KSTOP_NOT_MATCHING_DC(dcontext, dispatch_num_exits);
 #ifdef KSTATS
         if (!dcontext->currently_stopped)
             KSTART_DC(dcontext, fcache_default);
