@@ -59,6 +59,13 @@
 # include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
 #endif
 
+/* Make sure we export function name as the symbol name without mangling. */
+#ifdef __cplusplus
+extern "C" {
+DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
+}
+#endif
+
 #define NOTIFY(level, ...) do {            \
     if (op_verbose.get_value() >= (level)) \
         dr_fprintf(STDERR, __VA_ARGS__);   \

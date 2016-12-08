@@ -258,6 +258,17 @@ if (BUILD_TESTS)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_threads drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_threads)
     target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
+
+    # FIXME i#2099: the weak symbol is not supported on Windows.
+    if (UNIX)
+      add_executable(tool.drcacheoff.burst_client tests/burst_static.cpp)
+      append_property_list(TARGET tool.drcacheoff.burst_client
+        COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
+      configure_DynamoRIO_static(tool.drcacheoff.burst_client)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_static)
+      # A nop, keep it for the furture Windows support.
+      add_win32_flags(tool.drcacheoff.burst_client)
+    endif ()
   endif ()
 endif ()
 

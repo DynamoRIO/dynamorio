@@ -2468,10 +2468,14 @@ if (CLIENT_INTERFACE)
         torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace)
         set(tool.drcacheoff.burst_replace_nodr ON)
 
-        # FIXME i#2040: this hits static client issues on Windows
         if (UNIX)
+          # FIXME i#2040: this hits static client issues on Windows
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads)
           set(tool.drcacheoff.burst_threads_nodr ON)
+
+          # FIXME i#2099: the weak symbol is not supported not work on Windows
+          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client)
+          set(tool.drcacheoff.burst_client_nodr ON)
         endif ()
       endif ()
 
