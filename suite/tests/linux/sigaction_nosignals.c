@@ -31,6 +31,7 @@
  */
 
 /* Test sigaction without signals. */
+/* XXX: We should also test non-RT sigaction. */
 
 #include "tools.h" /* for print() */
 
@@ -43,6 +44,16 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#ifdef ANDROID
+/* Android does not fully support RT (Bionic only uses non-RT): there is
+ * some weird behavior when invoking RT syscalls (like bogus memory not
+ * causing a failure).  Bionic also registers for 8 signals up front.
+ * If we add non-RT tests we could likely run some of those but with caveats
+ * for the 8 signals.
+ */
+# error Android is not supported
+#endif
 
 #define SIGMAX 64
 #define SIG1 SIGALRM /* an arbitrary signal that is not SIGKILL or SIGSTOP */
@@ -84,7 +95,8 @@ int
 sys_sigaction(int signum, unsigned char *act, unsigned char *oldact, size_t sigsetsize)
 {
     int ret = syscall(SYS_rt_sigaction, signum, act, oldact, sigsetsize);
-    assert(ret == 0 || ret == -1);
+    /* We see a 1 return value for some 32-bit-on-64-bit-kernel test_edge() cases. */
+    assert(ret == 0 || ret == -1 || ret == 1);
     return ret == 0 ? 0 : -errno;
 }
 
@@ -275,7 +287,9 @@ test_prot(int signum, int t1, int t2, size_t sigsetsize)
                             t2 == 0 ? NULL : sim_old + MARGIN,
                             sigsetsize, prot1, prot2);
 
-    assert(ret_sys == ret_sim);
+    assert(ret_sys == ret_sim ||
+           /* 32-bit on a 64-bit kernel returns -ENXIO for invalid oact (i#1984) */
+           (ret_sys == -ENXIO && ret_sim == -EFAULT));
     assert(memcmp(test_prot_mem1, sim_new, sim_array_size) == 0 &&
            memcmp(test_prot_mem2, sim_old, sim_array_size) == 0);
 }

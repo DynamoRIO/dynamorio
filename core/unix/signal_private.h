@@ -343,6 +343,12 @@ typedef struct _thread_sig_info_t {
      */
     kernel_sigaction_t prior_app_sigaction;
     bool use_kernel_prior_sigaction;
+    /* We pass this to the kernel in lieu of the app's data struct, so we
+     * can modify it.
+     */
+    kernel_sigaction_t our_sigaction;
+    /* This is the app's sigaction pointer, for restoring post-syscall. */
+    const kernel_sigaction_t *sigaction_param;
 
     /* True after signal_thread_inherit or signal_fork_init are called.  We
      * squash alarm or profiling signals up until this point.

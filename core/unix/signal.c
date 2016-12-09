@@ -1500,27 +1500,47 @@ handle_clone(dcontext_t *dcontext, uint flags)
 }
 
 /* Returns false if should NOT issue syscall.
+ * In such a case, the result is in "result".
+ * We could instead issue the syscall and expect it to fail, which would have a more
+ * accurate error code, but that risks missing a failure (e.g., RT on Android
+ * which in some cases returns success on bugus params).
+ * It seems better to err on the side of the wrong error code or failing when
+ * we shouldn't, than to think it failed when it didn't, which is more complex
+ * to deal with.
  */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
-                 kernel_sigaction_t *oact, size_t sigsetsize)
+                 kernel_sigaction_t *oact, size_t sigsetsize, OUT uint *result)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_sigaction_t *save;
-    kernel_sigaction_t *non_const_act = (kernel_sigaction_t *) act;
+    kernel_sigaction_t local_act;
+    if (sigsetsize != sizeof(kernel_sigset_t)) {
+        *result = EINVAL;
+        return false;
+    }
+    if (act != NULL) {
+        /* Linux checks readability before checking the signal number. */
+        if (!safe_read(act, sizeof(local_act), &local_act)) {
+            *result = EFAULT;
+            return false;
+        }
+    }
     /* i#1135: app may pass invalid signum to find MAX_SIGNUM */
-    if (sig <= 0 || sig > MAX_SIGNUM)
-        return true; /* issue syscall and expect it to fail */
-
+    if (sig <= 0 || sig > MAX_SIGNUM ||
+        (act != NULL && (sig == SIGKILL || sig == SIGSTOP))) {
+        *result = EINVAL;
+        return false;
+    }
     if (act != NULL) {
         /* app is installing a new action */
-
         while (info->num_unstarted_children > 0) {
             /* must wait for children to start and copy our state
              * before we modify it!
              */
             os_thread_yield();
         }
+        info->sigaction_param = act;
     }
     if (info->shared_app_sigaction) {
         /* app_sigaction structure is shared */
@@ -1543,11 +1563,11 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         }
     }
     if (act != NULL) {
-        if (act->handler == (handler_t) SIG_IGN ||
-            act->handler == (handler_t) SIG_DFL) {
+        if (local_act.handler == (handler_t) SIG_IGN ||
+            local_act.handler == (handler_t) SIG_DFL) {
             LOG(THREAD, LOG_ASYNCH, 2,
                 "app installed %s as sigaction for signal %d\n",
-                (act->handler == (handler_t) SIG_IGN) ? "SIG_IGN" : "SIG_DFL", sig);
+                (local_act.handler == (handler_t) SIG_IGN) ? "SIG_IGN" : "SIG_DFL", sig);
             if (!info->we_intercept[sig]) {
                 /* let the SIG_IGN/SIG_DFL go through, we want to remove our
                  * handler.  we delete the stored app_sigaction in post_
@@ -1559,16 +1579,19 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         } else {
             LOG(THREAD, LOG_ASYNCH, 2,
                 "app installed "PFX" as sigaction for signal %d\n",
-                act->handler, sig);
+                local_act.handler, sig);
             DOLOG(2, LOG_ASYNCH, {
                 LOG(THREAD, LOG_ASYNCH, 2, "signal mask for handler:\n");
-                dump_sigset(dcontext, (kernel_sigset_t *) &act->mask);
+                dump_sigset(dcontext, (kernel_sigset_t *) &local_act.mask);
             });
         }
 
         /* save app's entire sigaction struct */
         save = (kernel_sigaction_t *) handler_alloc(dcontext, sizeof(kernel_sigaction_t));
-        memcpy(save, act, sizeof(kernel_sigaction_t));
+        memcpy(save, &local_act, sizeof(kernel_sigaction_t));
+        /* Remove the unblockable sigs */
+        kernel_sigdelset(&save->mask, SIGKILL);
+        kernel_sigdelset(&save->mask, SIGSTOP);
         if (info->app_sigaction[sig] != NULL) {
             /* go ahead and toss the old one, it's up to the app to store
              * and then restore later if it wants to
@@ -1577,8 +1600,8 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         }
         info->app_sigaction[sig] = save;
         LOG(THREAD, LOG_ASYNCH, 3, "\tflags = "PFX", %s = "PFX"\n",
-            act->flags, IF_MACOS_ELSE("tramp","restorer"),
-            IF_MACOS_ELSE(act->tramp, act->restorer));
+            local_act.flags, IF_MACOS_ELSE("tramp","restorer"),
+            IF_MACOS_ELSE(local_act.tramp, local_act.restorer));
         /* clear cache */
         info->restorer_valid[sig] = -1;
     }
@@ -1586,14 +1609,13 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
         mutex_unlock(info->shared_lock);
     if (info->we_intercept[sig]) {
         /* cancel the syscall */
+        *result = handle_post_sigaction(dcontext, true, sig, act, oact, sigsetsize);
         return false;
     }
     if (act != NULL) {
-        /* now hand kernel our master handler instead of app's
-         * XXX: double-check we're dealing w/ all possible mask, flag
-         * differences between app & our handler
-         */
-        set_our_handler_sigact(non_const_act, sig);
+        /* Now hand kernel our master handler instead of app's. */
+        set_our_handler_sigact(&info->our_sigaction, sig);
+        set_syscall_param(dcontext, 1, (reg_t)&info->our_sigaction);
 
         /* FIXME PR 297033: we don't support intercepting DEFAULT_STOP /
          * DEFAULT_CONTINUE signals b/c we can't generate the default
@@ -1606,21 +1628,37 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
 
 /* os.c thinks it's passing us struct_sigaction, really it's kernel_sigaction_t,
  * which has fields in different order.
+ * Only called on success.
+ * Returns the desired app return value (caller will negate if nec).
  */
-void
-handle_post_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
-                      kernel_sigaction_t *oact, size_t sigsetsize)
+uint
+handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
+                      const kernel_sigaction_t *act, kernel_sigaction_t *oact,
+                      size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    /* this is only called on success, so sig must be in the valid range */
+    if (act != NULL) {
+        /* Restore app register value, in case we changed it. */
+        set_syscall_param(dcontext, 1, (reg_t)info->sigaction_param);
+    }
+    if (!success)
+        return 0; /* don't change return value */
     ASSERT(sig <= MAX_SIGNUM && sig > 0);
     if (oact != NULL) {
-        /* FIXME: make sure oact is readable & writable before accessing! */
         if (info->use_kernel_prior_sigaction) {
+            /* Real syscall succeeded with oact so it must be readable, barring races. */
             ASSERT(oact->handler == (handler_t) SIG_IGN ||
                    oact->handler == (handler_t) SIG_DFL);
         } else {
-            memcpy(oact, &info->prior_app_sigaction, sizeof(*oact));
+            /* We may have skipped the syscall so we have to check writability */
+            size_t written;
+            if (!safe_write_ex(oact, sizeof(*oact), &info->prior_app_sigaction, &written)
+                || written != sizeof(*oact)) {
+                /* We actually don't have to undo installing any passed action
+                 * b/c the Linux kernel does that *before* checking oact perms.
+                 */
+                return EFAULT;
+            }
         }
     }
     /* If installing IGN or DFL, delete ours.
@@ -1629,6 +1667,9 @@ handle_post_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *a
      * which is off by default anyway and never turned off.
      */
     if (act != NULL &&
+        /* De-ref here should work barring races: already racy and non-default so not
+         * bothering with safe_read.
+         */
         ((act->handler == (handler_t) SIG_IGN ||
           act->handler == (handler_t) SIG_DFL) &&
          !info->we_intercept[sig]) &&
@@ -1642,57 +1683,94 @@ handle_post_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *a
         if (info->shared_app_sigaction)
             mutex_unlock(info->shared_lock);
     }
+    return 0;
 }
 
 #ifdef LINUX
-static void
-convert_old_sigaction_to_kernel(kernel_sigaction_t *ks, const old_sigaction_t *os)
+static bool
+convert_old_sigaction_to_kernel(dcontext_t *dcontext, kernel_sigaction_t *ks,
+                                const old_sigaction_t *os)
 {
-    ks->handler = os->handler;
-    ks->flags = os->flags;
-    ks->restorer = os->restorer;
-    kernel_sigemptyset(&ks->mask);
-    ks->mask.sig[0] = os->mask;
+    bool res = false;
+    TRY_EXCEPT(dcontext, {
+        ks->handler = os->handler;
+        ks->flags = os->flags;
+        ks->restorer = os->restorer;
+        kernel_sigemptyset(&ks->mask);
+        ks->mask.sig[0] = os->mask;
+        res = true;
+    } , { /* EXCEPT */
+       /* nothing: res is already false */
+    });
+    return res;
 }
 
-static void
-convert_kernel_sigaction_to_old(old_sigaction_t *os, const kernel_sigaction_t *ks)
+static bool
+convert_kernel_sigaction_to_old(dcontext_t *dcontext, old_sigaction_t *os,
+                                const kernel_sigaction_t *ks)
 {
-    os->handler = ks->handler;
-    os->flags = ks->flags;
-    os->restorer = ks->restorer;
-    os->mask = ks->mask.sig[0];
+    bool res = false;
+    TRY_EXCEPT(dcontext, {
+        os->handler = ks->handler;
+        os->flags = ks->flags;
+        os->restorer = ks->restorer;
+        os->mask = ks->mask.sig[0];
+        res = true;
+    } , { /* EXCEPT */
+       /* nothing: res is already false */
+    });
+    return res;
 }
 
-/* Returns false if should NOT issue syscall. */
+/* Returns false (and "result") if should NOT issue syscall. */
 bool
 handle_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
-                     old_sigaction_t *oact)
+                     old_sigaction_t *oact, OUT uint *result)
 {
     kernel_sigaction_t kact;
     kernel_sigaction_t okact;
     bool res;
-    if (act != NULL)
-        convert_old_sigaction_to_kernel(&kact, act);
+    if (act != NULL) {
+        if (!convert_old_sigaction_to_kernel(dcontext, &kact, act)) {
+            *result = EFAULT;
+            return false;
+        }
+    }
     res = handle_sigaction(dcontext, sig, act == NULL ? NULL : &kact,
-                           oact == NULL ? NULL : &okact, sizeof(kernel_sigset_t));
+                           oact == NULL ? NULL : &okact, sizeof(kernel_sigset_t), result);
+    if (!res)
+        *result = handle_post_old_sigaction(dcontext, true, sig, act, oact);
     return res;
 }
 
-void
-handle_post_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
-                          old_sigaction_t *oact)
+/* Returns the desired app return value (caller will negate if nec). */
+uint
+handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
+                          const old_sigaction_t *act, old_sigaction_t *oact)
 {
     kernel_sigaction_t kact;
     kernel_sigaction_t okact;
-    if (act != NULL)
-        convert_old_sigaction_to_kernel(&kact, act);
-    if (oact != NULL) {
-        convert_old_sigaction_to_kernel(dcontext, &okact, oact);
-    handle_post_sigaction(dcontext, sig, act == NULL ? NULL : &kact,
-                          oact == NULL ? NULL : &okact, sizeof(kernel_sigset_t));
-    if (oact != NULL)
-        convert_kernel_sigaction_to_old(oact, &okact);
+    ptr_uint_t res;
+    if (act != NULL && success) {
+        if (!convert_old_sigaction_to_kernel(dcontext, &kact, act)) {
+            ASSERT(!success);
+            return EFAULT;
+        }
+    }
+    if (oact != NULL && success) {
+        if (!convert_old_sigaction_to_kernel(dcontext, &okact, oact)) {
+            ASSERT(!success);
+            return EFAULT;
+        }
+    }
+    res = handle_post_sigaction(dcontext, success, sig, act == NULL ? NULL : &kact,
+                                oact == NULL ? NULL : &okact, sizeof(kernel_sigset_t));
+    if (res == 0 && oact != NULL) {
+        if (!convert_kernel_sigaction_to_old(dcontext, oact, &okact)) {
+            return EFAULT;
+        }
+    }
+    return res;
 }
 #endif /* LINUX */
 

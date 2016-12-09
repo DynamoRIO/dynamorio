@@ -218,6 +218,9 @@ os_files_same(const char *path1, const char *path2);
 
 extern const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS];
 
+void
+set_syscall_param(dcontext_t *dcontext, int param_num, reg_t new_value);
+
 file_t
 fd_priv_dup(file_t curfd);
 
@@ -241,19 +244,24 @@ void signal_thread_init(dcontext_t *dcontext);
 void signal_thread_exit(dcontext_t *dcontext, bool other_thread);
 bool is_thread_signal_info_initialized(dcontext_t *dcontext);
 void handle_clone(dcontext_t *dcontext, uint flags);
+/* If returns false to skip the syscall, the result is in "result". */
 bool handle_sigaction(dcontext_t *dcontext, int sig,
                       const kernel_sigaction_t *act,
-                      kernel_sigaction_t *oact, size_t sigsetsize);
-void handle_post_sigaction(dcontext_t *dcontext, int sig,
+                      kernel_sigaction_t *oact, size_t sigsetsize,
+                      OUT uint *result);
+/* Returns the desired app return value (caller will negate if nec) */
+uint handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
                            const kernel_sigaction_t *act,
                            kernel_sigaction_t *oact, size_t sigsetsize);
 #ifdef LINUX
+/* If returns false to skip the syscall, the result is in "result". */
 bool handle_old_sigaction(dcontext_t *dcontext, int sig,
                           const old_sigaction_t *act,
-                          old_sigaction_t *oact);
-void handle_post_old_sigaction(dcontext_t *dcontext, int sig,
-                           const old_sigaction_t *act,
-                           old_sigaction_t *oact);
+                          old_sigaction_t *oact, OUT uint *result);
+/* Returns the desired app return value (caller will negate if nec) */
+uint handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
+                               const old_sigaction_t *act,
+                               old_sigaction_t *oact);
 bool handle_sigreturn(dcontext_t *dcontext, bool rt);
 #else
 bool handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);

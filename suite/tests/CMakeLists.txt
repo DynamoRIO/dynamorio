@@ -2661,7 +2661,7 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
-  if (LINUX AND SIGACTION_HAS_BEEN_IMPLEMENTED_PROPERLY) # FIXME i#1984
+  if (LINUX AND NOT ANDROID) # Only tests RT sigaction which is not supported on Android.
     tobuild(linux.sigaction_nosignals linux/sigaction_nosignals.c)
   endif ()
   # FIXME i#1551, i#1569: port asm to ARM and AArch64

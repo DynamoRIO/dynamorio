@@ -4537,9 +4537,9 @@ safe_write_ex(void *base, size_t size, const void *in_buf, size_t *bytes_written
             /* We abort on the 1st fault, just like safe_read */
             memcpy(base, in_buf, size);
             res = true;
-         } , { /* EXCEPT */
+        } , { /* EXCEPT */
             /* nothing: res is already false */
-         });
+        });
     } else {
         /* this is subject to races, but should only happen at init/attach when
          * there should only be one live thread.
@@ -5112,6 +5112,12 @@ static inline reg_t
 sys_param(dcontext_t *dcontext, int num)
 {
     return *sys_param_addr(dcontext, num);
+}
+
+void
+set_syscall_param(dcontext_t *dcontext, int param_num, reg_t new_value)
+{
+    *sys_param_addr(dcontext, param_num) = new_value;
 }
 
 static inline bool
@@ -6853,15 +6859,18 @@ pre_system_call(dcontext_t *dcontext)
         const kernel_sigaction_t *act = (const kernel_sigaction_t *) sys_param(dcontext, 1);
         kernel_sigaction_t *oact = (kernel_sigaction_t *) sys_param(dcontext, 2);
         size_t sigsetsize = (size_t) sys_param(dcontext, 3);
+        uint res;
         /* post_syscall does some work as well */
         dcontext->sys_param0 = (reg_t) sig;
         dcontext->sys_param1 = (reg_t) act;
         dcontext->sys_param2 = (reg_t) oact;
         dcontext->sys_param3 = (reg_t) sigsetsize;
-        execute_syscall = handle_sigaction(dcontext, sig, act, oact, sigsetsize);
+        execute_syscall = handle_sigaction(dcontext, sig, act, oact, sigsetsize, &res);
         if (!execute_syscall) {
-            handle_post_sigaction(dcontext, sig, act, oact, sigsetsize);
-            set_success_return_val(dcontext, 0);
+            if (res == 0)
+                set_success_return_val(dcontext, 0);
+            else
+                set_failure_return_val(dcontext, res);
         }
         break;
     }
@@ -6873,13 +6882,16 @@ pre_system_call(dcontext_t *dcontext)
         int sig  = (int) sys_param(dcontext, 0);
         const old_sigaction_t *act = (const old_sigaction_t *) sys_param(dcontext, 1);
         old_sigaction_t *oact = (old_sigaction_t *) sys_param(dcontext, 2);
+        uint res;
         dcontext->sys_param0 = (reg_t) sig;
         dcontext->sys_param1 = (reg_t) act;
         dcontext->sys_param2 = (reg_t) oact;
-        execute_syscall = handle_old_sigaction(dcontext, sig, act, oact);
+        execute_syscall = handle_old_sigaction(dcontext, sig, act, oact, &res);
         if (!execute_syscall) {
-            handle_post_old_sigaction(dcontext, sig, act, oact);
-            set_success_return_val(dcontext, 0);
+            if (res == 0)
+                set_success_return_val(dcontext, 0);
+            else
+                set_failure_return_val(dcontext, res);
         }
         break;
     }
@@ -8184,10 +8196,12 @@ post_system_call(dcontext_t *dcontext)
             (const kernel_sigaction_t *) dcontext->sys_param1;
         kernel_sigaction_t *oact = (kernel_sigaction_t *) dcontext->sys_param2;
         size_t sigsetsize = (size_t) dcontext->sys_param3;
-        if (!success)
+        uint res;
+        res = handle_post_sigaction(dcontext, success, sig, act, oact, sigsetsize);
+        if (res != 0)
+            set_failure_return_val(dcontext, res);
+        if (!success || res != 0)
             goto exit_post_system_call;
-
-        handle_post_sigaction(dcontext, sig, act, oact, sigsetsize);
         break;
     }
 #if defined(LINUX) && !defined(X64)
@@ -8195,9 +8209,11 @@ post_system_call(dcontext_t *dcontext)
         int sig  = (int) dcontext->sys_param0;
         const old_sigaction_t *act = (const old_sigaction_t *) dcontext->sys_param1;
         old_sigaction_t *oact = (old_sigaction_t *) dcontext->sys_param2;
-        if (!success)
+        uint res = handle_post_old_sigaction(dcontext, success, sig, act, oact);
+        if (res != 0)
+            set_failure_return_val(dcontext, res);
+        if (!success || res != 0)
             goto exit_post_system_call;
-        handle_post_old_sigaction(dcontext, sig, act, oact);
         break;
     }
 #endif

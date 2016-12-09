@@ -2069,6 +2069,7 @@ handle_system_call(dcontext_t *dcontext)
             ASSERT_NOT_REACHED();
     }
     else {
+        LOG(THREAD, LOG_DISPATCH, 2, "Skipping actual syscall invocation\n");
 #ifdef CLIENT_INTERFACE
         /* give the client its post-syscall event since we won't be calling
          * post_system_call(), unless the client itself was the one who skipped.
