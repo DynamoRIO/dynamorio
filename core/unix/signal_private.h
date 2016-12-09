@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -337,6 +337,12 @@ typedef struct _thread_sig_info_t {
      * have to dynamically allocate app_sigaction array so we can share it.
      */
     kernel_sigaction_t **app_sigaction;
+
+    /* We save the old sigaction across a sigaction syscall so we can return it
+     * in post-syscall handling.
+     */
+    kernel_sigaction_t prior_app_sigaction;
+    bool use_kernel_prior_sigaction;
 
     /* True after signal_thread_inherit or signal_fork_init are called.  We
      * squash alarm or profiling signals up until this point.

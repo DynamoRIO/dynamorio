@@ -1509,7 +1509,10 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     kernel_sigaction_t *save;
     kernel_sigaction_t *non_const_act = (kernel_sigaction_t *) act;
     /* i#1135: app may pass invalid signum to find MAX_SIGNUM */
-    if (sig <= MAX_SIGNUM && act != NULL) {
+    if (sig <= 0 || sig > MAX_SIGNUM)
+        return true; /* issue syscall and expect it to fail */
+
+    if (act != NULL) {
         /* app is installing a new action */
 
         while (info->num_unstarted_children > 0) {
@@ -1518,12 +1521,28 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
              */
             os_thread_yield();
         }
-
-        if (info->shared_app_sigaction) {
-            /* app_sigaction structure is shared */
-            mutex_lock(info->shared_lock);
+    }
+    if (info->shared_app_sigaction) {
+        /* app_sigaction structure is shared */
+        mutex_lock(info->shared_lock);
+    }
+    if (oact != NULL) {
+        /* Keep a copy of the prior one for post-syscall to hand to the app. */
+        info->use_kernel_prior_sigaction = false;
+        if (info->app_sigaction[sig] == NULL) {
+            if (info->we_intercept[sig]) {
+                /* need to pretend there is no handler */
+                memset(&info->prior_app_sigaction, 0, sizeof(info->prior_app_sigaction));
+                info->prior_app_sigaction.handler = (handler_t) SIG_DFL;
+            } else {
+                info->use_kernel_prior_sigaction = true;
+            }
+        } else {
+            memcpy(&info->prior_app_sigaction, info->app_sigaction[sig],
+                   sizeof(info->prior_app_sigaction));
         }
-
+    }
+    if (act != NULL) {
         if (act->handler == (handler_t) SIG_IGN ||
             act->handler == (handler_t) SIG_DFL) {
             LOG(THREAD, LOG_ASYNCH, 2,
@@ -1562,15 +1581,16 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
             IF_MACOS_ELSE(act->tramp, act->restorer));
         /* clear cache */
         info->restorer_valid[sig] = -1;
-        if (info->shared_app_sigaction)
-            mutex_unlock(info->shared_lock);
-
-        if (info->we_intercept[sig]) {
-            /* cancel the syscall */
-            return false;
-        }
+    }
+    if (info->shared_app_sigaction)
+        mutex_unlock(info->shared_lock);
+    if (info->we_intercept[sig]) {
+        /* cancel the syscall */
+        return false;
+    }
+    if (act != NULL) {
         /* now hand kernel our master handler instead of app's
-         * FIXME: double-check we're dealing w/ all possible mask, flag
+         * XXX: double-check we're dealing w/ all possible mask, flag
          * differences between app & our handler
          */
         set_our_handler_sigact(non_const_act, sig);
@@ -1581,9 +1601,6 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
          * properly if we never see SIG_DFL.
          */
     }
-
-    /* oact is handled post-syscall */
-
     return true;
 }
 
@@ -1598,34 +1615,30 @@ handle_post_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *a
     /* this is only called on success, so sig must be in the valid range */
     ASSERT(sig <= MAX_SIGNUM && sig > 0);
     if (oact != NULL) {
-        /* FIXME: hold lock across the syscall?!?
-         * else could be modified and get wrong old action?
-         */
         /* FIXME: make sure oact is readable & writable before accessing! */
+        if (info->use_kernel_prior_sigaction) {
+            ASSERT(oact->handler == (handler_t) SIG_IGN ||
+                   oact->handler == (handler_t) SIG_DFL);
+        } else {
+            memcpy(oact, &info->prior_app_sigaction, sizeof(*oact));
+        }
+    }
+    /* If installing IGN or DFL, delete ours.
+     * XXX: This is racy.  We can't hold the lock across the syscall, though.
+     * What we should do is just drop support for -no_intercept_all_signals,
+     * which is off by default anyway and never turned off.
+     */
+    if (act != NULL &&
+        ((act->handler == (handler_t) SIG_IGN ||
+          act->handler == (handler_t) SIG_DFL) &&
+         !info->we_intercept[sig]) &&
+        info->app_sigaction[sig] != NULL) {
         if (info->shared_app_sigaction)
             mutex_lock(info->shared_lock);
-        if (info->app_sigaction[sig] == NULL) {
-            if (info->we_intercept[sig]) {
-                /* need to pretend there is no handler */
-                memset(oact, 0, sizeof(*oact));
-                oact->handler = (handler_t) SIG_DFL;
-            } else {
-                ASSERT(oact->handler == (handler_t) SIG_IGN ||
-                       oact->handler == (handler_t) SIG_DFL);
-            }
-        } else {
-            memcpy(oact, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
-
-            /* if installing IGN or DFL, delete ours */
-            if (act && ((act->handler == (handler_t) SIG_IGN ||
-                         act->handler == (handler_t) SIG_DFL) &&
-                        !info->we_intercept[sig])) {
-                /* remove old stored app action */
-                handler_free(dcontext, info->app_sigaction[sig],
-                             sizeof(kernel_sigaction_t));
-                info->app_sigaction[sig] = NULL;
-            }
-        }
+        /* remove old stored app action */
+        handler_free(dcontext, info->app_sigaction[sig],
+                     sizeof(kernel_sigaction_t));
+        info->app_sigaction[sig] = NULL;
         if (info->shared_app_sigaction)
             mutex_unlock(info->shared_lock);
     }
@@ -1662,9 +1675,7 @@ handle_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
     if (act != NULL)
         convert_old_sigaction_to_kernel(&kact, act);
     res = handle_sigaction(dcontext, sig, act == NULL ? NULL : &kact,
-                           &okact, sizeof(kernel_sigset_t));
-    if (oact != NULL)
-        convert_kernel_sigaction_to_old(oact, &okact);
+                           oact == NULL ? NULL : &okact, sizeof(kernel_sigset_t));
     return res;
 }
 
@@ -1676,8 +1687,10 @@ handle_post_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *
     kernel_sigaction_t okact;
     if (act != NULL)
         convert_old_sigaction_to_kernel(&kact, act);
+    if (oact != NULL) {
+        convert_old_sigaction_to_kernel(dcontext, &okact, oact);
     handle_post_sigaction(dcontext, sig, act == NULL ? NULL : &kact,
-                          &okact, sizeof(kernel_sigset_t));
+                          oact == NULL ? NULL : &okact, sizeof(kernel_sigset_t));
     if (oact != NULL)
         convert_kernel_sigaction_to_old(oact, &okact);
 }

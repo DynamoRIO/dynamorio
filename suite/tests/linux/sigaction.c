@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,13 +43,76 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
+#define SENTINEL 0x12345678UL
+
+#ifndef X64
+typedef struct old_sigaction_t {
+    void (*handler)(int, siginfo_t *, void *);
+    unsigned int sa_mask;
+    unsigned long sa_flags;
+    void (*sa_restorer)(void);
+} old_sigaction_t;
+#endif
+
+static void
+test_query(int sig)
+{
+    /* i#1984: test that the prior action is returned */
+    int rc;
+    struct sigaction first_act;
+    struct sigaction new_act;
+    struct sigaction old_act;
+    memset((void *)&first_act, 0, sizeof(first_act));
+    first_act.sa_sigaction = (void (*)(int, siginfo_t *, void *))SENTINEL;
+    sigemptyset(&first_act.sa_mask);
+    sigaddset(&first_act.sa_mask, SIGUSR1);
+    sigaddset(&first_act.sa_mask, SIGUSR2);
+    rc = sigaction(sig, &first_act, NULL);
+    assert(rc == 0);
+
+    /* Test with nothing. */
+    rc = sigaction(sig, NULL, NULL);
+    assert(rc == 0);
+
+    /* Test without a new action. */
+    memset((void *)&old_act, 0xff, sizeof(old_act));
+    rc = sigaction(sig, NULL, &old_act);
+    assert(rc == 0 &&
+           old_act.sa_sigaction == first_act.sa_sigaction &&
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
+           *(long*)&old_act.sa_mask == *(long*)&first_act.sa_mask);
+
+    /* Test with a new action. */
+    memset((void *)&old_act, 0xff, sizeof(old_act));
+    memset((void *)&new_act, 0, sizeof(new_act));
+    new_act.sa_sigaction = (void (*)(int, siginfo_t *, void *))SIG_IGN;
+    sigemptyset(&new_act.sa_mask);
+    rc = sigaction(sig, &new_act, &old_act);
+    assert(rc == 0 &&
+           old_act.sa_sigaction == first_act.sa_sigaction &&
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
+           *(long*)&old_act.sa_mask == *(long*)&first_act.sa_mask);
+
+    /* Test pattern from i#1984 issue and ensure no assert. */
+    memset(&new_act, 0, sizeof(new_act));
+    memset(&old_act, 0, sizeof(old_act));
+    new_act.sa_sigaction = (void (*)(int, siginfo_t *, void *))SENTINEL;
+    sigaction(SIGINT, &new_act, 0);
+    sigaction(SIGINT, &new_act, &old_act);
+    new_act.sa_handler = SIG_IGN;
+    sigaction(SIGTSTP, &new_act, &old_act);
+}
+
 static void
 set_sigaction_handler(int sig, void *action)
 {
     int rc;
     struct sigaction act;
+    memset((void *)&act, 0, sizeof(act));
     act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) action;
-    /* arm the signal */
+    /* Arm the signal. */
     rc = sigaction(sig, &act, NULL);
     assert(rc == 0);
 }
@@ -58,20 +121,52 @@ set_sigaction_handler(int sig, void *action)
 static void
 test_non_rt_sigaction(int sig)
 {
-    /* Test passing NULL to non-rt sigaction, which is used on Android (i#1822) */
     int rc;
-    struct sigaction oact;
-    /* Set to a bogus value to ensure the kernel returns something for the old action */
-    oact.sa_sigaction = (void (*)(int, siginfo_t *, void *)) 42L;
-    rc = dynamorio_syscall(SYS_sigaction, 3, sig, NULL, &oact);
+    old_sigaction_t first_act;
+    old_sigaction_t new_act;
+    old_sigaction_t old_act;
+    memset((void *)&first_act, 0, sizeof(first_act));
+    first_act.handler = (void (*)(int, siginfo_t *, void *))SENTINEL;
+    first_act.sa_mask |= (1 << SIGUSR1);
+    first_act.sa_mask |= (1 << SIGUSR2);
+    rc = dynamorio_syscall(SYS_sigaction, 3, sig, &first_act, NULL);
     assert(rc == 0);
-    assert(oact.sa_sigaction != (void (*)(int, siginfo_t *, void *)) 42L);
+
+    /* Test with nothing. */
+    rc = dynamorio_syscall(SYS_sigaction, 3, sig, NULL, NULL);
+    assert(rc == 0);
+
+    /* Test passing NULL to non-rt sigaction, which is used on Android (i#1822) */
+    memset((void *)&old_act, 0xff, sizeof(old_act));
+    rc = dynamorio_syscall(SYS_sigaction, 3, sig, NULL, &old_act);
+    assert(rc == 0 &&
+           old_act.handler == first_act.handler &&
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
+           *(long*)&old_act.sa_mask == *(long*)&first_act.sa_mask);
+
+    /* Test with a new action. */
+    memset((void *)&old_act, 0xff, sizeof(old_act));
+    memset((void *)&new_act, 0, sizeof(new_act));
+    new_act.handler = (void (*)(int, siginfo_t *, void *))SIG_IGN;
+    rc = dynamorio_syscall(SYS_sigaction, 3, sig, &new_act, &old_act);
+    assert(rc == 0 &&
+           old_act.handler == first_act.handler &&
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
+           *(long*)&old_act.sa_mask == *(long*)&first_act.sa_mask);
+
+    /* Clear handler */
+    memset((void *)&new_act, 0, sizeof(new_act));
+    rc = dynamorio_syscall(SYS_sigaction, 3, sig, &new_act, NULL);
+    assert(rc == 0);
 }
 #endif
 
 int
 main(int argc, char **argv)
 {
+    test_query(SIGTERM);
 #ifndef X64
     test_non_rt_sigaction(SIGPIPE);
 #endif
