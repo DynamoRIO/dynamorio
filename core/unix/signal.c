@@ -1510,7 +1510,7 @@ handle_clone(dcontext_t *dcontext, uint flags)
  */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
-                 kernel_sigaction_t *oact, size_t sigsetsize, OUT uint *result)
+                 prev_sigaction_t *oact, size_t sigsetsize, OUT uint *result)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_sigaction_t *save;
@@ -1633,7 +1633,8 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
  */
 uint
 handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
-                      const kernel_sigaction_t *act, kernel_sigaction_t *oact,
+                      const kernel_sigaction_t *act,
+                      prev_sigaction_t *oact,
                       size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
@@ -1651,6 +1652,20 @@ handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
                    oact->handler == (handler_t) SIG_DFL);
         } else {
             /* We may have skipped the syscall so we have to check writability */
+#ifdef MACOS
+            /* On MacOS prev_sigaction_t is a different type (i#2105) */
+            bool fault = true;
+            TRY_EXCEPT(dcontext, {
+                oact->handler = info->prior_app_sigaction.handler;
+                oact->mask = info->prior_app_sigaction.mask;
+                oact->flags = info->prior_app_sigaction.flags;
+                fault = false;
+            } , { /* EXCEPT */
+               /* nothing: fault is already true */
+            });
+            if (fault)
+                return EFAULT;
+#else
             size_t written;
             if (!safe_write_ex(oact, sizeof(*oact), &info->prior_app_sigaction, &written)
                 || written != sizeof(*oact)) {
@@ -1659,6 +1674,7 @@ handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
                  */
                 return EFAULT;
             }
+#endif
         }
     }
     /* If installing IGN or DFL, delete ours.

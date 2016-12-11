@@ -237,6 +237,13 @@ struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
 struct _old_sigaction_t;
 typedef struct _old_sigaction_t old_sigaction_t;
+#ifdef MACOS
+/* i#2105: on Mac the old action for SYS_sigaction is a different type. */
+struct _prev_sigaction_t;
+typedef struct _prev_sigaction_t prev_sigaction_t;
+#else
+typedef kernel_sigaction_t prev_sigaction_t;
+#endif
 
 void signal_init(void);
 void signal_exit(void);
@@ -247,12 +254,12 @@ void handle_clone(dcontext_t *dcontext, uint flags);
 /* If returns false to skip the syscall, the result is in "result". */
 bool handle_sigaction(dcontext_t *dcontext, int sig,
                       const kernel_sigaction_t *act,
-                      kernel_sigaction_t *oact, size_t sigsetsize,
+                      prev_sigaction_t *oact, size_t sigsetsize,
                       OUT uint *result);
 /* Returns the desired app return value (caller will negate if nec) */
 uint handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
                            const kernel_sigaction_t *act,
-                           kernel_sigaction_t *oact, size_t sigsetsize);
+                           prev_sigaction_t *oact, size_t sigsetsize);
 #ifdef LINUX
 /* If returns false to skip the syscall, the result is in "result". */
 bool handle_old_sigaction(dcontext_t *dcontext, int sig,

@@ -6856,8 +6856,9 @@ pre_system_call(dcontext_t *dcontext)
              struct sigaction *oact, size_t sigsetsize)
          */
         int sig  = (int) sys_param(dcontext, 0);
-        const kernel_sigaction_t *act = (const kernel_sigaction_t *) sys_param(dcontext, 1);
-        kernel_sigaction_t *oact = (kernel_sigaction_t *) sys_param(dcontext, 2);
+        const kernel_sigaction_t *act = (const kernel_sigaction_t *)
+            sys_param(dcontext, 1);
+        prev_sigaction_t *oact = (prev_sigaction_t *) sys_param(dcontext, 2);
         size_t sigsetsize = (size_t)
             /* On Mac there is no size arg (but it doesn't use old sigaction, so
              * closer to rt_ than non-rt_ below).
@@ -8204,7 +8205,7 @@ post_system_call(dcontext_t *dcontext)
         int sig  = (int) dcontext->sys_param0;
         const kernel_sigaction_t *act =
             (const kernel_sigaction_t *) dcontext->sys_param1;
-        kernel_sigaction_t *oact = (kernel_sigaction_t *) dcontext->sys_param2;
+        prev_sigaction_t *oact = (prev_sigaction_t *) dcontext->sys_param2;
         size_t sigsetsize = (size_t) dcontext->sys_param3;
         uint res;
         res = handle_post_sigaction(dcontext, success, sig, act, oact, sigsetsize);

@@ -113,6 +113,17 @@ struct _kernel_sigaction_t {
 #endif
 }; /* typedef in os_private.h */
 
+#ifdef MACOS
+/* i#2105: amazingly, the kernel uses a different layout for returning the prior action.
+ * For simplicity we don't change the signature for the handle_sigaction routines.
+ */
+struct _prev_sigaction_t {
+    handler_t handler;
+    kernel_sigset_t mask;
+    int flags;
+}; /* typedef in os_private.h */
+#endif
+
 #ifdef LINUX
 # define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->handler
 #elif defined(MACOS)
