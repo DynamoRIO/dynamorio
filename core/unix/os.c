@@ -6858,8 +6858,14 @@ pre_system_call(dcontext_t *dcontext)
         int sig  = (int) sys_param(dcontext, 0);
         const kernel_sigaction_t *act = (const kernel_sigaction_t *) sys_param(dcontext, 1);
         kernel_sigaction_t *oact = (kernel_sigaction_t *) sys_param(dcontext, 2);
-        size_t sigsetsize = (size_t) sys_param(dcontext, 3);
+        size_t sigsetsize = (size_t)
+            /* On Mac there is no size arg (but it doesn't use old sigaction, so
+             * closer to rt_ than non-rt_ below).
+             */
+            IF_MACOS_ELSE(sizeof(kernel_sigset_t), sys_param(dcontext, 3));
         uint res;
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: %ssigaction %d "PFX" "PFX" %d\n",
+            IF_MACOS_ELSE("","rt_"), sig, act, oact, sigsetsize);
         /* post_syscall does some work as well */
         dcontext->sys_param0 = (reg_t) sig;
         dcontext->sys_param1 = (reg_t) act;
@@ -6867,6 +6873,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param3 = (reg_t) sigsetsize;
         execute_syscall = handle_sigaction(dcontext, sig, act, oact, sigsetsize, &res);
         if (!execute_syscall) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "sigaction emulation => %d\n", -res);
             if (res == 0)
                 set_success_return_val(dcontext, 0);
             else
@@ -6883,11 +6890,14 @@ pre_system_call(dcontext_t *dcontext)
         const old_sigaction_t *act = (const old_sigaction_t *) sys_param(dcontext, 1);
         old_sigaction_t *oact = (old_sigaction_t *) sys_param(dcontext, 2);
         uint res;
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: sigaction %d "PFX" "PFX"\n",
+            sig, act, oact);
         dcontext->sys_param0 = (reg_t) sig;
         dcontext->sys_param1 = (reg_t) act;
         dcontext->sys_param2 = (reg_t) oact;
         execute_syscall = handle_old_sigaction(dcontext, sig, act, oact, &res);
         if (!execute_syscall) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "sigaction emulation => %d\n", -res);
             if (res == 0)
                 set_success_return_val(dcontext, 0);
             else
@@ -8198,6 +8208,8 @@ post_system_call(dcontext_t *dcontext)
         size_t sigsetsize = (size_t) dcontext->sys_param3;
         uint res;
         res = handle_post_sigaction(dcontext, success, sig, act, oact, sigsetsize);
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: %ssigaction => %d\n",
+            IF_MACOS_ELSE("","rt_"), -res);
         if (res != 0)
             set_failure_return_val(dcontext, res);
         if (!success || res != 0)
@@ -8210,6 +8222,7 @@ post_system_call(dcontext_t *dcontext)
         const old_sigaction_t *act = (const old_sigaction_t *) dcontext->sys_param1;
         old_sigaction_t *oact = (old_sigaction_t *) dcontext->sys_param2;
         uint res = handle_post_old_sigaction(dcontext, success, sig, act, oact);
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: sigaction => %d\n", -res);
         if (res != 0)
             set_failure_return_val(dcontext, res);
         if (!success || res != 0)

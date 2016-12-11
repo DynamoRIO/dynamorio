@@ -45,7 +45,7 @@
 
 #define SENTINEL 0x12345678UL
 
-#ifndef X64
+#if !defined(MACOS) && !defined(X64)
 typedef struct old_sigaction_t {
     void (*handler)(int, siginfo_t *, void *);
     unsigned int sa_mask;
@@ -117,7 +117,7 @@ set_sigaction_handler(int sig, void *action)
     assert(rc == 0);
 }
 
-#ifndef X64
+#if !defined(MACOS) && !defined(X64)
 static void
 test_non_rt_sigaction(int sig)
 {
@@ -167,7 +167,7 @@ int
 main(int argc, char **argv)
 {
     test_query(SIGTERM);
-#ifndef X64
+#if !defined(MACOS) && !defined(X64)
     test_non_rt_sigaction(SIGPIPE);
 #endif
     set_sigaction_handler(SIGTERM, (void *)SIG_IGN);
