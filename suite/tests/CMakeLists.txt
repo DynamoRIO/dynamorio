@@ -2616,8 +2616,8 @@ if (UNIX)
 
   tobuild(linux.execve-rec linux/execve-rec.c)
   if (ANDROID)
-    # Times out in 90s in suite
-    set(linux.execve-rec_timeout 120)
+    # Times out in 120s in suite (i#2106).
+    set(linux.execve-rec_timeout 180)
   endif ()
   tobuild(linux.exit linux/exit.c)
   if (NOT ANDROID) # XXX i#1874: get working on Android: just output order?!?
