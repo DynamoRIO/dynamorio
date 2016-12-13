@@ -3073,13 +3073,11 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
 
 endif (X64 AND NOT AARCH64)
 
-if (NOT AARCH64) # FIXME i#1569: get working on AArch64
-  tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
-endif ()
+tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
 
 # XXX i#1874: get working on Android
 # FIXME i#1569: get working on AArch64
-if (NOT ANDROID AND NOT AARCH64)
+if (NOT ANDROID)
   set (TestMemProtChg "security-common.TestMemProtChg")
   if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
     set (TestMemProtChg "${TestMemProtChg}_FLAKY")

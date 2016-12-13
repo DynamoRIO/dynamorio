@@ -876,6 +876,15 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         }
 #endif
 
+#ifdef AARCH64
+        if (dcontext->last_exit == get_selfmod_linkstub()) {
+            app_pc begin = (app_pc)dcontext->local_state->spill_space.r2;
+            app_pc end = (app_pc)dcontext->local_state->spill_space.r3;
+            dcontext->next_tag = (app_pc)dcontext->local_state->spill_space.r4;
+            flush_fragments_from_region(dcontext, begin, end - begin, true);
+        }
+#endif
+
         if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
             if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_SELFMOD) {
                 /* Case 8177: If we have a flushed fragment hit a self-write, we
@@ -1269,7 +1278,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         return;
     }
     else if (dcontext->last_exit == get_selfmod_linkstub()) {
-        LOG(THREAD, LOG_DISPATCH, 2, "Exit from fragment that self-flushed via code mod\n");
+        LOG(THREAD, LOG_DISPATCH, 2, "Exit from fragment via code mod\n");
         STATS_INC(num_exits_code_mod_flush);
         KSWITCH_STOP_NOT_PROPAGATED(fcache_default);
         return;

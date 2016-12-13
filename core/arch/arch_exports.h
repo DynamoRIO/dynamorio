@@ -142,6 +142,10 @@ typedef struct _spill_state_t {
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
 #elif defined(AARCHXX)
     reg_t r0, r1, r2, r3;
+# ifdef X64
+    /* These are needed for icache_op_ic_ivau_asm. */
+    reg_t r4, r5;
+# endif
     reg_t reg_stolen;            /* slot for the stolen register */
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
@@ -189,6 +193,10 @@ typedef struct _local_state_extended_t {
 # define TLS_REG1_SLOT            ((ushort)offsetof(spill_state_t, r1))
 # define TLS_REG2_SLOT            ((ushort)offsetof(spill_state_t, r2))
 # define TLS_REG3_SLOT            ((ushort)offsetof(spill_state_t, r3))
+# ifdef AARCH64
+#  define TLS_REG4_SLOT           ((ushort)offsetof(spill_state_t, r4))
+#  define TLS_REG5_SLOT           ((ushort)offsetof(spill_state_t, r5))
+# endif
 # define TLS_REG_STOLEN_SLOT      ((ushort)offsetof(spill_state_t, reg_stolen))
 # define SCRATCH_REG0             DR_REG_R0
 # define SCRATCH_REG1             DR_REG_R1

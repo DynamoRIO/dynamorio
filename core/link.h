@@ -477,6 +477,10 @@ const linkstub_t * get_starting_linkstub(void);
 const linkstub_t * get_reset_linkstub(void);
 const linkstub_t * get_syscall_linkstub(void);
 const linkstub_t * get_selfmod_linkstub(void);
+#ifdef AARCH64
+/* On AArch64 we need to refer to linkstub_selfmod from aarch64.asm. */
+extern const linkstub_t linkstub_selfmod;
+#endif
 const linkstub_t * get_ibl_deleted_linkstub(void);
 #ifdef UNIX
 const linkstub_t * get_sigreturn_linkstub(void);

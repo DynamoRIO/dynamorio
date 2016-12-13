@@ -78,6 +78,12 @@
 
 /***************************************************************************/
 
+void
+mangle_arch_init(void)
+{
+    /* Nothing yet. */
+}
+
 /* Convert a short-format CTI into an equivalent one using
  * near-rel-format.
  * Remember, the target is kept in the 0th src array position,

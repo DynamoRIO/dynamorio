@@ -897,6 +897,14 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif
 
+#ifdef AARCH64
+        if (instr_is_icache_op(instr) && instr_is_app(instr)) {
+            next_instr = mangle_icache_op(dcontext, ilist, instr, next_instr,
+                                          get_app_instr_xl8(next_instr));
+            continue;
+        }
+#endif
+
 #if defined(X64) || defined(ARM)
         /* i#393: mangle_rel_addr might destroy the instr if it is a LEA,
          * which makes instr point to freed memory.
@@ -1219,6 +1227,7 @@ clean_call_info_init(clean_call_info_t *cci, void *callee,
 void
 mangle_init(void)
 {
+    mangle_arch_init();
     /* create a default func_info for:
      * 1. clean call callee that cannot be analyzed.
      * 2. variable clean_callees will not be updated during the execution

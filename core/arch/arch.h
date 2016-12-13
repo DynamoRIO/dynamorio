@@ -454,6 +454,9 @@ reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
                     instr_t *end);
 #endif
 
+void
+mangle_arch_init(void);
+
 reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg);
 uint
@@ -591,6 +594,9 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
 
 #ifdef AARCH64
 instr_t *
+mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist,
+                 instr_t *instr, instr_t *next_instr, app_pc pc);
+instr_t *
 mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
                              instr_t *instr, instr_t *next_instr);
 instr_t *
@@ -625,7 +631,11 @@ enum {
      * since it's next in the progression -- change one or the other?
      * (this is case 5239)
      */
+# ifdef AARCH64
+    DCONTEXT_BASE_SPILL_SLOT    = TLS_REG5_SLOT,
+# else
     DCONTEXT_BASE_SPILL_SLOT    = TLS_REG3_SLOT,
+# endif
     PREFIX_XAX_SPILL_SLOT       = TLS_REG0_SLOT,
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
