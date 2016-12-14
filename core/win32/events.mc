@@ -125,6 +125,15 @@ Language=English
 Detaching from application %1!s! (%2!s!)
 .
 
+;// Info messages
+MessageId =
+Severity = Informational
+Facility = DRCore
+SymbolicName = MSG_INFO_ATTACHED
+Language=English
+Attached to %1!s! threads in application %2!s! (%3!s!)
+.
+
 ;//;;;;;;;;;;;;;;;;;;; Security
 
 MessageId =

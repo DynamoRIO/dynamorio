@@ -2748,6 +2748,13 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
                "Failed to take over all threads after multiple attempts");
         ASSERT_NOT_REACHED();
     }
+    DO_ONCE({
+        char buf[16];
+        snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d", get_num_threads());
+        NULL_TERMINATE_BUFFER(buf);
+        SYSLOG(SYSLOG_INFORMATION, INFO_ATTACHED, 3, buf, get_application_name(),
+               get_application_pid());
+    });
 }
 
 /* Called by dynamorio_app_take_over in arch-specific assembly file */
