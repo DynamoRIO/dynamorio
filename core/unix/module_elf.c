@@ -86,6 +86,12 @@ safe_read(const void *base, size_t size, void *out_buf)
     return true;
 }
 
+bool
+safe_read_if_fast(const void *base, size_t size, void *out_buf)
+{
+    return safe_read(base, size, out_buf);
+}
+
 #else /* !NOT_DYNAMORIO_CORE_PROPER */
 
 #ifdef CLIENT_INTERFACE
@@ -174,9 +180,14 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         return false;
     }
 
-    /* read the header */
+    /* Read the header.  We used to directly deref if size >= sizeof(ELF_HEADER_TYPE)
+     * but given that we now have safe_read_fast() it's best to always use it and
+     * avoid races (like i#2113).  However, the non-fast version hits deadlock on
+     * memquery during client init, so we use a special routine safe_read_if_fast().
+     */
     if (size >= sizeof(ELF_HEADER_TYPE)) {
-        elf_header = *(ELF_HEADER_TYPE *)base;
+        if (!safe_read_if_fast(base, sizeof(ELF_HEADER_TYPE), &elf_header))
+            return false;
     } else if (size == 0) {
         if (!safe_read(base, sizeof(ELF_HEADER_TYPE), &elf_header))
             return false;

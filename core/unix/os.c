@@ -4514,6 +4514,17 @@ safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
     }
 }
 
+bool
+safe_read_if_fast(const void *base, size_t size, void *out_buf)
+{
+    if (!fault_handling_initialized) {
+        memcpy(out_buf, base, size);
+        return true;
+    } else {
+        return safe_read_ex(base, size, out_buf, NULL);
+    }
+}
+
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */
 bool
 safe_read(const void *base, size_t size, void *out_buf)

@@ -211,6 +211,9 @@ uint
 memprot_to_osprot(uint prot);
 
 bool
+safe_read_if_fast(const void *base, size_t size, void *out_buf);
+
+bool
 mmap_syscall_succeeded(byte *retval);
 
 bool
