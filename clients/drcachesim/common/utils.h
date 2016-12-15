@@ -71,9 +71,11 @@
 #ifdef WINDOWS
 # define DIRSEP "\\"
 # define IF_WINDOWS(x) x
+# define IF_UNIX(x)
 #else
 # define DIRSEP "/"
 # define IF_WINDOWS(x)
+# define IF_UNIX(x) x
 #endif
 
 static inline int

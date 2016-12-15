@@ -54,6 +54,7 @@
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
 #include "../common/options.h"
+#include "../common/utils.h"
 
 #ifdef ARM
 # include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
@@ -680,7 +681,7 @@ event_thread_init(void *drcontext)
          */
         int i;
         const int NUM_OF_TRIES = 10000;
-        uint flags = IF_WINDOWS(DR_FILE_CLOSE_ON_FORK |)
+        uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |)
             DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_REQUIRE_NEW;
         /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
          * file name for creation.  Retry if the same name file already exists.
@@ -808,7 +809,7 @@ init_offline_dir(void)
                 MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(buf);
     module_file = file_ops_func.open_file(buf, DR_FILE_WRITE_REQUIRE_NEW
-                                          IF_WINDOWS(| DR_FILE_CLOSE_ON_FORK));
+                                          IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
     return (module_file != INVALID_FILE);
 }
 
