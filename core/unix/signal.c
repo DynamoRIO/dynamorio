@@ -3794,7 +3794,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              */
             ASSERT_NOT_REACHED();
             abort_on_DR_fault(dcontext, pc, sc,
-                              (sig == SIGSEGV) ? "SEGV" : "other", "unknown");
+                              (sig == SIGSEGV) ? "SEGV" : "other", " unknown");
         }
     }
 
