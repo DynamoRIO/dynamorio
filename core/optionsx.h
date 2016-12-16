@@ -343,7 +343,9 @@
      */
     /* XXX i#1285: MacOS private loader is NYI */
     OPTION_DEFAULT_INTERNAL(bool, private_loader,
-                            IF_MACOS_ELSE(false, true),
+                            /* i#2117: for UNIX static DR we disable TLS swaps. */
+                            IF_STATIC_LIBRARY_ELSE(IF_WINDOWS_ELSE(true, false),
+                                                   IF_MACOS_ELSE(false, true)),
                             "use private loader for clients and dependents")
 #  ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,

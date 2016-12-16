@@ -1961,7 +1961,7 @@ check_option_compatibility_helper(int recurse_count)
 #endif
 
 #if defined(UNIX) && defined(CLIENT_INTERFACE)
-# if defined(ARM) || defined(LINUX)
+# if (defined(ARM) || defined(LINUX)) && !defined(STATIC_LIBRARY)
     if (!INTERNAL_OPTION(private_loader)) {
         /* On ARM, to make DR work in gdb, we must use private loader to make
          * the TLS format match what gdb wants to see.

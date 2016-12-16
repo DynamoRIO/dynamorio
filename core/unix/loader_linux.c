@@ -191,6 +191,12 @@ typedef struct _dr_pthread_t {
  * stored in static TLS space, the loader stores them prior to the thread
  * pointer and lets the app intialize them.  Until we stop using the app's libc
  * (i#46), we need to copy this data from before the thread pointer.
+ *
+ * XXX i#2117: we have seen larger values than 0x400 here.
+ * However, this seems to be used for more than just late injection, and even
+ * for late, blindly increasing it causes some test failures, so it needs
+ * more work.  The comment above should be updated as well, as we do not use
+ * the app's libc inside DR.
  */
 # define APP_LIBC_TLS_SIZE 0x400
 #elif defined(AARCHXX)
