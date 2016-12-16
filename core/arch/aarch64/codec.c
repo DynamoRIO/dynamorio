@@ -800,6 +800,37 @@ encode_opnd_wxn(bool is_x, bool is_sp, int pos, opnd_t opnd, OUT uint *enc_out)
     return false;
 }
 
+/* wxnp: used for CASP, even/odd register pairs */
+
+static bool
+decode_opnd_wxnp(bool is_x, int plus, int pos, uint enc, OUT opnd_t *opnd)
+{
+    if ((enc >> pos & 1) != 0)
+        return false;
+    *opnd = opnd_create_reg(decode_reg(((enc >> pos) + plus) & 31, is_x, false));
+    return true;
+}
+
+static bool
+encode_opnd_wxnp(bool is_x, int plus, int pos, opnd_t opnd, OUT uint *enc_out)
+{
+    reg_id_t reg;
+    uint n;
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg = opnd_get_reg(opnd);
+    n = reg - (is_x ? DR_REG_X0 : DR_REG_W0);
+    if (n < 31 && (n - plus) % 2 == 0) {
+        *enc_out = ((n - plus) & 31) << pos;
+        return true;
+    }
+    if (reg == (is_x ? DR_REG_XZR : DR_REG_WZR) && ((uint)31 - plus) % 2 == 0) {
+        *enc_out = (((uint)31 - plus) & 31) << pos;
+        return true;
+    }
+    return false;
+}
+
 /*******************************************************************************
  * Pairs of functions for decoding and encoding each type of operand, as listed in
  * "codec.txt". Try to keep these short: perhaps a tail call to a function in the
@@ -1251,13 +1282,13 @@ encode_opnd_mem0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_mem0p(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_mem0_scale(extract_uint(enc, 30, 2) + 1, enc, opnd);
+    return decode_opnd_mem0_scale(extract_uint(enc, 30, 1) + 3, enc, opnd);
 }
 
 static inline bool
 encode_opnd_mem0p(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_mem0_scale(extract_uint(enc, 30, 2) + 1, opnd, enc_out);
+    return encode_opnd_mem0_scale(extract_uint(enc, 30, 1) + 3, opnd, enc_out);
 }
 
 /* mem12: memory operand with 12-bit offset; gets size from bits 30 and 31 */
@@ -1872,6 +1903,34 @@ encode_opnd_w0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(false, false, 0, opnd, enc_out);
 }
 
+/* w0p0: even-numbered W register or WZR at bit position 0 */
+
+static inline bool
+decode_opnd_w0p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 0, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 0, 0, opnd, enc_out);
+}
+
+/* w0p1: even-numbered W register or WZR at bit position 0, add 1 */
+
+static inline bool
+decode_opnd_w0p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 1, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w0p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 1, 0, opnd, enc_out);
+}
+
 /* w10: W register or WZR at bit position 10 */
 
 static inline bool
@@ -1898,6 +1957,34 @@ static inline bool
 encode_opnd_w16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxn(false, false, 16, opnd, enc_out);
+}
+
+/* w16p0: even-numbered W register or WZR at bit position 16 */
+
+static inline bool
+decode_opnd_w16p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 0, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 0, 16, opnd, enc_out);
+}
+
+/* w16p1: even-numbered W register or WZR at bit position 16, add 1 */
+
+static inline bool
+decode_opnd_w16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 1, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 1, 16, opnd, enc_out);
 }
 
 /* w5: W register or WZR at bit position 5 */
@@ -2012,6 +2099,34 @@ encode_opnd_x0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, false, 0, opnd, enc_out);
 }
 
+/* x0p0: even-numbered X register or XZR at bit position 0 */
+
+static inline bool
+decode_opnd_x0p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 0, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 0, 0, opnd, enc_out);
+}
+
+/* x0p1: even-numbered X register or XZR at bit position 0, add 1 */
+
+static inline bool
+decode_opnd_x0p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 1, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x0p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 1, 0, opnd, enc_out);
+}
+
 /* x10: X register or XZR at bit position 10 */
 
 static inline bool
@@ -2038,6 +2153,34 @@ static inline bool
 encode_opnd_x16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxn(true, false, 16, opnd, enc_out);
+}
+
+/* x16p0: even-numbered X register or XZR at bit position 16 */
+
+static inline bool
+decode_opnd_x16p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 0, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 0, 16, opnd, enc_out);
+}
+
+/* x16p1: even-numbered X register or XZR at bit position 16, add 1 */
+
+static inline bool
+decode_opnd_x16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 1, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 1, 16, opnd, enc_out);
 }
 
 /* x16imm: immediate operand for SIMD load/store multiple structures (post-indexed) */
