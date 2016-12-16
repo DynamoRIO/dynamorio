@@ -169,12 +169,21 @@
 #ifdef AVOID_API_EXPORT
 /* We want a consistent size so we stay away from MAX_PATH.
  * MAX_PATH is 260 on Windows, but 4096 on Linux, should up this.
- * FIXME: should undef MAX_PATH and define it to an error-producing value
+ * XXX: should undef MAX_PATH and define it to an error-producing value
  * and clean up all uses of it
  */
 #endif
-/** Cross-platform maximum file path length. */
-#define MAXIMUM_PATH      260
+/**
+ * Maximum file path length define meant to replace platform-specific defines
+ * such as MAX_PATH and PATH_MAX.
+ * Currently, internal stack size limits prevent this from being much larger
+ * on UNIX.
+ */
+#ifdef WINDOWS
+# define MAXIMUM_PATH      260
+#else
+# define MAXIMUM_PATH      512
+#endif
 
 /* DR_API EXPORT END */
 /* DR_API EXPORT VERBATIM */
