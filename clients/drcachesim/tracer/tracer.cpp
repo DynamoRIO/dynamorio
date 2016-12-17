@@ -702,7 +702,7 @@ event_thread_init(void *drcontext)
             NOTIFY(0, "Fatal error: failed to create trace file %s", buf);
             dr_abort();
         }
-        NOTIFY(1, "Created trace file %s\n", buf);
+        NOTIFY(2, "Created thread trace file %s\n", buf);
     }
 
     /* pass pid and tid to the simulator to register current thread */
@@ -745,6 +745,8 @@ static void
 event_exit(void)
 {
     dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
+    NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " SZFMT" references.\n",
+           dr_get_process_id(), num_refs);
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -805,6 +807,7 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(logsubdir);
     if (!file_ops_func.create_dir(logsubdir))
         return false;
+    NOTIFY(1, "Log directory is %s\n", logsubdir);
     dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%s%s", logsubdir, DIRSEP,
                 MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(buf);
