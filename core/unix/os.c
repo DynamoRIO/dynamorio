@@ -4891,6 +4891,9 @@ ignorable_system_call_normalized(int num)
 #endif
 #ifdef LINUX
     case SYS_brk:
+# ifdef SYS_uselib
+    case SYS_uselib:
+# endif
 #endif
 #if defined(X64) || !defined(ARM)
     case SYS_mmap:
@@ -4928,6 +4931,9 @@ ignorable_system_call_normalized(int num)
 #endif
 #if defined(LINUX) && !defined(X64) && !defined(ARM)
     case SYS_signal:
+#endif
+#ifdef MACOS
+    case SYS_sigsuspend_nocancel:
 #endif
 #if !defined(X64) || defined(MACOS)
     case SYS_sigaction:
@@ -4977,6 +4983,9 @@ ignorable_system_call_normalized(int num)
     case SYS_ugetrlimit:
 #endif
     case SYS_setrlimit:
+#ifdef LINUX
+    case SYS_prlimit64:
+#endif
 #if defined(LINUX) && defined(X86)
     /* i#784: app may have behavior relying on SIGALRM */
     case SYS_alarm:
