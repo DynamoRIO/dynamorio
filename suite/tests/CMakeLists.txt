@@ -2220,6 +2220,9 @@ if (CLIENT_INTERFACE)
     if (NOT WIN32)
       tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON)
       target_link_libraries(api.static_signal ${libmath} ${libpthread})
+      # i#2119: test invoking the app's handler on a DR fault.
+      tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON)
+      target_link_libraries(api.static_crash ${libmath})
     endif ()
   endif ()
 

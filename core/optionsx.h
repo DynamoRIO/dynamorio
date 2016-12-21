@@ -599,6 +599,13 @@
     /* XXX: make a dynamic option */
     OPTION_INTERNAL(bool, external_dump, "do a core dump using an external debugger (specified in the ONCRASH registry value) when warranted by the dumpcore_mask (kills process on win2k or w/ drwtsn32)")
 #endif
+#if defined(STATIC_LIBRARY) && defined(UNIX)
+    /* i#2119: invoke app handler on DR crash.
+     * If this were off by default it could be a dumpcore bitflag instead.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, invoke_app_on_crash, true,
+                            "On a DR crash, invoke the app fault handler if it exists.")
+#endif
 
     OPTION_DEFAULT(uint, stderr_mask,
                    /* Enable for client linux debug so ASSERTS are visible (PR 232783) */

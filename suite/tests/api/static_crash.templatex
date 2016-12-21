@@ -1,0 +1,5 @@
+pre-DR init
+in dr_client_main
+<Crashing the process deliberately!>
+.*Tool internal crash at PC.*
+Got SIGSEGV in app handler.

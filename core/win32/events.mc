@@ -230,6 +230,14 @@ Application %1!s! (%2!s!).  %3!s! %4!s! at PC %5!s!.  Please report this at %6!s
 MessageId =
 Severity = Warning
 Facility = DRCore
+SymbolicName = MSG_INVOKING_APP_HANDLER
+Language=English
+Invoking fault handler for application %1!s! (%2!s!).
+.
+
+MessageId =
+Severity = Warning
+Facility = DRCore
 SymbolicName = MSG_APP_EXCEPTION
 Language=English
 Application %1!s! (%2!s!).  Application exception at PC %3!s!.  %4!s!

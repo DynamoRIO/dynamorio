@@ -7,9 +7,13 @@ Got SIGUSR1
 pre-DR start
 Sending SIGUSR1 under DR
 Got SIGUSR1
+pre-raise SIGSEGV under DR
+Got SIGSEGV
 pre-DR stop
 Saw some bb events
-Saw 1 signal(s)
+Saw 2 signal(s)
 Sending SIGUSR1 post-DR-stop
 Got SIGUSR1
+pre-raise SIGSEGV native
+Got SIGSEGV
 all done

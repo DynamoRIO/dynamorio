@@ -3224,9 +3224,16 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
 #endif
 
 static void
-abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, sigcontext_t *sc,
+abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc,
+               int sig, sigframe_rt_t *frame,
                const char *prefix, const char *signame, const char *where)
 {
+    kernel_ucontext_t *ucxt = &frame->uc;
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+#if defined(STATIC_LIBRARY) && defined(LINUX)
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    uint orig_dumpcore_flag = dumpcore_flag;
+#endif
     const char *fmt =
         "%s %s at PC "PFX"\n"
         "Received SIG%s at%s pc "PFX" in thread "TIDFMT"\n"
@@ -3250,6 +3257,15 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, sigcontext_t
 # endif
 #endif /* X86/ARM */
         "\teflags="PFX;
+
+#if defined(STATIC_LIBRARY) && defined(LINUX)
+    /* i#2119: if we're invoking an app handler, disable a fatal coredump. */
+    if (INTERNAL_OPTION(invoke_app_on_crash) &&
+        info->app_sigaction[sig] != NULL && IS_RT_FOR_APP(info, sig) &&
+        TEST(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
+        !DYNAMO_OPTION(live_dump))
+        dumpcore_flag = 0;
+#endif
 
     report_dynamorio_problem(dcontext, dumpcore_flag,
                              pc, (app_pc) sc->SC_FP,
@@ -3280,15 +3296,35 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, sigcontext_t
 # endif /* X64 */
 #endif /* X86/ARM */
                              sc->SC_XFLAGS);
+
+#if defined(STATIC_LIBRARY) && defined(LINUX)
+    /* i#2119: For static DR, the surrounding app's handler may well be
+     * safe to invoke even when DR state is messed up: it's worth a try, as it
+     * likely has useful reporting features for users of the app.
+     * We limit to Linux and RT for simplicity: it can be expanded later if static
+     * library use expands.
+     */
+    if (INTERNAL_OPTION(invoke_app_on_crash) &&
+        info->app_sigaction[sig] != NULL && IS_RT_FOR_APP(info, sig)) {
+        SYSLOG(SYSLOG_WARNING, INVOKING_APP_HANDLER, 2,
+               get_application_name(), get_application_pid());
+        (*info->app_sigaction[sig]->handler)(sig, &frame->info, ucxt);
+        /* If the app handler didn't terminate, now get a fatal core. */
+        if (TEST(orig_dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
+            !DYNAMO_OPTION(live_dump))
+            os_dump_core("post-app-handler attempt at core dump");
+    }
+#endif
+
     os_terminate(dcontext, TERMINATE_PROCESS);
     ASSERT_NOT_REACHED();
 }
 
 static void
-abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, sigcontext_t *sc,
+abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, int sig, sigframe_rt_t *frame,
                   const char *signame, const char *where)
 {
-    abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, sc,
+    abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, sig, frame,
                    exception_label_core, signame, where);
     ASSERT_NOT_REACHED();
 }
@@ -3793,7 +3829,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * have accounted for everything
              */
             ASSERT_NOT_REACHED();
-            abort_on_DR_fault(dcontext, pc, sc,
+            abort_on_DR_fault(dcontext, pc, sig, frame,
                               (sig == SIGSEGV) ? "SEGV" : "other", " unknown");
         }
     }
@@ -4544,7 +4580,7 @@ master_signal_handler_C(byte *xsp)
                 OWN_NO_LOCKS(dcontext) &&
                 check_for_modified_code(dcontext, pc, sc, target, true/*native*/))
                 break;
-            abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sc,
+            abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sig, frame,
                            exception_label_client,  (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
             ASSERT_NOT_REACHED();
@@ -4642,7 +4678,8 @@ master_signal_handler_C(byte *xsp)
                     os_forge_exception(target, UNREADABLE_MEMORY_EXECUTION_EXCEPTION);
                     ASSERT_NOT_REACHED();
                 } else {
-                    abort_on_DR_fault(dcontext, pc, sc, (sig == SIGSEGV) ? "SEGV" : "BUS",
+                    abort_on_DR_fault(dcontext, pc, sig, frame,
+                                      (sig == SIGSEGV) ? "SEGV" : "BUS",
                                       in_generated_routine(dcontext, pc) ?
                                       " generated" : "");
                 }

@@ -36,53 +36,23 @@
 #endif
 #include "dr_api.h"
 #include "tools.h"
-#include <pthread.h>
-#include "condvar.h"
-#include <math.h>
 #include <unistd.h>
 #include <signal.h>
-#include <stdlib.h>
-#include <setjmp.h>
 
 #define ALT_STACK_SIZE  (SIGSTKSZ*2)
 
 static int num_bbs;
 static int num_signals;
 
-static void *thread_ready;
-static void *thread_exit;
-static void *got_signal;
-
-SIGJMP_BUF mark;
-
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
-    if (sig == SIGUSR1) {
-        print("Got SIGUSR1\n");
-        signal_cond_var(got_signal);
-    } else if (sig == SIGSEGV) {
-        print("Got SIGSEGV\n");
-        SIGLONGJMP(mark, 1);
+    if (sig == SIGSEGV) {
+        print("Got SIGSEGV in app handler.\n");
+        abort();
     } else {
         print("Got unexpected signal %d\n", sig);
     }
-}
-
-static void *
-thread_func(void *arg)
-{
-    stack_t sigstack;
-    int rc;
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
-    sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
-    rc = sigaltstack(&sigstack, NULL);
-    ASSERT_NOERR(rc);
-    signal_cond_var(thread_ready);
-    wait_cond_var(thread_exit);
-    free(sigstack.ss_sp);
-    return NULL;
 }
 
 static dr_emit_flags_t
@@ -131,63 +101,21 @@ do_some_work(void)
 int
 main(int argc, const char *argv[])
 {
-    pthread_t thread;
-    intercept_signal(SIGUSR1, signal_handler, true/*sigstack*/);
     intercept_signal(SIGSEGV, signal_handler, true/*sigstack*/);
-    thread_ready = create_cond_var();
-    thread_exit = create_cond_var();
-    got_signal = create_cond_var();
-    pthread_create(&thread, NULL, thread_func, NULL);
-    wait_cond_var(thread_ready);
-
-    print("Sending SIGUSR1 pre-DR-init\n");
-    pthread_kill(thread, SIGUSR1);
-    wait_cond_var(got_signal);
-    reset_cond_var(got_signal);
 
     print("pre-DR init\n");
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
 
-    print("Sending SIGUSR1 pre-DR-start\n");
-    pthread_kill(thread, SIGUSR1);
-    wait_cond_var(got_signal);
-    reset_cond_var(got_signal);
-
-    print("pre-DR start\n");
     dr_app_start();
     assert(dr_app_running_under_dynamorio());
 
     if (do_some_work() < 0)
         print("error in computation\n");
 
-    print("Sending SIGUSR1 under DR\n");
-    pthread_kill(thread, SIGUSR1);
-    wait_cond_var(got_signal);
-    reset_cond_var(got_signal);
-
-    print("pre-raise SIGSEGV under DR\n");
-    if (SIGSETJMP(mark) == 0)
-        *(int *)0x42 = 0;
-
     print("pre-DR stop\n");
-    // i#95: today we don't have full support for separating stop from cleanup:
-    // we rely on the app joining threads prior to cleanup.
-    // We do support a full detach on dr_app_stop_and_cleanup() which we use here.
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
-
-    print("Sending SIGUSR1 post-DR-stop\n");
-    pthread_kill(thread, SIGUSR1);
-    wait_cond_var(got_signal);
-    reset_cond_var(got_signal);
-
-    print("pre-raise SIGSEGV native\n");
-    if (SIGSETJMP(mark) == 0)
-        *(int *)0x42 = 0;
-
-    signal_cond_var(thread_exit);
-    pthread_join(thread, NULL);
 
     print("all done\n");
     return 0;
