@@ -1371,8 +1371,8 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
                 "app already installed SIG_IGN as sigaction for signal %d\n", sig);
         } else {
             LOG(THREAD, LOG_ASYNCH, 2,
-                "app already installed "PFX" as sigaction for signal %d\n",
-                oldact.handler, sig);
+                "app already installed "PFX" as sigaction flags=0x%x for signal %d\n",
+                oldact.handler, oldact.flags, sig);
         }
 #endif
     }

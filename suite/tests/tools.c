@@ -493,7 +493,7 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
     ASSERT_NOERR(rc);
     act.sa_flags = SA_SIGINFO;
     if (sigstack)
-        act.sa_flags = SA_ONSTACK;
+        act.sa_flags |= SA_ONSTACK;
 
     /* arm the signal */
     rc = sigaction(sig, &act, NULL);
