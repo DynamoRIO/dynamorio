@@ -93,3 +93,117 @@ clear_icache(void *beg, void *end)
     __asm__ __volatile__("isb" : : : "memory");
 }
 #endif
+
+#ifdef UNIX
+/* Parse the first line of a "#!" script. If the input is recognised, the string
+ * pointed to by str is overwritten with null terminators, as necessary, *interp
+ * is set to point at the script interpreter, and *arg to point at the optional
+ * argument, if there is one, or NULL. The accepted syntax is "#!", followed by
+ * optional spaces (' ' or '\t'), followed by the file path (any characters except
+ * spaces, '\n' and '\0'), optionally followed by the argument, followed by '\n'
+ * or '\0'. The argument may contain any character except '\n' and '\0', including
+ * spaces, but leading and trailing spaces are removed.
+ */
+static bool
+is_shebang(INOUT char *str, OUT char **interp, OUT char **arg)
+{
+    char *p, *arg_end;
+
+    if (str[0] != '#' || str[1] != '!')
+        return false;
+    p = str + 2;
+    while (*p == ' ' || *p == '\t')
+        ++p;
+    if (*p == '\n' || *p == '\0')
+        return false;
+    /* We have an interpreter. */
+    *interp = p++;
+    while (*p != ' ' && *p != '\t' && *p != '\n' && *p != '\0')
+        ++p;
+    if (*p == '\n' || *p == '\0') {
+        *p = '\0';
+        *arg = NULL;
+        return true;
+    }
+    *p++ = '\0';
+    while (*p == ' ' || *p == '\t')
+        ++p;
+    if (*p == '\n' || *p == '\0') {
+        *arg = NULL;
+        return true;
+    }
+    /* We have an argument. */
+    *arg = p++;
+    arg_end = p;
+    while (*p != '\n' && *p != '\0') {
+        if (*p != ' ' && *p != '\t')
+            arg_end = p + 1;
+        ++p;
+    }
+    *arg_end = '\0';
+    return true;
+}
+
+bool
+find_script_interpreter(OUT script_interpreter_t *result,
+                        IN const char *fname,
+                        ssize_t (*reader)(const char *pathname, void *buf, size_t count))
+{
+    const int max_line_len = SCRIPT_LINE_MAX;
+    const int max_recursion = SCRIPT_RECURSION_MAX;
+    char **argv = result->argv;
+    char *interp, *arg;
+    const char *file;
+    ssize_t len;
+    int i, argc;
+
+# ifndef LINUX
+    ASSERT_NOT_TESTED();
+# endif
+
+    file = fname;
+    for (i = 0; i < max_recursion; i++) {
+        len = reader(file, result->buffer[i], max_line_len);
+        if (len < 0)
+            break;
+        result->buffer[0][len] = 0;
+        if (!is_shebang(result->buffer[i], &interp, &arg))
+            break;
+
+        /* Add strings to argv: arg first as we will reverse later. */
+        if (arg != NULL)
+            *argv++ = arg;
+        *argv++ = interp;
+
+        file = interp;
+    }
+
+    if (i == 0)
+        return false;
+
+    if (i == max_recursion) {
+        /* Check that the final script interpreter is not itself a script. */
+        char tmp[sizeof(result->buffer)];
+        len = reader(*(argv - 1), tmp, max_line_len);
+        if (len >= 0) {
+            tmp[len] = 0;
+            if (is_shebang(tmp, &interp, &arg)) {
+                result->argc = 0;
+                result->argv[0] = NULL;
+                return true;
+            }
+        }
+    }
+
+    argc = argv - result->argv;
+    result->argc = argc;
+    /* Reverse order of arguments and null-terminate. */
+    for (i = 0; i < argc / 2; i++) {
+        char *tmp = result->argv[i];
+        result->argv[i] = result->argv[argc - 1 - i];
+        result->argv[argc - 1 - i] = tmp;
+    }
+    result->argv[argc] = NULL;
+    return true;
+}
+#endif

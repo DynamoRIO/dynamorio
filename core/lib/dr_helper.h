@@ -75,4 +75,43 @@ byte * get_frame_ptr(void);
 byte * get_stack_ptr(void);
 #endif
 
-#endif /* _DR_LIBC_H_ */
+#ifdef UNIX
+# if defined(LINUX)
+/* Linux allows five levels of script interpreter and truncates the first line
+ * of the file after 127 bytes.
+ */
+#  define SCRIPT_RECURSION_MAX 5
+#  define SCRIPT_LINE_MAX 127
+# elif defined(MACOS)
+#  define SCRIPT_RECURSION_MAX 1
+#  define SCRIPT_LINE_MAX 512
+# else
+#  error NYI
+# endif
+typedef struct _script_interpreter_t {
+    /* number of additional arguments */
+    int argc;
+    /* null terminated list of arguments */
+    char *argv[SCRIPT_RECURSION_MAX * 2 + 1];
+    /* buffers for allocating strings */
+    char buffer[SCRIPT_RECURSION_MAX][SCRIPT_LINE_MAX + 1];
+} script_interpreter_t;
+
+/* If "fname" is a "#!" script, fill in "result" and return true; otherwise return
+ * false. The script may use recursive script interpreters, up to five levels.
+ * This function does not check that the final interpreter is a valid executable,
+ * but it does check that the final interpreter is not itself a "#!" script:
+ * in this case it returns true but sets argc to zero.
+ * The "result" will contain the additional arguments supplied by the script file;
+ * the caller is responsible for appending the original filepath "fname" and any
+ * additional arguments. The function "read" is a callback used for reading the start
+ * of "fname" and any recursive interpreters; it should also check that the files are
+ * executable.
+ */
+bool
+find_script_interpreter(OUT script_interpreter_t *result,
+                        IN const char *fname,
+                        ssize_t (*reader)(const char *pathname, void *buf, size_t count));
+#endif /* UNIX */
+
+#endif /* _DR_HELPER_H_ */

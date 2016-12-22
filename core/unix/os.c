@@ -5703,7 +5703,106 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
     dcontext->sys_param1 = (reg_t) new_envp;
 }
 
-static void
+static ssize_t
+script_file_reader(const char *pathname, void *buf, size_t count)
+{
+    /* FIXME i#2090: Check file is executable. */
+    file_t file = os_open(pathname, OS_OPEN_READ);
+    size_t len;
+
+    if (file == INVALID_FILE)
+        return -1;
+    len = os_read(file, buf, count);
+    os_close(file);
+    return len;
+}
+
+/* For early injection, recognise when the executable is a script ("#!") and
+ * modify the syscall parameters to invoke a script interpreter instead. In
+ * this case we will have allocated memory here but we expect the caller to
+ * do a non-failing execve of libdynamorio.so and therefore not to have to
+ * free the memory. That is one reason for checking that the (final) script
+ * interpreter really is an executable binary.
+ * We recognise one error case here and return the non-zero error code (ELOOP)
+ * but in other cases we leave it up to the caller to detect the error, which
+ * it may do by attempting to exec the path natively, expecting this to fail,
+ * though there is the obvious danger that the file might have been modified
+ * just before the exec.
+ * We do not, and cannot easily, handle a file that is executable but not
+ * readable. Currently such files will be executed without DynamoRIO though
+ * in some situations it would be more helpful to stop with an error.
+ *
+ * XXX: There is a minor transparency bug with misformed binaries. For example,
+ * execve can return EINVAL if the ELF executable has more than one PT_INTERP
+ * segment but we do not check this and so under DynamoRIO the error would be
+ * detected only after the exec, if we are following the child.
+ *
+ * FIXME i#2091: There is a memory leak if a script is recognised, and it is
+ * later decided not to inject (see where should_inject is set), and the exec
+ * fails, because in this case there is no mechanism for freeing the memory
+ * allocated in this function. This function should return sufficient information
+ * for the caller to free the memory, which it can do so before the exec if it
+ * reverts to the original syscall arguments and execs the script.
+ */
+static int
+handle_execve_script(dcontext_t *dcontext)
+{
+    char *fname = (char *)sys_param(dcontext, 0);
+    char **orig_argv = (char **)sys_param(dcontext, 1);
+    script_interpreter_t *script;
+    int ret = 0;
+
+    script = global_heap_alloc(sizeof(*script) HEAPACCT(ACCT_OTHER));
+    if (!find_script_interpreter(script, fname, script_file_reader))
+        goto free_and_return;
+
+    if (script->argc == 0) {
+        ret = ELOOP;
+        goto free_and_return;
+    }
+
+    /* Check that the final interpreter is an executable binary. */
+    {
+        file_t file = os_open(script->argv[0], OS_OPEN_READ);
+        bool is64;
+        if (file == INVALID_FILE)
+            goto free_and_return;
+        if (!module_file_is_module64(file, &is64, NULL)) {
+            os_close(file);
+            goto free_and_return;
+        }
+    }
+
+    {
+        size_t i, orig_argc = 0;
+        char **new_argv;
+
+        /* Concatenate new arguments and original arguments. */
+        while (orig_argv[orig_argc] != NULL)
+            ++orig_argc;
+        if (orig_argc == 0)
+            orig_argc = 1;
+        new_argv = global_heap_alloc((script->argc + orig_argc + 1) * sizeof(char *)
+                                     HEAPACCT(ACCT_OTHER));
+        for (i = 0; i < script->argc; i++)
+            new_argv[i] = script->argv[i];
+        new_argv[script->argc] = fname; /* replaces orig_argv[0] */
+        for (i = 1; i < orig_argc; i++)
+            new_argv[script->argc + i] = orig_argv[i];
+        new_argv[script->argc + orig_argc] = NULL;
+
+        /* Modify syscall parameters. */
+        *sys_param_addr(dcontext, 0) = (reg_t)new_argv[0];
+        *sys_param_addr(dcontext, 1) = (reg_t)new_argv;
+    }
+    return 0;
+
+ free_and_return:
+    global_heap_free(script, sizeof(*script) HEAPACCT(ACCT_OTHER));
+    return ret;
+}
+
+static int
 handle_execve(dcontext_t *dcontext)
 {
     /* in /usr/src/linux/arch/i386/kernel/process.c:
@@ -5729,7 +5828,7 @@ handle_execve(dcontext_t *dcontext)
     /* FIXME i#191: supposed to preserve things like pending signal
      * set across execve: going to ignore for now
      */
-    char *fname = (char *) sys_param(dcontext, 0);
+    char *fname;
     bool x64 = IF_X64_ELSE(true, false);
     bool expect_to_fail = false;
     bool should_inject;
@@ -5738,8 +5837,20 @@ handle_execve(dcontext_t *dcontext)
     char rununder_buf[16]; /* just an integer printed in ascii */
     bool app_specific, from_env, rununder_on;
 #if defined(LINUX) || defined(DEBUG)
-    const char **argv = (const char **) sys_param(dcontext, 1);
+    const char **argv;
 #endif
+
+    if (DYNAMO_OPTION(follow_children) && DYNAMO_OPTION(early_inject)) {
+        int ret = handle_execve_script(dcontext);
+        if (ret != 0)
+            return ret;
+    }
+
+    fname = (char *)sys_param(dcontext, 0);
+#if defined(LINUX) || defined(DEBUG)
+    argv = (const char **)sys_param(dcontext, 1);
+#endif
+
 #ifdef LINUX
     if (DYNAMO_OPTION(early_inject) && symlink_is_self_exe(fname)) {
         /* i#907: /proc/self/exe points at libdynamorio.so.  Make sure we run
@@ -5791,7 +5902,7 @@ handle_execve(dcontext_t *dcontext)
 #ifdef STATIC_LIBRARY
     /* no way we can inject, we just lose control */
     SYSLOG_INTERNAL_WARNING("WARNING: static DynamoRIO library, losing control on execve");
-    return;
+    return 0;
 #endif
 
     /* Issue 20: handle cross-architecture execve */
@@ -5860,6 +5971,7 @@ handle_execve(dcontext_t *dcontext)
      * we'll just live w/o dynamic option re-read.
      */
     config_exit();
+    return 0;
 }
 
 static void
@@ -6862,7 +6974,11 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 
     case SYS_execve: {
-        handle_execve(dcontext);
+        int ret = handle_execve(dcontext);
+        if (ret != 0) {
+            execute_syscall = false;
+            set_failure_return_val(dcontext, ret);
+        }
         break;
     }
 
