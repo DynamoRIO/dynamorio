@@ -157,10 +157,6 @@ find_script_interpreter(OUT script_interpreter_t *result,
     ssize_t len;
     int i, argc;
 
-# ifndef LINUX
-    ASSERT_NOT_TESTED();
-# endif
-
     file = fname;
     for (i = 0; i < max_recursion; i++) {
         len = reader(file, result->buffer[i], max_line_len);
