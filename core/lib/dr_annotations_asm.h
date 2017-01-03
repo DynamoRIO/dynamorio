@@ -193,6 +193,7 @@ do { \
  */
 #  define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx","%rsi","%rdi","%r8","%r9"
 #  define _CALL_TYPE
+#  define ANNOT_LBL(annot, base) #annot"_label@GOT"
 # else
 /* (mov=5 + bsf/bsr=7) => 0xc */
 #  define LABEL_REFERENCE_LENGTH "0xc"
@@ -204,6 +205,10 @@ do { \
  */
 #  define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx"
 #  define _CALL_TYPE , fastcall
+   /* i#2050: i386 ABI forces us to use the base register as an offset into GOT, which is
+    * not the case for 64-bit.
+    */
+#  define ANNOT_LBL(annot, base) #annot"_label@GOT(%"base")"
 # endif
 # define DR_ANNOTATION_ATTRIBUTES \
     __attribute__((noinline, visibility("hidden") _CALL_TYPE))
@@ -215,7 +220,8 @@ do { \
     extern const char *annotation##_label; \
     __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                             mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
-                            bsf "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                            bsf "ANNOT_LBL(annotation, LABEL_REFERENCE_REGISTER)", \
+                               %"LABEL_REFERENCE_REGISTER"; \
                             jmp %l0;" \
                             ::: LABEL_REFERENCE_REGISTER \
                             : native_run); \
@@ -236,7 +242,8 @@ do { \
         extern const char *annotation##_label; \
         __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                                mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
-                               bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                               bsr "ANNOT_LBL(annotation, LABEL_REFERENCE_REGISTER)", \
+                                  %"LABEL_REFERENCE_REGISTER"; \
                                jmp %l0;" \
                                ::: ANNOTATION_FUNCTION_CLOBBER_LIST \
                                : native_run); \
