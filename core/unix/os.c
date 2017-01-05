@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -10192,9 +10192,12 @@ os_page_size(void)
 void
 os_page_size_init(const char **env)
 {
-#ifdef LINUX
+#if defined(LINUX) && !defined(STATIC_LIBRARY)
     /* On Linux we get the page size from the auxiliary vector, which is what
      * the C library typically does for implementing sysconf(_SC_PAGESIZE).
+     * However, for STATIC_LIBRARY, our_environ is not guaranteed to point
+     * at the stack as we're so late, so we do not try to read off the end of it
+     * (i#2122).
      */
     size_t size = page_size; /* atomic read */
     if (size == 0) {
