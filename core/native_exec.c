@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,8 +68,12 @@ native_exec_init(void)
         return;
     VMVECTOR_ALLOC_VECTOR(native_exec_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
                           native_exec_areas);
-    ASSERT(retstub_end == retstub_start +
-           MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
+    DOCHECK(CHKLVL_ASSERTS, {
+        /* i#2124: we work around a bug in clang by using a local var. */
+        app_pc local_start = retstub_start;
+        ASSERT(retstub_end == local_start +
+               MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
+    });
 }
 
 void

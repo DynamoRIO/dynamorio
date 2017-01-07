@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1172,7 +1172,7 @@ void new_bsdthread_intercept(void);
 # endif
 #endif
 void back_from_native(void);
-/* These two are labels, not functions. */
+/* The _end is a label, not a function. */
 void back_from_native_retstubs(void);
 void back_from_native_retstubs_end(void);
 /* Each stub should be 4 bytes: push imm8 + jmp rel8 */
