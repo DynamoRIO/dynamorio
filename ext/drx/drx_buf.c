@@ -72,7 +72,9 @@ struct _drx_buf_t {
     reg_id_t tls_seg;
 };
 
-/* drx_buf globals */
+/* global rwlock to lock against updates to the clients vector */
+static void *global_buf_rwlock;
+/* holds per-client (also per-buf) information */
 static drvector_t clients;
 /* A flag to avoid work when no buffers were ever created. */
 static bool any_bufs_created;
@@ -139,6 +141,11 @@ drx_buf_init_library(void)
     if (!drmgr_register_signal_event(signal_event))
         return false;
 #endif
+
+    global_buf_rwlock = dr_rwlock_create();
+    if (global_buf_rwlock == NULL)
+        return false;
+
     return true;
 }
 
@@ -155,6 +162,7 @@ drx_buf_exit_library(void)
     drmgr_unregister_thread_init_event(event_thread_init);
     drmgr_unregister_thread_exit_event(event_thread_exit);
     drvector_delete(&clients);
+    dr_rwlock_destroy(global_buf_rwlock);
 }
 
 DR_EXPORT
@@ -200,13 +208,13 @@ drx_buf_init(drx_buf_type_t bt, size_t bsz,
     new_client->tls_seg = tls_seg;
     new_client->tls_idx = tls_idx;
     new_client->full_cb = full_cb;
-    drvector_lock(&clients);
+    dr_rwlock_write_lock(global_buf_rwlock);
     /* We don't attempt to re-use NULL entries (presumably which
      * have already been freed), for simplicity.
      */
     new_client->vec_idx = clients.entries;
     drvector_append(&clients, new_client);
-    drvector_unlock(&clients);
+    dr_rwlock_write_unlock(global_buf_rwlock);
 
     if (!any_bufs_created)
         any_bufs_created = true;
@@ -218,14 +226,14 @@ DR_EXPORT
 bool
 drx_buf_free(drx_buf_t *buf)
 {
-    drvector_lock(&clients);
+    dr_rwlock_write_lock(global_buf_rwlock);
     if (!(buf != NULL && drvector_get_entry(&clients, buf->vec_idx) == buf)) {
-        drvector_unlock(&clients);
+        dr_rwlock_write_unlock(global_buf_rwlock);
         return false;
     }
     /* NULL out the entry in the vector */
     ((drx_buf_t **)clients.array)[buf->vec_idx] = NULL;
-    drvector_unlock(&clients);
+    dr_rwlock_write_unlock(global_buf_rwlock);
 
     if (!drmgr_unregister_tls_field(buf->tls_idx) ||
         !dr_raw_tls_cfree(buf->tls_offs, 1))
@@ -270,7 +278,7 @@ void
 event_thread_init(void *drcontext)
 {
     unsigned int i;
-    drvector_lock(&clients);
+    dr_rwlock_read_lock(global_buf_rwlock);
     for (i = 0; i < clients.entries; ++i) {
         per_thread_t *data;
         drx_buf_t *buf = drvector_get_entry(&clients, i);
@@ -283,14 +291,14 @@ event_thread_init(void *drcontext)
             BUF_PTR(data->seg_base, buf->tls_offs) = data->cli_base;
         }
     }
-    drvector_unlock(&clients);
+    dr_rwlock_read_unlock(global_buf_rwlock);
 }
 
 void
 event_thread_exit(void *drcontext)
 {
     unsigned int i;
-    drvector_lock(&clients);
+    dr_rwlock_read_lock(global_buf_rwlock);
     for (i = 0; i < clients.entries; ++i) {
         drx_buf_t *buf = drvector_get_entry(&clients, i);
         if (buf != NULL) {
@@ -305,7 +313,7 @@ event_thread_exit(void *drcontext)
             dr_thread_free(drcontext, data, sizeof(per_thread_t));
         }
     }
-    drvector_unlock(&clients);
+    dr_rwlock_read_unlock(global_buf_rwlock);
 }
 
 static per_thread_t *
@@ -697,7 +705,7 @@ fault_event_helper(void *drcontext, byte *target,
         return true;
 
     /* check bounds of write to see which buffer this event belongs to */
-    drvector_lock(&clients);
+    dr_rwlock_read_lock(global_buf_rwlock);
     for (i = 0; i < clients.entries; ++i) {
         buf = drvector_get_entry(&clients, i);
         if (buf != NULL && buf->buf_type != DRX_BUF_CIRCULAR_FAST) {
@@ -707,13 +715,14 @@ fault_event_helper(void *drcontext, byte *target,
 
             /* we found the right client */
             if (target >= ro_lo && target < ro_lo + page_size) {
-                drvector_unlock(&clients);
-                return reset_buf_ptr(drcontext, raw_mcontext, data->seg_base,
-                                     data->cli_base, buf);
+                bool ret = reset_buf_ptr(drcontext, raw_mcontext, data->seg_base,
+                                         data->cli_base, buf);
+                dr_rwlock_read_unlock(global_buf_rwlock);
+                return ret;
             }
         }
     }
-    drvector_unlock(&clients);
+    dr_rwlock_read_unlock(global_buf_rwlock);
     return true;
 }
 
