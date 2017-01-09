@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -74,25 +74,15 @@ if (UNIX)
     PATTERN "runstats*" EXCLUDE
     )
 
-  if (NOT ANDROID) # symlinks not supported on Android
-    # Set up our debugging support for gdb in the build directory.
-    # We need to compute the final path of libdynamorio.so, with version number
-    # applied for gdb's script autoloading to work.
-    get_target_property(libdynamorio_so dynamorio LOCATION)
-    get_target_property(soversion dynamorio SOVERSION)
-    set(libdynamorio_so "${libdynamorio_so}.${soversion}")
-    execute_process(COMMAND
-      ${CMAKE_COMMAND} -E create_symlink
-      "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
-      "${libdynamorio_so}-gdb.py"
-      WORKING_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
-      OUTPUT_QUIET)
-    DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
-      DESTINATION "${INSTALL_LIB}"
-      RENAME "libdynamorio.so.${soversion}-gdb.py"
-      PERMISSIONS ${owner_access} OWNER_EXECUTE
-      GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-  endif ()
+  # Set up our debugging support for gdb in the build directory.
+  # We need to compute the final path of libdynamorio.so, with version number
+  # applied for gdb's script autoloading to work.
+  # i#2127: we eliminated soversioning so we do not need to rename or
+  # make a symlink anymore.
+  DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
+    DESTINATION "${INSTALL_LIB}"
+    PERMISSIONS ${owner_access} OWNER_EXECUTE
+    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
   set(tool_cflags "")
   set(RESOURCES "")

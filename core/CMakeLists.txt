@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -489,9 +489,11 @@ function (configure_core_lib target)
 
     string(REGEX REPLACE
       "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
-    # FIXME i#1374: versioning causing problems on Mac
-    # On Android "adb push" doesn't support symlinks, so it's simpler to avoid them.
-    if (NOT APPLE AND NOT ANDROID)
+    # We only set the version/soversion on Windows to avoid many negatives
+    # (i#1374, i#2127, Android "adb push" not supporting symlinks, etc.) and
+    # very few positives on UNIX platforms.  Our loader does its own version
+    # checks for client compatibility.
+    if (WINDOWS)
       set_target_properties(${target} PROPERTIES
         VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
     endif ()
@@ -558,41 +560,6 @@ if (UNIX)
 
   if (APPLE) # MacOS has no private loader yet.
     target_link_libraries(dynamorio dl)
-  endif ()
-
-  # We use .so versioning via symlinks.
-  # We do not version the preload lib as it does not expose an API,
-  # and drconfig is Windows-only.
-  # Our releases match our API so we use major.minor as our soversion.
-  # That allows both forward and backward compatibility, but means that
-  # we need to provide symlinks for all backward compatible versions.
-  # In the future CMake is expected to add explicit support for this.
-
-  function (generate_soversions verstart verstop)
-    while (${verstart} LESS ${verstop})
-      math(EXPR COMPAT_MAJOR "${verstart} / 100")
-      math(EXPR COMPAT_MINOR "${verstart} % 100")
-      get_target_property(curver_base dynamorio LOCATION)
-      get_filename_component(curver_path "${curver_base}" PATH)
-      get_filename_component(curver_base "${curver_base}" NAME)
-      get_target_property(curver_sover dynamorio SOVERSION)
-      set(curver "${curver_base}.${curver_sover}")
-      string(REGEX REPLACE "so.${VERSION_MAJOR_MINOR}"
-        "so.${COMPAT_MAJOR}.${COMPAT_MINOR}" oldver "${curver}")
-      set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
-      add_custom_command(TARGET dynamorio POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
-        WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
-        VERBATIM)
-      math(EXPR verstart "${verstart} + 1")
-    endwhile ()
-    set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} PARENT_SCOPE)
-  endfunction (generate_soversions)
-
-  if (NOT APPLE AND NOT ANDROID)
-    # We assume OLDEST_COMPATIBLE_VERSION and cur ver have the same major #.
-    # If they don't we need additional calls here.
-    generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
   endif ()
 
   if (LINUX) # No checks for MacOS
