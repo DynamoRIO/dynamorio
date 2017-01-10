@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -225,8 +225,17 @@ typedef enum {
     DR_STATE_PEB              = 0x0001, /**< Switch the PEB pointer. */
     DR_STATE_TEB_MISC         = 0x0002, /**< Switch miscellaneous TEB fields. */
     DR_STATE_STACK_BOUNDS     = 0x0004, /**< Switch the TEB stack bounds fields. */
-#endif
     DR_STATE_ALL              =     ~0, /**< Switch all state. */
+#else
+    /**
+     * On Linux, DR's own TLS can optionally be swapped, but this is risky
+     * and not recommended as incoming signals are not properly handled when in
+     * such a state.  Thus DR_STATE_ALL does *not* swap it.
+     */
+    DR_STATE_DR_TLS        = 0x0001,
+    DR_STATE_ALL           = (~0) & (~DR_STATE_DR_TLS), /**< Switch all normal state. */
+    DR_STATE_GO_NATIVE     = ~0, /**< Switch all state.  Use with care. */
+#endif
 } dr_state_flags_t;
 
 /* DR_API EXPORT END */
