@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2750,10 +2750,13 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     }
     DO_ONCE({
         char buf[16];
-        snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d", get_num_threads());
-        NULL_TERMINATE_BUFFER(buf);
-        SYSLOG(SYSLOG_INFORMATION, INFO_ATTACHED, 3, buf, get_application_name(),
-               get_application_pid());
+        int num_threads = get_num_threads();
+        if (num_threads > 1) { /* avoid for early injection */
+            snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d", num_threads);
+            NULL_TERMINATE_BUFFER(buf);
+            SYSLOG(SYSLOG_INFORMATION, INFO_ATTACHED, 3, buf, get_application_name(),
+                   get_application_pid());
+        }
     });
 }
 
