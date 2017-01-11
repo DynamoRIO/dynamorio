@@ -216,7 +216,10 @@ drx_buf_init(drx_buf_type_t bt, size_t bsz,
     drvector_append(&clients, new_client);
     dr_rwlock_write_unlock(global_buf_rwlock);
 
-    if (!any_bufs_created)
+    /* We don't need the usual setup for buffers if we're using
+     * the optimized circular buffer.
+     */
+    if (!any_bufs_created && bt != DRX_BUF_CIRCULAR_FAST)
         any_bufs_created = true;
 
     return new_client;
