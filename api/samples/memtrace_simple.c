@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -34,7 +34,7 @@
 /* Code Manipulation API Sample:
  * memtrace_simple.c
  *
- * Collects the memory reference information and dumps it to a file.
+ * Collects the memory reference information and dumps it to a file as text.
  *
  * (1) It fills a per-thread-buffer with inlined instrumentation.
  * (2) It calls a clean call to dump the buffer into a file.
@@ -52,7 +52,9 @@
  *   the address of each memory reference.
  *
  * This client is a simple implementation of a memory reference tracing tool
- * without instrumentation optimization.
+ * without instrumentation optimization.  Additionally, dumping as
+ * text is much slower than dumping as binary.  See memtrace_x86.c for
+ * a higher-performance sample.
  */
 
 #include <stdio.h>

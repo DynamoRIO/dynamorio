@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -46,6 +46,8 @@
  * This client is a simple implementation of an instruction tracing tool
  * without instrumentation optimization.  It also uses simple absolute PC
  * values and does not separate them into library offsets.
+ * Additionally, dumping as text is much slower than dumping as
+ * binary.  See instrace_x86.c for a higher-performance sample.
  */
 
 #include <stdio.h>
