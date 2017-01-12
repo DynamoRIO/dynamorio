@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2553,6 +2553,17 @@ instr_t *
 instr_create_4dst_1src(dcontext_t *dcontext, int opcode,
                        opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
                        opnd_t src);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated
+ * on the thread-local heap with opcode \p opcode, four destinations
+ * (\p dst1, \p dst2, \p dst3, \p dst4) and 2 sources (\p src1 and \p src2).
+ */
+instr_t *
+instr_create_4dst_2src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
+                       opnd_t src1, opnd_t src2);
 
 DR_API
 /**

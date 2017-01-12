@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2766,6 +2766,21 @@ instr_create_4dst_1src(dcontext_t *dcontext, int opcode,
     instr_set_dst(in, 2, dst3);
     instr_set_dst(in, 3, dst4);
     instr_set_src(in, 0, src);
+    return in;
+}
+
+instr_t *
+instr_create_4dst_2src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
+                       opnd_t src1, opnd_t src2)
+{
+    instr_t *in = instr_build(dcontext, opcode, 4, 2);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_dst(in, 3, dst4);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
     return in;
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2166,7 +2166,7 @@ const instr_info_t second_byte[] = {
   /* a0 */
   {OP_push, 0x0fa010, "push", axSP, i_xSPo1, fs, axSP, xx, no, x, tsb[0xa8]},
   {OP_pop,  0x0fa110, "pop", fs, axSP, axSP, i_xSP, xx, no, x, tsb[0xa9]},
-  {OP_cpuid, 0x0fa210, "cpuid", eax, ebx, eax, xx, xx, xop, x, exop[0x06]},
+  {OP_cpuid, 0x0fa210, "cpuid", eax, ebx, eax, ecx, xx, xop, x, exop[0x06]},
   {OP_bt,   0x0fa310, "bt",   xx, xx, Ev, Gv, xx, mrm, fW6, tex[15][4]},
   {OP_shld, 0x0fa410, "shld", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xa5]},
   {OP_shld, 0x0fa510, "shld", Ev, xx, Gv, cl, Ev, mrm, fW6, END_LIST},
