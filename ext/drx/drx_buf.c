@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,7 @@
 #include "drmgr.h"
 #include "drvector.h"
 #include "../ext_utils.h"
+#include <string.h>
 
 #ifdef UNIX
 # include <signal.h>
@@ -630,11 +631,11 @@ drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
 {
     switch (opsz) {
     case OPSZ_1:
-        return drx_buf_insert_buf_store_1byte(drcontext, buf, ilist, where, buf_ptr, scratch,
-                                              opnd, offset);
+        return drx_buf_insert_buf_store_1byte(drcontext, buf, ilist, where, buf_ptr,
+                                              scratch, opnd, offset);
     case OPSZ_2:
-        return drx_buf_insert_buf_store_2bytes(drcontext, buf, ilist, where, buf_ptr, scratch,
-                                               opnd, offset);
+        return drx_buf_insert_buf_store_2bytes(drcontext, buf, ilist, where, buf_ptr,
+                                               scratch, opnd, offset);
 #if defined(X86_64) || defined(AARCH64)
     case OPSZ_4:
         return drx_buf_insert_buf_store_4bytes(drcontext, buf, ilist, where, buf_ptr,
@@ -645,6 +646,96 @@ drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
                                               scratch, opnd, offset);
     default:
         return false;
+    }
+}
+
+static void
+insert_load(void *drcontext, instrlist_t *ilist, instr_t *where,
+                    reg_id_t dst, reg_id_t src, opnd_size_t opsz)
+{
+    switch (opsz) {
+    case OPSZ_1:
+        MINSERT(ilist, where, XINST_CREATE_load_1byte
+                (drcontext,
+                 opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
+                 opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
+        break;
+    case OPSZ_2:
+        MINSERT(ilist, where, XINST_CREATE_load_2bytes
+                (drcontext,
+                 opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
+                 opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
+        break;
+    case OPSZ_4:
+#if defined(X86_64) || defined(AARCH64)
+    case OPSZ_8:
+#endif
+        MINSERT(ilist, where, XINST_CREATE_load
+                (drcontext,
+                 opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
+                 opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
+        break;
+    default:
+        DR_ASSERT(false);
+        break;
+    }
+}
+
+DR_EXPORT
+void
+drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
+                          instr_t *where, reg_id_t dst, reg_id_t src, ushort len)
+{
+    opnd_size_t opsz = opnd_size_from_bytes(len);
+
+    if (len > sizeof(app_pc)) {
+        /* slow path, we call into our personal memcpy() implementation */
+        /* XXX: We should elect to write our own memcpy() built in DR IR. This
+         * would potentially be slower than the glibc memcpy, but then we can
+         * incrementally update the buffer pointer so the user can recover
+         * from partial writes.
+         * XXX: It's also unlikely that if glibc's memcpy faults, we'd be able
+         * to recover from it -- an in-app fault will not be handled by us, and
+         * also the buffer pointer is not updated incrementally.
+         */
+        dr_insert_clean_call(drcontext, ilist, where, (void *)memcpy, false, 3,
+                             opnd_create_reg(dst), opnd_create_reg(src),
+                             OPND_CREATE_INTPTR(len));
+        drx_buf_insert_update_buf_ptr(drcontext, buf, ilist, where, dst, src, len);
+    } else {
+        opnd_t src_opnd;
+        bool ok;
+
+        /* fast path, we are able to directly perform the load/store */
+        if (IF_X86_ELSE(reg_resize_to_opsz(src, opsz) == DR_REG_NULL, false)) {
+            /* This could happen if, for example we tried to resize the base
+             * pointer to an operand size of length 1. Unfortunately drreg can
+             * give us registers like this on 32-bit.
+             */
+            /* We change the operand size to OPSZ_4, and we just perform the
+             * load and store as normal but zextend the register in between. We
+             * rely on little-endian behavior to do the right thing when storing
+             * a word as opposed to a byte, as the first byte written is the
+             * least significant bit.
+             * XXX: The load may fault if for example this read is along a page
+             * boundary, but it's very unlkely and we ignore it for now. There
+             * are no problems with the store, because even if we fault the
+             * client should have a way to recover from partial writes anyway.
+             */
+            DR_ASSERT(opsz == OPSZ_1);
+            opsz = OPSZ_4;
+            MINSERT(ilist, where, XINST_CREATE_load_1byte_zext4
+                    (drcontext,
+                     opnd_create_reg(reg_resize_to_opsz(src, opsz)),
+                     opnd_create_base_disp(src, DR_REG_NULL, 0, 0, OPSZ_1)));
+        } else
+            insert_load(drcontext, ilist, where, src, src, opsz);
+        src_opnd = opnd_create_reg(reg_resize_to_opsz(src, opsz));
+        ok = drx_buf_insert_buf_store(drcontext, buf, ilist, where, dst, DR_REG_NULL,
+                                      src_opnd, opsz, 0);
+        DR_ASSERT(ok);
+        /* update buf pointer, so client does not have to */
+        drx_buf_insert_update_buf_ptr(drcontext, buf, ilist, where, dst, src, len);
     }
 }
 

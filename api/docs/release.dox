@@ -168,6 +168,7 @@ Further non-compatibility-affecting changes include:
  - Added drreg_restore_app_values().
  - Added drx_tail_pad_block().
  - Added XINST_CREATE_load_1byte_zext4().
+ - Added drx_buf_insert_buf_memcpy().
 
 **************************************************
 <hr>

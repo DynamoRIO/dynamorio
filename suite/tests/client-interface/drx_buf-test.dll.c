@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,7 @@
 /* Tests the drx_buf extension */
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drx.h"
@@ -56,6 +57,9 @@ static char cmp[] = "ABCDEFGHABCDEFGH";
 #else
 static char cmp[] = "ABCDEFGH";
 #endif
+
+static char test_copy[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZAWBCDEFGH";
+static int  copy_len[] = { 1, 2, 4, 8, 16, 32 };
 
 static drx_buf_t *circular_fast;
 static drx_buf_t *circular_slow;
@@ -116,6 +120,16 @@ verify_store(drx_buf_t *client)
     char *buf_base = drx_buf_get_buffer_base(drcontext, client);
     CHECK(strcmp(buf_base, cmp) == 0,
           "Store immediate or Store register failed to copy right value");
+    memset(buf_base, 0, drx_buf_get_buffer_size(drcontext, client));
+}
+
+static void
+verify_memcpy(drx_buf_t *client, int num_copied)
+{
+    void *drcontext = dr_get_current_drcontext();
+    char *buf_base = drx_buf_get_buffer_base(drcontext, client);
+    CHECK(memcmp(test_copy, buf_base, num_copied) == 0,
+          "drx_buf_insert_buf_memcpy() did not correctly copy the bytes over");
     memset(buf_base, 0, drx_buf_get_buffer_size(drcontext, client));
 }
 
@@ -340,6 +354,38 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #endif
         dr_insert_clean_call(drcontext, bb, inst, verify_store, false, 1,
                              OPND_CREATE_INTPTR(circular_fast));
+    } else if (subtest == DRX_BUF_TEST_6_C) {
+        int32_t num_copy = copy_len[rand() % (sizeof(copy_len)/sizeof(copy_len[0]))];
+
+        /* Currently, the fast circular buffer does not recommend variable-size
+         * writes, for good reason. We don't test the memcpy operation on the
+         * fast circular buffer.
+         */
+        /* verify memcpy works on the slow circular buffer */
+        drx_buf_insert_load_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr);
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_copy,
+                                         opnd_create_reg(reg_resize_to_opsz
+                                                         (scratch, OPSZ_PTR)),
+                                         bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst,
+                                  reg_ptr, scratch, num_copy);
+            /* We don't have to update the buffer pointer */
+        dr_insert_clean_call(drcontext, bb, inst, verify_memcpy, false, 2,
+                             OPND_CREATE_INTPTR(circular_slow),
+                             OPND_CREATE_INT32(num_copy));
+
+        /* verify memcpy works on the trace buffer */
+        drx_buf_insert_load_buf_ptr(drcontext, trace, bb, inst, reg_ptr);
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_copy,
+                                         opnd_create_reg(reg_resize_to_opsz
+                                                         (scratch, OPSZ_PTR)),
+                                         bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst,
+                                  reg_ptr, scratch, num_copy);
+            /* We don't have to update the buffer pointer */
+        dr_insert_clean_call(drcontext, bb, inst, verify_memcpy, false, 2,
+                             OPND_CREATE_INTPTR(trace),
+                             OPND_CREATE_INT32(num_copy));
     }
 
     return DR_EMIT_DEFAULT;
