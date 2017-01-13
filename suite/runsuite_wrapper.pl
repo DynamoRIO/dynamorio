@@ -48,7 +48,9 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     if ($i == 0) {
         $args .= ",$ARGV[$i]";
     } else {
-        $args .= "\\;$ARGV[$i]";
+        # We don't use a backslash to escape ; b/c we'll quote below, and
+        # the backslash is problematically converted to / by Cygwin perl.
+        $args .= ";$ARGV[$i]";
     }
 }
 
