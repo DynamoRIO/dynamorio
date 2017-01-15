@@ -64,7 +64,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 {
     app_pc pc = dr_fragment_app_pc(tag);
     reg_id_t reg;
-    /* We need a 2nd scratch reg for several operations on ARM only */
+    /* We need a 2nd scratch reg for several operations on AArch32 and AArch64 only. */
     reg_id_t reg2 = DR_REG_NULL;
 
     /* We do all our work at the start of the block prior to the first instr */
@@ -77,9 +77,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         return DR_EMIT_DEFAULT;
     }
 
-#ifdef ARM
+#ifdef AARCHXX
     /* We need a second register here, because the drx_buf routines need a scratch reg
-     * for ARM.
+     * for AArch32 and AArch64.
      */
     if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg2) != DRREG_SUCCESS) {
         DR_ASSERT(false); /* cannot recover */
@@ -103,7 +103,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (drreg_unreserve_register(drcontext, bb, inst, reg) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
-#ifdef ARM
+#ifdef AARCHXX
     if (drreg_unreserve_register(drcontext, bb, inst, reg2) != DRREG_SUCCESS)
         DR_ASSERT(false);
 #endif
