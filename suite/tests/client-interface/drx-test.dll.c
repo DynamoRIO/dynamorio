@@ -85,6 +85,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
     instr_t *first = instrlist_first_app(bb);
+    instr_t *last;
     /* Exercise drx's adjacent increment aflags spill removal code */
     drx_insert_counter_update(drcontext, bb, first,
                               SPILL_SLOT_1, IF_NOT_X86_(SPILL_SLOT_2)
@@ -94,6 +95,11 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     drx_insert_counter_update(drcontext, bb, first,
                               SPILL_SLOT_1, IF_NOT_X86_(SPILL_SLOT_2)
                               &counterB, 2, IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+    /* Exercise drx's basic block termination with a zero-cost label */
+    drx_tail_pad_block(drcontext, bb);
+    last = instrlist_last(bb);
+    CHECK(instr_is_syscall(last) || instr_is_cti(last) || instr_is_label(last),
+          "did not correctly pad basic block");
     return DR_EMIT_DEFAULT;
 }
 

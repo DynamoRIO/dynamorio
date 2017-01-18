@@ -1372,3 +1372,16 @@ drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
     }
     return false;
 }
+
+bool
+drx_tail_pad_block(void *drcontext, instrlist_t *ilist)
+{
+    instr_t *last = instrlist_last_app(ilist);
+
+    if (instr_is_cti(last) || instr_is_syscall(last)) {
+        /* This basic block is already branch or syscall-terminated */
+        return false;
+    }
+    instrlist_meta_postinsert(ilist, last, INSTR_CREATE_label(drcontext));
+    return true;
+}
