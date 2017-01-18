@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -857,6 +857,39 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
                 pt->reg[GPR_IDX(app_reg)].slot,
                 ilist, where, false);
     return DRREG_SUCCESS;
+}
+
+drreg_status_t
+drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
+                         opnd_t opnd, INOUT reg_id_t *swap)
+{
+    drreg_status_t res;
+    bool no_app_value = false;
+    int num_op = opnd_num_regs_used(opnd);
+    int i;
+    for (i = 0; i < num_op; i++) {
+        reg_id_t reg = opnd_get_reg_used(opnd, i);
+        reg_id_t dst = reg;
+        if (reg == dr_get_stolen_reg()) {
+            if (swap == NULL)
+                return DRREG_ERROR_INVALID_PARAMETER;
+            if (*swap == DR_REG_NULL) {
+                res = drreg_reserve_register(drcontext, ilist, where, NULL, &dst);
+                if (res != DRREG_SUCCESS)
+                    return res;
+            } else
+                dst = *swap;
+            if (!opnd_replace_reg(&opnd, reg, dst))
+                return DRREG_ERROR;
+            *swap = dst;
+        }
+        res = drreg_get_app_value(drcontext, ilist, where, reg, dst);
+        if (res == DRREG_ERROR_NO_APP_VALUE)
+            no_app_value = true;
+        else if (res != DRREG_SUCCESS)
+            return res;
+    }
+    return (no_app_value ? DRREG_ERROR_NO_APP_VALUE : DRREG_SUCCESS);
 }
 
 static drreg_status_t

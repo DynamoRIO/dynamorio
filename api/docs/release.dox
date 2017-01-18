@@ -163,6 +163,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_get_microseconds().
  - Added #DR_CLEANCALL_ALWAYS_OUT_OF_LINE.
  - Added instr_create_4dst_2src().
+ - Added drreg_restore_app_values().
 
 **************************************************
 <hr>
