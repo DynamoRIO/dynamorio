@@ -164,6 +164,7 @@ Further non-compatibility-affecting changes include:
  - Added #DR_CLEANCALL_ALWAYS_OUT_OF_LINE.
  - Added instr_create_4dst_2src().
  - Added drreg_restore_app_values().
+ - Added drx_tail_pad_block().
 
 **************************************************
 <hr>

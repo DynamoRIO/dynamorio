@@ -435,6 +435,22 @@ DR_EXPORT
 size_t
 drx_buf_get_buffer_size(void *drcontext, drx_buf_t *buf);
 
+
+DR_EXPORT
+/**
+ * Pads a basic block with a label at the end for routines which rely on inserting
+ * instrumentation after every instruction. Note that users of this routine must act on
+ * the previous instruction in basic block events before skipping non-app instructions
+ * because the label is not marked as an app instruction.
+ *
+ * \note the padding label is not introduced if the basic block is already branch
+ * terminated.
+ *
+ * \returns whether padding was introduced.
+ */
+bool
+drx_tail_pad_block(void *drcontext, instrlist_t *ilist);
+
 /*@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
