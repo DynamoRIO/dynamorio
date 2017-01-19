@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -779,12 +779,20 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
         if (tgt_cxx)
           set(static_libc libcpmtd ${static_libc})
         endif ()
+        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+          set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
+        endif ()
         # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
         set(tgt_cflags "${tgt_cflags} -D_DEBUG")
       else ()
         set(static_libc libcmt)
         if (tgt_cxx)
           set(static_libc libcpmt ${static_libc})
+        endif ()
+        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+          set(static_libc ${static_libc} libvcruntime.lib libucrt.lib)
         endif ()
       endif ()
       target_link_libraries(${target} ${static_libc})
