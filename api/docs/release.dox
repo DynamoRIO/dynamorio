@@ -1463,10 +1463,10 @@ not supported.
     method involving kernel side components that this release has no
     other workaround for.
 \anchor limits_linux_preload
-  - On Linux, the default deployment method (aside
-    from the \ref sec_startstop "app_start() app_stop()" interface, which
-    requires soure code modification) is unable to run binaries with the suid
-    or sgid permission bits set.  One method of running these binaries
+  - On Linux, non-default late injection (requested via \p -late to drrun)
+    is unable to run binaries with the suid or sgid permission bits set.
+    Default injection is capable of executing these binaries, but if late
+    injection is desired, one method of running these binaries
     is to place both libdrpreload.so and libdynamorio's full paths in
     /etc/ld.so.preload.
     You'll need to use a \ref lin_deploy "separate configure step approach".

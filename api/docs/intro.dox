@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -475,10 +475,6 @@ environment variable, the resulting process will still run under DynamoRIO
 control with the same settings as the parent process.
 Use <tt>DYNAMORIO_CONFIGDIR</tt> or global configuration files to
 specify separate options for such a child process.
-
-If a target application binary has suid or sgid bits set, \p drrun will be
-unable to inject into it.  Please see workaround suggestions in the \ref
-limits_linux_preload "Limitations" section.
 
 When running scripts it is best to explicitly invoke the interpreter rather
 than invoking the script directly:
