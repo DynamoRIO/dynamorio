@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -372,6 +372,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, reg_id_t reg_tmp)
 {
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
+    IF_X86(uint64 prof_pcs;)
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext,
                               opnd_create_reg(reg_ptr),
@@ -383,8 +384,25 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
      * Long-term we should try a fault instead (xref drx_buf) or a lean
      * proc to clean call gencode.
      */
-    MINSERT(ilist, where,
-            INSTR_CREATE_jecxz(drcontext, opnd_create_instr(skip_call)));
+    /* i#2147: -prof_pcs adds extra cleancall code that makes jecxz not reach.
+     * XXX: it would be nice to have a more robust solution than this explicit check
+     * for that DR option!
+     */
+    if (dr_get_integer_option("profile_pcs", &prof_pcs) && prof_pcs) {
+        instr_t *should_skip = INSTR_CREATE_label(drcontext);
+        instr_t *no_skip = INSTR_CREATE_label(drcontext);
+        MINSERT(ilist, where,
+                INSTR_CREATE_jecxz(drcontext, opnd_create_instr(should_skip)));
+        MINSERT(ilist, where,
+                INSTR_CREATE_jmp(drcontext, opnd_create_instr(no_skip)));
+        MINSERT(ilist, where, should_skip);
+        MINSERT(ilist, where,
+                INSTR_CREATE_jmp(drcontext, opnd_create_instr(skip_call)));
+        MINSERT(ilist, where, no_skip);
+    } else {
+        MINSERT(ilist, where,
+                INSTR_CREATE_jecxz(drcontext, opnd_create_instr(skip_call)));
+    }
 #elif defined(ARM)
     if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
         instr_t *noskip = INSTR_CREATE_label(drcontext);
