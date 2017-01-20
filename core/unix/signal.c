@@ -1045,7 +1045,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 void
 share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc)
 {
-    clone_record_t crec;
+    clone_record_t crec = {0,};
     thread_sig_info_t *parent_siginfo =
         (thread_sig_info_t*)takeover_dc->signal_field;
     /* Create a fake clone record with the given siginfo.  All threads in the
@@ -1063,6 +1063,7 @@ share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc)
     crec.clone_flags = PTHREAD_CLONE_FLAGS;
     crec.parent_info = parent_siginfo;
     crec.info = *parent_siginfo;
+    crec.pcprofile_info = takeover_dc->pcprofile_field;
     signal_thread_inherit(dcontext, &crec);
 }
 
