@@ -575,6 +575,10 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
         mov      ARG4, sp /* pass as extra arg */
+        /* i#2107: we repeat the mov to work around odd behavior on Android
+         * where sometimes the kernel sends control to the 2nd instruction here.
+         */
+        mov      ARG4, sp /* pass as extra arg */
         b        GLOBAL_REF(master_signal_handler_C)
         /* master_signal_handler_C will do the ret */
         bl       GLOBAL_REF(unexpected_return)

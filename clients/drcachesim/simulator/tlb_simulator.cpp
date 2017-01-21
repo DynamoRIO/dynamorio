@@ -39,8 +39,6 @@
 #include "../common/memref.h"
 #include "../common/options.h"
 #include "../common/utils.h"
-#include "../reader/file_reader.h"
-#include "../reader/ipc_reader.h"
 #include "droption.h"
 #include "tlb_stats.h"
 #include "tlb.h"
@@ -70,14 +68,14 @@ tlb_simulator_t::tlb_simulator_t()
             return;
         }
 
-        if (!itlbs[i]->init(op_TLB_L1I_assoc.get_value(), op_page_size.get_value(),
+        if (!itlbs[i]->init(op_TLB_L1I_assoc.get_value(), (int)op_page_size.get_value(),
                             op_TLB_L1I_entries.get_value(), lltlbs[i], new tlb_stats_t) ||
-            !dtlbs[i]->init(op_TLB_L1D_assoc.get_value(), op_page_size.get_value(),
+            !dtlbs[i]->init(op_TLB_L1D_assoc.get_value(), (int)op_page_size.get_value(),
                             op_TLB_L1D_entries.get_value(), lltlbs[i], new tlb_stats_t) ||
-            !lltlbs[i]->init(op_TLB_L2_assoc.get_value(), op_page_size.get_value(),
+            !lltlbs[i]->init(op_TLB_L2_assoc.get_value(), (int)op_page_size.get_value(),
                              op_TLB_L2_entries.get_value(), NULL, new tlb_stats_t)) {
-            ERROR("Usage error: failed to initialize TLBs. Ensure entry number, "
-                  "page size and associativity are powers of 2.\n");
+            ERRMSG("Usage error: failed to initialize TLBs. Ensure entry number, "
+                   "page size and associativity are powers of 2.\n");
             success = false;
             return;
         }
@@ -114,89 +112,76 @@ tlb_simulator_t::~tlb_simulator_t()
 }
 
 bool
-tlb_simulator_t::run()
+tlb_simulator_t::process_memref(const memref_t &memref)
 {
-    if (!start_reading())
+    if (skip_refs > 0) {
+        skip_refs--;
+        return true;
+    }
+
+    // The references after warmup and simulated ones are dropped.
+    if (warmup_refs == 0 && sim_refs == 0)
+        return true;
+
+    // Both warmup and simulated references are simulated.
+
+    // We use a static scheduling of threads to cores, as it is
+    // not practical to measure which core each thread actually
+    // ran on for each memref.
+    int core;
+    if (memref.data.tid == last_thread)
+        core = last_core;
+    else {
+        core = core_for_thread(memref.data.tid);
+        last_thread = memref.data.tid;
+        last_core = core;
+    }
+
+    if (type_is_instr(memref.instr.type))
+        itlbs[core]->request(memref);
+    else if (memref.data.type == TRACE_TYPE_READ ||
+             memref.data.type == TRACE_TYPE_WRITE)
+        dtlbs[core]->request(memref);
+    else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        handle_thread_exit(memref.exit.tid);
+        last_thread = 0;
+    }
+    else if (type_is_prefetch(memref.data.type) ||
+             memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+             memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
+      // TLB simulator ignores prefetching and cache flushing
+    } else {
+        ERRMSG("unhandled memref type");
         return false;
+    }
 
-    memref_tid_t last_thread = 0;
-    int last_core = 0;
+    if (op_verbose.get_value() >= 3) {
+        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+            " @" << (void *)memref.data.pc <<
+            " " << trace_type_names[memref.data.type] << " " <<
+            (void *)memref.data.addr << " x" << memref.data.size << std::endl;
+    }
 
-    uint64_t skip_refs = op_skip_refs.get_value();
-    uint64_t warmup_refs = op_warmup_refs.get_value();
-    uint64_t sim_refs = op_sim_refs.get_value();
-
-    for (; *trace_iter != *trace_end; ++(*trace_iter)) {
-        memref_t memref = **trace_iter;
-        if (skip_refs > 0) {
-            skip_refs--;
-            continue;
-        }
-
-        // the references after warmup and simulated ones are dropped
-        if (warmup_refs == 0 && sim_refs == 0)
-            continue;
-
-        // both warmup and simulated references are simulated
-
-        // We use a static scheduling of threads to cores, as it is
-        // not practical to measure which core each thread actually
-        // ran on for each memref.
-        int core;
-        if (memref.tid == last_thread)
-            core = last_core;
-        else {
-            core = core_for_thread(memref.tid);
-            last_thread = memref.tid;
-            last_core = core;
-        }
-
-        if (memref.type == TRACE_TYPE_INSTR)
-            itlbs[core]->request(memref);
-        else if (memref.type == TRACE_TYPE_READ ||
-                 memref.type == TRACE_TYPE_WRITE)
-            dtlbs[core]->request(memref);
-        else if (memref.type == TRACE_TYPE_THREAD_EXIT) {
-            handle_thread_exit(memref.tid);
-            last_thread = 0;
-        }
-        else if (type_is_prefetch(memref.type) ||
-                 memref.type == TRACE_TYPE_INSTR_FLUSH ||
-                 memref.type == TRACE_TYPE_DATA_FLUSH) {
-            // TLB simulator ignores prefetching and cache flushing
-        } else {
-            ERROR("unhandled memref type");
-            return false;
-        }
-
-        if (op_verbose.get_value() >= 3) {
-            std::cerr << "::" << memref.pid << "." << memref.tid << ":: " <<
-                " @" << (void *)memref.pc <<
-                " " << trace_type_names[memref.type] << " " <<
-                (void *)memref.addr << " x" << memref.size << std::endl;
-        }
-
-        // process counters for warmup and simulated references
-        if (warmup_refs > 0) { // warm tlbs up
-            warmup_refs--;
-            // reset tlb stats when warming up is completed
-            if (warmup_refs == 0) {
-                for (int i = 0; i < num_cores; i++) {
-                    itlbs[i]->get_stats()->reset();
-                    dtlbs[i]->get_stats()->reset();
-                    lltlbs[i]->get_stats()->reset();
-                }
+    // process counters for warmup and simulated references
+    if (warmup_refs > 0) { // warm tlbs up
+        warmup_refs--;
+        // reset tlb stats when warming up is completed
+        if (warmup_refs == 0) {
+            for (int i = 0; i < num_cores; i++) {
+                itlbs[i]->get_stats()->reset();
+                dtlbs[i]->get_stats()->reset();
+                lltlbs[i]->get_stats()->reset();
             }
         }
-        else {
-            sim_refs--;
-        }
+    }
+    else {
+        sim_refs--;
     }
     return true;
 }
 
 bool
-tlb_simulator_t::print_stats()
+tlb_simulator_t::print_results()
 {
     for (int i = 0; i < num_cores; i++) {
         unsigned int threads = thread_ever_counts[i];
@@ -225,7 +210,7 @@ tlb_simulator_t::create_tlb(std::string policy)
         return new tlb_t;
 
     // undefined replacement policy
-    ERROR("Usage error: undefined replacement policy. "
-          "Please choose " REPLACE_POLICY_LFU".\n");
+    ERRMSG("Usage error: undefined replacement policy. "
+           "Please choose " REPLACE_POLICY_LFU".\n");
     return NULL;
 }

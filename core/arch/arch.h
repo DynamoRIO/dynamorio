@@ -183,6 +183,8 @@ mixed_mode_enabled(void)
 # define APP_STACK_LIMIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, app_stack_limit))
 # define APP_STACK_BASE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_stack_base))
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
+#else
+# define SIGPENDING_OFFSET      ((PROT_OFFS)+offsetof(dcontext_t, signals_pending))
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
@@ -322,7 +324,7 @@ typedef enum {
 # define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_XMM_REGS  NUM_XMM_SAVED
+#define NUM_SIMD_REGS NUM_SIMD_SAVED
 #define NUM_GP_REGS   DR_NUM_GPR_REGS
 
 /* Information about each individual clean call invocation site.
@@ -335,10 +337,10 @@ typedef struct _clean_call_info_t {
     bool opt_inline;
     bool should_align;
     bool save_all_regs;
-    bool skip_save_aflags;
-    bool skip_clear_eflags;
-    uint num_xmms_skip;
-    bool xmm_skip[NUM_XMM_REGS];
+    bool skip_save_flags;
+    bool skip_clear_flags;
+    uint num_simd_skip;
+    bool simd_skip[NUM_SIMD_REGS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
@@ -451,6 +453,9 @@ int
 reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
                     instr_t *end);
 #endif
+
+void
+mangle_arch_init(void);
 
 reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg);
@@ -589,6 +594,9 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
 
 #ifdef AARCH64
 instr_t *
+mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist,
+                 instr_t *instr, instr_t *next_instr, app_pc pc);
+instr_t *
 mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
                              instr_t *instr, instr_t *next_instr);
 instr_t *
@@ -623,7 +631,11 @@ enum {
      * since it's next in the progression -- change one or the other?
      * (this is case 5239)
      */
+# ifdef AARCH64
+    DCONTEXT_BASE_SPILL_SLOT    = TLS_REG5_SLOT,
+# else
     DCONTEXT_BASE_SPILL_SLOT    = TLS_REG3_SLOT,
+# endif
     PREFIX_XAX_SPILL_SLOT       = TLS_REG0_SLOT,
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
@@ -1250,16 +1262,16 @@ typedef struct _callee_info_t {
     app_pc start;             /* entry point of a function  */
     app_pc bwd_tgt;           /* earliest backward branch target */
     app_pc fwd_tgt;           /* last forward branch target */
-    int num_xmms_used;        /* number of xmms used by callee */
-    bool xmm_used[NUM_XMM_REGS];  /* xmm/ymm registers usage */
+    int num_simd_used;        /* number of SIMD registers (xmms) used by callee */
+    bool simd_used[NUM_SIMD_REGS]; /* SIMD (xmm/ymm) registers usage */
     bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
     int num_callee_save_regs; /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
     bool has_locals;          /* if reference local via stack */
-    bool xbp_is_fp;           /* if xbp is used as frame pointer */
+    bool standard_fp;         /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;          /* can be inlined or not */
-    bool write_aflags;        /* if the function changes aflags */
-    bool read_aflags;         /* if the function reads aflags from caller */
+    bool write_flags;         /* if the function changes flags */
+    bool read_flags;          /* if the function reads flags from caller */
     bool tls_used;            /* application accesses TLS (errno, etc.) */
     reg_id_t spill_reg;       /* base register for spill slots */
     uint slots_used;          /* scratch slots needed after analysis */
@@ -1269,7 +1281,7 @@ typedef struct _callee_info_t {
 extern callee_info_t     default_callee_info;
 extern clean_call_info_t default_clean_call_info;
 
-/* in clean_call_opt.c */
+/* in clean_call_opt_shared.c */
 #ifdef CLIENT_INTERFACE
 void
 clean_call_opt_init(void);
@@ -1278,7 +1290,8 @@ clean_call_opt_exit(void);
 #endif /* CLIENT_INTERFACE */
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
+                   void *callee, bool save_fpstate, bool always_out_of_line,
+                   uint num_args, opnd_t *args);
 void
 insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *where, opnd_t *args);

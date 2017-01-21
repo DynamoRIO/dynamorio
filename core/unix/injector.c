@@ -1441,7 +1441,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injectee_dr_fd = dr_fd;
     injected_base = elf_loader_map_phdrs(&loader, true/*fixed*/,
                                          injectee_map_file, injectee_unmap,
-                                         injectee_prot, false/*!reachable*/);
+                                         injectee_prot, 0/*!reachable*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");

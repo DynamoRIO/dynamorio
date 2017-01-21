@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
 #define _CACHING_DEVICE_STATS_H_ 1
 
 #include <string>
-#include <inttypes.h>
+#include <stdint.h>
 #include "../common/memref.h"
 
 class caching_device_stats_t

@@ -278,14 +278,14 @@ typedef struct _module_data_t module_data_t;
  * Structure written by dr_get_time() to specify the current time.
  */
 typedef struct {
-    uint year;         /**< */
-    uint month;        /**< */
-    uint day_of_week;  /**< */
-    uint day;          /**< */
-    uint hour;         /**< */
-    uint minute;       /**< */
-    uint second;       /**< */
-    uint milliseconds; /**< */
+    uint year;         /**< The current year. */
+    uint month;        /**< The current month, in the range 1 to 12. */
+    uint day_of_week;  /**< The day of the week, in the range 0 to 6. */
+    uint day;          /**< The day of the month, in the range 1 to 31. */
+    uint hour;         /**< The hour of the day, in the range 0 to 23. */
+    uint minute;       /**< The minutes past the hour. */
+    uint second;       /**< The seconds past the minute. */
+    uint milliseconds; /**< The milliseconds past the second. */
 } dr_time_t;
 /* DR_API EXPORT END */
 
@@ -444,6 +444,8 @@ extern bool dynamo_exited;       /* has dynamo exited? */
 extern bool dynamo_exited_and_cleaned; /* has dynamo component cleanup started? */
 #ifdef DEBUG
 extern bool dynamo_exited_log_and_stats; /* are stats and logfile shut down? */
+/* process exit in middle of any thread init? */
+extern bool dynamo_thread_init_during_process_exit;
 #endif
 extern bool dynamo_resetting;    /* in middle of global reset? */
 extern bool dynamo_all_threads_synched; /* are all other threads suspended safely? */
@@ -505,17 +507,17 @@ extern bool    dr_late_injected_primary_thread;
 #ifdef RETURN_AFTER_CALL
 extern bool    dr_preinjected;
 #endif
-#ifdef DR_APP_EXPORTS
 /* flags to indicate when DR is being initialized / exited using the API */
 extern bool    dr_api_entry;
 extern bool    dr_api_exit;
-#endif
 
 /* in dynamo.c */
-/* 9-bit addressed hash table takes up 2K, has capacity of 512
- * we never resize, assuming won't be seeing more than a few hundred threads
+/* 12-bit addressed hash table takes up 16K, has capacity of 4096.
+ * XXX: We currently never resize, assuming won't be seeing more than
+ * a few thousand threads: it should be simple to swap for a resizing
+ * table using generic_table_t though.
  */
-#define ALL_THREADS_HASH_BITS 9
+#define ALL_THREADS_HASH_BITS 12
 extern thread_record_t **all_threads;
 extern mutex_t all_threads_lock;
 DYNAMORIO_EXPORT int dynamorio_app_init(void);
@@ -777,7 +779,10 @@ struct _dcontext_t {
         coarse_info_t *dir_exit;
     } coarse_exit;
 
-    where_am_i_t       whereami;        /* where control is at the moment */
+    where_am_i_t   whereami;        /* where control is at the moment */
+#ifdef UNIX
+    char           signals_pending; /* != 0: pending; < 0: currently handling one */
+#endif
 
     /************* end of offset-crucial fields *********************/
 
@@ -845,7 +850,6 @@ struct _dcontext_t {
 #ifdef UNIX
     void *         signal_field;
     void *         pcprofile_field;
-    bool           signals_pending;
 #endif
     void *         private_code;          /* various thread-private routines */
 

@@ -597,15 +597,14 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
 
         if (expanded != NULL)
             *expanded = true;
-    } else if (expanded != NULL)
-        *expanded = false;
-#elif defined(ARM)
+        return true;
+    }
+#endif
+
     if (expanded != NULL)
         *expanded = false;
     if (stringop != NULL)
         *stringop = NULL;
-#endif
-
     return true;
 }
 

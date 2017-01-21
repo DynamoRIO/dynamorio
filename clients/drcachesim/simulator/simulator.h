@@ -37,18 +37,16 @@
 #define _SIMULATOR_H_ 1
 
 #include <map>
-#include "../analyzer.h"
 #include "caching_device_stats.h"
 #include "caching_device.h"
-#include "../reader/ipc_reader.h"
+#include "../analysis_tool.h"
+#include "../common/memref.h"
 
-class simulator_t : public analyzer_t
+class simulator_t : public analysis_tool_t
 {
  public:
-    simulator_t() {}
+    simulator_t();
     virtual ~simulator_t() = 0;
-    virtual bool run() = 0;
-    virtual bool print_stats() = 0;
 
  protected:
     virtual int core_for_thread(memref_tid_t tid);
@@ -60,6 +58,13 @@ class simulator_t : public analyzer_t
     std::map<memref_tid_t, int> thread2core;
     unsigned int *thread_counts;
     unsigned int *thread_ever_counts;
+
+    uint64_t skip_refs;
+    uint64_t warmup_refs;
+    uint64_t sim_refs;
+
+    memref_tid_t last_thread;
+    int last_core;
 };
 
 #endif /* _SIMULATOR_H_ */

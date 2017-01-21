@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,12 +59,12 @@
 # define XMM_REG_SIZE  16
 # define YMM_REG_SIZE  32
 # define XMM_SAVED_REG_SIZE  YMM_REG_SIZE /* space in priv_mcontext_t for xmm/ymm */
-# define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_SAVED_REG_SIZE)
-# define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_SAVED_REG_SIZE)
+# define XMM_SLOTS_SIZE  (NUM_SIMD_SLOTS*XMM_SAVED_REG_SIZE)
+# define XMM_SAVED_SIZE  (NUM_SIMD_SAVED*XMM_SAVED_REG_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 # define YMM_ENABLED() (proc_avx_enabled())
 # define YMMH_REG_SIZE (YMM_REG_SIZE/2) /* upper half */
-# define YMMH_SAVED_SIZE (NUM_XMM_SLOTS*YMMH_REG_SIZE)
+# define YMMH_SAVED_SIZE (NUM_SIMD_SLOTS*YMMH_REG_SIZE)
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */
@@ -142,6 +142,10 @@ typedef struct _spill_state_t {
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
 #elif defined(AARCHXX)
     reg_t r0, r1, r2, r3;
+# ifdef X64
+    /* These are needed for icache_op_ic_ivau_asm. */
+    reg_t r4, r5;
+# endif
     reg_t reg_stolen;            /* slot for the stolen register */
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
@@ -189,6 +193,10 @@ typedef struct _local_state_extended_t {
 # define TLS_REG1_SLOT            ((ushort)offsetof(spill_state_t, r1))
 # define TLS_REG2_SLOT            ((ushort)offsetof(spill_state_t, r2))
 # define TLS_REG3_SLOT            ((ushort)offsetof(spill_state_t, r3))
+# ifdef AARCH64
+#  define TLS_REG4_SLOT           ((ushort)offsetof(spill_state_t, r4))
+#  define TLS_REG5_SLOT           ((ushort)offsetof(spill_state_t, r5))
+# endif
 # define TLS_REG_STOLEN_SLOT      ((ushort)offsetof(spill_state_t, reg_stolen))
 # define SCRATCH_REG0             DR_REG_R0
 # define SCRATCH_REG1             DR_REG_R1
@@ -1080,6 +1088,8 @@ void set_syscall_method(int method);
 #ifdef LINUX
 bool should_syscall_method_be_sysenter(void);
 #endif
+bool hook_vsyscall(dcontext_t *dcontext, bool method_changing);
+bool unhook_vsyscall(void);
 /* returns the address of the first app syscall instruction we saw (see hack
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *get_app_sysenter_addr(void);
@@ -1162,7 +1172,7 @@ void new_bsdthread_intercept(void);
 # endif
 #endif
 void back_from_native(void);
-/* These two are labels, not functions. */
+/* The _end is a label, not a function. */
 void back_from_native_retstubs(void);
 void back_from_native_retstubs_end(void);
 /* Each stub should be 4 bytes: push imm8 + jmp rel8 */
@@ -1181,10 +1191,6 @@ void dr_frstor(byte *buf_aligned);
 #ifdef X64
 void dr_fxsave32(byte *buf_aligned);
 void dr_fxrstor32(byte *buf_aligned);
-#endif
-
-#ifdef AARCH64
-void cache_sync_asm(void *beg, void *end);
 #endif
 
 /* Keep in synch with x86.asm.  This is the difference between the SP saved in
@@ -1319,7 +1325,7 @@ typedef enum _dr_isa_mode_t {
 #ifdef ARM
 # define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
 #else
-# define ENTRY_PC_TO_DECODE_PC(pc) pc
+# define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(pc))
 #endif
 
 DR_API
@@ -1632,6 +1638,8 @@ int decode_syscall_num(dcontext_t *dcontext, byte *entry);
 void link_shared_syscall(dcontext_t *dcontext);
 void unlink_shared_syscall(dcontext_t *dcontext);
 #endif
+size_t syscall_instr_length(dr_isa_mode_t mode);
+bool is_syscall_at_pc(dcontext_t *dcontext, app_pc pc);
 
 /* Coarse-grain fragment support */
 cache_pc

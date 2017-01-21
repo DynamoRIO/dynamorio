@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,15 +34,13 @@
 
 #include "tools.h"
 
-#ifdef WINDOWS
-# error NYI i#1727
+#ifdef UNIX
+# include <unistd.h>
+# include <sys/types.h>
+# include <sys/wait.h>
+# include <assert.h>
+# include <stdio.h>
 #endif
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <assert.h>
-#include <stdio.h>
 
 #define LINE_SIZE 64
 typedef struct {
@@ -72,19 +70,36 @@ lots_of_hits(void)
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
+#ifdef UNIX
     pid_t child;
-
     child = fork();
     if (child < 0) {
         perror("error on fork");
-    } else if (child > 0) {
+    }
+    else if (child > 0) {
+        /* parent process */
         pid_t result;
         lots_of_hits();
         result = waitpid(child, NULL, 0);
         assert(result == child);
-    } else {
+    }
+#else
+    if (argc == 2) { /* user must pass path in */
+        /* parent process */
+        STARTUPINFO si = { sizeof(STARTUPINFO) };
+        PROCESS_INFORMATION pi;
+        if (!CreateProcess(argv[1], argv[1], NULL, NULL, FALSE,
+                           0, NULL, NULL, &si, &pi))
+            assert(0);
+        lots_of_hits();
+        if (WaitForSingleObject(pi.hProcess, INFINITE) == WAIT_FAILED)
+            assert(0);
+    }
+#endif
+    else {
+        /* child process */
         lots_of_misses();
         exit(0);
     }

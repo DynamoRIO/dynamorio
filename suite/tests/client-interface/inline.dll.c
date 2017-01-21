@@ -349,7 +349,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 
     /* Only look at the initialized bits of the SSE regs. */
     ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
-    for (i = 0; i < NUM_XMM_SLOTS; i++) {
+    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
         if (memcmp(&mc_a->ymm[i], &mc_b->ymm[i], ymm_bytes_used) != 0)
             return false;
     }
@@ -375,7 +375,7 @@ dump_diff_mcontexts(void)
     }
 
     dr_fprintf(STDERR, "Printing XMM regs:\n");
-    for (i = 0; i < NUM_XMM_SLOTS; i++) {
+    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
         dr_ymm_t before_reg = before_mcontext.ymm[i];
         dr_ymm_t  after_reg =  after_mcontext.ymm[i];
         size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) :

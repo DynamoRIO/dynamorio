@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,8 +64,9 @@ cache_t::request(const memref_t &memref_in)
 void
 cache_t::flush(const memref_t &memref)
 {
-    addr_t tag = compute_tag(memref.addr);
-    addr_t final_tag = compute_tag(memref.addr + memref.size - 1/*no overflow*/);
+    addr_t tag = compute_tag(memref.flush.addr);
+    addr_t final_tag = compute_tag(memref.flush.addr +
+                                   memref.flush.size - 1/*no overflow*/);
     last_tag = TAG_INVALID;
     for (; tag <= final_tag; ++tag) {
         int block_idx = compute_block_idx(tag);

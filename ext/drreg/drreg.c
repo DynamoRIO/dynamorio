@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -859,6 +859,39 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     return DRREG_SUCCESS;
 }
 
+drreg_status_t
+drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
+                         opnd_t opnd, INOUT reg_id_t *swap)
+{
+    drreg_status_t res;
+    bool no_app_value = false;
+    int num_op = opnd_num_regs_used(opnd);
+    int i;
+    for (i = 0; i < num_op; i++) {
+        reg_id_t reg = opnd_get_reg_used(opnd, i);
+        reg_id_t dst = reg;
+        if (reg == dr_get_stolen_reg()) {
+            if (swap == NULL)
+                return DRREG_ERROR_INVALID_PARAMETER;
+            if (*swap == DR_REG_NULL) {
+                res = drreg_reserve_register(drcontext, ilist, where, NULL, &dst);
+                if (res != DRREG_SUCCESS)
+                    return res;
+            } else
+                dst = *swap;
+            if (!opnd_replace_reg(&opnd, reg, dst))
+                return DRREG_ERROR;
+            *swap = dst;
+        }
+        res = drreg_get_app_value(drcontext, ilist, where, reg, dst);
+        if (res == DRREG_ERROR_NO_APP_VALUE)
+            no_app_value = true;
+        else if (res != DRREG_SUCCESS)
+            return res;
+    }
+    return (no_app_value ? DRREG_ERROR_NO_APP_VALUE : DRREG_SUCCESS);
+}
+
 static drreg_status_t
 drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
                       per_thread_t *pt, reg_id_t reg)
@@ -1215,6 +1248,12 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                     uint DR_min_offs =
                         opnd_get_disp(dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1));
                     slot = (offs - DR_min_offs) / sizeof(reg_t);
+                    if (slot > SPILL_SLOT_MAX) {
+                        /* This is not a drreg spill, but some TLS access by
+                         * tool instrumentation (i#2035).
+                         */
+                        continue;
+                    }
                 } else {
                     /* We assume mcontext spill offs is 0 */
                     slot = offs / sizeof(reg_t);

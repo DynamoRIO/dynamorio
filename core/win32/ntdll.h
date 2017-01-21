@@ -1924,6 +1924,8 @@ query_full_attributes_file(PCWSTR filename,
 /* The NTFS file or directory is not a reparse point. */
 #define STATUS_NOT_A_REPARSE_POINT       ((NTSTATUS)0xC0000275L)
 
+#define STATUS_PIPE_NOT_AVAILABLE        ((NTSTATUS)0xC00000ACL)
+
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 # define IMAGE_SIZEOF_BASE_RELOCATION         8
@@ -2049,6 +2051,7 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
                    void *output, uint output_size, uint timeout_ms);
 
 #define TIMER_UNITS_PER_MILLISECOND (1000 * 10) /* 100ns intervals */
+#define TIMER_UNITS_PER_MICROSECOND (10) /* 100ns intervals */
 
 wchar_t *
 get_process_param_buf(RTL_USER_PROCESS_PARAMETERS *params, wchar_t *buf);

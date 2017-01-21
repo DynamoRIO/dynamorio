@@ -68,6 +68,10 @@ dr_app_setup(void);
 /**
  * Application-wide cleanup.  Prints statistics. Returns zero on success.
  * Once this is invoked, calling dr_app_start() or dr_app_setup() is not supported.
+ * This should be invoked at application exit, after joining with
+ * application threads.  If the application wants to continue
+ * executing significant code or executing additional threads after
+ * cleanup, it should use dr_app_stop_and_cleanup() instead.
  */
 DR_APP_API int
 dr_app_cleanup(void);

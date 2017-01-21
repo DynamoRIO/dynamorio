@@ -38,7 +38,8 @@
 #include <stdio.h>
 
 // XXX: perhaps we should use a C++-ish stream approach instead
-#define ERROR(msg, ...) fprintf(stderr, msg, ## __VA_ARGS__)
+// This cannot be named ERROR as that conflicts with Windows headers.
+#define ERRMSG(msg, ...) fprintf(stderr, msg, ## __VA_ARGS__)
 
 // XXX: can we share w/ core DR?
 #define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
@@ -65,6 +66,16 @@
 #else
 # define START_PACKED_STRUCTURE /* nothing */
 # define END_PACKED_STRUCTURE __attribute__ ((__packed__))
+#endif
+
+#ifdef WINDOWS
+# define DIRSEP "\\"
+# define IF_WINDOWS(x) x
+# define IF_UNIX(x)
+#else
+# define DIRSEP "/"
+# define IF_WINDOWS(x)
+# define IF_UNIX(x) x
 #endif
 
 static inline int

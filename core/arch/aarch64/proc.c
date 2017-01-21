@@ -50,7 +50,7 @@ proc_has_feature(feature_bit_t f)
 void
 machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
-    cache_sync_asm(pc_start, pc_end);
+    clear_icache(pc_start, pc_end);
 }
 
 DR_API

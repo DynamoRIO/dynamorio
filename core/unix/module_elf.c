@@ -86,11 +86,21 @@ safe_read(const void *base, size_t size, void *out_buf)
     return true;
 }
 
+bool
+safe_read_if_fast(const void *base, size_t size, void *out_buf)
+{
+    return safe_read(base, size, out_buf);
+}
+
 #else /* !NOT_DYNAMORIO_CORE_PROPER */
 
 #ifdef CLIENT_INTERFACE
-typedef struct _elf_import_iterator_t {
+typedef struct _elf_symbol_iterator_t {
     dr_symbol_import_t symbol_import;   /* symbol import returned by next() */
+    dr_symbol_export_t symbol_export;   /* symbol export returned by next() */
+
+    ELF_SYM_TYPE *symbol;               /* safe_cur_sym or NULL */
+    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of current symbol */
 
     /* This data is copied from os_module_data_t so we don't have to hold the
      * module area lock while the client iterates.
@@ -100,35 +110,18 @@ typedef struct _elf_import_iterator_t {
     const char *dynstr;                 /* absolute addr of .dynstr */
     size_t dynstr_size;                 /* size of .dynstr */
 
-    ELF_SYM_TYPE *cur_sym;              /* pointer to next import in .dynsym */
-    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of cur_sym */
-    ELF_SYM_TYPE *import_end;           /* end of imports in .dynsym */
-    bool error_occurred;                /* error during iteration */
-} elf_import_iterator_t;
+    /* These are used for iterating through a part of .dynsym. */
+    size_t nohash_count;                /* number of symbols remaining */
+    ELF_SYM_TYPE *cur_sym;              /* pointer to next symbol in .dynsym */
 
-typedef struct _elf_export_iterator_t {
-    dr_symbol_export_t symbol_export;   /* symbol export returned by next() */
-
-    /* Just like elf_import_iterator_t, this is copied from os_module_data_t. */
-    bool hash_is_gnu;
-    ELF_SYM_TYPE *dynsym;               /* absolute addr of .dynsym */
-    size_t symentry_size;               /* size of a .dynsym entry */
-    const char *dynstr;                 /* absolute addr of .dynstr */
-    size_t dynstr_size;                 /* size of .dynstr */
-
-    /* For gnu hashtable we have to walk the hashtable. */
+    /* These are used for iterating through a GNU hashtable. */
     Elf_Symndx *buckets;
     size_t num_buckets;
     Elf_Symndx *chain;
     ptr_int_t load_delta;
     Elf_Symndx hidx;
     Elf_Symndx chain_idx;
-
-    ELF_SYM_TYPE *cur_sym;              /* pointer to next export in .dynsym */
-    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of cur_sym */
-    ELF_SYM_TYPE *export_end;           /* end of exports in .dynsym */
-    bool valid_entry;                   /* is safe_cur_sym valid */
-} elf_export_iterator_t;
+} elf_symbol_iterator_t;
 #endif /* CLIENT_INTERFACE */
 
 /* In case want to build w/o gnu headers and use that to run recent gnu elf */
@@ -187,9 +180,14 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         return false;
     }
 
-    /* read the header */
+    /* Read the header.  We used to directly deref if size >= sizeof(ELF_HEADER_TYPE)
+     * but given that we now have safe_read_fast() it's best to always use it and
+     * avoid races (like i#2113).  However, the non-fast version hits deadlock on
+     * memquery during client init, so we use a special routine safe_read_if_fast().
+     */
     if (size >= sizeof(ELF_HEADER_TYPE)) {
-        elf_header = *(ELF_HEADER_TYPE *)base;
+        if (!safe_read_if_fast(base, sizeof(ELF_HEADER_TYPE), &elf_header))
+            return false;
     } else if (size == 0) {
         if (!safe_read(base, sizeof(ELF_HEADER_TYPE), &elf_header))
             return false;
@@ -881,6 +879,7 @@ elf_hash_lookup(const char   *name,
             ASSERT(false && "malformed ELF symbol entry");
             continue;
         }
+        /* Keep this consistent with symbol_is_import. */
         if (sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS)
             continue; /* no value */
         if (elf_sym_matches(sym, strtab, name, is_indirect_code))
@@ -1411,265 +1410,245 @@ module_undef_symbols()
 }
 
 #ifdef CLIENT_INTERFACE
-static void
-dynsym_next(elf_import_iterator_t *iter)
+
+static ELF_SYM_TYPE *
+symbol_iterator_cur_symbol(elf_symbol_iterator_t *iter)
 {
-    iter->cur_sym = (ELF_SYM_TYPE *) ((byte *) iter->cur_sym +
-                                      iter->symentry_size);
+    return iter->symbol;
 }
 
-static void
-dynsym_next_import(elf_import_iterator_t *iter)
+static ELF_SYM_TYPE *
+symbol_iterator_next_noread(elf_symbol_iterator_t *iter)
 {
-    /* Imports have zero st_value fields.  Anything else is something else, so
-     * we skip it.  Modules using .gnu.hash symbol lookup tend to have imports
-     * come first, but sysv hash tables don't have any such split.
-     */
-    do {
-        dynsym_next(iter);
-        if (iter->cur_sym >= iter->import_end)
-            return;
-        if (!SAFE_READ_VAL(iter->safe_cur_sym, iter->cur_sym)) {
-            memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
-            iter->error_occurred = true;
-            return;
+    if (iter->nohash_count > 0) {
+        --iter->nohash_count;
+        if (iter->nohash_count > 0)  {
+            iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym +
+                                             iter->symentry_size);
+            return iter->cur_sym;
         }
-    } while (iter->safe_cur_sym.st_value != 0);
-
-    if (iter->safe_cur_sym.st_name >= iter->dynstr_size) {
-        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
-        iter->error_occurred = true;
-        return;
     }
+    if (iter->hidx < iter->num_buckets) {
+        /* XXX: perhaps we should safe_read buckets[] and chain[] */
+        if (iter->chain_idx != 0) {
+            if (TEST(1, iter->chain[iter->chain_idx])) {
+                /* LSB being 1 marks end of chain. */
+                iter->chain_idx = 0;
+            } else
+                ++iter->chain_idx;
+        }
+        while (iter->chain_idx == 0 && iter->hidx < iter->num_buckets) {
+            /* Advance to next hash chain */
+            iter->chain_idx = iter->buckets[iter->hidx];
+            ++iter->hidx;
+        }
+        return iter->chain_idx == 0 ? NULL : &iter->dynsym[iter->chain_idx];
+    }
+    return NULL;
 }
 
-dr_symbol_import_iterator_t *
-dr_symbol_import_iterator_start(module_handle_t handle,
-                                dr_module_import_desc_t *from_module)
+static ELF_SYM_TYPE *
+symbol_iterator_next(elf_symbol_iterator_t *iter)
 {
-    module_area_t *ma;
-    elf_import_iterator_t *iter;
-    size_t max_imports;
+    ELF_SYM_TYPE *sym = symbol_iterator_next_noread(iter);
 
-    if (from_module != NULL) {
-        CLIENT_ASSERT(false, "Cannot iterate imports from a given module on "
-                      "Linux");
-        return NULL;
+    if (sym == NULL) {
+        iter->symbol = NULL;
+        return iter->symbol;
+    } else if (sym->st_name >= iter->dynstr_size) {
+        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
+    } else if (SAFE_READ_VAL(iter->safe_cur_sym, sym)) {
+        iter->symbol = &iter->safe_cur_sym;
+        return iter->symbol;
+    } else {
+        ASSERT_CURIOSITY(false && "could not read symbol");
     }
 
-    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    /* Stop the iteration. */
+    iter->nohash_count = 0;
+    iter->hidx = 0;
+    iter->num_buckets = 0;
+    iter->symbol = NULL;
+    return NULL;
+}
+
+static elf_symbol_iterator_t *
+symbol_iterator_start(module_handle_t handle)
+{
+    elf_symbol_iterator_t *iter;
+    module_area_t *ma;
+
+    iter = global_heap_alloc(sizeof(*iter)HEAPACCT(ACCT_CLIENT));
     if (iter == NULL)
         return NULL;
     memset(iter, 0, sizeof(*iter));
 
     os_get_module_info_lock();
-    ma = module_pc_lookup((byte *) handle);
-    if (ma != NULL) {
-        iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
-        iter->symentry_size = ma->os_data.symentry_size;
-        iter->dynstr = (const char *) ma->os_data.dynstr;
-        iter->dynstr_size = ma->os_data.dynstr_size;
-        iter->cur_sym = iter->dynsym;
+    ma = module_pc_lookup((byte *)handle);
 
-        /* The length of .dynsym is not available in the mapped image, so we
-         * have to be creative.  The two export hashtables point into dynsym,
-         * though, so they have some info about the length.
-         */
-        if (ma->os_data.hash_is_gnu) {
-            /* See https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
-             * "With GNU hash, the dynamic symbol table is divided into two
-             * parts. The first part receives the symbols that can be omitted
-             * from the hash table."
-             * gnu_symbias is the index of the first symbol in the hash table,
-             * so all of the imports are before it.  If we ever want to iterate
-             * all of .dynsym, we will have to look at the contents of the hash
-             * table.
-             */
-            max_imports = ma->os_data.gnu_symbias;
-        } else {
-            /* See http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
-             * "The number of symbol table entries should equal nchain"
-             */
-            max_imports = ma->os_data.num_chain;
-        }
-        iter->import_end = (ELF_SYM_TYPE *)((app_pc)iter->dynsym +
-                                            (max_imports * iter->symentry_size));
+    iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
+    iter->symentry_size = ma->os_data.symentry_size;
+    iter->dynstr = (const char *) ma->os_data.dynstr;
+    iter->dynstr_size = ma->os_data.dynstr_size;
+    iter->cur_sym = iter->dynsym;
+    iter->load_delta = ma->start - ma->os_data.base_address;
 
-        /* Set up invariant that cur_sym and safe_cur_sym point to the next
-         * symbol to yield.  This skips the first entry, which is fake according
-         * to the spec.
+    if (ma->os_data.hash_is_gnu) {
+        /* See https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+         * "With GNU hash, the dynamic symbol table is divided into two
+         * parts. The first part receives the symbols that can be omitted
+         * from the hash table."
+         * The division sometimes corresponds, roughly, to imports and
+         * exports, but not reliably.
          */
-        ASSERT_CURIOSITY(iter->cur_sym->st_name == 0);
-        dynsym_next_import(iter);
+        /* First we will step through the unhashed symbols. */
+        iter->nohash_count = ma->os_data.gnu_symbias;
+        /* Then we will walk the hashtable. */
+        iter->buckets = (Elf_Symndx *)ma->os_data.buckets;
+        iter->chain = (Elf_Symndx *)ma->os_data.chain;
+        iter->num_buckets = ma->os_data.num_buckets;
+        iter->hidx = 0;
+        iter->chain_idx = 0;
     } else {
-        global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
-        iter = NULL;
+        /* See http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
+         * "The number of symbol table entries should equal nchain"
+         */
+        iter->nohash_count = ma->os_data.num_chain;
+        /* There is no GNU hash table. */
+        iter->hidx = 0;
+        iter->num_buckets = 0;
     }
+    ASSERT_CURIOSITY(iter->cur_sym->st_name == 0); /* ok to skip 1st */
+    symbol_iterator_next(iter);
+
     os_get_module_info_unlock();
 
-    return (dr_symbol_import_iterator_t *) iter;
+    return iter;
 }
 
-bool
-dr_symbol_import_iterator_hasnext(dr_symbol_import_iterator_t *dr_iter)
+static void
+symbol_iterator_stop(elf_symbol_iterator_t *iter)
 {
-    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
-    return (iter != NULL && !iter->error_occurred &&
-            iter->cur_sym < iter->import_end);
-}
-
-dr_symbol_import_t *
-dr_symbol_import_iterator_next(dr_symbol_import_iterator_t *dr_iter)
-{
-    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
-
-    CLIENT_ASSERT(iter != NULL, "invalid parameter");
-    iter->symbol_import.name = iter->dynstr + iter->safe_cur_sym.st_name;
-    iter->symbol_import.modname = NULL;  /* no module for ELFs */
-    iter->symbol_import.delay_load = false;
-
-    dynsym_next_import(iter);
-    return &iter->symbol_import;
-}
-
-void
-dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
-{
-    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
     if (iter == NULL)
         return;
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
 
 static bool
-dynsym_next_export(elf_export_iterator_t *iter)
+symbol_is_import(ELF_SYM_TYPE *sym)
 {
-    if (iter->hash_is_gnu) {
-        /* XXX: perhaps we should safe_read buckets[] and chain[] */
-        do { /* loop over zero entries */
-            if (iter->chain_idx == 0) {
-                /* Advance to next hash chain */
-                do {
-                    if (iter->hidx >= iter->num_buckets)
-                        return false;
-                    iter->chain_idx = iter->buckets[iter->hidx];
-                    iter->hidx++;
-                } while (iter->chain_idx == 0);
-            }
-            /* Walk the hash chain for this bucket value */
-            if (!SAFE_READ_VAL(iter->safe_cur_sym, &iter->dynsym[iter->chain_idx])) {
-                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
-                return false;
-            }
-            /* End of chain is marked by LSB being 1 */
-            if (TEST(1, iter->chain[iter->chain_idx]))
-                iter->chain_idx = 0;
-            else
-                iter->chain_idx++;
-            /* Hashtable should only have non-zero entries, but I see some in
-             * the middle of .dynsym for 32-bit libs.
-             */
-        } while (iter->safe_cur_sym.st_value == 0);
-    } else {
-        do {
-            iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym + iter->symentry_size);
-            if (iter->cur_sym >= iter->export_end)
-                return false;
-            if (!SAFE_READ_VAL(iter->safe_cur_sym, iter->cur_sym)) {
-                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
-                return false;
-            }
-        } while (iter->safe_cur_sym.st_value == 0);
-    }
+    /* Keep this consistent with elf_hash_lookup.
+     * With some older ARM and AArch64 tool chains we have st_shndx == STN_UNDEF
+     * with a non-zero st_value pointing at the PLT. See i#2008.
+     */
+    return ((sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS) ||
+            sym->st_shndx == STN_UNDEF);
+}
 
-    if (iter->safe_cur_sym.st_name >= iter->dynstr_size) {
-        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
-        return false;
+static void
+symbol_iterator_next_import(elf_symbol_iterator_t *iter)
+{
+    ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
+    while (sym != NULL && !symbol_is_import(sym))
+        sym = symbol_iterator_next(iter);
+}
+
+dr_symbol_import_iterator_t *
+dr_symbol_import_iterator_start(module_handle_t handle,
+                                   dr_module_import_desc_t *from_module)
+{
+    elf_symbol_iterator_t *iter = NULL;
+    if (from_module != NULL) {
+        CLIENT_ASSERT(false, "Cannot iterate imports from a given module on Linux");
+        return NULL;
     }
-    return true;
+    iter = symbol_iterator_start(handle);
+    if (iter != NULL)
+        symbol_iterator_next_import(iter);
+    return (dr_symbol_import_iterator_t *)iter;
+}
+
+bool
+dr_symbol_import_iterator_hasnext(dr_symbol_import_iterator_t *dr_iter)
+{
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    return symbol_iterator_cur_symbol(iter) != NULL;
+}
+
+dr_symbol_import_t *
+dr_symbol_import_iterator_next(dr_symbol_import_iterator_t *dr_iter)
+{
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    ELF_SYM_TYPE *sym;
+
+    CLIENT_ASSERT(iter != NULL, "invalid parameter");
+    sym = symbol_iterator_cur_symbol(iter);
+    CLIENT_ASSERT(sym != NULL, "no next");
+
+    iter->symbol_import.name = iter->dynstr + sym->st_name;
+    iter->symbol_import.modname = NULL;  /* no module for ELFs */
+    iter->symbol_import.delay_load = false;
+
+    symbol_iterator_next(iter);
+    symbol_iterator_next_import(iter);
+    return &iter->symbol_import;
+}
+
+void
+dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
+{
+    symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
+}
+
+static void
+symbol_iterator_next_export(elf_symbol_iterator_t *iter)
+{
+    ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
+    while (sym != NULL && symbol_is_import(sym))
+        sym = symbol_iterator_next(iter);
 }
 
 dr_symbol_export_iterator_t *
 dr_symbol_export_iterator_start(module_handle_t handle)
 {
-    module_area_t *ma;
-    elf_export_iterator_t *iter;
-
-    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
-    if (iter == NULL)
-        return NULL;
-    memset(iter, 0, sizeof(*iter));
-
-    os_get_module_info_lock();
-    ma = module_pc_lookup((byte *) handle);
-    if (ma != NULL) {
-        iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
-        iter->symentry_size = ma->os_data.symentry_size;
-        iter->dynstr = (const char *) ma->os_data.dynstr;
-        iter->dynstr_size = ma->os_data.dynstr_size;
-        iter->cur_sym = iter->dynsym;
-        iter->load_delta = ma->start - ma->os_data.base_address;
-
-        /* See dr_symbol_import_iterator_start(): we don't have the length of .dynsym
-         * (we'd have to map the original file).
-         */
-        iter->hash_is_gnu = ma->os_data.hash_is_gnu;
-        if (iter->hash_is_gnu) {
-            /* We have to walk the hashtable */
-            iter->buckets = (Elf_Symndx *) ma->os_data.buckets;
-            iter->chain = (Elf_Symndx *) ma->os_data.chain;
-            iter->num_buckets = ma->os_data.num_buckets;
-            iter->hidx = 0;
-            iter->chain_idx = 0;
-        } else {
-            /* See dr_symbol_import_iterator_start(): num_chain is # of .dynsym entries */
-            iter->export_end = (ELF_SYM_TYPE *)
-                ((app_pc)iter->dynsym + (ma->os_data.num_chain * iter->symentry_size));
-            ASSERT_CURIOSITY(iter->cur_sym->st_name == 0); /* ok to skip 1st */
-        }
-        /* Just like the import iterator, we always point at next */
-        iter->valid_entry = dynsym_next_export(iter);
-    } else {
-        global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
-        iter = NULL;
-    }
-    os_get_module_info_unlock();
-
-    return (dr_symbol_export_iterator_t *) iter;
+    elf_symbol_iterator_t *iter = symbol_iterator_start(handle);
+    if (iter != NULL)
+        symbol_iterator_next_export(iter);
+    return (dr_symbol_export_iterator_t *)iter;
 }
 
 bool
 dr_symbol_export_iterator_hasnext(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
-    return (iter != NULL && iter->valid_entry &&
-            (iter->hash_is_gnu || iter->cur_sym < iter->export_end));
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    return symbol_iterator_cur_symbol(iter) != NULL;
 }
 
 dr_symbol_export_t *
 dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    ELF_SYM_TYPE *sym;
 
     CLIENT_ASSERT(iter != NULL, "invalid parameter");
-    memset(&iter->symbol_export, 0, sizeof(iter->symbol_export));
-    iter->symbol_export.name = iter->dynstr + iter->safe_cur_sym.st_name;
-    iter->symbol_export.is_indirect_code =
-        (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_GNU_IFUNC);
-    iter->symbol_export.is_code = (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_FUNC);
-    iter->symbol_export.addr = (app_pc) (iter->safe_cur_sym.st_value + iter->load_delta);
+    sym = symbol_iterator_cur_symbol(iter);
+    CLIENT_ASSERT(sym != NULL, "no next");
 
-    iter->valid_entry = dynsym_next_export(iter);
+    memset(&iter->symbol_export, 0, sizeof(iter->symbol_export));
+    iter->symbol_export.name = iter->dynstr + sym->st_name;
+    iter->symbol_export.is_indirect_code = (ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC);
+    iter->symbol_export.is_code = (ELF_ST_TYPE(sym->st_info) == STT_FUNC);
+    iter->symbol_export.addr = (app_pc)(sym->st_value + iter->load_delta);
+
+    symbol_iterator_next(iter);
+    symbol_iterator_next_export(iter);
     return &iter->symbol_export;
 }
 
 void
 dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
-    if (iter == NULL)
-        return;
-    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
 }
 
 #endif /* CLIENT_INTERFACE */
@@ -2027,7 +2006,7 @@ elf_loader_read_headers(elf_loader_t *elf, const char *filename)
 
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func, bool reachable)
+                     unmap_fn_t unmap_func, prot_fn_t prot_func, modload_flags_t flags)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -2058,7 +2037,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 
     /* reserve the memory from os for library */
     initial_map_size = elf->image_size;
-    if (INTERNAL_OPTION(separate_private_bss)) {
+    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, flags)) {
         /* place an extra no-access page after .bss */
         /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
         /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
@@ -2072,7 +2051,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                             * base, in which case the map can be anywhere
                             */
                            ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
-                           (reachable ? MAP_FILE_REACHABLE : 0));
+                           (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
     if (INTERNAL_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
@@ -2101,6 +2080,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
         ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
             ((byte *)elf->phdrs + i * elf_hdr->e_phentsize);
         if (prog_hdr->p_type == PT_LOAD) {
+            bool do_mmap = true;
             seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE)
                        + delta;
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
@@ -2115,6 +2095,16 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             }
             seg_prot = module_segment_prot_to_osprot(prog_hdr);
             pg_offs  = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
+            if (TEST(MODLOAD_SKIP_WRITABLE, flags) &&
+                TEST(MEMPROT_WRITE, seg_prot) &&
+                seg_end == lib_end) {
+                /* We only actually skip if it's the final segment, to allow
+                 * unmapping with a single mmap and not worrying about sthg
+                 * else having been unmapped at the end in the meantime.
+                 */
+                do_mmap = false;
+                elf->image_size = last_end - lib_base;
+            }
             /* XXX:
              * This function can be called after dynamorio_heap_initialized,
              * and we will use map_file instead of os_map_file.
@@ -2127,34 +2117,36 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
              */
             if (seg_size > 0) { /* i#1872: handle empty segments */
                 (*unmap_func)(seg_base, seg_size);
-                map = (*map_func)
-                    (elf->fd, &seg_size, pg_offs,
-                     seg_base /* base */,
-                     seg_prot | MEMPROT_WRITE /* prot */,
-                     MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
-                     MAP_FILE_IMAGE |
-                     /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
-                     MAP_FILE_FIXED);
-                ASSERT(map != NULL);
-                /* fill zeros at extend size */
-                file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
-                if (seg_end > file_end + delta) {
+                if (do_mmap) {
+                    map = (*map_func)
+                        (elf->fd, &seg_size, pg_offs,
+                         seg_base /* base */,
+                         seg_prot | MEMPROT_WRITE /* prot */,
+                         MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                         MAP_FILE_IMAGE |
+                         /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
+                         MAP_FILE_FIXED);
+                    ASSERT(map != NULL);
+                    /* fill zeros at extend size */
+                    file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
+                    if (seg_end > file_end + delta) {
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-                    memset(file_end + delta, 0, seg_end - (file_end + delta));
+                        memset(file_end + delta, 0, seg_end - (file_end + delta));
 #else
-                    /* FIXME i#37: use a remote memset to zero out this gap or fix
-                     * it up in the child.  There is typically one RW PT_LOAD
-                     * segment for .data and .bss.  If .data ends and .bss starts
-                     * before filesz bytes, we need to zero the .bss bytes manually.
-                     */
+                        /* FIXME i#37: use a remote memset to zero out this gap or fix
+                         * it up in the child.  There is typically one RW PT_LOAD
+                         * segment for .data and .bss.  If .data ends and .bss starts
+                         * before filesz bytes, we need to zero the .bss bytes manually.
+                         */
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
+                    }
                 }
             }
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
                                              prog_hdr->p_memsz,
                                              PAGE_SIZE) + delta;
             seg_size = seg_end - seg_base;
-            if (seg_size > 0)
+            if (seg_size > 0 && do_mmap)
                 (*prot_func)(seg_base, seg_size, seg_prot);
             last_end = seg_end;
         }

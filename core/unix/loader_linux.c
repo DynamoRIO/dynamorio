@@ -49,6 +49,9 @@
 #endif
 #include "tls.h"
 #include <stddef.h>
+#if defined(X86) && defined(DEBUG)
+# include "os_asm_defines.asm" /* for TLS_APP_SELF_OFFSET_ASM */
+#endif
 
 /****************************************************************************
  * Thread Local Storage
@@ -188,6 +191,12 @@ typedef struct _dr_pthread_t {
  * stored in static TLS space, the loader stores them prior to the thread
  * pointer and lets the app intialize them.  Until we stop using the app's libc
  * (i#46), we need to copy this data from before the thread pointer.
+ *
+ * XXX i#2117: we have seen larger values than 0x400 here.
+ * However, this seems to be used for more than just late injection, and even
+ * for late, blindly increasing it causes some test failures, so it needs
+ * more work.  The comment above should be updated as well, as we do not use
+ * the app's libc inside DR.
  */
 # define APP_LIBC_TLS_SIZE 0x400
 #elif defined(AARCHXX)
@@ -207,6 +216,7 @@ privload_mod_tls_init(privmod_t *mod)
     size_t offset;
     int first_byte;
 
+    IF_X86(ASSERT(TLS_APP_SELF_OFFSET_ASM == offsetof(tcb_head_t, self)));
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     opd = (os_privmod_data_t *) mod->os_privmod_data;
     ASSERT(opd != NULL && opd->tls_block_size != 0);

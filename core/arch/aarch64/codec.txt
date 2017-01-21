@@ -48,6 +48,7 @@
 # In memory operands (e.g. mem7) the number refers to the number of offset bits.
 
 --------------------------------  lsl        # LSL for ADD/MOV (immediate)
+----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
 ---------------------------xxxxx  s0         # S register
@@ -57,19 +58,24 @@
 ---------------------------xxxxx  q0p2       # Q register, add 2
 ---------------------------xxxxx  q0p3       # Q register, add 3
 ---------------------------xxxxx  w0         # W register (or WZR)
+---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
+---------------------------xxxxx  w0p1       # ... add 1
 ---------------------------xxxxx  x0         # X register (or XZR)
+---------------------------xxxxx  x0p0       # even-numbered X register (or XZR)
+---------------------------xxxxx  x0p1       # ... add 1
 ---------------------------xxxxx  prfop      # prefetch operation
+----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
 ----------------------xxxxx-----  x5sp       # X register or XSP
 ----------------------xxxxx-----  mem0       # gets size from 31:30; no offset
-----------------------xxxxx-----  mem0p      # gets size from 31:30; no offset, pair
+----------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 ----------------------xxxxx-----  mem7post   # gets size from 31:30 and 26; post-index
 ----------------------xxxxx-----  mem9post   # gets size from 31:30; post-index
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 ----------------------xxxxx-----  memvrpost  # gets size from 21, 13 and 11:10
 ----------------------xxxxx-----  memvs      # gets size from 21, 15:13 and 11:10
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
---------------------xxxx--------  isbopt     # option for ISB
+--------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB
 --------------------xxxxxxx-----  memvr      # gets size from 21, 13 and 11:10
 -------------------xxx----------  extam      # extend amount
 -----------------xxxxx----------  ign10      # ignored reg field in load/store exclusive
@@ -79,11 +85,19 @@
 -----------------xxxxx----------  w10        # W register (or WZR)
 -----------------xxxxx----------  x10        # X register (or XZR)
 ----------------xxx-------------  ext        # extend type
+----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  imm6       # shift amount
+----------------xxxxxx----------  imms       # Bitfield immediate, checks 31
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------xxxxx----------------  ign16      # ignored reg field in load/store exclusive
+-----------xxxxx----------------  imm5       # immediate for CCMN, CCMP
 -----------xxxxx----------------  w16        # W register (or WZR)
+-----------xxxxx----------------  w16p0      # even-numbered W register (or WZR)
+-----------xxxxx----------------  w16p1      # ... add 1
+-----------xxxxx----------------  x16        # X register (or XZR)
+-----------xxxxx----------------  x16p0      # even-numbered X register (or XZR)
+-----------xxxxx----------------  x16p1      # ... add 1
 -----------xxxxx----------------  x16immvr   # computes immed from 21, 13 and 11:10
 -----------xxxxx----------------  x16immvs   # computes immed 21, 15:13 and 11:10
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
@@ -94,6 +108,7 @@
 -----------xxxxxxxxx--xxxxx-----  memregq    # register offset, size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prfreg     # register offset, size is 0 (prefetch)
 -----------xxxxxxxxxxxxxxxx-----  imm16      # immediate for MOVK/MOVN/MOVZ/SVC
+----------xxxxxx----------------  immr       # Bitfield immediate, checks 31
 ----------xxxxxxx---------------  mem7off    # gets size from 31:30 and 26
 ----------xxxxxxx-----xxxxx-----  mem7       # gets size from 31:30 and 26
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
@@ -125,6 +140,7 @@ x--------------------------xxxxx  wx0        # W/X register (or WZR/XZR)
 x--------------------------xxxxx  wx0sp      # W/X register or WSP/XSP
 x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
 x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
+x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
 
 ################################################################################
@@ -176,11 +192,17 @@ x11100100xxxxxxxxxxxxxxxxxxxxxxx  ands   logic_imm
 
 ## Bitfield
 
-# FIXME i#1569: Add: sbfm, bfm, ubfm
+0001001100xxxxxxxxxxxxxxxxxxxxxx  sbfm   w0 : w5 immr imms
+0011001100xxxxxxxxxxxxxxxxxxxxxx  bfm    w0 : w5 immr imms
+0101001100xxxxxxxxxxxxxxxxxxxxxx  ubfm   w0 : w5 immr imms
+1001001101xxxxxxxxxxxxxxxxxxxxxx  sbfm   x0 : x5 immr imms
+1011001101xxxxxxxxxxxxxxxxxxxxxx  bfm    x0 : x5 immr imms
+1101001101xxxxxxxxxxxxxxxxxxxxxx  ubfm   x0 : x5 immr imms
 
 ## Extract
 
-# FIXME i#1569: Add: extr
+00010011100xxxxxxxxxxxxxxxxxxxxx  extr   w0 : w5 w16 imms
+10010011110xxxxxxxxxxxxxxxxxxxxx  extr   x0 : x5 x16 imms
 
 # Branches, Exception Generating and System instructions
 
@@ -206,20 +228,28 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 ## Exception generation
 
 11010100000xxxxxxxxxxxxxxxx00001  svc    : imm16
-# FIXME i#1569: Add: hvc, smc
+11010100000xxxxxxxxxxxxxxxx00010  hvc    : imm16
+11010100000xxxxxxxxxxxxxxxx00011  smc    : imm16
 11010100001xxxxxxxxxxxxxxxx00000  brk    : imm16
-# FIXME i#1569: Add: hlt
+11010100010xxxxxxxxxxxxxxxx00000  hlt    : imm16
 
 ## System
 
-# FIXME i#1569: Add: msr, hint
+# FIXME i#1569: Add: MSR (immediate), HINT
 11010101000000110010000000011111  nop    :
-# FIXME i#1569: Add: yield, wfe, wfi, sev, sevl, hint, clrex, dsb, dmb
-11010101000000110011xxxx11011111  isb    : isbopt
+11010101000000110010000000111111  yield  :
+11010101000000110010000001011111  wfe    :
+11010101000000110010000001111111  wfi    :
+11010101000000110010000010011111  sev    :
+11010101000000110010000010111111  sevl   :
+11010101000000110011xxxx01011111  clrex  : imm4
+11010101000000110011xxxx10011111  dsb    : imm4
+11010101000000110011xxxx10111111  dmb    : imm4
+11010101000000110011xxxx11011111  isb    : imm4
 1101010100001xxxxxxxxxxxxxxxxxxx  sys    : sysops x0
 1101010100101xxxxxxxxxxxxxxxxxxx  sys    x0 : sysops
 110101010001xxxxxxxxxxxxxxxxxxxx  msr    msr
-# FIXME i#1569: Add: sysl
+# FIXME i#1569: Add: SYSL
 110101010011xxxxxxxxxxxxxxxxxxxx  mrs    x0 : sysreg
 
 ## Unconditional branch (register)
@@ -267,6 +297,34 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 11001000011xxxxx1xxxxxxxxxxxxxxx  ldaxp  x0 x10 : mem0p ign16
 11001000100xxxxx1xxxxxxxxxxxxxxx  stlr   mem0 : x0 ign10 ign16
 11001000110xxxxx1xxxxxxxxxxxxxxx  ldar   x0 : mem0 ign10 ign16
+
+### ARMv8.1 atomic instructions
+
+00001000101xxxxx011111xxxxxxxxxx  casb    w16 mem0 : w16 w0 mem0
+00001000101xxxxx111111xxxxxxxxxx  caslb   w16 mem0 : w16 w0 mem0
+00001000111xxxxx011111xxxxxxxxxx  casab   w16 mem0 : w16 w0 mem0
+00001000111xxxxx111111xxxxxxxxxx  casalb  w16 mem0 : w16 w0 mem0
+01001000101xxxxx011111xxxxxxxxxx  cash    w16 mem0 : w16 w0 mem0
+01001000101xxxxx111111xxxxxxxxxx  caslh   w16 mem0 : w16 w0 mem0
+01001000111xxxxx011111xxxxxxxxxx  casah   w16 mem0 : w16 w0 mem0
+01001000111xxxxx111111xxxxxxxxxx  casalh  w16 mem0 : w16 w0 mem0
+10001000101xxxxx011111xxxxxxxxxx  cas     w16 mem0 : w16 w0 mem0
+10001000101xxxxx111111xxxxxxxxxx  casl    w16 mem0 : w16 w0 mem0
+10001000111xxxxx011111xxxxxxxxxx  casa    w16 mem0 : w16 w0 mem0
+10001000111xxxxx111111xxxxxxxxxx  casal   w16 mem0 : w16 w0 mem0
+11001000101xxxxx011111xxxxxxxxxx  cas     x16 mem0 : x16 x0 mem0
+11001000101xxxxx111111xxxxxxxxxx  casl    x16 mem0 : x16 x0 mem0
+11001000111xxxxx011111xxxxxxxxxx  casa    x16 mem0 : x16 x0 mem0
+11001000111xxxxx111111xxxxxxxxxx  casal   x16 mem0 : x16 x0 mem0
+
+00001000001xxxxx011111xxxxxxxxxx  casp    w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+00001000001xxxxx111111xxxxxxxxxx  caspl   w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+00001000011xxxxx011111xxxxxxxxxx  caspa   w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+00001000011xxxxx111111xxxxxxxxxx  caspal  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000001xxxxx011111xxxxxxxxxx  casp    x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+01001000001xxxxx111111xxxxxxxxxx  caspl   x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+01001000011xxxxx011111xxxxxxxxxx  caspa   x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+01001000011xxxxx111111xxxxxxxxxx  caspal  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
 
 ## Load register (literal)
 
@@ -436,6 +494,169 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 11111000010xxxxxxxxx11xxxxxxxxxx  ldr    x0 x5sp : mem9 x5sp mem9off
 11111100000xxxxxxxxx11xxxxxxxxxx  str    mem9 x5sp : d0 x5sp mem9off
 11111100010xxxxxxxxx11xxxxxxxxxx  ldr    d0 x5sp : mem9 x5sp mem9off
+
+## Atomic memory operations (ARMv8.1)
+
+00111000001xxxxx000000xxxxxxxxxx  ldaddb    w0 mem0 : w16 mem0
+00111000001xxxxx000100xxxxxxxxxx  ldclrb    w0 mem0 : w16 mem0
+00111000001xxxxx001000xxxxxxxxxx  ldeorb    w0 mem0 : w16 mem0
+00111000001xxxxx001100xxxxxxxxxx  ldsetb    w0 mem0 : w16 mem0
+00111000001xxxxx010000xxxxxxxxxx  ldsmaxb   w0 mem0 : w16 mem0
+00111000001xxxxx010100xxxxxxxxxx  ldsminb   w0 mem0 : w16 mem0
+00111000001xxxxx011000xxxxxxxxxx  ldumaxb   w0 mem0 : w16 mem0
+00111000001xxxxx011100xxxxxxxxxx  lduminb   w0 mem0 : w16 mem0
+
+00111000011xxxxx000000xxxxxxxxxx  ldaddlb   w0 mem0 : w16 mem0
+00111000011xxxxx000100xxxxxxxxxx  ldclrlb   w0 mem0 : w16 mem0
+00111000011xxxxx001000xxxxxxxxxx  ldeorlb   w0 mem0 : w16 mem0
+00111000011xxxxx001100xxxxxxxxxx  ldsetlb   w0 mem0 : w16 mem0
+00111000011xxxxx010000xxxxxxxxxx  ldsmaxlb  w0 mem0 : w16 mem0
+00111000011xxxxx010100xxxxxxxxxx  ldsminlb  w0 mem0 : w16 mem0
+00111000011xxxxx011000xxxxxxxxxx  ldumaxlb  w0 mem0 : w16 mem0
+00111000011xxxxx011100xxxxxxxxxx  lduminlb  w0 mem0 : w16 mem0
+
+00111000101xxxxx000000xxxxxxxxxx  ldaddab   w0 mem0 : w16 mem0
+00111000101xxxxx000100xxxxxxxxxx  ldclrab   w0 mem0 : w16 mem0
+00111000101xxxxx001000xxxxxxxxxx  ldeorab   w0 mem0 : w16 mem0
+00111000101xxxxx001100xxxxxxxxxx  ldsetab   w0 mem0 : w16 mem0
+00111000101xxxxx010000xxxxxxxxxx  ldsmaxab  w0 mem0 : w16 mem0
+00111000101xxxxx010100xxxxxxxxxx  ldsminab  w0 mem0 : w16 mem0
+00111000101xxxxx011000xxxxxxxxxx  ldumaxab  w0 mem0 : w16 mem0
+00111000101xxxxx011100xxxxxxxxxx  lduminab  w0 mem0 : w16 mem0
+
+00111000111xxxxx000000xxxxxxxxxx  ldaddalb  w0 mem0 : w16 mem0
+00111000111xxxxx000100xxxxxxxxxx  ldclralb  w0 mem0 : w16 mem0
+00111000111xxxxx001000xxxxxxxxxx  ldeoralb  w0 mem0 : w16 mem0
+00111000111xxxxx001100xxxxxxxxxx  ldsetalb  w0 mem0 : w16 mem0
+00111000111xxxxx010000xxxxxxxxxx  ldsmaxalb w0 mem0 : w16 mem0
+00111000111xxxxx010100xxxxxxxxxx  ldsminalb w0 mem0 : w16 mem0
+00111000111xxxxx011000xxxxxxxxxx  ldumaxalb w0 mem0 : w16 mem0
+00111000111xxxxx011100xxxxxxxxxx  lduminalb w0 mem0 : w16 mem0
+
+01111000001xxxxx000000xxxxxxxxxx  ldaddh    w0 mem0 : w16 mem0
+01111000001xxxxx000100xxxxxxxxxx  ldclrh    w0 mem0 : w16 mem0
+01111000001xxxxx001000xxxxxxxxxx  ldeorh    w0 mem0 : w16 mem0
+01111000001xxxxx001100xxxxxxxxxx  ldseth    w0 mem0 : w16 mem0
+01111000001xxxxx010000xxxxxxxxxx  ldsmaxh   w0 mem0 : w16 mem0
+01111000001xxxxx010100xxxxxxxxxx  ldsminh   w0 mem0 : w16 mem0
+01111000001xxxxx011000xxxxxxxxxx  ldumaxh   w0 mem0 : w16 mem0
+01111000001xxxxx011100xxxxxxxxxx  lduminh   w0 mem0 : w16 mem0
+
+01111000011xxxxx000000xxxxxxxxxx  ldaddlh   w0 mem0 : w16 mem0
+01111000011xxxxx000100xxxxxxxxxx  ldclrlh   w0 mem0 : w16 mem0
+01111000011xxxxx001000xxxxxxxxxx  ldeorlh   w0 mem0 : w16 mem0
+01111000011xxxxx001100xxxxxxxxxx  ldsetlh   w0 mem0 : w16 mem0
+01111000011xxxxx010000xxxxxxxxxx  ldsmaxlh  w0 mem0 : w16 mem0
+01111000011xxxxx010100xxxxxxxxxx  ldsminlh  w0 mem0 : w16 mem0
+01111000011xxxxx011000xxxxxxxxxx  ldumaxlh  w0 mem0 : w16 mem0
+01111000011xxxxx011100xxxxxxxxxx  lduminlh  w0 mem0 : w16 mem0
+
+01111000101xxxxx000000xxxxxxxxxx  ldaddah   w0 mem0 : w16 mem0
+01111000101xxxxx000100xxxxxxxxxx  ldclrah   w0 mem0 : w16 mem0
+01111000101xxxxx001000xxxxxxxxxx  ldeorah   w0 mem0 : w16 mem0
+01111000101xxxxx001100xxxxxxxxxx  ldsetah   w0 mem0 : w16 mem0
+01111000101xxxxx010000xxxxxxxxxx  ldsmaxah  w0 mem0 : w16 mem0
+01111000101xxxxx010100xxxxxxxxxx  ldsminah  w0 mem0 : w16 mem0
+01111000101xxxxx011000xxxxxxxxxx  ldumaxah  w0 mem0 : w16 mem0
+01111000101xxxxx011100xxxxxxxxxx  lduminah  w0 mem0 : w16 mem0
+
+01111000111xxxxx000000xxxxxxxxxx  ldaddalh  w0 mem0 : w16 mem0
+01111000111xxxxx000100xxxxxxxxxx  ldclralh  w0 mem0 : w16 mem0
+01111000111xxxxx001000xxxxxxxxxx  ldeoralh  w0 mem0 : w16 mem0
+01111000111xxxxx001100xxxxxxxxxx  ldsetalh  w0 mem0 : w16 mem0
+01111000111xxxxx010000xxxxxxxxxx  ldsmaxalh w0 mem0 : w16 mem0
+01111000111xxxxx010100xxxxxxxxxx  ldsminalh w0 mem0 : w16 mem0
+01111000111xxxxx011000xxxxxxxxxx  ldumaxalh w0 mem0 : w16 mem0
+01111000111xxxxx011100xxxxxxxxxx  lduminalh w0 mem0 : w16 mem0
+
+10111000001xxxxx000000xxxxxxxxxx  ldadd     w0 mem0 : w16 mem0
+10111000001xxxxx000100xxxxxxxxxx  ldclr     w0 mem0 : w16 mem0
+10111000001xxxxx001000xxxxxxxxxx  ldeor     w0 mem0 : w16 mem0
+10111000001xxxxx001100xxxxxxxxxx  ldset     w0 mem0 : w16 mem0
+10111000001xxxxx010000xxxxxxxxxx  ldsmax    w0 mem0 : w16 mem0
+10111000001xxxxx010100xxxxxxxxxx  ldsmin    w0 mem0 : w16 mem0
+10111000001xxxxx011000xxxxxxxxxx  ldumax    w0 mem0 : w16 mem0
+10111000001xxxxx011100xxxxxxxxxx  ldumin    w0 mem0 : w16 mem0
+
+10111000011xxxxx000000xxxxxxxxxx  ldaddl    w0 mem0 : w16 mem0
+10111000011xxxxx000100xxxxxxxxxx  ldclrl    w0 mem0 : w16 mem0
+10111000011xxxxx001000xxxxxxxxxx  ldeorl    w0 mem0 : w16 mem0
+10111000011xxxxx001100xxxxxxxxxx  ldsetl    w0 mem0 : w16 mem0
+10111000011xxxxx010000xxxxxxxxxx  ldsmaxl   w0 mem0 : w16 mem0
+10111000011xxxxx010100xxxxxxxxxx  ldsminl   w0 mem0 : w16 mem0
+10111000011xxxxx011000xxxxxxxxxx  ldumaxl   w0 mem0 : w16 mem0
+10111000011xxxxx011100xxxxxxxxxx  lduminl   w0 mem0 : w16 mem0
+
+10111000101xxxxx000000xxxxxxxxxx  ldadda    w0 mem0 : w16 mem0
+10111000101xxxxx000100xxxxxxxxxx  ldclra    w0 mem0 : w16 mem0
+10111000101xxxxx001000xxxxxxxxxx  ldeora    w0 mem0 : w16 mem0
+10111000101xxxxx001100xxxxxxxxxx  ldseta    w0 mem0 : w16 mem0
+10111000101xxxxx010000xxxxxxxxxx  ldsmaxa   w0 mem0 : w16 mem0
+10111000101xxxxx010100xxxxxxxxxx  ldsmina   w0 mem0 : w16 mem0
+10111000101xxxxx011000xxxxxxxxxx  ldumaxa   w0 mem0 : w16 mem0
+10111000101xxxxx011100xxxxxxxxxx  ldumina   w0 mem0 : w16 mem0
+
+10111000111xxxxx000000xxxxxxxxxx  ldaddal   w0 mem0 : w16 mem0
+10111000111xxxxx000100xxxxxxxxxx  ldclral   w0 mem0 : w16 mem0
+10111000111xxxxx001000xxxxxxxxxx  ldeoral   w0 mem0 : w16 mem0
+10111000111xxxxx001100xxxxxxxxxx  ldsetal   w0 mem0 : w16 mem0
+10111000111xxxxx010000xxxxxxxxxx  ldsmaxal  w0 mem0 : w16 mem0
+10111000111xxxxx010100xxxxxxxxxx  ldsminal  w0 mem0 : w16 mem0
+10111000111xxxxx011000xxxxxxxxxx  ldumaxal  w0 mem0 : w16 mem0
+10111000111xxxxx011100xxxxxxxxxx  lduminal  w0 mem0 : w16 mem0
+
+11111000001xxxxx000000xxxxxxxxxx  ldadd     x0 mem0 : x16 mem0
+11111000001xxxxx000100xxxxxxxxxx  ldclr     x0 mem0 : x16 mem0
+11111000001xxxxx001000xxxxxxxxxx  ldeor     x0 mem0 : x16 mem0
+11111000001xxxxx001100xxxxxxxxxx  ldset     x0 mem0 : x16 mem0
+11111000001xxxxx010000xxxxxxxxxx  ldsmax    x0 mem0 : x16 mem0
+11111000001xxxxx010100xxxxxxxxxx  ldsmin    x0 mem0 : x16 mem0
+11111000001xxxxx011000xxxxxxxxxx  ldumax    x0 mem0 : x16 mem0
+11111000001xxxxx011100xxxxxxxxxx  ldumin    x0 mem0 : x16 mem0
+
+11111000011xxxxx000000xxxxxxxxxx  ldaddl    x0 mem0 : x16 mem0
+11111000011xxxxx000100xxxxxxxxxx  ldclrl    x0 mem0 : x16 mem0
+11111000011xxxxx001000xxxxxxxxxx  ldeorl    x0 mem0 : x16 mem0
+11111000011xxxxx001100xxxxxxxxxx  ldsetl    x0 mem0 : x16 mem0
+11111000011xxxxx010000xxxxxxxxxx  ldsmaxl   x0 mem0 : x16 mem0
+11111000011xxxxx010100xxxxxxxxxx  ldsminl   x0 mem0 : x16 mem0
+11111000011xxxxx011000xxxxxxxxxx  ldumaxl   x0 mem0 : x16 mem0
+11111000011xxxxx011100xxxxxxxxxx  lduminl   x0 mem0 : x16 mem0
+
+11111000101xxxxx000000xxxxxxxxxx  ldadda    x0 mem0 : x16 mem0
+11111000101xxxxx000100xxxxxxxxxx  ldclra    x0 mem0 : x16 mem0
+11111000101xxxxx001000xxxxxxxxxx  ldeora    x0 mem0 : x16 mem0
+11111000101xxxxx001100xxxxxxxxxx  ldseta    x0 mem0 : x16 mem0
+11111000101xxxxx010000xxxxxxxxxx  ldsmaxa   x0 mem0 : x16 mem0
+11111000101xxxxx010100xxxxxxxxxx  ldsmina   x0 mem0 : x16 mem0
+11111000101xxxxx011000xxxxxxxxxx  ldumaxa   x0 mem0 : x16 mem0
+11111000101xxxxx011100xxxxxxxxxx  ldumina   x0 mem0 : x16 mem0
+
+11111000111xxxxx000000xxxxxxxxxx  ldaddal   x0 mem0 : x16 mem0
+11111000111xxxxx000100xxxxxxxxxx  ldclral   x0 mem0 : x16 mem0
+11111000111xxxxx001000xxxxxxxxxx  ldeoral   x0 mem0 : x16 mem0
+11111000111xxxxx001100xxxxxxxxxx  ldsetal   x0 mem0 : x16 mem0
+11111000111xxxxx010000xxxxxxxxxx  ldsmaxal  x0 mem0 : x16 mem0
+11111000111xxxxx010100xxxxxxxxxx  ldsminal  x0 mem0 : x16 mem0
+11111000111xxxxx011000xxxxxxxxxx  ldumaxal  x0 mem0 : x16 mem0
+11111000111xxxxx011100xxxxxxxxxx  lduminal  x0 mem0 : x16 mem0
+
+00111000001xxxxx100000xxxxxxxxxx  swpb   w0 mem0 : w16 mem0
+00111000011xxxxx100000xxxxxxxxxx  swplb  w0 mem0 : w16 mem0
+00111000101xxxxx100000xxxxxxxxxx  swpab  w0 mem0 : w16 mem0
+00111000111xxxxx100000xxxxxxxxxx  swpalb w0 mem0 : w16 mem0
+01111000001xxxxx100000xxxxxxxxxx  swph   w0 mem0 : w16 mem0
+01111000011xxxxx100000xxxxxxxxxx  swplh  w0 mem0 : w16 mem0
+01111000101xxxxx100000xxxxxxxxxx  swpah  w0 mem0 : w16 mem0
+01111000111xxxxx100000xxxxxxxxxx  swpalh w0 mem0 : w16 mem0
+10111000001xxxxx100000xxxxxxxxxx  swp    w0 mem0 : w16 mem0
+10111000011xxxxx100000xxxxxxxxxx  swpl   w0 mem0 : w16 mem0
+10111000101xxxxx100000xxxxxxxxxx  swpa   w0 mem0 : w16 mem0
+10111000111xxxxx100000xxxxxxxxxx  swpal  w0 mem0 : w16 mem0
+11111000001xxxxx100000xxxxxxxxxx  swp    x0 mem0 : x16 mem0
+11111000011xxxxx100000xxxxxxxxxx  swpl   x0 mem0 : x16 mem0
+11111000101xxxxx100000xxxxxxxxxx  swpa   x0 mem0 : x16 mem0
+11111000111xxxxx100000xxxxxxxxxx  swpal  x0 mem0 : x16 mem0
 
 ## Load/store register (register offset)
 
@@ -673,5 +894,71 @@ x0001011001xxxxxxxxxxxxxxxxxxxxx  add    wx0sp : wx5sp wx16 ext extam
 x0101011001xxxxxxxxxxxxxxxxxxxxx  adds   wx0   : wx5sp wx16 ext extam
 x1001011001xxxxxxxxxxxxxxxxxxxxx  sub    wx0sp : wx5sp wx16 ext extam
 x1101011001xxxxxxxxxxxxxxxxxxxxx  subs   wx0   : wx5sp wx16 ext extam
+
+## Add/subtract (with carry)
+
+x0011010000xxxxx000000xxxxxxxxxx  adc    wx0 : wx5 wx16
+x0111010000xxxxx000000xxxxxxxxxx  adcs   wx0 : wx5 wx16
+x1011010000xxxxx000000xxxxxxxxxx  sbc    wx0 : wx5 wx16
+x1111010000xxxxx000000xxxxxxxxxx  sbcs   wx0 : wx5 wx16
+
+## Conditional compare (register)
+
+x0111010010xxxxxxxxx00xxxxx0xxxx  ccmn   : wx5 wx16 nzcv cond
+x1111010010xxxxxxxxx00xxxxx0xxxx  ccmp   : wx5 wx16 nzcv cond
+
+## Conditional compare (immediate)
+
+x0111010010xxxxxxxxx10xxxxx0xxxx  ccmn   : wx5 imm5 nzcv cond
+x1111010010xxxxxxxxx10xxxxx0xxxx  ccmp   : wx5 imm5 nzcv cond
+
+## Conditional select
+
+x0011010100xxxxxxxxx00xxxxxxxxxx  csel   wx0 : wx5 wx16 cond
+x0011010100xxxxxxxxx01xxxxxxxxxx  csinc  wx0 : wx5 wx16 cond
+x1011010100xxxxxxxxx00xxxxxxxxxx  csinv  wx0 : wx5 wx16 cond
+x1011010100xxxxxxxxx01xxxxxxxxxx  csneg  wx0 : wx5 wx16 cond
+
+# Data-processing (3 source)
+
+x0011011000xxxxx0xxxxxxxxxxxxxxx  madd   wx0 : wx5 wx16 wx10
+x0011011000xxxxx1xxxxxxxxxxxxxxx  msub   wx0 : wx5 wx16 wx10
+
+10011011001xxxxx0xxxxxxxxxxxxxxx  smaddl x0 : w5 w16 x10
+10011011001xxxxx1xxxxxxxxxxxxxxx  smsubl x0 : w5 w16 x10
+10011011010xxxxx0xxxxxxxxxxxxxxx  smulh  x0 : x5 x16 ign10
+10011011101xxxxx0xxxxxxxxxxxxxxx  umaddl x0 : w5 w16 x10
+10011011101xxxxx1xxxxxxxxxxxxxxx  umsubl x0 : w5 w16 x10
+10011011110xxxxx0xxxxxxxxxxxxxxx  umulh  x0 : x5 x16 ign10
+
+# Data-processing (2 source)
+
+x0011010110xxxxx000010xxxxxxxxxx  udiv   wx0 : wx5 wx16
+x0011010110xxxxx000011xxxxxxxxxx  sdiv   wx0 : wx5 wx16
+x0011010110xxxxx001000xxxxxxxxxx  lslv   wx0 : wx5 wx16
+x0011010110xxxxx001001xxxxxxxxxx  lsrv   wx0 : wx5 wx16
+x0011010110xxxxx001010xxxxxxxxxx  asrv   wx0 : wx5 wx16
+x0011010110xxxxx001011xxxxxxxxxx  rorv   wx0 : wx5 wx16
+
+00011010110xxxxx010000xxxxxxxxxx  crc32b  w0 : w5 w16
+00011010110xxxxx010001xxxxxxxxxx  crc32h  w0 : w5 w16
+00011010110xxxxx010010xxxxxxxxxx  crc32w  w0 : w5 w16
+00011010110xxxxx010100xxxxxxxxxx  crc32cb w0 : w5 w16
+00011010110xxxxx010101xxxxxxxxxx  crc32ch w0 : w5 w16
+00011010110xxxxx010110xxxxxxxxxx  crc32cw w0 : w5 w16
+10011010110xxxxx010011xxxxxxxxxx  crc32x  w0 : w5 x16
+10011010110xxxxx010111xxxxxxxxxx  crc32cx w0 : w5 x16
+
+# Data-processing (1 source)
+
+x101101011000000000000xxxxxxxxxx  rbit    wx0 : wx5
+x101101011000000000001xxxxxxxxxx  rev16   wx0 : wx5
+0101101011000000000010xxxxxxxxxx  rev     w0  : w5
+x101101011000000000100xxxxxxxxxx  clz     wx0 : wx5
+x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
+1101101011000000000010xxxxxxxxxx  rev32   x0 : x5
+1101101011000000000011xxxxxxxxxx  rev     x0 : x5
+
+# Data Processing - Scalar Floating-Point and Advanced SIMD
 
 # FIXME i#1569: Add: more data processing

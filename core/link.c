@@ -151,7 +151,11 @@ static const fragment_t linkstub_empty_fragment_x86 = { NULL, FRAG_FAKE | FRAG_3
 static const linkstub_t linkstub_starting    = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_reset       = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_syscall     = { LINK_FAKE, 0 };
-static const linkstub_t linkstub_selfmod     = { LINK_FAKE, 0 };
+/* On AArch64 we need to refer to linkstub_selfmod from aarch64.asm. */
+#ifndef AARCH64
+static
+#endif
+       const linkstub_t linkstub_selfmod     = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_ibl_deleted = { LINK_FAKE, 0 };
 #ifdef UNIX
 static const linkstub_t linkstub_sigreturn   = { LINK_FAKE, 0 };

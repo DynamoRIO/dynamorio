@@ -1157,7 +1157,7 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
         /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
         int i;
-        for (i = 0; i < NUM_XMM_SLOTS; i++)
+        for (i = 0; i < NUM_SIMD_SLOTS; i++)
             memcpy(&mcontext->ymm[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
     }
     /* if XSTATE is NOT set, the app has NOT used any ymm state and
@@ -1167,7 +1167,7 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
             int i;
-            for (i = 0; i < NUM_XMM_SLOTS; i++) {
+            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
                 memcpy(&mcontext->ymm[i].u32[4],
                        &YMMH_AREA(ymmh_area, i).u32[0],
                        YMMH_REG_SIZE);
@@ -1259,7 +1259,7 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
         memcpy(&cxt->ExtendedRegisters, fpstate, written);
 #endif
         /* Now update w/ the xmm values from mcontext */
-        for (i = 0; i < NUM_XMM_SLOTS; i++)
+        for (i = 0; i < NUM_SIMD_SLOTS; i++)
             memcpy(CXT_XMM(cxt, i), &mcontext->ymm[i], XMM_REG_SIZE);
     }
     if (CONTEXT_PRESERVE_YMM && TESTALL(CONTEXT_XSTATE, cxt->ContextFlags)) {
@@ -1289,7 +1289,7 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
             memcpy(&YMMH_AREA(ymmh_area, 6).u32[0], &ymms[0].u32[4], YMMH_REG_SIZE);
             memcpy(&YMMH_AREA(ymmh_area, 7).u32[0], &ymms[1].u32[4], YMMH_REG_SIZE);
 #endif
-            for (i = 0; i < NUM_XMM_SLOTS; i++) {
+            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
                 memcpy(&YMMH_AREA(ymmh_area, i).u32[0],
                        &mcontext->ymm[i].u32[4],
                        YMMH_REG_SIZE);
@@ -1369,7 +1369,7 @@ static bool alt_tls_spare_taken[TLS_SPAREBYTES_SLOTS];
 # define TLS_POSTTEB_SLOTS 64
 static bool alt_tls_post_taken[TLS_POSTTEB_SLOTS];
 /* Use the slots at the end of the 2nd page */
-# define TLS_POSTTEB_BASE_OFFS (PAGE_SIZE*2 - TLS_POSTTEB_SLOTS*sizeof(void*))
+# define TLS_POSTTEB_BASE_OFFS ((uint)PAGE_SIZE*2 - TLS_POSTTEB_SLOTS*sizeof(void*))
 #endif
 
 static void
@@ -3321,6 +3321,13 @@ query_time_100ns()
 }
 
 uint64
+query_time_micros()
+{
+    LONGLONG time100ns = query_time_100ns();
+    return ((uint64)time100ns / TIMER_UNITS_PER_MICROSECOND);
+}
+
+uint64
 query_time_millis()
 {
     LONGLONG time100ns = query_time_100ns();
@@ -4617,7 +4624,7 @@ our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
         ((byte *)stack.ExpandableStackBottom) + stack_reserve;
     stack.ExpandableStackLimit =
         ((byte *)stack.ExpandableStackBase) - stack_commit;
-    num_commit_bytes = stack_commit + PAGE_SIZE;
+    num_commit_bytes = stack_commit + (uint)PAGE_SIZE;
     p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
     if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(hProcess, &p, num_commit_bytes,
                                                       PAGE_READWRITE, MEM_COMMIT))) {

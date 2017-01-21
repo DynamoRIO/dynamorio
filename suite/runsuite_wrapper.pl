@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2016 Google, Inc.  All rights reserved.
+# Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,9 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     if ($i == 0) {
         $args .= ",$ARGV[$i]";
     } else {
-        $args .= "\\;$ARGV[$i]";
+        # We don't use a backslash to escape ; b/c we'll quote below, and
+        # the backslash is problematically converted to / by Cygwin perl.
+        $args .= ";$ARGV[$i]";
     }
 }
 
@@ -68,7 +70,12 @@ if ($child) {
     }
     close(CHILD);
 } else {
-    system("ctest -VV -S ${mydir}/runsuite.cmake${args} 2>&1");
+    if ($^O eq 'cygwin') {
+        # CMake is native Windows so pass it a Windows path:
+        $mydir = `cygpath -wi \"$mydir\"`;
+        chomp $mydir;
+    }
+    system("ctest -VV -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
 }
 
 my @lines = split('\n', $res);

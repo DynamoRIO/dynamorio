@@ -72,7 +72,9 @@ struct _drx_buf_t {
     reg_id_t tls_seg;
 };
 
-/* drx_buf globals */
+/* global rwlock to lock against updates to the clients vector */
+static void *global_buf_rwlock;
+/* holds per-client (also per-buf) information */
 static drvector_t clients;
 /* A flag to avoid work when no buffers were ever created. */
 static bool any_bufs_created;
@@ -139,6 +141,11 @@ drx_buf_init_library(void)
     if (!drmgr_register_signal_event(signal_event))
         return false;
 #endif
+
+    global_buf_rwlock = dr_rwlock_create();
+    if (global_buf_rwlock == NULL)
+        return false;
+
     return true;
 }
 
@@ -155,6 +162,7 @@ drx_buf_exit_library(void)
     drmgr_unregister_thread_init_event(event_thread_init);
     drmgr_unregister_thread_exit_event(event_thread_exit);
     drvector_delete(&clients);
+    dr_rwlock_destroy(global_buf_rwlock);
 }
 
 DR_EXPORT
@@ -200,15 +208,18 @@ drx_buf_init(drx_buf_type_t bt, size_t bsz,
     new_client->tls_seg = tls_seg;
     new_client->tls_idx = tls_idx;
     new_client->full_cb = full_cb;
-    drvector_lock(&clients);
+    dr_rwlock_write_lock(global_buf_rwlock);
     /* We don't attempt to re-use NULL entries (presumably which
      * have already been freed), for simplicity.
      */
     new_client->vec_idx = clients.entries;
     drvector_append(&clients, new_client);
-    drvector_unlock(&clients);
+    dr_rwlock_write_unlock(global_buf_rwlock);
 
-    if (!any_bufs_created)
+    /* We don't need the usual setup for buffers if we're using
+     * the optimized circular buffer.
+     */
+    if (!any_bufs_created && bt != DRX_BUF_CIRCULAR_FAST)
         any_bufs_created = true;
 
     return new_client;
@@ -218,14 +229,14 @@ DR_EXPORT
 bool
 drx_buf_free(drx_buf_t *buf)
 {
-    drvector_lock(&clients);
+    dr_rwlock_write_lock(global_buf_rwlock);
     if (!(buf != NULL && drvector_get_entry(&clients, buf->vec_idx) == buf)) {
-        drvector_unlock(&clients);
+        dr_rwlock_write_unlock(global_buf_rwlock);
         return false;
     }
     /* NULL out the entry in the vector */
     ((drx_buf_t **)clients.array)[buf->vec_idx] = NULL;
-    drvector_unlock(&clients);
+    dr_rwlock_write_unlock(global_buf_rwlock);
 
     if (!drmgr_unregister_tls_field(buf->tls_idx) ||
         !dr_raw_tls_cfree(buf->tls_offs, 1))
@@ -270,7 +281,7 @@ void
 event_thread_init(void *drcontext)
 {
     unsigned int i;
-    drvector_lock(&clients);
+    dr_rwlock_read_lock(global_buf_rwlock);
     for (i = 0; i < clients.entries; ++i) {
         per_thread_t *data;
         drx_buf_t *buf = drvector_get_entry(&clients, i);
@@ -283,14 +294,14 @@ event_thread_init(void *drcontext)
             BUF_PTR(data->seg_base, buf->tls_offs) = data->cli_base;
         }
     }
-    drvector_unlock(&clients);
+    dr_rwlock_read_unlock(global_buf_rwlock);
 }
 
 void
 event_thread_exit(void *drcontext)
 {
     unsigned int i;
-    drvector_lock(&clients);
+    dr_rwlock_read_lock(global_buf_rwlock);
     for (i = 0; i < clients.entries; ++i) {
         drx_buf_t *buf = drvector_get_entry(&clients, i);
         if (buf != NULL) {
@@ -305,7 +316,7 @@ event_thread_exit(void *drcontext)
             dr_thread_free(drcontext, data, sizeof(per_thread_t));
         }
     }
-    drvector_unlock(&clients);
+    dr_rwlock_read_unlock(global_buf_rwlock);
 }
 
 static per_thread_t *
@@ -332,6 +343,7 @@ per_thread_init_2byte(void *drcontext, drx_buf_t *buf)
 static per_thread_t *
 per_thread_init_fault(void *drcontext, drx_buf_t *buf)
 {
+    size_t page_size = dr_page_size();
     per_thread_t *per_thread = dr_thread_alloc(drcontext, sizeof(per_thread_t));
     byte *ret;
     bool ok;
@@ -344,15 +356,15 @@ per_thread_init_fault(void *drcontext, drx_buf_t *buf)
      * page. Then, we return an address such that we have exactly
      * buf_size bytes usable before we hit the ro page.
      */
-    per_thread->total_size = ALIGN_FORWARD(buf->buf_size, PAGE_SIZE) + PAGE_SIZE;
+    per_thread->total_size = ALIGN_FORWARD(buf->buf_size, page_size) + page_size;
     ret = dr_raw_mem_alloc(per_thread->total_size,
                            DR_MEMPROT_READ | DR_MEMPROT_WRITE,
                            NULL);
-    ok = dr_memory_protect(ret + per_thread->total_size - PAGE_SIZE,
-                           PAGE_SIZE, DR_MEMPROT_READ);
+    ok = dr_memory_protect(ret + per_thread->total_size - page_size,
+                           page_size, DR_MEMPROT_READ);
     DR_ASSERT(ok);
     per_thread->buf_base = ret;
-    per_thread->cli_base = ret + ALIGN_FORWARD(buf->buf_size, PAGE_SIZE) - buf->buf_size;
+    per_thread->cli_base = ret + ALIGN_FORWARD(buf->buf_size, page_size) - buf->buf_size;
     return per_thread;
 }
 
@@ -420,6 +432,27 @@ drx_buf_insert_update_buf_ptr_2byte(void *drcontext, drx_buf_t *buf, instrlist_t
             (drcontext,
              OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
              opnd_create_reg(buf_ptr)));
+#elif defined(AARCH64)
+    if (stride > 0xfff) {
+        /* Fall back to XINST_CREATE_load_int() if stride has more than 12 bits.
+         * Another possibility, avoiding a scratch register, would be:
+         * add x4, x4, #0x1, lsl #12
+         * add x4, x4, #0x234
+         */
+        MINSERT(ilist, where, XINST_CREATE_load_int
+                (drcontext, opnd_create_reg(scratch), OPND_CREATE_INT16(stride)));
+        MINSERT(ilist, where, XINST_CREATE_add
+                (drcontext, opnd_create_reg(buf_ptr), opnd_create_reg(scratch)));
+    } else {
+        MINSERT(ilist, where, XINST_CREATE_add
+                (drcontext, opnd_create_reg(buf_ptr), OPND_CREATE_INT16(stride)));
+    }
+    MINSERT(ilist, where, XINST_CREATE_store_2bytes
+            (drcontext,
+             OPND_CREATE_MEM16(buf->tls_seg, buf->tls_offs),
+             opnd_create_reg(reg_64_to_32(buf_ptr))));
+#else
+# error NYI
 #endif
 }
 
@@ -449,7 +482,7 @@ drx_buf_insert_buf_store_1byte(void *drcontext, drx_buf_t *buf, instrlist_t *ili
         instr = XINST_CREATE_store_1byte
             (drcontext,
              OPND_CREATE_MEM8(buf_ptr, offset), opnd);
-#elif defined(ARM)
+#elif defined(AARCHXX)
         /* this will certainly not fault, so don't set a translation */
         MINSERT(ilist, where, XINST_CREATE_load_int
                 (drcontext,
@@ -459,9 +492,7 @@ drx_buf_insert_buf_store_1byte(void *drcontext, drx_buf_t *buf, instrlist_t *ili
              OPND_CREATE_MEM8(buf_ptr, offset),
              opnd_create_reg(scratch));
 #else
-        /* FIXME i#1569: NYI */
-        DR_ASSERT(false);
-        instr = NULL;
+# error NYI
 #endif
     } else {
         instr = XINST_CREATE_store_1byte
@@ -487,7 +518,7 @@ drx_buf_insert_buf_store_2bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
         instr = XINST_CREATE_store_2bytes
             (drcontext,
              OPND_CREATE_MEM16(buf_ptr, offset), opnd);
-#elif defined(ARM)
+#elif defined(AARCHXX)
         /* this will certainly not fault, so don't set a translation */
         MINSERT(ilist, where, XINST_CREATE_load_int
                 (drcontext,
@@ -497,9 +528,7 @@ drx_buf_insert_buf_store_2bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
              OPND_CREATE_MEM16(buf_ptr, offset),
              opnd_create_reg(scratch));
 #else
-        /* FIXME i#1569: NYI */
-        DR_ASSERT(false);
-        instr = NULL;
+# error NYI
 #endif
     } else {
         instr = XINST_CREATE_store_2bytes
@@ -529,9 +558,9 @@ drx_buf_insert_buf_store_4bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
              OPND_CREATE_MEM32(buf_ptr, offset), opnd);
 #elif defined(AARCH64)
         /* this will certainly not fault, so don't set a translation */
-        MINSERT(ilist, where, XINST_CREATE_load_int
-                (drcontext,
-                 opnd_create_reg(scratch), opnd));
+        instrlist_insert_mov_immed_ptrsz(drcontext, opnd_get_immed_int(opnd),
+                                         opnd_create_reg(scratch),
+                                         ilist, where, NULL, NULL);
         instr = XINST_CREATE_store
             (drcontext,
              OPND_CREATE_MEM32(buf_ptr, offset),
@@ -568,7 +597,7 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
             if (last == NULL || first == last)
                 break;
         }
-#elif defined(ARM)
+#elif defined(AARCHXX)
         instr_t *instr;
         instrlist_insert_mov_immed_ptrsz(drcontext, immed,
                                          opnd_create_reg(scratch),
@@ -580,11 +609,7 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
         INSTR_XL8(instr, instr_get_app_pc(where));
         MINSERT(ilist, where, instr);
 #else
-        /* FIXME i#1569: NYI */
-        DR_ASSERT(false);
-        first = NULL;
-        last = NULL;
-        immed = 0;
+# error NYI
 #endif
     } else {
         instr_t *instr = XINST_CREATE_store
@@ -673,6 +698,7 @@ static bool
 fault_event_helper(void *drcontext, byte *target,
                    dr_mcontext_t *raw_mcontext)
 {
+    size_t page_size = dr_page_size();
     per_thread_t *data;
     drx_buf_t *buf;
     unsigned int i;
@@ -682,7 +708,7 @@ fault_event_helper(void *drcontext, byte *target,
         return true;
 
     /* check bounds of write to see which buffer this event belongs to */
-    drvector_lock(&clients);
+    dr_rwlock_read_lock(global_buf_rwlock);
     for (i = 0; i < clients.entries; ++i) {
         buf = drvector_get_entry(&clients, i);
         if (buf != NULL && buf->buf_type != DRX_BUF_CIRCULAR_FAST) {
@@ -691,14 +717,15 @@ fault_event_helper(void *drcontext, byte *target,
             ro_lo = data->cli_base + buf->buf_size;
 
             /* we found the right client */
-            if (target >= ro_lo && target < ro_lo + PAGE_SIZE) {
-                drvector_unlock(&clients);
-                return reset_buf_ptr(drcontext, raw_mcontext, data->seg_base,
-                                     data->cli_base, buf);
+            if (target >= ro_lo && target < ro_lo + page_size) {
+                bool ret = reset_buf_ptr(drcontext, raw_mcontext, data->seg_base,
+                                         data->cli_base, buf);
+                dr_rwlock_read_unlock(global_buf_rwlock);
+                return ret;
             }
         }
     }
-    drvector_unlock(&clients);
+    dr_rwlock_read_unlock(global_buf_rwlock);
     return true;
 }
 

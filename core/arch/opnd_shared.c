@@ -568,7 +568,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
         opnd.value.base_disp.shift_amount_minus_1 = 0;
     }
 #elif defined(AARCH64)
-    opnd.value.base_disp.pre_index = false;
+    opnd.value.base_disp.pre_index = true;
     opnd.value.base_disp.extend_type = DR_EXTEND_UXTX;
     opnd.value.base_disp.scaled = false;
 #elif defined(X86)

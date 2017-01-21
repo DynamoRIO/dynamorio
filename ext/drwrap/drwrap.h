@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -333,9 +333,9 @@ typedef enum {
     /** Provided for convenience when calling drwrap_wrap_ex() with no flags. */
     DRWRAP_FLAGS_NONE             = 0x00,
     /**
-     * If this flag is set, then when a Windows exception occurs, all
+     * When a Windows exception occurs, all
      * post-call callbacks for all live wrapped functions on the wrap
-     * stack for which \p unwind_on_exception is true are called.  If
+     * stack for which this flag is set are called.  If
      * this flag is not set (the default), each post-call callback
      * will still be called if drwrap's heuristics later detect that
      * that particular callback has been bypassed, but those

@@ -20,7 +20,7 @@ at base, no ASLR
 # endif
 invalid indirect call 2 caught
 #else
-0
+32
 *** invalid indirect call allowed!
 #endif
 indirect call done

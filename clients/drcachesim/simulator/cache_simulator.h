@@ -40,15 +40,14 @@
 #include "simulator.h"
 #include "cache_stats.h"
 #include "cache.h"
-#include "../reader/ipc_reader.h"
 
 class cache_simulator_t : public simulator_t
 {
  public:
     cache_simulator_t();
     virtual ~cache_simulator_t();
-    virtual bool run();
-    virtual bool print_stats();
+    virtual bool process_memref(const memref_t &memref);
+    virtual bool print_results();
 
  protected:
     // Create a cache_t object with a specific replacement policy.
@@ -63,6 +62,7 @@ class cache_simulator_t : public simulator_t
     cache_t **dcaches;
 
     cache_t *llcache;
+
 };
 
 #endif /* _CACHE_SIMULATOR_H_ */

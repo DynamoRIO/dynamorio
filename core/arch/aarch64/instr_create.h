@@ -53,9 +53,6 @@
 #define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_rel_addr(addr, size)
 
-#define XINST_CREATE_cmp(dc, rn, rm_or_imm) \
-  ((void)(rn), (void)(rm_or_imm), INSTR_CREATE_xx((dc), 0xb7f3f1)) /* FIXME i#1569 */
-
 /**
  * Create an immediate integer operand. For AArch64 the size of an immediate
  * is ignored when encoding, so there is no need to specify the final size.
@@ -69,6 +66,15 @@
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() \
   opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
+
+/**
+ * This platform-independent macro creates an instr_t for a comparison
+ * instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param s1  The opnd_t explicit source operand for the instruction.
+ * \param s2  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_cmp(dc, s1, s2) INSTR_CREATE_cmp(dc, s1, s2)
 
 /**
  * This platform-independent macro creates an instr_t for a debug trap
@@ -94,7 +100,13 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store(dc, m, r) INSTR_CREATE_str((dc), (m), (r))
+#define XINST_CREATE_store(dc, m, r) \
+  (opnd_is_base_disp(m) && \
+   opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0 ? \
+    INSTR_CREATE_stur(dc, m, \
+      opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))) : \
+    INSTR_CREATE_str(dc, m, \
+      opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -103,8 +115,8 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_1byte(dc, m, r) \
-  ((void)(m), (void)(r), INSTR_CREATE_xx((dc), 0x25865b)) /* FIXME i#1569 */
+#define XINST_CREATE_store_1byte(dc, m, r) INSTR_CREATE_strb(dc, m, \
+   opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
  * This platform-independent macro creates an instr_t for a 2-byte
@@ -113,7 +125,8 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_strh((dc), (m), (r))
+#define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_strh(dc, m, \
+  opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
  * This platform-independent macro creates an instr_t for a register
@@ -239,6 +252,7 @@
 
 /****************************************************************************
  * Manually-added ARM-specific INSTR_CREATE_* macros
+ * FIXME i#1569: Add Doxygen headers.
  */
 
 #define INSTR_CREATE_add(dc, rd, rn, rm_or_imm) \
@@ -273,6 +287,10 @@
   instr_create_0dst_2src((dc), OP_cbnz, (pc), (reg))
 #define INSTR_CREATE_cbz(dc, pc, reg) \
   instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
+#define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
+  instr_create_1dst_2src(dc, OP_subs, OPND_CREATE_ZR(rn), rn, rm_or_imm)
+#define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
+  instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) \
   instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
@@ -289,10 +307,18 @@
   instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_ret(dc, Rn) \
   instr_create_0dst_1src((dc), OP_ret, (Rn))
-#define INSTR_CREATE_str(dc, mem, Rt) \
-  instr_create_1dst_1src((dc), OP_str, (mem), (Rt))
-#define INSTR_CREATE_strh(dc, mem, Rt) \
-  instr_create_1dst_1src((dc), OP_strh, (mem), (Rt))
+#define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
+  instr_create_1dst_2src(dc, OP_stp, mem, rt1, rt2)
+#define INSTR_CREATE_str(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_str, mem, rt)
+#define INSTR_CREATE_strb(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_strb, mem, rt)
+#define INSTR_CREATE_strh(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_strh, mem, rt)
+#define INSTR_CREATE_stur(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_stur, mem, rt)
+#define INSTR_CREATE_sturh(dc, mem, rt) \
+  instr_create_1dst_1src(dc, OP_sturh, mem, rt)
 #define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm) \
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa) \
@@ -314,10 +340,6 @@
   INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)
 #define INSTR_CREATE_sub_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
-
-/* FIXME i#1569: replace all uses of this when there is a proper encoder */
-#define INSTR_CREATE_xx(dc, enc) \
-  instr_create_0dst_1src((dc), OP_xx, OPND_CREATE_INT32(enc))
 
 /* DR_API EXPORT END */
 

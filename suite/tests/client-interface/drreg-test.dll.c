@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,6 +116,21 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             bool dead;
             res = drreg_is_register_dead(drcontext, random, inst, &dead);
             CHECK(res == DRREG_SUCCESS && dead, "get app val should only fail when dead");
+        }
+        /* test restore of opnd app values */
+        res = drreg_restore_app_values(drcontext, bb, inst, opnd_create_reg(reg), NULL);
+        CHECK(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE,
+              "restore app values could only fail on dead reg");
+        /* test restore of opnd app values with stolen reg */
+        if (dr_get_stolen_reg() != REG_NULL) {
+            reg_id_t swap = DR_REG_NULL;
+            res = drreg_restore_app_values(drcontext, bb, inst,
+                                           opnd_create_reg(dr_get_stolen_reg()), &swap);
+            CHECK(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE,
+                  "restore app values could only fail on dead reg");
+            if (swap != DR_REG_NULL)
+                res = drreg_unreserve_register(drcontext, bb, inst, swap);
+            CHECK(res == DRREG_SUCCESS, "unreserve of swap reg should not fail");
         }
         /* query tests */
         res = drreg_aflags_liveness(drcontext, inst, &flags);

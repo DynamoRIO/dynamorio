@@ -1046,7 +1046,7 @@ _tmain(int argc, TCHAR *targv[])
     bool use_ptrace = false;
     bool kill_group = false;
 # endif
-    char *app_name;
+    char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
     char custom_dll[MAXIMUM_PATH];
@@ -1481,27 +1481,38 @@ _tmain(int argc, TCHAR *targv[])
 #endif
 
 #if defined(DRRUN) || defined(DRINJECT)
-    if (i >= argc)
-        usage(false, "%s", "no app specified");
-    app_name = argv[i++];
-    search_env(app_name, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
-    NULL_TERMINATE_BUFFER(full_app_name);
-    if (full_app_name[0] == '\0') {
-        /* may need to append .exe, FIXME : other executable types */
-        char tmp_buf[MAXIMUM_PATH];
-        _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf),
-                  "%s%s", app_name, ".exe");
-        NULL_TERMINATE_BUFFER(tmp_buf);
-        search_env(tmp_buf, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
-    }
-    if (full_app_name[0] == '\0') {
-        /* last try */
-        get_absolute_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
+# ifdef DRRUN
+    /* Support no app if the tool has its own frontend, under the assumption
+     * it may have post-processing or other features.
+     */
+    if (i < argc || native_tool[0] == '\0') {
+# endif
+        if (i >= argc)
+            usage(false, "%s", "no app specified");
+        app_name = argv[i++];
+        search_env(app_name, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
         NULL_TERMINATE_BUFFER(full_app_name);
+        if (full_app_name[0] == '\0') {
+            /* may need to append .exe, FIXME : other executable types */
+            char tmp_buf[MAXIMUM_PATH];
+            _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf),
+                      "%s%s", app_name, ".exe");
+            NULL_TERMINATE_BUFFER(tmp_buf);
+            search_env(tmp_buf, "PATH", full_app_name,
+                       BUFFER_SIZE_ELEMENTS(full_app_name));
+        }
+        if (full_app_name[0] == '\0') {
+            /* last try */
+            get_absolute_path(app_name, full_app_name,
+                              BUFFER_SIZE_ELEMENTS(full_app_name));
+            NULL_TERMINATE_BUFFER(full_app_name);
+        }
+        if (full_app_name[0] != '\0')
+            app_name = full_app_name;
+        info("targeting application: \"%s\"", app_name);
+# ifdef DRRUN
     }
-    if (full_app_name[0] != '\0')
-        app_name = full_app_name;
-    info("targeting application: \"%s\"", app_name);
+# endif
 
     /* note that we want target app name as part of cmd line
      * (hence &argv[i - 1])

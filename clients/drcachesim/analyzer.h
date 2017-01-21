@@ -36,6 +36,7 @@
 #ifndef _ANALYZER_H_
 #define _ANALYZER_H_ 1
 
+#include "analysis_tool.h"
 #include "reader/reader.h"
 
 class analyzer_t
@@ -46,17 +47,23 @@ class analyzer_t
     analyzer_t();
     virtual ~analyzer_t();
     virtual bool operator!();
-    virtual bool run() = 0;
-    virtual bool print_stats() = 0;
+    virtual bool run();
+    virtual bool print_stats();
 
  protected:
+    bool create_analysis_tools();
+    void destroy_analysis_tools();
     // This finalizes the trace_iter setup.  It can block and is meant to be
     // called at the top of run().
     bool start_reading();
 
+    static const int max_num_tools = 8;
+
     bool success;
     reader_t *trace_iter;
     reader_t *trace_end;
+    int num_tools;
+    analysis_tool_t *tools[max_num_tools];
 };
 
 #endif /* _ANALYZER_H_ */

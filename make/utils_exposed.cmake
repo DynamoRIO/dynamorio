@@ -179,6 +179,14 @@ function(DynamoRIO_force_static_link target lib)
     # ensures we have the right CMake dependencies.
     target_link_libraries(${target} -Wl,--whole-archive ${lib} -Wl,--no-whole-archive)
   else ()
+    # There is no equivalent for MSVC.  The best we can do is keep a client in place,
+    # for our caller in use_DynamoRIO_static_client().
     target_link_libraries(${target} ${lib})
+    if (X64)
+      set(incname "dr_client_main")
+    else ()
+      set(incname "_dr_client_main")
+    endif ()
+    append_property_string(TARGET ${target} LINK_FLAGS "/include:${incname}")
   endif ()
 endfunction(DynamoRIO_force_static_link)

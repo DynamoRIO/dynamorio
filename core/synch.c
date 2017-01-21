@@ -660,7 +660,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     if (tsd->set_mcontext != NULL || tsd->set_context != NULL) {
         IF_WINDOWS(ASSERT(!doing_detach));
         /* Make a local copy */
-        ASSERT(CONTEXT_HEAP_SIZE_OPAQUE >= sizeof(priv_mcontext_t));
+        ASSERT(sizeof(cxt) >= sizeof(priv_mcontext_t));
         if (tsd->set_mcontext != NULL) {
             set_mcontext = true;
             memcpy(cxt, tsd->set_mcontext, sizeof(*tsd->set_mcontext));
@@ -926,8 +926,10 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
             if (!os_thread_suspend(trec)) {
                 /* FIXME : eventually should be a real assert once we figure out
                  * how to handle threads with low privilege handles */
-                ASSERT_CURIOSITY_ONCE(false && "Thead synch unable to suspend target"
-                                      " thread, case 2096?");
+                /* For dr_api_exit, we may have missed a thread exit. */
+                ASSERT_CURIOSITY_ONCE(IF_APP_EXPORTS(dr_api_exit ||)
+                                      (false && "Thead synch unable to suspend target"
+                                       " thread, case 2096?"));
                 res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags) ?
                        THREAD_SYNCH_RESULT_SUCCESS : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
                 IF_UNIX(actually_suspended = false);
@@ -1320,7 +1322,8 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     synch_array[i] = SYNCH_WITH_ALL_NOTIFIED;
                 }
                 LOG(THREAD, LOG_SYNCH, 2,
-                    "About to try synch with thread "TIDFMT"\n", threads[i]->id);
+                    "About to try synch with thread #%d/%d "TIDFMT"\n", i, num_threads,
+                    threads[i]->id);
                 synch_res = synch_with_thread(threads[i]->id, false, true,
                                               THREAD_SYNCH_NONE,
                                               desired_synch_state, flags_one);
@@ -1815,13 +1818,15 @@ send_all_other_threads_native(void)
              * unbounded.  this means that dr_app_cleanup() needs to synch the
              * threads and force-xl8 these.  We should share code with detach.
              * Right now we rely on the app joining all its threads *before*
-             * calling dr_app_cleanup().
+             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup().
              */
             translate_from_synchall_to_dispatch(threads[i], desired_state);
         }
     }
 
     end_synch_with_all_threads(threads, num_threads, true/*resume*/);
+
+    os_process_not_under_dynamorio(my_dcontext);
 
     if (waslinking)
         enter_couldbelinking(my_dcontext, NULL, false);
@@ -2045,6 +2050,9 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
          * the thread_initexit_lock is held so that we can clean up thread
          * data later.
          */
+#ifdef UNIX
+        os_signal_thread_detach(threads[i]->dcontext);
+#endif
         LOG(GLOBAL, LOG_ALL, 1,
             "Detach: thread "TIDFMT" is being resumed as native\n", threads[i]->id);
         os_thread_resume(threads[i]);
@@ -2075,12 +2083,10 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
         }
     }
 
-#ifdef DEBUG
     if (my_idx != -1) {
         /* pre-client thread cleanup (PR 536058) */
         dynamo_thread_exit_pre_client(my_dcontext, my_tr->id);
     }
-#endif
 
     LOG(GLOBAL, LOG_ALL, 1, "Detach: Letting slave threads go native\n");
 #ifdef WINDOWS

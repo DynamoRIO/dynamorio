@@ -93,11 +93,97 @@ extern "C" {
 # ifndef _DR_API_H_
 #  error "must include dr_api.h before tools.h"
 # endif
-#else
-# ifndef PAGE_SIZE
-#  define PAGE_SIZE 0x00001000
-# endif
 #endif
+
+#ifdef UNIX
+/* Forward decl for nanosleep. */
+struct timespec;
+
+bool find_dynamo_library(void);
+
+/* Staticly linked versions of libc routines that don't touch globals or errno.
+ */
+void nolibc_print(const char *str);
+void nolibc_print_int(int d);
+void nolibc_nanosleep(struct timespec *req);
+int  nolibc_strlen(const char *str);
+void *nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd,
+                off_t offset);
+int  nolibc_munmap(void *addr, size_t length);
+void nolibc_memset(void *dst, int val, size_t size);
+#endif
+
+/* Ignore any PAGE_SIZE provided by the tool chain. */
+#undef PAGE_SIZE
+#define PAGE_SIZE page_size()
+
+#ifdef UNIX
+/* This is a slightly simplified version of dr_page_size. Performance hardly matters
+ * here. We cannot use dr_page_size as this header is also used without DynamoRIO's API.
+ */
+
+/* Return true if size is a multiple of the page size. */
+static bool
+try_page_size(size_t size)
+{
+    byte *addr = (byte *)nolibc_mmap(NULL, size * 2,
+                                     PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if ((ptr_uint_t)addr >= (ptr_uint_t)-4096) /* mmap failed: should not happen */
+        return false;
+    if (nolibc_munmap(addr + size, size) == 0) {
+        /* munmap of top half succeeded: munmap bottom half and return true */
+        nolibc_munmap(addr, size);
+        return true;
+    }
+    /* munmap of top half failed: munmap whole region and return false */
+    nolibc_munmap(addr, size * 2);
+    return false;
+}
+
+/* Directly determine the granularity of memory allocation using mmap and munmap. */
+static size_t
+find_page_size(void)
+{
+    size_t size = 4096;
+    if (try_page_size(size)) {
+        /* Try smaller sizes. */
+        for (size /= 2; size > 0; size /= 2) {
+            if (!try_page_size(size))
+                return size * 2;
+        }
+    } else {
+        /* Try larger sizes. */
+        for (size *= 2; size * 2 > 0; size *= 2) {
+            if (try_page_size(size))
+                return size;
+        }
+    }
+    /* Something went wrong... */
+    return 4096;
+}
+#endif
+
+static size_t
+page_size(void)
+{
+#ifdef UNIX
+    static size_t cached_page_size = 0;
+    size_t size = cached_page_size; /* atomic read */
+    if (size == 0) {
+        size = find_page_size();
+        cached_page_size = size; /* atomic write */
+    }
+    return size;
+#else
+    /* FIXME i#1680: On Windows determine page size using system call. */
+    return 4096;
+#endif
+}
+
+/* Some tests want to define a static array that contains a whole page. This
+ * should be large enough.
+ */
+#define PAGE_SIZE_MAX (64 * 1024)
 
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
@@ -238,12 +324,13 @@ int code_self_mod(int iters);
 int code_inc(int foo);
 int code_dec(int foo);
 int dummy(void);
-#ifdef ARM
-void flush_icache(byte *start, byte *end);
+#ifdef AARCHXX
+void tools_clear_icache(void *start, void *end);
 #endif
 
 /* This function implements a trampoline that portably gets its return address
- * and tail calls to its first argument, which is a function pointer.  All
+ * and calls its first argument, which is a function pointer, with a pointer
+ * to the return address substituted for the first argument.  All
  * other parameters are untouched.  It can be used like so:
  *
  * void bar(void);
@@ -258,6 +345,20 @@ void flush_icache(byte *start, byte *end);
  * that want to overwrite their return address.
  */
 int call_with_retaddr(void *func, ...);
+
+/* This function implements a trampoline that portably gets its return address
+ * and tailcalls to its first argument, which is a function pointer, with the
+ * return address substituted for the first argument.  All
+ * other parameters are untouched.  It can be used like so:
+ *
+ * void foo(void *myretaddr, int num) {
+ *     printf("Return address is %p, second arg is %d\n", myretaddr, num);
+ * }
+ * int main(void) {
+ *     tailcall_with_retaddr((void*)foo, 123);
+ * }
+ */
+int tailcall_with_retaddr(void *func, ...);
 
 static size_t
 size(Code_Snippet func)
@@ -349,8 +450,8 @@ copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet f
         len = buf_len;
     }
     memcpy(buf, start, len);
-#if defined(LINUX) && defined(ARM)
-    flush_icache((byte *)buf, (byte *)buf + len);
+#if defined(LINUX) && defined(AARCHXX)
+    tools_clear_icache(buf, buf + len);
 #endif
     if (copied_len != NULL)
         *copied_len = len;
@@ -529,10 +630,12 @@ test_print(void *buf, int n)
     print("%d\n", test(buf, n));
 }
 
+#define INIT() do { assert(page_size() <= PAGE_SIZE_MAX); OS_INIT(); } while (0)
+
 #ifdef UNIX
 # define USE_USER32()
 # ifdef NEED_HANDLER
-#  define INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
+#  define OS_INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
 
 static void
 signal_handler(int sig)
@@ -545,12 +648,12 @@ signal_handler(int sig)
     exit(-1);
 }
 # else
-#  define INIT()
+#  define OS_INIT()
 # endif /* NEED_HANDLER */
 #else
 #  define USE_USER32() do { if (argc > 5) MessageBeep(0); } while (0)
 
-#  define INIT() set_global_filter()
+#  define OS_INIT() set_global_filter()
 
 /* XXX: when updating here, update core/os_exports.h too */
 # define WINDOWS_VERSION_10_1607 102
@@ -666,24 +769,6 @@ __asm {             \
     __asm _emit '$' \
     __asm foo:      \
 }
-#endif
-
-#ifdef UNIX
-/* Forward decl for nanosleep. */
-struct timespec;
-
-bool find_dynamo_library(void);
-
-/* Staticly linked versions of libc routines that don't touch globals or errno.
- */
-void nolibc_print(const char *str);
-void nolibc_print_int(int d);
-void nolibc_nanosleep(struct timespec *req);
-int  nolibc_strlen(const char *str);
-void *nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd,
-                off_t offset);
-void nolibc_munmap(void *addr, size_t length);
-void nolibc_memset(void *dst, int val, size_t size);
 #endif
 
 #ifdef __cplusplus

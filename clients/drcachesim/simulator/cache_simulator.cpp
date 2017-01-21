@@ -60,11 +60,11 @@ cache_simulator_t::cache_simulator_t()
         return;
     }
 
-    if (!llcache->init(op_LL_assoc.get_value(), op_line_size.get_value(),
-                       op_LL_size.get_value(), NULL, new cache_stats_t)) {
-        ERROR("Usage error: failed to initialize LL cache.  Ensure sizes and "
-              "associativity are powers of 2 "
-              "and that the total size is a multiple of the line size.\n");
+    if (!llcache->init(op_LL_assoc.get_value(), (int)op_line_size.get_value(),
+                       (int)op_LL_size.get_value(), NULL, new cache_stats_t)) {
+        ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
+               "associativity are powers of 2 "
+               "and that the total size is a multiple of the line size.\n");
         success = false;
         return;
     }
@@ -83,13 +83,13 @@ cache_simulator_t::cache_simulator_t()
             return;
         }
 
-        if (!icaches[i]->init(op_L1I_assoc.get_value(), op_line_size.get_value(),
-                              op_L1I_size.get_value(), llcache, new cache_stats_t) ||
-            !dcaches[i]->init(op_L1D_assoc.get_value(), op_line_size.get_value(),
-                              op_L1D_size.get_value(), llcache, new cache_stats_t)) {
-            ERROR("Usage error: failed to initialize L1 caches.  Ensure sizes and "
-                  "associativity are powers of 2 "
-                  "and that the total sizes are multiples of the line size.\n");
+        if (!icaches[i]->init(op_L1I_assoc.get_value(), (int)op_line_size.get_value(),
+                              (int)op_L1I_size.get_value(), llcache, new cache_stats_t) ||
+            !dcaches[i]->init(op_L1D_assoc.get_value(), (int)op_line_size.get_value(),
+                              (int)op_L1D_size.get_value(), llcache, new cache_stats_t)) {
+            ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "
+                   "associativity are powers of 2 "
+                   "and that the total sizes are multiples of the line size.\n");
             success = false;
             return;
         }
@@ -111,10 +111,10 @@ cache_simulator_t::~cache_simulator_t()
         // Try to handle failure during construction.
         if (icaches[i] == NULL)
             return;
+        delete icaches[i]->get_stats();
         delete icaches[i];
         if (dcaches[i] == NULL)
             return;
-        delete icaches[i]->get_stats();
         delete dcaches[i]->get_stats();
         delete dcaches[i];
     }
@@ -125,92 +125,79 @@ cache_simulator_t::~cache_simulator_t()
 }
 
 bool
-cache_simulator_t::run()
+cache_simulator_t::process_memref(const memref_t &memref)
 {
-    if (!start_reading())
+    if (skip_refs > 0) {
+        skip_refs--;
+        return true;
+    }
+
+    // The references after warmup and simulated ones are dropped.
+    if (warmup_refs == 0 && sim_refs == 0)
+        return true;;
+
+    // Both warmup and simulated references are simulated.
+
+    // We use a static scheduling of threads to cores, as it is
+    // not practical to measure which core each thread actually
+    // ran on for each memref.
+    int core;
+    if (memref.data.tid == last_thread)
+        core = last_core;
+    else {
+        core = core_for_thread(memref.data.tid);
+        last_thread = memref.data.tid;
+        last_core = core;
+    }
+
+    if (type_is_instr(memref.instr.type) ||
+        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
+        icaches[core]->request(memref);
+    else if (memref.data.type == TRACE_TYPE_READ ||
+             memref.data.type == TRACE_TYPE_WRITE ||
+             // We may potentially handle prefetches differently.
+             // TRACE_TYPE_PREFETCH_INSTR is handled above.
+             type_is_prefetch(memref.data.type))
+        dcaches[core]->request(memref);
+    else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH)
+        icaches[core]->flush(memref);
+    else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH)
+        dcaches[core]->flush(memref);
+    else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        handle_thread_exit(memref.exit.tid);
+        last_thread = 0;
+    } else {
+        ERRMSG("unhandled memref type");
         return false;
+    }
 
-    memref_tid_t last_thread = 0;
-    int last_core = 0;
+    if (op_verbose.get_value() >= 3) {
+        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+            " @" << (void *)memref.data.pc <<
+            " " << trace_type_names[memref.data.type] << " " <<
+            (void *)memref.data.addr << " x" << memref.data.size << std::endl;
+    }
 
-    uint64_t skip_refs = op_skip_refs.get_value();
-    uint64_t warmup_refs = op_warmup_refs.get_value();
-    uint64_t sim_refs = op_sim_refs.get_value();
-
-    for (; *trace_iter != *trace_end; ++(*trace_iter)) {
-        memref_t memref = **trace_iter;
-        if (skip_refs > 0) {
-            skip_refs--;
-            continue;
-        }
-
-        // the references after warmup and simulated ones are dropped
-        if (warmup_refs == 0 && sim_refs == 0)
-            continue;
-
-        // both warmup and simulated references are simulated
-
-        // We use a static scheduling of threads to cores, as it is
-        // not practical to measure which core each thread actually
-        // ran on for each memref.
-        int core;
-        if (memref.tid == last_thread)
-            core = last_core;
-        else {
-            core = core_for_thread(memref.tid);
-            last_thread = memref.tid;
-            last_core = core;
-        }
-
-        if (memref.type == TRACE_TYPE_INSTR ||
-            memref.type == TRACE_TYPE_PREFETCH_INSTR)
-            icaches[core]->request(memref);
-        else if (memref.type == TRACE_TYPE_READ ||
-                 memref.type == TRACE_TYPE_WRITE ||
-                 // We may potentially handle prefetches differently.
-                 // TRACE_TYPE_PREFETCH_INSTR is handled above.
-                 type_is_prefetch(memref.type))
-            dcaches[core]->request(memref);
-        else if (memref.type == TRACE_TYPE_INSTR_FLUSH)
-            icaches[core]->flush(memref);
-        else if (memref.type == TRACE_TYPE_DATA_FLUSH)
-            dcaches[core]->flush(memref);
-        else if (memref.type == TRACE_TYPE_THREAD_EXIT) {
-            handle_thread_exit(memref.tid);
-            last_thread = 0;
-        } else {
-            ERROR("unhandled memref type");
-            return false;
-        }
-
-        if (op_verbose.get_value() >= 3) {
-            std::cerr << "::" << memref.pid << "." << memref.tid << ":: " <<
-                " @" << (void *)memref.pc <<
-                " " << trace_type_names[memref.type] << " " <<
-                (void *)memref.addr << " x" << memref.size << std::endl;
-        }
-
-        // process counters for warmup and simulated references
-        if (warmup_refs > 0) { // warm caches up
-            warmup_refs--;
-            // reset cache stats when warming up is completed
-            if (warmup_refs == 0) {
-                for (int i = 0; i < num_cores; i++) {
-                    icaches[i]->get_stats()->reset();
-                    dcaches[i]->get_stats()->reset();
-                }
-                llcache->get_stats()->reset();
+    // process counters for warmup and simulated references
+    if (warmup_refs > 0) { // warm caches up
+        warmup_refs--;
+        // reset cache stats when warming up is completed
+        if (warmup_refs == 0) {
+            for (int i = 0; i < num_cores; i++) {
+                icaches[i]->get_stats()->reset();
+                dcaches[i]->get_stats()->reset();
             }
+            llcache->get_stats()->reset();
         }
-        else {
-            sim_refs--;
-        }
+    }
+    else {
+        sim_refs--;
     }
     return true;
 }
 
 bool
-cache_simulator_t::print_stats()
+cache_simulator_t::print_results()
 {
     for (int i = 0; i < num_cores; i++) {
         unsigned int threads = thread_ever_counts[i];
@@ -239,7 +226,7 @@ cache_simulator_t::create_cache(std::string policy)
         return new cache_fifo_t;
 
     // undefined replacement policy
-    ERROR("Usage error: undefined replacement policy. "
-          "Please choose " REPLACE_POLICY_LRU" or " REPLACE_POLICY_LFU".\n");
+    ERRMSG("Usage error: undefined replacement policy. "
+           "Please choose " REPLACE_POLICY_LRU" or " REPLACE_POLICY_LFU".\n");
     return NULL;
 }

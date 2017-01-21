@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -158,6 +158,10 @@
 # avoid conflicts with system headers) set this variable:
 #
 #  set(DynamoRIO_REG_COMPATIBILITY ON)
+#
+# To request that PAGE_SIZE and PAGE_START be defined set this variable:
+#
+#  set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON)
 #
 # To request a preferred base even when not targeting 64-bit:
 # (the actual base will use PREFERRED_BASE if set)
@@ -572,6 +576,10 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
     set(extra_cflags "${extra_cflags} -DDR_REG_ENUM_COMPATIBILITY")
   endif (DynamoRIO_REG_COMPATIBILITY)
 
+  if (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
+    set(extra_cflags "${extra_cflags} -DDR_PAGE_SIZE_COMPATIBILITY")
+  endif (DynamoRIO_PAGE_SIZE_COMPATIBILITY)
+
   if (DynamoRIO_FAST_IR)
     set(extra_cflags "${extra_cflags} -DDR_FAST_IR")
     if (NOT tgt_cxx AND CMAKE_COMPILER_IS_GNUCC)
@@ -771,12 +779,20 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
         if (tgt_cxx)
           set(static_libc libcpmtd ${static_libc})
         endif ()
+        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+          set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
+        endif ()
         # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
         set(tgt_cflags "${tgt_cflags} -D_DEBUG")
       else ()
         set(static_libc libcmt)
         if (tgt_cxx)
           set(static_libc libcpmt ${static_libc})
+        endif ()
+        # https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt
+        if (NOT (MSVC_VERSION LESS 1900)) # GREATER_EQUAL is cmake 3.7+ only
+          set(static_libc ${static_libc} libvcruntime.lib libucrt.lib)
         endif ()
       endif ()
       target_link_libraries(${target} ${static_libc})
@@ -989,6 +1005,10 @@ function (configure_DynamoRIO_static target)
     set(cur_cflags "")
   endif (NOT cur_cflags)
   DynamoRIO_extra_cflags(cur_cflags "${cur_cflags}" ${tgt_cxx})
+  if (WIN32)
+    # For static DR, we want dllexport and not dllimport for the app API.
+    set(cur_cflags "${cur_cflags} -DDR_APP_EXPORTS")
+  endif ()
   set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur_cflags}")
   if (ANDROID)
     # The Android linker is not exporting the weak symbol _USES_DR_VERSION_.
@@ -999,7 +1019,11 @@ function (configure_DynamoRIO_static target)
   endif ()
 
   target_link_libraries(${target} dynamorio_static)
-
+  if (UNIX)
+    # i#2070: avoid pulling libdynamorio.so
+    # Assuming LINK_FLAGS goes before target_link_libraries.
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--as-needed")
+  endif ()
 endfunction (configure_DynamoRIO_static)
 
 function (use_DynamoRIO_static_client target client)
@@ -1021,6 +1045,9 @@ endfunction (get_DynamoRIO_defines)
 # in your ${extname}Config.cmake file
 set(DynamoRIO_EXT_drgui_NOLIB ON)
 set(DynamoRIO_EXT_droption_NOLIB ON)
+# Not really an extension, just for including drmemtrace.h
+# via use_DynamoRIO_extension(target, drmemtrace_static)
+set(DynamoRIO_EXT_drmemtrace_static_NOLIB ON)
 
 # DynamoRIO Extensions
 function (use_DynamoRIO_extension target extname)

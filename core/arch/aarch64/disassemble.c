@@ -121,6 +121,11 @@ opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
         print_to_buffer(buf, bufsz, sofar, "%s", extend_name(t));
         return true;
     }
+    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_CONDITION, opnd_get_flags(opnd))) {
+        dr_pred_type_t pred = DR_PRED_EQ + opnd_get_immed_int(opnd);
+        print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);
+        return true;
+    }
     return false;
 }
 

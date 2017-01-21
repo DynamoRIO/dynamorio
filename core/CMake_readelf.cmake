@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -34,6 +34,7 @@
 # + "lib" to point to target library
 # + "check_deps" to ON or OFF to check for zero deps
 # + "check_libc" to ON or OFF to check for too-recent libc imports
+# + "check_interp" to ON or OFF to check for a PT_INTERP section
 
 # PR 212290: ensure no text relocations (they violate selinux execmod policies)
 # looking for dynamic section tag:
@@ -134,5 +135,20 @@ if (check_libc)
     string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_${glibc_version_regexp}[^\n]*\n"
       symname "${string}")
     message(FATAL_ERROR "*** Error: ${lib} has too-recent import: ${symname}")
+  endif ()
+endif ()
+
+if (check_interp)
+  execute_process(COMMAND
+    ${READELF_EXECUTABLE} -l ${lib}
+    RESULT_VARIABLE readelf_result
+    ERROR_VARIABLE readelf_error
+    OUTPUT_VARIABLE output
+    )
+  if (readelf_result OR readelf_error)
+    message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+  endif (readelf_result OR readelf_error)
+  if (output MATCHES " INTERP")
+    message(FATAL_ERROR "*** Error: ${lib} contains an INTERP header (for Android, be sure you're using ld.bfd and not ld.gold)")
   endif ()
 endif ()

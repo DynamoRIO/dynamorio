@@ -246,7 +246,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
             IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
-            for (i = 0; i < NUM_XMM_SLOTS; i++) {
+            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
                 for (j = 0; j < IF_X64_ELSE(2,4); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }
@@ -1107,8 +1107,8 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, void *hook_locat
     instrlist_t ilist;
     byte *remote_code_buf = NULL, *local_code_buf = NULL, *pc, *remote_data;
     byte *hook_code_buf = NULL;
-    static const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
-    static const size_t code_alloc_sz = PAGE_SIZE;
+    const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
+    const size_t code_alloc_sz = PAGE_SIZE;
     size_t hook_code_sz = PAGE_SIZE;
     void *switch_code_location = hook_location;
 #ifdef X64

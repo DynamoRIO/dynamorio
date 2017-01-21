@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4087,9 +4087,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
         dynamo_thread_not_under_dynamo(dcontext);
         /* i#1582: required for now on ARM */
-        IF_UNIX(os_swap_context_go_native(dcontext, 0));
+        IF_UNIX(os_swap_context_go_native(dcontext, DR_STATE_GO_NATIVE));
         /* i#1921: for now we do not support re-attach, so remove handlers */
-        IF_UNIX(signal_remove_handlers(dcontext));
+        os_process_not_under_dynamorio(dcontext);
         bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
         return;
     }
@@ -7080,10 +7080,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
      * the following conditions are satisfied. */
     bool possible_ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
-        /* FIXME Traces don't have FRAG_HAS_SYSCALL set so we can't filter on
-         * that flag for all fragments. We should propagate this flag from
-         * a BB to a trace. */
-        (TEST(FRAG_HAS_SYSCALL, f->flags) || TEST(FRAG_IS_TRACE, f->flags));
+        TEST(FRAG_HAS_SYSCALL, f->flags);
 #endif
     instrlist_t intra_ctis;
     coarse_info_t *info = NULL;

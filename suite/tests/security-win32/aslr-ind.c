@@ -105,11 +105,11 @@ main(int argc)
         print("invalid indirect call 1 caught\n");
     }
 
-    /* now this should definitely not be good, no matter aslr */
-    /*     0012fb20 b801000000       mov     eax,0x1 */
-    /*     0012fb25 */
-    /* FIXME: should go over jmp as well */
-    go_where = (fiptr)((char *)go_where + 5);
+    /* now this should definitely not be good, no matter aslr:
+     *     0012fb20 b801000000       mov     eax,0x1
+     *     0012fb25 eb05             jmp
+     */
+    go_where = (fiptr)((char *)go_where + 7);
 
     __try {
         print("%d\n", go_where());

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -610,6 +610,7 @@ struct _thread_locks_t;
 typedef struct _thread_locks_t thread_locks_t;
 
 extern mutex_t outermost_lock;
+extern mutex_t innermost_lock;
 
 void locks_thread_init(dcontext_t *dcontext);
 void locks_thread_exit(dcontext_t *dcontext);

@@ -2666,6 +2666,13 @@ dr_get_milliseconds(void)
 }
 
 DR_API
+uint64
+dr_get_microseconds(void)
+{
+    return query_time_micros();
+}
+
+DR_API
 uint
 dr_get_random_value(uint max)
 {
@@ -2828,6 +2835,7 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags) ? RAW_ALLOC_RESERVE_ONLY :
         (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
 #endif
+    size = ALIGN_FORWARD(size, PAGE_SIZE);
     if (TEST(DR_ALLOC_NON_DR, flags)) {
         /* use lock to avoid racy update on parallel memory allocation,
          * e.g. allocation from another thread at p happens after os_heap_free
@@ -3058,6 +3066,13 @@ dr_memory_protect(void *base, size_t size, uint new_prot)
         CLIENT_ASSERT(mod_prot == new_prot, "internal error on dr_memory_protect()");
     }
     return set_protection(base, size, new_prot);
+}
+
+DR_API
+size_t
+dr_page_size(void)
+{
+    return os_page_size();
 }
 
 DR_API
@@ -3855,6 +3870,29 @@ dr_get_proc_address_ex(module_handle_t lib, const char *name,
     info->address = get_proc_address_ex(lib, name, &info->is_indirect_code);
 #endif
     return (info->address != NULL);
+}
+
+byte *
+dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
+                       size_t *size OUT)
+{
+#ifdef MACOS
+    /* XXX i#1285: implement private loader on Mac */
+    return NULL;
+#else
+    modload_flags_t mflags = MODLOAD_NOT_PRIVLIB;
+    if (TEST(DR_MAPEXE_SKIP_WRITABLE, flags))
+        mflags |= MODLOAD_SKIP_WRITABLE;
+    if (filename == NULL)
+        return NULL;
+    return privload_map_and_relocate(filename, size, mflags);
+#endif
+}
+
+bool
+dr_unmap_executable_file(byte *base, size_t size)
+{
+    return unmap_file(base, size);
 }
 
 DR_API
@@ -5093,7 +5131,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee,
-                           save_fpstate, num_args, args)) {
+                           save_fpstate, TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
+                           num_args, args) &&
+        !TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
 #ifdef CLIENT_INTERFACE
         /* we can perform the inline optimization and return. */
         STATS_INC(cleancall_inlined);
@@ -5108,9 +5148,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     if (TEST(DR_CLEANCALL_NOSAVE_FLAGS, save_flags)) {
         /* even if we remove flag saves we want to keep mcontext shape */
         cci.preserve_mcontext = true;
-        cci.skip_save_aflags = true;
+        cci.skip_save_flags = true;
         /* we assume this implies DF should be 0 already */
-        cci.skip_clear_eflags = true;
+        cci.skip_clear_flags = true;
         /* XXX: should also provide DR_CLEANCALL_NOSAVE_NONAFLAGS to
          * preserve just arith flags on return from a call
          */
@@ -5123,13 +5163,13 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         cci.preserve_mcontext = true;
         /* start w/ all */
 #if defined(X64) && defined(WINDOWS)
-        cci.num_xmms_skip = 6;
+        cci.num_simd_skip = 6;
 #else
         /* all 8 (or 16) are scratch */
-        cci.num_xmms_skip = NUM_XMM_REGS;
+        cci.num_simd_skip = NUM_SIMD_REGS;
 #endif
-        for (i=0; i<cci.num_xmms_skip; i++)
-            cci.xmm_skip[i] = true;
+        for (i=0; i<cci.num_simd_skip; i++)
+            cci.simd_skip[i] = true;
         /* now remove those used for param/retval */
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
@@ -5139,16 +5179,16 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 # else
             for (i=0; i<3; i++)
 # endif
-                cci.xmm_skip[i] = false;
-            cci.num_xmms_skip -= i;
+                cci.simd_skip[i] = false;
+            cci.num_simd_skip -= i;
         }
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONRET, save_flags)) {
             /* xmm0 (and xmm1 for linux) are used for retvals */
-            cci.xmm_skip[0] = false;
-            cci.num_xmms_skip--;
+            cci.simd_skip[0] = false;
+            cci.num_simd_skip--;
 # ifdef UNIX
-            cci.xmm_skip[1] = false;
-            cci.num_xmms_skip--;
+            cci.simd_skip[1] = false;
+            cci.num_simd_skip--;
 # endif
         }
 #endif

@@ -470,7 +470,7 @@ encode_opnd_dq_plus(int add, int qpos, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
-/* opnd_index: used for opnd_index0, ..., opnd_index3 */
+/* index: used for opnd_index0, ..., opnd_index3 */
 
 static bool
 decode_opnd_index(int n, uint enc, OUT opnd_t *opnd)
@@ -495,7 +495,7 @@ encode_opnd_index(int n, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
-/* opnd_int: used for almost every operand type that is an immediate integer */
+/* int: used for almost every operand type that is an immediate integer */
 
 static bool
 decode_opnd_int(int pos, int len, bool signd, int scale, opnd_size_t size,
@@ -521,6 +521,24 @@ encode_opnd_int(int pos, int len, bool signd, int scale,
         return false;
     *enc_out = (val >> scale & (((ptr_uint_t)1 << (len - 1)) * 2 - 1)) << pos;
     return true;
+}
+
+/* imm_bf: used for bitfield immediate operands  */
+
+static bool
+decode_opnd_imm_bf(int pos, uint enc, OUT opnd_t *opnd)
+{
+    if (!TEST(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
+        return false;
+    return decode_opnd_int(pos, 6, false, 0, OPSZ_6b, 0, enc, opnd);
+}
+
+static bool
+encode_opnd_imm_bf(int pos, uint enc, opnd_t opnd, uint *enc_out)
+{
+    if (!TEST(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
+        return false;
+    return encode_opnd_int(pos, 6, false, 0, 0, opnd, enc_out);
 }
 
 /* mem0_scale: used for mem0, mem0p */
@@ -576,7 +594,7 @@ decode_opnd_mem7_postindex(bool post, uint enc, OUT opnd_t *opnd)
 {
     int scale = mem7_scale(enc);
     *opnd = create_base_imm(enc, post ? 0 : extract_int(enc, 15, 7) * (1 << scale),
-                            1 << scale);
+                            2 << scale);
     opnd->value.base_disp.pre_index = !post;
     return true;
 }
@@ -588,7 +606,7 @@ encode_opnd_mem7_postindex(bool post, uint enc, opnd_t opnd, OUT uint *enc_out)
     int disp;
     uint xn;
     if (!is_base_imm(opnd, &xn) ||
-        opnd_get_size(opnd) != opnd_size_from_bytes(1 << scale))
+        opnd_get_size(opnd) != opnd_size_from_bytes(2 << scale))
         return false;
     disp = opnd_get_disp(opnd);
     if (disp == 0 && opnd.value.base_disp.pre_index == post)
@@ -782,6 +800,37 @@ encode_opnd_wxn(bool is_x, bool is_sp, int pos, opnd_t opnd, OUT uint *enc_out)
     return false;
 }
 
+/* wxnp: used for CASP, even/odd register pairs */
+
+static bool
+decode_opnd_wxnp(bool is_x, int plus, int pos, uint enc, OUT opnd_t *opnd)
+{
+    if ((enc >> pos & 1) != 0)
+        return false;
+    *opnd = opnd_create_reg(decode_reg(((enc >> pos) + plus) & 31, is_x, false));
+    return true;
+}
+
+static bool
+encode_opnd_wxnp(bool is_x, int plus, int pos, opnd_t opnd, OUT uint *enc_out)
+{
+    reg_id_t reg;
+    uint n;
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg = opnd_get_reg(opnd);
+    n = reg - (is_x ? DR_REG_X0 : DR_REG_W0);
+    if (n < 31 && (n - plus) % 2 == 0) {
+        *enc_out = ((n - plus) & 31) << pos;
+        return true;
+    }
+    if (reg == (is_x ? DR_REG_XZR : DR_REG_WZR) && ((uint)31 - plus) % 2 == 0) {
+        *enc_out = (((uint)31 - plus) & 31) << pos;
+        return true;
+    }
+    return false;
+}
+
 /*******************************************************************************
  * Pairs of functions for decoding and encoding each type of operand, as listed in
  * "codec.txt". Try to keep these short: perhaps a tail call to a function in the
@@ -828,6 +877,20 @@ static inline bool
 encode_opnd_b0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(0, 0, opnd, enc_out);
+}
+
+/* cond: condition operand for conditional compare */
+
+static inline bool
+decode_opnd_cond(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(12, 4, false, 0, OPSZ_4b, DR_OPND_IS_CONDITION, enc, opnd);
+}
+
+static inline bool
+encode_opnd_cond(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
 }
 
 /* d0: D register at bit position 0 */
@@ -928,18 +991,25 @@ encode_opnd_ext(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(13, 3, false, 0, DR_OPND_IS_EXTEND, opnd, enc_out);
 }
 
-/* extam: extend amount, a left shift from 0 to 7 */
+/* extam: extend amount, a left shift from 0 to 4 */
 
 static inline bool
 decode_opnd_extam(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+    if (extract_uint(enc, 10, 3) > 4) /* shift amount must be <= 4 */
+        return false;
     return decode_opnd_int(10, 3, false, 0, OPSZ_3b, 0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_extam(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_int(10, 3, false, 0, 0, opnd, enc_out);
+    uint t;
+    if (!encode_opnd_int(10, 3, false, 0, 0, opnd, &t) ||
+        extract_uint(t, 10, 3) > 4) /* shift amount must be <= 4 */
+        return false;
+    *enc_out = t;
+    return true;
 }
 
 /* h0: H register at bit position 0 */
@@ -1047,18 +1117,32 @@ encode_opnd_imm16sh(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return true;
 }
 
-/* isbopt: option for ISB instruction */
+/* imm4: immediate operand for some system instructions */
 
 static inline bool
-decode_opnd_isbopt(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_imm4(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_int(8, 4, false, 0, OPSZ_4b, 0, enc, opnd);
 }
 
 static inline bool
-encode_opnd_isbopt(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_imm4(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(8, 4, false, 0, 0, opnd, enc_out);
+}
+
+/* imm5: immediate operand for conditional compare (immediate) */
+
+static inline bool
+decode_opnd_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(16, 5, false, 0, OPSZ_6b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(16, 5, false, 0, 0, opnd, enc_out);
 }
 
 /* imm6: shift amount for logical and arithmetical instructions */
@@ -1073,6 +1157,34 @@ static inline bool
 encode_opnd_imm6(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(10, 6, false, 0, 0, opnd, enc_out);
+}
+
+/* immr: first immediate operand for bitfield operation */
+
+static inline bool
+decode_opnd_immr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_imm_bf(16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_immr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_imm_bf(16, enc, opnd, enc_out);
+}
+
+/* imms: second immediate operand for bitfield operation */
+
+static inline bool
+decode_opnd_imms(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_imm_bf(10, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imms(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_imm_bf(10, enc, opnd, enc_out);
 }
 
 /* index0: index of B subreg in Q register: 0-15 */
@@ -1170,13 +1282,13 @@ encode_opnd_mem0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_mem0p(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_mem0_scale(extract_uint(enc, 30, 2) + 1, enc, opnd);
+    return decode_opnd_mem0_scale(extract_uint(enc, 30, 1) + 3, enc, opnd);
 }
 
 static inline bool
 encode_opnd_mem0p(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_mem0_scale(extract_uint(enc, 30, 2) + 1, opnd, enc_out);
+    return encode_opnd_mem0_scale(extract_uint(enc, 30, 1) + 3, opnd, enc_out);
 }
 
 /* mem12: memory operand with 12-bit offset; gets size from bits 30 and 31 */
@@ -1469,6 +1581,20 @@ encode_opnd_memvs(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
         return false;
     *enc_out = rn << 5;
     return true;
+}
+
+/* nzcv: flag bit specifier for conditional compare */
+
+static inline bool
+decode_opnd_nzcv(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(0, 4, false, 0, OPSZ_4b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_nzcv(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(0, 4, false, 0, 0, opnd, enc_out);
 }
 
 /* prf12: prefetch variant of mem12 */
@@ -1777,6 +1903,34 @@ encode_opnd_w0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(false, false, 0, opnd, enc_out);
 }
 
+/* w0p0: even-numbered W register or WZR at bit position 0 */
+
+static inline bool
+decode_opnd_w0p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 0, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 0, 0, opnd, enc_out);
+}
+
+/* w0p1: even-numbered W register or WZR at bit position 0, add 1 */
+
+static inline bool
+decode_opnd_w0p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 1, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w0p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 1, 0, opnd, enc_out);
+}
+
 /* w10: W register or WZR at bit position 10 */
 
 static inline bool
@@ -1805,6 +1959,48 @@ encode_opnd_w16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(false, false, 16, opnd, enc_out);
 }
 
+/* w16p0: even-numbered W register or WZR at bit position 16 */
+
+static inline bool
+decode_opnd_w16p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 0, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 0, 16, opnd, enc_out);
+}
+
+/* w16p1: even-numbered W register or WZR at bit position 16, add 1 */
+
+static inline bool
+decode_opnd_w16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(false, 1, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(false, 1, 16, opnd, enc_out);
+}
+
+/* w5: W register or WZR at bit position 5 */
+
+static inline bool
+decode_opnd_w5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(false, false, 5, enc, opnd);
+}
+
+static inline bool
+encode_opnd_w5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(false, false, 5, opnd, enc_out);
+}
+
 /* wx0: W/X register or WZR/XZR at bit position 0; bit 31 selects X reg */
 
 static inline bool
@@ -1831,6 +2027,20 @@ static inline bool
 encode_opnd_wx0sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_rn(true, 0, opnd, enc_out);
+}
+
+/* wx10: W/X register or WZR/XZR at bit position 10; bit 31 selects X reg */
+
+static inline bool
+decode_opnd_wx10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_rn(false, 10, enc, opnd);
+}
+
+static inline bool
+encode_opnd_wx10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_rn(false, 10, opnd, enc_out);
 }
 
 /* wx16: W/X register or WZR/XZR at bit position 16; bit 31 selects X reg */
@@ -1889,6 +2099,34 @@ encode_opnd_x0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, false, 0, opnd, enc_out);
 }
 
+/* x0p0: even-numbered X register or XZR at bit position 0 */
+
+static inline bool
+decode_opnd_x0p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 0, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 0, 0, opnd, enc_out);
+}
+
+/* x0p1: even-numbered X register or XZR at bit position 0, add 1 */
+
+static inline bool
+decode_opnd_x0p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 1, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x0p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 1, 0, opnd, enc_out);
+}
+
 /* x10: X register or XZR at bit position 10 */
 
 static inline bool
@@ -1901,6 +2139,48 @@ static inline bool
 encode_opnd_x10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxn(true, false, 10, opnd, enc_out);
+}
+
+/* x16: X register or XZR at bit position 16 */
+
+static inline bool
+decode_opnd_x16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(true, false, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(true, false, 16, opnd, enc_out);
+}
+
+/* x16p0: even-numbered X register or XZR at bit position 16 */
+
+static inline bool
+decode_opnd_x16p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 0, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 0, 16, opnd, enc_out);
+}
+
+/* x16p1: even-numbered X register or XZR at bit position 16, add 1 */
+
+static inline bool
+decode_opnd_x16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxnp(true, 1, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxnp(true, 1, 16, opnd, enc_out);
 }
 
 /* x16imm: immediate operand for SIMD load/store multiple structures (post-indexed) */

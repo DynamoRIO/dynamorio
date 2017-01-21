@@ -343,7 +343,9 @@
      */
     /* XXX i#1285: MacOS private loader is NYI */
     OPTION_DEFAULT_INTERNAL(bool, private_loader,
-                            IF_MACOS_ELSE(false, true),
+                            /* i#2117: for UNIX static DR we disable TLS swaps. */
+                            IF_STATIC_LIBRARY_ELSE(IF_WINDOWS_ELSE(true, false),
+                                                   IF_MACOS_ELSE(false, true)),
                             "use private loader for clients and dependents")
 #  ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
@@ -597,6 +599,13 @@
     /* XXX: make a dynamic option */
     OPTION_INTERNAL(bool, external_dump, "do a core dump using an external debugger (specified in the ONCRASH registry value) when warranted by the dumpcore_mask (kills process on win2k or w/ drwtsn32)")
 #endif
+#if defined(STATIC_LIBRARY) && defined(UNIX)
+    /* i#2119: invoke app handler on DR crash.
+     * If this were off by default it could be a dumpcore bitflag instead.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, invoke_app_on_crash, true,
+                            "On a DR crash, invoke the app fault handler if it exists.")
+#endif
 
     OPTION_DEFAULT(uint, stderr_mask,
                    /* Enable for client linux debug so ASSERTS are visible (PR 232783) */
@@ -632,6 +641,14 @@
 
     /* PR 304708: we intercept all signals for a better client interface */
     OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
+
+    /* i#2080: we have had some problems using sigreturn to set a thread's
+     * context to a given state.  Turning this off will instead use a direct
+     * mechanism that will set only the GPR's and will assume the target stack
+     * is valid and its beyond-TOS slot can be clobbered.  X86-only.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
+                            "use sigreturn to set a thread's context")
 
     /* i#853: Use our all_memory_areas address space cache when possible.  This
      * avoids expensive reads of /proc/pid/maps, but if the cache becomes stale,
@@ -675,6 +692,7 @@
         IF_DEBUG_ELSE_0(60)*3*1000, /* disabled in release */
         "timeout (in ms) before assuming a deadlock had occurred (0 to disable)")
 
+    /* stack_size may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, stack_size,
                    /* the CI build has a larger MAX_OPTIONS_STRING so we need
                     * a larger stack even w/ no client present.
@@ -1101,13 +1119,34 @@
 
     OPTION_INTERNAL(bool, simulate_contention, "simulate lock contention for testing purposes only")
 
-    OPTION_DEFAULT_INTERNAL(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
-    OPTION_DEFAULT_INTERNAL(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
+    /* Virtual memory manager.
+     * Our current default allocation unit matches the allocation granularity on
+     * windows, to avoid worrying about external fragmentation
+     * Since most of our allocations fall within this range this makes the
+     * common operation be finding a single empty block.
+     *
+     * On Linux we save a lot of wasted alignment space by using a smaller
+     * granularity (PR 415959).
+     *
+     * FIXME: for Windows, if we reserve the whole region up front and
+     * just commit pieces, why do we need to match the Windows kernel
+     * alloc granularity?
+     *
+     * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
+     */
+    OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,16)*1024),
+                   "allocation unit for virtual memory manager")
+    /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
+    /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
     /* if this is too small then once past the vm reservation we have too many
      * DR areas and subsequent problems with DR areas and allmem synch (i#369)
      */
     OPTION_DEFAULT_INTERNAL(uint_size, max_heap_unit_size, 256*1024, "maximum heap unit size")
+    /* heap_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, heap_commit_increment, 4*1024, "heap commit increment")
+    /* cache_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint, cache_commit_increment, 4*1024, "cache commit increment")
 
     /* cache capacity control
@@ -1562,6 +1601,14 @@
     PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
         "Use other parts of the TEB for TLS once out of real TLS slots")
 #endif /* WINDOWS */
+
+    /* i#2089: whether to use a special safe read of a magic field to determine
+     * whether a thread's TLS is initialized yet, on x86.
+     * XXX: we plan to remove this once we're sure it's stable.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, true,
+                            "use a safe read to identify uninit TLS")
+
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
 
 #ifdef PROGRAM_SHEPHERDING

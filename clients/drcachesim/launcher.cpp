@@ -32,23 +32,24 @@
 
 /* launcher: the front end for the trace analyzer */
 
-// FIXME i#1727: the Windows implementation is not tested (needs
-// the named pipe implementation to be finished).
-
 /* For internationalization support we use wide-char versions of all Windows-
  * facing routines and convert to UTF-8 for DR API routines.
  */
 #ifdef WINDOWS
 # define UNICODE
 # define _UNICODE
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
 #else
 # include <sys/types.h>
 # include <sys/wait.h>
+# include <unistd.h>  /* for fork */
 #endif
 
 #include <assert.h>
 #include <stdio.h>
 #include <iostream>
+#include "analyzer.h"
 #include "dr_api.h"
 #include "dr_inject.h"
 #include "dr_config.h"
@@ -56,8 +57,6 @@
 #include "droption.h"
 #include "common/options.h"
 #include "common/utils.h"
-#include "simulator/cache_simulator.h"
-#include "simulator/tlb_simulator.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
@@ -113,15 +112,14 @@ configure_application(char *app_name, char **app_argv,
         std::string msg =
             std::string("failed to create process for \"") + app_name + "\"";
 #ifdef WINDOWS
-        if (sofar > 0) {
-            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                          NULL, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                          (LPTSTR) msg.c_str(),
-                          BUFFER_SIZE_ELEMENTS(buf) - sofar*sizeof(char), NULL);
-        }
+        char buf[MAXIMUM_PATH];
+        int sofar = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s", msg.c_str());
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      NULL, errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      (LPTSTR) buf + sofar,
+                      BUFFER_SIZE_ELEMENTS(buf) - sofar*sizeof(char), NULL);
 #endif
         FATAL_ERROR("%s", msg.c_str());
-        return false;
     }
 
     pid = dr_inject_get_process_id(*inject_data);
@@ -135,7 +133,6 @@ configure_application(char *app_name, char **app_argv,
                             op_dr_debug.get_value(), DR_PLATFORM_DEFAULT,
                             op_dr_ops.get_value().c_str()) != DR_SUCCESS) {
         FATAL_ERROR("failed to register DynamoRIO configuration");
-        return false;
     }
     NOTIFY(1, "INFO", "configuring client \"%s\" ops=\"%s\"",
            op_tracer.get_value().c_str(), tracer_ops.c_str());
@@ -144,7 +141,6 @@ configure_application(char *app_name, char **app_argv,
                            0, op_tracer.get_value().c_str(),
                            tracer_ops.c_str()) != DR_SUCCESS) {
         FATAL_ERROR("failed to register DynamoRIO client configuration");
-        return false;
     }
     return true;
 }
@@ -158,7 +154,7 @@ _tmain(int argc, const TCHAR *targv[])
     char **app_argv = NULL;
     int app_idx = 1;
     int errcode = 1;
-    void *inject_data;
+    void *inject_data = NULL;
     char buf[MAXIMUM_PATH];
     drfront_status_t sc;
     bool is64, is32;
@@ -167,6 +163,7 @@ _tmain(int argc, const TCHAR *targv[])
 #ifdef UNIX
     pid_t child = 0;
 #endif
+    bool have_trace_file;
 
 #if defined(WINDOWS) && !defined(_UNICODE)
 # error _UNICODE must be defined
@@ -193,15 +190,14 @@ _tmain(int argc, const TCHAR *targv[])
         } else {
             FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                         droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-            assert(false); // won't get here
         }
     }
+    have_trace_file = !op_infile.get_value().empty() || !op_indir.get_value().empty();
 
-    if (op_infile.get_value().empty()) {
+    if (!have_trace_file) {
         if (app_idx >= argc) {
             FATAL_ERROR("Usage error: no application specified\nUsage:\n%s",
                         droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-            assert(false); // won't get here
         }
         app_name = argv[app_idx];
         get_full_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
@@ -210,7 +206,6 @@ _tmain(int argc, const TCHAR *targv[])
         NOTIFY(1, "INFO", "targeting application: \"%s\"", app_name);
         if (!file_is_readable(full_app_name)) {
             FATAL_ERROR("cannot find application %s", full_app_name);
-            assert(false); // won't get here
         }
 
         if (drfront_is_64bit_app(app_name, &is64, &is32) == DRFRONT_SUCCESS &&
@@ -219,49 +214,35 @@ _tmain(int argc, const TCHAR *targv[])
              * injection (DRi#803), we need to launch the other frontend.
              */
             FATAL_ERROR("application has bitwidth unsupported by this launcher");
-            assert(false); // won't get here
         }
 
         app_argv = &argv[app_idx];
 
         if (!file_is_readable(op_tracer.get_value().c_str())) {
             FATAL_ERROR("tracer library %s is unreadable", op_tracer.get_value().c_str());
-            assert(false); // won't get here
         }
         if (!file_is_readable(op_dr_root.get_value().c_str())) {
             FATAL_ERROR("invalid -dr_root %s", op_dr_root.get_value().c_str());
-            assert(false); // won't get here
         }
     }
 
-    if (op_offline.get_value() && op_infile.get_value().empty()) {
+    if (op_offline.get_value() && !have_trace_file) {
         // Initial sanity check: may still be unwritable by this user, but this
         // serves as at least an existence check.
         if (!file_is_writable(op_outdir.get_value().c_str())) {
             FATAL_ERROR("invalid -outdir %s", op_outdir.get_value().c_str());
-            assert(false); // won't get here
         }
     } else {
         // declare the analyzer based on its type
-        if (op_simulator_type.get_value() == CPU_CACHE)
-            analyzer = new cache_simulator_t;
-        else if (op_simulator_type.get_value() == TLB)
-            analyzer = new tlb_simulator_t;
-        else {
-            ERROR("Usage error: unsupported analyzer type. "
-                  "Please choose " CPU_CACHE" or " TLB".\n");
-            return false;
-        }
-
+        analyzer = new analyzer_t;
         if (!analyzer) {
             FATAL_ERROR("failed to initialize analyzer");
-            assert(false); // won't get here
         }
     }
 
     tracer_ops = op_tracer_ops.get_value();
 
-    if (op_infile.get_value().empty()) {
+    if (!have_trace_file) {
         /* i#1638: fall back to temp dirs if there's no HOME/USERPROFILE set */
         dr_get_config_dir(false/*local*/, true/*use temp*/, buf,
                           BUFFER_SIZE_ELEMENTS(buf));
@@ -289,20 +270,18 @@ _tmain(int argc, const TCHAR *targv[])
         if (!configure_application(app_name, app_argv, tracer_ops, &inject_data) ||
             !dr_inject_process_inject(inject_data, false/*!force*/, NULL)) {
             FATAL_ERROR("unable to inject");
-            assert(false); // won't get here
         }
         dr_inject_process_run(inject_data);
 #endif
     }
 
-    if (!op_offline.get_value() || !op_infile.get_value().empty()) {
+    if (!op_offline.get_value() || have_trace_file) {
         if (!analyzer->run()) {
             FATAL_ERROR("failed to run analyzer");
-            assert(false); // won't get here
         }
     }
 
-    if (op_infile.get_value().empty()) {
+    if (!have_trace_file) {
 #ifdef WINDOWS
         NOTIFY(1, "INFO", "waiting for app to exit...");
         errcode = WaitForSingleObject(dr_inject_get_process_handle(inject_data),
@@ -318,9 +297,11 @@ _tmain(int argc, const TCHAR *targv[])
         assert(result == child);
 #endif
 
-        // XXX: we may want a prefix on our output
-        std::cerr << "---- <application exited with code " << errcode <<
-            "> ----" << std::endl;
+        if (!op_offline.get_value()) { // Skipping for offline to match UNIX.
+            // XXX: we may want a prefix on our output
+            std::cerr << "---- <application exited with code " << errcode <<
+                "> ----" << std::endl;
+        }
     } else
         errcode = 0;
 

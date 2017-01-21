@@ -69,6 +69,7 @@
 START_FILE
 
 #ifdef UNIX
+# include "os_asm_defines.asm"
 # ifdef LINUX
 #  include "include/syscall.h"
 # else
@@ -1162,7 +1163,7 @@ GLOBAL_LABEL(_start:)
          */
         cmp     REG_XDI, 0 /* if reloaded, skip for speed + preserve xdi and xsi */
         jne     reloaded_xfer
-        CALLC2(GLOBAL_REF(relocate_dynamorio), 0, 0)
+        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XSP)
 
 reloaded_xfer:
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
@@ -2328,11 +2329,51 @@ GLOBAL_LABEL(safe_read_asm:)
         /* Copy xdx bytes, align on src. */
         REP_STRING_OP(safe_read_asm, REG_XSI, movs)
 ADDRTAKEN_LABEL(safe_read_asm_recover:)
-        mov     REG_XAX, REG_XSI        /* Return cur_src */
+        mov      REG_XAX, REG_XSI        /* Return cur_src */
         RESTORE_XDI_XSI()
         ret
         END_FUNC(safe_read_asm)
 
+#ifdef UNIX
+DECLARE_GLOBAL(safe_read_tls_magic)
+DECLARE_GLOBAL(safe_read_tls_magic_recover)
+DECLARE_GLOBAL(safe_read_tls_self)
+DECLARE_GLOBAL(safe_read_tls_self_recover)
+DECLARE_GLOBAL(safe_read_tls_app_self)
+DECLARE_GLOBAL(safe_read_tls_app_self_recover)
+
+        DECLARE_FUNC(safe_read_tls_magic)
+GLOBAL_LABEL(safe_read_tls_magic:)
+        /* gas won't accept "SEG_TLS:" in the memref so we have to fool it by
+         * using it as a prefix:
+         */
+        SEG_TLS
+        mov      eax, DWORD [TLS_MAGIC_OFFSET_ASM]
+ADDRTAKEN_LABEL(safe_read_tls_magic_recover:)
+        /* our signal handler sets xax to 0 for us on a fault */
+        ret
+        END_FUNC(safe_read_tls_magic)
+
+        DECLARE_FUNC(safe_read_tls_self)
+GLOBAL_LABEL(safe_read_tls_self:)
+        /* see comment in safe_read_tls_magic */
+        SEG_TLS
+        mov      REG_XAX, PTRSZ [TLS_SELF_OFFSET_ASM]
+ADDRTAKEN_LABEL(safe_read_tls_self_recover:)
+        /* our signal handler sets xax to 0 for us on a fault */
+        ret
+        END_FUNC(safe_read_tls_self)
+
+        DECLARE_FUNC(safe_read_tls_app_self)
+GLOBAL_LABEL(safe_read_tls_app_self:)
+        /* see comment in safe_read_tls_magic */
+        LIB_SEG_TLS
+        mov      REG_XAX, PTRSZ [TLS_APP_SELF_OFFSET_ASM]
+ADDRTAKEN_LABEL(safe_read_tls_app_self_recover:)
+        /* our signal handler sets xax to 0 for us on a fault */
+        ret
+        END_FUNC(safe_read_tls_app_self)
+#endif
 
 #ifdef UNIX
 /* Replacement for _dl_runtime_resolve() used for catching module transitions

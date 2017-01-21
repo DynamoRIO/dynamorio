@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -363,6 +363,33 @@ DR_EXPORT
 drreg_status_t
 drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
                     reg_id_t app_reg, reg_id_t dst_reg);
+
+DR_EXPORT
+/**
+ * This is a convenience routine that calls drreg_get_app_value() for
+ * every register used by \p opnd, with that register passed as the
+ * application and destination registers.  This routine will write to
+ * reserved as well as unreserved registers.  This is intended as a
+ * convenience barrier for lazy restores performed by drreg.
+ *
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
+ *
+ * On ARM, asking to place the application value of the register
+ * returned by dr_get_stolen_reg() into itself is not supported.  If
+ * \p opnd uses the stolen register, this routine will swap it for a
+ * scratch register.  This scratch register will be \p *swap if \p
+ * *swap is not #DR_REG_NULL; otherwise, drreg_reserve_register() with
+ * NULL for \p reg_allowed will be called, and the result returned in
+ * \p *swap.  It is up to the caller to un-reserve the register in
+ * that case.
+ *
+ * @return whether successful or an error code on failure.  On failure,
+ * any values that were already restored are not undone.
+ */
+drreg_status_t
+drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
+                         opnd_t opnd, INOUT reg_id_t *swap);
 
 DR_EXPORT
 /**

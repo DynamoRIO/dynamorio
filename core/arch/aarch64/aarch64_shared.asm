@@ -46,6 +46,7 @@ START_FILE
  */
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
+        cmp      w1, #7
         mov      x8,x0
         mov      x0,x2
         mov      x1,x3
@@ -53,7 +54,12 @@ GLOBAL_LABEL(dynamorio_syscall:)
         mov      x3,x5
         mov      x4,x6
         mov      x5,x7
+        /* We set up first 6 args unconditionally, but read 7th arg from stack
+         * only if there are at least 7 args.
+         */
+        b.cc     1f
         ldr      x6,[sp]
+1:
         svc      #0
         ret
 

@@ -1799,6 +1799,18 @@ dr_get_milliseconds(void);
 
 DR_API
 /**
+ * Returns the number of microseconds since Jan 1, 1601 (this is
+ * the current UTC time).
+ *
+ * \note This is the Windows standard.  UNIX time functions typically
+ * count from the Epoch (Jan 1, 1970).  The Epoch is 11644473600*1000*1000
+ * microseconds after Jan 1, 1601.
+ */
+uint64
+dr_get_microseconds(void);
+
+DR_API
+/**
  * Returns a pseudo-random number in the range [0..max).
  * The pseudo-random sequence can be repeated by passing the seed
  * used during a run to the next run via the -prng_seed runtime option.
@@ -2181,7 +2193,30 @@ __wrap_free(void *mem);
 /**************************************************
  * MEMORY QUERY/ACCESS ROUTINES
  */
+
+#ifdef DR_PAGE_SIZE_COMPATIBILITY
+
+# undef PAGE_SIZE
+/**
+ * Size of a page of memory. This uses a function call so be careful
+ * where performance is critical.
+ */
+# define PAGE_SIZE dr_page_size()
+
+/**
+ * Convenience macro to align to the start of a page of memory.
+ * It uses a function call so be careful where performance is critical.
+ */
+# define PAGE_START(x) (((ptr_uint_t)(x)) & ~(dr_page_size()-1))
+
+#endif /* DR_PAGE_SIZE_COMPATIBILITY */
+
 /* DR_API EXPORT END */
+
+DR_API
+/** Returns the size of a page of memory. */
+size_t
+dr_page_size(void);
 
 DR_API
 /**
@@ -3212,6 +3247,39 @@ bool
 dr_get_proc_address_ex(module_handle_t lib, const char *name,
                        dr_export_info_t *info OUT, size_t info_len);
 
+/* DR_API EXPORT BEGIN */
+/** Flags for use with dr_map_executable_file(). */
+typedef enum {
+    /**
+     * Requests that writable segments are not mapped, to save address space.
+     * This may be ignored on some platforms and may only be honored for
+     * a writable segment that is at the very end of the loaded module.
+     */
+    DR_MAPEXE_SKIP_WRITABLE         = 0x0002,
+} dr_map_executable_flags_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Loads \p filename as an executable file for examination, rather
+ * than for execution.  No entry point, initialization, or constructor
+ * code is executed, nor is any thread-local storage or other
+ * resources set up.  Returns the size (which may include unmappped
+ * gaps) in \p size.  The return value of the function is the base
+ * address at which the file is mapped.
+ *
+ * \note Not currently supported on Mac OSX.
+ */
+byte *
+dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
+                       size_t *size OUT);
+
+DR_API
+/**
+ * Unmaps a file loaded by dr_map_executable_file().
+ */
+bool
+dr_unmap_executable_file(byte *base, size_t size);
 
 /* DR_API EXPORT BEGIN */
 /**************************************************
@@ -4930,6 +4998,13 @@ typedef enum {
     DR_CLEANCALL_INDIRECT               = 0x0020,
     /* internal use only: maps to META_CALL_RETURNS_TO_NATIVE in insert_meta_call_vargs */
     DR_CLEANCALL_RETURNS_TO_NATIVE      = 0x0040,
+    /**
+     * Requests that out-of-line state save and restore routines be used even
+     * when a subset of the state does not need to be preserved for this callee.
+     * Also disables inlining.
+     * This helps guarantee that the inserted code remains small.
+     */
+    DR_CLEANCALL_ALWAYS_OUT_OF_LINE     = 0x0080,
 } dr_cleancall_save_t;
 /* DR_API EXPORT END */
 
@@ -5272,7 +5347,7 @@ DR_API
  * multimedia registers incurs a higher performance cost.  An invalid
  * flags value will return false.
  *
- * \note NUM_XMM_SLOTS in the dr_mcontext_t.xmm array are filled in,
+ * \note NUM_SIMD_SLOTS in the dr_mcontext_t.xmm array are filled in,
  * but only if dr_mcontext_xmm_fields_valid() returns true and
  * DR_MC_MULTIMEDIA is set in the flags field.
  *

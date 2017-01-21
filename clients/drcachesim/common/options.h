@@ -41,6 +41,8 @@
 #define REPLACE_POLICY_FIFO                     "FIFO"
 #define CPU_CACHE                               "cache"
 #define TLB                                     "TLB"
+#define HISTOGRAM                               "histogram"
+#define REUSE_DIST                              "reuse_distance"
 
 #include <string>
 #include "droption.h"
@@ -49,6 +51,7 @@ extern droption_t<bool> op_offline;
 extern droption_t<std::string> op_ipc_name;
 extern droption_t<std::string> op_outdir;
 extern droption_t<std::string> op_infile;
+extern droption_t<std::string> op_indir;
 extern droption_t<unsigned int> op_num_cores;
 extern droption_t<unsigned int> op_line_size;
 extern droption_t<bytesize_t> op_L1I_size;
@@ -59,6 +62,8 @@ extern droption_t<bytesize_t> op_LL_size;
 extern droption_t<unsigned int> op_LL_assoc;
 extern droption_t<bool> op_use_physical;
 extern droption_t<unsigned int> op_virt2phys_freq;
+extern droption_t<bytesize_t> op_max_trace_size;
+extern droption_t<bool> op_online_instr_types;
 extern droption_t<std::string> op_replace_policy;
 extern droption_t<bytesize_t> op_page_size;
 extern droption_t<unsigned int> op_TLB_L1I_entries;
@@ -78,5 +83,6 @@ extern droption_t<std::string> op_tracer_ops;
 extern droption_t<bytesize_t> op_skip_refs;
 extern droption_t<bytesize_t> op_warmup_refs;
 extern droption_t<bytesize_t> op_sim_refs;
-
+extern droption_t<unsigned int> op_report_top;
+extern droption_t<unsigned int> op_reuse_distance_threshold;
 #endif /* _OPTIONS_H_ */

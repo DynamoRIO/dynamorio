@@ -44,10 +44,10 @@
 #include <errno.h>
 
 #ifdef X64
-# define NUM_XMM_REGS 16
+# define NUM_SIMD_REGS 16
 # define XAX "rax"
 #else
-# define NUM_XMM_REGS 8
+# define NUM_SIMD_REGS 8
 # define XAX "eax"
 #endif
 #define INTS_PER_XMM 4
@@ -66,7 +66,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
              * fpstate with xmm inside on delayed signals
              */
             struct _fpstate *fp = (struct _fpstate *) ucxt->uc_mcontext.fpregs;
-            for (i = 0; i < NUM_XMM_REGS; i++) {
+            for (i = 0; i < NUM_SIMD_REGS; i++) {
                 print("xmm[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
 #ifdef X64
                       fp->xmm_space[i*4], fp->xmm_space[i*4+1],
@@ -98,7 +98,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
             if (xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
                 assert(xstate->fpstate.sw_reserved.xstate_size >= sizeof(*xstate));
                 /* we can't print b/c not all processors have avx */
-                for (i = 0; i < NUM_XMM_REGS; i++) {
+                for (i = 0; i < NUM_SIMD_REGS; i++) {
 #if VERBOSE
                     print("ymmh[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
                           xstate->ymmh.ymmh_space[i*4],
@@ -143,7 +143,7 @@ determine_avx(void)
 int
 main(int argc, char *argv[])
 {
-    int buf[INTS_PER_XMM*NUM_XMM_REGS];
+    int buf[INTS_PER_XMM*NUM_SIMD_REGS];
     char *ptr = (char *)buf;
     int i, j;
 
@@ -152,7 +152,7 @@ main(int argc, char *argv[])
     print("Sending SIGUSR1\n");
 
     /* put known values in xmm regs (we assume processor has xmm) */
-    for (i = 0; i < NUM_XMM_REGS; i++) {
+    for (i = 0; i < NUM_SIMD_REGS; i++) {
         for (j = 0; j < INTS_PER_XMM; j++)
             buf[i*INTS_PER_XMM+j] = 0xdeadbeef << i;
     }
@@ -180,12 +180,12 @@ main(int argc, char *argv[])
 
     if (determine_avx()) {
         /* put known values in ymm regs */
-        int buf[INTS_PER_YMM*NUM_XMM_REGS];
+        int buf[INTS_PER_YMM*NUM_SIMD_REGS];
         char *ptr = (char *)buf;
         int i, j;
         intercept_signal(SIGUSR2, signal_handler, false);
         /* put known values in xmm regs (we assume processor has xmm) */
-        for (i = 0; i < NUM_XMM_REGS; i++) {
+        for (i = 0; i < NUM_SIMD_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++)
                 buf[i*INTS_PER_YMM+j] = 0xdeadbeef << i;
         }

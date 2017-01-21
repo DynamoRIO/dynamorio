@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -112,6 +112,17 @@ struct _kernel_sigaction_t {
     int flags;
 #endif
 }; /* typedef in os_private.h */
+
+#ifdef MACOS
+/* i#2105: amazingly, the kernel uses a different layout for returning the prior action.
+ * For simplicity we don't change the signature for the handle_sigaction routines.
+ */
+struct _prev_sigaction_t {
+    handler_t handler;
+    kernel_sigset_t mask;
+    int flags;
+}; /* typedef in os_private.h */
+#endif
 
 #ifdef LINUX
 # define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->handler
@@ -337,6 +348,18 @@ typedef struct _thread_sig_info_t {
      * have to dynamically allocate app_sigaction array so we can share it.
      */
     kernel_sigaction_t **app_sigaction;
+
+    /* We save the old sigaction across a sigaction syscall so we can return it
+     * in post-syscall handling.
+     */
+    kernel_sigaction_t prior_app_sigaction;
+    bool use_kernel_prior_sigaction;
+    /* We pass this to the kernel in lieu of the app's data struct, so we
+     * can modify it.
+     */
+    kernel_sigaction_t our_sigaction;
+    /* This is the app's sigaction pointer, for restoring post-syscall. */
+    const kernel_sigaction_t *sigaction_param;
 
     /* True after signal_thread_inherit or signal_fork_init are called.  We
      * squash alarm or profiling signals up until this point.

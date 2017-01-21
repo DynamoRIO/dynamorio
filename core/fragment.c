@@ -5830,7 +5830,9 @@ enter_couldbelinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache
     mutex_lock(&pt->linking_lock);
     ASSERT(!pt->could_be_linking);
     /* ensure not still marked at_syscall */
-    ASSERT(!DYNAMO_OPTION(syscalls_synch_flush) || !get_at_syscall(dcontext));
+    ASSERT(!DYNAMO_OPTION(syscalls_synch_flush) || !get_at_syscall(dcontext) ||
+           /* i#2026: this can happen during detach but there it's innocuous */
+           doing_detach);
 
     /* for thread-shared flush and thread-private flush+execareas atomicity,
      * to avoid non-properly-nested locks (could have flusher hold

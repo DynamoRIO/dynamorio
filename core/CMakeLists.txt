@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -212,6 +212,7 @@ set(ARCH_SRCS
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
   arch/${ARCH_NAME_SHARED}/mangle.c
+  arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
   arch/steal_reg.c
   arch/x86_code.c
@@ -488,9 +489,11 @@ function (configure_core_lib target)
 
     string(REGEX REPLACE
       "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
-    # FIXME i#1374: versioning causing problems on Mac
-    # On Android "adb push" doesn't support symlinks, so it's simpler to avoid them.
-    if (NOT APPLE AND NOT ANDROID)
+    # We only set the version/soversion on Windows to avoid many negatives
+    # (i#1374, i#2127, Android "adb push" not supporting symlinks, etc.) and
+    # very few positives on UNIX platforms.  Our loader does its own version
+    # checks for client compatibility.
+    if (WINDOWS)
       set_target_properties(${target} PROPERTIES
         VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
     endif ()
@@ -559,41 +562,6 @@ if (UNIX)
     target_link_libraries(dynamorio dl)
   endif ()
 
-  # We use .so versioning via symlinks.
-  # We do not version the preload lib as it does not expose an API,
-  # and drconfig is Windows-only.
-  # Our releases match our API so we use major.minor as our soversion.
-  # That allows both forward and backward compatibility, but means that
-  # we need to provide symlinks for all backward compatible versions.
-  # In the future CMake is expected to add explicit support for this.
-
-  function (generate_soversions verstart verstop)
-    while (${verstart} LESS ${verstop})
-      math(EXPR COMPAT_MAJOR "${verstart} / 100")
-      math(EXPR COMPAT_MINOR "${verstart} % 100")
-      get_target_property(curver_base dynamorio LOCATION)
-      get_filename_component(curver_path "${curver_base}" PATH)
-      get_filename_component(curver_base "${curver_base}" NAME)
-      get_target_property(curver_sover dynamorio SOVERSION)
-      set(curver "${curver_base}.${curver_sover}")
-      string(REGEX REPLACE "so.${VERSION_MAJOR_MINOR}"
-        "so.${COMPAT_MAJOR}.${COMPAT_MINOR}" oldver "${curver}")
-      set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
-      add_custom_command(TARGET dynamorio POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
-        WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
-        VERBATIM)
-      math(EXPR verstart "${verstart} + 1")
-    endwhile ()
-    set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} PARENT_SCOPE)
-  endfunction (generate_soversions)
-
-  if (NOT APPLE AND NOT ANDROID)
-    # We assume OLDEST_COMPATIBLE_VERSION and cur ver have the same major #.
-    # If they don't we need additional calls here.
-    generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
-  endif ()
-
   if (LINUX) # No checks for MacOS
     # Note that we can't locate readelf inside CMake_readelf.cmake as that
     # would disallow pointing externally at a readelf location, so we make it
@@ -628,6 +596,7 @@ if (UNIX)
         ARGS -D lib=${lib_to_check}
              -D check_deps=${check_deps}
              -D check_libc=OFF
+             -D check_interp=ON
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260
@@ -786,10 +755,18 @@ if (NOT APPLE)
         "${dynamorio_dot_o}" &&
         )
     endif ()
+    set(disable_pie_flag)
+    # Older versions of GCC do not understand "-no-pie". See i#2083.
+    CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
+    if (no_pie_avail)
+      # If the compiler's default is "-pie", we must specify "-no-pie" when using "-r"
+      # to avoid the error "-r and -pie may not be used together". See i#2083.
+      set(disable_pie_flag "-no-pie")
+    endif ()
     add_custom_command(TARGET dynamorio_static POST_BUILD
       COMMAND
       ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
-        -nostartfiles -nodefaultlibs -Wl,-r
+        -nostartfiles -nodefaultlibs -Wl,-r ${disable_pie_flag}
         -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
         -o "${dynamorio_dot_o}" &&
       ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
@@ -862,6 +839,7 @@ if (UNIX)
       ARGS -D lib=${lib_to_check}
            -D check_deps=OFF
            -D check_libc=ON
+           -D check_interp=ON
            -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
            -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
       VERBATIM # recommended: p260

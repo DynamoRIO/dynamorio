@@ -1697,6 +1697,22 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     set_asynch_interception(get_thread_id(), false);
 }
 
+void
+os_process_under_dynamorio(dcontext_t *dcontext)
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    init_apc_go_native = false;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
+void
+os_process_not_under_dynamorio(dcontext_t *dcontext)
+{
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    init_apc_go_native = true;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
 /***************************************************************************
  * THREAD TAKEOVER
  */
@@ -2453,6 +2469,22 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext)
      */
     tr->retakeover = true;
     return os_take_over_thread(dcontext, tr->handle, tr->id, true/*suspended*/);
+}
+
+/* Called for os-specific takeover of a secondary thread from the one
+ * that called dr_app_setup().
+ */
+void
+os_thread_take_over_secondary(dcontext_t *dcontext)
+{
+    /* Nothing yet. */
+}
+
+bool
+os_thread_re_take_over(void)
+{
+    /* Nothing to do. */
+    return false;
 }
 
 bool
@@ -5347,7 +5379,7 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
          * reservations.
          */
 #       define MAX_BACK_QUERY_HEURISTIC 14
-        if (pc - alloc_base > PAGE_SIZE) {
+        if ((size_t)(pc - alloc_base) > PAGE_SIZE) {
             uint exponential = 1;
             /* The sub can't underflow b/c of the if() above */
             pb = (byte *) ALIGN_BACKWARD(pc - PAGE_SIZE, PAGE_SIZE);
@@ -9148,3 +9180,10 @@ os_check_option_compatibility(void)
 }
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
+
+size_t
+os_page_size(void)
+{
+    /* FIXME i#1680: Determine page size using system call. */
+    return 4096;
+}

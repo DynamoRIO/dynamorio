@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1161,16 +1161,33 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
+#ifdef UNIX
+    instr_t *no_signals = INSTR_CREATE_label(dcontext);
+#endif
     if (!absolute) {
         /* grab gen routine's parameter dcontext and put it into edi */
-        APP(ilist, XINST_CREATE_load(dcontext,
-                                     opnd_create_reg(REG_DCXT),
-                                     OPND_ARG1));
+#ifdef UNIX
+        /* first, save callee-saved reg in case we return for a signal */
+        APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_XAX),
+                                     opnd_create_reg(REG_DCXT)));
+#endif
+        APP(ilist, XINST_CREATE_load(dcontext, opnd_create_reg(REG_DCXT), OPND_ARG1));
         if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-            APP(ilist, RESTORE_FROM_DC(dcontext,
-                                       REG_DCXT_PROT,
-                                       PROT_OFFS));
+            APP(ilist, RESTORE_FROM_DC(dcontext, REG_DCXT_PROT, PROT_OFFS));
     }
+#ifdef UNIX
+    APP(ilist, XINST_CREATE_cmp
+        (dcontext, OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET),
+         OPND_CREATE_INT8(0)));
+    APP(ilist, INSTR_CREATE_jcc(dcontext, OP_jle, opnd_create_instr(no_signals)));
+    if (!absolute) {
+        /* restore callee-saved reg */
+        APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
+                                     opnd_create_reg(REG_XAX)));
+    }
+    APP(ilist, XINST_CREATE_return(dcontext));
+    APP(ilist, no_signals);
+#endif
 }
 
 /*  # append instructions to call exit_dr_hook
@@ -1286,7 +1303,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true/*align32*/, true/*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i=0; i<NUM_XMM_SAVED; i++) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
             APP(ilist, instr_create_1dst_1src
                 (dcontext, opcode, opnd_create_reg
                  (REG_SAVED_XMM0 + (reg_id_t)i),
@@ -1504,7 +1521,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true/*align32*/, true/*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i=0; i<NUM_XMM_SAVED; i++) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
             APP(ilist, instr_create_1dst_1src
                 (dcontext, opcode,
                  OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,

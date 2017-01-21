@@ -78,6 +78,12 @@
 
 /***************************************************************************/
 
+void
+mangle_arch_init(void)
+{
+    /* Nothing yet. */
+}
+
 /* Convert a short-format CTI into an equivalent one using
  * near-rel-format.
  * Remember, the target is kept in the 0th src array position,
@@ -301,7 +307,7 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr)
 {
     /* clear eflags for callee's usage */
-    if (cci == NULL || !cci->skip_clear_eflags) {
+    if (cci == NULL || !cci->skip_clear_flags) {
         if (dynamo_options.cleancall_ignore_eflags) {
             /* we still clear DF since some compiler assumes
              * DF is cleared at each function.
@@ -335,9 +341,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     int  offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_xmms_skip != NUM_XMM_REGS) {
+    if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
         int offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
-        if (cci->preserve_mcontext && cci->skip_save_aflags) {
+        if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2*XSP_SZ; /* pc and flags */
             offs += offs_beyond_xmm;
         }
@@ -361,8 +367,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i=0; i<NUM_XMM_SAVED; i++) {
-            if (!cci->xmm_skip[i]) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
+            if (!cci->simd_skip[i]) {
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode,
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0,
@@ -376,7 +382,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
     }
     /* pc and aflags */
-    if (!cci->skip_save_aflags) {
+    if (!cci->skip_save_flags) {
         ASSERT(offs_beyond_xmm == 0);
         if (opnd_is_immed_int(push_pc))
             PRE(ilist, instr, INSTR_CREATE_push_imm(dcontext, push_pc));
@@ -430,8 +436,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
     dstack_offs += 8 * XSP_SZ;
 #endif
-    ASSERT(cci->skip_save_aflags   ||
-           cci->num_xmms_skip != 0 ||
+    ASSERT(cci->skip_save_flags    ||
+           cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
     return dstack_offs;
@@ -490,7 +496,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #else
     PRE(ilist, instr, INSTR_CREATE_popa(dcontext));
 #endif
-    if (!cci->skip_save_aflags) {
+    if (!cci->skip_save_flags) {
         PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
         offs_beyond_xmm = XSP_SZ; /* pc */;
     } else if (cci->preserve_mcontext) {
@@ -504,8 +510,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          * is better. */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i=0; i<NUM_XMM_SAVED; i++) {
-            if (!cci->xmm_skip[i]) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
+            if (!cci->simd_skip[i]) {
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                      opnd_create_base_disp(REG_XSP, REG_NULL, 0,
@@ -3015,12 +3021,12 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     dst = instr_get_dst(instr, 0);
     dst_sz = opnd_get_size(dst);
     opnd = opnd_create_sized_tls_slot
-        (os_tls_offset(os_get_app_tls_reg_offset(seg)), dst_sz);
+        (os_tls_offset(os_get_app_tls_reg_offset(seg)), OPSZ_2);
     if (opnd_is_reg(dst)) { /* dst is a register */
         /* mov %gs:off => reg */
         instr_set_src(instr, 0, opnd);
         instr_set_opcode(instr, OP_mov_ld);
-        if (IF_X64_ELSE((dst_sz == OPSZ_8), false))
+        if (dst_sz != OPSZ_2)
             instr_set_opcode(instr, OP_movzx);
     } else { /* dst is memory, need steal a register. */
         reg_id_t reg;
@@ -3052,15 +3058,12 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             IF_X64(reg = reg_64_to_32(reg);)
             reg = reg_32_to_16(reg);
             break;
-        case OPSZ_1:
-            IF_X64(reg = reg_64_to_32(reg);)
-            reg = reg_32_to_8(reg);
         default:
             ASSERT(false);
         }
         /* mov %gs:off => reg */
         ti = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg), opnd);
-        if (IF_X64_ELSE((dst_sz == OPSZ_8), false))
+        if (dst_sz != OPSZ_2)
             instr_set_opcode(ti, OP_movzx);
         PRE(ilist, instr, ti);
         /* change mov_seg to mov_st: mov reg => [mem] */

@@ -177,25 +177,27 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBP
         pop      REG_XBX
         ret
-#elif defined(ARM)
+#elif defined(AARCHXX)
         b        test1
         /* Test 1: test the fast circular buffer */
      test1:
-        movw     TEST_REG_ASM, DRX_BUF_TEST_1_ASM
-        movw     TEST_REG_ASM, DRX_BUF_TEST_1_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_1_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_1_ASM
         b        test2
         /* Test 2: test the slow circular buffer */
      test2:
-        movw     TEST_REG_ASM, DRX_BUF_TEST_2_ASM
-        movw     TEST_REG_ASM, DRX_BUF_TEST_2_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_2_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_2_ASM
         b        test3
         /* Test 3: test the faulting buffer */
      test3:
-        movw     TEST_REG_ASM, DRX_BUF_TEST_3_ASM
-        movw     TEST_REG_ASM, DRX_BUF_TEST_3_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_3_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_3_ASM
         b        epilog1
     epilog1:
-        bx       lr
+        RETURN
+#else
+# error NYI
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -230,20 +232,22 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBP
         pop      REG_XBX
         ret
-#elif defined(ARM)
+#elif defined(AARCHXX)
         b        test4
         /* Test 4: test store registers */
      test4:
-        movw     TEST_REG_ASM, DRX_BUF_TEST_4_ASM
-        movw     TEST_REG_ASM, DRX_BUF_TEST_4_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_4_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_4_ASM
         b        test5
         /* Test 5: test store immediates */
      test5:
-        movw     TEST_REG_ASM, DRX_BUF_TEST_5_ASM
-        movw     TEST_REG_ASM, DRX_BUF_TEST_5_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_5_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_5_ASM
         b        epilog2
     epilog2:
-        bx       lr
+        RETURN
+#else
+# error NYI
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

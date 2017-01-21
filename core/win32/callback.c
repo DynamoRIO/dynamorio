@@ -1373,7 +1373,8 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     if (push_pc2 != NULL)
         *((ptr_uint_t*)push_pc2) = (ptr_uint_t)no_cleanup;
 
-    ASSERT(pc - start_pc < PAGE_SIZE && "adjust REL32_REACHABLE for alternate_after");
+    ASSERT((size_t)(pc - start_pc) < PAGE_SIZE &&
+           "adjust REL32_REACHABLE for alternate_after");
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -4512,7 +4513,7 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
         TESTALL(CONTEXT_XMM_FLAG, context->ContextFlags)) {
         int i, j;
         byte *ymmh_area;
-        for (i=0; i<NUM_XMM_SAVED; i++) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
             LOG(file, LOG_ASYNCH, 2, "xmm%d=0x", i);
             /* This would be simpler if we had uint64 fields in dr_xmm_t but
              * that complicates our struct layouts */
@@ -6647,7 +6648,7 @@ intercept_load_dll(app_state_at_intercept_t *state)
     LOG(GLOBAL, LOG_VMAREAS, 1, "intercept_load_dll: %S\n", name->Buffer);
     LOG(GLOBAL, LOG_VMAREAS, 2, "\tpath=%S\n",
         /* win8 LdrLoadDll seems to take small integers instead of paths */
-        ((ptr_int_t)path <= PAGE_SIZE) ? L"NULL" : path);
+        ((ptr_int_t)path <= (ptr_int_t)PAGE_SIZE) ? L"NULL" : path);
     LOG(GLOBAL, LOG_VMAREAS, 2, "\tcharacteristics=%d\n",
         characteristics ? *characteristics : 0);
     ASSERT(should_intercept_LdrLoadDll());

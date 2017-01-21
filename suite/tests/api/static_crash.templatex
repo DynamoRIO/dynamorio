@@ -1,0 +1,7 @@
+pre-DR init
+in dr_client_main
+#ifdef DEBUG
+<Crashing the process deliberately!>
+#endif
+.*Tool internal crash at PC.*
+Got SIGSEGV in app handler.

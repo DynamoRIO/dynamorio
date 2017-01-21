@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,7 +34,7 @@
 #include "tools.h"
 
 #define BUF_LEN 160 /* nice somewhat arbitrary length */
-#define BUF2_LEN 3*PAGE_SIZE
+#define BUF2_LEN 3*4096
 
 static char buf[BUF_LEN];
 static char buf2[BUF2_LEN];

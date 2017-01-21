@@ -47,17 +47,23 @@ droption_t<std::string> op_ipc_name
  "For online tracing and simulation (the default, unless -offline is requested), "
  "specifies the base name of the named pipe used to communicate between the target "
  "application processes and the caching device simulator.  A unique name must be chosen "
- "for each instance of the simulator being run at any one time.");
+ "for each instance of the simulator being run at any one time.  On Windows, the name "
+ "is limited to 247 characters.");
 
 droption_t<std::string> op_outdir
 (DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
  "For the offline analysis mode (when -offline is requested), specifies the path "
  "to a directory where per-thread trace files will be written.");
 
+droption_t<std::string> op_indir
+(DROPTION_SCOPE_ALL, "indir", "", "Offline directory of raw data for input",
+ "After a trace file is produced via -offline into -outdir, it can be passed to the "
+ "simulator via this flag pointing at the subdirectory created in -outdir.");
+
 droption_t<std::string> op_infile
 (DROPTION_SCOPE_ALL, "infile", "", "Offline trace file for input to the simulator",
- "After a trace file is produced via -offline into -outdir, it can be passed to the "
- "simulator via this flag.");
+ "Directs the simulator to use a trace file (not a raw data file from -offline: "
+ "such a file neeeds to be converted via drposttrace or -indir first).");
 
 droption_t<unsigned int> op_num_cores
 (DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",
@@ -105,6 +111,20 @@ droption_t<unsigned int> op_virt2phys_freq
  "ignored in order to re-access the actual mapping and ensure accurate results.  "
  "The units are the number of memory accesses per forced access.  A value of 0 "
  "uses the cached values for the entire application execution.");
+
+droption_t<bytesize_t> op_max_trace_size
+(DROPTION_SCOPE_CLIENT, "max_trace_size", 0, "Cap on the raw trace size for each thread",
+ "If non-zero, this sets a maximum size on the amount of raw trace data gathered "
+ "for each thread.  This is not an exact limit: it may be exceeded by the size "
+ "of one internal buffer.  Once reached, instrumentation continues for that thread, "
+ "but no further data is recorded.");
+
+droption_t<bool> op_online_instr_types
+(DROPTION_SCOPE_CLIENT, "online_instr_types", false,
+ "Whether online traces should distinguish instr types",
+ "By default, offline traces include some information on the types of instructions, "
+ "branches in particular.  For online traces, this comes at a performance cost, so "
+ "it is turned off by default.");
 
 droption_t<std::string> op_replace_policy
 (DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
@@ -195,3 +215,15 @@ droption_t<bytesize_t> op_sim_refs
  "Specifies the number of memory references simulated. "
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
+
+droption_t<unsigned int> op_report_top
+(DROPTION_SCOPE_FRONTEND, "report_top", 10,
+ "Number of top results to be reported",
+ "Specifies the number of top results to be reported.");
+
+droption_t<unsigned int> op_reuse_distance_threshold
+(DROPTION_SCOPE_FRONTEND, "reuse_distance_threshold", 100,
+ "The reuse distance threshold for reporting the distant repeated references.",
+ "Specifies the reuse distance threshold for reporting the distant repeated references. "
+ "A reference is a distant repeated reference if the distance to the previous reference"
+ " on the same cache line exceeds the threshold.");

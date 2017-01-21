@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3922,9 +3922,10 @@
 
 /* 3 implicit destinations, 1 source */
 #define INSTR_CREATE_cpuid(dc) \
-  instr_create_4dst_1src((dc), OP_cpuid, opnd_create_reg(DR_REG_EAX), \
+  instr_create_4dst_2src((dc), OP_cpuid, opnd_create_reg(DR_REG_EAX), \
     opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
-    opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
+    opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX), \
+    opnd_create_reg(DR_REG_ECX))
 /* @} */ /* end doxygen group */
 
 /* 3 implicit destinations, 3 implicit sources */

@@ -1149,7 +1149,7 @@ redirect_CreatePipe(
     UNICODE_STRING us = {0,};
     IO_STATUS_BLOCK iob = {0,0};
     ACCESS_MASK access = SYNCHRONIZE | GENERIC_READ | FILE_WRITE_ATTRIBUTES;
-    DWORD size = (nSize != 0) ? nSize : PAGE_SIZE; /* default size */
+    DWORD size = (nSize != 0) ? nSize : (DWORD)PAGE_SIZE; /* default size */
     LARGE_INTEGER timeout;
     wchar_t wbuf[MAX_PATH];
     static uint pipe_counter;

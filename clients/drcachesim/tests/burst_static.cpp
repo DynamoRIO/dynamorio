@@ -34,12 +34,15 @@
  * a "burst" of execution in the middle of the application.  It then detaches.
  */
 
+/* We deliberately do not include configure.h here to simulate what an
+ * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
+ * for us.
+ */
+#include "dr_api.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
-
-#include "dr_api.h"
 
 bool
 my_setenv(const char *var, const char *value)
@@ -52,10 +55,10 @@ my_setenv(const char *var, const char *value)
 }
 
 static int
-do_some_work(int i)
+do_some_work(int arg)
 {
     static int iters = 512;
-    double val = (double)i;
+    double val = (double)arg;
     for (int i = 0; i < iters; ++i) {
         val += sin(val);
     }
@@ -70,7 +73,8 @@ main(int argc, const char *argv[])
     static int iter_start = outer_iters/3;
     static int iter_stop = iter_start + 4;
 
-    my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'");
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
+        std::cerr << "failed to set env var!\n";
 
     std::cerr << "pre-DR init\n";
     dr_app_setup();
@@ -95,3 +99,29 @@ main(int argc, const char *argv[])
     std::cerr << "all done\n";
     return 0;
 }
+
+/* FIXME i#2099: the weak symbol is not supported on Windows. */
+#if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
+# ifdef __cplusplus
+extern "C" {
+# endif
+
+/* Test if the drmemtrace_client_main() in drmemtrace will be called. */
+DR_EXPORT WEAK void
+drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
+{
+    std::cerr << "wrong drmemtrace_client_main\n";
+}
+
+/* This dr_client_main should be called instead of the one in tracer.cpp */
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    std::cerr << "app dr_client_main\n";
+    drmemtrace_client_main(id, argc, argv);
+}
+
+# ifdef __cplusplus
+}
+# endif
+#endif  /* UNIX && TEST_APP_DR_CLIENT_MAIN */

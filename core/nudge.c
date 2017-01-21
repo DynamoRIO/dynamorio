@@ -517,7 +517,7 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
 
     hthread = our_create_thread(hproc, IF_X64_ELSE(true, false), nudge_target,
                                 NULL, &nudge_arg, sizeof(nudge_arg_t),
-                                15*PAGE_SIZE, 12*PAGE_SIZE, false, NULL);
+                                15*(uint)PAGE_SIZE, 12*(uint)PAGE_SIZE, false, NULL);
     ASSERT(hthread != INVALID_HANDLE_VALUE);
     if (hthread == INVALID_HANDLE_VALUE)
         return DR_FAILURE;

@@ -336,7 +336,8 @@ utf16_to_utf8_size(const wchar_t *src, size_t max_chars, size_t *written/*unicod
 typedef enum _specifier_t {
     SPEC_INT,
     SPEC_CHAR,
-    SPEC_STRING
+    SPEC_STRING,
+    SPEC_CHARSET, /* [xyz] */
 } specifer_t;
 
 typedef enum _int_sz_t {
@@ -360,6 +361,36 @@ our_isspace(int c)
 {
     return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' ||
             c == '\v');
+}
+
+/* Takes the charset *after* any leading '^'. */
+static bool
+in_charset_helper(const char *charset_proper, int c)
+{
+    const char *fp = charset_proper;
+    while (*fp != ']' ||
+           fp == charset_proper/* initial ']' does not terminate */) {
+        if (c == *fp)
+            return true;
+        fp++;
+        /* Handle a range, checking for trailing '-'. */
+        if (*fp == '-' && *(fp + 1) != ']') {
+            if (c >= *(fp - 1) && c <= *(fp + 1))
+                return true;
+            fp += 2;
+        }
+    }
+    return false;
+}
+
+static bool
+in_charset(const char *charset, int c)
+{
+    const char *fp = charset;
+    if (*fp == '^')
+        return !in_charset_helper(fp + 1, c);
+    else
+        return in_charset_helper(fp, c);
 }
 
 const char *
@@ -459,6 +490,7 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
         bool is_signed = false;
         bool is_ignored = false;
         uint width = 0;
+        const char *charset = NULL;
 
         /* Handle literal characters and spaces up front. */
         c = *fp++;
@@ -558,6 +590,22 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
             case 's':
                 spec = SPEC_STRING;
                 goto spec_done;
+            case '[':
+                spec = SPEC_CHARSET;
+                charset = fp;
+                /* Validate the charset */
+                if (*fp == '^')
+                    fp++;
+                /* ']' is legal as the first char and doesn't close the set there. */
+                if (*fp == ']')
+                    fp++;
+                while (*fp != ']' && *fp != '\0')
+                    fp++;
+                if (*fp != ']') {
+                    CLIENT_ASSERT(false, "dr_sscanf: invalid [] specifier");
+                    return num_parsed;  /* error */
+                }
+                goto spec_done;
             /* XXX: Specifiers we could add support for:
              * - o: octal integer
              * - g, e, f: floating point
@@ -592,9 +640,8 @@ spec_done:
                         *str_out++ = *sp++;
                         i++;
                     }
-                    /* Spec says only null terminate if we hit width. */
-                    if (i < width)
-                        *str_out = '\0';
+                    /* Spec says to null terminate even after we hit width. */
+                    *str_out = '\0';
                 } else {
                     while (*sp != '\0' && !our_isspace(*sp)) {
                         *str_out++ = *sp++;
@@ -628,6 +675,26 @@ spec_done:
             }
             break;
         }
+        case SPEC_CHARSET:
+            if (is_ignored) {
+                while (*sp != '\0' && in_charset(charset, *sp))
+                    sp++;
+            } else {
+                char *str_out = va_arg(ap, char*);
+                if (width > 0) {
+                    uint i = 0;
+                    while (i < width && *sp != '\0' && in_charset(charset, *sp)) {
+                        *str_out++ = *sp++;
+                        i++;
+                    }
+                    *str_out = '\0';
+                } else {
+                    while (*sp != '\0' && in_charset(charset, *sp))
+                        *str_out++ = *sp++;
+                    *str_out = '\0';
+                }
+            }
+            break;
         default:
             /* Format parsing code above should return an error earlier. */
             ASSERT_NOT_REACHED();
@@ -727,7 +794,7 @@ test_sscanf_all_specs(void)
 {
     int res;
     char ch;
-    char str[16];
+    char str[128];
     int signed_int;
     int signed_int_2;
     uint unsigned_int;
@@ -763,9 +830,10 @@ test_sscanf_all_specs(void)
     res = our_sscanf("abcdefghijklmnopqrstuvwxyz",
                      "%13s", str);
     EXPECT(res, 1);
-    /* our_sscanf should read 13 chars without null termination. */
+    /* our_sscanf should read 13 chars and add null termination. */
     EXPECT(memcmp(str, "abcdefghijklm", 13), 0);
-    EXPECT(str[13], '*');  /* Asterisk should still be there. */
+    EXPECT(str[13], '\0');
+    EXPECT(str[14], '*');  /* Asterisk should still be there. */
 
     /* Test width specifications for integers. */
     res = our_sscanf("123456 0x9abc", "%03d%03d %03xc",
@@ -788,6 +856,29 @@ test_sscanf_all_specs(void)
     EXPECT(res, 2);
     EXPECT(signed_int, 1234);
     EXPECT((ull_num == ULLONG_MAX), true);
+
+    /* Test [] charsets. */
+    res = our_sscanf("aacaadaac", "%[abc]", str);
+    EXPECT(res, 1);
+    EXPECT(strcmp(str, "aacaa"), 0);
+    res = our_sscanf("abcd.%[]/\\^4xyz", "%[^0-9]", str);
+    EXPECT(res, 1);
+    EXPECT(strcmp(str, "abcd.%[]/\\^"), 0);
+    res = our_sscanf("abcd.%[]/\\^4xyz", "%8[^0-9]", str);
+    EXPECT(res, 1);
+    EXPECT(strcmp(str, "abcd.%[]"), 0);
+    res = our_sscanf("32495873-23489---34---00a0", "%[0-9-]", str);
+    EXPECT(res, 1);
+    EXPECT(strcmp(str, "32495873-23489---34---00"), 0);
+    res = our_sscanf("]3249587]3-23489---34---00a0", "%[]0-9-]", str);
+    EXPECT(res, 1);
+    EXPECT(strcmp(str, "]3249587]3-23489---34---00"), 0);
+    res = our_sscanf("abcd.%[]/\\^4xyz", "%[^]]", str);
+    EXPECT(res, 1);
+    EXPECT(strcmp(str, "abcd.%["), 0);
+    res = our_sscanf("line\v\r\nline\r\n", "%[^\r\n]", str);
+    EXPECT(res, 1);
+    EXPECT(strcmp(str, "line\v"), 0);
 
     /* FIXME: When parse_int has range checking, we should add tests for parsing
      * integers that overflow their requested integer sizes.

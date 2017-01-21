@@ -194,12 +194,47 @@ DECLARE_CXTSWPROT_VAR(read_write_lock_t options_lock, INIT_READWRITE_LOCK(option
 
 /* INITIALIZATION */
 
+static void
+adjust_defaults_for_page_size(options_t *options)
+{
+#ifndef NOT_DYNAMORIO_CORE /* XXX: clumsy fix for Windows */
+    uint page_size = (uint)PAGE_SIZE;
+
+    /* The defaults are known to be appropriate for 4 KiB pages. */
+    if (page_size == 4096)
+        return;
+
+    /* XXX: This approach is not scalable or maintainable as there may in
+     * future be many more options that depend on the page size.
+     */
+
+    /* Some of these are a small multiple of the page size because they include
+     * one or two guard pages.
+     */
+    options->vmm_block_size =
+        ALIGN_FORWARD(options->vmm_block_size, page_size);
+    options->stack_size =
+        MAX(ALIGN_FORWARD(options->stack_size, page_size), 2 * page_size);
+    options->initial_heap_unit_size =
+        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size),
+            3 * page_size);
+    options->initial_global_heap_unit_size =
+        MAX(ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size),
+            3 * page_size);
+    options->heap_commit_increment =
+        ALIGN_FORWARD(options->heap_commit_increment, page_size);
+    options->cache_commit_increment =
+        ALIGN_FORWARD(options->cache_commit_increment, page_size);
+#endif /* !NOT_DYNAMORIO_CORE */
+}
+
 /* sets defaults just like the above initialization */
 CORE_STATIC void
 set_dynamo_options_defaults(options_t *options)
 {
     ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options, &options_lock);
     *options = default_options;
+    adjust_defaults_for_page_size(options);
 }
 #undef OPTION_COMMAND_INTERNAL
 
@@ -866,6 +901,12 @@ check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
 #ifdef EXPOSE_INTERNAL_OPTIONS
+    if (DYNAMO_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
+        USAGE_ERROR("vmm_block_size (%d) must be >= %d, setting to min",
+                    DYNAMO_OPTION(vmm_block_size), MIN_VMM_BLOCK_SIZE);
+        dynamo_options.vmm_block_size = MIN_VMM_BLOCK_SIZE;
+        changed_options = true;
+    }
     if (!INTERNAL_OPTION(inline_calls) && !DYNAMO_OPTION(disable_traces)) {
         /* cannot disable inlining of calls and build traces (currently) */
         USAGE_ERROR("-no_inline_calls not compatible with -disable_traces, setting to default");
@@ -1920,15 +1961,17 @@ check_option_compatibility_helper(int recurse_count)
 #endif
 
 #if defined(UNIX) && defined(CLIENT_INTERFACE)
-# if defined(ARM) || defined(LINUX)
+# if (defined(ARM) || defined(LINUX)) && !defined(STATIC_LIBRARY)
     if (!INTERNAL_OPTION(private_loader)) {
         /* On ARM, to make DR work in gdb, we must use private loader to make
          * the TLS format match what gdb wants to see.
          * On Linux, we just don't want the libdl.so dependence for -early.
          */
-        USAGE_ERROR("-private_loader must be true on ARM or on Linux");
-        dynamo_options.private_loader = true;
-        changed_options = true;
+        if (IF_ARM_ELSE(true, DYNAMO_OPTION(early_inject))) {
+            USAGE_ERROR("-private_loader must be true on ARM or on Linux");
+            dynamo_options.private_loader = true;
+            changed_options = true;
+        }
     }
 # endif
     if (INTERNAL_OPTION(private_loader)) {
@@ -2066,6 +2109,7 @@ options_init()
     write_lock(&options_lock);
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* get dynamo options */
+    adjust_defaults_for_page_size(&dynamo_options);
     retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
                            sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))

@@ -38,8 +38,20 @@
 # endif
 #endif
 
-#define TEST_REG IF_X86_ELSE(DR_REG_XDX, DR_REG_R4)
-#define TEST_REG_ASM IF_X86_ELSE(REG_XDX, r4)
+#ifdef X86
+# define TEST_REG DR_REG_XDX
+# define TEST_REG_ASM REG_XDX
+#endif
+
+#ifdef ARM
+# define TEST_REG DR_REG_R4
+# define TEST_REG_ASM r4
+#endif
+
+#ifdef AARCH64
+# define TEST_REG DR_REG_X4
+# define TEST_REG_ASM x4
+#endif
 
 /* Immediates that we look for in the app code to identify places for
  * specific tests in the client.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,26 +34,127 @@
 #include <windows.h>
 #include "named_pipe.h"
 
-bool
-named_pipe_t::named_pipe_t(const char *name) :
-    fd(INVALID_HANDLE_VALUE), named_pipe("\\\\.\\pipe\\" + name)
+#define MAX_NAME_LEN 256 // From CreateNamedPipe docs.
+#define ALLOC_UNIT (64*1025)
+#define OUT_BUFSZ  (16*ALLOC_UNIT)
+#define IN_BUFSZ   OUT_BUFSZ
+
+named_pipe_t::named_pipe_t() :
+    fd(INVALID_HANDLE_VALUE)
 {
+    // Empty.
+}
+
+named_pipe_t::named_pipe_t(const char *name) :
+    fd(INVALID_HANDLE_VALUE)
+{
+    set_name(name);
+}
+
+named_pipe_t::~named_pipe_t()
+{
+    if (fd != INVALID_HANDLE_VALUE)
+        close();
+}
+
+bool
+named_pipe_t::set_name(const char *name)
+{
+    if (fd == INVALID_HANDLE_VALUE) {
+        pipe_name = std::string("\\\\.\\pipe\\") + name;
+        // The total is limited to 256 chars.
+        if (pipe_name.size() > MAX_NAME_LEN)
+            pipe_name.resize(MAX_NAME_LEN);
+        return true;
+    }
+    return false;
 }
 
 bool
 named_pipe_t::create()
 {
-    // FIXME i#1727: NYI
-    // We should document the 256 char limit on path name.
-    HANDLE pipe = CreateNamedPipeA(named_pipe.c_str(),
-                                   PIPE_ACCESS...);
+    fd = CreateNamedPipeA(pipe_name.c_str(), PIPE_ACCESS_INBOUND,
+                          PIPE_TYPE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES,
+                          OUT_BUFSZ, IN_BUFSZ, 0, NULL);
+    return (fd != INVALID_HANDLE_VALUE);
+}
+
+bool
+named_pipe_t::destroy()
+{
+    return close();
 }
 
 bool
 named_pipe_t::open_for_read()
 {
-    HANDLE pipe = CreateFileA("\\\\.\\pipe\\" + name, PIPE_ACCESS...);
-    // FIXME i#1727: NYI
+    if (fd == INVALID_HANDLE_VALUE) {
+        fd = CreateFileA(pipe_name.c_str(), GENERIC_READ,
+                         FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        return (fd != INVALID_HANDLE_VALUE);
+    } else {
+        // This may block.
+        BOOL res = ConnectNamedPipe(fd, NULL);
+        return res == TRUE;
+    }
+}
+
+bool
+named_pipe_t::open_for_write()
+{
+    if (fd == INVALID_HANDLE_VALUE) {
+        fd = CreateFileA(pipe_name.c_str(), GENERIC_WRITE,
+                         FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        // FIXME i#1727: support multiple processes.  We get ERROR_PIPE_BUSY if
+        // a 2nd process connects to the same pipe instance, so we need an array
+        // of instances (we'll have to set a maximum) and to use overlapped i/o
+        // and have read() wait on an event for each pipe instance (or, use a
+        // separate thread per app process, but that significantly changes our
+        // design).
+        return (fd != INVALID_HANDLE_VALUE) ;
+    } else {
+        // This may block.
+        BOOL res = ConnectNamedPipe(fd, NULL);
+        return res == TRUE;
+    }
+}
+
+bool
+named_pipe_t::close()
+{
+    BOOL res = CloseHandle(fd);
+    return res == TRUE;
+}
+
+bool
+named_pipe_t::maximize_buffer()
+{
+    // We specified the buffer sizes in create().
+    return true;
+}
+
+ssize_t
+named_pipe_t::read(void *buf OUT, size_t sz)
+{
+    DWORD actual;
+    BOOL res = ReadFile(fd, buf, (DWORD)sz, &actual, NULL);
+    if (!res)
+        return -1;
+    else
+        return actual;
+}
+
+ssize_t
+named_pipe_t::write(const void *buf IN, size_t sz)
+{
+    DWORD actual;
+    BOOL res = WriteFile(fd, buf, (DWORD)sz, &actual, NULL);
+    if (!res)
+        return -1;
+    else
+        return actual;
 }
 
 const ssize_t
@@ -62,12 +163,3 @@ named_pipe_t::get_atomic_write_size() const
     // FIXME i#1727: what's the atomic pipe write limit?
     return 512; // POSIX.1-2001 limit
 }
-
-bool
-named_pipe_t::~named_pipe_t()
-{
-    if (fd != INVALID_HANDLE_VALUE)
-        close();
-}
-
-// FIXME i#1727: rest NYI

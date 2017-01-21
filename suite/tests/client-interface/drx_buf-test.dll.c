@@ -161,7 +161,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (!instr_is_label(inst))
         return DR_EMIT_DEFAULT;
 
+#ifdef X86
     scratch = reg_resize_to_opsz(scratch, OPSZ_4);
+#endif
     if (subtest == DRX_BUF_TEST_1_C) {
         /* testing fast circular buffer */
         /* test to make sure that on first invocation, the buffer is empty */
@@ -312,7 +314,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                  opnd_create_immed_int(0x48474645, OPSZ_4)));
 #else
         instrlist_insert_mov_immed_ptrsz(drcontext, 0x48474645,
-                                         opnd_create_reg(scratch),
+                                         opnd_create_reg(reg_resize_to_opsz
+                                                         (scratch, OPSZ_PTR)),
                                          bb, inst, NULL, NULL);
 #endif
         drx_buf_insert_buf_store(drcontext, circular_fast, bb, inst, reg_ptr,

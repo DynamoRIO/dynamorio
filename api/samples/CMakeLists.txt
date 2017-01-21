@@ -204,7 +204,7 @@ configure_DynamoRIO_global(OFF ON)
 # Use ;-separated lists for source files and extensions.
 
 if (NOT AARCH64) # FIXME i#1569: port to AArch64
-  add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg")
+  add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 endif ()
 add_sample_client(bbsize      "bbsize.c"        "drmgr")
 add_sample_client(empty       "empty.c"         "")

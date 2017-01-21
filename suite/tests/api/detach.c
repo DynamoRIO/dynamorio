@@ -36,14 +36,17 @@
 #include <math.h>
 #include <stdint.h>
 #include "configure.h"
-#include "dr_api.h"
-#include "tools.h"
-#include "condvar.h"
 #ifdef WINDOWS
+/* Ensure the ConditionVariable routines are pulled in when using >VS2010 */
+# undef _WIN32_WINNT
+# define _WIN32_WINNT 0x0600
 # include <windows.h>
 #else
 # include <pthread.h>
 #endif
+#include "dr_api.h"
+#include "tools.h"
+#include "condvar.h"
 
 #define VERBOSE 0
 
