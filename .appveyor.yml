@@ -30,18 +30,32 @@
 
 # AppVeyor CI configuration:
 
-# Download source archive instead of cloning entire repository history.
-shallow_clone: true
+notifications:
+  - provider: Email
+    to:
+      - dynamorio-devs@googlegroups.com
+    on_build_success: false
+    on_build_failure: true
+    on_build_status_changed: true
+
+# We don't do a shallow clone of just the source archive as we want to get
+# the diff for source file checks.
+# We do limit to the last few commits to speed things up:
+clone_depth: 10
 
 platform: x64
 
-os:
-  - Visual Studio 2010 Service Pack 1
+image: Visual Studio 2013
 
 build:
   verbosity: detailed
 
+configuration:
+  - 2010
+  - 2013
+
 install:
+  ##################################################
   # Install ninja so we have readable output.
   - mkdir c:\projects\install
   - cd c:\projects\install
@@ -49,9 +63,31 @@ install:
   - 7z x ninja-win.zip -oc:\projects\install\ninja > nul
   - set PATH=c:\projects\install\ninja;%PATH%
 
+  ##################################################
+  # Install packages for docs.
+  - choco install -y doxygen.portable imagemagick.tool ghostscript
+  # The ghostscript package is an install that doesn't add to PATH.
+  # FIXME i#2145: fig2dev is failing to launch ghostscript, so for now
+  # we're disabling to get the initial AppVeyor to be green.
+  #- set PATH=C:\Program Files\gs\gs9.20\bin;%PATH%
+  # Install fig2dev.
+  - appveyor DownloadFile http://www.winfig.com/WinFIG-Dateien/WinFIG62.zip
+  - 7z x WinFIG62.zip > nul
+  - set PATH=c:\projects\install\WinFig;%PATH%
+
+  ##################################################
+  # XXX i#2145: point at Qt5 for testing drgui build.
+
 before_build:
-  - call "c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\vcvarsall.bat" x86
+  - if "%configuration%"=="2010" call "c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\vcvarsall.bat" x86
+  - if "%configuration%"=="2013" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
   - cd c:\projects\dynamorio
 
 build_script:
-  - perl suite/runsuite_wrapper.pl travis use_ninja
+  - mkdir build
+  - cd build
+  - echo %PATH%
+  # AppVeyor does not have the 64-bit toolchain installed for 2010.
+  - if "%configuration%"=="2010" set EXTRA_ARGS=32_only
+  # The perl in c:\perl can't open a pipe so we use cygwin perl.
+  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
