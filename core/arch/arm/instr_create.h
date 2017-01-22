@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -113,6 +113,16 @@
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_ldr((dc), (r), (m))
+
+/**
+ * This platform-independent macro creates an instr_t which loads 1 byte
+ * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
+ * destination register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_1byte_zext4(dc, r, m)  INSTR_CREATE_ldrb((dc), (r), (m))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
