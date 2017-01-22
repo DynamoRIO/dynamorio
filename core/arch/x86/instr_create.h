@@ -167,6 +167,16 @@
 #define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
 
 /**
+ * This platform-independent macro creates an instr_t which loads 1 byte
+ * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
+ * destination register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_1byte_zext4(dc, r, m)  INSTR_CREATE_movzx(dc, r, m)
+
+/**
  * This platform-independent macro creates an instr_t for a 1-byte
  * memory load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.

@@ -1314,6 +1314,16 @@ test_xinst_create(void *dc)
     byte *pc;
     reg_id_t reg = DR_REG_XDX;
     instr_t *ins1, *ins2;
+    /* load 1 byte zextend */
+    ins1 = XINST_CREATE_load_1byte_zext4
+        (dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1));
+    pc = instr_encode(dc, ins1, buf);
+    ASSERT(pc != NULL);
+    ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(ins1, ins2));
+    instr_reset(dc, ins1);
+    instr_reset(dc, ins2);
     /* load 1 byte */
     ins1 = XINST_CREATE_load_1byte
         (dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)), MEMARG(OPSZ_1));
