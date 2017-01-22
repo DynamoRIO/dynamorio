@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -58,7 +58,7 @@ endforeach (arg)
 if (arg_travis)
   # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
   # fixed, our Travis clang suite only builds and does not run tests.
-  if (NOT APPLE AND $ENV{CC} MATCHES "clang")
+  if (UNIX AND NOT APPLE AND "$ENV{CC}" MATCHES "clang")
     set(run_tests OFF)
     message("Detected a Travis clang suite: disabling running of tests")
   endif ()
