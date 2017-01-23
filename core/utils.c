@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4355,14 +4355,14 @@ test_date_conversion_day(dr_time_t *dr_time)
     }
 }
 
-/* some tests for double_print() and divide_uint64_print() */
+/* Tests for double_print(), divide_uint64_print(), and date routines. */
 void
 unit_test_utils(void)
 {
     char buf[128];
     uint c, d;
     const char *s;
-    uint64 t;
+    int t;
     dr_time_t dr_time;
 
 # define DO_TEST(a, b, p, percent, fmt, result)                           \
