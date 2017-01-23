@@ -692,7 +692,7 @@ find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *p
     if (prev != NULL &&
         instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg)) {
         if (tls && !spill &&
-            *prior_reg >= SCRATCH_REG0 && *prior_reg <= SCRATCH_REG3)
+            *prior_reg >= SCRATCH_REG0 && *prior_reg <= SCRATCH_REG_LAST)
             return prev;
     }
     *prior_reg = REG_NULL;
@@ -1522,7 +1522,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
          * of OP_blx.
          */
         (!instr_is_cti(instr) || reg != IBL_TARGET_REG)) {
-        ASSERT(reg >= SCRATCH_REG0 && reg <= SCRATCH_REG3);
+        ASSERT(reg >= SCRATCH_REG0 && reg <= SCRATCH_REG_LAST);
         slot = TLS_REG0_SLOT + sizeof(reg_t)*(reg - SCRATCH_REG0);
         DOLOG(4, LOG_INTERP, {
             dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1534,7 +1534,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
 
     if (reg == REG_NULL) {
         for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
-             reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
+             reg <= SCRATCH_REG_LAST; reg++, slot+=sizeof(reg_t)) {
             if (!instr_uses_reg(instr, reg) &&
                 /* not pick  IBL_TARGET_REG if instr is a cti */
                 (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
@@ -1544,12 +1544,12 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
     /* We can only try to pick a dead register if the scratch reg usage
      * allows so (e.g., not across the app instr).
      */
-    if (reg > SCRATCH_REG3 && dead_reg_ok) {
+    if (reg > SCRATCH_REG_LAST && dead_reg_ok) {
         /* Likely OP_ldm.  We'll have to pick a dead reg (non-ideal b/c a fault
          * could come in: i#400).
          */
         for (reg  = SCRATCH_REG0, slot = TLS_REG0_SLOT;
-             reg <= SCRATCH_REG3; reg++, slot+=sizeof(reg_t)) {
+             reg <= SCRATCH_REG_LAST; reg++, slot+=sizeof(reg_t)) {
             if (!instr_reads_from_reg(instr, reg, DR_QUERY_INCLUDE_ALL) &&
                 /* Ensure no conflict vs ind br mangling */
                 (!instr_is_cti(instr) || reg != IBL_TARGET_REG))
@@ -1563,7 +1563,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, bool dead_reg_ok,
      * and it's not allowed to have PC as a base reg (it's "unpredictable" at
      * least).  For stolen reg as base, we should split it up before calling here.
      */
-    if (reg > SCRATCH_REG3)
+    if (reg > SCRATCH_REG_LAST)
         reg = REG_NULL;
     if (scratch_slot != NULL)
         *scratch_slot = slot;

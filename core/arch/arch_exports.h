@@ -202,6 +202,11 @@ typedef struct _local_state_extended_t {
 # define SCRATCH_REG1             DR_REG_R1
 # define SCRATCH_REG2             DR_REG_R2
 # define SCRATCH_REG3             DR_REG_R3
+# ifdef AARCH64
+#  define SCRATCH_REG4            DR_REG_R4
+#  define SCRATCH_REG5            DR_REG_R5
+# endif
+# define SCRATCH_REG_LAST         IF_X64_ELSE(SCRATCH_REG5, SCRATCH_REG3)
 #endif /* X86/ARM */
 #define IBL_TARGET_REG           SCRATCH_REG2
 #define IBL_TARGET_SLOT          TLS_REG2_SLOT
