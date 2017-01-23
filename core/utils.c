@@ -3482,18 +3482,6 @@ get_random_seed(void)
     return random_seed;
 }
 
-/* NOTE - month is zero indexed */
-static const uint days_per_month_normal[12] =
-    {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-static const uint days_per_month_leap[12] =
-    {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-
-static bool
-year_is_leap_year(uint year)
-{
-    return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
-}
-
 /* millis is the number of milliseconds since Jan 1, 1601 (this is
  * the current UTC time).
  */
@@ -3501,8 +3489,9 @@ void
 convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
 {
     uint64 time = millis;
-    uint year, month;
-    bool leap_year;
+    uint days, year, month, q;
+
+#define DAYS_IN_400_YEARS (400 * 365 + 97)
 
     dr_time->milliseconds = (uint)(time % 1000);
     time /= 1000;
@@ -3511,49 +3500,58 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
     dr_time->minute = (uint)(time % 60);
     time /= 60;
     dr_time->hour = (uint)(time % 24);
-    /* FIXME - optimization - at this point we could move to a uint
-     * number_of_days which should be much faster in the later / and %
-     * operations than continuing to use LONGLONG time. */
     time /= 24;
+    /* Time is now number of days since 1 Jan 1601 (Gregorian).
+     * We rebase to 1 Mar 1600 (Gregorian) as this day immediately
+     * follows the irregular element in each cycle: 12-month cycle,
+     * 4-year cycle, 100-year cycle, 400-year cycle.
+     * Noon, 1 Jan 1601 is the start of Julian Day 2305814.
+     * Noon, 1 Mar 1600 is the start of Julian Day 2305508.
+     */
+    time += 2305814 - 2305508;
 
-    /* time is now num. of days since Mon. Jan. 1, 1601 */
-    dr_time->day_of_week = (uint)((time+1) % 7); /* Sun. is 0 */
+    /* Reduce modulo 400 years, which gets us into the range of a uint. */
+    year = 1600 + (uint)(time / DAYS_IN_400_YEARS) * 400;
+    days = (uint)(time % DAYS_IN_400_YEARS);
 
-    /* Since 1601 is the first year of a 400 year leap year cycle, we can use
-     * the following to figure out the correct year. NOTE the 100 year and 4
-     * year values are only correct if not crossing a 400 year of 100 year
-     * (respectively) alignment. */
-#define BASE_YEAR 1601
-    ASSERT(BASE_YEAR % 400 == 1); /* verify alignment */
-#define DAYS_IN_400_YEARS (400*365 + 97)
-#define DAYS_IN_100_YEARS (100*365 + 24)
-#define DAYS_IN_4_YEARS (4*365 + 1)
-    year = (uint)(BASE_YEAR + 400*(time / DAYS_IN_400_YEARS));
-    time %= DAYS_IN_400_YEARS;
-    year = (uint)(year + (100*(time / DAYS_IN_100_YEARS)));
-    time %= DAYS_IN_100_YEARS;
-    year = (uint)(year + (4*(time / DAYS_IN_4_YEARS)));
-    time %= DAYS_IN_4_YEARS;
-    year = (uint)(year + (time / 365));
-    time %= 365;
-    leap_year = year_is_leap_year(year);
-    dr_time->year = year;
+    /* The constants used in the rest of this function are difficult to
+     * get right, but the number of days in 400 years is small enough for
+     * us to test this code exhaustively, which we will, of course, do.
+     */
 
-    /* time is now num. of days since the first of the year */
-    month = 1;
-    while (month <= 12) {
-        uint days_in_month = leap_year ?
-            days_per_month_leap[month-1] :
-            days_per_month_normal[month-1];
-        if (time >= days_in_month) {
-            month++;
-            time -= days_in_month;
-        } else
-            break;
-    }
-    ASSERT (month != 13);
-    dr_time->month = month;
-    dr_time->day = (uint)(time+1); /* day, like month, is not zero indexed */
+    /* Sunday is 0, Monday is 1, ... 1 Mar 1600 was Wednesday. */
+    dr_time->day_of_week = (days + 3) % 7;
+
+    /* Determine century: divide by average number of days in a century,
+     * 36524.25 = 146097 / 4, rounding up because the long century comes last.
+     */
+    q = (days * 4 + 3) / 146097;
+    year += q * 100;
+    days -= q * 146097 / 4;
+
+    /* Determine year: divide by average number of days in a year,
+     * 365.25 = 1461 / 4, rounding up because the long year comes last.
+     * The average is 365.25 because we ignore the irregular year at the
+     * end of the century, which we can safely do because it is shorter.
+     */
+    q = (days * 4 + 3) / 1461;
+    year += q;
+    days -= q * 1461 / 4;
+
+    /* Determine month: divide by (31 + 30 + 31 + 30 + 31) / 5, with carefully tuned
+     * rounding to get the consecutive 31-day months in the right place. This works
+     * because the number of days in a month follows a cycle, starting in March:
+     * 31, 30, 31, 30, 31; 31, 30, 31, 30, 31; 31, ... This is followed by Februrary,
+     * of course, but that is not a problem because it is shorter rather than longer
+     * than expected. The values "2" and "2" are easiest to determine experimentally.
+     */
+    month = (days * 5 + 2) / 153;
+    days -= (month * 153 + 2) / 5;
+
+    /* Adjust for calendar year starting in January rather than March. */
+    dr_time->day = days + 1;
+    dr_time->month = month < 10 ? month + 3 : month - 9;
+    dr_time->year = month < 10 ? year : year + 1;
 }
 
 /* millis is the number of milliseconds since Jan 1, 1601 (this is
@@ -3562,35 +3560,21 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
 void
 convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT)
 {
-    uint days, month, year;
-    bool leap_year = year_is_leap_year(dr_time->year);
-
-    /* first get days this year */
-    days = dr_time->day - 1 /*1-based*/;
-    for (month = 1; month < dr_time->month; month++) {
-        uint days_in_month = leap_year ?
-            days_per_month_leap[month-1] :
-            days_per_month_normal[month-1];
-        days += days_in_month;
-    }
-
-    /* now add in days since Jan 1, 1601 */
-    year = dr_time->year;
-    year -= BASE_YEAR;
-
-    days += (year / 400) * DAYS_IN_400_YEARS;
-    year %= 400;
-
-    days += (year / 100) * DAYS_IN_100_YEARS;
-    year %= 100;
-
-    days += (year / 4) * DAYS_IN_4_YEARS;
-    year %= 4;
-
-    days += year * 365;
-
-    *millis = (((((uint64)days*24 + dr_time->hour)*60 + dr_time->minute)*60 +
-                dr_time->second)*1000 + dr_time->milliseconds);
+    /* Formula adapted from http://en.wikipedia.org/wiki/Julian_day.
+     * We rebase the input year from -4800 to +1600, and we rebase
+     * the output day from from 1 Mar -4800 (Gregorian) to 1 Jan 1601.
+     * Noon, 1 Mar 1600 (Gregorian) is the start of Julian Day 2305508.
+     * Noon, 1 Mar -4800 (Gregorian) is the start of Julian Day -32044.
+     * Noon, 1 Jan 1601 (Gregorian) is the start of Julian Day 2305814.
+     */
+    uint a = dr_time->month < 3 ? 1 : 0;
+    uint y = dr_time->year - a - 1600;
+    uint m = dr_time->month + 12 * a - 3;
+    uint64 days = ((dr_time->day + (153 * m + 2) / 5 +
+                    y / 4 - y / 100 + y / 400) + 365 * (uint64)y
+                   - 32045 + 2305508 + 32044 - 2305814);
+    *millis = ((((days * 24 + dr_time->hour) * 60 + dr_time->minute) * 60 +
+                dr_time->second) * 1000 + dr_time->milliseconds);
 }
 
 const uint crctab[] = {
@@ -4337,6 +4321,40 @@ profile_callers_exit()
 # endif
 # define printf(...) print_file(STDERR, __VA_ARGS__)
 
+static void
+test_date_conversion_millis(uint64 millis)
+{
+    dr_time_t dr_time;
+    uint64 res;
+    convert_millis_to_date(millis, &dr_time);
+    convert_date_to_millis(&dr_time, &res);
+    if (res != millis ||
+        dr_time.day_of_week != (millis / (24 * 60 * 60 * 1000) + 1) % 7 ||
+        dr_time.month < 1 || dr_time.month > 12 ||
+        dr_time.day < 1 || dr_time.day > 31 ||
+        dr_time.hour > 23 || dr_time.minute > 59 ||
+        dr_time.second > 59 || dr_time.milliseconds > 999) {
+        printf("FAIL : test_date_conversion_millis\n");
+        exit(-1);
+    }
+}
+
+static void
+test_date_conversion_day(dr_time_t *dr_time)
+{
+    uint64 millis;
+    dr_time_t res;
+    convert_date_to_millis(dr_time, &millis);
+    convert_millis_to_date(millis, &res);
+    if (res.year != dr_time->year || res.month != dr_time->month ||
+        res.day != dr_time->day ||
+        res.hour != dr_time->hour || res.minute != dr_time->minute ||
+        res.second != dr_time->second || res.milliseconds != dr_time->milliseconds) {
+        printf("FAIL : test_date_conversion_day\n");
+        exit(-1);
+    }
+}
+
 /* some tests for double_print() and divide_uint64_print() */
 void
 unit_test_utils(void)
@@ -4344,6 +4362,8 @@ unit_test_utils(void)
     char buf[128];
     uint c, d;
     const char *s;
+    uint64 t;
+    dr_time_t dr_time;
 
 # define DO_TEST(a, b, p, percent, fmt, result)                           \
     divide_uint64_print(a, b, percent, p, &c, &d);                        \
@@ -4389,6 +4409,32 @@ unit_test_utils(void)
     EXPECT(BOOLS_MATCH(1, 2), true);
     EXPECT(BOOLS_MATCH(2, 1), true);
     EXPECT(BOOLS_MATCH(1, -1), true);
+
+    /* Test each millisecond in first and last 100 seconds. */
+    for (t = 0; t < 100000; t++) {
+        test_date_conversion_millis(t);
+        test_date_conversion_millis(-t - 1);
+    }
+    /* Test each second in first and last day and a bit. */
+    for (t = 0; t < 100000; t++) {
+        test_date_conversion_millis(t * 1000);
+        test_date_conversion_millis(-(t * 1000) - 1);
+    }
+    /* Test each day from 1601 to 2148. */
+    for (t = 0; t < 200000; t++)
+        test_date_conversion_millis(t * 24 * 60 * 60 * 1000);
+    /* Test the first of each month from 1601 to 99999. */
+    dr_time.day_of_week = 0; /* not checked */
+    dr_time.day = 1;
+    dr_time.hour = 0;
+    dr_time.minute = 0;
+    dr_time.second = 0;
+    dr_time.milliseconds = 0;
+    for (t = 0; t < (99999 - 1601) * 12; t++) {
+        dr_time.year = 1601 + t / 12;
+        dr_time.month = 1 + t % 12;
+        test_date_conversion_day(&dr_time);
+    }
 }
 
 # undef printf
