@@ -327,8 +327,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     /* we cannot use a stack buffer for encoding since our stack on x64 linux
      * can be too far to reach from our heap
      */
-    byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
-                           HEAPACCT(ACCT_IR));
+    byte *buf = heap_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -344,7 +343,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
             SYSLOG_INTERNAL_WARNING("cannot encode %s", opcode_to_encoding_info
                                     (instr->opcode, instr_get_isa_mode(instr)
                                      _IF_ARM(false))->name);
-            heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
+            heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -353,8 +352,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     len = (int) (nxt - buf);
     CLIENT_ASSERT(len > 0 || instr_is_label(instr),
                   "encode instr for length/eflags error: zero length");
-    CLIENT_ASSERT(len < 32, "encode instr for length/eflags error: instr too long");
-    ASSERT_CURIOSITY(len >= 0 && len < 18);
+    CLIENT_ASSERT(len <= MAX_INSTR_LENGTH,
+                  "encode instr for length/eflags error: instr too long");
 
     /* do not cache encoding if mangle is false, that way we can have
      * non-cti-instructions that are pc-relative.
@@ -392,7 +391,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
+    heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
 
