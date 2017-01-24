@@ -58,8 +58,10 @@ static char cmp[] = "ABCDEFGHABCDEFGH";
 static char cmp[] = "ABCDEFGH";
 #endif
 
-static char test_copy[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZAWBCDEFGH";
-static int  copy_len[] = { 1, 2, 4, 8, 16, 32 };
+#ifndef AARCH64
+static const char test_copy[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZAWBCDEFGH";
+static const int  copy_len[] = { 1, 2, 4, 8, 16, 32 };
+#endif
 
 static drx_buf_t *circular_fast;
 static drx_buf_t *circular_slow;
@@ -123,6 +125,7 @@ verify_store(drx_buf_t *client)
     memset(buf_base, 0, drx_buf_get_buffer_size(drcontext, client));
 }
 
+#ifndef AARCH64
 static void
 verify_memcpy(drx_buf_t *client, int num_copied)
 {
@@ -132,6 +135,7 @@ verify_memcpy(drx_buf_t *client, int num_copied)
           "drx_buf_insert_buf_memcpy() did not correctly copy the bytes over");
     memset(buf_base, 0, drx_buf_get_buffer_size(drcontext, client));
 }
+#endif
 
 static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
@@ -355,6 +359,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_insert_clean_call(drcontext, bb, inst, verify_store, false, 1,
                              OPND_CREATE_INTPTR(circular_fast));
     } else if (subtest == DRX_BUF_TEST_6_C) {
+#ifndef AARCH64
         int32_t num_copy = copy_len[rand() % (sizeof(copy_len)/sizeof(copy_len[0]))];
 
         /* Currently, the fast circular buffer does not recommend variable-size
@@ -369,7 +374,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                          bb, inst, NULL, NULL);
         drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst,
                                   reg_ptr, scratch, num_copy);
-            /* We don't have to update the buffer pointer */
+        /* We don't have to update the buffer pointer */
         dr_insert_clean_call(drcontext, bb, inst, verify_memcpy, false, 2,
                              OPND_CREATE_INTPTR(circular_slow),
                              OPND_CREATE_INT32(num_copy));
@@ -382,10 +387,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                          bb, inst, NULL, NULL);
         drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst,
                                   reg_ptr, scratch, num_copy);
-            /* We don't have to update the buffer pointer */
+        /* We don't have to update the buffer pointer */
         dr_insert_clean_call(drcontext, bb, inst, verify_memcpy, false, 2,
                              OPND_CREATE_INTPTR(trace),
                              OPND_CREATE_INT32(num_copy));
+#else
+    /* FIXME i#1569: NYI on AArch64 */
+#endif
     }
 
     return DR_EMIT_DEFAULT;

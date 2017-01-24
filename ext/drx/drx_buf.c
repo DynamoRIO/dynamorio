@@ -688,15 +688,16 @@ drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
 {
     opnd_size_t opsz = opnd_size_from_bytes(len);
 
+#ifndef AARCH64
     if (len > sizeof(app_pc)) {
         /* slow path, we call into our personal memcpy() implementation */
-        /* XXX: We should elect to write our own memcpy() built in DR IR. This
-         * would potentially be slower than the glibc memcpy, but then we can
-         * incrementally update the buffer pointer so the user can recover
-         * from partial writes.
-         * XXX: It's also unlikely that if glibc's memcpy faults, we'd be able
-         * to recover from it -- an in-app fault will not be handled by us, and
-         * also the buffer pointer is not updated incrementally.
+        /* NOTE: This module is not yet finished for the below reasons.
+         * FIXME: We should elect to write our own memcpy(). This would potentially
+         * be slower than the glibc memcpy, but then we can incrementally update
+         * the buffer pointer so the user can recover from partial writes.
+         * FIXME i#50: It's also possible that if glibc's memcpy faults, we'd be
+         * unable to handle it -- a fault in a client lib will not be handled by us,
+         * and it's possible that memcpy could be inlined into a client lib.
          */
         dr_insert_clean_call(drcontext, ilist, where, (void *)memcpy, false, 3,
                              opnd_create_reg(dst), opnd_create_reg(src),
@@ -716,7 +717,7 @@ drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
              * load and store as normal but zextend the register in between. We
              * rely on little-endian behavior to do the right thing when storing
              * a word as opposed to a byte, as the first byte written is the
-             * least significant bit.
+             * least significant byte.
              * XXX: The load may fault if for example this read is along a page
              * boundary, but it's very unlkely and we ignore it for now. There
              * are no problems with the store, because even if we fault the
@@ -737,6 +738,10 @@ drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
         /* update buf pointer, so client does not have to */
         drx_buf_insert_update_buf_ptr(drcontext, buf, ilist, where, dst, src, len);
     }
+#else
+    /* FIXME i#1569: NYI on AArch64 */
+    DR_ASSERT_MSG(false, "i#1569 NYI");
+#endif
 }
 
 /* assumes that the instruction writes memory relative to some buffer pointer */
