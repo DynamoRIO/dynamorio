@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
@@ -4422,7 +4423,7 @@ unit_test_utils(void)
     }
     /* Test each day from 1601 to 2148. */
     for (t = 0; t < 200000; t++)
-        test_date_conversion_millis(t * 24 * 60 * 60 * 1000);
+        test_date_conversion_millis((uint64)t * 24 * 60 * 60 * 1000);
     /* Test the first of each month from 1601 to 99999. */
     dr_time.day_of_week = 0; /* not checked */
     dr_time.day = 1;
