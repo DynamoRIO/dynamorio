@@ -37,7 +37,8 @@
 #include "drmgr.h"
 #include "drvector.h"
 #include "../ext_utils.h"
-#include <string.h>
+#include <stddef.h> /* for offsetof */
+#include <string.h> /* for memcpy */
 
 #ifdef UNIX
 # include <signal.h>
@@ -683,28 +684,45 @@ insert_load(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 }
 
+/* Performs a drx_buf-compatible memcpy which handles its own fault.
+ * Note that on a fault we simply reset the buffer pointer with no partial write.
+ */
+static void
+safe_memcpy(drx_buf_t *buf, void *src, size_t len)
+{
+    void *drcontext = dr_get_current_drcontext();
+    per_thread_t *data = drmgr_get_tls_field(drcontext, buf->tls_idx);
+    byte *cli_ptr = BUF_PTR(data->seg_base, buf->tls_offs);
+    size_t written;
+
+    /* try to perform a safe memcpy */
+    dr_safe_write(cli_ptr, len, src, &written);
+    if (written != len) {
+        /* we overflowed the client buffer, so flush it and try again */
+        byte *cli_base = data->cli_base;
+        BUF_PTR(data->seg_base, buf->tls_offs) = cli_base;
+        if (buf->full_cb != NULL)
+            (*buf->full_cb)(drcontext, cli_base, (size_t)(cli_ptr - cli_base));
+        memcpy(cli_base, src, len);
+    }
+    BUF_PTR(data->seg_base, buf->tls_offs) += len;
+}
+
 DR_EXPORT
 void
 drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
                           instr_t *where, reg_id_t dst, reg_id_t src, ushort len)
 {
-    opnd_size_t opsz = opnd_size_from_bytes(len);
-
+    DR_ASSERT_MSG(buf->buf_type != DRX_BUF_CIRCULAR_FAST,
+                  "drx_buf_insert_buf_memcpy does not support the fast circular buffer");
     if (len > sizeof(app_pc)) {
-        /* slow path, we call into our personal memcpy() implementation */
-        /* NOTE: This module is not yet finished for the below reasons.
-         * FIXME: We should elect to write our own memcpy(). This would potentially
-         * be slower than the glibc memcpy, but then we can incrementally update
-         * the buffer pointer so the user can recover from partial writes.
-         * FIXME i#50: It's also possible that if glibc's memcpy faults, we'd be
-         * unable to handle it -- a fault in a client lib will not be handled by us,
-         * and it's possible that memcpy could be inlined into a client lib.
-         */
-        dr_insert_clean_call(drcontext, ilist, where, (void *)memcpy, false, 3,
-                             opnd_create_reg(dst), opnd_create_reg(src),
-                             OPND_CREATE_INTPTR(len));
-        drx_buf_insert_update_buf_ptr(drcontext, buf, ilist, where, dst, src, len);
+        opnd_t buf_opnd = OPND_CREATE_INTPTR(buf);
+        opnd_t src_opnd = opnd_create_reg(src);
+        opnd_t len_opnd = OPND_CREATE_INTPTR((short)len);
+        dr_insert_clean_call(drcontext, ilist, where, (void *)safe_memcpy, false, 3,
+                             buf_opnd, src_opnd, len_opnd);
     } else {
+        opnd_size_t opsz = opnd_size_from_bytes(len);
         opnd_t src_opnd;
         bool ok;
 

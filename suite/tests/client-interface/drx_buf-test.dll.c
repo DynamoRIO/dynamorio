@@ -59,8 +59,12 @@ static char cmp[] = "ABCDEFGH";
 #endif
 
 #ifndef AARCH64
-static const char test_copy[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZAWBCDEFGH";
-static const int  copy_len[] = { 1, 2, 4, 8, 16, 32 };
+static const char test_copy[TRACE_SZ] =
+    "12345678911234567892123456789312345678941234567895123456789612"
+    "12345678911234567892123456789312345678941234567895123456789612"
+    "12345678911234567892123456789312345678941234567895123456789612"
+    "12345678911234567892123456789312345678941234567895123456789612";
+static const char test_null[TRACE_SZ];
 #endif
 
 static drx_buf_t *circular_fast;
@@ -127,13 +131,21 @@ verify_store(drx_buf_t *client)
 
 #ifndef AARCH64
 static void
-verify_memcpy(drx_buf_t *client, int num_copied)
+verify_memcpy(drx_buf_t *client)
 {
     void *drcontext = dr_get_current_drcontext();
     char *buf_base = drx_buf_get_buffer_base(drcontext, client);
-    CHECK(memcmp(test_copy, buf_base, num_copied) == 0,
+    CHECK(memcmp(test_copy, buf_base, sizeof(test_copy)) == 0,
           "drx_buf_insert_buf_memcpy() did not correctly copy the bytes over");
     memset(buf_base, 0, drx_buf_get_buffer_size(drcontext, client));
+}
+
+static void
+verify_buffers_nulled(drx_buf_t *client)
+{
+    void *drcontext = dr_get_current_drcontext();
+    byte *buf_base = drx_buf_get_buffer_base(drcontext, client);
+    CHECK(memcmp(buf_base, test_null, sizeof(test_null)) == 0, "buffer not nulled");
 }
 #endif
 
@@ -360,25 +372,34 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                              OPND_CREATE_INTPTR(circular_fast));
     } else if (subtest == DRX_BUF_TEST_6_C) {
 #ifndef AARCH64
-        int32_t num_copy = copy_len[rand() % (sizeof(copy_len)/sizeof(copy_len[0]))];
-
         /* Currently, the fast circular buffer does not recommend variable-size
          * writes, for good reason. We don't test the memcpy operation on the
          * fast circular buffer.
          */
-        /* verify memcpy works on the slow circular buffer */
+        /* verify memcpy works on the slow clrcular buffer */
         drx_buf_insert_load_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr);
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_copy,
                                          opnd_create_reg(reg_resize_to_opsz
                                                          (scratch, OPSZ_PTR)),
                                          bb, inst, NULL, NULL);
         drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst,
-                                  reg_ptr, scratch, num_copy);
-        /* We don't have to update the buffer pointer */
-        dr_insert_clean_call(drcontext, bb, inst, verify_memcpy, false, 2,
-                             OPND_CREATE_INTPTR(circular_slow),
-                             OPND_CREATE_INT32(num_copy));
-
+                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+                                  sizeof(test_copy));
+        /* NULL out the buffer */
+        drx_buf_insert_load_buf_ptr(drcontext, circular_slow, bb, inst, reg_ptr);
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_null,
+                                         opnd_create_reg(reg_resize_to_opsz
+                                                         (scratch, OPSZ_PTR)),
+                                         bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, circular_slow, bb, inst,
+                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+                                  sizeof(test_null));
+        /* Unfortunately, we can't just use the check in verify_buffer_empty, because
+         * drx_buf_insert_buf_memcpy() incrememnts the buffer pointer internally, unlike
+         * drx_buf_insert_buf_store(). We simply check that the buffer was NULLed out.
+         */
+        dr_insert_clean_call(drcontext, bb, inst, (void *)verify_buffers_nulled, false, 1,
+                             OPND_CREATE_INTPTR(circular_slow));
         /* verify memcpy works on the trace buffer */
         drx_buf_insert_load_buf_ptr(drcontext, trace, bb, inst, reg_ptr);
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_copy,
@@ -386,11 +407,20 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                                          (scratch, OPSZ_PTR)),
                                          bb, inst, NULL, NULL);
         drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst,
-                                  reg_ptr, scratch, num_copy);
-        /* We don't have to update the buffer pointer */
-        dr_insert_clean_call(drcontext, bb, inst, verify_memcpy, false, 2,
-                             OPND_CREATE_INTPTR(trace),
-                             OPND_CREATE_INT32(num_copy));
+                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+                                  sizeof(test_copy));
+        /* NULL out the buffer */
+        drx_buf_insert_load_buf_ptr(drcontext, trace, bb, inst, reg_ptr);
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)test_null,
+                                         opnd_create_reg(reg_resize_to_opsz
+                                                         (scratch, OPSZ_PTR)),
+                                         bb, inst, NULL, NULL);
+        drx_buf_insert_buf_memcpy(drcontext, trace, bb, inst,
+                                  reg_ptr, reg_resize_to_opsz(scratch, OPSZ_PTR),
+                                  sizeof(test_null));
+        /* verify buffer was NULLed */
+        dr_insert_clean_call(drcontext, bb, inst, (void *)verify_buffers_nulled, false, 1,
+                             OPND_CREATE_INTPTR(trace));
 #else
     /* FIXME i#1569: NYI on AArch64 */
 #endif
@@ -403,9 +433,11 @@ static void
 event_exit(void)
 {
     /* we are supposed to have faulted NUM_ITER times per thread, plus 2 more
-     * because the callback is called on thread_exit().
+     * because the callback is called on thread_exit(). Finally, two more for
+     * drx_buf_insert_buf_memcpy().
      */
-    CHECK(num_faults == NUM_ITER * 2 + 2, "the number of faults don't match up");
+    CHECK(num_faults == NUM_ITER * 2 + 2 + 2,
+            "the number of faults don't match up");
     if (!drmgr_unregister_bb_insertion_event(event_app_instruction))
         CHECK(false, "exit failed");
     drx_buf_free(circular_fast);
