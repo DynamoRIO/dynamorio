@@ -5962,7 +5962,7 @@ init_itimer(dcontext_t *dcontext, bool first)
         info->itimer = (thread_itimer_info_t (*)[NUM_ITIMERS])
             global_heap_alloc(sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
     } else {
-        /* for simplicity and parllel w/ shared we allocate proactively */
+        /* for simplicity and parallel w/ shared we allocate proactively */
         info->itimer = (thread_itimer_info_t (*)[NUM_ITIMERS])
             heap_alloc(dcontext, sizeof(*info->itimer) HEAPACCT(ACCT_OTHER));
     }
@@ -6000,6 +6000,8 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
     } else {
         LOG(THREAD, LOG_ASYNCH, 2, "disabling itimer %d\n", which);
         memset(&val, 0, sizeof(val));
+        (*info->itimer)[which].actual.value = 0;
+        (*info->itimer)[which].actual.interval = 0;
     }
     rc = setitimer_syscall(which, &val, NULL);
     return (rc == SUCCESS);
@@ -6273,7 +6275,7 @@ stop_itimer(dcontext_t *dcontext)
         stop = true;
     if (stop) {
         /* Disable all DR itimers b/c this set of threads sharing this
-         * itimer is now compmletely native
+         * itimer is now completely native
          */
         int which;
         LOG(THREAD, LOG_ASYNCH, 2, "stopping DR itimers from thread "TIDFMT"\n",
