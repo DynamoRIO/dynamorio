@@ -786,6 +786,7 @@ event_exit(void)
                                                       event_bb_instru2instru) ||
         drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
+    dr_unregister_exit_event(event_exit);
 
     dr_mutex_destroy(mutex);
     drutil_exit();

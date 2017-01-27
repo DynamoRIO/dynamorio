@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -880,6 +880,20 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
     interp_exit();
     mangle_exit();
+
+    if (doing_detach) {
+        /* Clear for possible re-attach. */
+        shared_code = NULL;
+#if defined(X86) && defined(X64)
+        shared_code_x86 = NULL;
+        shared_code_x86_to_x64 = NULL;
+#endif
+        syscall_method = SYSCALL_METHOD_UNINITIALIZED;
+        app_sysenter_instr_addr = NULL;
+#ifdef UNIX
+        sysenter_hook_failed = false;
+#endif
+    }
 }
 
 static byte *

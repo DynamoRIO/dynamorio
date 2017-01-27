@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -207,6 +207,9 @@ static enum {
 static void tls_exit(void);
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
+/* cached value */
+static PEB *own_peb = NULL;
 
 /****************************************************************************
  * Defines only needed internally to this file
@@ -734,6 +737,13 @@ ntdll_exit(void)
 {
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     tls_exit();
+    set_ntdll_base(NULL);
+
+    if (doing_detach) {
+        own_peb = NULL;
+        sysenter_tls_offset = 0xffffffff;
+        nt_wrappers_intercepted = true;
+    }
 #endif
 }
 
@@ -1015,7 +1025,6 @@ get_own_peb()
 {
     /* alt. we could use get_own_teb->PEBptr, but since we're remembering the
      * results of the first lookup doesn't really gain us much */
-    static PEB *own_peb;
     if (own_peb == NULL) {
         own_peb = get_peb(NT_CURRENT_PROCESS);
         ASSERT(own_peb != NULL);
