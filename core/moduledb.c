@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -277,6 +277,8 @@ moduledb_exit()
     global_heap_free(exemption_lists, (MODULEDB_EXEMPT_NUM_LISTS) * sizeof(char *)
                      HEAPACCT(ACCT_OTHER));
     DELETE_READWRITE_LOCK(moduledb_lock);
+    if (doing_detach)
+        exemption_lists = NULL;
 }
 
 bool

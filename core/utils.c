@@ -77,6 +77,8 @@
 
 try_except_t global_try_except;
 
+int do_once_generation = 1;
+
 #ifdef SIDELINE
 extern void sideline_exit(void);
 #endif
@@ -954,6 +956,14 @@ mutex_delete(mutex_t *lock)
         DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     remove_process_lock(lock);
     lock->deleted = true;
+    if (doing_detach) {
+        /* For possible re-attach we clear the acquired count.  We leave
+         * deleted==true as it is not used much and we don't have a simple method for
+         * clearing it: we'd have to keep a special list of all locks used (appending
+         * as they're deleted) and then walk it from dynamo_exit_post_detach().
+         */
+        lock->count_times_acquired = 0;
+    }
 #endif
     ASSERT(lock->lock_requests == LOCK_FREE_STATE);
 
@@ -3422,6 +3432,8 @@ utils_exit()
 #ifdef DEADLOCK_AVOIDANCE
     DELETE_LOCK(do_threshold_mutex);
 #endif
+
+    spinlock_count = 0;
 }
 
 /* returns a pseudo random number in [0, max_offset) */
