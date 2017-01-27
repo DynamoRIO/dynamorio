@@ -97,11 +97,32 @@ callback(app_pc addr, uint divisor)
 
     div_count++;
 
-    /* check for power of 2 */
-    if ((divisor & (divisor - 1)) != 0)
+    /* check for power of 2 or zero */
+    if ((divisor & (divisor - 1)) == 0)
         div_p2_count++;
 
     dr_mutex_unlock(count_mutex);
+}
+
+/* If instr is unsigned division, return true and set *opnd to divisor. */
+static bool
+instr_is_div(instr_t *instr, OUT opnd_t *opnd)
+{
+    int opc = instr_get_opcode(instr);
+#if defined(X86)
+    if (opc == OP_div) {
+        *opnd = instr_get_src(instr, 0); /* divisor is 1st src */
+        return true;
+    }
+#elif defined(AARCHXX)
+    if (opc == OP_udiv) {
+        *opnd = instr_get_src(instr, 1); /* divisor is 2nd src */
+        return true;
+    }
+#else
+# error NYI
+#endif
+    return false;
 }
 
 static dr_emit_flags_t
@@ -109,11 +130,11 @@ event_app_instruction(void* drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       bool for_trace, bool translating, void *user_data)
 {
     /* if find div, insert a clean call to our instrumentation routine */
-    if (instr_get_opcode(instr) == OP_div) {
+    opnd_t opnd;
+    if (instr_is_div(instr, &opnd)) {
         dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
                              false /*no fp save*/, 2,
-                             OPND_CREATE_INTPTR(instr_get_app_pc(instr)),
-                             instr_get_src(instr, 0) /*divisor is 1st src*/);
+                             OPND_CREATE_INTPTR(instr_get_app_pc(instr)), opnd);
     }
     return DR_EMIT_DEFAULT;
 }

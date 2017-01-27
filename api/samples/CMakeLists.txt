@@ -212,7 +212,9 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg")
   add_sample_client(cbr         "cbr.c"           "drmgr")
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")
-  add_sample_client(div         "div.c"           "drmgr")
+endif (X86)
+add_sample_client(div         "div.c"           "drmgr")
+if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(inc2add     "inc2add.c"       "")
   add_sample_client(memtrace_x86_binary "memtrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drutil;drx")
