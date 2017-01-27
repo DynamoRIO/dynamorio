@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -284,6 +284,10 @@ drmodtrack_init(void)
 drcovlib_status_t
 drmodtrack_exit(void)
 {
+    int count = dr_atomic_add32_return_sum(&drmodtrack_init_count, -1);
+    if (count != 0)
+        return DRCOVLIB_SUCCESS;
+
     drvector_delete(&module_table.vector);
     drmgr_exit();
     return DRCOVLIB_SUCCESS;
