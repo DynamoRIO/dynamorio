@@ -240,9 +240,7 @@ add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(inline      "inline.c"        "")
 add_sample_client(inscount    "inscount.c"      "drmgr")
-if (NOT AARCH64) # FIXME i#1569: port to AArch64
-  add_sample_client(opcodes     "opcodes.c"       "drx")
-endif ()
+add_sample_client(opcodes     "opcodes.c"       "drx")
 add_sample_client(stl_test    "stl_test.cpp"    "")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC

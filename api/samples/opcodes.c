@@ -64,6 +64,8 @@ enum {
 #elif defined(ARM)
     ISA_ARM_A32,
     ISA_ARM_THUMB,
+#elif defined(AARCH64)
+    ISA_ARM_A64,
 #endif
     NUM_ISA_MODE,
 };
@@ -130,6 +132,8 @@ get_isa_mode_name(uint isa_mode)
     return (isa_mode == ISA_X86_32) ? "32-bit X86" : "64-bit AMD64";
 #elif defined(ARM)
     return (isa_mode == ISA_ARM_A32) ? "32-bit ARM" : "32-bit Thumb";
+#elif defined(AARCH64)
+    return "64-bit AArch64";
 #else
     return "unknown";
 #endif
@@ -188,6 +192,9 @@ get_count_isa_idx(void *drcontext)
         break;
     case DR_ISA_ARM_THUMB:
         return ISA_ARM_THUMB;
+#elif defined (AARCH64)
+    case DR_ISA_ARM_A64:
+        return ISA_ARM_A64;
 #endif
     default:
         DR_ASSERT(false); /* NYI */
@@ -217,7 +224,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
          * optimize the spills and restores.
          */
         drx_insert_counter_update(drcontext, bb, first,
-                                  SPILL_SLOT_1, IF_ARM_(SPILL_SLOT_2)
+                                  SPILL_SLOT_1, IF_AARCHXX_(SPILL_SLOT_2)
                                   &count[isa_idx][instr_get_opcode(instr)], 1,
                                   /* DRX_COUNTER_LOCK is not yet supported on ARM */
                                   IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
