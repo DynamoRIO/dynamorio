@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -1499,6 +1499,9 @@ endfunction(optimize)
 
 ###########################################################################
 # tests
+
+# This step takes a while so we provide a status message:
+message(STATUS "Processing tests and generating expected output patterns")
 
 tobuild(common.broadfun common/broadfun.c)
 if (NOT ANDROID) # We do not support -no_early_inject on Android (i#1873).
