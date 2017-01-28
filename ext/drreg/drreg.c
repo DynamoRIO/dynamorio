@@ -1407,6 +1407,7 @@ drreg_init(drreg_options_t *ops_in)
         (drreg_event_restore_state, &fault_priority))
         return DRREG_ERROR;
 
+    /* 0 spill slots is supported and just fills in tls_seg for us. */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
 
@@ -1432,8 +1433,10 @@ drreg_exit(void)
 
     drmgr_exit();
 
-    if (!dr_raw_tls_cfree(tls_slot_offs, ops.num_spill_slots))
-        return DRREG_ERROR;
+    if (ops.num_spill_slots > 0) {
+        if (!dr_raw_tls_cfree(tls_slot_offs, ops.num_spill_slots))
+            return DRREG_ERROR;
+    }
 
     return DRREG_SUCCESS;
 }

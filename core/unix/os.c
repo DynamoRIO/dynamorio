@@ -2064,7 +2064,7 @@ os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
     uint i, count = 0;
     int start = -1;
     uint offs = offsetof(os_local_state_t, client_tls);
-    if (num_slots > MAX_NUM_CLIENT_TLS)
+    if (num_slots == 0 || num_slots > MAX_NUM_CLIENT_TLS)
         return false;
     mutex_lock(&client_tls_lock);
     for (i = 0; i < MAX_NUM_CLIENT_TLS; i++) {

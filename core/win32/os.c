@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1556,6 +1556,8 @@ bool
 os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
 {
     bool need_synch = !dynamo_initialized;
+    if (num_slots == 0)
+        return false;
     return (bool) tls_calloc(need_synch, offset, num_slots, alignment);
 }
 

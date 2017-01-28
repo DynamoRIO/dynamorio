@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -4600,6 +4600,8 @@ dr_raw_tls_calloc(OUT reg_id_t *tls_register,
     CLIENT_ASSERT(offset != NULL,
                   "dr_raw_tls_calloc: offset cannot be NULL");
     *tls_register = IF_X86_ELSE(SEG_TLS, dr_reg_stolen);
+    if (num_slots == 0)
+        return true;
     return os_tls_calloc(offset, num_slots, alignment);
 }
 
@@ -4607,6 +4609,8 @@ DR_API
 bool
 dr_raw_tls_cfree(uint offset, uint num_slots)
 {
+    if (num_slots == 0)
+        return true;
     return os_tls_cfree(offset, num_slots);
 }
 

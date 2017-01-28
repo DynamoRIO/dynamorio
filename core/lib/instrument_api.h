@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4263,6 +4263,9 @@ DR_API
  * using #dr_get_dr_segment_base.
  * Raw TLs slots can be read directly using dr_insert_read_raw_tls() and written
  * using dr_insert_write_raw_tls().
+ *
+ * Supports passing 0 for \p num_slots, in which case \p tls_register will be
+ * written but no other action taken.
  *
  * \note These slots are useful for thread-shared code caches.  With
  * thread-private caches, DR's memory pools are guaranteed to be
