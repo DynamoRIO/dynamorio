@@ -235,7 +235,7 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "drmgr")
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
   # dr_insert_cbr_instrument_ex is NYI
-  add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drx")
+  add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
 endif (X86)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
