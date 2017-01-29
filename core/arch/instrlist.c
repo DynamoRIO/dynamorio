@@ -458,8 +458,9 @@ instrlist_prepend_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
     instrlist_destroy(dcontext,prependee);
 }
 
-void instrlist_append_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
-                                instrlist_t *appendee)
+void
+instrlist_append_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
+                           instrlist_t *appendee)
 {
     instr_t *first=instrlist_first(appendee);
     if (!first)
@@ -468,7 +469,6 @@ void instrlist_append_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
     instrlist_init(appendee);
     instrlist_destroy(dcontext,appendee);
 }
-
 
 /* If has_instr_jmp_targets is true, this routine trashes the note field
  * of each instr_t to store the offset in order to properly encode
@@ -481,12 +481,29 @@ instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc
     instr_t *inst;
     int len = 0;
 #ifdef ARM
-    /* XXX i#1734: reset encdoe state to avoid any stale encode state
+    /* XXX i#1734: reset encode state to avoid any stale encode state
      * or dangling pointer.
      */
     if (instr_get_isa_mode(instrlist_first(ilist)) == DR_ISA_ARM_THUMB)
         encode_reset_it_block(dcontext);
 #endif
+    /* Do an extra pass over the instrlist so we can determine if an instr opnd
+     * was erroneously used with has_instr_jmp_targets = false.
+     */
+    DOCHECK(2, {
+        if (!has_instr_jmp_targets) {
+            for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
+                if (TEST(INSTR_OPERANDS_VALID, (inst)->flags)) {
+                    int i;
+                    for (i = 0; i < instr_num_srcs(inst); ++i) {
+                        CLIENT_ASSERT(!opnd_is_instr(instr_get_src(inst, i)),
+                                      "has_instr_jmp_targets was unset "
+                                      "but an instr opnd was found");
+                    }
+                }
+            }
+        }
+    });
     if (has_instr_jmp_targets || max_pc != NULL) {
         /* must set note fields first with offset, or compute length */
         for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {

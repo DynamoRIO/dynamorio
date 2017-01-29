@@ -57,7 +57,7 @@
 #   undef OPCODE
 #   undef XOPCODE
 
-    end = instrlist_encode(dc, ilist, buf, false);
+    end = instrlist_encode(dc, ilist, buf, true);
 
     instr = instr_create(dc);
     pc = buf;
