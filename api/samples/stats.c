@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,6 +50,9 @@
 #define _CRT_SECURE_NO_DEPRECATE 1
 
 #include "dr_api.h"
+#include "drmgr.h"
+#include "drreg.h"
+#include "drx.h"
 #include "utils.h"
 #include <stddef.h> /* for offsetof */
 #include <wchar.h> /* _snwprintf */
@@ -90,26 +93,34 @@ typedef int stats_int_t;
 # define STAT_FORMAT_CODE "d"
 #endif
 
-/* we allocate this struct in the shared memory: */
-typedef struct _client_stats {
+/* We allocate this struct in the shared memory: */
+typedef struct _client_stats_t {
     uint num_stats;
     bool exited;
     process_id_t pid;
-    /* we need a copy of all the names here */
+    /* We need a copy of all the names here. */
     char names[NUM_STATS][CLIENTSTAT_NAME_MAX_LEN];
     stats_int_t num_instrs;
     stats_int_t num_flops;
     stats_int_t num_syscalls;
-} client_stats;
+} client_stats_t;
+
+/* Counters that we collect for each basic block. */
+typedef struct _per_bb_data_t {
+    uint num_instrs;
+    uint num_flops;
+    uint num_syscalls;
+} per_bb_data_t;
 
 /* we directly increment the global counters using a lock prefix */
-static client_stats *stats;
+static client_stats_t *stats;
 
 /***************************************************************************/
-/* shared memory setup */
+/* Shared memory setup */
 
-/* we have multiple shared memories: one that holds the count of
- * statistics instances, and then one per statistics struct */
+/* We have multiple shared memories: one that holds the count of
+ * statistics instances, and then one per statistics struct.
+ */
 static HANDLE shared_map_count;
 static PVOID shared_view_count;
 static int * shared_count;
@@ -118,7 +129,7 @@ static PVOID shared_view;
 #define KEYNAME_MAXLEN 128
 static wchar_t shared_keyname[KEYNAME_MAXLEN];
 
-/* returns current contents of addr and replaces contents with value */
+/* Returns current contents of addr and replaces contents with value. */
 static uint
 atomic_swap(void *addr, uint value)
 {
@@ -132,7 +143,7 @@ is_windows_NT(void)
     return (dr_get_os_version(&ver) && ver.version == DR_WINDOWS_VERSION_NT);
 }
 
-static client_stats *
+static client_stats_t *
 shared_memory_init(void)
 {
     bool is_NT = is_windows_NT();
@@ -144,7 +155,7 @@ shared_memory_init(void)
      */
     shared_map_count =
         CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
-                           PAGE_READWRITE, 0, sizeof(client_stats),
+                           PAGE_READWRITE, 0, sizeof(client_stats_t),
                            is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L);
     DR_ASSERT(shared_map_count != NULL);
     shared_view_count =
@@ -169,7 +180,7 @@ shared_memory_init(void)
                    is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L, num);
         shared_map = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
                                         PAGE_READWRITE, 0,
-                                        sizeof(client_stats),
+                                        sizeof(client_stats_t),
                                         shared_keyname);
         if (shared_map != NULL && GetLastError() == ERROR_ALREADY_EXISTS) {
             dr_close_file(shared_map);
@@ -185,7 +196,7 @@ shared_memory_init(void)
 #endif
     shared_view = MapViewOfFile(shared_map, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
     DR_ASSERT(shared_view != NULL);
-    return (client_stats *) shared_view;
+    return (client_stats_t *) shared_view;
 }
 
 static void
@@ -208,9 +219,18 @@ shared_memory_exit(void)
 }
 /***************************************************************************/
 
-static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static void
+event_exit(void);
+
+static dr_emit_flags_t
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating,
+                 void **user_data);
+
+static dr_emit_flags_t
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
+                             instr_t *instr, bool for_trace, bool translating,
+                             void *user_data);
 
 static client_id_t my_id;
 
@@ -218,10 +238,17 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     uint i;
+    /* drx_insert_counter_update() needs a few slots */
+    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
+
     dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");
     my_id = id;
-    /* make it easy to tell, by looking at log file, which client executed */
+    /* Make it easy to tell by looking at the log which client executed. */
     dr_log(NULL, LOG_ALL, 1, "Client 'stats' initializing\n");
+
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+    drx_init();
 
     stats = shared_memory_init();
     memset(stats, 0, sizeof(stats));
@@ -231,8 +258,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         strncpy(stats->names[i], stat_names[i], CLIENTSTAT_NAME_MAX_LEN);
         stats->names[i][CLIENTSTAT_NAME_MAX_LEN-1] = '\0';
     }
-    dr_register_bb_event(event_basic_block);
     dr_register_exit_event(event_exit);
+    if (!drmgr_register_bb_instrumentation_event(event_analyze_bb,
+                                                 event_insert_instrumentation, NULL))
+        DR_ASSERT(false);
 }
 
 #ifdef WINDOWS
@@ -245,7 +274,7 @@ static void
 event_exit(void)
 {
     file_t f;
-    /* display the results */
+    /* Display the results! */
     char msg[512];
     int len;
     len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
@@ -266,43 +295,27 @@ event_exit(void)
     dr_close_file(f);
 
     shared_memory_exit();
+
+    drx_exit();
+    if (!drmgr_unregister_bb_instrumentation_event(event_analyze_bb) ||
+        drreg_exit() != DRREG_SUCCESS)
+        DR_ASSERT(false);
+    drmgr_exit();
 }
 
-static void
-insert_inc(void *drcontext, instrlist_t *bb, instr_t *where,
-           stats_int_t *addr, uint incby)
-{
-    instr_t *inc;
-    opnd_t immed;
-    if (incby <= 0x7f)
-        immed = OPND_CREATE_INT8(incby);
-    else /* unlikely but possible */
-        immed = OPND_CREATE_INT32(incby);
-    inc = INSTR_CREATE_add
-        (drcontext, OPND_CREATE_ABSMEM(addr, opnd_size_from_bytes(sizeof(stats_int_t))),
-         immed);
-    /* make it thread-safe (only works if it doesn't straddle a cache line) */
-    instr_set_prefix_flag(inc, PREFIX_LOCK);
-    DR_ASSERT(ALIGNED(addr, sizeof(stats_int_t))); /* aligned => single cache line */
-    instrlist_meta_preinsert(bb, where, inc);
-}
-
+/* This event is passed the instruction list for the whole bb. */
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating, void **user_data)
 {
+    /* Count the instructions and pass the result to event_insert_instrumentation. */
+    per_bb_data_t *per_bb = dr_thread_alloc(drcontext, sizeof(*per_bb));
     instr_t *instr;
+    uint num_instrs = 0;
+    uint num_flops = 0;
+    uint num_syscalls = 0;
     dr_fp_type_t fp_type;
-    int num_instrs = 0;
-    int num_flops = 0;
-    int num_syscalls = 0;
-#ifdef VERBOSE
-    dr_printf("in dr_basic_block(tag="PFX")\n", tag);
-# ifdef VERBOSE_VERBOSE
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-# endif
-#endif
-    /* count up # flops, then do single increment at end */
+
     for (instr  = instrlist_first_app(bb);
          instr != NULL;
          instr  = instr_get_next_app(instr)) {
@@ -319,34 +332,40 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
             num_syscalls++;
         }
     }
-    if (num_instrs > 0 || num_flops > 0 || num_syscalls > 0) {
-        uint eflags;
-        bool need_to_save = true;
-        /* insert increment at start, for maximum prob. of not needing
-         * to save flags
-         */
-        for (instr = instrlist_first(bb); instr != NULL;
-             instr = instr_get_next(instr)) {
-            eflags = instr_get_eflags(instr, DR_QUERY_DEFAULT);
-            /* could be more sophisticated and look beyond exit */
-            if (instr_is_exit_cti(instr) || (eflags & EFLAGS_READ_6) != 0)
-                break;
-            if ((eflags & EFLAGS_WRITE_6) == EFLAGS_WRITE_6) {
-                need_to_save = false;
-                break;
-            }
+
+    per_bb->num_instrs = num_instrs;
+    per_bb->num_flops = num_flops;
+    per_bb->num_syscalls = num_syscalls;
+    *(per_bb_data_t**)user_data = per_bb;
+
+    return DR_EMIT_DEFAULT;
+}
+
+/* This event is called separately for each individual instruction in the bb. */
+static dr_emit_flags_t
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
+                             instr_t *instr, bool for_trace, bool translating,
+                             void *user_data)
+{
+    per_bb_data_t *per_bb = (per_bb_data_t *)user_data;
+    /* We increment the per-bb counters just once, at the top of the bb. */
+    if (drmgr_is_first_instr(drcontext, instr)) {
+        /* drx will analyze whether to save the flags for us. */
+        uint flags = DRX_COUNTER_LOCK;
+        if (per_bb->num_instrs > 0) {
+            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+                                      &stats->num_instrs, per_bb->num_instrs, flags);
         }
-        instr = instrlist_first(bb);
-        if (need_to_save)
-            dr_save_arith_flags(drcontext, bb, instr, SPILL_SLOT_1);
-        if (num_instrs > 0)
-            insert_inc(drcontext, bb, instr, &stats->num_instrs, num_instrs);
-        if (num_flops > 0)
-            insert_inc(drcontext, bb, instr, &stats->num_flops, num_flops);
-        if (num_syscalls > 0)
-            insert_inc(drcontext, bb, instr, &stats->num_syscalls, num_syscalls);
-        if (need_to_save)
-            dr_restore_arith_flags(drcontext, bb, instr, SPILL_SLOT_1);
+        if (per_bb->num_flops > 0) {
+            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+                                      &stats->num_flops, per_bb->num_flops, flags);
+        }
+        if (per_bb->num_syscalls > 0) {
+            drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+                                      &stats->num_syscalls, per_bb->num_syscalls, flags);
+        }
     }
+    if (drmgr_is_last_instr(drcontext, instr))
+        dr_thread_free(drcontext, per_bb, sizeof(*per_bb));
     return DR_EMIT_DEFAULT;
 }
