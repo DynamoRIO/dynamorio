@@ -180,15 +180,12 @@ codegen_instrumentation_funcs(void)
         ilists[i] = codegen_funcs[i](dc);
     }
 
-    /* Compute size of each instr and set each note with the offset. */
+    /* Compute size of each instr and the total offset. */
     for (i = 0; i < N_FUNCS; i++) {
         instr_t *inst;
         offset = ALIGN_FORWARD(offset, CALLEE_ALIGNMENT);
-        for (inst = instrlist_first(ilists[i]); inst;
-             inst = instr_get_next(inst)) {
-            instr_set_note(inst, (void *)(ptr_int_t)offset);
+        for (inst = instrlist_first(ilists[i]); inst; inst = instr_get_next(inst))
             offset += instr_length(dc, inst);
-        }
     }
 
     /* Allocate RWX memory for the code and fill it with nops.  nops make
@@ -198,8 +195,7 @@ codegen_instrumentation_funcs(void)
     rwx_mem = dr_nonheap_alloc(rwx_size, rwx_prot);
     memset(rwx_mem, 0x90, rwx_size);
 
-    /* Encode instructions.  We don't worry about labels, since the notes are
-     * already set. */
+    /* encode instructions, telling instrlist_encode to care about the labels */
     pc = (byte*)rwx_mem;
     for (i = 0; i < N_FUNCS; i++) {
         pc = (byte*)ALIGN_FORWARD(pc, CALLEE_ALIGNMENT);
@@ -207,7 +203,7 @@ codegen_instrumentation_funcs(void)
         dr_log(dc, LOG_EMIT, 3, "Generated instrumentation function %s at "PFX
                ":", func_names[i], pc);
         instrlist_disassemble(dc, pc, ilists[i], dr_get_logfile(dc));
-        pc = instrlist_encode(dc, ilists[i], pc, false);
+        pc = instrlist_encode(dc, ilists[i], pc, true);
         instrlist_clear_and_destroy(dc, ilists[i]);
     }
 
