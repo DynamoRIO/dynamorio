@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -45,6 +45,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox("%s", msg)
@@ -86,9 +87,18 @@ lib_mbr(app_pc instr_addr, app_pc target_addr)
         lib2app++;
 }
 
-static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static void
+event_exit(void);
+
+static dr_emit_flags_t
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating,
+                 void **user_data);
+
+static dr_emit_flags_t
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
+                             instr_t *instr, bool for_trace, bool translating,
+                             void *user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -102,9 +112,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     app_end  = appmod->end;
     dr_free_module_data(appmod);
 
+    if (!drmgr_init())
+        DR_ASSERT(false);
+
     /* register events */
     dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
+    if (!drmgr_register_bb_instrumentation_event(event_analyze_bb,
+                                                 event_insert_instrumentation, NULL))
+        DR_ASSERT(false);
 
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'modxfer_app2lib' initializing\n");
@@ -148,52 +163,57 @@ event_exit(void)
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
+    if (!drmgr_unregister_bb_instrumentation_event(event_analyze_bb))
+        DR_ASSERT(false);
+    drmgr_exit();
 }
 
+/* This event is passed the instruction list for the whole bb. */
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating, void **user_data)
 {
-    instr_t *instr, *mbr = NULL;
+    /* Count the instructions and pass the result to event_insert_instrumentation. */
+    instr_t *instr;
     uint num_instrs;
-    bool bb_in_app;
-
-#ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
-# ifdef VERBOSE_VERBOSE
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-# endif
-#endif
-
     for (instr  = instrlist_first_app(bb), num_instrs = 0;
          instr != NULL;
          instr  = instr_get_next_app(instr)) {
         num_instrs++;
-        /* Assuming most of the transfers between app and lib are paired, we
-         * instrument indirect branches but not returns for better performance.
-         */
-        if (instr_is_mbr(instr) && !instr_is_return(instr))
-            mbr = instr;
     }
+    *(uint *)user_data = num_instrs;
+    return DR_EMIT_DEFAULT;
+}
 
+/* This event is called separately for each individual instruction in the bb. */
+static dr_emit_flags_t
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
+                             instr_t *instr, bool for_trace, bool translating,
+                             void *user_data)
+{
+    bool bb_in_app;
     if (dr_fragment_app_pc(tag) >= app_base &&
         dr_fragment_app_pc(tag) <  app_end)
         bb_in_app = true;
     else
         bb_in_app = false;
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
+
+    if (drmgr_is_first_instr(drcontext, instr)) {
+        uint num_instrs = (uint)(ptr_uint_t)user_data;
+        dr_insert_clean_call(drcontext, bb, instr,
                          (void *)(bb_in_app ? app_update : lib_update),
                          false /* save fpstate */, 1,
                          OPND_CREATE_INT32(num_instrs));
-    if (mbr != NULL) {
-        dr_insert_mbr_instrumentation(drcontext, bb, mbr,
+    }
+
+    if (instr_is_mbr(instr) && !instr_is_return(instr)) {
+        /* Assuming most of the transfers between app and lib are paired, we
+         * instrument indirect branches but not returns for better performance.
+         */
+        dr_insert_mbr_instrumentation(drcontext, bb, instr,
                                       (void *)(bb_in_app ? app_mbr : lib_mbr),
                                       SPILL_SLOT_1);
     }
 
-#if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-#endif
     return DR_EMIT_DEFAULT;
 }

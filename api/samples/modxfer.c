@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -51,6 +51,8 @@
  */
 
 #include "utils.h"
+#include "drmgr.h"
+#include "drreg.h"
 #include "drx.h"
 #include <string.h>
 
@@ -135,8 +137,14 @@ static void
 event_exit(void);
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating);
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating,
+                 void **user_data);
+
+static dr_emit_flags_t
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
+                             instr_t *instr, bool for_trace, bool translating,
+                             void *user_data);
 
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded);
@@ -147,14 +155,20 @@ event_module_unload(void *drcontext, const module_data_t *info);
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    /* drx_insert_counter_update() needs a few slots */
+    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
     dr_set_client_name("DynamoRIO Sample Client 'modxfer'",
                        "http://dynamorio.org/issues");
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+        DR_ASSERT(false);
     drx_init();
     /* register events */
     dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
-    dr_register_module_load_event(event_module_load);
-    dr_register_module_unload_event(event_module_unload);
+    if (!drmgr_register_bb_instrumentation_event(event_analyze_bb,
+                                                 event_insert_instrumentation, NULL))
+        DR_ASSERT(false);
+    drmgr_register_module_load_event(event_module_load);
+    drmgr_register_module_unload_event(event_module_unload);
 
     mod_lock = dr_mutex_create();
 
@@ -234,28 +248,57 @@ event_exit(void)
     dr_mutex_destroy(mod_lock);
     log_file_close(logfile);
     drx_exit();
+    if (!drmgr_unregister_bb_instrumentation_event(event_analyze_bb) ||
+        !drmgr_unregister_module_load_event(event_module_load) ||
+        !drmgr_unregister_module_unload_event(event_module_unload) ||
+        drreg_exit() != DRREG_SUCCESS)
+        DR_ASSERT(false);
+    drmgr_exit();
 }
 
+/* This event is passed the instruction list for the whole bb. */
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating, void **user_data)
 {
-    instr_t *instr, *mbr = NULL, *first;
+    /* Count the instructions and pass the result to event_insert_instrumentation. */
+    instr_t *instr;
     uint num_instrs;
-    int i;
-    app_pc bb_addr = dr_fragment_app_pc(tag);
-
-#ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
-# ifdef VERBOSE_VERBOSE
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-# endif
-#endif
-
     for (instr  = instrlist_first_app(bb), num_instrs = 0;
          instr != NULL;
          instr  = instr_get_next_app(instr)) {
         num_instrs++;
+    }
+    *(uint *)user_data = num_instrs;
+    return DR_EMIT_DEFAULT;
+}
+
+/* This event is called separately for each individual instruction in the bb. */
+static dr_emit_flags_t
+event_insert_instrumentation(void *drcontext, void *tag, instrlist_t *bb,
+                             instr_t *instr, bool for_trace, bool translating,
+                             void *user_data)
+{
+    if (drmgr_is_first_instr(drcontext, instr)) {
+        uint num_instrs = (uint)(ptr_uint_t)user_data;
+        int i;
+        app_pc bb_addr = dr_fragment_app_pc(tag);
+        for (i = 0; i < num_mods; i++) {
+            if (mod_array[i].loaded &&
+                mod_array[i].base <= bb_addr &&
+                mod_array[i].end  >  bb_addr)
+                break;
+        }
+        if (i == num_mods)
+            i = UNKNOW_MODULE_IDX;
+        /* We pass SPILL_SLOT_MAX+1 as drx will use drreg for spilling. */
+        drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+                                  (void *)&mod_cnt[i], num_instrs, DRX_COUNTER_64BIT);
+        drx_insert_counter_update(drcontext, bb, instr, SPILL_SLOT_MAX+1,
+                                  (void *)&ins_count, num_instrs, DRX_COUNTER_64BIT);
+    }
+
+    if (instr_is_mbr(instr) && !instr_is_return(instr)) {
         /* Assuming most of the transfers between modules are paired, we
          * instrument indirect branches but not returns for better performance.
          * We assume that most cross module transfers happens via indirect
@@ -263,32 +306,16 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
          * Direct branch with DGC or self-modify may also cross modules, but
          * it should be ok to ignore, and we can handle them more efficiently.
          */
-        if (instr_is_mbr(instr) && !instr_is_return(instr))
-            mbr = instr;
-    }
-
-    for (i = 0; i < num_mods; i++) {
-        if (mod_array[i].loaded &&
-            mod_array[i].base <= bb_addr &&
-            mod_array[i].end  >  bb_addr)
-            break;
-    }
-    if (i == num_mods)
-        i = UNKNOW_MODULE_IDX;
-    first = instrlist_first(bb);
-    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
-                              (void *)&mod_cnt[i], num_instrs, DRX_COUNTER_64BIT);
-    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
-                              (void *)&ins_count, num_instrs, DRX_COUNTER_64BIT);
-    if (mbr != NULL) {
-        dr_insert_mbr_instrumentation(drcontext, bb, mbr,
+        /* dr_insert_mbr_instrumentation is going to read app values, so we need a
+         * drreg lazy restore "barrier" here.
+         */
+        drreg_status_t res =
+            drreg_restore_app_values(drcontext, bb, instr, instr_get_target(instr), NULL);
+        DR_ASSERT(res == DRREG_SUCCESS || res == DRREG_ERROR_NO_APP_VALUE);
+        dr_insert_mbr_instrumentation(drcontext, bb, instr,
                                       (void *)mbr_update, SPILL_SLOT_1);
     }
 
-#if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-#endif
     return DR_EMIT_DEFAULT;
 }
 

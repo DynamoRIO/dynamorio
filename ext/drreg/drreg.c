@@ -885,7 +885,11 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
     int i;
     for (i = 0; i < num_op; i++) {
         reg_id_t reg = opnd_get_reg_used(opnd, i);
-        reg_id_t dst = reg;
+        reg_id_t dst;
+        if (!reg_is_gpr(reg))
+            continue;
+        reg = reg_to_pointer_sized(reg);
+        dst = reg;
         if (reg == dr_get_stolen_reg()) {
             if (swap == NULL)
                 return DRREG_ERROR_INVALID_PARAMETER;

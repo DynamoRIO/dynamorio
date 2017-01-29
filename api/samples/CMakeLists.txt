@@ -231,8 +231,8 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     add_sample_client(ssljack     "ssljack.c"       "drmgr;drwrap")
   endif (NOT WIN32)
   # dr_insert_mbr_instrumentation is NYI
-  add_sample_client(modxfer     "modxfer.c;utils.c"     "drx")
-  add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "")
+  add_sample_client(modxfer     "modxfer.c;utils.c"     "drmgr;drreg;drx")
+  add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "drmgr")
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
   # dr_insert_cbr_instrument_ex is NYI
   add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drx")
