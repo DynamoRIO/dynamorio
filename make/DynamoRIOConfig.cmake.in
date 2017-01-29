@@ -1054,7 +1054,7 @@ function (use_DynamoRIO_extension target extname)
   if (NOT DynamoRIO_INTERNAL)
     # We only support Extensions as imported targets that have already
     # been added:
-    if (NOT TARGET ${extname})
+    if (NOT TARGET ${extname} AND NOT DynamoRIO_EXT_${extname}_NOLIB)
       message(FATAL_ERROR "DynamoRIO Extension \"${extname}\" not found")
     endif ()
     # See whether this Extension is packaged with DynamoRIO:

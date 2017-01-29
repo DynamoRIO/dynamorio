@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -33,7 +33,7 @@
  */
 
 /* Code Manipulation API Sample:
- * inscount.c
+ * inscount.cpp
  *
  * Reports the dynamic count of the total number of instructions executed.
  * Illustrates how to perform performant clean calls.
@@ -41,11 +41,13 @@
  * different -opt_cleancall values.
  *
  * The runtime options for this client include:
- * -only_from_app  Do not count instructions in shared libraries
+ *   -only_from_app  Do not count instructions in shared libraries.
+ * The options are handled using the droption extension.
  */
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "droption.h"
 #include <string.h>
 
 #ifdef WINDOWS
@@ -56,8 +58,12 @@
 
 #define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
 
-/* Runtime option: If set, only count instructions in the application itself */
-static bool only_from_app = false;
+static droption_t<bool> only_from_app
+(DROPTION_SCOPE_CLIENT, "only_from_app", false,
+ "Only count app, not lib, instructions",
+ "Count only instructions in the application itself, ignoring instructions in "
+ "shared libraries.");
+
 /* Application module */
 static app_pc exe_start;
 /* we only have a global count */
@@ -79,23 +85,16 @@ static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag,
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    int i;
     dr_set_client_name("DynamoRIO Sample Client 'inscount'",
                        "http://dynamorio.org/issues");
 
     /* Options */
-    for (i = 1/*skip client*/; i < argc; i++) {
-        if (strcmp(argv[i], "-only_from_app") == 0) {
-            only_from_app = true;
-        } else {
-            dr_fprintf(STDERR, "UNRECOGNIZED OPTION: \"%s\"\n", argv[i]);
-            DR_ASSERT_MSG(false, "invalid option");
-        }
-    }
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
+        DR_ASSERT(false);
     drmgr_init();
 
     /* Get main module address */
-    if (only_from_app) {
+    if (only_from_app.get_value()) {
         module_data_t *exe = dr_get_main_module();
         if (exe != NULL)
             exe_start = exe->start;
@@ -152,7 +151,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
 # endif
 #endif
     /* Only count in app BBs */
-    if (only_from_app) {
+    if (only_from_app.get_value()) {
         module_data_t *mod = dr_lookup_module(dr_fragment_app_pc(tag));
         if (mod != NULL) {
             bool from_exe = (mod->start == exe_start);

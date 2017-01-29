@@ -241,7 +241,7 @@ add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(inline      "inline.c"        "drmgr;drcontainers")
-add_sample_client(inscount    "inscount.c"      "drmgr")
+add_sample_client(inscount    "inscount.cpp"    "drmgr;droption")
 add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx")
 add_sample_client(stl_test    "stl_test.cpp"    "")
 # add utils.h for installation  # NON-PUBLIC
