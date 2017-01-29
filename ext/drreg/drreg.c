@@ -133,6 +133,10 @@ static drreg_status_t
 drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
                       per_thread_t *pt, reg_id_t reg);
 
+static void
+drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist,
+                           instr_t *where, per_thread_t *pt);
+
 static drreg_status_t
 drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
                      per_thread_t *pt, bool release);
@@ -435,6 +439,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                         drreg_report_error(res, "lazy restore failed");
                     ASSERT(pt->pending_unreserved > 0, "should not go negative");
                     pt->pending_unreserved--;
+                } else if (pt->aflags.xchg == reg) {
+                    /* Bail on keeping the flags in the reg. */
+                    drreg_move_aflags_from_reg(drcontext, bb, inst, pt);
                 } else {
                     /* We need to move the tool's value somewhere else.
                      * We use a separate slot for that (and we document that
@@ -502,6 +509,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  drvector_get_entry(&pt->reg[GPR_IDX(reg)].live,
                                     pt->live_idx-1) == REG_LIVE)) {
                 uint tmp_slot = MAX_SPILLS;
+                if (pt->aflags.xchg == reg) {
+                    /* Bail on keeping the flags in the reg. */
+                    drreg_move_aflags_from_reg(drcontext, bb, inst, pt);
+                    continue;
+                }
                 if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
                     /* XXX i#511: NYI */
                     drreg_report_error(DRREG_ERROR_FEATURE_NOT_AVAILABLE, "xchg NYI");
@@ -853,9 +865,13 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
     LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": getting app value for %s\n",
         __FUNCTION__, pt->live_idx, instr_get_app_pc(where), get_register_name(app_reg));
-    restore_reg(drcontext, pt, app_reg,
-                pt->reg[GPR_IDX(app_reg)].slot,
-                ilist, where, false);
+    if (pt->aflags.xchg == app_reg) {
+        /* Bail on keeping the flags in the reg. */
+        drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
+    } else {
+        restore_reg(drcontext, pt, app_reg, pt->reg[GPR_IDX(app_reg)].slot,
+                    ilist, where, false);
+    }
     return DRREG_SUCCESS;
 }
 
@@ -1008,6 +1024,48 @@ drreg_set_bb_properties(void *drcontext, drreg_bb_properties_t flags)
  * ARITHMETIC FLAGS
  */
 
+/* The caller should only call if aflags are currently in xax.
+ * If aflags are in use, moves them to TLS.
+ * If not, restores aflags if necessary and restores xax.
+ */
+static void
+drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist,
+                           instr_t *where, per_thread_t *pt)
+{
+#ifdef X86
+    if (pt->aflags.in_use) {
+        LOG(drcontext, LOG_ALL, 3,
+            "%s @%d."PFX": moving aflags from xax to slot for app xax\n", __FUNCTION__,
+            pt->live_idx, instr_get_app_pc(where));
+        spill_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where);
+    } else if (!pt->aflags.native) {
+        drreg_status_t res;
+        LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": lazily restoring aflags for app xax\n",
+            __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
+        res = drreg_restore_aflags(drcontext, ilist, where, pt, true/*release*/);
+        if (res != DRREG_SUCCESS)
+            drreg_report_error(res, "failed to restore flags before app xax");
+        pt->aflags.native = true;
+        pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
+    }
+    LOG(drcontext, LOG_ALL, 3,
+        "%s @%d."PFX": restoring xax spilled for aflags\n", __FUNCTION__,
+        pt->live_idx, instr_get_app_pc(where));
+    if (ops.conservative ||
+        drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx)
+        == REG_LIVE) {
+        restore_reg(drcontext, pt, DR_REG_XAX,
+                    pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot, ilist, where, true);
+    } else
+        pt->slot_use[pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot] = DR_REG_NULL;
+    pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use = false;
+    pt->reg[DR_REG_XAX-DR_REG_START_GPR].native = true;
+    pt->reg[DR_REG_XAX-DR_REG_START_GPR].ever_spilled = false;
+    pt->aflags.xchg = DR_REG_NULL;
+#endif
+}
+
+/* May modify pt->aflags.xchg */
 static drreg_status_t
 drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thread_t *pt)
 {
@@ -1016,30 +1074,36 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
     uint temp_slot = find_free_slot(pt);
     if (temp_slot == MAX_SPILLS)
         return DRREG_ERROR_OUT_OF_SLOTS;
-    if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use) {
+    /* It may be in-use for ourselves, storing the flags in xax. */
+    if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use && pt->aflags.xchg != DR_REG_XAX) {
         /* No way to tell whoever is using xax that we need it */
         /* XXX i#511: pick an unreserved reg, spill it, and put xax there
          * temporarily.  Store aflags in our dedicated aflags tls slot.
          */
         return DRREG_ERROR_REG_CONFLICT;
     }
-    if (ops.conservative ||
-        drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
-        REG_LIVE)
+    if (pt->aflags.xchg != DR_REG_XAX &&
+        (ops.conservative ||
+         drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
+         REG_LIVE))
         spill_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where);
     PRE(ilist, where, INSTR_CREATE_lahf(drcontext));
     if (TEST(EFLAGS_READ_OF, aflags)) {
         PRE(ilist, where,
             INSTR_CREATE_setcc(drcontext, OP_seto, opnd_create_reg(DR_REG_AL)));
     }
-    /* XXX i#511: as an optimization we could keep the flags in xax itself where
-     * possible.  For now, for simplicity, we always put into aflags TLS slot.
+    /* As an optimization we keep the flags in xax itself until forced to move
+     * them to the aflags TLS slot.
+     * XXX i#511: give up xax on drreg_reserve_register(): right now the client
+     * will fail to reserve if all other regs are taken.
      */
-    spill_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where);
-    if (ops.conservative ||
-        drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
-        REG_LIVE)
-        restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
+    pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use = true;
+    pt->reg[DR_REG_XAX-DR_REG_START_GPR].native = false;
+    pt->reg[DR_REG_XAX-DR_REG_START_GPR].ever_spilled = true;
+    if (pt->aflags.xchg != DR_REG_XAX)
+        pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot = temp_slot;
+    pt->aflags.xchg = DR_REG_XAX;
+
 #elif defined(AARCHXX)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
@@ -1061,29 +1125,41 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
 #ifdef X86
     uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
-    uint temp_slot = find_free_slot(pt);
-    if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use) {
-        /* XXX i#511: pick an unreserved reg, spill it, and put xax there
-         * temporarily.
-         */
-        return DRREG_ERROR_REG_CONFLICT;
+    uint temp_slot = 0;
+    if (pt->aflags.xchg == DR_REG_XAX) {
+        ASSERT(pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use, "eflags-in-xax error");
+    } else {
+        temp_slot = find_free_slot(pt);
+        if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use) {
+            /* XXX i#511: pick an unreserved reg, spill it, and put xax there
+             * temporarily.
+             */
+            return DRREG_ERROR_REG_CONFLICT;
+        }
+        if (temp_slot == MAX_SPILLS)
+            return DRREG_ERROR_OUT_OF_SLOTS;
+        if (ops.conservative ||
+            drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx)
+            == REG_LIVE)
+            spill_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where);
+        restore_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where, release);
     }
-    if (temp_slot == MAX_SPILLS)
-        return DRREG_ERROR_OUT_OF_SLOTS;
-    if (ops.conservative ||
-        drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
-        REG_LIVE)
-        spill_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where);
-    restore_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where, release);
     if (TEST(EFLAGS_READ_OF, aflags)) {
         PRE(ilist, where, INSTR_CREATE_add
             (drcontext, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(0x7f)));
     }
     PRE(ilist, where, INSTR_CREATE_sahf(drcontext));
-    if (ops.conservative ||
-        drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
-        REG_LIVE)
-        restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
+    if (pt->aflags.xchg == DR_REG_XAX) {
+        if (release) {
+            pt->aflags.xchg = DR_REG_NULL;
+            pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use = false;
+        }
+    } else {
+        if (ops.conservative ||
+            drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx)
+            == REG_LIVE)
+            restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
+    }
 #elif defined(AARCHXX)
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
@@ -1129,19 +1205,20 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     if (!pt->aflags.native) {
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": using un-restored aflags\n",
             __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
-        ASSERT(pt->slot_use[AFLAGS_SLOT] != DR_REG_NULL, "lost slot reservation");
+        ASSERT(pt->aflags.xchg != DR_REG_NULL ||
+               pt->slot_use[AFLAGS_SLOT] != DR_REG_NULL, "lost slot reservation");
         pt->aflags.in_use = true;
         return DRREG_SUCCESS;
     }
 
     LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": spilling aflags\n",
         __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
+    pt->aflags.xchg = DR_REG_NULL; /* drreg_spill_aflags writes to this, so clear first */
     res = drreg_spill_aflags(drcontext, ilist, where, pt);
     if (res != DRREG_SUCCESS)
         return res;
     pt->aflags.in_use = true;
     pt->aflags.native = false;
-    pt->aflags.xchg = DR_REG_NULL;
     pt->aflags.slot = AFLAGS_SLOT;
     return DRREG_SUCCESS;
 }
@@ -1152,11 +1229,14 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     if (!pt->aflags.in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
+    pt->aflags.in_use = false;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
         /* We have no way to lazily restore.  We do not bother at this point
          * to try and eliminate back-to-back spill/restore pairs.
          */
-        if (!pt->aflags.native) {
+        if (pt->aflags.xchg != DR_REG_NULL)
+            drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
+        else if (!pt->aflags.native) {
             drreg_restore_aflags(drcontext, ilist, where, pt, true/*release*/);
             pt->aflags.native = true;
         }
@@ -1167,7 +1247,6 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     /* We lazily restore in drreg_event_bb_insert_late(), in case
      * someone else wants the aflags locally.
      */
-    pt->aflags.in_use = false;
     return DRREG_SUCCESS;
 }
 
@@ -1223,6 +1302,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     byte *prev_pc, *pc = info->fragment_info.cache_start_pc;
     uint offs;
     bool spill, tls;
+#ifdef X86
+    bool prev_xax_spill = false;
+    bool aflags_in_xax = false;
+#endif
     if (pc == NULL)
         return true; /* fault not in cache */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
@@ -1287,18 +1370,38 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                         __FUNCTION__, pc);
                 }
             }
+#ifdef X86
+            if (reg == DR_REG_XAX) {
+                prev_xax_spill = true;
+                if (aflags_in_xax)
+                    aflags_in_xax = false;
+            }
+#endif
         }
+#ifdef X86
+        else if (prev_xax_spill && instr_get_opcode(&inst) == OP_lahf && spill)
+            aflags_in_xax = true;
+        else if (aflags_in_xax && instr_get_opcode(&inst) == OP_sahf)
+            aflags_in_xax = false;
+#endif
     }
     instr_free(drcontext, &inst);
 
-    if (spilled_to_aflags < MAX_SPILLS) {
-        reg_t val = get_spilled_value(drcontext, spilled_to_aflags);
+    if (spilled_to_aflags < MAX_SPILLS IF_X86(|| aflags_in_xax)) {
         reg_t newval = info->mcontext->xflags;
+        reg_t val;
+#ifdef X86
+        uint sahf;
+        if (aflags_in_xax)
+            val = info->mcontext->xax;
+        else
+#endif
+            val = get_spilled_value(drcontext, spilled_to_aflags);
 #ifdef AARCHXX
         newval &= ~(EFLAGS_ARITH);
         newval |= val;
 #elif defined(X86)
-        uint sahf = (val & 0xff00) >> 8;
+        sahf = (val & 0xff00) >> 8;
         newval &= ~(EFLAGS_ARITH);
         newval |= sahf;
         if (TEST(1, val)) /* seto */
