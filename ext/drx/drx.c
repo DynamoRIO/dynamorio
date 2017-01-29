@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,6 +52,8 @@
 # endif
 # include <signal.h> /* SIGKILL */
 #endif
+
+#include <limits.h>
 
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
@@ -454,7 +456,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     instr = INSTR_CREATE_add(drcontext,
                              OPND_CREATE_ABSMEM
                              (addr, IF_X64_ELSE((is_64 ? OPSZ_8 : OPSZ_4), OPSZ_4)),
-                             OPND_CREATE_INT32(value));
+                             OPND_CREATE_INT_32OR8(value));
     if (TEST(DRX_COUNTER_LOCK, flags))
         instr = LOCK(instr);
     MINSERT(ilist, where, instr);

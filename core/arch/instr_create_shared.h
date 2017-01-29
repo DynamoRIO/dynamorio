@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -139,16 +139,18 @@
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-#define OPND_CREATE_INT_32OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
+#define OPND_CREATE_INT_32OR8(val) \
+    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? \
+        OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
 /**
  * Create a 1-byte immediate interger operand if val will fit, else create a 2-byte
  * immediate integer operand.
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-#define OPND_CREATE_INT_16OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
+#define OPND_CREATE_INT_16OR8(val) \
+    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? \
+        OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
 
 /**
  * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
