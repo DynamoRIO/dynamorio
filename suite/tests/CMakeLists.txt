@@ -1525,12 +1525,10 @@ endif (WIN32)
 
 if (X86)
   set(control_flags "eflags")
-elseif (AARCH64)
+elseif (AARCHXX)
   set(control_flags "nzcv")
 endif ()
-if (NOT ARM) # FIXME i#1551: port eflags/nzcv to ARM
-  tobuild(common.${control_flags} common/${control_flags}.c)
-endif ()
+tobuild(common.${control_flags} common/${control_flags}.c)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
@@ -2258,27 +2256,25 @@ if (CLIENT_INTERFACE)
     # We run common.eflags mainly for memtrace and other big clients which
     # are quite slow on common.fib or common.broadfun: just a sanity check
     # after all.
-    if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-      get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
-      foreach (sample ${sample_list})
-        torunonly_ci(sample.${sample} common.${control_flags}
-          ${sample} common/${control_flags}.c "" "" "")
-        if (sample STREQUAL "inscount")
-          # test out-of-line clean call
-          torunonly_ci(sample.${sample}.cleancall common.${control_flags} ${sample}
-            common/${control_flags}.c "" "-opt_cleancall 0" "")
-          if (UNIX)
-            torunonly_ci(sample.${sample}.prof-pcs.cleancall common.${control_flags}
-              ${sample} common/${control_flags}.c "" "-prof_pcs -opt_cleancall 0" "")
-            if (NOT X64)
-              torunonly_ci(sample.${sample}.prof-pcs.thread-private.cleancall
-                common.${control_flags} ${sample} common/${control_flags}.c ""
-                "-thread_private -prof_pcs -opt_cleancall 0" "")
-            endif (NOT X64)
-          endif (UNIX)
-        endif ()
-      endforeach ()
-    endif (NOT ARM)
+    get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
+    foreach (sample ${sample_list})
+      torunonly_ci(sample.${sample} common.${control_flags}
+        ${sample} common/${control_flags}.c "" "" "")
+      if (sample STREQUAL "inscount")
+        # test out-of-line clean call
+        torunonly_ci(sample.${sample}.cleancall common.${control_flags} ${sample}
+          common/${control_flags}.c "" "-opt_cleancall 0" "")
+        if (UNIX AND NOT ARM) # FIXME i#1551: fix bugs on ARM
+          torunonly_ci(sample.${sample}.prof-pcs.cleancall common.${control_flags}
+            ${sample} common/${control_flags}.c "" "-prof_pcs -opt_cleancall 0" "")
+          if (NOT X64) # FIXME i#2160: "-thread_private -prof_pcs" support on AArch64
+            torunonly_ci(sample.${sample}.prof-pcs.thread-private.cleancall
+              common.${control_flags} ${sample} common/${control_flags}.c ""
+              "-thread_private -prof_pcs -opt_cleancall 0" "")
+          endif (NOT X64)
+        endif (UNIX AND NOT ARM)
+      endif ()
+    endforeach ()
 
     # Test building the samples as an external project (i#1586).
     # This is not a perfect test as the build dir is not an install dir,

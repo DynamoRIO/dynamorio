@@ -3081,8 +3081,8 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
         (dcontext, basereg, offs, sz);
     ASSERT(sz == OPSZ_1 || sz == OPSZ_2 || sz == OPSZ_4);
-    /* there is no immed to mem instr on ARM */
-    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
+    /* There is no immed to mem instr on ARM or AArch64. */
+    IF_NOT_X86(ASSERT_NOT_IMPLEMENTED(false));
     return XINST_CREATE_store(dcontext, memopnd,
                               opnd_create_immed_int(immed, sz));
 }

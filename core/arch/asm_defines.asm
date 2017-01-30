@@ -368,12 +368,16 @@ ASSUME fs:_DATA @N@\
 
 # ifndef AARCH64
 #  define FP r11
+#  define LR r14
 #  define INDJMP bx
 #  define REG_PRESERVED_1 r4
+#  define REG_PRESERVED_2 r5
 # else
 #  define FP x29
+#  define LR x30
 #  define INDJMP br
 #  define REG_PRESERVED_1 x19
+#  define REG_PRESERVED_2 x20
 # endif
 
 #else /* Intel X86 */
