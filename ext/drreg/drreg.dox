@@ -64,9 +64,10 @@ That will automatically set up the include path and library dependence.
 
 The initialization routine \p drreg_init() must be called prior to any of
 the other routines.  Additional calls to drreg_init() are allowed (so long
-as they are paired with corresponding calls to drreg_exit()) but only the
-first caller's options are honored.  Typically this is the end-user tool
-itself, with most other library components not directly interacting with
+as they are paired with corresponding calls to drreg_exit()).  The option
+fields are combined from multiple calls as described in the documentation
+for each field.  Typically the end-user tool itself specifies these
+options, with most other library components not directly interacting with
 drreg (libraries often take in scratch registers from the caller for most
 of their operations).
 

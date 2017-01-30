@@ -155,8 +155,11 @@ event_module_unload(void *drcontext, const module_data_t *info);
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    /* drx_insert_counter_update() needs a few slots */
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
+    /* We need no drreg slots ourselves, but we initialize drreg as we call
+     * drreg_restore_app_values(), required since drx_insert_counter_update()
+     * uses drreg when drmgr is used.
+     */
+    drreg_options_t ops = {sizeof(ops)};
     dr_set_client_name("DynamoRIO Sample Client 'modxfer'",
                        "http://dynamorio.org/issues");
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)

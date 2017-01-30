@@ -39,7 +39,6 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drreg.h"
 #include "drx.h"
 #include <stdlib.h> /* qsort */
 
@@ -91,13 +90,11 @@ static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag, instrli
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    /* drx_insert_counter_update() needs a few slots */
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
-
     dr_set_client_name("DynamoRIO Sample Client 'opcodes'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init())
         DR_ASSERT(false);
+    drx_init();
 
     /* Register events: */
     dr_register_exit_event(event_exit);
@@ -185,9 +182,9 @@ event_exit(void)
         DISPLAY_STRING(msg);
     }
 #endif /* SHOW_RESULTS */
-    if (!drmgr_unregister_bb_insertion_event(event_app_instruction) ||
-        drreg_exit() != DRREG_SUCCESS)
+    if (!drmgr_unregister_bb_insertion_event(event_app_instruction))
         DR_ASSERT(false);
+    drx_exit();
     drmgr_exit();
 }
 
@@ -240,7 +237,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
              * optimize the spills and restores.
              */
             drx_insert_counter_update(drcontext, bb, instr,
-                                      /* We're using drmgr and drreg so these slots
+                                      /* We're using drmgr, so these slots
                                        * here won't be used: drreg's slots will be.
                                        */
                                       SPILL_SLOT_MAX+1, IF_AARCHXX_(SPILL_SLOT_MAX+1)

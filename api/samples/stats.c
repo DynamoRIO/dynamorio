@@ -51,7 +51,6 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drreg.h"
 #include "drx.h"
 #include "utils.h"
 #include <stddef.h> /* for offsetof */
@@ -238,15 +237,13 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     uint i;
-    /* drx_insert_counter_update() needs a few slots */
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
 
     dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");
     my_id = id;
     /* Make it easy to tell by looking at the log which client executed. */
     dr_log(NULL, LOG_ALL, 1, "Client 'stats' initializing\n");
 
-    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init())
         DR_ASSERT(false);
     drx_init();
 
@@ -297,8 +294,7 @@ event_exit(void)
     shared_memory_exit();
 
     drx_exit();
-    if (!drmgr_unregister_bb_instrumentation_event(event_analyze_bb) ||
-        drreg_exit() != DRREG_SUCCESS)
+    if (!drmgr_unregister_bb_instrumentation_event(event_analyze_bb))
         DR_ASSERT(false);
     drmgr_exit();
 }

@@ -103,6 +103,12 @@ DR_EXPORT
 bool
 drx_init(void)
 {
+    /* drx_insert_counter_update() needs 1 slot on x86, 2 on aarch.
+     * We set do_not_sum_slots to true so that we only ask for *more* slots
+     * if the client doesn't ask for any.
+     */
+    drreg_options_t ops = {sizeof(ops), IF_X86_ELSE(1, 2), false, NULL, true};
+
     int count = dr_atomic_add32_return_sum(&drx_init_count, 1);
     if (count > 1)
         return true;
@@ -110,6 +116,9 @@ drx_init(void)
     drmgr_init();
     note_base = drmgr_reserve_note_range(DRX_NOTE_COUNT);
     ASSERT(note_base != DRMGR_NOTE_NONE, "failed to reserve note range");
+
+    if (drreg_init(&ops) != DRREG_SUCCESS)
+        return false;
 
     return drx_buf_init_library();
 }
@@ -126,6 +135,7 @@ drx_exit()
         soft_kills_exit();
 
     drx_buf_exit_library();
+    drreg_exit();
     drmgr_exit();
 }
 
@@ -402,7 +412,11 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     reg_id_t reg1, reg2;
 #endif
     bool is_64 = TEST(DRX_COUNTER_64BIT, flags);
-
+    /* Requires drx_init(), where it didn't when first added. */
+    if (drx_init_count == 0) {
+        ASSERT(false, "drx_insert_counter_update requires drx_init");
+        return false;
+    }
     if (drcontext == NULL) {
         ASSERT(false, "drcontext cannot be NULL");
         return false;

@@ -1467,6 +1467,7 @@ drreg_thread_exit(void *drcontext)
 drreg_status_t
 drreg_init(drreg_options_t *ops_in)
 {
+    uint prior_slots = ops.num_spill_slots;
     drmgr_priority_t high_priority = {
         sizeof(high_priority), DRMGR_PRIORITY_NAME_DRREG_HIGH, NULL, NULL,
         DRMGR_PRIORITY_INSERT_DRREG_HIGH
@@ -1481,39 +1482,66 @@ drreg_init(drreg_options_t *ops_in)
     };
 
     int count = dr_atomic_add32_return_sum(&drreg_init_count, 1);
-    /* XXX i#511: instead of allowing only one drreg_init() and all other
-     * components to be passed in scratch regs by a master,
-     * we could instead shift true init to
-     * drreg_thread_init() and thus consider all callers' requests?  For
-     * the num_ fields we can easily sum them: but what about if we
-     * later add bool or other fields that are harder to combine?
-     */
-    if (count > 1)
-        return DRREG_SUCCESS;
+    if (count == 1) {
+        drmgr_init();
+
+        if (!drmgr_register_thread_init_event(drreg_thread_init) ||
+            !drmgr_register_thread_exit_event(drreg_thread_exit))
+            return DRREG_ERROR;
+        tls_idx = drmgr_register_tls_field();
+        if (tls_idx == -1)
+            return DRREG_ERROR;
+
+        if (!drmgr_register_bb_instrumentation_event
+            (NULL, drreg_event_bb_insert_early, &high_priority) ||
+            !drmgr_register_bb_instrumentation_event
+            (drreg_event_bb_analysis, drreg_event_bb_insert_late, &low_priority) ||
+            !drmgr_register_restore_state_ex_event_ex
+            (drreg_event_restore_state, &fault_priority))
+            return DRREG_ERROR;
+    }
 
     if (ops_in->struct_size < offsetof(drreg_options_t, error_callback))
         return DRREG_ERROR_INVALID_PARAMETER;
-    else if (ops_in->struct_size < sizeof(ops))
-        ops.error_callback = NULL;
-    ops = *ops_in;
 
-    drmgr_init();
+    /* Instead of allowing only one drreg_init() and all other components to be
+     * passed in scratch regs by a master, which is not always an easy-to-use
+     * model, we instead consider all callers' requests, combining the option
+     * fields.  We don't shift init to drreg_thread_init() or sthg b/c we really
+     * want init-time error codes returning from drreg_init().
+     */
 
-    if (!drmgr_register_thread_init_event(drreg_thread_init) ||
-        !drmgr_register_thread_exit_event(drreg_thread_exit))
-        return DRREG_ERROR;
-    tls_idx = drmgr_register_tls_field();
-    if (tls_idx == -1)
-        return DRREG_ERROR;
+    /* Sum the spill slots, honoring a new or prior do_not_sum_slots by taking
+     * the max instead of summing.
+     */
+    if (ops_in->struct_size > offsetof(drreg_options_t, do_not_sum_slots)) {
+        if (ops_in->do_not_sum_slots) {
+            if (ops_in->num_spill_slots > ops.num_spill_slots)
+                ops.num_spill_slots = ops_in->num_spill_slots;
+        } else
+            ops.num_spill_slots += ops_in->num_spill_slots;
+        ops.do_not_sum_slots = ops_in->do_not_sum_slots;
+    } else {
+        if (ops.do_not_sum_slots) {
+            if (ops_in->num_spill_slots > ops.num_spill_slots)
+                ops.num_spill_slots = ops_in->num_spill_slots;
+        } else
+            ops.num_spill_slots += ops_in->num_spill_slots;
+        ops.do_not_sum_slots = false;
+    }
 
-    if (!drmgr_register_bb_instrumentation_event
-        (NULL, drreg_event_bb_insert_early, &high_priority) ||
-        !drmgr_register_bb_instrumentation_event
-        (drreg_event_bb_analysis, drreg_event_bb_insert_late, &low_priority) ||
-        !drmgr_register_restore_state_ex_event_ex
-        (drreg_event_restore_state, &fault_priority))
-        return DRREG_ERROR;
+    /* If anyone wants to be conservative, then be conservative. */
+    ops.conservative = ops.conservative || ops_in->conservative;
 
+    /* The first callback wins. */
+    if (ops_in->struct_size > offsetof(drreg_options_t, error_callback) &&
+        ops.error_callback == NULL)
+        ops.error_callback = ops_in->error_callback;
+
+    if (prior_slots > 0) {
+        if (!dr_raw_tls_cfree(tls_slot_offs, prior_slots))
+            return DRREG_ERROR;
+    }
     /* 0 spill slots is supported and just fills in tls_seg for us. */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;

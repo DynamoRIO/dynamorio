@@ -123,7 +123,11 @@ typedef struct _drreg_options_t {
      * across application instructions, an additional slot must be
      * requested for adjusting the saved application value with
      * respect to application reads and writes.
-     * drreg always reserves one slot for use in preserving the arithmetic flags.
+     * drreg always needs one slot for use in preserving the arithmetic flags.
+     *
+     * When drreg_init() is called multiple times, the number of slots is
+     * summed from each call, unless \p do_not_sum_slots is specified for
+     * that call, in which case a maximum is used rather than a sum.
      */
     uint num_spill_slots;
     /**
@@ -131,6 +135,9 @@ typedef struct _drreg_options_t {
      * on the particular value of a dead register when a fault happens.
      * This allows drreg to reduce overhead.  This flag can be set to
      * request that drreg not make this assumption.
+     *
+     * If multiple drreg_init() calls are made, this field is combined by
+     * logical OR.
      */
     bool conservative;
     /**
@@ -138,23 +145,40 @@ typedef struct _drreg_options_t {
      * no direct return value to the user of drreg.  When an error is encountered
      * at these times, drreg will call this callback and pass the error value.
      * If this callback is NULL, or if it returns false, drreg will call dr_abort().
+     *
+     * If multiple drreg_init() calls are made, only the first callback is
+     * honored (thus, libraries generally should not set this).
      */
     bool (*error_callback)(drreg_status_t status);
+    /**
+     * Generally, library routines should take in scratch registers directly,
+     * keeping drreg reservations in the end client.  However, sometimes this
+     * model is not sufficient, and a library wants to directly reserve drreg
+     * registers or aflags.  The library can ensure that drreg is initialized,
+     * without forcing the client to do so when the client is not directly using
+     * drreg already, by calling drreg_init() and setting \p do_not_sum_slots to
+     * true.  This ensures that the total requested slots is at least \p
+     * num_spill_slots, but if the total is already higher than that, the total
+     * is left alone..  Thus, if clients invoke drreg_init() on their own, the
+     * library will not needlessly add to the number of simultaneous slots
+     * needed.
+     */
+    bool do_not_sum_slots;
 } drreg_options_t;
 
 DR_EXPORT
 /**
- * Initializes the drreg extension.  Must be called prior to any of the
- * other routines.  Can be called multiple times (by separate components,
- * normally) but each call must be paired with a corresponding call to
- * drreg_exit().
+ * Initializes the drreg extension.  Must be called prior to any of the other
+ * routines.  Can be called multiple times (by separate components, normally)
+ * but each call must be paired with a corresponding call to drreg_exit().  The
+ * fields of \p ops are combined from multiple calls as described in the
+ * documentation for each field.  Typically the end-user tool itself specifies
+ * these options, with most other library components not directly interacting
+ * with drreg (libraries often take in scratch registers from the caller for
+ * most of their operations).
  *
  * @param[in] ops  Specifies the optional parameters that control how
- *   drreg operates.  Only the first caller's options are honored.
- *   Typically this is the end-user tool itself, with most other
- *   library components not directly interacting with drreg (libraries
- *   often take in scratch registers from the caller for most of their
- *   operations).
+ *   drreg operates.
  *
  * @return whether successful or an error code on failure.
  */
