@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,7 @@ finalized.
 
  - \ref sec_drreg_setup
  - \ref sec_drreg_usage
+ - \ref sec_drreg_app_values
  - \ref sec_drreg_linear
 
 \section sec_drreg_setup Setup
@@ -81,6 +82,20 @@ application instruction reads or writes that register, while still
 preserving the client's value in that register for use after the
 application instruction.  Reservations may not extend beyond the end of a
 basic block.
+
+\section sec_drreg_app_values Application Values
+
+\p drreg assumes that only application instructions need to read
+application values.  \p drreg assumes that it is safe to wait as long as
+possible to restore a spilled application value that is no longer reserved.
+If a client is inserting instrumentation that reads application values, or
+is using a library routine that does the same, the client needs to tell \p
+drreg to restore the needed application registers.  This can be done with
+drreg_restore_app_values() or with drreg_get_app_value().  This essentially
+acts as a "barrier" to lazy restoring.  Library routines that require such
+a barrier include anything that reads application instruction operands,
+including dr_insert_mbr_instrumentation(),
+dr_insert_call_instrumentation(), etc.
 
 \section sec_drreg_linear Linear Control Flow
 
