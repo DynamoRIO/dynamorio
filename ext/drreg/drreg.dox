@@ -96,7 +96,9 @@ drreg_restore_app_values() or with drreg_get_app_value().  This essentially
 acts as a "barrier" to lazy restoring.  Library routines that require such
 a barrier include anything that reads application instruction operands,
 including dr_insert_mbr_instrumentation(),
-dr_insert_call_instrumentation(), etc.
+dr_insert_call_instrumentation(), etc.  They can also include
+dr_insert_clean_call() if not enough TLS slots were requested and as a
+consequence drreg and DR itself are sharing slots.
 
 \section sec_drreg_linear Linear Control Flow
 

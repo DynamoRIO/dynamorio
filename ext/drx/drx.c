@@ -103,11 +103,12 @@ DR_EXPORT
 bool
 drx_init(void)
 {
-    /* drx_insert_counter_update() needs 1 slot on x86, 2 on aarch.
+    /* drx_insert_counter_update() needs 1 slot on x86 plus the 1 slot
+       drreg uses for aflags, and 2 reg slots on aarch, so 2 on both.
      * We set do_not_sum_slots to true so that we only ask for *more* slots
      * if the client doesn't ask for any.
      */
-    drreg_options_t ops = {sizeof(ops), IF_X86_ELSE(1, 2), false, NULL, true};
+    drreg_options_t ops = {sizeof(ops), 2, false, NULL, true};
 
     int count = dr_atomic_add32_return_sum(&drx_init_count, 1);
     if (count > 1)

@@ -118,12 +118,15 @@ typedef struct _drreg_options_t {
      * this number will use DR's base slots, which are not allowed to be
      * used across application instructions.  DR's slots are also more
      * expensive to access (beyond the first few).
+     * This number should be computed as one plus the number of
+     * simultaneously used general-purpose register spill slots, as
+     * drreg reserves one of the requested slots for arithmetic flag
+     * preservation.
      *
      * For each simultaneous value that will be held in a register
      * across application instructions, an additional slot must be
      * requested for adjusting the saved application value with
      * respect to application reads and writes.
-     * drreg always needs one slot for use in preserving the arithmetic flags.
      *
      * When drreg_init() is called multiple times, the number of slots is
      * summed from each call, unless \p do_not_sum_slots is specified for
