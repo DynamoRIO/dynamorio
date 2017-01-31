@@ -102,8 +102,7 @@ The following are part of the DynamoRIO release distribution:
    sec_standalone).
 \endif
  - A number of end-user tools including a code coverage tool (see \ref
-   page_drcov), a library tracing tool (see \ref page_drltrace),
-   a multi-process cache simulator (see \ref page_drcachesim),
+   page_drcov), a multi-process cache simulator (see \ref page_drcachesim),
    and a legacy CPU testing tool (see \ref page_drcpusim).
    If this is a DynamoRIO public release, it also includes the
    Dr. Memory memory debugging tool (see \ref page_drmemory), a system call
@@ -136,6 +135,7 @@ clients.
 The changes between version \DR_VERSION and 6.2.0 include the
 following minor compatibility changes:
 
+ - The drltrace tool has been moved to the Dr.Memory Framework.
  - Changed dr_app_stop() to send all threads native instead of only the
    calling thread.
  - Replaced PAGE_SIZE with dr_page_size() and removed PAGE_START from the API.
@@ -459,7 +459,7 @@ Further non-compatibility-affecting changes include:
 The changes between version 4.2.0 and 4.1.0 include:
 
  - Added preliminary Windows 8.1 support
- - Added a new \ref page_drltrace
+ - Added a new Library Tracing Tool, drltrace.
  - Re-branded our \ref page_drcov
  - Added an export iterator: dr_symbol_export_iterator_start(),
    dr_symbol_export_iterator_hasnext(), dr_symbol_export_iterator_next(),
