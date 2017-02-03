@@ -5761,6 +5761,19 @@ mark_page_as_guard(byte *pc)
     ASSERT(res);
 }
 
+/* Removes guard protection from page containing pc */
+void
+unmark_page_as_guard(byte *pc, uint prot)
+{
+    uint old_prot;
+    int res;
+    byte *start_page = (byte *)ALIGN_BACKWARD(pc, PAGE_SIZE);
+
+    uint flags = memprot_to_osprot(prot & ~MEMPROT_GUARD);
+    res = protect_virtual_memory(start_page, PAGE_SIZE, flags, &old_prot);
+    ASSERT(res);
+}
+
 /* Change page protection for pc:pc+size.
  * If set is false, makes [un]writable depending on add_writable argument,
  * preserving other flags; else, sets protection to new_prot.
