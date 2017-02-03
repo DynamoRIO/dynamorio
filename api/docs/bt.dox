@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1035,7 +1035,7 @@ void instr_branch_set_prefix_target(instr_t *instr, bool val);
 \endhtmlonly
 \section sec_reg_stolen Register Stolen by DynamoRIO
 
-On some architectures, e.g., ARM architecture, DynamoRIO steals a register for
+On some architectures, e.g., ARM and AArch64, DynamoRIO steals a register for
 holding the base of DynamoRIO's own TLS (Thread-Local Storage).
 DynamoRIO guarantees the correctness of the application execution by saving
 and restoring the stolen register's value before and after that register is used
@@ -1196,8 +1196,9 @@ query instr_is_predicated() when using API routines that do not take in
 \endhtmlonly
 \section sec_ldrex Exclusive Monitor Instrumentation Constraints
 
-On ARM, a ldrex..strex pair of instructions has some constraints that make inserting
-instrumentation in between the pair challenging.  ARM hardware requires
+On ARM and AArch64, a ldrex..strex pair of instructions has some
+constraints that make inserting
+instrumentation in between the pair challenging.  ARM/AArch64 hardware requires
 that an application minimize memory operations in between the ldrex and
 strex and minimize the total number of instructions in between.  Violating
 this can result in failure to acquire the desired exclusive monitor, which

@@ -66,12 +66,12 @@ The following are part of the DynamoRIO release distribution:
 \endif
 
  - Four different DynamoRIO libraries: debug and release for each of
-   32-bit and 64-bit (for ARM builds, currently only 32-bit is supported
-   and included).
+   32-bit and 64-bit (for ARM or AArch64 builds, only a single bitwidth
+   matching the ISA is provided).
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
- - Four different IA-32/AMD64/ARM decoding static libraries: debug and release
-   for each of 32-bit and 64-bit (only 32-bit for ARM).
+ - Four different IA-32/AMD64/ARM/AArch64 decoding static libraries: debug and release
+   for each of 32-bit and 64-bit (only 32-bit for ARM and 64-bit for AArch64).
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
  - A variety of DynamoRIO Extension libraries that augment the core

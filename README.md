@@ -10,11 +10,11 @@ exports an interface for building dynamic tools for a wide variety of uses:
 program analysis and understanding, profiling, instrumentation,
 optimization, translation, etc. Unlike many dynamic tool systems, DynamoRIO
 is not limited to insertion of callouts/trampolines and allows arbitrary
-modifications to application instructions via a powerful IA-32/AMD64/ARM
+modifications to application instructions via a powerful IA-32/AMD64/ARM/AArch64
 instruction manipulation library. DynamoRIO provides efficient,
 transparent, and comprehensive manipulation of unmodified applications
 running on stock operating systems (Windows, Linux, or Android) and commodity
-IA-32, AMD64, and ARM hardware.  Mac OSX support is in progress.
+IA-32, AMD64, ARM, and AArch64 hardware.  Mac OSX support is in progress.
 
 ## Existing DynamoRIO-based tools
 
