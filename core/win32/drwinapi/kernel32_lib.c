@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -119,11 +119,30 @@ redirect_GetProcAddress(HMODULE modbase, const char *name)
         return (FARPROC) convert_data_to_function(res);
 }
 
-HMODULE WINAPI
-redirect_LoadLibraryA(const char *name)
+static HMODULE
+helper_LoadLibrary(const char *name)
 {
     app_pc res = NULL;
-    ASSERT(priv_kernel32_LoadLibraryA != NULL);
+    char buf[MAXIMUM_PATH];
+    if (double_strrchr(name, DIRSEP, ALT_DIRSEP) == NULL) {
+        /* The LoadLibrary docs say that ".dll" will be appended if it's
+         * not there and there's no trialing ".".
+         */
+        size_t len = strlen(name);
+        if (len > 0 &&
+            !((name[len-1] == '.' ||
+               (len > 3 &&
+                (name[len-3] == 'd' || name[len-1] == 'D') &&
+                (name[len-2] == 'l' || name[len-1] == 'L') &&
+                (name[len-1] == 'l' || name[len-1] == 'L'))))) {
+            if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s.dll", name) < 0) {
+                set_last_error(ERROR_DLL_NOT_FOUND);
+                return NULL;
+            }
+            NULL_TERMINATE_BUFFER(buf);
+            name = buf;
+        }
+    }
     res = locate_and_load_private_library(name, false/*!reachable*/);
     if (res == NULL) {
         /* XXX: if private loader can't handle some feature (delay-load dll,
@@ -141,21 +160,27 @@ redirect_LoadLibraryA(const char *name)
 }
 
 HMODULE WINAPI
+redirect_LoadLibraryA(const char *name)
+{
+#ifndef STANDALONE_UNIT_TEST
+    ASSERT(priv_kernel32_LoadLibraryA != NULL);
+#endif
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: %s\n", __FUNCTION__, name);
+    return helper_LoadLibrary(name);
+}
+
+HMODULE WINAPI
 redirect_LoadLibraryW(const wchar_t *name)
 {
-    app_pc res = NULL;
     char buf[MAXIMUM_PATH];
+#ifndef STANDALONE_UNIT_TEST
     ASSERT(priv_kernel32_LoadLibraryW != NULL);
+#endif
     if (_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name) < 0)
         return (*priv_kernel32_LoadLibraryW)(name);
     NULL_TERMINATE_BUFFER(buf);
-    res = locate_and_load_private_library(buf, false/*!reachable*/);
-    if (res == NULL) {
-        /* XXX: should set more appropriate error code */
-        set_last_error(ERROR_DLL_NOT_FOUND);
-        return NULL;
-    } else
-        return (HMODULE) res;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: %s\n", __FUNCTION__, buf);
+    return helper_LoadLibrary(buf);
 }
 
 HMODULE WINAPI
@@ -233,3 +258,40 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
 /* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
  * Libraries
  */
+
+
+/***************************************************************************
+ * TESTS
+ */
+
+#ifdef STANDALONE_UNIT_TEST
+static void
+test_loading(void)
+{
+    HMODULE h;
+    BOOL ok;
+
+    h = redirect_LoadLibraryA("kernel32.dll");
+    EXPECT(h != NULL, true);
+    ok = redirect_FreeLibrary(h);
+    EXPECT(ok, TRUE);
+
+    h = redirect_LoadLibraryA("kernel32");
+    EXPECT(h != NULL, true);
+    ok = redirect_FreeLibrary(h);
+    EXPECT(ok, TRUE);
+
+    h = redirect_LoadLibraryW(L"advapi32");
+    EXPECT(h != NULL, true);
+    ok = redirect_FreeLibrary(h);
+    EXPECT(ok, TRUE);
+}
+
+void
+unit_test_drwinapi_kernel32_lib(void)
+{
+    print_file(STDERR, "testing drwinapi kernel32 lib-related routines\n");
+
+    test_loading();
+}
+#endif
