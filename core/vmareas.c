@@ -55,6 +55,7 @@
 #include "perscache.h"
 #include "translate.h"
 #include "jit_opt.h"
+#include "os_private.h" /* for memprot_to_osprot */
 
 #ifdef WINDOWS
 # include "events.h"             /* event log messages - not supported yet on Linux  */
@@ -7437,6 +7438,26 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                       IF_HOTP(&& (!DYNAMO_OPTION(hot_patching) ||
                                   self_owns_write_lock(hotp_get_lock())))));
         ASSERT(!ok || area != NULL);
+        bool is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
+        /* i#2135 : it can be a guard page if either ok or not ok
+         * so we have to get protection value right now */
+        if (prot & DR_MEMPROT_GUARD) {
+            uint oldprot;
+            SYSLOG_INTERNAL_WARNING("Application tries to execute from guard memory "PFX".\n", pc);
+            /* remove protection so as to go on */
+            if (protect_virtual_memory((byte *) ALIGN_BACKWARD(pc, PAGE_SIZE), PAGE_SIZE,
+                                       memprot_to_osprot(prot & ~DR_MEMPROT_GUARD), &oldprot) == false) {
+                SYSLOG_INTERNAL_WARNING("protect_virtual_memory failed to remove guard protection\n");
+            }
+            check_thread_vm_area_cleanup(dcontext, true/*abort*/,
+                                         true/*clean bb*/, data, vmlist,
+                                         own_execareas_writelock,
+                                         caller_execareas_writelock);
+            /* forge exception since instrumented code is at a different address */
+            os_forge_exception(pc, GUARD_PAGE_EXCEPTION);
+            ASSERT_NOT_REACHED();
+        }
+
         if (!ok) {
             /* we no longer allow execution from arbitrary dr mem, our dll is
              * on the executable list and we specifically add the callback
@@ -7447,7 +7468,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * unreadable (and so we don't want to follow a direct cti there
              * until the app actually does)
              */
-            bool is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
             bool is_being_unloaded = false;
 
 #ifdef CLIENT_INTERFACE

@@ -2943,6 +2943,7 @@ else (UNIX)
     # we match exe addresses in output so no ASLR
     append_link_flags(security-win32.except-execution "/dynamicbase:no")
 
+    tobuild(security-win32.except-guard security-win32/except-guard.c)
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)
 
