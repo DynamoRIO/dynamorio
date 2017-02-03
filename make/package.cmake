@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -52,6 +52,7 @@ set(arg_version "")    # version #
 set(arg_outdir ".")    # directory in which to place deliverables
 set(arg_cacheappend "")# string to append to every build's cache
 set(arg_no64 OFF)      # skip the 64-bit builds?
+set(arg_no32 OFF)      # skip the 32-bit builds?
 set(arg_invoke "")     # sub-project package.cmake to invoke
 # also takes args parsed by runsuite_common_pre.cmake, in particular:
 set(arg_preload "")    # cmake file to include prior to each 32-bit build
@@ -78,6 +79,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
   if (${arg} MATCHES "^no64")
     set(arg_no64 ON)
+  endif ()
+  if (${arg} MATCHES "^no32")
+    set(arg_no32 ON)
   endif ()
   if (${arg} MATCHES "^invoke=")
     string(REGEX REPLACE "^invoke=" "" arg_invoke "${arg}")
@@ -130,17 +134,19 @@ if (NOT arg_no64)
     BUILD_SAMPLES:BOOL=OFF
     " OFF ON "")
 endif (NOT arg_no64)
-# open-source now, no reason for debug to not be internal as well
-testbuild_ex("release-32" OFF "" OFF ON "")
-# note that we do build TOOLS so our DynamoRIOTarget{32,64}.cmake files match
-# and the DynamoRIOTarget{32,64}-debug.cmake file is complete (i#390)
-testbuild_ex("debug-32" OFF "
-  DEBUG:BOOL=ON
-  INTERNAL:BOOL=ON
-  BUILD_DOCS:BOOL=OFF
-  BUILD_DRSTATS:BOOL=OFF
-  BUILD_SAMPLES:BOOL=OFF
-  " OFF ON "")
+if (NOT arg_no32)
+  # open-source now, no reason for debug to not be internal as well
+  testbuild_ex("release-32" OFF "" OFF ON "")
+  # note that we do build TOOLS so our DynamoRIOTarget{32,64}.cmake files match
+  # and the DynamoRIOTarget{32,64}-debug.cmake file is complete (i#390)
+  testbuild_ex("debug-32" OFF "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    BUILD_DOCS:BOOL=OFF
+    BUILD_DRSTATS:BOOL=OFF
+    BUILD_SAMPLES:BOOL=OFF
+    " OFF ON "")
+endif (NOT arg_no32)
 
 if (NOT arg_invoke STREQUAL "")
   message("\n***************\ninvoking sub-project ${arg_invoke}\n")
