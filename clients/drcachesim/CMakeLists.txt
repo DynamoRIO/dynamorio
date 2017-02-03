@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -221,7 +221,7 @@ if (WIN32)
   # drcachesim needs these dlls (i#1737 would eliminate this)
   get_target_property(injectlib_loc drinjectlib LOCATION${location_suffix})
   DR_install(FILES "${injectlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
-  get_target_property(configlib_loc drinjectlib LOCATION${location_suffix})
+  get_target_property(configlib_loc drconfiglib LOCATION${location_suffix})
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drinjectlib.dll
