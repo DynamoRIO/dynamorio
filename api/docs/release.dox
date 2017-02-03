@@ -148,6 +148,8 @@ following minor compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - Added preliminary AArch64 ARMv8 support: see \ref sec_limits for a
+   description of what is not yet expected to work.
  - Added a static library form of DynamoRIO for use either with
    auto-takeover or the start/stop API.  The configure_DynamoRIO_static()
    and use_DynamoRIO_static_client() CMake utilities facilitate this.
@@ -1363,22 +1365,32 @@ not supported.
     stderr and stdout output from DynamoRIO or its clients may not
     be visible.
   - UTF-8 support is not yet present in drinjectlib, drconfiglib,
-    drrun.exe, drconfig.exe, or drdeploy.exe.  It is present in the
+    drrun.exe, drconfig.exe, or drinject.exe.  It is present in the
     core DR API.
   - This release of DynamoRIO has support for most 32-bit and
     64-bit Linux
     distributions running on Intel-compatible hardware, including
     Ubuntu and Fedora.
-  - This release of DynamoRIO supports 32-bit applications running on
-    32-bit Linux operating systems on AArch32 ARMv7 and ARMv8 hardware.
-  - This release of DynamoRIO has experimental support for 32-bit Android
-    applications running on AArch32 ARMv7 and ARMv8 hardware.
   - This release of DynamoRIO has support for running 32-bit
     Linux applications on 64-bit Linux operating systems on
     AMD64-compatible hardware.
   - Cross-architecture execve (e.g., a 32-bit process performing execve of
     a 64-bit executable) may stop working if the paths to the
     libdynamorio.so and libdrpreload.so libraries are renamed.
+  - This release of DynamoRIO supports 32-bit applications running on
+    32-bit Linux operating systems on AArch32 ARMv7 and ARMv8 hardware.
+    However, a few features are not yet ported: traces, clean
+    call inlining and other optimizations, and several samples.
+  - This release of DynamoRIO has experimental support for 32-bit Android
+    applications running on AArch32 ARMv7 and ARMv8 hardware.
+    However, a few features are not yet ported: traces, clean
+    call inlining and other optimizations, and several samples.
+  - This release of DynamoRIO has experimental support for 64-bit
+    applications running on 64-bit Linux operating systems on AArch64 ARMv8
+    hardware.  However, floating-point and SIMD instruction operands are
+    not fully decoded or encoded yet, and a few features are not yet
+    ported: traces, clean call inlining and other optimizations, and
+    several samples and provided tools.
 
 \subsection sec_limit_perf Performance Limitations
 
