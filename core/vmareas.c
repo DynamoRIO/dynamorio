@@ -7440,7 +7440,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         ASSERT(!ok || area != NULL);
         is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
         /* i#2135 : it can be a guard page if either ok or not ok
-         * so we have to get protection value right now 
+         * so we have to get protection value right now
          */
 #ifdef WINDOWS
         if (TEST(DR_MEMPROT_GUARD, prot)) {
