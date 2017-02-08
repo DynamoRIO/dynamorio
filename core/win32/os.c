@@ -5762,7 +5762,7 @@ mark_page_as_guard(byte *pc)
 }
 
 /* Removes guard protection from page containing pc */
-void
+bool
 unmark_page_as_guard(byte *pc, uint prot)
 {
     uint old_prot;
@@ -5771,7 +5771,11 @@ unmark_page_as_guard(byte *pc, uint prot)
 
     uint flags = memprot_to_osprot(prot & ~MEMPROT_GUARD);
     res = protect_virtual_memory(start_page, PAGE_SIZE, flags, &old_prot);
+    /* it is likely that another thread accessed the guarded page
+     * while we wanted to remove this protection
+     */
     ASSERT(res);
+    return TEST(PAGE_GUARD, old_prot);
 }
 
 /* Change page protection for pc:pc+size.

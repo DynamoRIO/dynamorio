@@ -7349,6 +7349,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         /* ok to hold onto pointer since it's this thread's */
         area = local_area;
     } else {
+        bool is_allocated_mem;
         /* not in this thread's current executable list
          * try the global executable area list
          */
@@ -7367,7 +7368,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             read_lock(&executable_areas->lock);
         ok = lookup_addr(executable_areas, pc, &area);
         if (ok && TEST(VM_DELAY_READONLY, area->vm_flags)) {
-            bool is_allocated_mem;
             /* need to mark region read only for consistency
              * need to upgrade to write lock, have to release lock first
              * then recheck conditions after grabbing hotp + write lock */
@@ -7440,18 +7440,26 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         ASSERT(!ok || area != NULL);
         is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
         /* i#2135 : it can be a guard page if either ok or not ok
-         * so we have to get protection value right now */
+         * so we have to get protection value right now 
+         */
 #ifdef WINDOWS
-        if (prot & DR_MEMPROT_GUARD) {
-            SYSLOG_INTERNAL_WARNING("Application tries to execute from guard memory "PFX".\n", pc);
+        if (TEST(DR_MEMPROT_GUARD, prot)) {
             /* remove protection so as to go on */
-            unmark_page_as_guard(pc, prot);
-            check_thread_vm_area_cleanup(dcontext, true/*abort*/,
-                                         true/*clean bb*/, data, vmlist,
-                                         own_execareas_writelock,
-                                         caller_execareas_writelock);
-            os_forge_exception(pc, GUARD_PAGE_EXCEPTION);
-            ASSERT_NOT_REACHED();
+            if (unmark_page_as_guard(pc, prot)) {
+                /* we test that there was still the guard protection to remove.
+                 * Otherwise, there could be a race condition with
+                 * two threads trying to execute from the guarded page
+                 * and we would raise two exceptions instead of one
+                 */
+                SYSLOG_INTERNAL_WARNING("Application tries to execute "
+                                        "from guard memory "PFX".\n", pc);
+                check_thread_vm_area_cleanup(dcontext, true/*abort*/,
+                                             true/*clean bb*/, data, vmlist,
+                                             own_execareas_writelock,
+                                             caller_execareas_writelock);
+                os_forge_exception(pc, GUARD_PAGE_EXCEPTION);
+                ASSERT_NOT_REACHED();
+            }
         }
 #endif
 

@@ -5840,7 +5840,7 @@ initialize_exception_record(EXCEPTION_RECORD* rec, app_pc exception_address,
     case GUARD_PAGE_EXCEPTION:
         rec->ExceptionCode = STATUS_GUARD_PAGE_VIOLATION;
         rec->NumberParameters = 2;
-        rec->ExceptionInformation[0]=8 /* execution tried */;
+        rec->ExceptionInformation[0]=EXCEPTION_EXECUTE_FAULT /* execution tried */;
         rec->ExceptionInformation[1]=(ptr_uint_t)exception_address;
         break;
     default:

@@ -217,7 +217,7 @@ void print_dynamo_regions(void);
 size_t get_allocation_size(byte *pc, byte **base_pc);
 byte *get_allocation_base(byte *pc);
 void mark_page_as_guard(byte *pc);
-void unmark_page_as_guard(byte *pc, uint prot);
+bool unmark_page_as_guard(byte *pc, uint prot);
 
 bool
 os_find_free_code_space_in_libs(void **start OUT, void **end OUT);

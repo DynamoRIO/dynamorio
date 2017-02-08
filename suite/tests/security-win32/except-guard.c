@@ -31,12 +31,13 @@
  */
 
 
-#include "tools.h"
+# include "tools.h"
+# include <windows.h>
+
 
 static int count = 0;
 
 
-# include <windows.h>
 /* top-level exception handler */
 static LONG
 our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
