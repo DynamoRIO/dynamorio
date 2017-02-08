@@ -90,7 +90,7 @@ main(void)
     /* sets static code with guard page status */
     VirtualProtect((unsigned char *) bar, 8, PAGE_EXECUTE_READWRITE | PAGE_GUARD, &old_prot);
     bar(1);
-    /* to check that we do not get any more excpetions */
+    /* to check that we do not get any more exceptions */
     bar(0);
 
     print("end of test, count = %d\n", count);
