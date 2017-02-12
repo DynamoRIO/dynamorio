@@ -700,7 +700,7 @@ safe_memcpy(drx_buf_t *buf, void *src, size_t len)
                   "buffer was too small to fit requested memcpy() operation");
     /* try to perform a safe memcpy */
     ok = dr_safe_write(cli_ptr, len, src, &written);
-    if (written != len && !ok) {
+    if (!ok || written != len) {
         /* we overflowed the client buffer, so flush it and try again */
         byte *cli_base = data->cli_base;
         BUF_PTR(data->seg_base, buf->tls_offs) = cli_base;
