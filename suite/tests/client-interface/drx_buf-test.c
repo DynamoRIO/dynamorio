@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -224,6 +224,11 @@ GLOBAL_LABEL(FUNCNAME:)
      test5:
         mov      TEST_REG_ASM, DRX_BUF_TEST_5_ASM
         mov      TEST_REG_ASM, DRX_BUF_TEST_5_ASM
+        jmp      test6
+        /* Test 6: test drx_buf_insert_buf_memcpy() */
+     test6:
+        mov      TEST_REG_ASM, DRX_BUF_TEST_6_ASM
+        mov      TEST_REG_ASM, DRX_BUF_TEST_6_ASM
         jmp      epilog2
      epilog2:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -243,6 +248,11 @@ GLOBAL_LABEL(FUNCNAME:)
      test5:
         MOV16    TEST_REG_ASM, DRX_BUF_TEST_5_ASM
         MOV16    TEST_REG_ASM, DRX_BUF_TEST_5_ASM
+        b        test6
+        /* Test 6: test drx_buf_insert_buf_memcpy() */
+     test6:
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_6_ASM
+        MOV16    TEST_REG_ASM, DRX_BUF_TEST_6_ASM
         b        epilog2
     epilog2:
         RETURN
