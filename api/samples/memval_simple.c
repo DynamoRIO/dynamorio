@@ -401,9 +401,10 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    drreg_options_t ops = {sizeof(ops), 3 /*max slots needed*/, false};
+
     dr_set_client_name("DynamoRIO Sample Client 'memval_simple'",
                        "http://dynamorio.org/issues");
-    drreg_options_t ops = {sizeof(ops), 3 /*max slots needed*/, false};
     if (!drmgr_init() || !drutil_init() || !drx_init())
         DR_ASSERT(false);
     if (drreg_init(&ops) != DRREG_SUCCESS)
