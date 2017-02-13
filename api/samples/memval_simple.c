@@ -83,7 +83,7 @@ typedef struct _mem_ref_t {
  */
 #define WRT_BUF_SIZE (MAX_NUM_MEM_REFS * 32)
 
-#define MINSERT instrlist_preinsert
+#define MINSERT instrlist_meta_preinsert
 
 /* thread private log file and across-app-inst register */
 typedef struct {
