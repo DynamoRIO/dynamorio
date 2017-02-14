@@ -1915,7 +1915,7 @@ if (CLIENT_INTERFACE)
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.file_io client-interface/file_io.c
       "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
-    if (DEBUG) # FIXME i#1806: fails in release
+    if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
       # we add custom option to flush test based on dr ops in torun_ci()
       tobuild_ci(client.flush client-interface/flush.c "" "" "")
     endif ()
@@ -3221,7 +3221,6 @@ if (APPLE)
     code_api|client.timer
     code_api|client.syscall-mod
     code_api|client.cbr-retarget
-    code_api|client.flush
     code_api|client.truncate
     code_api|client.dr_options
     code_api|client.unregister
@@ -3244,4 +3243,7 @@ if (APPLE)
     code_api|api.ir-static
     code_api|api.drdecode
     PROPERTIES LABELS OSX)
+  if (DEBUG) # FIXME i#1806: fails in release
+    set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
+  endif ()
 endif ()
