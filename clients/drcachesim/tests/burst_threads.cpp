@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -86,30 +86,22 @@ thread_func(void *arg)
     static const int iter_start = outer_iters/3;
     static const int iter_stop = iter_start + 4;
 
-    /* We use an outer loop to test re-attaching (i#2157), except
-     * there is an unfixed bug i#2175.
-     * XXX i#2175: up the iter count once we fix the bug.
-     */
-    for (int j = 0; j < 1; ++j) {
-        if (j > 0 && idx == burst_owner)
-            dr_app_setup();
-        for (int i = 0; i < outer_iters; ++i) {
-            if (idx == burst_owner && i == iter_start) {
-                std::cerr << "pre-DR start\n";
-                dr_app_start();
-            }
-            if (idx == burst_owner) {
-                if (i >= iter_start && i <= iter_stop)
-                    assert(dr_app_running_under_dynamorio());
-                else
-                    assert(!dr_app_running_under_dynamorio());
-            }
-            if (do_some_work(i) < 0)
-                std::cerr << "error in computation\n";
-            if (idx == burst_owner && i == iter_stop) {
-                std::cerr << "pre-DR detach\n";
-                dr_app_stop_and_cleanup();
-            }
+    for (int i = 0; i < outer_iters; ++i) {
+        if (idx == burst_owner && i == iter_start) {
+            std::cerr << "pre-DR start\n";
+            dr_app_start();
+        }
+        if (idx == burst_owner) {
+            if (i >= iter_start && i <= iter_stop)
+                assert(dr_app_running_under_dynamorio());
+            else
+                assert(!dr_app_running_under_dynamorio());
+        }
+        if (do_some_work(i) < 0)
+            std::cerr << "error in computation\n";
+        if (idx == burst_owner && i == iter_stop) {
+            std::cerr << "pre-DR detach\n";
+            dr_app_stop_and_cleanup();
         }
     }
     finished[idx] = true;

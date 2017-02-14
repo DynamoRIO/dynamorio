@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -94,17 +94,6 @@ main(int argc, const char *argv[])
     print("pre-DR detach\n");
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
-
-    /* i#2157: test re-attach */
-    print("re-attach attempt\n");
-    if (dr_app_running_under_dynamorio())
-        print("ERROR: should not be under DynamoRIO after dr_app_stop!\n");
-    dr_app_setup_and_start();
-    if (!dr_app_running_under_dynamorio())
-        print("ERROR: should be under DynamoRIO after dr_app_start!\n");
-    dr_app_stop_and_cleanup();
-    if (dr_app_running_under_dynamorio())
-        print("ERROR: should not be under DynamoRIO after dr_app_stop!\n");
 
     if (do_some_work() < 0)
         print("error in computation\n");

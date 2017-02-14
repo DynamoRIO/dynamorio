@@ -2,14 +2,6 @@ pre-DR init
 pre-DR start
 pre-DR detach
 all done
-pre-DR init
-pre-DR start
-pre-DR detach
-all done
-pre-DR init
-pre-DR start
-pre-DR detach
-all done
 Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                         *[0-9,\.]*.....

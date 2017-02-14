@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -7658,11 +7658,6 @@ callback_interception_unintercept()
 
     free_intercept_list();
 
-    if (doing_detach) {
-        DEBUG_DECLARE(bool ok =)
-            make_writable(interception_code, INTERCEPTION_CODE_SIZE);
-        ASSERT(ok);
-    }
     DODEBUG(callback_interception_unintercepted = true;);
 }
 

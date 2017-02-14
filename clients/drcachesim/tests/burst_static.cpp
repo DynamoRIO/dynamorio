@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -76,30 +76,27 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
-    /* We use an outer loop to test re-attaching (i#2157). */
-    for (int j = 0; j < 3; ++j) {
-        std::cerr << "pre-DR init\n";
-        dr_app_setup();
-        assert(!dr_app_running_under_dynamorio());
+    std::cerr << "pre-DR init\n";
+    dr_app_setup();
+    assert(!dr_app_running_under_dynamorio());
 
-        for (int i = 0; i < outer_iters; ++i) {
-            if (i == iter_start) {
-                std::cerr << "pre-DR start\n";
-                dr_app_start();
-            }
-            if (i >= iter_start && i <= iter_stop)
-                assert(dr_app_running_under_dynamorio());
-            else
-                assert(!dr_app_running_under_dynamorio());
-            if (do_some_work(i) < 0)
-                std::cerr << "error in computation\n";
-            if (i == iter_stop) {
-                std::cerr << "pre-DR detach\n";
-                dr_app_stop_and_cleanup();
-            }
+    for (int i = 0; i < outer_iters; ++i) {
+        if (i == iter_start) {
+            std::cerr << "pre-DR start\n";
+            dr_app_start();
         }
-        std::cerr << "all done\n";
+        if (i >= iter_start && i <= iter_stop)
+            assert(dr_app_running_under_dynamorio());
+        else
+            assert(!dr_app_running_under_dynamorio());
+        if (do_some_work(i) < 0)
+            std::cerr << "error in computation\n";
+        if (i == iter_stop) {
+            std::cerr << "pre-DR detach\n";
+            dr_app_stop_and_cleanup();
+        }
     }
+    std::cerr << "all done\n";
     return 0;
 }
 

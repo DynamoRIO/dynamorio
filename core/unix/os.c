@@ -336,9 +336,6 @@ static int min_dr_fd;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
-#ifdef DEBUG
-static int num_fd_add_pre_heap;
-#endif
 
 #ifdef LINUX
 /* i#1004: brk emulation */
@@ -1242,11 +1239,6 @@ os_slow_exit(void)
     generic_hash_destroy(GLOBAL_DCONTEXT, fd_table);
     fd_table = NULL;
 
-    if (doing_detach) {
-        vsyscall_page_start = NULL;
-        IF_DEBUG(num_fd_add_pre_heap = 0;)
-    }
-
     DELETE_LOCK(set_thread_area_lock);
 #ifdef CLIENT_INTERFACE
     DELETE_LOCK(client_tls_lock);
@@ -1936,11 +1928,8 @@ os_tls_init(void)
         global_heap_alloc(MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     memset(tls_table, 0, MAX_THREADS*sizeof(tls_slot_t));
 #endif
-    if (!first_thread_tls_initialized) {
+    if (!first_thread_tls_initialized)
         first_thread_tls_initialized = true;
-        if (last_thread_tls_exited) /* re-attach */
-            last_thread_tls_exited = false;
-    }
     ASSERT(is_thread_tls_initialized());
 }
 
@@ -1987,10 +1976,8 @@ os_tls_thread_exit(local_state_t *local_state)
 
     /* We already set TLS to &uninit_tls in os_thread_exit() */
 
-    if (dynamo_exited && !last_thread_tls_exited) {
+    if (dynamo_exited && !last_thread_tls_exited)
         last_thread_tls_exited = true;
-        first_thread_tls_initialized = false; /* for possible re-attach */
-    }
 #endif
 }
 
@@ -4101,9 +4088,10 @@ fd_table_add(file_t fd, uint flags)
         TABLE_RWLOCK(fd_table, write, unlock);
     } else {
 #ifdef DEBUG
-        num_fd_add_pre_heap++;
+        static int num_pre_heap;
+        num_pre_heap++;
         /* we add main_logfile in os_init() */
-        ASSERT(num_fd_add_pre_heap == 1 && "only main_logfile should come here");
+        ASSERT(num_pre_heap == 1 && "only main_logfile should come here");
 #endif
     }
 }

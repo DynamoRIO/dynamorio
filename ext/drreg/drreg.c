@@ -1573,9 +1573,6 @@ drreg_exit(void)
             return DRREG_ERROR;
     }
 
-    /* Support re-attach */
-    memset(&ops, 0, sizeof(ops));
-
     return DRREG_SUCCESS;
 }
 
