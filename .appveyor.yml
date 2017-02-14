@@ -43,6 +43,11 @@ notifications:
 # We do limit to the last few commits to speed things up:
 clone_depth: 10
 
+# Don't run on pushes to feature branches: pull requests cover those.
+branches:
+  only:
+    - master
+
 platform: x64
 
 image: Visual Studio 2013
