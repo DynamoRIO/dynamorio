@@ -36,18 +36,18 @@
  * Records and dumps app write addresses, and their corresponding written values.
  *
  * (1) It fills two per-thread-buffers with inlined instrumentation.
- * (2) Once the buffer has been filled up, a fault handler will redirect execution
+ * (2) Once the buffers have been filled up, a fault handler will redirect execution
  *     to our trace buffer handler, where we dump the memrefs to disk.
  *
  * This sample illustrates
  * - inserting instrumentation after the current instruction to read the value
- *   written by it.
+ *   written by it,
  * - the use of drutil_expand_rep_string() to expand string loops to obtain
  *   every memory reference,
  * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
  *   memory references,
  * - the use of drutil_insert_get_mem_addr() to insert instructions to compute
- *   the address of each memory reference.
+ *   the address of each memory reference,
  * - the use of the drx_buf extension to fill buffers in a platform-independent
  *   manner
  *
@@ -105,7 +105,8 @@ write_hexdump(char *hex_buf, byte *write_base, mem_ref_t *mem_ref)
     char *hexstring = hex_buf, *needle = hex_buf;
 
     for (i = mem_ref->size - 1; i >= 0; --i)
-        needle += dr_snprintf(needle, 2*mem_ref->size+1-2*i, "%02x", write_base[i]);
+        needle += dr_snprintf(needle, 2*mem_ref->size+1-(needle-hex_buf),
+                              "%02x", write_base[i]);
     return hexstring;
 }
 
@@ -131,7 +132,7 @@ trace_fault(void *drcontext, void *buf_base, size_t size)
     /* write the memrefs to disk */
     for (mem_ref = trace_base; mem_ref < trace_ptr; mem_ref++) {
         /* Each memref in the trace buffer has an "associated" write in the write buffer.
-         * We pull mem_reg->size bytes from the write buffer, and assert we haven't yet
+         * We pull mem_ref->size bytes from the write buffer, and assert we haven't yet
          * gone too far.
          */
         /* We use libc's fprintf as it is buffered and much faster than dr_fprintf for
@@ -158,12 +159,12 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
     bool ok;
 
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp)
-            != DRREG_SUCCESS) {
+        != DRREG_SUCCESS) {
         DR_ASSERT(false);
         return DR_REG_NULL;
     }
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr)
-            != DRREG_SUCCESS) {
+        != DRREG_SUCCESS) {
         DR_ASSERT(false);
         return DR_REG_NULL;
     }
@@ -183,7 +184,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
          * will get clobbered on ARM.
          */
         if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_addr)
-                != DRREG_SUCCESS) {
+            != DRREG_SUCCESS) {
             DR_ASSERT(false);
             return DR_REG_NULL;
         }
@@ -247,7 +248,7 @@ instrument_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_
     ushort stride = (ushort)drutil_opnd_mem_size_in_bytes(memref, write);
 
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr)
-            != DRREG_SUCCESS) {
+        != DRREG_SUCCESS) {
         DR_ASSERT(false);
         return;
     }
