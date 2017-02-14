@@ -826,7 +826,12 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(logsubdir);
     if (!file_ops_func.create_dir(logsubdir))
         return false;
-    NOTIFY(1, "Log directory is %s\n", logsubdir);
+    /* If the ops are replaced, it's up the replacer to notify the user.
+     * In some cases data is sent over the network and the replaced create_dir is
+     * a nop that returns true, in which case we don't want this message.
+     */
+    if (file_ops_func.create_dir == dr_create_dir)
+        NOTIFY(1, "Log directory is %s\n", logsubdir);
     dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%s%s", logsubdir, DIRSEP,
                 MODULE_LIST_FILENAME);
     NULL_TERMINATE_BUFFER(buf);
