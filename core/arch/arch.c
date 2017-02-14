@@ -890,7 +890,7 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
         syscall_method = SYSCALL_METHOD_UNINITIALIZED;
         app_sysenter_instr_addr = NULL;
-#ifdef UNIX
+#ifdef LINUX
         sysenter_hook_failed = false;
 #endif
     }
