@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2108,7 +2108,10 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 
     stack_free(initstack, DYNAMORIO_STACK_SIZE);
 
+    dynamo_exit_post_detach();
+
     doing_detach = false;
+
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_detaching_flag = LOCK_FREE_STATE;
     EXITING_DR();

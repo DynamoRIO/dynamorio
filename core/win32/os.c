@@ -1226,6 +1226,8 @@ os_slow_exit(void)
     aslr_exit();
     eventlog_slow_exit();
     os_take_over_exit();
+
+    tls_dcontext_offs = TLS_UNINITIALIZED;
 }
 
 

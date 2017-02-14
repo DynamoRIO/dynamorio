@@ -798,6 +798,7 @@ instrument_exit(void)
 
     vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
     client_aux_libs = NULL;
+    num_client_libs = 0;
 #ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
 #endif

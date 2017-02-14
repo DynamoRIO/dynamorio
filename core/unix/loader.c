@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -327,6 +327,13 @@ os_loader_exit(void)
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, libdr_opd,
                        os_privmod_data_t, ACCT_OTHER, PROTECTED);
     }
+
+#if defined(LINUX) && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
+    /* Put printed_gdb_commands into its original state for potential
+     * re-attaching and os_loader_init_epilogue().
+     */
+    printed_gdb_commands = false;
+#endif
 }
 
 void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -569,6 +569,7 @@ int dynamo_shared_exit(thread_record_t *toexit
 void dynamo_process_exit_with_thread_info(void);
 /* thread cleanup prior to clean exit event */
 void dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id);
+void dynamo_exit_post_detach(void);
 
 /* enter/exit DR hooks */
 void entering_dynamorio(void);
