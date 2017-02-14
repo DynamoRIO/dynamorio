@@ -1474,33 +1474,6 @@ dynamo_process_exit(void)
 #endif /* !DEBUG */
 }
 
-void
-dynamo_exit_post_detach(void)
-{
-    /* i#2157: best-effort re-init in case of re-attach */
-
-    do_once_generation++; /* Increment the generation in case we re-attach */
-
-    dynamo_initialized = false;
-    dynamo_heap_initialized = false;
-    automatic_startup = false;
-    control_all_threads = false;
-    dr_api_entry = false;
-    dr_api_exit  = false;
-#ifdef UNIX
-    dynamo_exiting = false;
-#endif
-    dynamo_exited = false;
-    dynamo_exited_and_cleaned = false;
-#ifdef DEBUG
-    dynamo_exited_log_and_stats = false;
-#endif
-    dynamo_resetting = false;
-#ifdef UNIX
-    post_execve = false;
-#endif
-}
-
 dcontext_t *
 create_new_dynamo_context(bool initial, byte *dstack_in, priv_mcontext_t *mc)
 {

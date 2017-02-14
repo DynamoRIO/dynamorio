@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1672,9 +1672,6 @@ heap_exit()
 #ifdef X64
     DELETE_LOCK(request_region_be_heap_reachable_lock);
 #endif
-
-    if (doing_detach)
-        heapmgt = &temp_heapmgt;
 }
 
 /* FIXME:

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -692,11 +692,7 @@ config_heap_exit(void)
 void
 config_exit(void)
 {
-#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-    if (doing_detach)
-        memset(&config, 0, sizeof config); /* for possible re-attach */
-#endif
-    /* nothing -- so not called on fast exit (is called on detach) */
+    /* nothing -- so not called on fast exit */
 }
 
 /* Our parameters (option string, logdir, etc.) can be configured

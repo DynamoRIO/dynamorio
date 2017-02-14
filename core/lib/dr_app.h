@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -117,13 +117,7 @@ dr_app_setup_and_start(void);
 /**
  * Causes all of the application's threads to run directly on the machine upon
  * return from this call, and additionally frees the resources used by DR.
- * Once this is invoked, calling dr_app_start() is not supported until
- * dr_app_setup() or dr_app_setup_and_start() is called for a re-attach.
- * Re-attach, however, is considered an experimental feature and is
- * not guaranteed to be without problems, in particular when DR or
- * extension libraries are static and there is no simple way to reset
- * the state of global variables.
- *
+ * Once this is invoked, calling dr_app_start() or dr_app_setup() is not supported.
  * This call has no effect if the application is not currently running
  * under DR control.
  */
