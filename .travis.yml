@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016 Google, Inc.  All rights reserved.
+# Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,11 @@ notifications:
       - dynamorio-devs@googlegroups.com
     on_success: change
     on_failure: always
+
+# Don't run Travis on pushes to feature branches: pull requests cover those.
+branches:
+  only:
+  - master
 
 # We use Trusty to get cmake 2.8.12 instead of 2.8.7 from Precise:
 sudo: required
