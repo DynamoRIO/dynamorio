@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -229,8 +229,11 @@ memquery_iterator_next(memquery_iter_t *iter)
         "\nget_memory_info_from_os: newline=[%s]\n",
         mi->newline ? mi->newline : "(null)");
 
-    /* buffer is big enough to hold at least one line */
-    ASSERT(mi->newline != NULL);
+    /* Buffer is big enough to hold at least one line: if not, the file changed
+     * underneath us after we hit the end.  Just bail.
+     */
+    if (mi->newline == NULL)
+        return false;
     *mi->newline = '\0';
     LOG(GLOBAL, LOG_VMAREAS, 6,
         "\nget_memory_info_from_os: line=[%s]\n", line);
