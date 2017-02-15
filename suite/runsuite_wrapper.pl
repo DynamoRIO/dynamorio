@@ -78,7 +78,7 @@ if ($child) {
         # the PATH for AppVeyor and it fails.
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
-    }
+    } else { exit 0; } #REMOVE hack
     system("ctest -VV -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
 }
 
@@ -125,7 +125,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                   'code_api|win32.mixedmode_late' => 1,
                                   'code_api|client.loader' => 1,
                                   'code_api|api.static_noclient' => 1,
-                                  'code_api|api.static_noinit' => 1);
+                                  'code_api|api.static_noinit' => 1,
+                                  'code_api|client.nudge_ex' => 1);
         # Read ahead to examine the test failures:
         $fail = 0;
         my $num_ignore = 0;
@@ -145,7 +146,9 @@ for (my $i = 0; $i < $#lines; ++$i) {
                 $fail = 1;
             }
         }
+        print "----line is |$line| vs |$lines[$i]|\n";#REMOVE
         $line .= " (ignoring $num_ignore for i#2145)";
+        print "----post:   |$line| vs |$lines[$i]|\n";#REMOVE
     }
     if ($fail) {
         $exit_code++;
