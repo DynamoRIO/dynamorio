@@ -126,7 +126,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                   'code_api|client.loader' => 1);
         # Read ahead to examine the test failures:
         $fail = 0;
-        my $ignore = 0;
+        my $num_ignore = 0;
         for (my $j = $i+1; $j < $#lines; ++$j) {
             my $test;
             if ($lines[$j] =~ /^\s+(\S+)\s/) {
@@ -134,16 +134,16 @@ for (my $i = 0; $i < $#lines; ++$i) {
                 if (($is_32 && $ignore_failures_32{$test}) ||
                     (!$is_32 && $ignore_failures_64{$test})) {
                     $lines[$j] = "\t(ignore: i#2145) " . $lines[$j];
-                    $ignore++;
+                    $num_ignore++;
                 } else {
                     $fail = 1;
                 }
             } else {
-                $fail = 1 unless ($lines[$j] =~ /^\S/);
-                last;
+                last if ($lines[$j] =~ /^\S/);
+                $fail = 1;
             }
         }
-        $line .= " (ignoring $ignore for i#2145)";
+        $line .= " (ignoring $num_ignore for i#2145)";
     }
     if ($fail) {
         $exit_code++;
