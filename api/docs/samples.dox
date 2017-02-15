@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -83,9 +83,10 @@ The sample <a href="../../samples/inline.c">inline.c</a>
 performs an optimization that uses the custom trace API to inline
 entire callees into traces.
 
-The sample <a href="../../samples/inscount.c">inscount.c</a>
+The sample <a href="../../samples/inscount.cpp">inscount.cpp</a>
 reports the dynamic count of the total number of instructions executed via
 inserting performant clean calls which are auto-inlined by DynamoRIO.
+It also illustrates use of the \ref page_droption.
 
 The sample <a href="../../samples/instrace_simple.c">instrace_simple.c</a>
 is provided as an example client that illustrates how to gather an instruction

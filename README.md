@@ -30,7 +30,7 @@ Tools built on DynamoRIO include:
 - The library tracing tool [drltrace](http://dynamorio.org/docs/page_drltrace.html)
 - The memory tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace.c)
 - The basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
-- The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
+- The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.cpp)
 
 ## Building your own custom tools
 
