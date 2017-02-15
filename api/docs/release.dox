@@ -169,6 +169,8 @@ Further non-compatibility-affecting changes include:
  - Added drx_tail_pad_block().
  - Added XINST_CREATE_load_1byte_zext4().
  - Added drx_buf_insert_buf_memcpy().
+ - Added thread synchronization events via dr_event_create(), dr_event_destroy(),
+   dr_event_wait(), dr_event_signal(), and dr_event_reset().
 
 **************************************************
 <hr>
