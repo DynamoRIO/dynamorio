@@ -123,7 +123,9 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                   'code_api|win32.x86_to_x64' => 1,
                                   'code_api|win32.x86_to_x64_ibl_opt' => 1,
                                   'code_api|win32.mixedmode_late' => 1,
-                                  'code_api|client.loader' => 1);
+                                  'code_api|client.loader' => 1,
+                                  'code_api|api.static_noclient' => 1,
+                                  'code_api|api.static_noinit' => 1);
         # Read ahead to examine the test failures:
         $fail = 0;
         my $num_ignore = 0;
