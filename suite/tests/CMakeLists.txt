@@ -2305,10 +2305,6 @@ if (CLIENT_INTERFACE)
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
-    if (NOT ANDROID AND NOT APPLE) # XXX i#1874,i#1360: get working on Android,Mac
-      torunonly_ci(tool.drltrace common.fib drltrace common/fib.c "-only_from_app" "" "")
-      set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
-    endif ()
 
     if (NOT ANDROID) # XXX i#1874: get working on Android
       torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")

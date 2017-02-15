@@ -101,17 +101,15 @@ DECL_EXTERN(test_flag)
 #define FUNCNAME test_nzcv_pos
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        SAVE_PRESERVED_REGS
         mov      REG_PRESERVED_1, ARG1
-        mov      REG_PRESERVED_2, LR
         CALLC1(GLOBAL_REF(set_flag), REG_PRESERVED_1)
         READ_NZCV(ARG1)
-        mov      ARG2, REG_PRESERVED_1
-        CALLC3(GLOBAL_REF(test_flag), ARG1, ARG2, #1)
+        CALLC3(GLOBAL_REF(test_flag), ARG1, REG_PRESERVED_1, #1)
         CALLC1(GLOBAL_REF(clear_flag), REG_PRESERVED_1)
         READ_NZCV(ARG1)
-        mov      ARG2, REG_PRESERVED_1
-        CALLC3(GLOBAL_REF(test_flag), ARG1, ARG2, #0)
-        mov      LR, REG_PRESERVED_2
+        CALLC3(GLOBAL_REF(test_flag), ARG1, REG_PRESERVED_1, #0)
+        RESTORE_PRESERVED_REGS
         RETURN
         END_FUNC(FUNCNAME)
 
