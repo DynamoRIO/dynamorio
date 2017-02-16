@@ -366,18 +366,23 @@ ASSUME fs:_DATA @N@\
 # define ARG9_NORETADDR  ARG9
 # define ARG10_NORETADDR ARG10
 
+/* The macros SAVE_PRESERVED_REGS and RESTORE_PRESERVED_REGS save and restore the link
+ * register and REG_PRESERVED_* so must be updated if more REG_PRESERVED_ regs are added.
+ */
 # ifndef AARCH64
 #  define FP r11
 #  define LR r14
 #  define INDJMP bx
 #  define REG_PRESERVED_1 r4
-#  define REG_PRESERVED_2 r5
+#  define SAVE_PRESERVED_REGS    push {REG_PRESERVED_1, LR}
+#  define RESTORE_PRESERVED_REGS pop  {REG_PRESERVED_1, LR}
 # else
 #  define FP x29
 #  define LR x30
 #  define INDJMP br
 #  define REG_PRESERVED_1 x19
-#  define REG_PRESERVED_2 x20
+#  define SAVE_PRESERVED_REGS    stp REG_PRESERVED_1, LR, [sp, #-16]!
+#  define RESTORE_PRESERVED_REGS ldp REG_PRESERVED_1, LR, [sp], #16
 # endif
 
 #else /* Intel X86 */
