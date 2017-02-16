@@ -86,6 +86,7 @@ set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
 set(arg_verbose OFF)  # extra output
 set(arg_32_only OFF)  # do not include 64-bit
+set(arg_64_only OFF)  # do not include 64-bit
 set(arg_build_only OFF) # do not run tests
 
 foreach (arg ${CTEST_SCRIPT_ARG})
@@ -137,6 +138,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif (${arg} MATCHES "^exclude=")
   if (${arg} MATCHES "^32_only")
     set(arg_32_only ON)
+  endif ()
+  if (${arg} MATCHES "^64_only")
+    set(arg_64_only ON)
   endif ()
   if (${arg} MATCHES "^build_only")
     set(arg_build_only ON)
@@ -409,6 +413,9 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
   if (is64 AND arg_32_only)
     return()
   endif ()
+  if (NOT is64 AND arg_64_only)
+    return()
+  endif ()
 
   # Skip 32-bit builds on an AArch64 machine.
   if (NOT is64 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
@@ -653,7 +660,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" ${ctest_test_args})
       endif (RUN_PARALLEL)
     endif (NOT test_only_in_long OR ${TEST_LONG})
-  endif (build_success EQUAL 0 AND run_tests)
+  endif (build_success EQUAL 0 AND run_tests AND NOT arg_build_only)
 
   if (DO_SUBMIT)
     # include any notes via set(CTEST_NOTES_FILES )?
