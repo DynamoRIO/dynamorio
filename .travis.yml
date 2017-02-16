@@ -97,4 +97,4 @@ install:
       sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
 
 script:
-  - suite/runsuite_wrapper.pl travis %EXTRA_ARGS%
+  - suite/runsuite_wrapper.pl travis $EXTRA_ARGS
