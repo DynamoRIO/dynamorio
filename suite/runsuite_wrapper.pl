@@ -124,6 +124,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                   'code_api|win32.x86_to_x64_ibl_opt' => 1,
                                   'code_api|win32.mixedmode_late' => 1,
                                   'code_api|client.loader' => 1,
+                                  'code_api|client.thread' => 1,
                                   'code_api|api.static_noclient' => 1,
                                   'code_api|api.static_noinit' => 1,
                                   'code_api|client.nudge_ex' => 1);
@@ -146,9 +147,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                 $fail = 1;
             }
         }
-        print "----line is |$line| vs |$lines[$i]|\n";#REMOVE
-        $line .= " (ignoring $num_ignore for i#2145)";
-        print "----post:   |$line| vs |$lines[$i]|\n";#REMOVE
+        $line =~ s/tests failed/tests failed, but ignoring $num_ignore for i2145/;
     }
     if ($fail) {
         $exit_code++;
