@@ -2703,6 +2703,31 @@ bool
 dr_recurlock_mark_as_app(void *reclock);
 
 DR_API
+/** Creates an event object on which threads can wait and be signaled. */
+void *
+dr_event_create(void);
+
+DR_API
+/** Destroys an event object. */
+bool
+dr_event_destroy(void *event);
+
+DR_API
+/** Suspends the current thread until \p event is signaled. */
+bool
+dr_event_wait(void *event);
+
+DR_API
+/** Wakes up at most one thread waiting on \p event. */
+bool
+dr_event_signal(void *event);
+
+DR_API
+/** Resets \p event to no longer be in a signaled state. */
+bool
+dr_event_reset(void *event);
+
+DR_API
 /**
  * Use this function to mark a region of code as safe for DR to suspend
  * the client while inside the region.  DR will not relocate the client

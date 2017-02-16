@@ -3596,6 +3596,50 @@ dr_recurlock_mark_as_app(void *reclock)
 }
 
 DR_API
+void *
+dr_event_create(void)
+{
+    return (void *)create_event();
+}
+
+DR_API
+bool
+dr_event_destroy(void *event)
+{
+    destroy_event((event_t)event);
+    return true;
+}
+
+DR_API
+bool
+dr_event_wait(void *event)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (IS_CLIENT_THREAD(dcontext))
+        dcontext->client_data->client_thread_safe_for_synch = true;
+    wait_for_event((event_t)event);
+    if (IS_CLIENT_THREAD(dcontext))
+        dcontext->client_data->client_thread_safe_for_synch = false;
+    return true;
+}
+
+DR_API
+bool
+dr_event_signal(void *event)
+{
+    signal_event((event_t)event);
+    return true;
+}
+
+DR_API
+bool
+dr_event_reset(void *event)
+{
+    reset_event((event_t)event);
+    return true;
+}
+
+DR_API
 bool
 dr_mark_safe_to_suspend(void *drcontext, bool enter)
 {
