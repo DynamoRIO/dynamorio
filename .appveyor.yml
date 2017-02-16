@@ -36,7 +36,10 @@ notifications:
       - dynamorio-devs@googlegroups.com
     on_build_success: false
     on_build_failure: true
-    on_build_status_changed: true
+    # Unfortunately there's no way to disable emails on pull requests,
+    # like Travis does, so we try to cut down on the noise by only
+    # sending out failures.
+    on_build_status_changed: false
 
 # We don't do a shallow clone of just the source archive as we want to get
 # the diff for source file checks.
