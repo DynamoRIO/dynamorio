@@ -71,7 +71,7 @@ matrix:
     # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we disable:
     - os: osx
       compiler: gcc
-    # We do not have 64-bit support on OSX yet.
+    # We do not have 64-bit support on OSX yet (i#1979).
     - os: osx
       env: DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=64_only
     # Cross-compile only on Linux:

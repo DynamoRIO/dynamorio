@@ -660,7 +660,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" ${ctest_test_args})
       endif (RUN_PARALLEL)
     endif (NOT test_only_in_long OR ${TEST_LONG})
-  endif (build_success EQUAL 0 AND run_tests)
+  endif (build_success EQUAL 0 AND run_tests AND NOT arg_build_only)
 
   if (DO_SUBMIT)
     # include any notes via set(CTEST_NOTES_FILES )?
