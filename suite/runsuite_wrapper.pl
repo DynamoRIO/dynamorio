@@ -78,7 +78,7 @@ if ($child) {
         # the PATH for AppVeyor and it fails.
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
-    } else { exit 0; } #REMOVE hack
+    }
     system("ctest -VV -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
 }
 
