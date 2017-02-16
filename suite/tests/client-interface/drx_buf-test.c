@@ -99,11 +99,9 @@ main(void)
      */
 #if defined(UNIX)
     pthread_t thread;
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
 #elif defined(WINDOWS)
     HANDLE thread;
     DWORD threadId;
-    SetUnhandledExceptionFilter(&handle_exception);
 #endif
 
     print("Starting drx_buf threaded test\n");
@@ -121,6 +119,14 @@ main(void)
     CloseHandle(thread);
 #endif
     print("Ending drx_buf threaded test\n");
+
+    /* install signals */
+#if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
+#elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception);
+#endif
+
     print("Starting drx_buf signal test\n");
     /* try to cause a segfault and make sure it didn't trigger the buffer to dump */
     if (SIGSETJMP(mark) == 0) {
@@ -178,6 +184,7 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBX
         ret
 #elif defined(AARCHXX)
+        push     {TEST_REG_ASM}
         b        test1
         /* Test 1: test the fast circular buffer */
      test1:
@@ -195,6 +202,7 @@ GLOBAL_LABEL(FUNCNAME:)
         MOV16    TEST_REG_ASM, DRX_BUF_TEST_3_ASM
         b        epilog1
     epilog1:
+        pop      {TEST_REG_ASM}
         RETURN
 #else
 # error NYI
@@ -238,6 +246,7 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBX
         ret
 #elif defined(AARCHXX)
+        push     {TEST_REG_ASM}
         b        test4
         /* Test 4: test store registers */
      test4:
@@ -255,6 +264,7 @@ GLOBAL_LABEL(FUNCNAME:)
         MOV16    TEST_REG_ASM, DRX_BUF_TEST_6_ASM
         b        epilog2
     epilog2:
+        pop      {TEST_REG_ASM}
         RETURN
 #else
 # error NYI
