@@ -62,10 +62,9 @@ compiler:
 env:
   # With or without cross-compiling:
   - DYNAMORIO_CROSS_ONLY=yes
-  - DYNAMORIO_CROSS_ONLY=no
   # We run 32-bit and 64-bit in parallel to speed things up.
-  - EXTRA_ARGS=32_only
-  - EXTRA_ARGS=64_only
+  - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=32_only
+  - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=64_only
 
 matrix:
   exclude:
@@ -74,16 +73,13 @@ matrix:
       compiler: gcc
     # We do not have 64-bit support on OSX yet.
     - os: osx
-      env: EXTRA_ARGS=64_only
+      env: DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=64_only
     # Cross-compile only on Linux:
     - os: osx
       env: DYNAMORIO_CROSS_ONLY=yes
     # Cross-compile only with GCC:
     - compiler: clang
       env: DYNAMORIO_CROSS_ONLY=yes
-    # Only split 32 and 64 for non-cross-compiling:
-    - env: DYNAMORIO_CROSS_ONLY=yes
-      env: EXTRA_ARGS=64_only # Blanked out in runsuite_wrapper.pl.
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
