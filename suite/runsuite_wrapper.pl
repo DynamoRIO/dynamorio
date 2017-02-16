@@ -127,6 +127,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                   'code_api|win32.mixedmode_late' => 1,
                                   'code_api|client.loader' => 1,
                                   'code_api|client.thread' => 1,
+                                  'code_api|client.nudge_ex' => 1,
                                   'code_api|api.static_noclient' => 1,
                                   'code_api|api.static_noinit' => 1,
                                   'code_api|client.nudge_ex' => 1);
