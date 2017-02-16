@@ -184,7 +184,6 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBX
         ret
 #elif defined(AARCHXX)
-        push     {TEST_REG_ASM}
         b        test1
         /* Test 1: test the fast circular buffer */
      test1:
@@ -202,7 +201,6 @@ GLOBAL_LABEL(FUNCNAME:)
         MOV16    TEST_REG_ASM, DRX_BUF_TEST_3_ASM
         b        epilog1
     epilog1:
-        pop      {TEST_REG_ASM}
         RETURN
 #else
 # error NYI
@@ -246,7 +244,6 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XBX
         ret
 #elif defined(AARCHXX)
-        push     {TEST_REG_ASM}
         b        test4
         /* Test 4: test store registers */
      test4:
@@ -264,7 +261,6 @@ GLOBAL_LABEL(FUNCNAME:)
         MOV16    TEST_REG_ASM, DRX_BUF_TEST_6_ASM
         b        epilog2
     epilog2:
-        pop      {TEST_REG_ASM}
         RETURN
 #else
 # error NYI
