@@ -49,6 +49,8 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     $is_CI = 1 if ($ARGV[$i] eq 'travis');
     if ($i == 0) {
         $args .= ",$ARGV[$i]";
+    } elsif ($ARGV[$i] eq '64_only' && $ENV{'DYNAMORIO_CROSS_ONLY'} eq 'yes') {
+        # Skip the arg.
     } else {
         # We don't use a backslash to escape ; b/c we'll quote below, and
         # the backslash is problematically converted to / by Cygwin perl.
