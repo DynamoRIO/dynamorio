@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -86,6 +86,7 @@ set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
 set(arg_verbose OFF)  # extra output
 set(arg_32_only OFF)  # do not include 64-bit
+set(arg_build_only OFF) # do not run tests
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "nightly")
@@ -136,6 +137,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif (${arg} MATCHES "^exclude=")
   if (${arg} MATCHES "^32_only")
     set(arg_32_only ON)
+  endif ()
+  if (${arg} MATCHES "^build_only")
+    set(arg_build_only ON)
   endif ()
 endforeach (arg)
 
@@ -612,7 +616,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     set(build_success 0)
   endif (NOT arg_already_built)
 
-  if (build_success EQUAL 0 AND run_tests)
+  if (build_success EQUAL 0 AND run_tests AND NOT arg_build_only)
     if (NOT test_only_in_long OR ${TEST_LONG})
       # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
       #   INCLUDE broadfun

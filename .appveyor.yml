@@ -93,6 +93,8 @@ build_script:
   - cd build
   - echo %PATH%
   # AppVeyor does not have the 64-bit toolchain installed for 2010.
-  - if "%configuration%"=="2010" set EXTRA_ARGS=32_only
+  # Given that, and the lack of parallel builds for free, we shorten
+  # the total time by not running the tests for 2010.
+  - if "%configuration%"=="2010" set EXTRA_ARGS=32_only;build_only
   # The perl in c:\perl can't open a pipe so we use cygwin perl.
   - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
