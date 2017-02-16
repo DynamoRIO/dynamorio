@@ -110,6 +110,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
         my $is_32 = $line =~ /-32/;
         my %ignore_failures_32 = ('unit_tests' => 1,
                                   'code_api|security-common.retnonexisting' => 1,
+                                  'code_api|win32.reload-newaddr' => 1,
                                   'code_api|win32.tls' => 1,
                                   'code_api|client.loader' => 1,
                                   'code_api|client.thread' => 1,
