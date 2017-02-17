@@ -1054,16 +1054,18 @@ endfunction(template2expect)
 
 ##################################################
 
+if (UNIX)
+  set(dr_os_ops -dumpcore_mask 0)
+else ()
+  # Turn on core dumps for most fatal errors.  Don't dump for curiosities or
+  # security violations.
+  set(dr_os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
+endif ()
+set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
+
 function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
-  if (UNIX)
-    set(os_ops -dumpcore_mask 0)
-  else ()
-    # Turn on core dumps for most fatal errors.  Don't dump for curiosities or
-    # security violations.
-    set(os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
-  endif ()
-  set(dr_ops -stderr_mask 0xC ${os_ops} ${dr_ops_aux} ${TEST_OPTIONS})
+  set(dr_ops ${dr_test_ops} ${dr_ops_aux} ${TEST_OPTIONS})
   if (NOT CLIENT_INTERFACE)
     # XXX i#1802: non-CI builds have a bug w/ early injection which we work around:
     set(dr_ops ${dr_ops} -no_early_inject)
@@ -1212,7 +1214,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     set(expectbase ${srcbase})
   endif ()
 
-  if (${test} MATCHES "linux.execve32")
+  if (TEST_SUITE AND TEST_32BIT_PATH AND ${test} MATCHES "linux.execve32")
     # We're an x64 build, but we need to launch a 32-bit app under DR.  The
     # suite sets -dr_home to the full install dir with both archs, but we're
     # invoking bin64/drrun.  Ideally drrun would detect which ELF class we're
@@ -2548,6 +2550,14 @@ if (CLIENT_INTERFACE)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)
+  macro(make_symlink src dst)
+    execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${src} ${dst}
+      RESULT_VARIABLE ln_result ERROR_VARIABLE ln_err)
+    if (ln_result OR ln_err)
+      message(FATAL_ERROR "*** symlink failed: ***\n${ln_err}")
+    endif ()
+  endmacro()
+
   if (NOT APPLE)
     tobuild(linux.clone linux/clone.c)
 
@@ -2560,18 +2570,60 @@ if (UNIX)
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
-  if (X86 AND (TEST_SUITE OR TEST_32BIT_PATH))
+  if (X86)
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
-      tobuild_ops(linux.execve64 linux/execve.c ""
-        "${TEST_32BIT_PATH}/linux.execve-sub32")
-      torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
-        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
+      if (TEST_SUITE AND TEST_32BIT_PATH)
+        tobuild_ops(linux.execve64 linux/execve.c ""
+          "${TEST_32BIT_PATH}/linux.execve-sub32")
+        torunonly(linux.execve32 ${TEST_32BIT_PATH}/linux.execve32 linux/execve.c ""
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
+      else ()
+        # If we didn't just build the entire 32-bit and so don't have an
+        # install dir handy, we still perform a cross-arch test by building
+        # just the few binaries we need and faking a multi-arch install.
+        set(32dir ${CMAKE_CURRENT_BINARY_DIR}/32bit)
+        set(test_bindir suite/tests/bin)
+        file(MAKE_DIRECTORY ${32dir})
+        make_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}
+          ${32dir}/${INSTALL_LIB_BASE})
+        make_symlink(${32dir}/${INSTALL_LIB_X86}
+          ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
+        get_target_path_for_execution(drrun_path drrun)
+        add_test(linux.execve32 ${CMAKE_CTEST_COMMAND} -V
+          --build-and-test ${PROJECT_SOURCE_DIR} ${32dir}
+          --build-generator ${CMAKE_GENERATOR}
+          --build-target dynamorio
+          --build-target linux.execve32
+          --build-target linux.execve-sub32
+          --build-noclean # else it tries to clean between each target!
+          --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+          --build-options -DDEBUG=ON -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
+          -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
+          --test-command ${drrun_path} -32
+          -dr_home ${32dir} ${dr_test_ops} -- ${32dir}/${test_bindir}/linux.execve32
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
+        file(READ linux/execve.expect expect)
+        set_tests_properties(linux.execve32 PROPERTIES ENVIRONMENT
+          "CFLAGS=-m32;CXXFLAGS=-m32"
+          # We do not try to indirect this so we have to read .expect manually.
+          # We simplify and assume no regex chars.
+          # We start with .* for all the config and build stuff.
+          PASS_REGULAR_EXPRESSION ".*${expect}[ \n]*$")
+        # We can't get the depends property right b/c execve32 has no prefix,
+        # so we do this one directly too.
+        add_exe(linux.execve64 linux/execve.c)
+        add_test(linux.execve64 ${drrun_path} ${dr_test_ops} --
+          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64
+          "${32dir}/${test_bindir}/linux.execve-sub32")
+        set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
+          PASS_REGULAR_EXPRESSION "^${expect}$")
+      endif ()
     else (X64)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
     endif (X64)
-  endif (X86 AND (TEST_SUITE OR TEST_32BIT_PATH))
+  endif (X86)
 
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)

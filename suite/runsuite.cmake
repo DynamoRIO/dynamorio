@@ -194,12 +194,17 @@ if (NOT cross_only)
     BUILD_TESTS:BOOL=ON
     ${install_path_cache}
     " OFF ON "${install_build_args}")
+  if (last_build_dir MATCHES "-32")
+    set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
+  else ()
+    set(32bit_path "")
+  endif ()
   testbuild_ex("debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     BUILD_TESTS:BOOL=ON
     ${install_path_cache}
-    TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+    ${32bit_path}
     " OFF ON "${install_build_args}")
   # we don't really support debug-external anymore
   if (DO_ALL_BUILDS_NOT_SUPPORTED)
@@ -217,11 +222,16 @@ if (NOT cross_only)
     INTERNAL:BOOL=OFF
     ${install_path_cache}
     " OFF OFF "${install_build_args}")
+  if (last_build_dir MATCHES "-32")
+    set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
+  else ()
+    set(32bit_path "")
+  endif ()
   testbuild_ex("release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     ${install_path_cache}
-    TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin
+    ${32bit_path}
     " OFF OFF "${install_build_args}")
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
@@ -303,12 +313,12 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF OFF "")
-  testbuild_ex("arm-debug-internal-64" OFF "
+  testbuild_ex("arm-debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF OFF "")
-  testbuild_ex("arm-release-external-64" OFF "
+  testbuild_ex("arm-release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
