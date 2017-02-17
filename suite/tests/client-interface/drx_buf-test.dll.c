@@ -180,7 +180,7 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
 {
-    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XDX, DR_REG_R4);
+    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XDX, TEST_REG);
     reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XCX, DR_REG_R3);
     /* We need a third register on ARM, because updating the buf pointer
      * requires a second scratch reg.
