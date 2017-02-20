@@ -7349,6 +7349,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         /* ok to hold onto pointer since it's this thread's */
         area = local_area;
     } else {
+        bool is_allocated_mem;
         /* not in this thread's current executable list
          * try the global executable area list
          */
@@ -7437,6 +7438,31 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                       IF_HOTP(&& (!DYNAMO_OPTION(hot_patching) ||
                                   self_owns_write_lock(hotp_get_lock())))));
         ASSERT(!ok || area != NULL);
+        is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
+        /* i#2135 : it can be a guard page if either ok or not ok
+         * so we have to get protection value right now
+         */
+#ifdef WINDOWS
+        if (TEST(DR_MEMPROT_GUARD, prot)) {
+            /* remove protection so as to go on */
+            if (unmark_page_as_guard(pc, prot)) {
+                /* We test that there was still the guard protection to remove.
+                 * Otherwise, there could be a race condition with
+                 * two threads trying to execute from the guarded page
+                 * and we would raise two exceptions instead of one.
+                 */
+                SYSLOG_INTERNAL_WARNING("Application tried to execute "
+                                        "from guard memory "PFX".\n", pc);
+                check_thread_vm_area_cleanup(dcontext, true/*abort*/,
+                                             true/*clean bb*/, data, vmlist,
+                                             own_execareas_writelock,
+                                             caller_execareas_writelock);
+                os_forge_exception(pc, GUARD_PAGE_EXCEPTION);
+                ASSERT_NOT_REACHED();
+            }
+        }
+#endif
+
         if (!ok) {
             /* we no longer allow execution from arbitrary dr mem, our dll is
              * on the executable list and we specifically add the callback
@@ -7447,7 +7473,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * unreadable (and so we don't want to follow a direct cti there
              * until the app actually does)
              */
-            bool is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
             bool is_being_unloaded = false;
 
 #ifdef CLIENT_INTERFACE
