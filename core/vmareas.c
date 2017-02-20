@@ -7446,12 +7446,12 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         if (TEST(DR_MEMPROT_GUARD, prot)) {
             /* remove protection so as to go on */
             if (unmark_page_as_guard(pc, prot)) {
-                /* we test that there was still the guard protection to remove.
+                /* We test that there was still the guard protection to remove.
                  * Otherwise, there could be a race condition with
                  * two threads trying to execute from the guarded page
-                 * and we would raise two exceptions instead of one
+                 * and we would raise two exceptions instead of one.
                  */
-                SYSLOG_INTERNAL_WARNING("Application tries to execute "
+                SYSLOG_INTERNAL_WARNING("Application tried to execute "
                                         "from guard memory "PFX".\n", pc);
                 check_thread_vm_area_cleanup(dcontext, true/*abort*/,
                                              true/*clean bb*/, data, vmlist,

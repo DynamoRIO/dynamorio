@@ -31,8 +31,8 @@
  */
 
 
-# include "tools.h"
-# include <windows.h>
+#include "tools.h"
+#include <windows.h>
 
 
 static int count = 0;
