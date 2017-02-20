@@ -2590,6 +2590,11 @@ if (UNIX)
         make_symlink(${32dir}/${INSTALL_LIB_X86}
           ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
         get_target_path_for_execution(drrun_path drrun)
+        if (DEBUG)
+          set(config_type -DDEBUG=ON)
+        else ()
+          set(config_type "")
+        endif ()
         add_test(linux.execve32 ${CMAKE_CTEST_COMMAND} -V
           --build-and-test ${PROJECT_SOURCE_DIR} ${32dir}
           --build-generator ${CMAKE_GENERATOR}
@@ -2598,7 +2603,7 @@ if (UNIX)
           --build-target linux.execve-sub32
           --build-noclean # else it tries to clean between each target!
           --build-makeprogram ${CMAKE_MAKE_PROGRAM}
-          --build-options -DDEBUG=ON -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
+          --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
           -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
           --test-command ${drrun_path} -32
           -dr_home ${32dir} ${dr_test_ops} -- ${32dir}/${test_bindir}/linux.execve32
@@ -2938,6 +2943,7 @@ else (UNIX)
     # we match exe addresses in output so no ASLR
     append_link_flags(security-win32.except-execution "/dynamicbase:no")
 
+    tobuild(security-win32.except-guard security-win32/except-guard.c)
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)
 
