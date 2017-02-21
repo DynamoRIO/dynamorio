@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -752,7 +752,7 @@ module_is_from_tool(const char * path)
 static const char *
 read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 {
-    const char *path;
+    char *path;
     const char *modpath;
     char subst[MAXIMUM_PATH];
     uint i;
@@ -771,7 +771,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
         size_t mod_size;
         module_table_t *mod_table;
 
-        if (drmodtrack_offline_lookup(handle, i, NULL, &mod_size, &path) !=
+        if (drmodtrack_offline_lookup(handle, i, NULL, &mod_size, &path, NULL) !=
             DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
         PRINT(5, "Module: %u, " PFX", %s\n", i, (ptr_uint_t)mod_size, path);

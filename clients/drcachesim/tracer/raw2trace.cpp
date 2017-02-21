@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -114,8 +114,8 @@ raw2trace_t::read_and_map_modules(void)
     for (uint i = 0; i < num_mods; i++) {
         app_pc modbase;
         size_t modsize;
-        const char *path;
-        if (drmodtrack_offline_lookup(modhandle, i, &modbase, &modsize, &path) !=
+        char *path;
+        if (drmodtrack_offline_lookup(modhandle, i, &modbase, &modsize, &path, NULL) !=
             DRCOVLIB_SUCCESS)
             FATAL_ERROR("Failed to query module file");
         if (strcmp(path, "<unknown>") == 0 ||
