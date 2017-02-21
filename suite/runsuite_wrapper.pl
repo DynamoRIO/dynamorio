@@ -79,11 +79,8 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    # To shrink the log sizes and make Travis and Appveyor error pages easier
-    # to work with we omit a second V and instead use --output-on-failure.
-    # We rely on runsuite_common_post.cmake extracting configure and build error
-    # details from the xml files, as they don't show up with one V.
     system("ctest --output-on-failure -V -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    exit 0;
 }
 
 my @lines = split('\n', $res);
@@ -163,6 +160,10 @@ for (my $i = 0; $i < $#lines; ++$i) {
         print "\n====> FAILURE in $name <====\n";
     }
     print "$line\n" if ($should_print);
+}
+if (!$should_print) {
+    print "Error: RESULTS line not found\n";
+    $exit_code++;
 }
 
 exit $exit_code;
