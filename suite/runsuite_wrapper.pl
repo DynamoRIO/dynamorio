@@ -145,6 +145,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                     (!$is_32 && $ignore_failures_64{$test})) {
                     $lines[$j] = "\t(ignore: i#2145) " . $lines[$j];
                     $num_ignore++;
+                } elsif ($test =~ /_FLAKY$/) {
+                    # Don't count toward failure.
                 } else {
                     $fail = 1;
                 }
