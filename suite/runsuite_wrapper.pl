@@ -79,7 +79,11 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    system("ctest -VV -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    # To shrink the log sizes and make Travis and Appveyor error pages easier
+    # to work with we omit a second V and instead use --output-on-failure.
+    # We rely on runsuite_common_post.cmake extracting configure and build error
+    # details from the xml files, as they don't show up with one V.
+    system("ctest --output-on-failure -V -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
 }
 
 my @lines = split('\n', $res);
