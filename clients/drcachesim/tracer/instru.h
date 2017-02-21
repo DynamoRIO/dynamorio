@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -179,6 +179,11 @@ public:
 
     virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded);
+
+    static bool custom_module_data(void * (*load_cb)(module_data_t *module),
+                                   int (*print_cb)(void *data, char *dst,
+                                                   size_t max_len),
+                                   void (*free_cb)(void *data));
 
 private:
     void insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,

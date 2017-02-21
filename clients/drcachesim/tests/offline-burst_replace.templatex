@@ -1,4 +1,5 @@
 replace all file functions
+add custom module data
 pre-DR init
 create dir .*
 create dir .*
@@ -12,6 +13,7 @@ pre-DR detach
 close file .*
 2: writing [0-9]+ bytes .*
 close file .*
+processing .*
 all done
 Core #0 \(1 thread\(s\)\)
   L1I stats:

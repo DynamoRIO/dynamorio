@@ -102,7 +102,8 @@ void
 raw2trace_t::read_and_map_modules(void)
 {
     // Read and load all of the modules.
-    std::string modfilename = indir + std::string(DIRSEP) + MODULE_LIST_FILENAME;
+    std::string modfilename = indir + std::string(DIRSEP) +
+        DRMEMTRACE_MODULE_LIST_FILENAME;
     uint num_mods;
     VPRINT(1, "Reading module file %s\n", modfilename.c_str());
     file_t modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
@@ -174,7 +175,7 @@ raw2trace_t::open_thread_log_file(const char *basename)
     CHECK(basename[0] != '/',
           "dir iterator entry %s should not be an absolute path\n", basename);
     // Skip the module list log.
-    if (strcmp(basename, MODULE_LIST_FILENAME) == 0)
+    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0)
         return;
     // Skip any non-.raw in case someone put some other file in there.
     if (strstr(basename, OUTFILE_SUFFIX) == NULL)

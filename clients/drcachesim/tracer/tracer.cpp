@@ -155,6 +155,31 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
     return DRMEMTRACE_SUCCESS;
 }
 
+static char modlist_path[MAXIMUM_PATH];
+
+drmemtrace_status_t
+drmemtrace_get_modlist_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = modlist_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
+                              int (*print_cb)(void *data, char *dst, size_t max_len),
+                              void (*free_cb)(void *data))
+{
+    /* We want to support this being called prior to initializing us, so we use
+     * a static routine and do not check -offline.
+     */
+    if (offline_instru_t::custom_module_data(load_cb, print_cb, free_cb))
+        return DRMEMTRACE_SUCCESS;
+    else
+        return DRMEMTRACE_ERROR;
+}
+
 /* Allocated TLS slot offsets */
 enum {
     MEMTRACE_TLS_OFFS_BUF_PTR,
@@ -832,10 +857,10 @@ init_offline_dir(void)
      */
     if (file_ops_func.create_dir == dr_create_dir)
         NOTIFY(1, "Log directory is %s\n", logsubdir);
-    dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%s%s", logsubdir, DIRSEP,
-                MODULE_LIST_FILENAME);
-    NULL_TERMINATE_BUFFER(buf);
-    module_file = file_ops_func.open_file(buf, DR_FILE_WRITE_REQUIRE_NEW
+    dr_snprintf(modlist_path, BUFFER_SIZE_ELEMENTS(modlist_path),
+                "%s%s%s", logsubdir, DIRSEP, DRMEMTRACE_MODULE_LIST_FILENAME);
+    NULL_TERMINATE_BUFFER(modlist_path);
+    module_file = file_ops_func.open_file(modlist_path, DR_FILE_WRITE_REQUIRE_NEW
                                           IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
     return (module_file != INVALID_FILE);
 }

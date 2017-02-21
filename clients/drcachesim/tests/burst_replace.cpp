@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,10 +40,12 @@
  */
 #include "dr_api.h"
 #include "drmemtrace.h"
+#include "drcovlib.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 bool
 my_setenv(const char *var, const char *value)
@@ -134,6 +136,84 @@ local_create_dir(const char *dir)
     return res;
 }
 
+static void *
+load_cb(module_data_t *module)
+{
+    return (void *)module->start;
+}
+
+static int
+print_cb(void *data, char *dst, size_t max_len)
+{
+    return dr_snprintf(dst, max_len, PFX",", data);
+}
+
+static const char *
+parse_cb(const char *src, OUT void **data)
+{
+    const char *res;
+    if (dr_sscanf(src, PIFX",", data) != 1)
+        return NULL;
+    res = strchr(src, ',');
+    return (res == NULL) ? NULL : res + 1;
+}
+
+static void
+free_cb(void *data)
+{
+    /* Nothing. */
+}
+
+static void
+post_process()
+{
+    /* We now remove the custom field, so our test can go through regular
+     * raw2trace processing.
+     */
+    void *drcovlib = dr_standalone_init();
+    drcovlib_status_t res =
+        drmodtrack_add_custom_data(NULL, NULL, parse_cb, free_cb);
+    assert(res == DRCOVLIB_SUCCESS);
+    const char *modlist_path;
+    drmemtrace_status_t mem_res = drmemtrace_get_modlist_path(&modlist_path);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    dr_fprintf(STDERR, "processing %s\n", modlist_path);
+    file_t f = dr_open_file(modlist_path, DR_FILE_READ);
+    assert(f != INVALID_FILE);
+    void *modhandle;
+    uint num_mods;
+    res = drmodtrack_offline_read(f, NULL, &modhandle, &num_mods);
+    assert(res == DRCOVLIB_SUCCESS);
+
+    for (uint i = 0; i < num_mods; ++i) {
+        app_pc modbase;
+        void *custom;
+        res = drmodtrack_offline_lookup(modhandle, i, &modbase, NULL, NULL, &custom);
+        assert(res == DRCOVLIB_SUCCESS);
+        assert(((app_pc)custom) == modbase);
+    }
+
+    char *buf_offline;
+    size_t size_offline = 8192;
+    do {
+        buf_offline = (char *)dr_global_alloc(size_offline);
+        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline);
+        if (res == DRCOVLIB_SUCCESS)
+            break;
+        dr_global_free(buf_offline, size_offline);
+        size_offline *= 2;
+    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
+    assert(res == DRCOVLIB_SUCCESS);
+    dr_close_file(f);
+    drmodtrack_offline_exit(modhandle);
+
+    /* Now replace the file */
+    f = dr_open_file(modlist_path, DR_FILE_WRITE_OVERWRITE);
+    assert(f != INVALID_FILE);
+    dr_write_file(f, buf_offline, strlen(buf_offline));
+    dr_close_file(f);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -146,8 +226,13 @@ main(int argc, const char *argv[])
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "replace all file functions\n";
-    drmemtrace_replace_file_ops(local_open_file, local_read_file, local_write_file,
-                                local_close_file, local_create_dir);
+    drmemtrace_status_t res =
+        drmemtrace_replace_file_ops(local_open_file, local_read_file, local_write_file,
+                                    local_close_file, local_create_dir);
+    assert(res == DRMEMTRACE_SUCCESS);
+    std::cerr << "add custom module data\n";
+    res = drmemtrace_custom_module_data(load_cb, print_cb, free_cb);
+    assert(res == DRMEMTRACE_SUCCESS);
     std::cerr << "pre-DR init\n";
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
@@ -168,6 +253,10 @@ main(int argc, const char *argv[])
             dr_app_stop_and_cleanup();
         }
     }
+
+    /* We have to handle the custom field for post-processing now */
+    post_process();
+
     std::cerr << "all done\n";
     return 0;
 }

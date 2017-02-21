@@ -252,6 +252,7 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_replace)
     # Not really using an extension, just for including drmemtrace.h.
     use_DynamoRIO_extension(tool.drcacheoff.burst_replace drmemtrace_static)
+    use_DynamoRIO_extension(tool.drcacheoff.burst_replace drcovlib_static)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)
