@@ -492,8 +492,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 drreg_report_error(res, "failed to spill aflags after app write");
             }
             pt->aflags.native = false;
-        } else if (!pt->aflags.native) {
+        } else if (!pt->aflags.native || pt->slot_use[AFLAGS_SLOT] != DR_REG_NULL) {
             /* give up slot */
+            LOG(drcontext, LOG_ALL, 3,
+                "%s @%d."PFX": giving up aflags slot after app write\n",
+                __FUNCTION__, pt->live_idx, instr_get_app_pc(inst));
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
             pt->aflags.native = true;
         }
@@ -1212,8 +1215,9 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
         return DRREG_SUCCESS;
     }
     /* Check for a prior reservation not yet lazily restored */
-    if (!pt->aflags.native ||
-        (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use && pt->aflags.xchg == DR_REG_XAX)) {
+    if (!pt->aflags.native
+        IF_X86(|| (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use &&
+                   pt->aflags.xchg == DR_REG_XAX))) {
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": using un-restored aflags\n",
             __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
         ASSERT(pt->aflags.xchg != DR_REG_NULL ||
