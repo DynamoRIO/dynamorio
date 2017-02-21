@@ -492,8 +492,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 drreg_report_error(res, "failed to spill aflags after app write");
             }
             pt->aflags.native = false;
-        } else if (!pt->aflags.native) {
+        } else if (!pt->aflags.native || pt->slot_use[AFLAGS_SLOT] != DR_REG_NULL) {
             /* give up slot */
+            LOG(drcontext, LOG_ALL, 3,
+                "%s @%d."PFX": giving up aflags slot after app write\n",
+                __FUNCTION__, pt->live_idx, instr_get_app_pc(inst));
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
             pt->aflags.native = true;
         }
@@ -1076,6 +1079,8 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
 #ifdef X86
     uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
     uint temp_slot = find_free_slot(pt);
+    LOG(drcontext, LOG_ALL, 3,
+        "%s @%d."PFX"\n", __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
     if (temp_slot == MAX_SPILLS)
         return DRREG_ERROR_OUT_OF_SLOTS;
     /* It may be in-use for ourselves, storing the flags in xax. */
@@ -1130,6 +1135,10 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 #ifdef X86
     uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
     uint temp_slot = 0;
+    LOG(drcontext, LOG_ALL, 3,
+        "%s @%d."PFX": release=%d xax-in-use=%d xchg=%s\n", __FUNCTION__, pt->live_idx,
+        instr_get_app_pc(where), release, pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use,
+        get_register_name(pt->aflags.xchg));
     if (pt->aflags.xchg == DR_REG_XAX) {
         ASSERT(pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use, "eflags-in-xax error");
     } else {
@@ -1206,18 +1215,24 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
         return DRREG_SUCCESS;
     }
     /* Check for a prior reservation not yet lazily restored */
-    if (!pt->aflags.native) {
+    if (!pt->aflags.native
+        IF_X86(|| (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use &&
+                   pt->aflags.xchg == DR_REG_XAX))) {
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": using un-restored aflags\n",
             __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
         ASSERT(pt->aflags.xchg != DR_REG_NULL ||
                pt->slot_use[AFLAGS_SLOT] != DR_REG_NULL, "lost slot reservation");
+        pt->aflags.native = false;
         pt->aflags.in_use = true;
         return DRREG_SUCCESS;
     }
 
     LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": spilling aflags\n",
         __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
-    pt->aflags.xchg = DR_REG_NULL; /* drreg_spill_aflags writes to this, so clear first */
+    /* drreg_spill_aflags writes to this, so clear first.  The inconsistent combo
+     * xchg-null but xax-in-use won't happen b/c we'll use un-restored above.
+     */
+    pt->aflags.xchg = DR_REG_NULL;
     res = drreg_spill_aflags(drcontext, ilist, where, pt);
     if (res != DRREG_SUCCESS)
         return res;
