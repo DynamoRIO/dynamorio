@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -462,13 +462,10 @@ static bool check_dr_root(const char *dr_root, bool debug,
         "lib64/release/libdrpreload.dylib",
         "lib64/release/libdynamorio.dylib"
 #else /* LINUX */
-        "lib32/debug/libdrpreload.so",
+        /* With early injection the default, we don't require preload to exist. */
         "lib32/debug/libdynamorio.so",
-        "lib32/release/libdrpreload.so",
         "lib32/release/libdynamorio.so",
-        "lib64/debug/libdrpreload.so",
         "lib64/debug/libdynamorio.so",
-        "lib64/release/libdrpreload.so",
         "lib64/release/libdynamorio.so"
 #endif
     };

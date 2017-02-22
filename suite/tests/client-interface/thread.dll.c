@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,9 +69,9 @@ static uint tls_offs;
 # define ASM_SEG "fs"
 #endif
 
-static bool child_alive;
-static bool child_continue;
-static bool child_dead;
+static void *child_alive;
+static void *child_continue;
+static void *child_dead;
 static bool nops_matched;
 
 #ifdef UNIX
@@ -92,18 +92,16 @@ thread_func(void *arg)
      * ensure we're treating it as a true native thread
      */
     ASSERT(arg == THREAD_ARG);
-    child_alive = true;
+    dr_event_signal(child_alive);
     dr_fprintf(STDERR, "client thread is alive\n");
 #ifdef UNIX
     if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
     dr_sleep(30);
 #endif
-    /* FIXME i#279: do we now have to provide condition vars, etc.?!? */
-    while (!child_continue)
-        dr_thread_yield();
+    dr_event_wait(child_continue);
     dr_fprintf(STDERR, "client thread is dying\n");
-    child_dead = true;
+    dr_event_signal(child_dead);
 }
 
 static void
@@ -161,14 +159,13 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         bool success;
         nops_matched = true;
         /* reset cond vars */
-        child_alive = false;
-        child_continue = false;
-        child_dead = false;
+        dr_event_reset(child_alive);
+        dr_event_reset(child_continue);
+        dr_event_reset(child_dead);
         dr_fprintf(STDERR, "PR 210591: testing client transparency\n");
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
-        while (!child_alive)
-            dr_thread_yield();
+        dr_event_wait(child_alive);
         /* We leave the client thread alive until the app exits, to test i#1489 */
 #ifdef UNIX
         dr_sleep(30); /* ensure we get an alarm */
@@ -183,6 +180,9 @@ void exit_event(void)
     ASSERT(success);
     ASSERT(num_lea > 0);
     /* DR should have terminated the client thread for us */
+    dr_event_destroy(child_alive);
+    dr_event_destroy(child_continue);
+    dr_event_destroy(child_dead);
 }
 
 static bool
@@ -283,13 +283,15 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_fprintf(STDERR, "...passed\n");
     }
 
+    child_alive = dr_event_create();
+    child_continue = dr_event_create();
+    child_dead = dr_event_create();
+
     /* PR 222812: start up and shut down a client thread */
     success = dr_create_client_thread(thread_func, THREAD_ARG);
     ASSERT(success);
-    while (!child_alive)
-        dr_thread_yield();
-    child_continue = true;
-    while (!child_dead)
-        dr_thread_yield();
+    dr_event_wait(child_alive);
+    dr_event_signal(child_continue);
+    dr_event_wait(child_dead);
     dr_fprintf(STDERR, "PR 222812: client thread test passed\n");
 }

@@ -291,6 +291,7 @@ typedef enum {
     ILLEGAL_INSTRUCTION_EXCEPTION,
     UNREADABLE_MEMORY_EXECUTION_EXCEPTION,
     IN_PAGE_ERROR_EXCEPTION,
+    GUARD_PAGE_EXCEPTION,
 } dr_exception_type_t;
 
 void os_forge_exception(app_pc exception_address, dr_exception_type_t type);

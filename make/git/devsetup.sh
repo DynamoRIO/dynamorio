@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # **********************************************************
-# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2017 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -44,11 +44,12 @@ git config branch.autosetuprebase always
 
 # Aliases for our workflow:
 git config alias.newbranch "!sh -c \"git checkout --track -b \$1 origin/master\""
+git config alias.review "!sh -c \"git push origin \$(git symbolic-ref -q HEAD)\""
 # For symmetry with Dr. Memory even though we have no submodules:
 git config alias.pullall "pull --rebase"
 # Shell aliases always run from the root dir.  Use "$@" to preserve quoting.
-git config alias.review "!myf() { make/git/git_review.sh -u \"\$@\"; }; myf"
-git config alias.dcommit "!myf() { make/git/git_review.sh -c \"\$@\" && git push origin HEAD:master; }; myf"
+git config alias.review-deprecated "!myf() { make/git/git_review.sh -u \"\$@\"; }; myf"
+git config alias.dcommit-deprecated "!myf() { make/git/git_review.sh -c \"\$@\" && git push origin HEAD:master; }; myf"
 git config alias.split "!sh -c \"git checkout -b \$1 \$2 && git branch --set-upstream-to=origin/master \$1\""
 
 # Commit template

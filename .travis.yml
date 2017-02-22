@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016 Google, Inc.  All rights reserved.
+# Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,11 @@ notifications:
     on_success: change
     on_failure: always
 
+# Don't run Travis on pushes to feature branches: pull requests cover those.
+branches:
+  only:
+  - master
+
 # We use Trusty to get cmake 2.8.12 instead of 2.8.7 from Precise:
 sudo: required
 dist: trusty
@@ -54,16 +59,21 @@ compiler:
   - clang
   - gcc
 
-# With or without cross-compiling:
 env:
+  # With or without cross-compiling:
   - DYNAMORIO_CROSS_ONLY=yes
-  - DYNAMORIO_CROSS_ONLY=no
+  # We run 32-bit and 64-bit in parallel to speed things up.
+  - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=32_only
+  - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=64_only
 
 matrix:
   exclude:
     # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we disable:
     - os: osx
       compiler: gcc
+    # We do not have 64-bit support on OSX yet (i#1979).
+    - os: osx
+      env: DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=64_only
     # Cross-compile only on Linux:
     - os: osx
       env: DYNAMORIO_CROSS_ONLY=yes
@@ -87,4 +97,4 @@ install:
       sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
 
 script:
-  - suite/runsuite_wrapper.pl travis
+  - suite/runsuite_wrapper.pl travis $EXTRA_ARGS

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -115,6 +115,9 @@ foreach (xml ${all_xml})
   file(READ ${xml} string)
   if ("${string}" MATCHES "Configuring incomplete")
     file(APPEND ${outf} "${build}: **** pre-build configure errors ****\n")
+    string(REGEX MATCHALL "CMake Error at .*errors occurred!"
+      config_error "${string}")
+    file(APPEND ${outf} "\t${config_error}\n")
   else ("${string}" MATCHES "Configuring incomplete")
     string(REGEX REPLACE "Configure.xml$" "Build.xml" xml "${xml}")
     file(READ ${xml} string)

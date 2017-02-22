@@ -79,17 +79,20 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    system("ctest -VV -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    system("ctest --output-on-failure -V -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    exit 0;
 }
 
 my @lines = split('\n', $res);
 my $should_print = 0;
 my $exit_code = 0;
-foreach my $line (@lines) {
+for (my $i = 0; $i < $#lines; ++$i) {
+    my $line = $lines[$i];
     my $fail = 0;
-    my $name = $1;
+    my $name = '';
     $should_print = 1 if ($line =~ /^RESULTS/);
     if ($line =~ /^([-\w]+):.*\*\*/) {
+        $name = $1;
         if ($line =~ /build errors/ ||
             $line =~ /configure errors/ ||
             $line =~ /tests failed:/) {
@@ -103,16 +106,65 @@ foreach my $line (@lines) {
         $name = "diff pre-commit checks";
     }
     if ($fail && $is_CI && $^O eq 'cygwin' && $line =~ /tests failed/) {
-        # FIXME i#2145: ignoring AppVeyor test failures until we get the tests
-        # all passing, so initially we'll only go red on build failures.
-        print "(Ignoring AppVeyor test failures until setup finalized.)\n";
+        # FIXME i#2145: ignoring certain AppVeyor test failures until
+        # we get all tests passing.
+        my $is_32 = $line =~ /-32/;
+        my %ignore_failures_32 = ('unit_tests' => 1,
+                                  'code_api|security-common.retnonexisting' => 1,
+                                  'code_api|win32.reload-newaddr' => 1,
+                                  'code_api|win32.tls' => 1,
+                                  'code_api|client.loader' => 1,
+                                  'code_api|client.thread' => 1,
+                                  'code_api|client.pcache-use' => 1,
+                                  'code_api|client.nudge_ex' => 1,
+                                  'code_api|tool.drcacheoff.burst_static' => 1,
+                                  'code_api|tool.drcacheoff.burst_replace' => 1,
+                                  'code_api|api.detach' => 1,
+                                  'code_api|api.static_detach' => 1);
+        my %ignore_failures_64 = ('unit_tests' => 1,
+                                  'code_api|common.floatpc_xl8all' => 1,
+                                  'code_api|win32.reload-newaddr' => 1,
+                                  'code_api|win32.mixedmode' => 1,
+                                  'code_api|win32.x86_to_x64' => 1,
+                                  'code_api|win32.x86_to_x64_ibl_opt' => 1,
+                                  'code_api|win32.mixedmode_late' => 1,
+                                  'code_api|client.loader' => 1,
+                                  'code_api|client.thread' => 1,
+                                  'code_api|client.nudge_ex' => 1,
+                                  'code_api|api.detach' => 1,
+                                  'code_api|api.static_noclient' => 1,
+                                  'code_api|api.static_noinit' => 1);
+        # Read ahead to examine the test failures:
         $fail = 0;
+        my $num_ignore = 0;
+        for (my $j = $i+1; $j < $#lines; ++$j) {
+            my $test;
+            if ($lines[$j] =~ /^\t(\S+)\s/) {
+                $test = $1;
+                if (($is_32 && $ignore_failures_32{$test}) ||
+                    (!$is_32 && $ignore_failures_64{$test})) {
+                    $lines[$j] = "\t(ignore: i#2145) " . $lines[$j];
+                    $num_ignore++;
+                } elsif ($test =~ /_FLAKY$/) {
+                    # Don't count toward failure.
+                } else {
+                    $fail = 1;
+                }
+            } else {
+                last if ($lines[$j] =~ /^\S/);
+            }
+        }
+        $line =~ s/: \*/, but ignoring $num_ignore for i2145: */;
     }
     if ($fail) {
         $exit_code++;
         print "\n====> FAILURE in $name <====\n";
     }
     print "$line\n" if ($should_print);
+}
+if (!$should_print) {
+    print "Error: RESULTS line not found\n";
+    $exit_code++;
 }
 
 exit $exit_code;

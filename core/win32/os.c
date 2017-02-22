@@ -1226,6 +1226,8 @@ os_slow_exit(void)
     aslr_exit();
     eventlog_slow_exit();
     os_take_over_exit();
+
+    tls_dcontext_offs = TLS_UNINITIALIZED;
 }
 
 
@@ -5757,6 +5759,24 @@ mark_page_as_guard(byte *pc)
     ASSERT(ALIGNED(pc, PAGE_SIZE));
     res = protect_virtual_memory((void *) pc, PAGE_SIZE, flags, &old_prot);
     ASSERT(res);
+}
+
+/* Removes guard protection from page containing pc */
+bool
+unmark_page_as_guard(byte *pc, uint prot)
+{
+    uint old_prot;
+    int res;
+    byte *start_page = (byte *)ALIGN_BACKWARD(pc, PAGE_SIZE);
+
+    uint flags = memprot_to_osprot(prot & ~MEMPROT_GUARD);
+    res = protect_virtual_memory(start_page, PAGE_SIZE, flags, &old_prot);
+    ASSERT(res);
+    /* It is possible that another thread accessed the guarded page
+     * while we wanted to remove this protection. The returned value
+     * can be checked for such a case.
+     */
+    return TEST(PAGE_GUARD, old_prot);
 }
 
 /* Change page protection for pc:pc+size.

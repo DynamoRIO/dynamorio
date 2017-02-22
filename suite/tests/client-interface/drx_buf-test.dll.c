@@ -180,7 +180,7 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
 {
-    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XDX, DR_REG_R4);
+    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XDX, TEST_REG);
     reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XCX, DR_REG_R3);
     /* We need a third register on ARM, because updating the buf pointer
      * requires a second scratch reg.
@@ -436,7 +436,7 @@ event_exit(void)
      * because the callback is called on thread_exit(). Finally, two more for
      * drx_buf_insert_buf_memcpy().
      */
-    CHECK(num_faults == NUM_ITER * 2 + 2 + 2,
+    CHECK(num_faults == NUM_ITER * 2 + 2 + IF_AARCH64_ELSE(0, 2),
             "the number of faults don't match up");
     if (!drmgr_unregister_bb_insertion_event(event_app_instruction))
         CHECK(false, "exit failed");

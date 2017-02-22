@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5837,6 +5837,12 @@ initialize_exception_record(EXCEPTION_RECORD* rec, app_pc exception_address,
     case ILLEGAL_INSTRUCTION_EXCEPTION:
         rec->ExceptionCode = EXCEPTION_ILLEGAL_INSTRUCTION;
         break;
+    case GUARD_PAGE_EXCEPTION:
+        rec->ExceptionCode = STATUS_GUARD_PAGE_VIOLATION;
+        rec->NumberParameters = 2;
+        rec->ExceptionInformation[0] = EXCEPTION_EXECUTE_FAULT /* execution tried */;
+        rec->ExceptionInformation[1] = (ptr_uint_t)exception_address;
+        break;
     default:
         ASSERT_NOT_REACHED();
     }
@@ -7658,6 +7664,11 @@ callback_interception_unintercept()
 
     free_intercept_list();
 
+    if (doing_detach) {
+        DEBUG_DECLARE(bool ok =)
+            make_writable(interception_code, INTERCEPTION_CODE_SIZE);
+        ASSERT(ok);
+    }
     DODEBUG(callback_interception_unintercepted = true;);
 }
 

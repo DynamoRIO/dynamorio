@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3853,11 +3853,13 @@ os_modules_init(void)
                             (void(*)(dcontext_t*, void*)) section_to_file_free
                             _IF_DEBUG("section-to-file table"));
 
+#ifndef STATIC_LIBRARY
     if (DYNAMO_OPTION(hide) && !dr_earliest_injected) {
         /* retrieve path before hiding, since this is called before os_init() */
         get_dynamorio_library_path();
         hide_from_module_lists();
     }
+#endif
 }
 
 void

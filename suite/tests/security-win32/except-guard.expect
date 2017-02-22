@@ -1,0 +1,7 @@
+start of test, count = 0
+guard page exception
+test without guard
+guard page exception
+test guard without alloc
+test without guard
+end of test, count = 2

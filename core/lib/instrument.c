@@ -798,6 +798,7 @@ instrument_exit(void)
 
     vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
     client_aux_libs = NULL;
+    num_client_libs = 0;
 #ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
 #endif
@@ -3591,6 +3592,50 @@ dr_recurlock_mark_as_app(void *reclock)
 {
     recursive_lock_t *lock = (recursive_lock_t *) reclock;
     mutex_mark_as_app(&lock->lock);
+    return true;
+}
+
+DR_API
+void *
+dr_event_create(void)
+{
+    return (void *)create_event();
+}
+
+DR_API
+bool
+dr_event_destroy(void *event)
+{
+    destroy_event((event_t)event);
+    return true;
+}
+
+DR_API
+bool
+dr_event_wait(void *event)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (IS_CLIENT_THREAD(dcontext))
+        dcontext->client_data->client_thread_safe_for_synch = true;
+    wait_for_event((event_t)event);
+    if (IS_CLIENT_THREAD(dcontext))
+        dcontext->client_data->client_thread_safe_for_synch = false;
+    return true;
+}
+
+DR_API
+bool
+dr_event_signal(void *event)
+{
+    signal_event((event_t)event);
+    return true;
+}
+
+DR_API
+bool
+dr_event_reset(void *event)
+{
+    reset_event((event_t)event);
     return true;
 }
 

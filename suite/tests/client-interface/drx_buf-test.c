@@ -99,11 +99,9 @@ main(void)
      */
 #if defined(UNIX)
     pthread_t thread;
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
 #elif defined(WINDOWS)
     HANDLE thread;
     DWORD threadId;
-    SetUnhandledExceptionFilter(&handle_exception);
 #endif
 
     print("Starting drx_buf threaded test\n");
@@ -121,6 +119,14 @@ main(void)
     CloseHandle(thread);
 #endif
     print("Ending drx_buf threaded test\n");
+
+    /* install signals */
+#if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
+#elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception);
+#endif
+
     print("Starting drx_buf signal test\n");
     /* try to cause a segfault and make sure it didn't trigger the buffer to dump */
     if (SIGSETJMP(mark) == 0) {
