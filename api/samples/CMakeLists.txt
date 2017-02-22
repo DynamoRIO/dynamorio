@@ -216,6 +216,7 @@ endif (X86)
 add_sample_client(div         "div.c"           "drmgr")
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(inc2add     "inc2add.c"       "drmgr;drreg")
+  add_sample_client(memval_simple       "memval_simple.c;utils.c" "drmgr;drreg;drutil;drx")
   add_sample_client(memtrace_x86_binary "memtrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drutil;drx")
   add_sample_client(memtrace_x86_text   "memtrace_x86.c;utils.c"
