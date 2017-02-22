@@ -79,11 +79,8 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    # To shrink the log sizes and make Travis and Appveyor error pages easier
-    # to work with we omit a second V and instead use --output-on-failure.
-    # We rely on runsuite_common_post.cmake extracting configure and build error
-    # details from the xml files, as they don't show up with one V.
     system("ctest --output-on-failure -V -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    exit 0;
 }
 
 my @lines = split('\n', $res);
@@ -142,27 +139,32 @@ for (my $i = 0; $i < $#lines; ++$i) {
         my $num_ignore = 0;
         for (my $j = $i+1; $j < $#lines; ++$j) {
             my $test;
-            if ($lines[$j] =~ /^\s+(\S+)\s/) {
+            if ($lines[$j] =~ /^\t(\S+)\s/) {
                 $test = $1;
                 if (($is_32 && $ignore_failures_32{$test}) ||
                     (!$is_32 && $ignore_failures_64{$test})) {
                     $lines[$j] = "\t(ignore: i#2145) " . $lines[$j];
                     $num_ignore++;
+                } elsif ($test =~ /_FLAKY$/) {
+                    # Don't count toward failure.
                 } else {
                     $fail = 1;
                 }
             } else {
                 last if ($lines[$j] =~ /^\S/);
-                $fail = 1;
             }
         }
-        $line =~ s/tests failed/tests failed, but ignoring $num_ignore for i2145/;
+        $line =~ s/: \*/, but ignoring $num_ignore for i2145: */;
     }
     if ($fail) {
         $exit_code++;
         print "\n====> FAILURE in $name <====\n";
     }
     print "$line\n" if ($should_print);
+}
+if (!$should_print) {
+    print "Error: RESULTS line not found\n";
+    $exit_code++;
 }
 
 exit $exit_code;
