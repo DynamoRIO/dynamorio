@@ -39,9 +39,9 @@
 #endif
 
 #ifdef ARM
-# define TEST_REG DR_REG_R4
-# define TEST_REG_ASM r4
-# define TEST_REG_SIG arm_r4
+# define TEST_REG DR_REG_R12
+# define TEST_REG_ASM r12
+# define TEST_REG_SIG arm_ip
 #endif
 
 #ifdef AARCH64
