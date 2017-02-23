@@ -612,13 +612,13 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
              * where args are all regs or immeds and do not conflict with param regs.
              */
             ASSERT_NOT_IMPLEMENTED(false);
-            DODEBUG({
-                uint j;
-                /* assume no reg used by arg conflicts with regparms */
-                for (j = 0; j < i; j++)
-                    ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
-            });
         }
+        DODEBUG({
+            uint j;
+            /* check no reg used by arg conflicts with regparms */
+            for (j = 0; j < i; j++)
+                ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(args[j], regparms[i]));
+        });
     }
     return 0;
 }
