@@ -186,11 +186,10 @@ post_process()
     assert(res == DRCOVLIB_SUCCESS);
 
     for (uint i = 0; i < num_mods; ++i) {
-        app_pc modbase;
-        void *custom;
-        res = drmodtrack_offline_lookup(modhandle, i, &modbase, NULL, NULL, &custom);
+        drmodtrack_info_t info = {sizeof(info),};
+        res = drmodtrack_offline_lookup(modhandle, i, &info);
         assert(res == DRCOVLIB_SUCCESS);
-        assert(((app_pc)custom) == modbase);
+        assert(((app_pc)info.custom) == info.start);
     }
 
     char *buf_offline;

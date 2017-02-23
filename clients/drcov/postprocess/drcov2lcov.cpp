@@ -752,7 +752,6 @@ module_is_from_tool(const char * path)
 static const char *
 read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 {
-    char *path;
     const char *modpath;
     char subst[MAXIMUM_PATH];
     uint i;
@@ -768,46 +767,45 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 
     *tables = (module_table_t **) calloc(*num_mods, sizeof(*tables));
     for (i = 0; i < *num_mods; i++) {
-        size_t mod_size;
         module_table_t *mod_table;
+        drmodtrack_info_t info = {sizeof(info),};
 
-        if (drmodtrack_offline_lookup(handle, i, NULL, &mod_size, &path, NULL) !=
-            DRCOVLIB_SUCCESS)
+        if (drmodtrack_offline_lookup(handle, i, &info) != DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
-        PRINT(5, "Module: %u, " PFX", %s\n", i, (ptr_uint_t)mod_size, path);
-        mod_table = (module_table_t *) hashtable_lookup(&module_htable, (void*)path);
+        PRINT(5, "Module: %u, " PFX", %s\n", i, (ptr_uint_t)info.size, info.path);
+        mod_table = (module_table_t *)hashtable_lookup(&module_htable, (void*)info.path);
         if (mod_table == NULL) {
-            modpath = path;
-            if (mod_size >= UINT_MAX)
+            modpath = info.path;
+            if (info.size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
             /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
              * so these should be case-insensitive on Windows.
              */
-            if (strstr(path, "<unknown>") != NULL ||
+            if (strstr(info.path, "<unknown>") != NULL ||
                 (op_mod_filter.specified() &&
-                 strstr(path, op_mod_filter.get_value().c_str()) == NULL) ||
+                 strstr(info.path, op_mod_filter.get_value().c_str()) == NULL) ||
                 (op_mod_skip_filter.specified() &&
-                 strstr(path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
-                (!op_include_tool.get_value() && module_is_from_tool(path)))
+                 strstr(info.path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
+                (!op_include_tool.get_value() && module_is_from_tool(info.path)))
                 mod_table = (module_table_t *) MODULE_TABLE_IGNORE;
             else {
                 if (op_pathmap.specified()) {
                     const char *tofind = op_pathmap.get_value().first.c_str();
-                    const char *match = strstr(path, tofind);
+                    const char *match = strstr(info.path, tofind);
                     if (match != NULL) {
                         if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst),
-                                        "%.*s%s%s", match - path, path,
+                                        "%.*s%s%s", match - info.path, info.path,
                                         op_pathmap.get_value().second.c_str(),
                                         match + strlen(tofind)) <= 0) {
-                            WARN(1, "Failed to replace %s in %s\n", tofind, path);
+                            WARN(1, "Failed to replace %s in %s\n", tofind, info.path);
                         } else {
                             NULL_TERMINATE_BUFFER(subst);
-                            PRINT(2, "Substituting |%s| for |%s|\n", subst, path);
+                            PRINT(2, "Substituting |%s| for |%s|\n", subst, info.path);
                             modpath = subst;
                         }
                     }
                 }
-                mod_table = module_table_create(modpath, mod_size);
+                mod_table = module_table_create(modpath, info.size);
             }
             PRINT(4, "Create module table " PFX" for module %s\n",
                   (ptr_uint_t)mod_table, modpath);

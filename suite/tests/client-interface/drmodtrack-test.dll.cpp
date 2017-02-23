@@ -124,11 +124,10 @@ event_exit(void)
     CHECK(res == DRCOVLIB_SUCCESS, "read failed");
 
     for (uint i = 0; i < num_mods; ++i) {
-        app_pc modbase;
-        void *custom;
-        res = drmodtrack_offline_lookup(modhandle, i, &modbase, NULL, NULL, &custom);
+        drmodtrack_info_t info = {sizeof(info),};
+        res = drmodtrack_offline_lookup(modhandle, i, &info);
         CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
-        CHECK(((app_pc)custom) == modbase, "custom field doesn't match");
+        CHECK(((app_pc)info.custom) == info.start, "custom field doesn't match");
     }
 
     char *buf_offline;
