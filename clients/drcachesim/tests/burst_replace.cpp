@@ -189,7 +189,8 @@ post_process()
         drmodtrack_info_t info = {sizeof(info),};
         res = drmodtrack_offline_lookup(modhandle, i, &info);
         assert(res == DRCOVLIB_SUCCESS);
-        assert(((app_pc)info.custom) == info.start);
+        assert(((app_pc)info.custom) == info.start ||
+               info.containing_index != i);
     }
 
     char *buf_offline;

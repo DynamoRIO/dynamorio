@@ -257,8 +257,10 @@ DR_EXPORT
  * Returns the base address in \p mod_base and the unique index identifier in \p
  * mod_index for the module that contains \p pc.  If there is no such module,
  * returns DRCOVLIB_ERROR_NOT_FOUND.  For modules that containing multiple
- * non-contiguous mapped segments, each segment has its own unique identifier.
- * The #drmodtrack_info_t.containing_index field can be used to aggregate them.
+ * non-contiguous mapped segments, each segment has its own unique identifier, and
+ * this routine returns the appropriate identifier, but \p mod_base contains the
+ * lowest address of any segment in the module, not the start address of the
+ * segment that contains pc.
  */
 drcovlib_status_t
 drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base);
@@ -344,6 +346,10 @@ DR_EXPORT
  * \p parse_cb, which returns the point in the input string past the custom data,
  * and writes the parsed data to its output parameter, which can subsequently be
  * retrieved from drmodtrack_offline_lookup()'s \p custom output parameter.
+ *
+ * If a module contains non-contiguous segments, \p load_cb is called
+ * only once, and the resulting custom field is shared among all
+ * separate entries returned by drmodtrack_offline_lookup().
  *
  * Only one value for each callback is supported.  Calling this routine again
  * with a different value will replace the existing callbacks.

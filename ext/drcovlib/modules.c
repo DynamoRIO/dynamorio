@@ -37,19 +37,29 @@
 #include <string.h>
 #include <stdio.h>
 
-#define MODULE_FILE_VERSION 2
+#define MODULE_FILE_VERSION 3
 
 #define NUM_GLOBAL_MODULE_CACHE 8
 #define NUM_THREAD_MODULE_CACHE 4
 
 typedef struct _module_entry_t {
     uint id;
+    uint containing_id;
     bool unload; /* if the module is unloaded */
+    /* The bounds of the segment, or whole module if it's contiguous. */
+    app_pc start;
+    app_pc end;
+    /* A copy of the data.  Segments of non-contiguous modules all share
+     * the same data pointer.
+     */
     module_data_t *data;
     void *custom;
 } module_entry_t;
 
 typedef struct _module_table_t {
+    /* A vector of entries.  Non-contiguous modules have entries that
+     * are consecutive, with the lowest-address (main entry) first.
+     */
     drvector_t vector;
     /* for quick query without lock, assuming pointer-aligned */
     module_entry_t *cache[NUM_GLOBAL_MODULE_CACHE];
@@ -102,11 +112,14 @@ thread_module_cache_add(module_entry_t **cache, uint cache_size,
 }
 
 static void
-module_table_entry_free(void *entry)
+module_table_entry_free(void *tofree)
 {
-    if (module_free_cb != NULL)
-        module_free_cb(((module_entry_t *)entry)->custom);
-    dr_free_module_data(((module_entry_t *)entry)->data);
+    module_entry_t *entry = (module_entry_t *)tofree;
+    if (entry->id == entry->containing_id) {
+        if (module_free_cb != NULL)
+            module_free_cb(((module_entry_t *)entry)->custom);
+        dr_free_module_data(((module_entry_t *)entry)->data);
+    } /* else a sub-entry which shares custom and data */
     dr_global_free(entry, sizeof(module_entry_t));
 }
 
@@ -146,6 +159,21 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             strcmp(dr_module_preferred_name(data),
                    dr_module_preferred_name(mod)) == 0) {
             entry->unload = false;
+#ifndef WINDOWS
+            if (!mod->contiguous) {
+                int j;
+                /* Find subsequent non-contiguous entries. */
+                for (j = i + 1; j < module_table.vector.entries; j++) {
+                    module_entry_t *sub_entry =
+                        drvector_get_entry(&module_table.vector, j);
+                    ASSERT(sub_entry != NULL, "fail to get module entry");
+                    if (sub_entry->containing_id == entry->id)
+                        sub_entry->unload = false;
+                    else
+                        break;
+                }
+            }
+#endif
             break;
         }
         entry = NULL;
@@ -153,11 +181,40 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
     if (entry == NULL) {
         entry = dr_global_alloc(sizeof(*entry));
         entry->id = module_table.vector.entries;
+        entry->containing_id = entry->id;
+        entry->start = data->start;
+        entry->end = data->end;
         entry->unload = false;
         entry->data = dr_copy_module_data(data);
         if (module_load_cb != NULL)
             entry->custom = module_load_cb(entry->data);
         drvector_append(&module_table.vector, entry);
+#ifndef WINDOWS
+        if (!data->contiguous) {
+            uint j;
+            module_entry_t *sub_entry;
+            ASSERT(entry->start == data->segments[0].start, "illegal segments");
+            entry->end = data->segments[0].end;
+            for (j = 1/*we did 1st*/; j < data->num_segments; j++) {
+                if (data->segments[j].start == data->segments[j-1].end)
+                    continue; /* contiguous */
+                /* Add an entry for each separate piece.  On unload we assume
+                 * that these entries are consecutive following the main entry.
+                 */
+                sub_entry = dr_global_alloc(sizeof(*sub_entry));
+                sub_entry->id = module_table.vector.entries;
+                sub_entry->containing_id = entry->id;
+                sub_entry->start = data->segments[j].start;
+                sub_entry->end = data->segments[j].end;
+                sub_entry->unload = false;
+                /* These fields are shared. */
+                sub_entry->data = entry->data;
+                sub_entry->custom = entry->custom;
+                drvector_append(&module_table.vector, sub_entry);
+                global_module_cache_add(module_table.cache, sub_entry);
+            }
+        }
+#endif
     }
     drvector_unlock(&module_table.vector);
     global_module_cache_add(module_table.cache, entry);
@@ -166,9 +223,8 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
 static inline bool
 pc_is_in_module(module_entry_t *entry, app_pc pc)
 {
-    if (entry != NULL && !entry->unload && entry->data != NULL) {
-        module_data_t *mod = entry->data;
-        if (pc >= mod->start && pc < mod->end)
+    if (entry != NULL && !entry->unload) {
+        if (pc >= entry->start && pc < entry->end)
             return true;
     }
     return false;
@@ -180,7 +236,7 @@ lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc 
     if (mod_index != NULL)
         *mod_index = entry->id;
     if (mod_base != NULL)
-        *mod_base = entry->data->start;
+        *mod_base = entry->data->start; /* Yes, absolute base, not segment base. */
 }
 
 drcovlib_status_t
@@ -245,9 +301,23 @@ event_module_unload(void *drcontext, const module_data_t *data)
             break;
         entry = NULL;
     }
-    if (entry != NULL)
+    if (entry != NULL) {
         entry->unload = true;
-    else
+#ifndef WINDOWS
+        if (!data->contiguous) {
+            int j;
+            /* Find non-contiguous entries, which are consecutive and after the main. */
+            for (j = i + 1; j < module_table.vector.entries; j++) {
+                module_entry_t *sub_entry = drvector_get_entry(&module_table.vector, j);
+                ASSERT(sub_entry != NULL, "fail to get module entry");
+                if (sub_entry->containing_id == entry->id)
+                    sub_entry->unload = true;
+                else
+                    break;
+            }
+        }
+#endif
+    } else
         ASSERT(false, "fail to find the module to be unloaded");
     drvector_unlock(&module_table.vector);
 }
@@ -309,6 +379,7 @@ drmodtrack_exit(void)
  */
 
 typedef struct _module_read_entry_t {
+    uint containing_id;
     app_pc base;
     uint64 size;
     app_pc entry;
@@ -333,8 +404,9 @@ static int
 module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t size)
 {
     int len, total_len = 0;
-    len = dr_snprintf(buf, size, "%3u, " PFX ", " PFX ", " PFX ", ",
-                      idx, entry->base, entry->base+entry->size, entry->entry);
+    len = dr_snprintf(buf, size, "%3u, %3u, " PFX ", " PFX ", " PFX ", ",
+                      idx, entry->containing_id, entry->base,
+                      entry->base+entry->size, entry->entry);
     if (len == -1)
         return -1;
     buf += len;
@@ -375,8 +447,9 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
     module_data_t *data = entry->data;
     if (data->full_path != NULL && data->full_path[0] != '\0')
         full_path = data->full_path;
-    read_entry.base = data->start;
-    read_entry.size = data->end - data->start;
+    read_entry.containing_id = entry->containing_id;
+    read_entry.base = entry->start;
+    read_entry.size = entry->end - entry->start;
     read_entry.entry = data->entry_point;
 #ifdef WINDOWS
     read_entry.checksum = data->checksum;
@@ -402,7 +475,7 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
     buf += len;
     size -= len;
 
-    len = dr_snprintf(buf, size, "Columns: id, base, end, entry");
+    len = dr_snprintf(buf, size, "Columns: id, containing_id, start, end, entry");
     if (len == -1)
         return DRCOVLIB_ERROR_BUF_TOO_SMALL;
     buf += len;
@@ -540,7 +613,7 @@ drmodtrack_offline_read(file_t file, const char **map,
         version = 1;
     else if (dr_sscanf(buf, "Module Table: version %u, count %u\n", &version,
                        num_mods) != 2 ||
-             version != MODULE_FILE_VERSION)
+             version > MODULE_FILE_VERSION)
         goto read_error;
     buf = move_to_next_line(buf);
     if (version > 1) {
@@ -567,11 +640,22 @@ drmodtrack_offline_read(file_t file, const char **map,
                 goto read_error;
         } else {
             app_pc end;
-            if (dr_sscanf(buf, "%u, "PIFX", "PIFX", "PIFX", ",
-                          &mod_id, &info->mod[i].base, &end, &info->mod[i].entry) != 4 ||
-                mod_id != i)
-                goto read_error;
-            buf = skip_commas_and_spaces(buf, 4);
+            if (version == 2) {
+                if (dr_sscanf(buf, "%u, "PIFX", "PIFX", "PIFX", ",
+                              &mod_id, &info->mod[i].base, &end,
+                              &info->mod[i].entry) != 4 ||
+                    mod_id != i)
+                    goto read_error;
+                info->mod[i].containing_id = mod_id;
+                buf = skip_commas_and_spaces(buf, 4);
+            } else {
+                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", ",
+                              &mod_id, &info->mod[i].containing_id,
+                              &info->mod[i].base, &end, &info->mod[i].entry) != 5 ||
+                    mod_id != i)
+                    goto read_error;
+                buf = skip_commas_and_spaces(buf, 5);
+            }
             if (buf == NULL)
                 goto read_error;
             info->mod[i].size = end - info->mod[i].base;
@@ -612,10 +696,10 @@ drcovlib_status_t
 drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
 {
     module_read_info_t *info = (module_read_info_t *)handle;
-    if (info == NULL || index >= info->num_mods || out->struct_size != sizeof(*out))
+    if (info == NULL || index >= info->num_mods || out == NULL ||
+        out->struct_size != sizeof(*out))
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
-    /* FIXME i#2213: use this for non-contiguous modules */
-    out->containing_index = index;
+    out->containing_index = info->mod[index].containing_id;
     out->start = info->mod[index].base;
     out->size = (size_t)info->mod[index].size;
     out->path = info->mod[index].path;

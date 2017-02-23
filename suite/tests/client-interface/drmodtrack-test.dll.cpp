@@ -127,7 +127,8 @@ event_exit(void)
         drmodtrack_info_t info = {sizeof(info),};
         res = drmodtrack_offline_lookup(modhandle, i, &info);
         CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
-        CHECK(((app_pc)info.custom) == info.start, "custom field doesn't match");
+        CHECK(((app_pc)info.custom) == info.start ||
+              info.containing_index != i, "custom field doesn't match");
     }
 
     char *buf_offline;
