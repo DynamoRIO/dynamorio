@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -77,6 +77,16 @@ offline_instru_t::~offline_instru_t()
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     res = drmodtrack_exit();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
+}
+
+bool
+offline_instru_t::custom_module_data
+(void * (*load_cb)(module_data_t *module),
+ int (*print_cb)(void *data, char *dst, size_t max_len),
+ void (*free_cb)(void *data))
+{
+    drcovlib_status_t res = drmodtrack_add_custom_data(load_cb, print_cb, NULL, free_cb);
+    return res == DRCOVLIB_SUCCESS;
 }
 
 size_t

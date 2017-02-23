@@ -173,6 +173,8 @@ Further non-compatibility-affecting changes include:
    dr_event_wait(), dr_event_signal(), and dr_event_reset().
  - Added drmodtrack customization via drmodtrack_add_custom_data() and
    post-processing support via drmodtrack_offline_write().
+ - Added drcachesim customization via drmemtrace_replace_file_ops(),
+   drmemtrace_custom_module_data(), and drmemtrace_get_modlist_path().
 
 **************************************************
 <hr>

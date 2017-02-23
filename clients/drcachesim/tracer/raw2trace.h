@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,7 @@
 #define _RAW2TRACE_H_ 1
 
 #include "dr_api.h"
+#include "drmemtrace.h"
 #include "../common/trace_entry.h"
 #include <fstream>
 #include <vector>
@@ -44,7 +45,6 @@
 #define OUTFILE_PREFIX "drmemtrace"
 #define OUTFILE_SUFFIX "raw"
 #define OUTFILE_SUBDIR "raw"
-#define MODULE_LIST_FILENAME "modules.log"
 #define TRACE_FILENAME "drmemtrace.trace"
 
 struct module_t {

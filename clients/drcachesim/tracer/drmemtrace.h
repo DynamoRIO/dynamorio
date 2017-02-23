@@ -133,6 +133,46 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func);
 
+/**
+ * The name of the file in -offline mode where module data is written.
+ * Its creation can be customized using drmemtrace_custom_module_data()
+ * and then modified before passing to raw2trace via
+ * drmodtrack_add_custom_data() and drmodtrack_offline_write().
+ */
+#define DRMEMTRACE_MODULE_LIST_FILENAME "modules.log"
+
+DR_EXPORT
+/**
+ * Retrieves the full path to the file in -offline mode where module data is written.
+ * Its creation can be customized using drmemtrace_custom_module_data()
+ * and then modified before passing to raw2trace via
+ * drmodtrack_add_custom_data() with a parse and free callback
+ * and drmodtrack_offline_write() to produce new file contents.
+ */
+drmemtrace_status_t
+drmemtrace_get_modlist_path(OUT const char **path);
+
+DR_EXPORT
+/**
+ * Adds custom data stored with each module in the module list produced for
+ * offline trace post-processing.  The \p load_cb is called for each new module,
+ * and its return value is the data that is stored.  That data is later printed
+ * to a string with \p print_cb, which should return the number of characters
+ * printed or -1 on error.  The data is freed with \p free_cb.
+ *
+ * The user can read and modify the resulting \p modules.log file, prior to
+ * passing through the raw2trace post-processor.  Its path can be obtained from
+ * drmemtrace_get_modlist_path() (unless drmemtrace_replace_file_ops() moved it:
+ * then it's up to the caller to locate and process it), and the \p drmodtrack
+ * API can be used to remove the custom field, update the path, and rewrite the
+ * file: drmodtrack_add_custom_data(), drmodtrack_offline_read(),
+ * drmodtrack_offline_lookup(), drmodtrack_offline_write().
+ */
+drmemtrace_status_t
+drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
+                              int (*print_cb)(void *data, char *dst, size_t max_len),
+                              void (*free_cb)(void *data));
+
 #ifdef __cplusplus
 }
 #endif
