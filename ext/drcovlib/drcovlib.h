@@ -205,6 +205,41 @@ drcovlib_dump(void *drcontext);
  * Module tracking
  */
 
+/** Information for one module as recorded during execution. */
+typedef struct _drmodtrack_info_t {
+    /**
+     * Used for compatibility purposes for adding new fields, the user must
+     * set this value to the size of the structure.
+     */
+    size_t struct_size;
+    /**
+     * The unique index of the module segment for the base address of the
+     * containing module.  If the module consists of a single contiguous mapping
+     * (the typical case), there is only one index for the whole module.
+     * If the module has gaps in its mapping, each non-contiguous segment has its
+     * own index, with this field pointing to the index of the segment with
+     * the lowest base address.
+     */
+    uint containing_index;
+    /**
+     * The start address of this segment of the module as it was during
+     * execution.  If the module has multiple non-contiguous segments, each
+     * segment will have a distinct entry with its own unique index identifier.
+     * The \p containing_index field can be used to identify which segments
+     * belong to the same module.  They will also all have the same \p path.
+     */
+    app_pc start;
+    /** The size of this segment of the module. */
+    size_t size;
+    /**
+     * The full path to the file backing the module.  This points to a buffer of
+     * size #MAXIMUM_PATH.  It can be modified.
+     */
+    char *path;
+    /** The custom field set by the \p load_cb passed to drmodtrack_add_custom_data(). */
+    void *custom;
+} drmodtrack_info_t;
+
 DR_EXPORT
 /**
  * Initializes drcovlib's module tracking feature.  Must be called
@@ -221,7 +256,9 @@ DR_EXPORT
 /**
  * Returns the base address in \p mod_base and the unique index identifier in \p
  * mod_index for the module that contains \p pc.  If there is no such module,
- * returns DRCOVLIB_ERROR_NOT_FOUND.
+ * returns DRCOVLIB_ERROR_NOT_FOUND.  For modules that containing multiple
+ * non-contiguous mapped segments, each segment has its own unique identifier.
+ * The #drmodtrack_info_t.containing_index field can be used to aggregate them.
  */
 drcovlib_status_t
 drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base);
@@ -267,18 +304,15 @@ drmodtrack_offline_read(file_t file, const char **map,
 
 DR_EXPORT
 /**
- * Queries the information read by drmodtrack_offline_read() into \p handle
- * Returns the base address in \p mod_base and the full path in \p mod_path for
- * the module corresponding to the unique index identifier \p index.
- * Any custom fields are returned in \p custom.
- * The path can be modified and a new version written out with the changed
- * path via drmodtrack_offline_write(), but the path's containing buffer
- * size is limited to MAXIMUM_PATH.
+ * Queries the information that was read earlier by
+ * drmodtrack_offline_read() into \p handle, returning it in \p info.
+ * The caller must initialize the \p size field of \p info before
+ * calling.  The \p info.path field can be modified, with the modified
+ * version later written out via drmodtrack_offline_write().  The
+ * path's containing buffer size is limited to MAXIMUM_PATH.
  */
 drcovlib_status_t
-drmodtrack_offline_lookup(void *handle, uint index, OUT app_pc *mod_base,
-                          OUT size_t *mod_size, OUT char **mod_path,
-                          OUT void **custom);
+drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *info);
 
 DR_EXPORT
 /**

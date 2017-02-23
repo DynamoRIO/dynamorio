@@ -609,21 +609,17 @@ drmodtrack_offline_read(file_t file, const char **map,
 }
 
 drcovlib_status_t
-drmodtrack_offline_lookup(void *handle, uint index, OUT app_pc *mod_base,
-                          OUT size_t *mod_size, OUT char **mod_path,
-                          OUT void **custom)
+drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
 {
     module_read_info_t *info = (module_read_info_t *)handle;
-    if (info == NULL || index >= info->num_mods)
+    if (info == NULL || index >= info->num_mods || out->struct_size != sizeof(*out))
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
-    if (mod_base != NULL)
-        *mod_base = info->mod[index].base;
-    if (mod_size != NULL)
-        *mod_size = (size_t)info->mod[index].size;
-    if (mod_path != NULL)
-        *mod_path = info->mod[index].path;
-    if (custom != NULL)
-        *custom = info->mod[index].custom;
+    /* FIXME i#2213: use this for non-contiguous modules */
+    out->containing_index = index;
+    out->start = info->mod[index].base;
+    out->size = (size_t)info->mod[index].size;
+    out->path = info->mod[index].path;
+    out->custom = info->mod[index].custom;
     return DRCOVLIB_SUCCESS;
 }
 

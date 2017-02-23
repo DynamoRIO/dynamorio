@@ -113,35 +113,32 @@ raw2trace_t::read_and_map_modules(void)
         DRCOVLIB_SUCCESS)
         FATAL_ERROR("Failed to parse module file %s", modfilename.c_str());
     for (uint i = 0; i < num_mods; i++) {
-        app_pc modbase;
-        size_t modsize;
-        char *path;
-        if (drmodtrack_offline_lookup(modhandle, i, &modbase, &modsize, &path, NULL) !=
-            DRCOVLIB_SUCCESS)
+        drmodtrack_info_t info = {sizeof(info),};
+        if (drmodtrack_offline_lookup(modhandle, i, &info) != DRCOVLIB_SUCCESS)
             FATAL_ERROR("Failed to query module file");
-        if (strcmp(path, "<unknown>") == 0 ||
+        if (strcmp(info.path, "<unknown>") == 0 ||
             // i#2062: VDSO is hard to decode so for now we treat is as non-module.
             // FIXME: currently we're dropping the ifetch data: we need the tracer
             // to identify it instead of us, which requires drmodtrack changes.
-            strcmp(path, "[vdso]") == 0) {
+            strcmp(info.path, "[vdso]") == 0) {
             // We won't be able to decode.
-            modvec.push_back(module_t(path, modbase, NULL, 0));
+            modvec.push_back(module_t(info.path, info.start, NULL, 0));
         } else {
             size_t map_size;
-            byte *base_pc = dr_map_executable_file(path, DR_MAPEXE_SKIP_WRITABLE,
+            byte *base_pc = dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE,
                                                    &map_size);
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
                 // but we expect to not care enough about code in DR).
-                if (strstr(path, "dynamorio") != NULL)
-                    modvec.push_back(module_t(path, modbase, NULL, 0));
+                if (strstr(info.path, "dynamorio") != NULL)
+                    modvec.push_back(module_t(info.path, info.start, NULL, 0));
                 else
-                    FATAL_ERROR("Failed to map module %s", path);
+                    FATAL_ERROR("Failed to map module %s", info.path);
             } else {
                 VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(),
-                       (ptr_uint_t)base_pc, path);
-                modvec.push_back(module_t(path, modbase, base_pc, map_size));
+                       (ptr_uint_t)base_pc, info.path);
+                modvec.push_back(module_t(info.path, info.start, base_pc, map_size));
             }
         }
     }
