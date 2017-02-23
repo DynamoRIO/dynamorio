@@ -3136,6 +3136,7 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
 endif (X64 AND NOT AARCH64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+tobuild(security-common.except-int2d security-common/except-int2d.c)
 
 # XXX i#1874: get working on Android
 # FIXME i#1569: get working on AArch64
