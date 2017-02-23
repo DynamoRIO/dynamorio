@@ -2093,6 +2093,10 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drutil-test ${libpthread})
   endif ()
 
+  tobuild_ci(client.drmodtrack-test client-interface/drmodtrack-test.cpp "" "" "")
+  use_DynamoRIO_extension(client.drmodtrack-test.dll drcovlib)
+  use_DynamoRIO_extension(client.drmodtrack-test.dll drx)
+
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # We need to load w/ the same base so the test passes
     set(DynamoRIO_SET_PREFERRED_BASE ON)

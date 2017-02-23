@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -236,7 +236,7 @@ drmodtrack_dump(file_t file);
 
 DR_EXPORT
 /**
- * Writes the complete module information string to \p buf.
+ * Writes the complete module information to \p buf as a null-terminated string.
  * Returns DRCOVLIB_SUCCESS on success.
  * If the buffer is too small, returns DRCOVLIB_ERROR_BUF_TOO_SMALL.
  */
@@ -270,10 +270,26 @@ DR_EXPORT
  * Queries the information read by drmodtrack_offline_read() into \p handle
  * Returns the base address in \p mod_base and the full path in \p mod_path for
  * the module corresponding to the unique index identifier \p index.
+ * Any custom fields are returned in \p custom.
+ * The path can be modified and a new version written out with the changed
+ * path via drmodtrack_offline_write(), but the path's containing buffer
+ * size is limited to MAXIMUM_PATH.
  */
 drcovlib_status_t
 drmodtrack_offline_lookup(void *handle, uint index, OUT app_pc *mod_base,
-                          OUT size_t *mod_size, OUT const char **mod_path);
+                          OUT size_t *mod_size, OUT char **mod_path,
+                          OUT void **custom);
+
+DR_EXPORT
+/**
+ * Writes the module information that was read by drmodtrack_offline_read(),
+ * and potentially modified by drmodtrack_offline_lookup(), to \p buf, whose
+ * maximum size is specified in \p size.
+ * Returns DRCOVLIB_SUCCESS on success.
+ * If the buffer is too small, returns DRCOVLIB_ERROR_BUF_TOO_SMALL.
+ */
+drcovlib_status_t
+drmodtrack_offline_write(void *handle, char *buf, size_t size);
 
 DR_EXPORT
 /**
@@ -281,6 +297,28 @@ DR_EXPORT
  */
 drcovlib_status_t
 drmodtrack_offline_exit(void *handle);
+
+DR_EXPORT
+/**
+ * Adds custom data stored with each module, serialized to a buffer or file, and
+ * read back in.  The \p load_cb, \p print_cb, and \p free_cb are used during
+ * online operation, while \p parse_cb and \p free_cb are used for offline
+ * post-processing.  The \p load_cb is called for each new module, and its return value
+ * is the data that is stored online.  That data is printed to a string with
+ * \p print_cb, which should return the number of characters printed or -1 on error.
+ * The data is freed with \p free_cb.  The printed data is read back in with
+ * \p parse_cb, which returns the point in the input string past the custom data,
+ * and writes the parsed data to its output parameter, which can subsequently be
+ * retrieved from drmodtrack_offline_lookup()'s \p custom output parameter.
+ *
+ * Only one value for each callback is supported.  Calling this routine again
+ * with a different value will replace the existing callbacks.
+ */
+drcovlib_status_t
+drmodtrack_add_custom_data(void * (*load_cb)(module_data_t *module),
+                           int (*print_cb)(void *data, char *dst, size_t max_len),
+                           const char * (*parse_cb)(const char *src, OUT void **data),
+                           void (*free_cb)(void *data));
 
 /*@}*/ /* end doxygen group */
 

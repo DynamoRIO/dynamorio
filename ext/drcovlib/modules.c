@@ -46,6 +46,7 @@ typedef struct _module_entry_t {
     uint id;
     bool unload; /* if the module is unloaded */
     module_data_t *data;
+    void *custom;
 } module_entry_t;
 
 typedef struct _module_table_t {
@@ -62,6 +63,12 @@ typedef struct _per_thread_t {
 static int drmodtrack_init_count;
 static int tls_idx = -1;
 static module_table_t module_table;
+
+/* Custom per-module field support. */
+static void * (*module_load_cb)(module_data_t *module);
+static int (*module_print_cb)(void *data, char *dst, size_t max_len);
+static const char * (*module_parse_cb)(const char *src, OUT void **data);
+static void (*module_free_cb)(void *data);
 
 /* we use direct map cache to avoid locking */
 static inline void
@@ -97,6 +104,8 @@ thread_module_cache_add(module_entry_t **cache, uint cache_size,
 static void
 module_table_entry_free(void *entry)
 {
+    if (module_free_cb != NULL)
+        module_free_cb(((module_entry_t *)entry)->custom);
     dr_free_module_data(((module_entry_t *)entry)->data);
     dr_global_free(entry, sizeof(module_entry_t));
 }
@@ -146,6 +155,8 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         entry->id = module_table.vector.entries;
         entry->unload = false;
         entry->data = dr_copy_module_data(data);
+        if (module_load_cb != NULL)
+            entry->custom = module_load_cb(entry->data);
         drvector_append(&module_table.vector, entry);
     }
     drvector_unlock(&module_table.vector);
@@ -300,7 +311,14 @@ drmodtrack_exit(void)
 typedef struct _module_read_entry_t {
     app_pc base;
     uint64 size;
-    char path[MAXIMUM_PATH];
+    app_pc entry;
+#ifdef WINDOWS
+    uint checksum;
+    uint timestamp;
+#endif
+    char *path; /* may or may not point to path_buf */
+    char path_buf[MAXIMUM_PATH];
+    void *custom;
 } module_read_entry_t;
 
 typedef struct _module_read_info_t {
@@ -312,34 +330,34 @@ typedef struct _module_read_info_t {
 
 /* assuming caller holds the lock */
 static int
-module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
+module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t size)
 {
-    const char *name;
-    module_data_t *data;
-    const char *full_path = "<unknown>";
     int len, total_len = 0;
-    data = entry->data;
-    name = dr_module_preferred_name(data);
-    if (data->full_path != NULL && data->full_path[0] != '\0')
-        full_path = data->full_path;
-
-    len = dr_snprintf(buf, size, "%3u, " PFX ", " PFX ", " PFX "",
-                      entry->id, data->start, data->end, data->entry_point);
+    len = dr_snprintf(buf, size, "%3u, " PFX ", " PFX ", " PFX ", ",
+                      idx, entry->base, entry->base+entry->size, entry->entry);
     if (len == -1)
         return -1;
     buf += len;
     total_len += len;
     size -= len;
 #ifdef WINDOWS
-    len = dr_snprintf(buf, size, ", 0x%08x, 0x%08x",
-                      data->checksum, data->timestamp);
+    len = dr_snprintf(buf, size, "0x%08x, 0x%08x, ",
+                      entry->checksum, entry->timestamp);
     if (len == -1)
         return -1;
     buf += len;
     total_len += len;
     size -= len;
 #endif
-    len = dr_snprintf(buf, size, ", %s\n", full_path);
+    if (module_print_cb != NULL) {
+        len = module_print_cb(entry->custom, buf, size);
+        if (len == -1)
+            return -1;
+        buf += len;
+        total_len += len;
+        size -= len;
+    }
+    len = dr_snprintf(buf, size, " %s\n", entry->path);
     if (len == -1)
         return -1;
     buf += len;
@@ -348,50 +366,85 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
     return total_len;
 }
 
-drcovlib_status_t
-drmodtrack_dump_buf(char *buf, size_t size) {
-    uint i;
-    module_entry_t *entry;
+/* assuming caller holds the lock */
+static int
+module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
+{
+    module_read_entry_t read_entry;
+    char *full_path = (char *)"<unknown>";
+    module_data_t *data = entry->data;
+    if (data->full_path != NULL && data->full_path[0] != '\0')
+        full_path = data->full_path;
+    read_entry.base = data->start;
+    read_entry.size = data->end - data->start;
+    read_entry.entry = data->entry_point;
+#ifdef WINDOWS
+    read_entry.checksum = data->checksum;
+    read_entry.timestamp = data->timestamp;
+#endif
+    read_entry.path = full_path;
+    read_entry.custom = entry->custom;
+    return module_read_entry_print(&read_entry, entry->id, buf, size);
+}
+
+static drcovlib_status_t
+drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_out)
+{
     int len;
+    char *buf = buf_in;
     if (buf == NULL || size == 0)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     size--;  /* for the terminating null character */
-    drvector_lock(&module_table.vector);
     len = dr_snprintf(buf, size, "Module Table: version %u, count %u\n",
-                      MODULE_FILE_VERSION, module_table.vector.entries);
-    if (len == -1) {
-        drvector_unlock(&module_table.vector);
+                      MODULE_FILE_VERSION, count);
+    if (len == -1)
         return DRCOVLIB_ERROR_BUF_TOO_SMALL;
-    }
     buf += len;
     size -= len;
 
     len = dr_snprintf(buf, size, "Columns: id, base, end, entry");
-    if (len == -1) {
-        drvector_unlock(&module_table.vector);
+    if (len == -1)
         return DRCOVLIB_ERROR_BUF_TOO_SMALL;
-    }
-#ifdef WINDOWS
     buf += len;
     size -= len;
 
+#ifdef WINDOWS
     len = dr_snprintf(buf, size, ", checksum, timestamp");
-    if (len == -1) {
-        drvector_unlock(&module_table.vector);
+    if (len == -1)
         return DRCOVLIB_ERROR_BUF_TOO_SMALL;
-    }
+    buf += len;
+    size -= len;
 #endif
 
-    buf += len;
-    size -= len;
-    len = dr_snprintf(buf, size, ", path\n");
-    if (len == -1) {
-        drvector_unlock(&module_table.vector);
-        return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+    if (module_print_cb != NULL) {
+        len = dr_snprintf(buf, size, ", (custom fields)");
+        if (len == -1)
+            return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+        buf += len;
+        size -= len;
     }
 
+    len = dr_snprintf(buf, size, ", path\n");
+    if (len == -1)
+        return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+    buf += len;
+    *len_out = (int)(buf - buf_in);
+    return DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_dump_buf(char *buf, size_t size)
+{
+    uint i;
+    module_entry_t *entry;
+    int len;
+    drcovlib_status_t res =
+        drmodtrack_dump_buf_headers(buf, size, module_table.vector.entries, &len);
+    if (res != DRCOVLIB_SUCCESS)
+        return res;
     buf += len;
     size -= len;
+    drvector_lock(&module_table.vector);
     for (i = 0; i < module_table.vector.entries; i++) {
         entry = drvector_get_entry(&module_table.vector, i);
         len = module_table_entry_print(entry, buf, size);
@@ -435,6 +488,22 @@ move_to_next_line(const char *ptr)
             ; /* do nothing */
     }
     return ptr;
+}
+
+static inline const char *
+skip_commas_and_spaces(const char *ptr, uint num_skip)
+{
+    const char *end = ptr;
+    while (num_skip > 0) {
+        end = strchr(end, ',');
+        if (end == NULL)
+            return NULL;
+        end++;
+        num_skip--;
+    }
+    while (*end == ' ' || *end == '\t')
+        end++;
+    return end;
 }
 
 drcovlib_status_t
@@ -497,23 +566,30 @@ drmodtrack_offline_read(file_t file, const char **map,
                 mod_id != i)
                 goto read_error;
         } else {
-            app_pc end, entry;
-#ifdef WINDOWS
-            uint checksum, timestamp;
-            if (dr_sscanf(buf, " %u, "PIFX", "PIFX", "PIFX", 0x%x, 0x%x, %[^\n\r]",
-                          &mod_id, &info->mod[i].base, &end, &entry,
-                          &checksum, &timestamp,
-                          info->mod[i].path) != 7 ||
+            app_pc end;
+            if (dr_sscanf(buf, "%u, "PIFX", "PIFX", "PIFX", ",
+                          &mod_id, &info->mod[i].base, &end, &info->mod[i].entry) != 4 ||
                 mod_id != i)
                 goto read_error;
-#else
-            if (dr_sscanf(buf, " %u, "PIFX", "PIFX", "PIFX", %[^\n\r]",
-                          &mod_id, &info->mod[i].base, &end, &entry,
-                          info->mod[i].path) != 5 ||
-                mod_id != i)
+            buf = skip_commas_and_spaces(buf, 4);
+            if (buf == NULL)
+                goto read_error;
+            info->mod[i].size = end - info->mod[i].base;
+#ifdef WINDOWS
+            if (dr_sscanf(buf, "0x%x, 0x%x, ", &info->mod[i].checksum,
+                          &info->mod[i].timestamp) != 2)
+                goto read_error;
+            buf = skip_commas_and_spaces(buf, 2);
+            if (buf == NULL)
                 goto read_error;
 #endif
-            info->mod[i].size = end - info->mod[i].base;
+            if (module_parse_cb != NULL)
+                buf = module_parse_cb(buf, &info->mod[i].custom);
+            if (buf == NULL)
+                goto read_error;
+            info->mod[i].path = info->mod[i].path_buf;
+            if (dr_sscanf(buf, " %[^\n\r]", info->mod[i].path) != 1)
+                goto read_error;
         }
         buf = move_to_next_line(buf);
     }
@@ -534,7 +610,8 @@ drmodtrack_offline_read(file_t file, const char **map,
 
 drcovlib_status_t
 drmodtrack_offline_lookup(void *handle, uint index, OUT app_pc *mod_base,
-                          OUT size_t *mod_size, OUT const char **mod_path)
+                          OUT size_t *mod_size, OUT char **mod_path,
+                          OUT void **custom)
 {
     module_read_info_t *info = (module_read_info_t *)handle;
     if (info == NULL || index >= info->num_mods)
@@ -545,6 +622,33 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT app_pc *mod_base,
         *mod_size = (size_t)info->mod[index].size;
     if (mod_path != NULL)
         *mod_path = info->mod[index].path;
+    if (custom != NULL)
+        *custom = info->mod[index].custom;
+    return DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_offline_write(void *handle, OUT char *buf, size_t size)
+{
+    int len;
+    uint i;
+    drcovlib_status_t res;
+    module_read_info_t *info = (module_read_info_t *)handle;
+    if (info == NULL || buf == NULL)
+        return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    res = drmodtrack_dump_buf_headers(buf, size, info->num_mods, &len);
+    if (res != DRCOVLIB_SUCCESS)
+        return res;
+    buf += len;
+    size -= len;
+    for (i = 0; i < info->num_mods; ++i) {
+        len = module_read_entry_print(&info->mod[i], i, buf, size);
+        if (len == -1)
+            return DRCOVLIB_ERROR_BUF_TOO_SMALL;
+        buf += len;
+        size -= len;
+    }
+    buf[size-1] = '\0';
     return DRCOVLIB_SUCCESS;
 }
 
@@ -554,9 +658,28 @@ drmodtrack_offline_exit(void *handle)
     module_read_info_t *info = (module_read_info_t *)handle;
     if (info == NULL)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
+    if (module_free_cb != NULL) {
+        uint i;
+        for (i = 0; i < info->num_mods; ++i)
+            module_free_cb(info->mod[i].custom);
+    }
     dr_global_free(info->mod, info->num_mods * sizeof(*info->mod));
     if (info->map != NULL)
         dr_unmap_file((char *)info->map, info->map_size);
     dr_global_free(info, sizeof(*info));
+    return DRCOVLIB_SUCCESS;
+}
+
+drcovlib_status_t
+drmodtrack_add_custom_data(void * (*load_cb)(module_data_t *module),
+                           int (*print_cb)(void *data, char *dst, size_t max_len),
+                           const char * (*parse_cb)(const char *src, OUT void **data),
+                           void (*free_cb)(void *data))
+{
+    /* We blindly replace if values already exist, as documented. */
+    module_load_cb = load_cb;
+    module_print_cb = print_cb;
+    module_parse_cb = parse_cb;
+    module_free_cb = free_cb;
     return DRCOVLIB_SUCCESS;
 }
