@@ -76,19 +76,19 @@ DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         xor      eax, eax
         int      HEX(2d)
-        mov      EAX, 1
+        mov      eax, 1
         /* int 2d might behave differently with eax equal to 1. */
         int      HEX(2d)
         /* This jump ends the basic block right after the int. */
-        jmp      @OneMore
+        jmp      OneMore
         ret
-@OneMore:
+OneMore:
         /* We increment eax to check that we got in the right branch. */
-        inc EAX
-        int HEX(2d)
+        inc      eax
+        int      HEX(2d)
         /* We test with a one byte opcode following the int. */
         nop
-        int HEX(2d)
+        int      HEX(2d)
         ret
 END_FUNC(FUNCNAME)
 
