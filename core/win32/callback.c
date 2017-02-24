@@ -5584,11 +5584,11 @@ intercept_exception(app_state_at_intercept_t *state)
                      * increased by 1 and we make the same.
                      */
                     translated_pc =
-                    recreate_app_pc(dcontext, (cache_pc) cxt->CXT_XIP, f) + 1;
+                        recreate_app_pc(dcontext, (cache_pc) cxt->CXT_XIP, f) + 1;
                 }
                 else {
                     translated_pc =
-                    recreate_app_pc(dcontext, pExcptRec->ExceptionAddress, f);
+                        recreate_app_pc(dcontext, pExcptRec->ExceptionAddress, f);
                 }
                 ASSERT(translated_pc != NULL);
                 LOG(THREAD, LOG_ASYNCH, 2, "Translated ExceptionAddress "

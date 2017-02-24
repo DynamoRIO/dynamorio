@@ -74,22 +74,22 @@ START_FILE
 #define FUNCNAME foo
 DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-XOR eax, eax
-INT 2dh
-MOV EAX, 1
-/* int 2d might behave differently with eax equal to 1. */
-INT 2dh
-/* The purpose of this jump is to end the basic block right after the int. */
-JMP @OneMore
-RET
+        xor      eax, eax
+        int      HEX(2d)
+        mov      EAX, 1
+        /* int 2d might behave differently with eax equal to 1. */
+        int      HEX(2d)
+        /* This jump ends the basic block right after the int. */
+        jmp      @OneMore
+        ret
 @OneMore:
-/* We increment eax to be able to check that we got in the right branch. */
-INC EAX
-INT 2dh
-/* We test with a one byte opcode following the int. */
-NOP
-INT 2dh
-RET
+        /* We increment eax to check that we got in the right branch. */
+        inc EAX
+        int HEX(2d)
+        /* We test with a one byte opcode following the int. */
+        nop
+        int HEX(2d)
+        ret
 END_FUNC(FUNCNAME)
 
 END_FILE

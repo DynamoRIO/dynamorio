@@ -2948,6 +2948,7 @@ else (UNIX)
     append_link_flags(security-win32.except-execution "/dynamicbase:no")
 
     tobuild(security-win32.except-guard security-win32/except-guard.c)
+    tobuild(security-win32.except-int2d security-win32/except-int2d.c)
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)
 
@@ -3136,7 +3137,6 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
 endif (X64 AND NOT AARCH64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
-tobuild(security-common.except-int2d security-common/except-int2d.c)
 
 # XXX i#1874: get working on Android
 # FIXME i#1569: get working on AArch64
