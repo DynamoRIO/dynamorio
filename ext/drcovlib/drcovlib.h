@@ -236,6 +236,12 @@ typedef struct _drmodtrack_info_t {
      * size #MAXIMUM_PATH.  It can be modified.
      */
     char *path;
+#ifdef WINDOWS
+    /** The checksum field as stored in the module headers. */
+    uint checksum;
+    /** The timestamp field as stored in the module headers. */
+    uint timestamp;
+#endif
     /** The custom field set by the \p load_cb passed to drmodtrack_add_custom_data(). */
     void *custom;
 } drmodtrack_info_t;
@@ -321,11 +327,13 @@ DR_EXPORT
  * Writes the module information that was read by drmodtrack_offline_read(),
  * and potentially modified by drmodtrack_offline_lookup(), to \p buf, whose
  * maximum size is specified in \p size.
- * Returns DRCOVLIB_SUCCESS on success.
- * If the buffer is too small, returns DRCOVLIB_ERROR_BUF_TOO_SMALL.
+ * Returns DRCOVLIB_SUCCESS on success and stores the number of bytes written to
+ * \p buf (including the terminating null) in \p wrote if \p wrote is not NULL.
+ * If the buffer is too small, returns DRCOVLIB_ERROR_BUF_TOO_SMALL (and does not
+ * set \p wrote).
  */
 drcovlib_status_t
-drmodtrack_offline_write(void *handle, char *buf, size_t size);
+drmodtrack_offline_write(void *handle, char *buf, size_t buf_size, OUT size_t *wrote);
 
 DR_EXPORT
 /**

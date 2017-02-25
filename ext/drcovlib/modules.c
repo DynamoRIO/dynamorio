@@ -557,6 +557,7 @@ move_to_next_line(const char *ptr)
     if (end == NULL) {
         ptr += strlen(ptr);
     } else {
+        //NOCHECKIN don't walk off end of mmap -- or require \0 at end, and put that in place ourselves
         for (ptr = end; *ptr == '\n' || *ptr == '\r'; ptr++)
             ; /* do nothing */
     }
@@ -703,17 +704,23 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
     out->start = info->mod[index].base;
     out->size = (size_t)info->mod[index].size;
     out->path = info->mod[index].path;
+#ifdef WINDOWS
+    out->checksum = info->mod[index].checksum;
+    out->timestamp = info->mod[index].timestamp;
+#endif
     out->custom = info->mod[index].custom;
     return DRCOVLIB_SUCCESS;
 }
 
 drcovlib_status_t
-drmodtrack_offline_write(void *handle, OUT char *buf, size_t size)
+drmodtrack_offline_write(void *handle, OUT char *buf_start, size_t size,
+                         OUT size_t *wrote)
 {
     int len;
     uint i;
     drcovlib_status_t res;
     module_read_info_t *info = (module_read_info_t *)handle;
+    char *buf = buf_start;
     if (info == NULL || buf == NULL)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     res = drmodtrack_dump_buf_headers(buf, size, info->num_mods, &len);
@@ -728,7 +735,9 @@ drmodtrack_offline_write(void *handle, OUT char *buf, size_t size)
         buf += len;
         size -= len;
     }
-    buf[size-1] = '\0';
+    *buf = '\0';
+    if (wrote != NULL)
+        *wrote = buf + 1/*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 
