@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,14 +53,14 @@ static int tls_idx;
 static int cls_idx;
 static thread_id_t main_thread;
 static int cb_depth;
-static bool in_syscall_A;
-static bool in_syscall_B;
-static bool in_post_syscall_A;
-static bool in_post_syscall_B;
-static bool in_event_thread_init;
-static bool in_event_thread_init_ex;
-static bool in_event_thread_exit;
-static bool in_event_thread_exit_ex;
+static volatile bool in_syscall_A;
+static volatile bool in_syscall_B;
+static volatile bool in_post_syscall_A;
+static volatile bool in_post_syscall_B;
+static volatile bool in_event_thread_init;
+static volatile bool in_event_thread_init_ex;
+static int thread_exit_events;
+static int thread_exit_ex_events;
 static void *syslock;
 static void *threadlock;
 static uint one_time_exec;
@@ -189,6 +189,11 @@ event_exit(void)
     CHECK(checked_cls_write_from_cache, "failed to hit clean call");
     CHECK(one_time_exec == 1, "failed to execute one-time event");
 
+    if (thread_exit_events > 0)
+        dr_fprintf(STDERR, "saw event_thread_exit\n");
+    if (thread_exit_ex_events > 0)
+        dr_fprintf(STDERR, "saw event_thread_exit_ex\n");
+
     if (!drmgr_unregister_bb_instrumentation_event(event_bb_analysis))
         CHECK(false, "drmgr unregistration failed");
 
@@ -242,27 +247,19 @@ event_thread_exit(void *drcontext)
     CHECK(drmgr_get_tls_field(drcontext, tls_idx) ==
           (void *)(ptr_int_t)dr_get_thread_id(drcontext),
           "tls not preserved");
-    if (!in_event_thread_exit) {
-        dr_mutex_lock(threadlock);
-        if (!in_event_thread_exit) {
-            dr_fprintf(STDERR, "in event_thread_exit\n");
-            in_event_thread_exit = true;
-        }
-        dr_mutex_unlock(threadlock);
-    }
+    /* We do not print as on Win10 there are extra threads messing up the order. */
+    dr_mutex_lock(threadlock);
+    thread_exit_events++;
+    dr_mutex_unlock(threadlock);
 }
 
 static void
 event_thread_exit_ex(void *drcontext)
 {
-    if (!in_event_thread_exit_ex) {
-        dr_mutex_lock(threadlock);
-        if (!in_event_thread_exit_ex) {
-            dr_fprintf(STDERR, "in event_thread_exit_ex\n");
-            in_event_thread_exit_ex = true;
-        }
-        dr_mutex_unlock(threadlock);
-    }
+    /* We do not print as on Win10 there are extra threads messing up the order. */
+    dr_mutex_lock(threadlock);
+    thread_exit_ex_events++;
+    dr_mutex_unlock(threadlock);
 }
 
 static void
