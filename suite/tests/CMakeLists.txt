@@ -814,11 +814,11 @@ function(add_api_exe test source use_decoder use_static_DR)
           -E touch "${drcopy_stamp}"
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
-          "${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll"
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
-          "${CMAKE_CURRENT_BINARY_DIR}/drsyms.dll"
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drsyms.dll"
         VERBATIM)
       add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
       set(created_drcopy_target ON PARENT_SCOPE)

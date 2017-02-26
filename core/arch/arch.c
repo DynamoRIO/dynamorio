@@ -888,7 +888,6 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
         shared_code_x86 = NULL;
         shared_code_x86_to_x64 = NULL;
 #endif
-        syscall_method = SYSCALL_METHOD_UNINITIALIZED;
         app_sysenter_instr_addr = NULL;
 #ifdef LINUX
         sysenter_hook_failed = false;
@@ -3151,7 +3150,9 @@ does_syscall_ret_to_callsite(void)
 void
 set_syscall_method(int method)
 {
-    ASSERT(syscall_method == SYSCALL_METHOD_UNINITIALIZED
+    ASSERT(syscall_method == SYSCALL_METHOD_UNINITIALIZED ||
+           /* on re-attach this happens */
+           syscall_method == method
            IF_UNIX(|| syscall_method == SYSCALL_METHOD_INT/*PR 286922*/));
     syscall_method = method;
 }
