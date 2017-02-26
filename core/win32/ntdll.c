@@ -4520,7 +4520,6 @@ create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
     byte context_buf[sizeof(CONTEXT)+16] = {0};
     CONTEXT *context = (CONTEXT *)ALIGN_FORWARD(context_buf, 16);
     void *thread_arg = arg;
-    size_t written;
     ptr_uint_t final_stack = 0;
     NTSTATUS res;
     GET_RAW_SYSCALL(CreateThread,
@@ -4551,8 +4550,7 @@ create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
         context->CXT_XSP -= arg_buf_size;
         thread_arg = (void *)context->CXT_XSP;
         if (!nt_write_virtual_memory(hProcess, thread_arg, arg_buf,
-                                     arg_buf_size, &written) ||
-            written != arg_buf_size) {
+                                     arg_buf_size, NULL)) {
             NTPRINT("create_thread: failed to write arguments\n");
             return INVALID_HANDLE_VALUE;
         }
@@ -4573,8 +4571,7 @@ create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
         buf[0] = NULL; /* would be return address */
         context->CXT_XSP -= sizeof(buf);
         if (!nt_write_virtual_memory(hProcess, (void *)context->CXT_XSP, buf,
-                                     sizeof(buf), &written) ||
-            written != sizeof(buf)) {
+                                     sizeof(buf), NULL)) {
             NTPRINT("create_thread: failed to write argument\n");
             return INVALID_HANDLE_VALUE;
         }

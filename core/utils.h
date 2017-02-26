@@ -2054,6 +2054,10 @@ is_readable_without_exception_try(byte *pc, size_t size);
 bool
 is_string_readable_without_exception(char *str, size_t *str_length /* OPTIONAL OUT */);
 
+bool
+safe_write_try_except(void *base, size_t size, const void *in_buf,
+                      size_t *bytes_written);
+
 #ifdef DEBUG
 bool
 is_valid_xml_char(char c);

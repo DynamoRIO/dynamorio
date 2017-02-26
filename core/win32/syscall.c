@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1532,7 +1532,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
                        wenv_to_propagate[i], get_config_val(env_to_propagate[i]));
             NULL_TERMINATE_BUFFER(buf);
             if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                         buf, sz_var[i], &got))
+                                         buf, sz_var[i], NULL))
                 goto add_dr_env_failure;
             sz += sz_var[i];
         }
@@ -1541,7 +1541,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     /* write final 0 */
     buf[0] = 0;
     if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env), buf,
-                                 sizeof(*env), &got))
+                                 sizeof(*env), NULL))
         goto add_dr_env_failure;
 
     /* install new env */
@@ -1551,7 +1551,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
             "%s: failed to mark "PFX" writable\n", __FUNCTION__, env_ptr);
         goto add_dr_env_failure;
     }
-    if (!nt_write_virtual_memory(phandle, env_ptr, &new_env, sizeof(new_env), &got))
+    if (!nt_write_virtual_memory(phandle, env_ptr, &new_env, sizeof(new_env), NULL))
         goto add_dr_env_failure;
     if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr), PAGE_SIZE,
                                           old_prot, &old_prot)) {

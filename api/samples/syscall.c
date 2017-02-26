@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -215,9 +215,7 @@ event_pre_syscall(void *drcontext, int sysnum)
          */
         byte *output = (byte *) dr_syscall_get_param(drcontext, 5);
         byte first;
-        size_t read;
-        bool ok = dr_safe_read(output, 1, &first, &read);
-        if (!ok || read != 1)
+        if (!dr_safe_read(output, 1, &first, NULL))
             return true; /* data unreadable: execute normally */
         if (dr_is_wow64()) {
             /* store the xcx emulation parameter for wow64 */
