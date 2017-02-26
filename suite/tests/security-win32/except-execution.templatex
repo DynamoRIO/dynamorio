@@ -8,11 +8,7 @@ Inside first filter eax=badcdef0
 	record=00000000, params=2
 	PC 0x00401... tried to read address 0xbadcdef0
 	pc=0x00401... eax=0xbadcdef0
-#if defined(RUNREGRESSION_NT) 
-  ContextFlags=0x0001001f 
-#else
   ContextFlags=0x000100.f 
-#endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xddcdcdcd Ecx=0xcccdcdcd 
   
@@ -29,11 +25,7 @@ Inside 3rd filter
 	record=00000000, params=2
 	PC 0xdeadbeef tried to read address 0xdeadbeef
 	pc=0xdeadbeef eax=0x00000000
-#if defined(RUNREGRESSION_NT) 
-  ContextFlags=0x0001001f 
-#else
   ContextFlags=0x000100.f 
-#endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xdeadbeef Ecx=0xcccdcdcd 
   
@@ -66,11 +58,7 @@ DATA VIOLATION: Inside first filter eax=0
 	record=00000000, params=2
 	PC 0x1400ec.. tried to read address 0x1400ec..
 	pc=0x1400ec.. eax=0x00000000
-#if defined(RUNREGRESSION_NT) 
-  ContextFlags=0x0001001f 
-#else
   ContextFlags=0x000100.f 
-#endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xddcdcdcd Ecx=0xcccdcdcd 
   
@@ -95,11 +83,7 @@ DATA: Expected execution violation!
 	record=00000000, params=2
 	PC 0x1400ec.. tried to read address 0x1400ec..
 	pc=0x1400ec.. eax=0x00000000
-#if defined(RUNREGRESSION_NT) 
-  ContextFlags=0x0001001f 
-#else
   ContextFlags=0x000100.f 
-#endif
   Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd 
   Edx=0xddcdcdcd Ecx=0xcccdcdcd 
   
