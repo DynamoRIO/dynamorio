@@ -112,7 +112,6 @@ for (my $i = 0; $i < $#lines; ++$i) {
         my %ignore_failures_32 = ('unit_tests' => 1,
                                   'code_api|security-common.retnonexisting' => 1,
                                   'code_api|win32.reload-newaddr' => 1,
-                                  'code_api|client.loader' => 1,
                                   'code_api|client.thread' => 1,
                                   'code_api|client.pcache-use' => 1,
                                   'code_api|client.nudge_ex' => 1);
