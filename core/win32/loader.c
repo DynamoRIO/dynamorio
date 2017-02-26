@@ -1321,7 +1321,6 @@ privload_call_entry(privmod_t *privmod, uint reason)
         });
 
         if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
-            str_case_prefix(privmod->name, "kernel")) {
             /* i#364: win7 _BaseDllInitialize fails to initialize a new console
              * (0xc0000041 (3221225537) - The NtConnectPort request is refused)
              * which we ignore for now.  DR always had trouble writing to the
@@ -1329,8 +1328,13 @@ privload_call_entry(privmod_t *privmod, uint reason)
              * Update: for i#440, this should now succeed, but we leave this
              * in place just in case.
              */
+            (str_case_prefix(privmod->name, "kernel") ||
+             /* i#2221: combase's entry fails on win10.  So far ignoring it
+              * hasn't cause any problems with simple clients.
+              */
+             str_case_prefix(privmod->name, "combase"))) {
             LOG(GLOBAL, LOG_LOADER, 1,
-                "%s: ignoring failure of kernel32!_BaseDllInitialize\n", __FUNCTION__);
+                "%s: ignoring failure of %s entry\n", __FUNCTION__, privmod->name);
             res = TRUE;
         }
         return CAST_TO_bool(res);
