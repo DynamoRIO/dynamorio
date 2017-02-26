@@ -44,6 +44,12 @@ if [ "${prefix}" == "${branch}" ] ||
     exit 1
 fi
 
-echo "Pushing ${branch} to remote.  Please visit https://github.com/DynamoRIO/dynamorio"
-echo "and create a pull request to compare ${branch} to master."
+count=$(git rev-list --count origin/master..)
+if [ "${count}" -eq "1" ]; then
+    echo "Pushing ${branch} to remote.  Please visit https://github.com/DynamoRIO/dynamorio"
+    echo "and create a pull request to compare ${branch} to master."
+else
+    echo "Pushing new commits on ${branch} to remote."
+fi
+
 git push origin ${branch}
