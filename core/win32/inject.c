@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -174,7 +174,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
             goto error;
         }
         if (!nt_write_virtual_memory(phandle, load_dynamo_code, buf,
-                                     SIZE_OF_LOAD_DYNAMO, &nbytes)) {
+                                     SIZE_OF_LOAD_DYNAMO, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -190,7 +190,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         cxt->CXT_XSP -= ALIGN_FORWARD(nbytes, XSP_SZ);
         dynamo_entry_esp = cxt->CXT_XSP;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     buf, nbytes, &nbytes)) {
+                                     buf, nbytes, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -203,7 +203,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         cxt->CXT_XSP -= ALIGN_FORWARD(nbytes, XSP_SZ);
         dynamo_path_esp = cxt->CXT_XSP;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     buf, nbytes, &nbytes)) {
+                                     buf, nbytes, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -272,7 +272,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         cxt->CXT_XSP = ALIGN_BACKWARD(cxt->CXT_XSP, 16);
 #endif
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     buf, nbytes, &nbytes)) {
+                                     buf, nbytes, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -291,7 +291,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         addr = addr_getprocaddr;
         cxt->CXT_XSP -= XSP_SZ;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     &addr, sizeof(addr), &nbytes)) {
+                                     &addr, sizeof(addr), NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -310,7 +310,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         addr = addr_loadlibrarya;
         cxt->CXT_XSP -= XSP_SZ;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     &addr, sizeof(addr), &nbytes)) {
+                                     &addr, sizeof(addr), NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -321,7 +321,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         addr = addr_debugbreak;
         cxt->CXT_XSP -= XSP_SZ;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     &addr, sizeof(addr), &nbytes)) {
+                                     &addr, sizeof(addr), NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }

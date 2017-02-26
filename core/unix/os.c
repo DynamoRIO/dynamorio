@@ -4548,51 +4548,7 @@ safe_read(const void *base, size_t size, void *out_buf)
 bool
 safe_write_ex(void *base, size_t size, const void *in_buf, size_t *bytes_written)
 {
-    uint prot;
-    byte *region_base;
-    size_t region_size;
-    dcontext_t *dcontext = get_thread_private_dcontext();
-    bool res = false;
-    if (bytes_written != NULL)
-        *bytes_written = 0;
-
-    if (dcontext != NULL) {
-        TRY_EXCEPT(dcontext, {
-            /* We abort on the 1st fault, just like safe_read */
-            memcpy(base, in_buf, size);
-            res = true;
-        } , { /* EXCEPT */
-            /* nothing: res is already false */
-        });
-    } else {
-        /* this is subject to races, but should only happen at init/attach when
-         * there should only be one live thread.
-         */
-        /* on x86 must be readable to be writable so start with that */
-        if (is_readable_without_exception(base, size) &&
-            get_memory_info_from_os(base, &region_base, &region_size, &prot) &&
-            TEST(MEMPROT_WRITE, prot)) {
-            size_t bytes_checked = region_size - ((byte *)base - region_base);
-            while (bytes_checked < size) {
-                if (!get_memory_info_from_os(region_base + region_size, &region_base,
-                                             &region_size, &prot) ||
-                    !TEST(MEMPROT_WRITE, prot))
-                    return false;
-                bytes_checked += region_size;
-            }
-        } else {
-            return false;
-        }
-        /* ok, checks passed do the copy, FIXME - because of races this isn't safe! */
-        memcpy(base, in_buf, size);
-        res = true;
-    }
-
-    if (res) {
-        if (bytes_written != NULL)
-            *bytes_written = size;
-    }
-    return res;
+    return safe_write_try_except(base, size, in_buf, bytes_written);
 }
 
 /* is_readable_without_exception checks to see that all bytes with addresses

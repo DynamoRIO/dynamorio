@@ -693,14 +693,11 @@ safe_memcpy(drx_buf_t *buf, void *src, size_t len)
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *data = drmgr_get_tls_field(drcontext, buf->tls_idx);
     byte *cli_ptr = BUF_PTR(data->seg_base, buf->tls_offs);
-    size_t written;
-    bool ok;
 
     DR_ASSERT_MSG(buf->buf_size >= len,
                   "buffer was too small to fit requested memcpy() operation");
     /* try to perform a safe memcpy */
-    ok = dr_safe_write(cli_ptr, len, src, &written);
-    if (!ok || written != len) {
+    if (!dr_safe_write(cli_ptr, len, src, NULL)) {
         /* we overflowed the client buffer, so flush it and try again */
         byte *cli_base = data->cli_base;
         BUF_PTR(data->seg_base, buf->tls_offs) = cli_base;

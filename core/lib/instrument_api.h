@@ -2304,8 +2304,9 @@ DR_API
 /**
  * Safely reads \p size bytes from address \p base into buffer \p
  * out_buf.  Reading is done without the possibility of an exception
- * occurring.  Optionally returns the actual number of bytes copied
- * into \p bytes_read.  Returns true if successful.
+ * occurring.  Returns true if the entire \p size bytes were read;
+ * otherwise returns false and if \p bytes_read is non-NULL returns the
+ * partial number of bytes read in \p bytes_read.
  * \note See also DR_TRY_EXCEPT().
  */
 bool
@@ -2315,8 +2316,9 @@ DR_API
 /**
  * Safely writes \p size bytes from buffer \p in_buf to address \p
  * base.  Writing is done without the possibility of an exception
- * occurring.  Optionally returns the actual number of bytes copied
- * into \p bytes_written.  Returns true if successful.
+ * occurring.    Returns true if the entire \p size bytes were written;
+ * otherwise returns false and if \p bytes_written is non-NULL returns the
+ * partial number of bytes written in \p bytes_written.
  * \note See also DR_TRY_EXCEPT().
  */
 bool
