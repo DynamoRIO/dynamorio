@@ -1374,7 +1374,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
          * from kernelbase to avoid infinite loop.  XXX: what does apisetschema say?
          * dependent on what's imported?
          */
-        if (str_case_prefix(dependent->name, "kernel32"))
+        if (dependent != NULL && str_case_prefix(dependent->name, "kernel32"))
             return "kernelbase.dll";
         else
             return "kernel32.dll";
@@ -1410,7 +1410,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
          * from kernelbase to avoid infinite loop.  XXX: see above: seeming
          * more and more like it depends on what's imported.
          */
-        if (str_case_prefix(dependent->name, "kernel32"))
+        if (dependent != NULL && str_case_prefix(dependent->name, "kernel32"))
             return "kernelbase.dll";
         else
             return "kernel32.dll";
@@ -1418,7 +1418,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-RTLSupport-L1")) {
         if (get_os_version() >= WINDOWS_VERSION_8 ||
-            str_case_prefix(dependent->name, "kernel"))
+            (dependent != NULL && str_case_prefix(dependent->name, "kernel")))
             return "ntdll.dll";
         else
             return "kernel32.dll";
