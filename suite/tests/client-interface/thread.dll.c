@@ -92,8 +92,8 @@ thread_func(void *arg)
      * ensure we're treating it as a true native thread
      */
     ASSERT(arg == THREAD_ARG);
-    dr_event_signal(child_alive);
     dr_fprintf(STDERR, "client thread is alive\n");
+    dr_event_signal(child_alive);
 #ifdef UNIX
     if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
