@@ -96,17 +96,17 @@ endif (UNIX)
 
 set(vmap_run_list
   # our main configuration
-#  "SHORT::-code_api"
+  "SHORT::-code_api"
   # sanity check: run single app to make sure these options aren't totally broken
   # i#1575: ARM doesn't yet support -coarse_units
-#  "SHORT::X86::ONLY::client.events$::-code_api -opt_memory"
+  "SHORT::X86::ONLY::client.events$::-code_api -opt_memory"
   # i#1551: ARM doesn't yet support indcall2direct
-#  "SHORT::X86::ONLY::client.events$::-code_api -opt_speed"
+  "SHORT::X86::ONLY::client.events$::-code_api -opt_speed"
   # i#1884: ARM doesn't yet support thread_private
-#  "SHORT::X86::ONLY::client.events$::-code_api -thread_private"
-#  "SHORT::ONLY::client.events$::-code_api -disable_traces"
-#  "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
-#  "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
+  "SHORT::X86::ONLY::client.events$::-code_api -thread_private"
+  "SHORT::ONLY::client.events$::-code_api -disable_traces"
+  "SHORT::X86::ONLY::client.events$::-code_api -thread_private -disable_traces"
+  "SHORT::X86::LIN::ONLY::client.events$::-code_api -no_early_inject" # only early on ARM
   # maybe this should be SHORT as -coarse_units will eventually be the default?
   "X86::-code_api -opt_memory"       # i#1575: ARM -coarse_units NYI
   "X86::-code_api -opt_speed"        # i#1551: ARM indcall2direct NYI
