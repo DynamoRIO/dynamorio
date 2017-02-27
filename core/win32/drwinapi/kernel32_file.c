@@ -2135,7 +2135,7 @@ test_files(void)
     ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD) &dw, &overlap);
     EXPECT((!ok && get_last_error() == ERROR_IO_PENDING) ||
            /* On XP, 2K3, and win8.1 this returns TRUE (i#1196, i#2145) */
-           ok);
+           ok, true);
     ok = GetOverlappedResult(h, &overlap, &dw, TRUE/*wait*/);
     EXPECT(ok, true);
     EXPECT(dw == sizeof(h2), true);
