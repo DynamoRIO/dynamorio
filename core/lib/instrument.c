@@ -1372,6 +1372,7 @@ instrument_thread_exit(dcontext_t *dcontext)
     HEAP_TYPE_FREE(dcontext, dcontext->client_data, client_data_t,
                    ACCT_OTHER, UNPROTECTED);
     dcontext->client_data = NULL; /* for mutex_wait_contended_lock() */
+    dcontext->is_client_thread_exiting = true; /* for is_using_app_peb() */
 
 #endif /* DEBUG */
 }

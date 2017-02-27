@@ -203,6 +203,7 @@ static void
 thread_init_event(void *drcontext)
 {
     int i;
+    dr_set_tls_field(drcontext, (void *)(ptr_uint_t) dr_get_process_id());
     for (i = 0; i < NUM_TLS_SLOTS; i++) {
         int idx = tls_offs + i*sizeof(void*);
         ptr_uint_t val = (ptr_uint_t) (CANARY+i);
@@ -266,8 +267,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 #else /* UNIX - append .exe so can use same expect file. */
     dr_fprintf(STDERR, "inside app %s.exe\n", dr_get_application_name());
 #endif
-    dr_set_tls_field(dr_get_current_drcontext(),
-                     (void *)(ptr_uint_t) dr_get_process_id());
 
     {
         /* test PR 198871: client locks are all at same rank */

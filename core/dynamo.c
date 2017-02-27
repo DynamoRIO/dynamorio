@@ -1645,6 +1645,9 @@ initialize_dynamo_context(dcontext_t *dcontext)
 #ifdef WINDOWS
 #ifdef CLIENT_INTERFACE
     dcontext->app_errno = 0;
+# ifdef DEBUG
+    dcontext->is_client_thread_exiting = false;
+# endif
 #endif
     dcontext->sys_param_base = NULL;
     /* always initialize aslr_context */
