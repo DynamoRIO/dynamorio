@@ -123,6 +123,18 @@ raw2trace_t::read_and_map_modules(void)
             strcmp(info.path, "[vdso]") == 0) {
             // We won't be able to decode.
             modvec.push_back(module_t(info.path, info.start, NULL, 0));
+        } else if (info.containing_index != i) {
+            // For split segments, drmodtrack_lookup() gave the lowest base addr,
+            // so our PC offsets are from that.  We assume that the single mmap of
+            // the first segment thus includes the other segments and that we don't
+            // need another mmap.
+            VPRINT(1, "Separate segment assumed covered: module %d seg " PFX " = %s\n",
+                   (int)modvec.size(), (ptr_uint_t)info.start, info.path);
+            modvec.push_back(module_t(info.path,
+                                      // We want the low base not segment base.
+                                      modvec[info.containing_index].orig_base,
+                                      // 0 size indicates this is a secondary segment.
+                                      modvec[info.containing_index].map_base, 0));
         } else {
             size_t map_size;
             byte *base_pc = dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE,
@@ -152,7 +164,7 @@ raw2trace_t::unmap_modules(void)
         FATAL_ERROR("Failed to clean up module table data");
     for (std::vector<module_t>::iterator mvi = modvec.begin();
          mvi != modvec.end(); ++mvi) {
-        if (mvi->map_base != NULL) {
+        if (mvi->map_base != NULL && mvi->map_size != 0) {
             bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
             if (!ok)
                 WARN("Failed to unmap module %s", mvi->path);
