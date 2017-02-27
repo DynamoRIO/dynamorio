@@ -67,9 +67,10 @@ int main()
         /* PR 210591: test transparency by having client create a thread here
          * and ensuring DllMain of the lib isn't notified.
          * 7 nops isn't enough: win7's kernelbase!MultiByteToWideChar has 7.
-         * 9 isn't either: win8.1's ntdll!RtlCompareUnicodeStrings has 9.
+         * 13 isn't either: win8.1's KERNELBASE!GetEnvironmentStringsW has 13.
          */
         NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
+        NOP; NOP; NOP; NOP;
         FreeLibrary(lib);
     }
     /* Test i#1489 by querying for last thread while client thread is active */
@@ -79,6 +80,7 @@ int main()
 #else
     /* test creating thread here */
     NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
+    NOP; NOP; NOP; NOP;
 #endif
     print("thank you for testing the client interface\n");
 }
