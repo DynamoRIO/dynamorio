@@ -2133,6 +2133,10 @@ test_files(void)
     EXPECT(e != NULL, true);
     overlap.hEvent = e;
     ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD) &dw, &overlap);
+#if 1
+    int err = get_last_error();
+    print_file(STDERR, "ok=%d err=%d ver=%d\n", ok, err, get_os_version());
+#endif
     EXPECT((!ok && get_last_error() == ERROR_IO_PENDING) ||
            /* On XP and 2K3 this returns TRUE (i#1196) */
            (get_os_version() < WINDOWS_VERSION_VISTA && ok), true);
