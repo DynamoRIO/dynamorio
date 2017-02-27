@@ -92,8 +92,8 @@ thread_func(void *arg)
      * ensure we're treating it as a true native thread
      */
     ASSERT(arg == THREAD_ARG);
-    dr_event_signal(child_alive);
     dr_fprintf(STDERR, "client thread is alive\n");
+    dr_event_signal(child_alive);
 #ifdef UNIX
     if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
@@ -152,7 +152,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         } else
             in_nops = false;
     }
-    if (num_nops == 9 && !nops_matched) {
+    if (num_nops == 17 && !nops_matched) {
         /* PR 210591: test transparency by having client create a thread after
          * app has loaded a library and ensure its DllMain is not notified
          */
@@ -203,6 +203,7 @@ static void
 thread_init_event(void *drcontext)
 {
     int i;
+    dr_set_tls_field(drcontext, (void *)(ptr_uint_t) dr_get_process_id());
     for (i = 0; i < NUM_TLS_SLOTS; i++) {
         int idx = tls_offs + i*sizeof(void*);
         ptr_uint_t val = (ptr_uint_t) (CANARY+i);
@@ -266,8 +267,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 #else /* UNIX - append .exe so can use same expect file. */
     dr_fprintf(STDERR, "inside app %s.exe\n", dr_get_application_name());
 #endif
-    dr_set_tls_field(dr_get_current_drcontext(),
-                     (void *)(ptr_uint_t) dr_get_process_id());
 
     {
         /* test PR 198871: client locks are all at same rank */
