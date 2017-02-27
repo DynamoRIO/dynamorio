@@ -69,7 +69,7 @@ main(void)
 START_FILE
 
 /* int foo()
- *   Generates int 2d interruptions and should return 2.
+ *   Generates one int 2d interruption and should return 1.
  */
 #define FUNCNAME foo
 DECLARE_FUNC(FUNCNAME)
@@ -77,18 +77,6 @@ GLOBAL_LABEL(FUNCNAME:)
         xor      eax, eax
         int      HEX(2d)
         mov      eax, 1
-        /* int 2d might behave differently with eax equal to 1. */
-        int      HEX(2d)
-        /* This jump ends the basic block right after the int. */
-        jmp      OneMore
-        ret
-OneMore:
-        /* We increment eax to check that we got in the right branch. */
-        inc      eax
-        int      HEX(2d)
-        /* We test with a one byte opcode following the int. */
-        nop
-        int      HEX(2d)
         ret
 END_FUNC(FUNCNAME)
 
