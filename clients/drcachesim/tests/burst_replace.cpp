@@ -182,7 +182,7 @@ post_process()
     assert(f != INVALID_FILE);
     void *modhandle;
     uint num_mods;
-    res = drmodtrack_offline_read(f, NULL, &modhandle, &num_mods);
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle, &num_mods);
     assert(res == DRCOVLIB_SUCCESS);
 
     for (uint i = 0; i < num_mods; ++i) {

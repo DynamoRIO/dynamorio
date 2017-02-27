@@ -299,15 +299,21 @@ DR_EXPORT
 /**
  * Usable from standalone mode (hence the "offline" name).  Reads a file written
  * by drmodtrack_dump().  If \p file is not INVALID_FILE, reads from \p file;
- * otherwise, assumes the target file has been mapped into memory at \p *map and
- * reads from there, returning in \p *map the end of the module list region.
+ * otherwise, assumes the target file has been mapped into memory at \p map and
+ * reads from there.  If \p next_line is not NULL, this routine reads one
+ * character past the final newline of the final module in the list, and returns
+ * in \p *next_line a pointer to that character (this is intended for users who
+ * are embedding a module list inside a file with further data following the
+ * list in the file).  If \p next_line is NULL, this routine stops reading at
+ * the final newline: thus, \p map need not be NULL-terminated.
+ *
  * Returns an identifier in \p handle to use with other offline routines, along
  * with the number of modules read in \p num_mods.  Information on each module
  * can be obtained by calling drmodtrack_offline_lookup() and passing integers
  * from 0 to the number of modules minus one as the \p index.
  */
 drcovlib_status_t
-drmodtrack_offline_read(file_t file, const char **map,
+drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line,
                         OUT void **handle, OUT uint *num_mods);
 
 DR_EXPORT

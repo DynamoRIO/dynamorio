@@ -557,7 +557,6 @@ move_to_next_line(const char *ptr)
     if (end == NULL) {
         ptr += strlen(ptr);
     } else {
-        //NOCHECKIN don't walk off end of mmap -- or require \0 at end, and put that in place ourselves
         for (ptr = end; *ptr == '\n' || *ptr == '\r'; ptr++)
             ; /* do nothing */
     }
@@ -581,7 +580,7 @@ skip_commas_and_spaces(const char *ptr, uint num_skip)
 }
 
 drcovlib_status_t
-drmodtrack_offline_read(file_t file, const char **map,
+drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line,
                         OUT void **handle, OUT uint *num_mods)
 {
     module_read_info_t *info = NULL;
@@ -596,8 +595,10 @@ drmodtrack_offline_read(file_t file, const char **map,
     if (file == INVALID_FILE) {
         if (map == NULL)
             return DRCOVLIB_ERROR_INVALID_PARAMETER;
-        map_start = *map;
+        map_start = map;
     } else {
+        if (next_line != NULL || map != NULL)
+            return DRCOVLIB_ERROR_INVALID_PARAMETER;
         if (!dr_file_size(file, &file_size))
             return DRCOVLIB_ERROR_INVALID_PARAMETER;
         map_size = (size_t)file_size;
@@ -676,10 +677,12 @@ drmodtrack_offline_read(file_t file, const char **map,
             if (dr_sscanf(buf, " %[^\n\r]", info->mod[i].path) != 1)
                 goto read_error;
         }
-        buf = move_to_next_line(buf);
+        /* Avoid reading off the end, unless caller wants to advance to the next line. */
+        if (i < *num_mods - 1 || next_line != NULL)
+            buf = move_to_next_line(buf);
     }
-    if (file == INVALID_FILE)
-        *map = buf;
+    if (file == INVALID_FILE && next_line != NULL)
+        *next_line = buf;
     *handle = (void *)info;
     return DRCOVLIB_SUCCESS;
 

@@ -120,7 +120,7 @@ event_exit(void)
     void *modhandle;
     uint num_mods;
     f = dr_open_file(fname, DR_FILE_READ);
-    res = drmodtrack_offline_read(f, NULL, &modhandle, &num_mods);
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle, &num_mods);
     CHECK(res == DRCOVLIB_SUCCESS, "read failed");
 
     for (uint i = 0; i < num_mods; ++i) {
