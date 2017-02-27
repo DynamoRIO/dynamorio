@@ -890,6 +890,11 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
         app_sysenter_instr_addr = NULL;
 #ifdef LINUX
+        /* If we don't clear this we get asserts on vsyscall hook on re-attach on
+         * some Linux variants.  We don't want to clear on Windows 8+ as that causes
+         * asserts on re-attach (i#2145).
+         */
+        syscall_method = SYSCALL_METHOD_UNINITIALIZED;
         sysenter_hook_failed = false;
 #endif
     }
