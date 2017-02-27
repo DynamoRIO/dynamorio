@@ -511,9 +511,9 @@ is_using_app_peb(dcontext_t *dcontext)
          * not have the app value!
          */
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
-               IS_CLIENT_THREAD(dcontext));
+               IS_CLIENT_THREAD(dcontext) || IS_CLIENT_THREAD_EXITING(dcontext));
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
-               IS_CLIENT_THREAD(dcontext));
+               IS_CLIENT_THREAD(dcontext) || IS_CLIENT_THREAD_EXITING(dcontext));
         ASSERT(cur_nls_cache == NULL ||
                cur_nls_cache != dcontext->app_nls_cache);
         ASSERT(cur_fls == NULL ||
