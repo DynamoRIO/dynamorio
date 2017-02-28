@@ -5052,6 +5052,7 @@ dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
                         void *callee, dr_cleancall_save_t save_flags,
                         uint num_args, ...);
 
+DR_API
 /* Inserts a complete call to callee with the passed-in arguments, wrapped
  * by an app save and restore.
  * On x86, if \p save_fpstate is true, saves the fp/mmx state.
