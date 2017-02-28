@@ -112,15 +112,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
         my %ignore_failures_32 = ('unit_tests' => 1,
                                   'code_api|security-common.retnonexisting' => 1,
                                   'code_api|win32.reload-newaddr' => 1,
-                                  'code_api|win32.tls' => 1,
-                                  'code_api|client.loader' => 1,
-                                  'code_api|client.thread' => 1,
                                   'code_api|client.pcache-use' => 1,
-                                  'code_api|client.nudge_ex' => 1,
-                                  'code_api|tool.drcacheoff.burst_static' => 1,
-                                  'code_api|tool.drcacheoff.burst_replace' => 1,
-                                  'code_api|api.detach' => 1,
-                                  'code_api|api.static_detach' => 1);
+                                  'code_api|client.nudge_ex' => 1);
         my %ignore_failures_64 = ('unit_tests' => 1,
                                   'code_api|common.floatpc_xl8all' => 1,
                                   'code_api|win32.reload-newaddr' => 1,
@@ -129,9 +122,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                   'code_api|win32.x86_to_x64_ibl_opt' => 1,
                                   'code_api|win32.mixedmode_late' => 1,
                                   'code_api|client.loader' => 1,
-                                  'code_api|client.thread' => 1,
                                   'code_api|client.nudge_ex' => 1,
-                                  'code_api|api.detach' => 1,
                                   'code_api|api.static_noclient' => 1,
                                   'code_api|api.static_noinit' => 1);
         # Read ahead to examine the test failures:

@@ -365,8 +365,13 @@ typedef struct _client_flush_req_t {
  * NULL during thread startup or teardown (i.e. mutex_wait_contended_lock() usage) */
 #define IS_CLIENT_THREAD(dcontext) \
     ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
-     (dcontext)->client_data != NULL && \
-     (dcontext)->client_data->is_client_thread)
+     (dcontext)->client_data != NULL && (dcontext)->client_data->is_client_thread)
+#ifdef DEBUG
+/* For use after dcontext->client_data is NULL */
+# define IS_CLIENT_THREAD_EXITING(dcontext)               \
+    ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
+     (dcontext)->is_client_thread_exiting)
+#endif
 
 /* Client interface-specific data for dcontexts */
 typedef struct _client_data_t {
@@ -935,6 +940,10 @@ struct _dcontext_t {
 #ifdef CLIENT_INTERFACE
     /* client interface-specific data */
     client_data_t *client_data;
+# ifdef DEBUG
+    /* i#2237: on exit we delete client_data before some IS_CLIENT_THREAD asserts. */
+    bool is_client_thread_exiting;
+# endif
 #endif
 
     /* FIXME trace_sysenter_exit is used to capture an exit from a trace that

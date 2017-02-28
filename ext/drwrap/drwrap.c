@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -233,10 +233,7 @@ fast_safe_read(void *base, size_t size, void *out_buf)
     });
     return res;
 #else
-    /* dr_safe_read() uses try/except */
-    size_t bytes_read = 0;
-    return (dr_safe_read(base, size, out_buf, &bytes_read) &&
-            bytes_read == size);
+    return dr_safe_read(base, size, out_buf, NULL);
 #endif
 }
 
@@ -724,9 +721,7 @@ drwrap_set_arg(void *wrapcxt_opaque, int arg, void *val)
         if (!in_memory)
             wrapcxt->mc_modified = true;
         if (in_memory && TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
-            size_t written;
-            if (!dr_safe_write((void *)addr, sizeof(val), val, &written) ||
-                written != sizeof(val))
+            if (!dr_safe_write((void *)addr, sizeof(val), val, NULL))
                 return false;
         } else
             *addr = (reg_t) val;

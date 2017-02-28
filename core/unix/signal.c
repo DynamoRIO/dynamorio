@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1667,9 +1667,7 @@ handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
             if (fault)
                 return EFAULT;
 #else
-            size_t written;
-            if (!safe_write_ex(oact, sizeof(*oact), &info->prior_app_sigaction, &written)
-                || written != sizeof(*oact)) {
+            if (!safe_write_ex(oact, sizeof(*oact), &info->prior_app_sigaction, NULL)) {
                 /* We actually don't have to undo installing any passed action
                  * b/c the Linux kernel does that *before* checking oact perms.
                  */
