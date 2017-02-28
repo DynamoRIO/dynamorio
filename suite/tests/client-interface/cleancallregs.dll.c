@@ -218,6 +218,7 @@ callee_n(int n)
     case 2: return (void *)callee_2;
     }
     fail("unimplemented callee");
+    return NULL;
 }
 
 /****************************************************************************
