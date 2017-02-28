@@ -2916,6 +2916,8 @@ else (UNIX)
   tobuild(win32.winapc win32/winapc.c)
   tobuild(win32.winthread win32/winthread.c)
   tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
+  tobuild(security-win32.except-int2d security-win32/except-int2d.c)
+
   tobuild(win32.threadterm win32/threadterm.c)
 
   tobuild_dll(win32.earlythread win32/earlythread.c "")
