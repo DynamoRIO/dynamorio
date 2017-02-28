@@ -182,7 +182,7 @@ post_process()
     assert(f != INVALID_FILE);
     void *modhandle;
     uint num_mods;
-    res = drmodtrack_offline_read(f, NULL, &modhandle, &num_mods);
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle, &num_mods);
     assert(res == DRCOVLIB_SUCCESS);
 
     for (uint i = 0; i < num_mods; ++i) {
@@ -195,22 +195,24 @@ post_process()
 
     char *buf_offline;
     size_t size_offline = 8192;
+    size_t wrote;
     do {
         buf_offline = (char *)dr_global_alloc(size_offline);
-        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline);
+        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline, &wrote);
         if (res == DRCOVLIB_SUCCESS)
             break;
         dr_global_free(buf_offline, size_offline);
         size_offline *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     assert(res == DRCOVLIB_SUCCESS);
+    assert(wrote == strlen(buf_offline) + 1/*null*/);
     dr_close_file(f);
     drmodtrack_offline_exit(modhandle);
 
     /* Now replace the file */
     f = dr_open_file(modlist_path, DR_FILE_WRITE_OVERWRITE);
     assert(f != INVALID_FILE);
-    dr_write_file(f, buf_offline, strlen(buf_offline));
+    dr_write_file(f, buf_offline, wrote - 1/*don't need null in file*/);
     dr_close_file(f);
 }
 

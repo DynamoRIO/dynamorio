@@ -759,7 +759,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 
     PRINT(3, "Reading module table...\n");
     /* module table header */
-    if (drmodtrack_offline_read(INVALID_FILE, &buf, &handle, num_mods) !=
+    if (drmodtrack_offline_read(INVALID_FILE, buf, &buf, &handle, num_mods) !=
         DRCOVLIB_SUCCESS) {
         WARN(2, "Failed to read module table");
         return NULL;
