@@ -38,8 +38,9 @@
  * be instrumented with a sequence of clean calls followed by a call via finish()
  * to dr_exit_process(), so no app code is executed.
  *
- * This test can easily be ported to a new architecture. There is also the
- * X86-specific test "cleancall".
+ * This test can easily be ported to a new architecture but only tests the
+ * marshalling of arguments. The test "cleancall" tests some other aspects of
+ * clean calling.
  */
 
 #include <stdarg.h>
