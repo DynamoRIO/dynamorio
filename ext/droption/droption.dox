@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -107,6 +107,23 @@ if (!dr_parse_options(id, &parse_err)) {
 }
 \endcode
 
+A boolean option \p foo can be negated on the command line using any of the
+following prefixes:
+
+- -nofoo
+- -no_foo
+- --nofoo
+- --no_foo
+
+Option values are retrieved with \p get_value:
+
+\code
+if (op_x.get_value() > 4) {
+}
+\endcode
+
+The value set on the command line can be overridden with the \p set_value
+function.
 
 \section sec_droption_special Special Types
 
