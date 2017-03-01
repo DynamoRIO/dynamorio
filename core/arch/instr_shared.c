@@ -3311,26 +3311,6 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only,
                 *offs_out = check_disp;
             return true;
         }
-#ifdef ARM
-        /* mangling instr inserted by mangle_syscall_arch */
-        if (check_disp == os_tls_offset(TLS_REG1_SLOT) && *reg == DR_REG_R10) {
-            ASSERT(*reg != dr_reg_stolen);
-            DODEBUG({
-                instr_t *syscall = instr_get_next(instr);
-                while (syscall != NULL) {
-                    if (instr_is_syscall(syscall))
-                        break;
-                    syscall = instr_get_next(syscall);
-                }
-                ASSERT(syscall != NULL);
-            });
-            if (tls != NULL)
-                *tls = true;
-            if (offs_out != NULL)
-                *offs_out = check_disp;
-            return true;
-        }
-#endif
     }
     if (dcontext != GLOBAL_DCONTEXT &&
         instr_check_mcontext_spill_restore(dcontext, instr, spill,
