@@ -42,8 +42,9 @@
 #include <stdarg.h>
 
 #include "dr_api.h"
+#include "client_tools.h"
 
-#define MAX_NUM_ARGS 16
+#define MAX_NUM_ARGS 2
 
 /* Some registers that we will use for testing. The registers used for
  * parameter passing should come first, in the right order, as some
@@ -212,12 +213,12 @@ callee_2(ptr_uint_t a0, ptr_uint_t a1)
 static void *
 callee_n(int n)
 {
+    ASSERT(n <= MAX_NUM_ARGS);
     switch (n) {
     case 0: return (void *)callee_0;
     case 1: return (void *)callee_1;
     case 2: return (void *)callee_2;
     }
-    fail("unimplemented callee");
     return NULL;
 }
 
@@ -243,10 +244,13 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     for (i = 0; i < NUM_TESTS; i++) {
         int num_args = tests[i].num_args;
         opnd_t args[MAX_NUM_ARGS];
+        ASSERT(num_args <= MAX_NUM_ARGS);
         for (j = 0; j < num_args; j++)
             args[j] = convert_arg_to_opnd(tests[i].args[j]);
-        dr_insert_clean_call_ex_varg(drcontext, bb, where, callee_n(num_args), false,
-                                     num_args, args);
+        /* Update the following two statements if the value of MAX_NUM_ARGS is changed. */
+        ASSERT(MAX_NUM_ARGS == 2);
+        dr_insert_clean_call_ex(drcontext, bb, where, callee_n(num_args), false, num_args,
+                                args[0], args[1]);
     }
 
     /* Exit now. We do not run the app. */
