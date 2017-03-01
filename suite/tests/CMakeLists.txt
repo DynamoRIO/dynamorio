@@ -1688,6 +1688,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
     tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
   endif (X86)
+  tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
   if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
     if (NOT ANDROID) # XXX i#1874: get working on Android
