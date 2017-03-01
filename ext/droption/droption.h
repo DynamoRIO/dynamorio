@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -352,6 +352,9 @@ template <typename T> class droption_t : public droption_parser_t
 
     /** Returns the value of this option. */
     T get_value() const { return value; }
+
+    /** Sets the value of this option, overriding the command line. */
+    void set_value(T new_value) { value = new_value; }
 
  protected:
     bool clamp_value()
