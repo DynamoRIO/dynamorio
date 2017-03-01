@@ -109,7 +109,7 @@ raw2trace_t::read_and_map_modules(void)
     file_t modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
     if (modfile == INVALID_FILE)
         FATAL_ERROR("Failed to open module file %s", modfilename.c_str());
-    if (drmodtrack_offline_read(modfile, NULL, &modhandle, &num_mods) !=
+    if (drmodtrack_offline_read(modfile, NULL, NULL, &modhandle, &num_mods) !=
         DRCOVLIB_SUCCESS)
         FATAL_ERROR("Failed to parse module file %s", modfilename.c_str());
     for (uint i = 0; i < num_mods; i++) {
