@@ -30,13 +30,16 @@
  * DAMAGE.
  */
 
-/* Martialling the arguments to a clean call is non-trivial when the the arguments
+/* Marshalling the arguments to a clean call is non-trivial when the arguments
  * are passed in registers and the values in some registers need to be permuted
  * (and we wish to do this efficiently). This test checks some interesting cases.
  *
  * It makes no difference what app is used. The first basic block encountered will
  * be instrumented with a sequence of clean calls followed by a call via finish()
  * to dr_exit_process(), so no app code is executed.
+ *
+ * This test can easily be ported to a new architecture. There is also the
+ * X86-specific test "cleancall".
  */
 
 #include <stdarg.h>
