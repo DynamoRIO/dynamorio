@@ -348,6 +348,7 @@ static byte *app_brk_end;
 #endif
 
 #ifdef MACOS
+/* xref i#1404: we should expose these via the dr_get_os_version() API */
 static int macos_version;
 # define MACOS_VERSION_SIERRA 16
 # define MACOS_VERSION_EL_CAPITAN 15
@@ -1152,7 +1153,7 @@ query_time_seconds(void)
     /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
     if (macos_version < MACOS_VERSION_SIERRA) {
         if ((int)val < 0)
-          return 0;
+            return 0;
         return (uint)val + UTC_TO_EPOCH_SECONDS;
     }
 #endif
@@ -1176,9 +1177,6 @@ query_time_millis()
         if ((int)val > 0) {
             current_time.tv_sec = (uint) val;
             current_time.tv_usec = (uint)(val >> 32);
-        } else {
-            ASSERT_NOT_REACHED();
-            return 0;
         }
     }
 #endif
@@ -1205,9 +1203,6 @@ query_time_micros()
         if ((int)val > 0) {
             current_time.tv_sec = (uint) val;
             current_time.tv_usec = (uint)(val >> 32);
-        } else {
-            ASSERT_NOT_REACHED();
-            return 0;
         }
     }
 #endif
