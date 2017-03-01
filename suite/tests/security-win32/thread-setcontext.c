@@ -40,7 +40,7 @@ main(void)
 {
     HANDLE hThread;
     CONTEXT Context;
-    
+
     INIT();
 
     print("start of test\n");
@@ -48,7 +48,7 @@ main(void)
     hThread = GetCurrentThread();
     Context.ContextFlags = 0;
     SetThreadContext(hThread, &Context);
-    
+
     print("end of test\n");
 
     return 0;
