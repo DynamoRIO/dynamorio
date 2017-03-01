@@ -1,2 +1,5 @@
-start of test
-end of test
+start of test, count = 0
+test dummy SetThreadContext
+set debug register
+breakpoint exception
+end of test, count = 1

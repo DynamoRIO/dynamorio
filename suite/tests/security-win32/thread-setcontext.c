@@ -34,6 +34,39 @@
 #include "tools.h"
 #include <windows.h>
 
+static int count = 0;
+
+
+static void
+test_debug_register(void)
+{
+    __asm {
+            /* some amount of code in here */
+            nop
+            nop
+            nop
+            xor eax, eax
+            test eax, eax
+            nop
+            nop
+        }
+}
+
+/* top-level exception handler */
+static LONG
+our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+{
+    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
+            count++;
+            print("single step seen\n");
+            //deactivate breakpoint
+            pExceptionInfo->ContextRecord->Dr0 = 0;
+            pExceptionInfo->ContextRecord->Dr6 = 0;
+            pExceptionInfo->ContextRecord->Dr7 = 0;
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
+    return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
+}
 
 int
 main(void)
@@ -43,13 +76,31 @@ main(void)
 
     INIT();
 
-    print("start of test\n");
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+
+    print("start of test count = %d\n", count);
+
 
     hThread = GetCurrentThread();
     Context.ContextFlags = 0;
-    SetThreadContext(hThread, &Context);
+    print("test dummy SetThreadContext\n");
+    if (SetThreadContext(hThread, &Context) == 0) {
+        print("error for SetThreadContext\n");
+    }
+    Context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+    if (GetThreadContext(hThread, &Context) != 0) {
+        Context.Dr0 = (DWORD) (((char*)test_debug_register) + 4);
+        Context.Dr6 = 0xfffe0ff0;
+        Context.Dr7 = 0x00000101;
+        print("set debug register\n");
+        if (SetThreadContext(hThread, &Context) == 0) {
+            print("error for SetThreadContext\n");
+        }
+    }
 
-    print("end of test\n");
+    test_debug_register();
+
+    print("end of test count = %d\n", count);
 
     return 0;
 }
