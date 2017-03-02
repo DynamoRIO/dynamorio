@@ -159,6 +159,14 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
 
+    if (instr_get_opcode(instr) == OP_ldstex) {
+        size_t i, n = opnd_get_immed_int(instr_get_src(instr, 0));
+        uint *pc = (uint *)copy_pc;
+        for (i = 0; i < n; i++)
+            *pc++ = opnd_get_immed_int(instr_get_src(instr, 1 + i));
+        return (byte *)pc;
+    }
+
     *(uint *)copy_pc = encode_common(final_pc, instr);
     return copy_pc + 4;
 }

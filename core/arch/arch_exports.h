@@ -1732,7 +1732,13 @@ enum {
     CTI_FAR_ABS_LENGTH = 7, /* 9A 1B 07 00 34 39 call 0739:3400071B            */
                             /* 07                                              */
 #elif defined(AARCH64)
-    MAX_INSTR_LENGTH = 4,
+    /* The maximum instruction length is 64 to allow for an OP_ldstex containing
+     * up to 16 real instructions. The longest such block seen so far in real
+     * code had 7 instructions so this is likely to be enough. With the current
+     * implementation, a larger value would significantly slow down the search
+     * for such blocks in the decoder: see decode_ldstex().
+     */
+    MAX_INSTR_LENGTH = 64,
     CBR_LONG_LENGTH  = 4,
     JMP_LONG_LENGTH  = 4,
     JMP_SHORT_LENGTH = 4,

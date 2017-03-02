@@ -300,6 +300,7 @@ enum {
 /* 281 */     OP_wfi,             /**< AArch64 wfi opcode.*/
 /* 282 */     OP_yield,           /**< AArch64 yield opcode.*/
 
+    OP_ldstex, /* single-entry single-exit block with exclusive load/store */
     OP_xx, /* placeholder for undecoded instructions */
 
     OP_AFTER_LAST,
