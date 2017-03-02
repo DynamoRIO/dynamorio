@@ -48,7 +48,7 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#define MAX_NUM_ARGS 2
+#define MAX_NUM_ARGS 12
 
 /* Some registers that we will use for testing. The registers used for
  * parameter passing should come first, in the right order, as some
@@ -101,10 +101,36 @@ static const struct {
     { 1, { 2 } },
     { 2, { -1, -2 } },
     { 2, { 1, 2 } },
-#ifdef X86
-    /* FIXME i#2210: Make this case work on ARM/AArch64, and add more cases. */
-    { 2, { 2, 1 } }, /* Swap first two parameter registers. */
-#endif
+    { 2, { 2, 1 } }, /* Swap two registers. */
+    { 3, { 2, 3, 1 } }, /* Rotate three registers. */
+    { 4, { 2, 3, 4, 1 } }, /* Rotate four registers. */
+    { 8, { 2, 1, 4, 3, 6, 5, 8, 7 } }, /* Rotate eight registers. */
+    { 4, { 1, 1, 2, 3 } },
+    { 4, { 2, 3, 4, 5 } },
+    { 4, { -1, 1, 2, 3 } },
+    { 11, { -1, -2, -1, -1, -2, -1, -1, -2, -1, -1, -2 } },
+    { 12, { 2, 8, 8, 3, 1, 5, 3, 5, 5, 3, 7, 2 } },
+    { 12, { 6, 9, 3, 1, 3, 1, 1, 4, 3, 1, 6, 6 } },
+    { 12, { 9, 9, 10, 1, 9, 8, 6, 6, 5, 6, 9, 2 } },
+    { 12, { 2, 5, 6, 7, 6, 6, 6, 3, 9, 5, 7, 8 } },
+    { 12, { 9, 3, 2, 6, 9, 2, 9, 8, 10, 4, 2, 6 } },
+    /* AArch64 stack args. */
+    { 9, { 1, 2, 3, 4, 5, 6, 7, 8, -1 } },
+    { 9, { 1, 2, 3, 4, 5, 6, 7, 8, 0 } },
+    { 9, { 1, 2, 3, 4, 5, 6, 7, 8, 2 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, -1, -2 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, -1, 0 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, -1, 2 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, 0, -1 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, 0, 0 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, 0, 2 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, 2, -1 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, 2, 0 } },
+    { 10, { 1, 2, 3, 4, 5, 6, 7, 8, 2, 4 } },
+    { 11, { 1, 2, 3, 4, 5, 6, 7, 8, 2, 4, -1 } },
+    { 11, { 1, 2, 3, 4, 5, 6, 7, 8, 2, 4, 6 } },
+    { 12, { 1, 2, 3, 4, 5, 6, 7, 8, 2, 4, -1, -2 } },
+    { 12, { 1, 2, 3, 4, 5, 6, 7, 8, 2, 4, 6, 8 } },
 };
 
 #define NUM_TESTS (sizeof(tests) / sizeof(*tests))
@@ -214,6 +240,78 @@ callee_2(ptr_uint_t a0, ptr_uint_t a1)
     callee(2, a0, a1);
 }
 
+static void
+callee_3(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2)
+{
+    callee(3, a0, a1, a2);
+}
+
+static void
+callee_4(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3)
+{
+    callee(4, a0, a1, a2, a3);
+}
+
+static void
+callee_5(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4)
+{
+    callee(5, a0, a1, a2, a3, a4);
+}
+
+static void
+callee_6(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4, ptr_uint_t a5)
+{
+    callee(6, a0, a1, a2, a3, a4, a5);
+}
+
+static void
+callee_7(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6)
+{
+    callee(7, a0, a1, a2, a3, a4, a5, a6);
+}
+
+static void
+callee_8(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7)
+{
+    callee(8, a0, a1, a2, a3, a4, a5, a6, a7);
+}
+
+static void
+callee_9(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
+          ptr_uint_t a8)
+{
+    callee(9, a0, a1, a2, a3, a4, a5, a6, a7, a8);
+}
+
+static void
+callee_10(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
+          ptr_uint_t a8, ptr_uint_t a9)
+{
+    callee(10, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
+}
+
+static void
+callee_11(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
+          ptr_uint_t a8, ptr_uint_t a9, ptr_uint_t a10)
+{
+    callee(11, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+}
+
+static void
+callee_12(ptr_uint_t a0, ptr_uint_t a1, ptr_uint_t a2, ptr_uint_t a3,
+          ptr_uint_t a4, ptr_uint_t a5, ptr_uint_t a6, ptr_uint_t a7,
+          ptr_uint_t a8, ptr_uint_t a9, ptr_uint_t a10, ptr_uint_t a11)
+{
+    callee(12, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+}
+
 static void *
 callee_n(int n)
 {
@@ -222,6 +320,16 @@ callee_n(int n)
     case 0: return (void *)callee_0;
     case 1: return (void *)callee_1;
     case 2: return (void *)callee_2;
+    case 3: return (void *)callee_3;
+    case 4: return (void *)callee_4;
+    case 5: return (void *)callee_5;
+    case 6: return (void *)callee_6;
+    case 7: return (void *)callee_7;
+    case 8: return (void *)callee_8;
+    case 9: return (void *)callee_9;
+    case 10: return (void *)callee_10;
+    case 11: return (void *)callee_11;
+    case 12: return (void *)callee_12;
     }
     return NULL;
 }
@@ -252,9 +360,10 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
         for (j = 0; j < num_args; j++)
             args[j] = convert_arg_to_opnd(tests[i].args[j]);
         /* Update the following two statements if the value of MAX_NUM_ARGS is changed. */
-        ASSERT(MAX_NUM_ARGS == 2);
+        ASSERT(MAX_NUM_ARGS == 12);
         dr_insert_clean_call_ex(drcontext, bb, where, callee_n(num_args), false, num_args,
-                                args[0], args[1]);
+                                args[0], args[1], args[2], args[3], args[4], args[5],
+                                args[6], args[7], args[8], args[9], args[10], args[11]);
     }
 
     /* Exit now. We do not run the app. */
