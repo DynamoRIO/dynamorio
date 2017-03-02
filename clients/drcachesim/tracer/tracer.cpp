@@ -224,10 +224,10 @@ create_buffer(per_thread_t *data)
     if (data->buf_base == NULL) {
         /* Switch to "reserve" buffer. */
         if (data->reserve_buf == NULL) {
-            NOTIFY(0, "Fatal error: out of memory and cannot recover.");
+            NOTIFY(0, "Fatal error: out of memory and cannot recover.\n");
             dr_abort();
         }
-        NOTIFY(0, "Out of memory: truncating further tracing.");
+        NOTIFY(0, "Out of memory: truncating further tracing.\n");
         data->buf_base = data->reserve_buf;
         /* Avoid future buffer output. */
         op_max_trace_size.set_value(data->bytes_written - 1);
@@ -275,11 +275,11 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
         if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
                                            max_buf_size)) {
-                NOTIFY(0, "Fatal error: failed to hand off trace");
+                NOTIFY(0, "Fatal error: failed to hand off trace\n");
                 dr_abort();
             }
         } else if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
-            NOTIFY(0, "Fatal error: failed to write trace");
+            NOTIFY(0, "Fatal error: failed to write trace\n");
             dr_abort();
         }
         return towrite_start;
@@ -367,7 +367,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
     }
 
-    if (file_ops_func.handoff_buf != NULL) {
+    if (do_write && file_ops_func.handoff_buf != NULL) {
         // The owner of the handoff callback now owns the buffer, and we get a new one.
         create_buffer(data);
     } else {
@@ -624,7 +624,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if (drreg_reserve_register(drcontext, bb, instr, &rvec, &reg_ptr) != DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tmp) != DRREG_SUCCESS) {
         // We can't recover.
-        NOTIFY(0, "Fatal error: failed to reserve scratch registers");
+        NOTIFY(0, "Fatal error: failed to reserve scratch registers\n");
         dr_abort();
     }
     drvector_delete(&rvec);
@@ -810,7 +810,7 @@ event_thread_init(void *drcontext)
                 break;
         }
         if (i == NUM_OF_TRIES) {
-            NOTIFY(0, "Fatal error: failed to create trace file %s", buf);
+            NOTIFY(0, "Fatal error: failed to create trace file %s\n", buf);
             dr_abort();
         }
         NOTIFY(2, "Created thread trace file %s\n", buf);
@@ -984,7 +984,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_offline.get_value()) {
         void *buf;
         if (!init_offline_dir()) {
-            NOTIFY(0, "Failed to create a subdir in %s", op_outdir.get_value().c_str());
+            NOTIFY(0, "Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
             dr_abort();
         }
         /* we use placement new for better isolation */
