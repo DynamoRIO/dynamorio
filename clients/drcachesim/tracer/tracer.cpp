@@ -95,7 +95,9 @@ typedef struct {
     byte *buf_base;
     uint64 num_refs;
     uint64 bytes_written;
-    file_t file; /* For offline traces */
+    /* For offline traces */
+    file_t file;
+    size_t init_header_size;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -231,10 +233,17 @@ memtrace(void *drcontext, bool skip_size_cap)
     byte *mem_ref, *buf_ptr;
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
+    size_t header_size = buf_hdr_slots_size;
 
     buf_ptr = BUF_PTR(data->seg_base);
-    /* The initial slot is left empty for the header entry, which we add here */
-    instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
+    /* The initial slot is left empty for the header entry, which we add here,
+     * unless this is the very first buffer for this thread, in which case it
+     * already has a header.
+     */
+    if (data->num_refs == 0 && op_offline.get_value())
+        header_size = data->init_header_size;
+    else
+        instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
@@ -248,7 +257,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         data->bytes_written += buf_ptr - pipe_start;
 
     if (do_write) {
-        for (mem_ref = data->buf_base + buf_hdr_slots_size; mem_ref < buf_ptr;
+        for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
              mem_ref += instru->sizeof_entry()) {
             data->num_refs++;
             if (have_phys && op_use_physical.get_value()) {
@@ -712,8 +721,6 @@ event_thread_init(void *drcontext)
     memset(data->buf_base, 0, trace_buf_size);
     /* set sentinel (non-zero) value in redzone */
     memset(data->buf_base + trace_buf_size, -1, redzone_size);
-    /* put buf_base to TLS plus header slots as starting buf_ptr */
-    BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
     data->num_refs = 0;
     data->bytes_written = 0;
 
@@ -746,15 +753,27 @@ event_thread_init(void *drcontext)
             dr_abort();
         }
         NOTIFY(2, "Created thread trace file %s\n", buf);
-    }
 
-    /* pass pid and tid to the simulator to register current thread */
-    proc_info = (byte *)buf;
-    DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
-    proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
-    proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
-    proc_info += instru->append_pid(proc_info, dr_get_process_id());
-    write_trace_data(drcontext, (byte *)buf, proc_info);
+        /* Write initial headers at the top of the first buffer. */
+        data->init_header_size =
+            instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
+        BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size;
+        BUF_PTR(data->seg_base) +=
+            instru->append_tid(BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
+        BUF_PTR(data->seg_base) +=
+            instru->append_pid(BUF_PTR(data->seg_base), dr_get_process_id());
+    } else {
+        /* pass pid and tid to the simulator to register current thread */
+        proc_info = (byte *)buf;
+        DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
+        proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
+        proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
+        proc_info += instru->append_pid(proc_info, dr_get_process_id());
+        write_trace_data(drcontext, (byte *)buf, proc_info);
+
+        /* put buf_base to TLS plus header slots as starting buf_ptr */
+        BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+    }
 
     // XXX i#1729: gather and store an initial callstack for the thread.
 }
