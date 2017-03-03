@@ -67,7 +67,10 @@ byte *
 decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
                     dr_opnd_query_flags_t flags)
 {
-    *usage = 0; /* FIXME i#1569 */
+    /* As long as precise flag information is not provided we conservatively
+     * assume each instructions may read or write all flags.
+    */
+    *usage = EFLAGS_WRITE_ALL | EFLAGS_READ_ALL; /* FIXME i#2263 */
     return pc + 4;
 }
 

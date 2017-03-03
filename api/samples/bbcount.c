@@ -117,10 +117,43 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false && "fail to reserve aflags!");
     /* racy update on the counter for better performance */
+
+#if defined(X86)
     instrlist_meta_preinsert
         (bb, inst,
          INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
                           ((byte *)&global_count, OPSZ_4)));
+#elif defined(AARCHXX)
+    reg_id_t reg_addr, reg_val, reg_val_32;
+    if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg_addr) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, inst, NULL, &reg_val) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
+    reg_val_32 = reg_64_to_32(reg_val);
+    instrlist_insert_mov_immed_ptrsz(drcontext, (unsigned long) &global_count,
+                                     opnd_create_reg(reg_addr),
+                                     bb, inst, NULL, NULL);
+    opnd_t mem = opnd_create_base_disp(reg_addr, REG_NULL, 0, 0, OPSZ_4);
+    instrlist_meta_preinsert
+        (bb, inst,
+         INSTR_CREATE_ldr(drcontext, opnd_create_reg_ex(reg_val_32, OPSZ_4, 0), mem));
+    instrlist_meta_preinsert
+        (bb, inst,
+         XINST_CREATE_add(drcontext, opnd_create_reg_ex(reg_val_32, OPSZ_4, 0),
+                          OPND_CREATE_INT(1)));
+    instrlist_meta_preinsert
+        (bb, inst,
+         INSTR_CREATE_str(drcontext, mem, opnd_create_reg_ex(reg_val_32, OPSZ_4, 0)));
+
+
+   if (drreg_unreserve_register(drcontext, bb, inst, reg_addr) != DRREG_SUCCESS ||
+       drreg_unreserve_register(drcontext, bb, inst, reg_val) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
+#else
+#error NYI
+#endif
+
     if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false && "fail to unreserve aflags!");
 

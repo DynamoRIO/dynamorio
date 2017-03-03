@@ -402,7 +402,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         /* Restore aflags to app value */
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX" aflags=0x%x: lazily restoring aflags\n",
             __FUNCTION__, pt->live_idx, instr_get_app_pc(inst), aflags);
-        res = drreg_restore_aflags(drcontext, bb, inst, pt, false/*keep slot*/);
+        /* On AArch64, we cannot keep the slot, because spill_reg is used to save the
+         * aflags and this functions requires the slot to be released.
+         */
+        res = drreg_restore_aflags(drcontext, bb, inst, pt,
+                                   IF_AARCHXX_ELSE(true, false/*keep slot*/));
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to restore flags before app read");
         if (!pt->aflags.in_use) {
