@@ -79,6 +79,11 @@
 # include "../annotations.h"
 #endif
 
+#ifdef AARCH64
+#define decode decode_with_ldstex
+#define decode_cti decode_cti_with_ldstex
+#endif
+
 enum { DIRECT_XFER_LENGTH = 5 };
 
 /* forward declarations */

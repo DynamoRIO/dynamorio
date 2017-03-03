@@ -496,6 +496,11 @@ DR_API
 byte *
 decode(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
+#ifdef AARCH64
+byte *
+decode_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr);
+#endif
+
 DR_API
 /**
  * Decodes the instruction at address \p copy_pc into \p instr as though

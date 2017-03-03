@@ -2530,8 +2530,8 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc)
 
 /******************************************************************************/
 
-static byte *
-decode_common_noldstex(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
+byte *
+decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
     byte *next_pc = pc + 4;
     uint enc = *(uint *)pc;
@@ -2687,7 +2687,7 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
     for (i = 0; i < N; i++) {
         instr_t *instr = &ibuf[i];
         instr_init(dcontext, instr);
-        decode_common_noldstex(dcontext, (byte *)(pc + i), (byte *)(orig_pc + i), instr);
+        decode_common(dcontext, (byte *)(pc + i), (byte *)(orig_pc + i), instr);
         if (instr_is_mbr_arch(instr) || instr_is_syscall(instr) ||
             instr_get_opcode(instr) == OP_xx || instr_is_nonbranch_pcrel(instr))
             break;
@@ -2789,14 +2789,14 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
 }
 
 byte *
-decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
+decode_common_with_ldstex(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
-    if (DYNAMO_OPTION(build_ldstex)) {
+    if (INTERNAL_OPTION(build_ldstex)) {
         byte *pc_next = decode_ldstex(dcontext, pc, orig_pc, instr);
         if (pc_next != NULL)
             return pc_next;
     }
-    return decode_common_noldstex(dcontext, pc, orig_pc, instr);
+    return decode_common(dcontext, pc, orig_pc, instr);
 }
 
 uint encode_common(byte *pc, instr_t *i)
