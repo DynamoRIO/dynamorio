@@ -604,7 +604,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                        reg_get_size(opnd_get_reg(args[i])) == OPSZ_PTR) ||
                       opnd_is_base_disp(args[i]),
                       "insert_parameter_preparation: bad argument type");
-        ASSERT_NOT_IMPLEMENTED(!opnd_is_base_disp(args[i]));
+        ASSERT_NOT_IMPLEMENTED(!opnd_is_base_disp(args[i])); /* FIXME i#2210 */
     }
 
     /* The strategy here is to first set up the arguments that can be set up
