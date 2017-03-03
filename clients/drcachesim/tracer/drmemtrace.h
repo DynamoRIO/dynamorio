@@ -93,7 +93,7 @@ typedef ssize_t (*drmemtrace_read_file_func_t)(file_t file,
  * @param[in] data   The data to be written.
  * @param[in] count  The number of bytes to be written.
  *
- * \return the actual number of bytes writte.
+ * \return the actual number of bytes written.
  */
 typedef ssize_t (*drmemtrace_write_file_func_t)(file_t file,
                                                 const void *data,
@@ -132,6 +132,68 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
                             drmemtrace_write_file_func_t write_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func);
+
+/**
+ * Function for buffer handoff.  Rather than writing a buffer to a
+ * file when it is full, instead this handoff function gives ownership
+ * to the callee.  The tracer allocates a new buffer and uses it for
+ * further tracing.  The callee is responsible for writing out the
+ * buffer and for freeing it by calling dr_raw_mem_free().
+ *
+ * @param[in] file  The file identifier returned by \p open_file_func or
+ *  or drmemtrace_replace_file_ops() was not called then from dr_open_file()
+ *  for the per-thread trace file.
+ * @param[in] data        The start address of the buffer.
+ * @param[in] data_size   The size of valid trace data in the buffer.
+ * @param[in] alloc_size  The allocated size of the buffer.
+ *
+ * \return whether successful.  Failure is considered unrecoverable.
+ */
+typedef bool (*drmemtrace_handoff_func_t)(file_t file, void *data,
+                                          size_t data_size, size_t alloc_size);
+
+/**
+ * Function for process exit.  This is called during the tracer shutdown, giving
+ * a control point where DR memory may be accessed, which is not possible when
+ * acting after dr_app_stop_and_cleanup().
+ *
+ * @param[in] arg  The \p exit_func_arg passed to drmemtrace_buffer_handoff().
+ */
+typedef void (*drmemtrace_exit_func_t)(void *arg);
+
+DR_EXPORT
+/**
+ * Registers a function to replace the default file write operation
+ * for offline tracing and requests that buffer ownership be
+ * transfered.  The regular file open and close routines (or their
+ * replacements from drmemtrace_replace_file_ops()) will be called,
+ * but instead of writing to the files (or calling the \p
+ * write_file_func), the provided \p handoff_func will be called
+ * instead.  The callee is responsible for writing out the buffer and
+ * for freeing it by calling dr_raw_mem_free().  The amount of
+ * legitimate data is in \p data_size and the total allocated size of
+ * the buffer is in \p alloc_size.  Any space in between is available
+ * for use by the callee.  The return value of \p handoff_cb indicates
+ * whether successful or not: failure will be treated as fatal and
+ * unrecoverable.
+ *
+ * The module list data, written to the first file opened, is not
+ * subject to this ownership transfer and uses the \p write_file_func.
+ *
+ * Because DR memory will be freed in dr_app_stop_and_cleanup(), an
+ * exit callback is provided for a control point to process and free
+ * the buffers.  When dr_app_stop_and_cleanup() is used, \p exit_func
+ * will be called (and passed \p exit_func_arg) after the other
+ * application threads are already native.
+ *
+ * \note The caller is responsible for the transparency and isolation of using
+ * these functions, which will be called in the middle of arbitrary
+ * application code.
+ */
+drmemtrace_status_t
+drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
+                          drmemtrace_exit_func_t exit_func,
+                          void *exit_func_arg);
 
 /**
  * The name of the file in -offline mode where module data is written.

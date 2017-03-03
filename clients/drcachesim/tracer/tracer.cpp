@@ -95,7 +95,12 @@ typedef struct {
     byte *buf_base;
     uint64 num_refs;
     uint64 bytes_written;
-    file_t file; /* For offline traces */
+    /* For offline traces */
+    file_t file;
+    size_t init_header_size;
+    /* For file_ops_func.handoff_buf */
+    uint num_buffers;
+    byte *reserve_buf;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -130,6 +135,9 @@ struct file_ops_func_t {
     drmemtrace_write_file_func_t write_file;
     drmemtrace_close_file_func_t close_file;
     drmemtrace_create_dir_func_t create_dir;
+    drmemtrace_handoff_func_t handoff_buf;
+    drmemtrace_exit_func_t exit_cb;
+    void *exit_arg;
 };
 static struct file_ops_func_t file_ops_func = {
     dr_open_file, dr_read_file, dr_write_file, dr_close_file, dr_create_dir,
@@ -142,6 +150,7 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
                             drmemtrace_close_file_func_t close_file_func,
                             drmemtrace_create_dir_func_t create_dir_func)
 {
+    /* We don't check op_offline b/c option parsing may not have happened yet. */
     if (open_file_func != NULL)
         file_ops_func.open_file = open_file_func;
     if (read_file_func != NULL)
@@ -152,6 +161,18 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
         file_ops_func.close_file = close_file_func;
     if (create_dir_func != NULL)
         file_ops_func.create_dir = create_dir_func;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
+                          drmemtrace_exit_func_t exit_func,
+                          void *exit_func_arg)
+{
+    /* We don't check op_offline b/c option parsing may not have happened yet. */
+    file_ops_func.handoff_buf = handoff_func;
+    file_ops_func.exit_cb = exit_func;
+    file_ops_func.exit_arg = exit_func_arg;
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -194,6 +215,42 @@ static int      tls_idx;
 #define BUF_HDR_SLOTS 1
 static size_t buf_hdr_slots_size;
 
+static void
+create_buffer(per_thread_t *data)
+{
+    data->buf_base = (byte *)
+        dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    /* For file_ops_func.handoff_buf we have to handle failure as OOM is not unlikely. */
+    if (data->buf_base == NULL) {
+        /* Switch to "reserve" buffer. */
+        if (data->reserve_buf == NULL) {
+            NOTIFY(0, "Fatal error: out of memory and cannot recover.\n");
+            dr_abort();
+        }
+        NOTIFY(0, "Out of memory: truncating further tracing.\n");
+        data->buf_base = data->reserve_buf;
+        /* Avoid future buffer output. */
+        op_max_trace_size.set_value(data->bytes_written - 1);
+        return;
+    }
+    /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset */
+    /* set sentinel (non-zero) value in redzone */
+    memset(data->buf_base + trace_buf_size, -1, redzone_size);
+    data->num_buffers++;
+    if (data->num_buffers == 2) {
+        /* Create a "reserve" buffer so we can continue after hitting OOM later.
+         * It is much simpler to keep running the same instru that writes to a
+         * buffer and just never write it out, similarly to how we handle
+         * -max_trace_size.  This costs us some memory (not for idle threads: that's
+         * why we wait for the 2nd buffer) but we gain simplicity.
+         */
+        data->reserve_buf = (byte *)
+            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        if (data->reserve_buf != NULL)
+            memset(data->reserve_buf + trace_buf_size, -1, redzone_size);
+    }
+}
+
 static inline byte *
 atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
 {
@@ -215,8 +272,14 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
     if (op_offline.get_value()) {
         per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
-        if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
-            NOTIFY(0, "Fatal error: failed to write trace");
+        if (file_ops_func.handoff_buf != NULL) {
+            if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
+                                           max_buf_size)) {
+                NOTIFY(0, "Fatal error: failed to hand off trace\n");
+                dr_abort();
+            }
+        } else if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
+            NOTIFY(0, "Fatal error: failed to write trace\n");
             dr_abort();
         }
         return towrite_start;
@@ -231,10 +294,17 @@ memtrace(void *drcontext, bool skip_size_cap)
     byte *mem_ref, *buf_ptr;
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
+    size_t header_size = buf_hdr_slots_size;
 
     buf_ptr = BUF_PTR(data->seg_base);
-    /* The initial slot is left empty for the header entry, which we add here */
-    instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
+    /* The initial slot is left empty for the header entry, which we add here,
+     * unless this is the very first buffer for this thread, in which case it
+     * already has a header.
+     */
+    if (data->num_refs == 0 && op_offline.get_value())
+        header_size = data->init_header_size;
+    else
+        instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
@@ -248,7 +318,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         data->bytes_written += buf_ptr - pipe_start;
 
     if (do_write) {
-        for (mem_ref = data->buf_base + buf_hdr_slots_size; mem_ref < buf_ptr;
+        for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
              mem_ref += instru->sizeof_entry()) {
             data->num_refs++;
             if (have_phys && op_use_physical.get_value()) {
@@ -297,14 +367,19 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
     }
 
-    // Our instrumentation reads from buffer and skips the clean call if the
-    // content is 0, so we need set zero in the trace buffer and set non-zero
-    // in redzone.
-    memset(data->buf_base, 0, trace_buf_size);
-    redzone = data->buf_base + trace_buf_size;
-    if (buf_ptr > redzone) {
-        // Set sentinel (non-zero) value in redzone
-        memset(redzone, -1, buf_ptr - redzone);
+    if (do_write && file_ops_func.handoff_buf != NULL) {
+        // The owner of the handoff callback now owns the buffer, and we get a new one.
+        create_buffer(data);
+    } else {
+        // Our instrumentation reads from buffer and skips the clean call if the
+        // content is 0, so we need set zero in the trace buffer and set non-zero
+        // in redzone.
+        memset(data->buf_base, 0, trace_buf_size);
+        redzone = data->buf_base + trace_buf_size;
+        if (buf_ptr > redzone) {
+            // Set sentinel (non-zero) value in redzone
+            memset(redzone, -1, buf_ptr - redzone);
+        }
     }
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
 }
@@ -549,7 +624,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if (drreg_reserve_register(drcontext, bb, instr, &rvec, &reg_ptr) != DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tmp) != DRREG_SUCCESS) {
         // We can't recover.
-        NOTIFY(0, "Fatal error: failed to reserve scratch registers");
+        NOTIFY(0, "Fatal error: failed to reserve scratch registers\n");
         dr_abort();
     }
     drvector_delete(&rvec);
@@ -687,7 +762,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
-    memtrace(drcontext, false);
+    if (file_ops_func.handoff_buf == NULL)
+        memtrace(drcontext, false);
     return true;
 }
 
@@ -699,23 +775,15 @@ event_thread_init(void *drcontext)
     per_thread_t *data = (per_thread_t *)
         dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
+    memset(data, 0, sizeof(*data));
     drmgr_set_tls_field(drcontext, tls_idx, data);
 
     /* Keep seg_base in a per-thread data structure so we can get the TLS
      * slot and find where the pointer points to in the buffer.
      */
     data->seg_base = (byte *) dr_get_dr_segment_base(tls_seg);
-    data->buf_base = (byte *)
-        dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-    DR_ASSERT(data->seg_base != NULL && data->buf_base != NULL);
-    /* clear trace buffer */
-    memset(data->buf_base, 0, trace_buf_size);
-    /* set sentinel (non-zero) value in redzone */
-    memset(data->buf_base + trace_buf_size, -1, redzone_size);
-    /* put buf_base to TLS plus header slots as starting buf_ptr */
-    BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
-    data->num_refs = 0;
-    data->bytes_written = 0;
+    DR_ASSERT(data->seg_base != NULL);
+    create_buffer(data);
 
     if (op_offline.get_value()) {
         /* We do not need to call drx_init before using drx_open_unique_appid_file.
@@ -742,19 +810,31 @@ event_thread_init(void *drcontext)
                 break;
         }
         if (i == NUM_OF_TRIES) {
-            NOTIFY(0, "Fatal error: failed to create trace file %s", buf);
+            NOTIFY(0, "Fatal error: failed to create trace file %s\n", buf);
             dr_abort();
         }
         NOTIFY(2, "Created thread trace file %s\n", buf);
-    }
 
-    /* pass pid and tid to the simulator to register current thread */
-    proc_info = (byte *)buf;
-    DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
-    proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
-    proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
-    proc_info += instru->append_pid(proc_info, dr_get_process_id());
-    write_trace_data(drcontext, (byte *)buf, proc_info);
+        /* Write initial headers at the top of the first buffer. */
+        data->init_header_size =
+            instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
+        BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size;
+        BUF_PTR(data->seg_base) +=
+            instru->append_tid(BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
+        BUF_PTR(data->seg_base) +=
+            instru->append_pid(BUF_PTR(data->seg_base), dr_get_process_id());
+    } else {
+        /* pass pid and tid to the simulator to register current thread */
+        proc_info = (byte *)buf;
+        DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
+        proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
+        proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
+        proc_info += instru->append_pid(proc_info, dr_get_process_id());
+        write_trace_data(drcontext, (byte *)buf, proc_info);
+
+        /* put buf_base to TLS plus header slots as starting buf_ptr */
+        BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+    }
 
     // XXX i#1729: gather and store an initial callstack for the thread.
 }
@@ -781,6 +861,8 @@ event_thread_exit(void *drcontext)
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
     dr_raw_mem_free(data->buf_base, max_buf_size);
+    if (data->reserve_buf != NULL)
+        dr_raw_mem_free(data->reserve_buf, max_buf_size);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
@@ -798,6 +880,10 @@ event_exit(void)
         file_ops_func.close_file(module_file);
     else
         ipc_pipe.close();
+
+    if (file_ops_func.exit_cb != NULL)
+        (*file_ops_func.exit_cb)(file_ops_func.exit_arg);
+
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
@@ -898,7 +984,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_offline.get_value()) {
         void *buf;
         if (!init_offline_dir()) {
-            NOTIFY(0, "Failed to create a subdir in %s", op_outdir.get_value().c_str());
+            NOTIFY(0, "Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
             dr_abort();
         }
         /* we use placement new for better isolation */
