@@ -506,11 +506,12 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
 }
 
 drcovlib_status_t
-drmodtrack_dump_buf(char *buf, size_t size)
+drmodtrack_dump_buf(char *buf_start, size_t size, OUT size_t *wrote)
 {
     uint i;
     module_entry_t *entry;
     int len;
+    char *buf = buf_start;
     drcovlib_status_t res =
         drmodtrack_dump_buf_headers(buf, size, module_table.vector.entries, &len);
     if (res != DRCOVLIB_SUCCESS)
@@ -530,6 +531,8 @@ drmodtrack_dump_buf(char *buf, size_t size)
      }
     buf[0] = '\0';
     drvector_unlock(&module_table.vector);
+    if (wrote != NULL)
+        *wrote = buf + 1/*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -541,7 +544,7 @@ drmodtrack_dump(file_t log)
     char *buf;
     do {
         buf = dr_global_alloc(size);
-        res = drmodtrack_dump_buf(buf, size);
+        res = drmodtrack_dump_buf(buf, size, NULL);
         if (res == DRCOVLIB_SUCCESS)
             dr_write_file(log, buf, strlen(buf));
         dr_global_free(buf, size);
