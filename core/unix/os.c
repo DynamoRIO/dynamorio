@@ -2751,10 +2751,10 @@ static void
 replace_thread_id(thread_id_t old, thread_id_t new)
 {
 #ifdef HAVE_TLS
-    thread_id_t new_tid = new;
+    int32_t new_tid = (int32_t) new; /* can't use thread_id_t since it's 64-bits on x64 */
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
-        thread_id_t old_tid;
+        int32_t old_tid; /* can't use thread_id_t since it's 64-bits on x64 */
         READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
         ASSERT(old_tid == old);
     });
@@ -5145,7 +5145,7 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          */
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
     } else
-        return !TEST(EFLAGS_CF, mc->eflags);
+        return !TEST(EFLAGS_CF, mc->xflags);
 #else
     if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
 # if !defined(ARM) && !defined(X64)
@@ -5171,7 +5171,7 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
      * there it doesn't hurt to set CF.
      */
-    mc->eflags &= ~(EFLAGS_CF);
+    mc->xflags &= ~(EFLAGS_CF);
 #endif
     MCXT_SYSCALL_RES(mc) = val;
 }
@@ -5183,7 +5183,7 @@ set_failure_return_val(dcontext_t *dcontext, uint errno_val)
     priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
-    mc->eflags |= EFLAGS_CF;
+    mc->xflags |= EFLAGS_CF;
     MCXT_SYSCALL_RES(mc) = errno_val;
 #else
     MCXT_SYSCALL_RES(mc) = -(int)errno_val;

@@ -90,6 +90,14 @@ typedef struct sigcontext sigcontext_t;
 #  define SC_XBP SC_FIELD(rbp)
 #  define SC_XSI SC_FIELD(rsi)
 #  define SC_XDI SC_FIELD(rdi)
+#  define SC_R8 SC_FIELD(r8)
+#  define SC_R9 SC_FIELD(r9)
+#  define SC_R10 SC_FIELD(r10)
+#  define SC_R11 SC_FIELD(r11)
+#  define SC_R12 SC_FIELD(r12)
+#  define SC_R13 SC_FIELD(r13)
+#  define SC_R14 SC_FIELD(r14)
+#  define SC_R15 SC_FIELD(r15)
 #  ifdef MACOS
 #   define SC_XFLAGS SC_FIELD(rflags)
 #  else

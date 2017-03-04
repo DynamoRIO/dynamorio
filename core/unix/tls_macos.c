@@ -53,16 +53,12 @@
 #define SYS_i386_set_ldt 5
 #define SYS_i386_get_ldt 6
 
-#ifdef X64
-# error TLS NYI
-#else
 /* This is what thread_set_user_ldt and i386_set_ldt give us.
  * XXX: a 32-bit Mac kernel will return 0x3f?
  * If so, update GDT_NUM_TLS_SLOTS in tls.h.
  */
 # define TLS_DR_SELECTOR 0x1f
 # define TLS_DR_INDEX    0x3
-#endif
 
 static uint tls_app_index;
 
@@ -73,7 +69,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
      * and sharing with the app.  No way to read current base?!?
      */
-# error NYI
+    ASSERT_NOT_IMPLEMENTED(false);
 #else
     /* SYS_thread_set_user_ldt looks appealing, as it has built-in kernel
      * support which swaps it on thread switches.
@@ -134,7 +130,7 @@ tls_thread_free(tls_type_t tls_type, int index)
     /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
      * and sharing with the app.  No way to read current base?!?
      */
-# error NYI
+    ASSERT_NOT_IMPLEMENTED(false);
 #else
     int res = dynamorio_mach_dep_syscall(SYS_thread_set_user_ldt, 3,
                                          NULL, 0, 0);
@@ -247,7 +243,12 @@ tls_clear_descriptor(int index)
 int
 tls_dr_index(void)
 {
+#ifdef X64
+    ASSERT_NOT_IMPLEMENTED(false);
+#else
     return TLS_DR_INDEX;
+#endif
+    return 0; /* not reached */
 }
 
 int
@@ -271,7 +272,7 @@ void
 tls_initialize_indices(os_local_state_t *os_tls)
 {
 #ifdef X64
-# error NYI
+    ASSERT_NOT_IMPLEMENTED(false);
 #else
     uint selector = read_thread_register(SEG_GS);
     tls_app_index = SELECTOR_INDEX(selector);

@@ -2335,14 +2335,14 @@ thread_set_self_context(void *cxt)
         buf.xsp = sc->SC_XSP - XSP_SZ; /* extra slot for retaddr */
         buf.xip = sc->SC_XIP;
 # ifdef X64
-        buf.r8  = sc->r8;
-        buf.r9  = sc->r9;
-        buf.r10 = sc->r10;
-        buf.r11 = sc->r11;
-        buf.r12 = sc->r12;
-        buf.r13 = sc->r13;
-        buf.r14 = sc->r14;
-        buf.r15 = sc->r15;
+        buf.r8  = sc->SC_R8;
+        buf.r9  = sc->SC_R9;
+        buf.r10 = sc->SC_R10;
+        buf.r11 = sc->SC_R11;
+        buf.r12 = sc->SC_R12;
+        buf.r13 = sc->SC_R13;
+        buf.r14 = sc->SC_R14;
+        buf.r15 = sc->SC_R15;
 # endif
         dr_longjmp(&buf, sc->SC_XAX);
         return;
@@ -2794,11 +2794,9 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 # endif
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
-#elif defined(MACOS)
-# ifndef X64
+#elif defined(MACOS) && !defined(X64) /* XXX: macos 64-bit support needs work */
     f_new->pinfo = &(f_new->info);
     f_new->puc = &(f_new->uc);
-# endif
     f_new->puc->uc_mcontext = (IF_X64_ELSE(_STRUCT_MCONTEXT64, _STRUCT_MCONTEXT32) *)
         &f_new->mc;
     LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", &handler="PFX"\n", f_new, &f_new->handler);
@@ -2964,7 +2962,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     }
 #endif /* X86 && LINUX */
 
-#ifdef MACOS
+#if defined(MACOS) && !defined(X64)
     /* Update handler field, which is passed to the libc trampoline, to app */
     ASSERT(info->app_sigaction[sig] != NULL);
     ((sigframe_rt_t *)sp)->handler = (app_pc) info->app_sigaction[sig]->handler;
@@ -4308,7 +4306,7 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 /* stub in x86.asm passes our xsp to us */
 # ifdef MACOS
 void
-master_signal_handler_C(handler_t handler, int style, int sig, siginfo_t *info,
+master_signal_handler_C(handler_t handler, int style, int sig, siginfo_t *siginfo,
                         kernel_ucontext_t *ucxt, byte *xsp)
 # else
 void

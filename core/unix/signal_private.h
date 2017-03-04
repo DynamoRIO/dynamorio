@@ -52,6 +52,9 @@
 #elif defined(MACOS)
 #  include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
 #  include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+#  ifdef X64
+#   include <sys/_types/_ucontext64.h> /* for _STRUCT_UCONTEXT64 */
+#  endif
 #endif
 
 #include "os_private.h"

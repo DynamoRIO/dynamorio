@@ -293,11 +293,11 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 } else if (cmd->cmd == LC_SYMTAB) {
                     /* even if stripped, dynamic symbols are in this table */
                     struct symtab_command *symtab = (struct symtab_command *) cmd;
-                    out_data->symtab = (app_pc) symtab->symoff + load_delta +
-                        linkedit_delta;
+                    out_data->symtab = (app_pc) (symtab->symoff + load_delta +
+                        linkedit_delta);
                     out_data->num_syms = symtab->nsyms;
-                    out_data->strtab = (app_pc) symtab->stroff + load_delta +
-                        linkedit_delta;
+                    out_data->strtab = (app_pc) (symtab->stroff + load_delta +
+                        linkedit_delta);
                     out_data->strtab_sz = symtab->strsize;
                 } else if (cmd->cmd == LC_UUID) {
                     memcpy(out_data->uuid, ((struct uuid_command *)cmd)->uuid,
@@ -355,7 +355,7 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
 #ifdef X64
             const x86_thread_state64_t *reg = (const x86_thread_state64_t *)
                 ((char*)cmd + LC_UNIXTHREAD_REGS_OFFS);
-            return (app_pc)reg->__rip + load_delta
+            return (app_pc)reg->__rip + load_delta;
 #else
             const i386_thread_state_t *reg = (const i386_thread_state_t *)
                 ((byte *)cmd + LC_UNIXTHREAD_REGS_OFFS);

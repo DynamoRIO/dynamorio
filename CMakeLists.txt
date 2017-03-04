@@ -268,7 +268,7 @@ endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
 if (APPLE AND X64)
   # XXX #1979: 64-bit OSX is not supported.
-  message(FATAL_ERROR "64-bit Mac OSX is not supported")
+  message(WARNING "64-bit Mac OSX is not supported")
 endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")

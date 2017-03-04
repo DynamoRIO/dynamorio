@@ -231,14 +231,14 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\txcx="PFX"\n", sc->SC_XCX);
     LOG(THREAD, LOG_ASYNCH, 1, "\txax="PFX"\n", sc->SC_XAX);
 #ifdef X64
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r8="PFX"\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\t r9="PFX"\n", sc->r8);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr10="PFX"\n", sc->r10);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr11="PFX"\n", sc->r11);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr12="PFX"\n", sc->r12);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr13="PFX"\n", sc->r13);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr14="PFX"\n", sc->r14);
-    LOG(THREAD, LOG_ASYNCH, 1, "\tr15="PFX"\n", sc->r15);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r8="PFX"\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9="PFX"\n", sc->SC_R8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr10="PFX"\n", sc->SC_R10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr11="PFX"\n", sc->SC_R11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr12="PFX"\n", sc->SC_R12);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr13="PFX"\n", sc->SC_R13);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr14="PFX"\n", sc->SC_R14);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr15="PFX"\n", sc->SC_R15);
 #endif
 
     LOG(THREAD, LOG_ASYNCH, 1, "\txip="PFX"\n", sc->SC_XIP);
