@@ -65,11 +65,12 @@ offline_instru_t::~offline_instru_t()
     drcovlib_status_t res;
     size_t size = 8192;
     char *buf;
+    size_t wrote;
     do {
         buf = (char *)dr_global_alloc(size);
-        res = drmodtrack_dump_buf(buf, size);
+        res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS) {
-            ssize_t written = write_file_func(modfile, buf, strlen(buf));
+            ssize_t written = write_file_func(modfile, buf, wrote - 1/*no null*/);
             DR_ASSERT(written == (ssize_t)strlen(buf));
         }
         dr_global_free(buf, size);

@@ -282,11 +282,12 @@ drmodtrack_dump(file_t file);
 DR_EXPORT
 /**
  * Writes the complete module information to \p buf as a null-terminated string.
- * Returns DRCOVLIB_SUCCESS on success.
+ * Returns DRCOVLIB_SUCCESS on success and stores the number of bytes written to
+ * \p buf (including the terminating null) in \p wrote if \p wrote is not NULL.
  * If the buffer is too small, returns DRCOVLIB_ERROR_BUF_TOO_SMALL.
  */
 drcovlib_status_t
-drmodtrack_dump_buf(char *buf, size_t size);
+drmodtrack_dump_buf(char *buf, size_t size, OUT size_t *wrote);
 
 DR_EXPORT
 /**
