@@ -175,6 +175,7 @@ Further non-compatibility-affecting changes include:
    post-processing support via drmodtrack_offline_write().
  - Added drcachesim customization via drmemtrace_replace_file_ops(),
    drmemtrace_custom_module_data(), and drmemtrace_get_modlist_path().
+ - Added a set_value() function to the \ref page_droption.
 
 **************************************************
 <hr>
@@ -315,7 +316,7 @@ Further non-compatibility-affecting changes include:
    The \p drreg Extension is still considered experimental and its
    interface is subject to change in the next release.
  - Added easy-to-use option declaration and parsing for C++ clients
-   and standalone applications via a new Extension, \p droption,
+   and standalone applications via a new Extension, the \ref page_droption
    and the #droption_t class.
  - Added a new tool: \ref page_drcachesim, a multi-process cache simulator.
  - Added a new tool: \ref page_drcpusim, a CPU simulator for illegal

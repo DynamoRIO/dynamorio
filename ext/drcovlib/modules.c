@@ -506,11 +506,12 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
 }
 
 drcovlib_status_t
-drmodtrack_dump_buf(char *buf, size_t size)
+drmodtrack_dump_buf(char *buf_start, size_t size, OUT size_t *wrote)
 {
     uint i;
     module_entry_t *entry;
     int len;
+    char *buf = buf_start;
     drcovlib_status_t res =
         drmodtrack_dump_buf_headers(buf, size, module_table.vector.entries, &len);
     if (res != DRCOVLIB_SUCCESS)
@@ -530,6 +531,8 @@ drmodtrack_dump_buf(char *buf, size_t size)
      }
     buf[0] = '\0';
     drvector_unlock(&module_table.vector);
+    if (wrote != NULL)
+        *wrote = buf + 1/*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 
@@ -541,7 +544,7 @@ drmodtrack_dump(file_t log)
     char *buf;
     do {
         buf = dr_global_alloc(size);
-        res = drmodtrack_dump_buf(buf, size);
+        res = drmodtrack_dump_buf(buf, size, NULL);
         if (res == DRCOVLIB_SUCCESS)
             dr_write_file(log, buf, strlen(buf));
         dr_global_free(buf, size);
@@ -580,7 +583,7 @@ skip_commas_and_spaces(const char *ptr, uint num_skip)
 }
 
 drcovlib_status_t
-drmodtrack_offline_read(file_t file, const char **map,
+drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line,
                         OUT void **handle, OUT uint *num_mods)
 {
     module_read_info_t *info = NULL;
@@ -595,8 +598,10 @@ drmodtrack_offline_read(file_t file, const char **map,
     if (file == INVALID_FILE) {
         if (map == NULL)
             return DRCOVLIB_ERROR_INVALID_PARAMETER;
-        map_start = *map;
+        map_start = map;
     } else {
+        if (next_line != NULL || map != NULL)
+            return DRCOVLIB_ERROR_INVALID_PARAMETER;
         if (!dr_file_size(file, &file_size))
             return DRCOVLIB_ERROR_INVALID_PARAMETER;
         map_size = (size_t)file_size;
@@ -675,10 +680,12 @@ drmodtrack_offline_read(file_t file, const char **map,
             if (dr_sscanf(buf, " %[^\n\r]", info->mod[i].path) != 1)
                 goto read_error;
         }
-        buf = move_to_next_line(buf);
+        /* Avoid reading off the end, unless caller wants to advance to the next line. */
+        if (i < *num_mods - 1 || next_line != NULL)
+            buf = move_to_next_line(buf);
     }
-    if (file == INVALID_FILE)
-        *map = buf;
+    if (file == INVALID_FILE && next_line != NULL)
+        *next_line = buf;
     *handle = (void *)info;
     return DRCOVLIB_SUCCESS;
 
@@ -703,17 +710,23 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
     out->start = info->mod[index].base;
     out->size = (size_t)info->mod[index].size;
     out->path = info->mod[index].path;
+#ifdef WINDOWS
+    out->checksum = info->mod[index].checksum;
+    out->timestamp = info->mod[index].timestamp;
+#endif
     out->custom = info->mod[index].custom;
     return DRCOVLIB_SUCCESS;
 }
 
 drcovlib_status_t
-drmodtrack_offline_write(void *handle, OUT char *buf, size_t size)
+drmodtrack_offline_write(void *handle, OUT char *buf_start, size_t size,
+                         OUT size_t *wrote)
 {
     int len;
     uint i;
     drcovlib_status_t res;
     module_read_info_t *info = (module_read_info_t *)handle;
+    char *buf = buf_start;
     if (info == NULL || buf == NULL)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     res = drmodtrack_dump_buf_headers(buf, size, info->num_mods, &len);
@@ -728,7 +741,9 @@ drmodtrack_offline_write(void *handle, OUT char *buf, size_t size)
         buf += len;
         size -= len;
     }
-    buf[size-1] = '\0';
+    *buf = '\0';
+    if (wrote != NULL)
+        *wrote = buf + 1/*null*/ - buf_start;
     return DRCOVLIB_SUCCESS;
 }
 

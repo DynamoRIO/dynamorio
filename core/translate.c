@@ -412,12 +412,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
             reg_t value;
             if (walk->reg_tls[r]) {
                 value = *(reg_t *)(((byte*)&tdcontext->local_state->spill_space) +
-                                   /* special handling r10, mangle instr inserted
-                                    * in mangle_syscall_arch
-                                    */
-                                   (IF_ARM(reg == DR_REG_R10 ?
-                                           reg_spill_tls_offs(DR_REG_R1) :)
-                                    reg_spill_tls_offs(reg)));
+                                   reg_spill_tls_offs(reg));
             } else {
                 value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }

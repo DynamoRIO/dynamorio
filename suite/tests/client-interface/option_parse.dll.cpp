@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -127,6 +127,11 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
                op_takes2.get_value().first.c_str(), op_takes2.get_value().second.c_str());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
+
+    // Test set_value.
+    unsigned int old_x = op_x.get_value();
+    op_x.set_value(old_x + 3);
+    ASSERT(op_x.get_value() == old_x + 3);
 
     // Minimal sanity check that dr_parse_options() works, but 2nd parsing is
     // not really supported by droption.

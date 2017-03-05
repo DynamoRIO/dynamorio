@@ -347,6 +347,17 @@ static byte *app_brk_cur;
 static byte *app_brk_end;
 #endif
 
+#ifdef MACOS
+/* xref i#1404: we should expose these via the dr_get_os_version() API */
+static int macos_version;
+# define MACOS_VERSION_SIERRA 16
+# define MACOS_VERSION_EL_CAPITAN 15
+# define MACOS_VERSION_YOSEMITE 14
+# define MACOS_VERSION_MAVERICKS 13
+# define MACOS_VERSION_MOUNTAIN_LION 12
+# define MACOS_VERSION_LION 11
+#endif
+
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
 
@@ -819,6 +830,7 @@ get_uname(void)
             SYSLOG(SYSLOG_WARNING, UNSUPPORTED_OS_VERSION, 3, get_application_name(),
                    get_application_pid(), uinfo.release);
         }
+        macos_version = kernel_major;
     }
 #endif
 }
@@ -1135,23 +1147,22 @@ get_timer_frequency()
 uint
 query_time_seconds(void)
 {
-#ifdef MACOS
-    struct timeval tv;
-    /* MacOS returns usecs:secs and does not set the timeval struct */
-    uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &tv, NULL);
-    if ((int)val < 0)
-        return 0;
-    return (uint)val + UTC_TO_EPOCH_SECONDS;
-#else
-    /* SYS_time is considered obsolete, and is unsupported on ARM */
     struct timeval current_time;
-    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) >= 0) {
+    uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
+#ifdef MACOS
+    /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
+    if (macos_version < MACOS_VERSION_SIERRA) {
+        if ((int)val < 0)
+            return 0;
+        return (uint)val + UTC_TO_EPOCH_SECONDS;
+    }
+#endif
+    if ((int)val >= 0) {
         return current_time.tv_sec + UTC_TO_EPOCH_SECONDS;
     } else {
         ASSERT_NOT_REACHED();
         return 0;
     }
-#endif
 }
 
 /* milliseconds since 1601 */
@@ -1159,15 +1170,17 @@ uint64
 query_time_millis()
 {
     struct timeval current_time;
-#ifdef MACOS
-    /* MacOS returns usecs:secs and does not set the timeval struct */
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
-    current_time.tv_sec = (uint) val;
-    current_time.tv_usec = (uint)(val >> 32);
-    if ((int)val > 0) {
-#else
-    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) >= 0) {
+#ifdef MACOS
+    /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
+    if (macos_version < MACOS_VERSION_SIERRA) {
+        if ((int)val > 0) {
+            current_time.tv_sec = (uint) val;
+            current_time.tv_usec = (uint)(val >> 32);
+        }
+    }
 #endif
+    if ((int)val >= 0) {
         uint64 res = (((uint64)current_time.tv_sec) * 1000) +
             (current_time.tv_usec / 1000);
         res += UTC_TO_EPOCH_SECONDS * 1000;
@@ -1183,15 +1196,17 @@ uint64
 query_time_micros()
 {
     struct timeval current_time;
-#ifdef MACOS
-    /* MacOS returns usecs:secs and does not set the timeval struct */
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
-    current_time.tv_sec = (uint) val;
-    current_time.tv_usec = (uint)(val >> 32);
-    if ((int)val > 0) {
-#else
-    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) >= 0) {
+#ifdef MACOS
+    /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
+    if (macos_version < MACOS_VERSION_SIERRA) {
+        if ((int)val > 0) {
+            current_time.tv_sec = (uint) val;
+            current_time.tv_usec = (uint)(val >> 32);
+        }
+    }
 #endif
+    if ((int)val >= 0) {
         uint64 res = (((uint64)current_time.tv_sec) * 1000000) +
             current_time.tv_usec;
         res += UTC_TO_EPOCH_SECONDS * 1000000;

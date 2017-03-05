@@ -106,21 +106,23 @@ event_exit(void)
 
     char *buf_online;
     size_t size_online = 8192;
+    size_t wrote;
     do {
         buf_online = (char *)dr_global_alloc(size_online);
-        res = drmodtrack_dump_buf(buf_online, size_online);
+        res = drmodtrack_dump_buf(buf_online, size_online, &wrote);
         if (res == DRCOVLIB_SUCCESS)
             break;
         dr_global_free(buf_online, size_online);
         size_online *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     CHECK(res == DRCOVLIB_SUCCESS, "module dump to buf failed");
+    CHECK(wrote == strlen(buf_online) + 1/*null*/, "returned size off");
 
     /* Now test offline features. */
     void *modhandle;
     uint num_mods;
     f = dr_open_file(fname, DR_FILE_READ);
-    res = drmodtrack_offline_read(f, NULL, &modhandle, &num_mods);
+    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle, &num_mods);
     CHECK(res == DRCOVLIB_SUCCESS, "read failed");
 
     for (uint i = 0; i < num_mods; ++i) {
@@ -135,7 +137,7 @@ event_exit(void)
     size_t size_offline = 8192;
     do {
         buf_offline = (char *)dr_global_alloc(size_offline);
-        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline);
+        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline, &wrote);
         if (res == DRCOVLIB_SUCCESS)
             break;
         dr_global_free(buf_offline, size_offline);
@@ -143,6 +145,7 @@ event_exit(void)
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     CHECK(res == DRCOVLIB_SUCCESS, "offline write failed");
     CHECK(size_online == size_offline, "sizes do not match");
+    CHECK(wrote == strlen(buf_offline) + 1/*null*/, "returned size off");
     CHECK(strcmp(buf_online, buf_offline) == 0, "buffers do not match");
 
     dr_close_file(f);

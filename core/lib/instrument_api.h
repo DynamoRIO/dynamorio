@@ -2099,6 +2099,8 @@ DR_API
  * thus is not kept separate from the application. Use of this memory is at the
  * client's own risk.
  *
+ * The resulting memory is guaranteed to be initialized to all zeroes.
+ *
  * Returns the actual address allocated or NULL if memory allocation at
  * preferred base fails.
  */

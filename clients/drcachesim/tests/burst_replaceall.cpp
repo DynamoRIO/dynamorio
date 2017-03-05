@@ -40,7 +40,8 @@
  */
 #include "dr_api.h"
 #include "drmemtrace.h"
-#include "drcovlib.h"
+#include "drvector.h"
+#include "../../../suite/tests/client_tools.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
@@ -57,6 +58,29 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
+/* We have combine all the chunks into one global list, and at process exit
+ * we split them into thread files.  To identify which file we map a sentinel
+ * for the module list and the thread id's to file_t.
+ */
+
+drvector_t all_buffers;
+#define ALL_BUFFERS_INIT_SIZE 256
+
+#define MODULE_FILENO 0
+
+typedef struct _buf_entry_t {
+    file_t id; /* MODULE_FILENO or thread id */
+    void *data;
+    size_t data_size;
+    size_t alloc_size;
+} buf_entry_t;
+
+static void
+free_entry(void *e) {
+    buf_entry_t *entry = (buf_entry_t *) e;
+    dr_global_free(entry, sizeof(*entry));
+}
+
 static int
 do_some_work(int i)
 {
@@ -71,149 +95,112 @@ do_some_work(int i)
 static file_t
 local_open_file(const char *fname, uint mode_flags)
 {
-    /* This is called within the DR context, so we use DR
-     * functions for transparency.
-     */
-    file_t f = dr_open_file(fname, mode_flags);
-    dr_fprintf(STDERR, "open file %s with flag 0x%x @ %d\n",
-               fname, mode_flags, f);
-    return f;
+    static bool called;
+    if (!called) {
+        called = true;
+        /* This is where we initialize because DR is now initialized. */
+        drvector_init(&all_buffers, ALL_BUFFERS_INIT_SIZE, false, free_entry);
+        return MODULE_FILENO;
+    }
+    return (file_t)dr_get_thread_id(dr_get_current_drcontext());
 }
 
 static ssize_t
 local_read_file(file_t file, void *data, size_t count)
 {
-    /* This is called within the DR context, so we use DR
-     * functions for transparency.
-     */
-    ssize_t res = dr_read_file(file, data, count);
-    dr_fprintf(STDERR, "reading %u bytes from file %d to @ " PFX
-               ", actual read %d bytes\n",
-               count, file, data, res);
-    return res;
+    return 0; /* not used */
 }
 
 static ssize_t
 local_write_file(file_t file, const void *data, size_t size)
 {
-    static int count = 0;
-    /* This is called within the DR context, so we use DR
-     * functions for transparency.
-     */
-    ssize_t res = dr_write_file(file, data, size);
-    dr_fprintf(STDERR, "%d: writing %u bytes @ " PFX
-               " to file %d, actual write %d bytes\n",
-               count, size, data, file, res);
-    /* Assuming it is a single-threaded app, we do not worry about
-     * racy access on count.
-     */
-    if (count++ == 1) {
-        dr_fprintf(STDERR, "restore the write file function\n");
-        drmemtrace_replace_file_ops(NULL, NULL, dr_write_file, NULL, NULL);
+    if (file == MODULE_FILENO) {
+        void *copy = dr_raw_mem_alloc(size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        memcpy(copy, data, size);
+        drvector_lock(&all_buffers);
+        buf_entry_t *entry = (buf_entry_t *) dr_global_alloc(sizeof(*entry));
+        entry->id = file;
+        entry->data = copy;
+        entry->data_size = size;
+        entry->alloc_size = size;
+        drvector_append(&all_buffers, entry);
+        drvector_unlock(&all_buffers);
+        return size;
     }
-    return res;
+    ASSERT(false); /* Shouldn't be called. */
+    return 0;
+}
+
+static bool
+handoff_cb(file_t file, void *data, size_t data_size, size_t alloc_size)
+{
+    drvector_lock(&all_buffers);
+    buf_entry_t *entry = (buf_entry_t *) dr_global_alloc(sizeof(*entry));
+    entry->id = file;
+    entry->data = data;
+    entry->data_size = data_size;
+    entry->alloc_size = alloc_size;
+    drvector_append(&all_buffers, entry);
+    drvector_unlock(&all_buffers);
+    return true;
 }
 
 static void
 local_close_file(file_t file)
 {
-    /* This is called within the DR context, so we use DR
-     * functions for transparency.
-     */
-    dr_fprintf(STDERR, "close file %d\n", file);
-    dr_close_file(file);
+    /* Nothing. */
 }
 
 static bool
 local_create_dir(const char *dir)
 {
-    bool res = dr_create_dir(dir);
-    /* This is called within the DR context, so we use DR
-     * functions for transparency.
-     */
-    dr_fprintf(STDERR, "create dir %s %s\n",
-               res ? "successfully" : "failed to", dir);
-    return res;
-}
-
-static void *
-load_cb(module_data_t *module)
-{
-    return (void *)module->start;
-}
-
-static int
-print_cb(void *data, char *dst, size_t max_len)
-{
-    return dr_snprintf(dst, max_len, PFX",", data);
-}
-
-static const char *
-parse_cb(const char *src, OUT void **data)
-{
-    const char *res;
-    if (dr_sscanf(src, PIFX",", data) != 1)
-        return NULL;
-    res = strchr(src, ',');
-    return (res == NULL) ? NULL : res + 1;
+    return dr_create_dir(dir);
 }
 
 static void
-free_cb(void *data)
+exit_cb(void *arg)
 {
-    /* Nothing. */
-}
-
-static void
-post_process()
-{
-    /* We now remove the custom field, so our test can go through regular
-     * raw2trace processing.
-     */
-    void *drcovlib = dr_standalone_init();
-    drcovlib_status_t res =
-        drmodtrack_add_custom_data(NULL, NULL, parse_cb, free_cb);
-    assert(res == DRCOVLIB_SUCCESS);
+    assert(arg == (void *)&all_buffers);
+    uint i;
+    file_t f;
+    char path[MAXIMUM_PATH];
     const char *modlist_path;
     drmemtrace_status_t mem_res = drmemtrace_get_modlist_path(&modlist_path);
     assert(mem_res == DRMEMTRACE_SUCCESS);
-    dr_fprintf(STDERR, "processing %s\n", modlist_path);
-    file_t f = dr_open_file(modlist_path, DR_FILE_READ);
-    assert(f != INVALID_FILE);
-    void *modhandle;
-    uint num_mods;
-    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle, &num_mods);
-    assert(res == DRCOVLIB_SUCCESS);
+    const char *slash = strrchr(modlist_path, '/');
+#ifdef WINDOWS
+    const char *bslash = strrchr(modlist_path, '\\');
+    if (bslash != NULL && bslash > slash)
+        slash = bslash;
+#endif
+    assert(slash != NULL);
+    int len = dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s", slash - modlist_path,
+                          modlist_path);
+    assert(len > 0);
+    NULL_TERMINATE_BUFFER(path);
 
-    for (uint i = 0; i < num_mods; ++i) {
-        drmodtrack_info_t info = {sizeof(info),};
-        res = drmodtrack_offline_lookup(modhandle, i, &info);
-        assert(res == DRCOVLIB_SUCCESS);
-        assert(((app_pc)info.custom) == info.start ||
-               info.containing_index != i);
+    std::cerr << "processing " << all_buffers.entries << " buffers\n";
+    drvector_lock(&all_buffers);
+    for (i = 0; i < all_buffers.entries; ++i) {
+        buf_entry_t *entry = (buf_entry_t *)drvector_get_entry(&all_buffers, i);
+        if (entry->id == MODULE_FILENO) {
+            std::cerr << "creating module file " << modlist_path << "\n";
+            f = dr_open_file(modlist_path, DR_FILE_WRITE_OVERWRITE);
+        } else {
+            char fname[MAXIMUM_PATH];
+            len = dr_snprintf(fname, BUFFER_SIZE_ELEMENTS(fname), "%s/%d.raw",
+                              path, entry->id);
+            assert(len > 0);
+            NULL_TERMINATE_BUFFER(fname);
+            f = dr_open_file(fname, DR_FILE_WRITE_APPEND);
+        }
+        assert(f != INVALID_FILE);
+        dr_write_file(f, entry->data, entry->data_size);
+        dr_close_file(f);
+        dr_raw_mem_free(entry->data, entry->alloc_size);
     }
-
-    char *buf_offline;
-    size_t size_offline = 8192;
-    size_t wrote;
-    do {
-        buf_offline = (char *)dr_global_alloc(size_offline);
-        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline, &wrote);
-        if (res == DRCOVLIB_SUCCESS)
-            break;
-        dr_global_free(buf_offline, size_offline);
-        size_offline *= 2;
-    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
-    assert(res == DRCOVLIB_SUCCESS);
-    assert(wrote == strlen(buf_offline) + 1/*null*/);
-    dr_close_file(f);
-    drmodtrack_offline_exit(modhandle);
-
-    /* Now replace the file */
-    f = dr_open_file(modlist_path, DR_FILE_WRITE_OVERWRITE);
-    assert(f != INVALID_FILE);
-    dr_write_file(f, buf_offline, wrote - 1/*don't need null in file*/);
-    dr_close_file(f);
+    drvector_unlock(&all_buffers);
+    drvector_delete(&all_buffers);
 }
 
 int
@@ -232,8 +219,7 @@ main(int argc, const char *argv[])
         drmemtrace_replace_file_ops(local_open_file, local_read_file, local_write_file,
                                     local_close_file, local_create_dir);
     assert(res == DRMEMTRACE_SUCCESS);
-    std::cerr << "add custom module data\n";
-    res = drmemtrace_custom_module_data(load_cb, print_cb, free_cb);
+    res = drmemtrace_buffer_handoff(handoff_cb, exit_cb, (void *)&all_buffers);
     assert(res == DRMEMTRACE_SUCCESS);
     std::cerr << "pre-DR init\n";
     dr_app_setup();
@@ -255,9 +241,6 @@ main(int argc, const char *argv[])
             dr_app_stop_and_cleanup();
         }
     }
-
-    /* We have to handle the custom field for post-processing now */
-    post_process();
 
     std::cerr << "all done\n";
     return 0;

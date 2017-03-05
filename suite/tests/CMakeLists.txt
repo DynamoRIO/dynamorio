@@ -1688,6 +1688,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
     tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
   endif (X86)
+  tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
   if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
     if (NOT ANDROID) # XXX i#1874: get working on Android
@@ -2474,6 +2475,9 @@ if (CLIENT_INTERFACE)
         torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace)
         set(tool.drcacheoff.burst_replace_nodr ON)
 
+        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall)
+        set(tool.drcacheoff.burst_replaceall_nodr ON)
+
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads)
@@ -2916,6 +2920,9 @@ else (UNIX)
   tobuild(win32.winapc win32/winapc.c)
   tobuild(win32.winthread win32/winthread.c)
   tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
+  tobuild(security-win32.except-int2d security-win32/except-int2d.c)
+  tobuild(security-win32.except-guard security-win32/except-guard.c)
+
   tobuild(win32.threadterm win32/threadterm.c)
 
   tobuild_dll(win32.earlythread win32/earlythread.c "")
@@ -2947,7 +2954,6 @@ else (UNIX)
     # we match exe addresses in output so no ASLR
     append_link_flags(security-win32.except-execution "/dynamicbase:no")
 
-    tobuild(security-win32.except-guard security-win32/except-guard.c)
     tobuild(security-win32.except-thread security-win32/except-thread.c)
     tobuild(security-win32.gbop-test security-win32/gbop-test.c)
 
