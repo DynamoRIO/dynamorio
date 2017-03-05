@@ -398,9 +398,12 @@ unit_test_drwinapi_advapi32(void)
     res = redirect_RegQueryValueExA(key, "SystemRoot", 0, &type, (LPBYTE) buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_SZ, true);
-    print_file(STDERR, "SystemRoot is |%s|\n", buf);//REMOVE
     EXPECT(strstr(buf, "Windows") != NULL ||
-           strstr(buf, "WINDOWS") != NULL, true);
+           strstr(buf, "WINDOWS") != NULL ||
+           /* Appveyor's Server 2012 R2 is all lower-case.
+            * If we had a stristr I'd use it here.
+            */
+           strstr(buf, "windows") != NULL, true);
 
     size = 0;
     res = redirect_RegQueryValueExA(key, "SystemRoot", 0, NULL, NULL, &size);
