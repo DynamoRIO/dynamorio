@@ -464,15 +464,8 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* XXX PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?
          */
-#ifdef X86
-        PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
-                             opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                                   stack_for_params, OPSZ_lea)));
-#elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif
+        PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
+                                           OPND_CREATE_INT32(stack_for_params)));
     }
 
 #ifdef CLIENT_INTERFACE
