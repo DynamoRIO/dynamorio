@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -398,6 +398,7 @@ unit_test_drwinapi_advapi32(void)
     res = redirect_RegQueryValueExA(key, "SystemRoot", 0, &type, (LPBYTE) buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_SZ, true);
+    print_file(STDERR, "SystemRoot is |%s|\n", buf);//REMOVE
     EXPECT(strstr(buf, "Windows") != NULL ||
            strstr(buf, "WINDOWS") != NULL, true);
 
