@@ -1407,12 +1407,14 @@ vmm_heap_exit()
                    heapmgt->vmheap.num_free_blocks == heapmgt->vmheap.num_blocks
                    - unfreed_blocks ||
                    /* >=, not ==, b/c if we hit the vmm limit the cur dstack
-                    * could be outside of vmm (i#1164)
+                    * could be outside of vmm (i#1164).
                     */
-                   (ever_beyond_vmm && heapmgt->vmheap.num_free_blocks >=
+                   ((ever_beyond_vmm
+                     /* This also happens for dstacks up high for DrMi#1723. */
+                     IF_WINDOWS(|| get_os_version() >= WINDOWS_VERSION_8_1)) &&
+                    heapmgt->vmheap.num_free_blocks >=
                     heapmgt->vmheap.num_blocks - unfreed_blocks));
         });
-
         /* FIXME: On process exit we are currently executing off a
          *  stack in this region so we cannot free the whole allocation.
 
