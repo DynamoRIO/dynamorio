@@ -8500,17 +8500,21 @@ early_inject_init()
         case WINDOWS_VERSION_8:
         case WINDOWS_VERSION_8_1:
         case WINDOWS_VERSION_10:
+        case WINDOWS_VERSION_10_1511:
+        case WINDOWS_VERSION_10_1607:
             /* LdrLoadDll is best but LdrpLoadDll seems to work just as well
-             * (FIXME would it be better just to use that so matches XP?),
+             * (XXX: would it be better just to use that so matches XP?),
              * LdrpLoadImportModule also works but it misses the load of
-             * kernel32. */
+             * kernel32.
+             */
             early_inject_location = INJECT_LOCATION_LdrLoadDll;
             break;
         default:
             /* is prob. a newer windows version so the 2003 location is the
-             * most likely to work */
+             * most likely to work
+             */
             early_inject_location = INJECT_LOCATION_LdrLoadDll;
-            ASSERT_NOT_REACHED();
+            ASSERT(os_version > WINDOWS_VERSION_10);
         }
     }
     ASSERT(early_inject_location != INJECT_LOCATION_LdrDefault);
