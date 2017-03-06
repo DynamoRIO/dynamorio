@@ -516,6 +516,8 @@ dynamorio_app_init(void)
          * N.B.: we never de-allocate initstack (see comments in app_exit)
          */
         initstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
+        LOG(GLOBAL, LOG_SYNCH, 2, "initstack is "PFX"-"PFX"\n",
+            initstack - DYNAMORIO_STACK_SIZE, initstack);
 
 #if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
         /* PR203701: separate stack for error reporting when the
@@ -2233,7 +2235,8 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
         IF_CLIENT_INTERFACE_ELSE(client_thread ? "CLIENT " : "", ""),
         get_thread_id(), dcontext);
     LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
-        "DR stack is "PFX"-"PFX"\n", dcontext->dstack - DYNAMORIO_STACK_SIZE, dcontext->dstack);
+        "DR stack is "PFX"-"PFX"\n", dcontext->dstack - DYNAMORIO_STACK_SIZE,
+        dcontext->dstack);
 #endif
 
 #ifdef DEADLOCK_AVOIDANCE

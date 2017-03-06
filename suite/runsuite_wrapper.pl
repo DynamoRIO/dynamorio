@@ -115,10 +115,6 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                   'code_api|client.nudge_ex' => 1);
         my %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
                                   'code_api|win32.reload-newaddr' => 1,
-                                  'code_api|win32.mixedmode' => 1,
-                                  'code_api|win32.x86_to_x64' => 1,
-                                  'code_api|win32.x86_to_x64_ibl_opt' => 1,
-                                  'code_api|win32.mixedmode_late' => 1,
                                   'code_api|client.loader' => 1,
                                   'code_api|client.nudge_ex' => 1,
                                   'code_api|api.static_noclient' => 1,
