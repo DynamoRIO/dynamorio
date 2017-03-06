@@ -998,6 +998,13 @@ set_executable_path(const char *exe_path)
     NULL_TERMINATE_BUFFER(executable_path);
 }
 
+/* The OSX kernel used to place the bare executable path above envp.
+ * On recent XNU versions, the kernel now prefixes the executable path
+ * with the string executable_path= so it can be parsed getenv style.
+ */
+#ifdef MACOS
+# define EXECUTABLE_KEY "executable_path="
+#endif
 /* i#189: we need to re-cache after a fork */
 static char *
 get_application_name_helper(bool ignore_cache, bool full_path)
@@ -1024,6 +1031,9 @@ get_application_name_helper(bool ignore_cache, bool full_path)
             } while (*env != NULL);
             env++; /* Skip the NULL separating the envp array from exec_path */
             c = *env;
+            if (strncmp(EXECUTABLE_KEY, c, strlen(EXECUTABLE_KEY)) == 0) {
+                c += strlen(EXECUTABLE_KEY);
+            }
             /* If our frontends always absolute-ize paths prior to exec,
              * this should usually be absolute -- but we go ahead and
              * handle relative just in case (and to handle child processes).
