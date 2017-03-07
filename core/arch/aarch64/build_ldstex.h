@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2017 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,10 +30,17 @@
  * DAMAGE.
  */
 
-#ifndef CODEC_H
-#define CODEC_H 1
+#ifndef BUILD_LDSTEX_H
+#define BUILD_LDSTEX_H 1
 
-byte *decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr);
-uint encode_common(byte *pc, instr_t *i);
+byte *
+decode_common_with_ldstex(dcontext_t *dcontext, byte *pc, byte *orig_pc,
+                          instr_t *instr);
 
-#endif /* CODEC_H */
+byte *
+decode_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr);
+
+byte *
+decode_cti_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr);
+
+#endif /* BUILD_LDSTEX_H */

@@ -120,9 +120,5 @@ DR_UNS_API
 byte *
 decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
-#ifdef AARCH64
-byte *
-decode_cti_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr);
-#endif
 
 #endif /* DECODE_FAST_H */

@@ -79,6 +79,10 @@
 # include "../annotations.h"
 #endif
 
+#ifdef AARCH64
+# include "build_ldstex.h"
+#endif
+
 enum { DIRECT_XFER_LENGTH = 5 };
 
 /* forward declarations */

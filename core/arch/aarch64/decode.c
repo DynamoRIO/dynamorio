@@ -85,12 +85,6 @@ decode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 }
 
 byte *
-decode_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr)
-{
-    return decode_common_with_ldstex(dcontext, pc, pc, instr);
-}
-
-byte *
 decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
     return decode_common(dcontext, copy_pc, orig_pc, instr);
@@ -100,12 +94,6 @@ byte *
 decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
     return decode(dcontext, pc, instr);
-}
-
-byte *
-decode_cti_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr)
-{
-    return decode_with_ldstex(dcontext, pc, instr);
 }
 
 byte *
