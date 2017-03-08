@@ -43,6 +43,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
+#include "drx.h"
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -80,6 +81,7 @@ event_exit(void)
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
+    drx_exit();
     drreg_exit();
     drmgr_exit();
 }
@@ -110,52 +112,32 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         bbs_no_eflags_saved++;
 #endif
 
+#if defined(X86)
     /* We demonstrate how to use drreg for aflags save/restore here.
      * We could use drx_insert_counter_update instead of drreg.
      * Xref sample opcodes.c as an example of using drx_insert_counter_update.
      */
     if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false && "fail to reserve aflags!");
-    /* racy update on the counter for better performance */
 
-#if defined(X86)
+    /* racy update on the counter for better performance */
     instrlist_meta_preinsert
         (bb, inst,
          INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
                           ((byte *)&global_count, OPSZ_4)));
-#elif defined(AARCHXX)
-    reg_id_t reg_addr, reg_val, reg_val_32;
-    if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg_addr) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, inst, NULL, &reg_val) != DRREG_SUCCESS)
-        DR_ASSERT(false);
-
-    reg_val_32 = reg_64_to_32(reg_val);
-    instrlist_insert_mov_immed_ptrsz(drcontext, (unsigned long) &global_count,
-                                     opnd_create_reg(reg_addr),
-                                     bb, inst, NULL, NULL);
-    opnd_t mem = opnd_create_base_disp(reg_addr, REG_NULL, 0, 0, OPSZ_4);
-    instrlist_meta_preinsert
-        (bb, inst,
-         INSTR_CREATE_ldr(drcontext, opnd_create_reg_ex(reg_val_32, OPSZ_4, 0), mem));
-    instrlist_meta_preinsert
-        (bb, inst,
-         XINST_CREATE_add(drcontext, opnd_create_reg_ex(reg_val_32, OPSZ_4, 0),
-                          OPND_CREATE_INT(1)));
-    instrlist_meta_preinsert
-        (bb, inst,
-         INSTR_CREATE_str(drcontext, mem, opnd_create_reg_ex(reg_val_32, OPSZ_4, 0)));
-
-
-   if (drreg_unreserve_register(drcontext, bb, inst, reg_addr) != DRREG_SUCCESS ||
-       drreg_unreserve_register(drcontext, bb, inst, reg_val) != DRREG_SUCCESS)
-        DR_ASSERT(false);
-
-#else
-#error NYI
-#endif
 
     if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false && "fail to unreserve aflags!");
+#elif defined(AARCHXX)
+          drx_insert_counter_update(drcontext, bb, inst,
+                                      /* We're using drmgr, so these slots
+                                       * here won't be used: drreg's slots will be.
+                                       */
+                                      SPILL_SLOT_MAX+1, SPILL_SLOT_MAX+1,
+                                      &global_count, 1, 0);
+#else
+#error NYI
+#endif
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
     dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
@@ -170,7 +152,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drreg_options_t ops = {sizeof(ops), 1 /*max slots needed: aflags*/, false};
     dr_set_client_name("DynamoRIO Sample Client 'bbcount'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init() || drreg_init(&ops) || !drx_init() != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     /* register events */
