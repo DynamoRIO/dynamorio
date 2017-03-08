@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -178,7 +178,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
-        if (cmd->cmd == LC_SEGMENT) {
+        if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
             segment_command_t *seg = (segment_command_t *) cmd;
             found_seg = true;
             LOG(GLOBAL, LOG_VMAREAS, 4,
@@ -253,7 +253,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
             /* Now that we have the load delta, we can add the abs addr segments */
             cmd = (struct load_command *)(hdr + 1);
             while (cmd < cmd_stop) {
-                if (cmd->cmd == LC_SEGMENT) {
+                if (cmd->cmd == LC_SEGMENT || cmd->cmd == LC_SEGMENT_64) {
                     segment_command_t *seg = (segment_command_t *) cmd;
                     if (strcmp(seg->segname, "__PAGEZERO") == 0 && seg->initprot == 0) {
                         /* skip */
