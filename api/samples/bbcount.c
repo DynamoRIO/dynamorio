@@ -136,7 +136,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                       SPILL_SLOT_MAX+1, SPILL_SLOT_MAX+1,
                                       &global_count, 1, 0);
 #else
-#error NYI
+#e NYI
 #endif
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
