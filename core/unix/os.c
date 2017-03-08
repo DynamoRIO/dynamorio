@@ -2755,10 +2755,12 @@ replace_thread_id(thread_id_t old, thread_id_t new)
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
         thread_id_t old_tid;
-        READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
+        IF_LINUX_ELSE(READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid),
+                      READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid));
         ASSERT(old_tid == old);
     });
-    WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
+    IF_LINUX_ELSE(WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid),
+                  WRITE_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid));
 #else
     int i;
     mutex_lock(&tls_lock);
@@ -5145,7 +5147,7 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          */
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
     } else
-        return !TEST(EFLAGS_CF, mc->eflags);
+        return !TEST(EFLAGS_CF, mc->xflags);
 #else
     if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
 # if !defined(ARM) && !defined(X64)
@@ -5171,7 +5173,7 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
      * there it doesn't hurt to set CF.
      */
-    mc->eflags &= ~(EFLAGS_CF);
+    mc->xflags &= ~(EFLAGS_CF);
 #endif
     MCXT_SYSCALL_RES(mc) = val;
 }
@@ -5183,7 +5185,7 @@ set_failure_return_val(dcontext_t *dcontext, uint errno_val)
     priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
-    mc->eflags |= EFLAGS_CF;
+    mc->xflags |= EFLAGS_CF;
     MCXT_SYSCALL_RES(mc) = errno_val;
 #else
     MCXT_SYSCALL_RES(mc) = -(int)errno_val;
