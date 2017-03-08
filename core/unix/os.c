@@ -2751,14 +2751,16 @@ static void
 replace_thread_id(thread_id_t old, thread_id_t new)
 {
 #ifdef HAVE_TLS
-    ptr_int_t new_tid = new;
+    thread_id_t new_tid = new;
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
-        ptr_int_t old_tid;
-        READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
+        thread_id_t old_tid;
+        IF_LINUX_ELSE(READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid),
+                      READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid));
         ASSERT(old_tid == old);
     });
-    WRITE_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
+    IF_LINUX_ELSE(WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid),
+                  WRITE_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid));
 #else
     int i;
     mutex_lock(&tls_lock);
