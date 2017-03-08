@@ -106,15 +106,17 @@ event_exit(void)
 
     char *buf_online;
     size_t size_online = 8192;
+    size_t wrote;
     do {
         buf_online = (char *)dr_global_alloc(size_online);
-        res = drmodtrack_dump_buf(buf_online, size_online);
+        res = drmodtrack_dump_buf(buf_online, size_online, &wrote);
         if (res == DRCOVLIB_SUCCESS)
             break;
         dr_global_free(buf_online, size_online);
         size_online *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     CHECK(res == DRCOVLIB_SUCCESS, "module dump to buf failed");
+    CHECK(wrote == strlen(buf_online) + 1/*null*/, "returned size off");
 
     /* Now test offline features. */
     void *modhandle;
@@ -133,7 +135,6 @@ event_exit(void)
 
     char *buf_offline;
     size_t size_offline = 8192;
-    size_t wrote;
     do {
         buf_offline = (char *)dr_global_alloc(size_offline);
         res = drmodtrack_offline_write(modhandle, buf_offline, size_offline, &wrote);

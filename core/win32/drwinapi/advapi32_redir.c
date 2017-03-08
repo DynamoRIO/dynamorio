@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -399,7 +399,11 @@ unit_test_drwinapi_advapi32(void)
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_SZ, true);
     EXPECT(strstr(buf, "Windows") != NULL ||
-           strstr(buf, "WINDOWS") != NULL, true);
+           strstr(buf, "WINDOWS") != NULL ||
+           /* Appveyor's Server 2012 R2 is all lower-case.
+            * If we had a stristr I'd use it here.
+            */
+           strstr(buf, "windows") != NULL, true);
 
     size = 0;
     res = redirect_RegQueryValueExA(key, "SystemRoot", 0, NULL, NULL, &size);
