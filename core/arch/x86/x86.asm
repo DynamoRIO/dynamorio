@@ -1344,13 +1344,12 @@ GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
         * so transparency should be ok so long as the app's stack is valid.
         */
         mov      REG_XDI, REG_XCX /* save across syscall */
+        mov      REG_XAX, PTRSZ [REG_XAX] /* load mach_synch_t->sem */
 #  ifdef X64
-        mov      REG_XAX, QWORD [REG_XAX] /* load mach_synch_t->sem */
         mov      ARG1, REG_XAX
         mov      eax, MACH_semaphore_signal_all_trap
         or       eax, SYSCALL_NUM_MARKER_MACH
 #  else
-        mov      REG_XAX, DWORD [REG_XAX] /* load mach_synch_t->sem */
         push     REG_XAX
         mov      eax, MACH_semaphore_signal_all_trap
         neg      eax

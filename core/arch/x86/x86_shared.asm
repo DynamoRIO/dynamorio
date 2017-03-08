@@ -43,7 +43,7 @@
 #include "../asm_defines.asm"
 #include "x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
 #ifdef MACOS
-# include <include/syscall_mach.h> /* SYSCALL_NUM_MARKER_MACH */
+# include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_MACH */
 #endif
 START_FILE
 

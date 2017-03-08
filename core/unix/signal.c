@@ -2794,13 +2794,17 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 # endif
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
-#elif defined(MACOS) && !defined(X64) /* XXX: macos 64-bit support needs work */
+#elif defined(MACOS)
+# ifdef X64
+    ASSERT_NOT_IMPLEMENTED(false);
+# else
     f_new->pinfo = &(f_new->info);
     f_new->puc = &(f_new->uc);
     f_new->puc->uc_mcontext = (IF_X64_ELSE(_STRUCT_MCONTEXT64, _STRUCT_MCONTEXT32) *)
         &f_new->mc;
     LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", &handler="PFX"\n", f_new, &f_new->handler);
     ASSERT(!for_app || ALIGNED(&f_new->handler, 16));
+# endif
 #endif /* X86 && LINUX */
 }
 
@@ -2962,10 +2966,14 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     }
 #endif /* X86 && LINUX */
 
-#if defined(MACOS) && !defined(X64)
+#ifdef MACOS
+# ifdef X64
+    ASSERT_NOT_IMPLEMENTED(false);
+# else
     /* Update handler field, which is passed to the libc trampoline, to app */
     ASSERT(info->app_sigaction[sig] != NULL);
     ((sigframe_rt_t *)sp)->handler = (app_pc) info->app_sigaction[sig]->handler;
+# endif
 #endif
 }
 
