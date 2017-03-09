@@ -112,32 +112,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         bbs_no_eflags_saved++;
 #endif
 
-#if defined(X86)
-    /* We demonstrate how to use drreg for aflags save/restore here.
-     * We could use drx_insert_counter_update instead of drreg.
-     * Xref sample opcodes.c as an example of using drx_insert_counter_update.
-     */
-    if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
-        DR_ASSERT(false && "fail to reserve aflags!");
-
     /* racy update on the counter for better performance */
-    instrlist_meta_preinsert
-        (bb, inst,
-         INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
-                          ((byte *)&global_count, OPSZ_4)));
-
-    if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
-        DR_ASSERT(false && "fail to unreserve aflags!");
-#elif defined(AARCHXX)
-          drx_insert_counter_update(drcontext, bb, inst,
-                                      /* We're using drmgr, so these slots
-                                       * here won't be used: drreg's slots will be.
-                                       */
-                                      SPILL_SLOT_MAX+1, SPILL_SLOT_MAX+1,
-                                      &global_count, 1, 0);
-#else
-#e NYI
-#endif
+    drx_insert_counter_update(drcontext, bb, inst,
+                              /* We're using drmgr, so these slots
+                               * here won't be used: drreg's slots will be.
+                               */
+                              SPILL_SLOT_MAX+1, IF_AARCHXX_(SPILL_SLOT_MAX+1)
+                              &global_count, 1, 0);
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
     dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
@@ -152,7 +133,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drreg_options_t ops = {sizeof(ops), 1 /*max slots needed: aflags*/, false};
     dr_set_client_name("DynamoRIO Sample Client 'bbcount'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || drreg_init(&ops) || !drx_init() != DRREG_SUCCESS)
+    if (!drmgr_init() || !drx_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     /* register events */
