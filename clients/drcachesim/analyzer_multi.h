@@ -30,44 +30,28 @@
  * DAMAGE.
  */
 
-/* analyzer: represent a memory trace analysis tool that operates only
- * on a file.  We separate this from analyzer_multi, which can operate online
- * or on a raw trace file, to avoid needing to link in DR itself.
+/* analyzer_multi: represent a memory trace analysis tool that can process
+ * a trace from multiple inputs: a file, from a raw file, or over a pipe online.
  */
 
-#ifndef _ANALYZER_H_
-#define _ANALYZER_H_ 1
+#ifndef _ANALYZER_MULTI_H_
+#define _ANALYZER_MULTI_H_ 1
 
-#include "analysis_tool.h"
-#include "reader/reader.h"
-#include <string>
+#include "analyzer.h"
 
-class analyzer_t
+class analyzer_multi_t : public analyzer_t
 {
  public:
     // Usage: errors encountered during the constructor will set a flag that should
     // be queried via operator!.
-    analyzer_t();
-    // The analyzer will reference the tools array passed in during its lifetime:
-    // it does not make a copy.
-    // The user must free them afterward.
-    analyzer_t(const std::string &trace_file, analysis_tool_t **tools,
-               int num_tools);
-    virtual ~analyzer_t();
-    virtual bool operator!();
-    virtual bool run();
-    virtual bool print_stats();
+    analyzer_multi_t();
+    virtual ~analyzer_multi_t();
 
  protected:
-    // This finalizes the trace_iter setup.  It can block and is meant to be
-    // called at the top of run().
-    bool start_reading();
+    bool create_analysis_tools();
+    void destroy_analysis_tools();
 
-    bool success;
-    reader_t *trace_iter;
-    reader_t *trace_end;
-    int num_tools;
-    analysis_tool_t **tools;
-};
+    static const int max_num_tools = 8;
+ };
 
-#endif /* _ANALYZER_H_ */
+#endif /* _ANALYZER_MULTI_H_ */

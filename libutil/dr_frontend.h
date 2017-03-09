@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,6 +65,16 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifndef IN
+# define IN /* marks input param */
+#endif
+#ifndef OUT
+# define OUT /* marks output param */
+#endif
+#ifndef INOUT
+# define INOUT /* marks input+output param */
 #endif
 
 #ifdef WINDOWS

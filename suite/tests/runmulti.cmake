@@ -33,6 +33,7 @@
 # * cmd = command to run
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * postcmd = post processing command to run
+# * postcmd2 = additional post processing command to run
 # * cmp = the file containing the expected output
 #
 # A "*" in any command line will be glob-expanded right before running.
@@ -106,7 +107,12 @@ process_cmdline(precmd ON ignore)
 
 process_cmdline(cmd OFF tomatch)
 
-process_cmdline(postcmd OFF tomatch)
+if (NOT postcmd STREQUAL "")
+  process_cmdline(postcmd OFF tomatch)
+  if (NOT postcmd2 STREQUAL "")
+    process_cmdline(postcmd2 OFF tomatch)
+  endif ()
+endif()
 
 # get expected output (must already be processed w/ regex => literal, etc.)
 file(READ "${cmp}" str)

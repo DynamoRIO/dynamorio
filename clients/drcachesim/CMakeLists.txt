@@ -48,10 +48,12 @@ set(client_and_sim_srcs
 add_executable(drcachesim
   launcher.cpp
   analyzer.cpp
+  analyzer_multi.cpp
   ${client_and_sim_srcs}
   reader/reader.cpp
   reader/file_reader.cpp
   reader/ipc_reader.cpp
+  simulator/analyzer_interface.cpp
   simulator/simulator.cpp
   simulator/cache.cpp
   simulator/cache_lru.cpp
@@ -78,6 +80,24 @@ use_DynamoRIO_extension(drcachesim droption)
 # These are also for raw2trace:
 use_DynamoRIO_extension(drcachesim drcovlib_static)
 use_DynamoRIO_extension(drcachesim drutil_static)
+
+set(file_analyzer_tool_srcs
+  analyzer.cpp
+  common/trace_entry.cpp
+  reader/reader.cpp
+  reader/file_reader.cpp
+  )
+
+# We show one example of how to create a standalone analyzer of trace
+# files that does not need to link with DR.
+# i#2006: the final method for supporting 3rd-party tools is not yet decided.
+add_executable(drmemtrace_histogram
+  ${file_analyzer_tool_srcs}
+  tools/histogram.cpp
+  tools/histogram_launcher.cpp
+  )
+target_link_libraries(drmemtrace_histogram drfrontendlib)
+use_DynamoRIO_extension(drmemtrace_histogram droption)
 
 macro(add_drmemtrace name type)
   if (${type} STREQUAL "STATIC")
