@@ -37,7 +37,6 @@
 
 #include "../globals.h"
 #include "arch.h"
-#include "codec.h"
 #include "decode.h"
 #include "disassemble.h"
 #include "instr.h"
@@ -152,7 +151,7 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
     for (i = 0; i < N; i++) {
         instr_t *instr = &ibuf[i];
         instr_init(dcontext, instr);
-        decode_common(dcontext, (byte *)(pc + i), (byte *)(orig_pc + i), instr);
+        decode_from_copy(dcontext, (byte *)(pc + i), (byte *)(orig_pc + i), instr);
         if (instr_is_mbr_arch(instr) || instr_is_syscall(instr) ||
             instr_get_opcode(instr) == OP_xx || instr_is_nonbranch_pcrel(instr))
             break;
@@ -253,7 +252,7 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
     return failed ? NULL : (byte *)(pc + ldstex_end);
 }
 
-byte *
+static byte *
 decode_common_with_ldstex(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
     if (INTERNAL_OPTION(build_ldstex)) {
@@ -261,7 +260,7 @@ decode_common_with_ldstex(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t
         if (pc_next != NULL)
             return pc_next;
     }
-    return decode_common(dcontext, pc, orig_pc, instr);
+    return decode_from_copy(dcontext, pc, orig_pc, instr);
 }
 
 byte *

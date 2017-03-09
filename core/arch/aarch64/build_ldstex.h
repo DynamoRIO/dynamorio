@@ -34,10 +34,6 @@
 #define BUILD_LDSTEX_H 1
 
 byte *
-decode_common_with_ldstex(dcontext_t *dcontext, byte *pc, byte *orig_pc,
-                          instr_t *instr);
-
-byte *
 decode_with_ldstex(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
 byte *
