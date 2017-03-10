@@ -2495,7 +2495,10 @@ if (CLIENT_INTERFACE)
       endif ()
 
       # Test the standalone histogram tool.
-      torunonly_ci(tool.histogram.offline ${ci_shared_app} drcachesim
+      # ${ci_shared_app} is already used for an offline test, and we're deleting a
+      # dir with that name, so we run common.eflags to avoid having to serialize.
+      set(histo_app common.${control_flags})
+      torunonly_ci(tool.histogram.offline ${histo_app} drcachesim
         "histogram-offline.c" "-offline" "" "")
       set(tool.histogram.offline_toolname "drcachesim")
       set(tool.histogram.offline_basedir
@@ -2506,11 +2509,11 @@ if (CLIENT_INTERFACE)
       set(tool.histogram.offline_runcmp
         "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       set(tool.histogram.offline_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${ci_shared_app}.*.dir")
+        "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${histo_app}.*.dir")
       set(tool.histogram.offline_postcmd
-        "${drcachesim_path}@-indir@drmemtrace.${ci_shared_app}.*.dir")
+        "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
       set(tool.histogram.offline_postcmd2
-        "${histo_path}@-trace@drmemtrace.${ci_shared_app}.*.dir/drmemtrace.trace")
+        "${histo_path}@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
 
     endif (NOT ANDROID)
 

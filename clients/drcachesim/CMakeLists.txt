@@ -100,6 +100,7 @@ add_executable(drmemtrace_histogram
   )
 target_link_libraries(drmemtrace_histogram drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_histogram droption)
+add_dependencies(drmemtrace_histogram api_headers)
 
 macro(add_drmemtrace name type)
   if (${type} STREQUAL "STATIC")
