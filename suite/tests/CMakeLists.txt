@@ -3063,6 +3063,7 @@ else (UNIX)
 endif (UNIX)
 
 tobuild(security-common.codemod security-common/codemod.c)
+tobuild(security-common.pushfs security-common/pushfs.c)
 tochcon(security-common.codemod execmem_exec_t)
 mark_execstack(security-common.codemod)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
