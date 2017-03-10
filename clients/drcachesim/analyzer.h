@@ -39,8 +39,11 @@
 #define _ANALYZER_H_ 1
 
 #include "analysis_tool.h"
-#include "reader/reader.h"
 #include <string>
+
+// We avoid reader.h here to make it easier for standalone tools
+// along the lines of histogram_launcher.
+class reader_t;
 
 class analyzer_t
 {
