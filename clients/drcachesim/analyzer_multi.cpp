@@ -36,6 +36,9 @@
 #include "common/options.h"
 #include "common/utils.h"
 #include "reader/file_reader.h"
+#ifdef HAS_ZLIB
+# include "reader/compressed_file_reader.h"
+#endif
 #include "reader/ipc_reader.h"
 #include "tracer/raw2trace.h"
 
@@ -66,13 +69,21 @@ analyzer_multi_t::analyzer_multi_t()
             raw2trace.do_conversion();
             trace_iter = new file_reader_t(tracefile.c_str());
         }
+        // We don't support a compressed file here (is_complete() is too hard
+        // to implement).
         trace_end = new file_reader_t();
     } else if (op_infile.get_value().empty()) {
         trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
         trace_end = new ipc_reader_t();
     } else {
+#ifdef HAS_ZLIB
+        // Even for uncompressed files, zlib's gzip interface is faster than fstream.
+        trace_iter = new compressed_file_reader_t(op_infile.get_value().c_str());
+        trace_end = new compressed_file_reader_t();
+#else
         trace_iter = new file_reader_t(op_infile.get_value().c_str());
         trace_end = new file_reader_t();
+#endif
     }
     // We can't call trace_iter->init() here as it blocks for ipc_reader_t.
 }
