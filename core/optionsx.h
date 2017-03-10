@@ -542,7 +542,7 @@
 #ifdef AARCH64
     OPTION_DEFAULT_INTERNAL(bool, build_ldstex, false,
                             "replace blocks using exclusive load/store with a "
-                            "macro-instruction")
+                            "macro-instruction (unsafe)")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE

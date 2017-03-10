@@ -31,8 +31,24 @@
  */
 
 /* A wrapper round the decoder that recognises single-entry single-exit blocks
- * containing an exclusive load/store pair and bundles them into a
- * macro-instruction, OP_ldstex.
+ * of contiguous instructions containing an exclusive load/store pair and bundles
+ * them into a macro-instruction, OP_ldstex. This is a temporary solution for
+ * i#1698 and is likely to be fragile. Known problems:
+ *
+ * - We only handle single-entry single-exit contiguous code blocks. (Usually
+ *   they are written as inline assembler so they do fit this pattern.)
+ * - If the block uses all of X0-X5 and the stolen register then we cannot
+ *   mangle it (so it is better not to recognise it at all).
+ * - The contents of an OP_ldstex cannot be instrumented.
+ * - If execution remains in an OP_ldstex then signal delivery may be delayed.
+ * - Bad things might happen if there is a SIGSEGV or SIGBUS in an OP_ldstex.
+ * - Code flushing.
+ *
+ * This is currently modularised as a layer between the normal decoder and the
+ * block builder. It might be better to merge it with the block builder.
+ *
+ * If this solution can be made robust then it might be worth porting it to
+ * ARM/AArch32.
  */
 
 #include "../globals.h"
