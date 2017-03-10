@@ -36,7 +36,7 @@
 
 static int count = 0;
 
-
+#if 0 /* FIXME i#2249: not handled yet */
 static void
 test_debug_register(void)
 {
@@ -65,6 +65,7 @@ test_eip(void)
     print("end of test count = %d\n", count);
     exit(0);
 }
+#endif /* FIXME i#2249: not handled yet */
 
 /* top-level exception handler */
 static LONG
@@ -110,6 +111,7 @@ main(void)
         print("error for SetThreadContext\n");
     }
 
+#if 0 /* FIXME i#2249: not handled yet */
     Context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
     if (GetThreadContext(hThread, &Context) != 0) {
         Context.Dr0 = (DWORD) (((char*)test_debug_register) + 4);
@@ -132,6 +134,7 @@ main(void)
             print("error for SetThreadContext\n");
         }
     }
+#endif /* FIXME i#2249: not handled yet */
 
     print("end of test count = %d\n", count);
 
