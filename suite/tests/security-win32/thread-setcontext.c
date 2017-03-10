@@ -41,15 +41,29 @@ static void
 test_debug_register(void)
 {
     __asm {
-            /* some amount of code in here */
-            nop
-            nop
-            nop
-            xor eax, eax
-            test eax, eax
-            nop
-            nop
-        }
+        /* some amount of code in here */
+        nop
+        nop
+        nop
+        nop
+        nop
+    }
+}
+
+static void
+test_eip(void)
+{
+    print("in test_eip\n");
+    __asm {
+        /* some amount of code in here */
+        nop
+        nop
+        int 3
+        nop
+        nop
+    }
+    print("end of test count = %d\n", count);
+    exit(0);
 }
 
 /* top-level exception handler */
@@ -57,14 +71,21 @@ static LONG
 our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
-            count++;
-            print("single step seen\n");
-            //deactivate breakpoint
-            pExceptionInfo->ContextRecord->Dr0 = 0;
-            pExceptionInfo->ContextRecord->Dr6 = 0;
-            pExceptionInfo->ContextRecord->Dr7 = 0;
-            return EXCEPTION_CONTINUE_EXECUTION;
-        }
+        count++;
+        print("single step seen\n");
+        //deactivate breakpoint
+        pExceptionInfo->ContextRecord->Dr0 = 0;
+        pExceptionInfo->ContextRecord->Dr6 = 0;
+        pExceptionInfo->ContextRecord->Dr7 = 0;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
+        count++;
+        print("breakpoint seen\n");
+        //deactivate breakpoint
+        pExceptionInfo->ContextRecord->Eip++;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
 
@@ -73,6 +94,7 @@ main(void)
 {
     HANDLE hThread;
     CONTEXT Context;
+    bool r;
 
     INIT();
 
@@ -87,6 +109,7 @@ main(void)
     if (SetThreadContext(hThread, &Context) == 0) {
         print("error for SetThreadContext\n");
     }
+
     Context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
     if (GetThreadContext(hThread, &Context) != 0) {
         Context.Dr0 = (DWORD) (((char*)test_debug_register) + 4);
@@ -97,8 +120,18 @@ main(void)
             print("error for SetThreadContext\n");
         }
     }
-
     test_debug_register();
+
+    Context.ContextFlags = CONTEXT_CONTROL;
+    print("set eip\n");
+    if (GetThreadContext(hThread, &Context) != 0) {
+        /* not sure how to make this compiler indepedent */
+        Context.Eip = (DWORD) test_eip;
+        r = SetThreadContext(hThread, &Context);
+        if (r == 0) {
+            print("error for SetThreadContext\n");
+        }
+    }
 
     print("end of test count = %d\n", count);
 

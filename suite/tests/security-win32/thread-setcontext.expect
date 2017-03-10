@@ -1,5 +1,8 @@
 start of test, count = 0
 test dummy SetThreadContext
 set debug register
+single step seen
+set eip
+in test_eip
 breakpoint exception
-end of test, count = 1
+end of test, count = 2

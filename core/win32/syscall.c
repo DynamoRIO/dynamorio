@@ -1857,6 +1857,9 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         thread_handle, tid, cxt->CXT_XIP, cxt->ContextFlags);
     if (get_thread_id() == tid) {
         /* Simple case when called on own thread. */
+        /* FIXME : we should handle theses flags. */
+        ASSERT(!TEST(CONTEXT_CONTROL, cxt->ContextFlags) &&
+               !TEST(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags));
         return execute_syscall;
     }
     mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
