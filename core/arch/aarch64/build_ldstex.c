@@ -80,20 +80,19 @@ instr_create_ldstex(dcontext_t *dcontext, int len, uint *pc, instr_t *instr,
                     OUT instr_t *instr_ldstex)
 {
     int num_dsts = 0;
-    int num_srcs = 1 + len;
+    int num_srcs = 0;
     int i, d, s, j;
 
     for (i = 0; i < len; i++) {
+        ASSERT(instr[i].length == AARCH64_INSTR_SIZE &&
+               instr[i].bytes == instr[0].bytes + AARCH64_INSTR_SIZE * i);
         num_dsts += instr_num_dsts(&instr[i]);
         num_srcs += instr_num_srcs(&instr[i]);
     }
     instr_set_opcode(instr_ldstex, OP_ldstex);
     instr_set_num_opnds(dcontext, instr_ldstex, num_dsts, num_srcs);
-    instr_set_src(instr_ldstex, 0, OPND_CREATE_INT32(len));
-    for (i = 0; i < len; i++)
-        instr_set_src(instr_ldstex, 1 + i, OPND_CREATE_INT32(pc[i]));
     d = 0;
-    s = 1 + len;
+    s = 0;
     for (i = 0; i < len; i++) {
         int dsts = instr_num_dsts(&instr[i]);
         int srcs = instr_num_srcs(&instr[i]);
@@ -103,6 +102,12 @@ instr_create_ldstex(dcontext_t *dcontext, int len, uint *pc, instr_t *instr,
             instr_set_src(instr_ldstex, s++, instr_get_src(&instr[i], j));
     }
     ASSERT(d == num_dsts && s == num_srcs);
+    /* Set pointer to original encoding. */
+    instr_ldstex->length = len * AARCH64_INSTR_SIZE;
+    instr_ldstex->bytes = instr[0].bytes;
+    /* Conservatively assume all flags are read and written. */
+    instr_ldstex->flags |= INSTR_EFLAGS_VALID;
+    instr_ldstex->eflags = EFLAGS_READ_ALL | EFLAGS_WRITE_ALL;
 }
 
 /* Here we attempt to combine a loop involving ldex (load exclusive) and

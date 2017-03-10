@@ -150,22 +150,14 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     if (instr_is_label(instr))
         return copy_pc;
 
-    /* First, handle the already-encoded instructions */
-    if (instr_raw_bits_valid(instr)) {
+    /* First, handle the already-encoded instructions. OP_ldstex is always relocatable. */
+    if (instr_raw_bits_valid(instr) || instr_get_opcode(instr) == OP_ldstex) {
         CLIENT_ASSERT(check_reachable, "internal encode error: cannot encode raw "
                       "bits and ignore reachability");
         /* Copy raw bits, possibly re-relativizing */
         return copy_and_re_relativize_raw_instr(dcontext, instr, copy_pc, final_pc);
     }
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
-
-    if (instr_get_opcode(instr) == OP_ldstex) {
-        size_t i, n = opnd_get_immed_int(instr_get_src(instr, 0));
-        uint *pc = (uint *)copy_pc;
-        for (i = 0; i < n; i++)
-            *pc++ = opnd_get_immed_int(instr_get_src(instr, 1 + i));
-        return (byte *)pc;
-    }
 
     *(uint *)copy_pc = encode_common(final_pc, instr);
     return copy_pc + 4;
@@ -176,7 +168,8 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                  byte *dst_pc, byte *final_pc)
 {
     /* FIXME i#1569: re-relativizing is NYI */
-    ASSERT(instr_raw_bits_valid(instr));
+    /* OP_ldstex is always relocatable. */
+    ASSERT(instr_raw_bits_valid(instr) || instr_get_opcode(instr) == OP_ldstex);
     memcpy(dst_pc, instr->bytes, instr->length);
     return dst_pc + instr->length;
 }

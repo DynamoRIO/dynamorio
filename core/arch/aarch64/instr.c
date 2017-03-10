@@ -53,8 +53,11 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_get_opcode(instr) == OP_LABEL)
         return 0;
-    if (instr_get_opcode(instr) == OP_ldstex)
-        return opnd_get_immed_int(instr_get_src(instr, 0)) * AARCH64_INSTR_SIZE;
+    if (instr_get_opcode(instr) == OP_ldstex) {
+        ASSERT (instr->length != 0);
+        return instr->length;
+    }
+    ASSERT(instr_get_opcode(instr) != OP_ldstex);
     return AARCH64_INSTR_SIZE;
 }
 
