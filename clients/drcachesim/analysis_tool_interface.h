@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,44 +30,21 @@
  * DAMAGE.
  */
 
-/* analyzer: represent a memory trace analysis tool that operates only
- * on a file.  We separate this from analyzer_multi, which can operate online
- * or on a raw trace file, to avoid needing to link in DR itself.
+/* Static library support for memory trace analysis tools.
+ * Usage: supply implementations of these routines in a static library and link
+ * with the tool_launcher library to create a new tool executable.
  */
 
-#ifndef _ANALYZER_H_
-#define _ANALYZER_H_ 1
+#ifndef _ANALYSIS_TOOL_INTERFACE_H_
+#define _ANALYSIS_TOOL_INTERFACE_H_ 1
 
 #include "analysis_tool.h"
-#include "reader/reader.h"
-#include <string>
 
-class analyzer_t
-{
- public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analyzer_t();
-    // The analyzer will reference the tools array passed in during its lifetime:
-    // it does not make a copy.
-    // The user must free them afterward.
-    analyzer_t(const std::string &trace_file, analysis_tool_t **tools,
-               int num_tools);
-    virtual ~analyzer_t();
-    virtual bool operator!();
-    virtual bool run();
-    virtual bool print_stats();
+/* The return value from this routine is passed to the other routines in
+ * this interface.
+ * Returning NULL, or returning an analysis_tool_t for which the ! operator
+ * returns false, indicates failure.
+ */
+analysis_tool_t *drmemtrace_analysis_tool_create();
 
- protected:
-    // This finalizes the trace_iter setup.  It can block and is meant to be
-    // called at the top of run().
-    bool start_reading();
-
-    bool success;
-    reader_t *trace_iter;
-    reader_t *trace_end;
-    int num_tools;
-    analysis_tool_t **tools;
-};
-
-#endif /* _ANALYZER_H_ */
+#endif /* _ANALYSIS_TOOL_INTERFACE_H_ */

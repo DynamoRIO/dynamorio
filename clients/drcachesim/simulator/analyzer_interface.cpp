@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,44 +30,34 @@
  * DAMAGE.
  */
 
-/* analyzer: represent a memory trace analysis tool that operates only
- * on a file.  We separate this from analyzer_multi, which can operate online
- * or on a raw trace file, to avoid needing to link in DR itself.
+#include "../analysis_tool_interface.h"
+#include "../analysis_tool.h"
+#include "../common/options.h"
+#include "../common/utils.h"
+#include "cache_simulator.h"
+#include "tlb_simulator.h"
+/* XXX: we include these here for now but it's undecided whether they
+ * should be separated and this should only include
+ * cache-simulation-based tools.
  */
+#include "../tools/histogram.h"
+#include "../tools/reuse_distance.h"
 
-#ifndef _ANALYZER_H_
-#define _ANALYZER_H_ 1
-
-#include "analysis_tool.h"
-#include "reader/reader.h"
-#include <string>
-
-class analyzer_t
+analysis_tool_t *
+drmemtrace_analysis_tool_create()
 {
- public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analyzer_t();
-    // The analyzer will reference the tools array passed in during its lifetime:
-    // it does not make a copy.
-    // The user must free them afterward.
-    analyzer_t(const std::string &trace_file, analysis_tool_t **tools,
-               int num_tools);
-    virtual ~analyzer_t();
-    virtual bool operator!();
-    virtual bool run();
-    virtual bool print_stats();
-
- protected:
-    // This finalizes the trace_iter setup.  It can block and is meant to be
-    // called at the top of run().
-    bool start_reading();
-
-    bool success;
-    reader_t *trace_iter;
-    reader_t *trace_end;
-    int num_tools;
-    analysis_tool_t **tools;
-};
-
-#endif /* _ANALYZER_H_ */
+    if (op_simulator_type.get_value() == CPU_CACHE)
+        return new cache_simulator_t;
+    else if (op_simulator_type.get_value() == TLB)
+        return new tlb_simulator_t;
+    else if (op_simulator_type.get_value() == HISTOGRAM)
+        return new histogram_t;
+    else if (op_simulator_type.get_value() == REUSE_DIST)
+        return new reuse_distance_t;
+    else {
+        ERRMSG("Usage error: unsupported analyzer type. "
+               "Please choose " CPU_CACHE ", " TLB ", "
+               HISTOGRAM ", or " REUSE_DIST ".\n");
+        return NULL;
+    }
+}

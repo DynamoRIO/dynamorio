@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -66,6 +66,26 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* DR_API EXPORT VERBATIM */
+/* Support use independently from dr_api.h */
+#ifndef IN
+# define IN /* marks input param */
+#endif
+#ifndef OUT
+# define OUT /* marks output param */
+#endif
+#ifndef INOUT
+# define INOUT /* marks input+output param */
+#endif
+#if defined(WINDOWS) && !defined(_DR_API_H) && !defined(_SSIZE_T_DEFINED)
+# if defined(_WIN64)
+typedef __int64 ssize_t;
+# else
+typedef int ssize_t;
+# endif
+#endif
+/* DR_API EXPORT END */
 
 #ifdef WINDOWS
 # include <tchar.h>

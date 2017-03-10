@@ -1,0 +1,8 @@
+.*
+Cache Histogram result:
+Cache Histogram: icache = [0-9]+ unique cache lines
+Cache Histogram: dcache = [0-9]+ unique cache lines
+Cache Histogram: icache top 10
+.*
+Cache Histogram: dcache top 10
+.*
