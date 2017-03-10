@@ -83,6 +83,10 @@ use_DynamoRIO_extension(drcachesim droption)
 use_DynamoRIO_extension(drcachesim drcovlib_static)
 use_DynamoRIO_extension(drcachesim drutil_static)
 
+# This is to avoid common/ in analysis_tool.h's include of memref.h, to make
+# it easier for installation of needed tool headers into a single dir.
+include_directories(common)
+
 set(file_analyzer_tool_srcs
   analyzer.cpp
   common/trace_entry.cpp
