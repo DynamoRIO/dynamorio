@@ -34,9 +34,11 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 
 if (WIN32)
   set(os_name "win")
+  # Our non-client files assume this is set, yet don't include headers that set it.
+  add_definitions(-DWINDOWS)
 else ()
   set(os_name "unix")
-  # Our non-client files assume this is set, yet don't include headers that set it.
+  # Ditto.
   add_definitions(-DUNIX)
 endif ()
 
@@ -158,6 +160,7 @@ endmacro()
 
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
+restore_nonclient_flags(drmemtrace_histogram)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -165,7 +168,7 @@ macro(add_win32_flags target)
   if (WIN32)
     if (DEBUG)
       get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
-      string(REPLACE "/MT " "" cur ${cur}) # Avoid override warning.
+      string(REPLACE "/MT " "" cur "${cur}") # Avoid override warning.
       set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd")
       append_property_string(TARGET ${target} LINK_FLAGS "/nodefaultlib:libcmt")
     else ()
@@ -176,6 +179,7 @@ endmacro ()
 
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
+add_win32_flags(drmemtrace_histogram)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)

@@ -32,6 +32,13 @@
 
 /* Standalone histogram analysis tool launcher for file traces. */
 
+#ifdef WINDOWS
+# define UNICODE
+# define _UNICODE
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+#endif
+
 #include "droption.h"
 #include "dr_frontend.h"
 #include "../analyzer.h"
@@ -62,7 +69,7 @@ droption_t<unsigned int> op_report_top
  "Specifies the number of top results to be reported.");
 
 int
-main(int argc, const TCHAR *targv[])
+_tmain(int argc, const TCHAR *targv[])
 {
     // Convert to UTF-8 if necessary
     char **argv;

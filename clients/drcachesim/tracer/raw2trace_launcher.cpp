@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,13 @@
 
 /* Standalone raw2trace converter. */
 
+#ifdef WINDOWS
+# define UNICODE
+# define _UNICODE
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+#endif
+
 #include "dr_api.h"
 #include "droption.h"
 #include "dr_frontend.h"
@@ -57,7 +64,7 @@ droption_t<unsigned int> op_verbose
  "Verbosity level for diagnostic output.");
 
 int
-main(int argc, const TCHAR *targv[])
+_tmain(int argc, const TCHAR *targv[])
 {
     // Convert to UTF-8 if necessary
     char **argv;
