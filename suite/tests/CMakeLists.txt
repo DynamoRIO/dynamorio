@@ -1294,10 +1294,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     if (NOT DEFINED ${key}_postcmd)
       set(${key}_postcmd "")
     endif ()
+    if (NOT DEFINED ${key}_postcmd2)
+      set(${key}_postcmd2 "")
+    endif ()
     add_test(${test} ${CMAKE_COMMAND}
       -D precmd=${${key}_precmd}
       -D cmd=${cmd_with_at}
       -D postcmd=${${key}_postcmd}
+      -D postcmd2=${${key}_postcmd2}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
@@ -2443,6 +2447,9 @@ if (CLIENT_INTERFACE)
       # Test offline traces.
       # XXX: we could exclude the pipe files and build the offline trace
       # support by itself for Android.
+      get_target_path_for_execution(drcachesim_path drcachesim)
+      prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+
       macro (torunonly_drcacheoff testname exetgt)
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
@@ -2451,8 +2458,6 @@ if (CLIENT_INTERFACE)
         set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcacheoff.${testname}_rawtemp ON) # no preprocessor
-        get_target_path_for_execution(drcachesim_path drcachesim)
-        prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
         set(tool.drcacheoff.${testname}_runcmp
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
         set(tool.drcacheoff.${testname}_precmd
@@ -2488,6 +2493,27 @@ if (CLIENT_INTERFACE)
           set(tool.drcacheoff.burst_client_nodr ON)
         endif ()
       endif ()
+
+      # Test the standalone histogram tool.
+      # ${ci_shared_app} is already used for an offline test, and we're deleting a
+      # dir with that name, so we run common.eflags to avoid having to serialize.
+      set(histo_app common.${control_flags})
+      torunonly_ci(tool.histogram.offline ${histo_app} drcachesim
+        "histogram-offline.c" "-offline" "" "")
+      set(tool.histogram.offline_toolname "drcachesim")
+      set(tool.histogram.offline_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.histogram.offline_rawtemp ON) # no preprocessor
+      get_target_path_for_execution(histo_path drmemtrace_histogram)
+      prefix_cmd_if_necessary(histo_path ON ${histo_path})
+      set(tool.histogram.offline_runcmp
+        "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(tool.histogram.offline_precmd
+        "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${histo_app}.*.dir")
+      set(tool.histogram.offline_postcmd
+        "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
+      set(tool.histogram.offline_postcmd2
+        "${histo_path}@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
 
     endif (NOT ANDROID)
 

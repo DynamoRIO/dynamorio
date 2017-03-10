@@ -30,28 +30,28 @@
  * DAMAGE.
  */
 
-/* analysis_tool: represent a memory trace analysis tool.
+/* analyzer_multi: represent a memory trace analysis tool that can process
+ * a trace from multiple inputs: a file, from a raw file, or over a pipe online.
  */
 
-#ifndef _ANALYSIS_TOOL_H_
-#define _ANALYSIS_TOOL_H_ 1
+#ifndef _ANALYZER_MULTI_H_
+#define _ANALYZER_MULTI_H_ 1
 
-// To support installation of headers for analysis tools into a single
-// separate directory we omit common/ here and rely on -I.
-#include "memref.h"
+#include "analyzer.h"
 
-class analysis_tool_t
+class analyzer_multi_t : public analyzer_t
 {
  public:
     // Usage: errors encountered during the constructor will set a flag that should
     // be queried via operator!.
-    analysis_tool_t() : success(true) {};
-    virtual ~analysis_tool_t() {};
-    virtual bool operator!() { return !success; }
-    virtual bool process_memref(const memref_t &memref) = 0;
-    virtual bool print_results() = 0;
- protected:
-    bool success;
-};
+    analyzer_multi_t();
+    virtual ~analyzer_multi_t();
 
-#endif /* _ANALYSIS_TOOL_H_ */
+ protected:
+    bool create_analysis_tools();
+    void destroy_analysis_tools();
+
+    static const int max_num_tools = 8;
+ };
+
+#endif /* _ANALYZER_MULTI_H_ */

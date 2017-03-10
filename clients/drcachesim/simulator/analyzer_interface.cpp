@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,28 +30,34 @@
  * DAMAGE.
  */
 
-/* analysis_tool: represent a memory trace analysis tool.
+#include "../analysis_tool_interface.h"
+#include "../analysis_tool.h"
+#include "../common/options.h"
+#include "../common/utils.h"
+#include "cache_simulator.h"
+#include "tlb_simulator.h"
+/* XXX: we include these here for now but it's undecided whether they
+ * should be separated and this should only include
+ * cache-simulation-based tools.
  */
+#include "../tools/histogram.h"
+#include "../tools/reuse_distance.h"
 
-#ifndef _ANALYSIS_TOOL_H_
-#define _ANALYSIS_TOOL_H_ 1
-
-// To support installation of headers for analysis tools into a single
-// separate directory we omit common/ here and rely on -I.
-#include "memref.h"
-
-class analysis_tool_t
+analysis_tool_t *
+drmemtrace_analysis_tool_create()
 {
- public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analysis_tool_t() : success(true) {};
-    virtual ~analysis_tool_t() {};
-    virtual bool operator!() { return !success; }
-    virtual bool process_memref(const memref_t &memref) = 0;
-    virtual bool print_results() = 0;
- protected:
-    bool success;
-};
-
-#endif /* _ANALYSIS_TOOL_H_ */
+    if (op_simulator_type.get_value() == CPU_CACHE)
+        return new cache_simulator_t;
+    else if (op_simulator_type.get_value() == TLB)
+        return new tlb_simulator_t;
+    else if (op_simulator_type.get_value() == HISTOGRAM)
+        return new histogram_t;
+    else if (op_simulator_type.get_value() == REUSE_DIST)
+        return new reuse_distance_t;
+    else {
+        ERRMSG("Usage error: unsupported analyzer type. "
+               "Please choose " CPU_CACHE ", " TLB ", "
+               HISTOGRAM ", or " REUSE_DIST ".\n");
+        return NULL;
+    }
+}

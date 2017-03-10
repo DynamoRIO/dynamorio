@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,28 +30,21 @@
  * DAMAGE.
  */
 
-/* analysis_tool: represent a memory trace analysis tool.
+/* Static library support for memory trace analysis tools.
+ * Usage: supply implementations of these routines in a static library and link
+ * with the tool_launcher library to create a new tool executable.
  */
 
-#ifndef _ANALYSIS_TOOL_H_
-#define _ANALYSIS_TOOL_H_ 1
+#ifndef _ANALYSIS_TOOL_INTERFACE_H_
+#define _ANALYSIS_TOOL_INTERFACE_H_ 1
 
-// To support installation of headers for analysis tools into a single
-// separate directory we omit common/ here and rely on -I.
-#include "memref.h"
+#include "analysis_tool.h"
 
-class analysis_tool_t
-{
- public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analysis_tool_t() : success(true) {};
-    virtual ~analysis_tool_t() {};
-    virtual bool operator!() { return !success; }
-    virtual bool process_memref(const memref_t &memref) = 0;
-    virtual bool print_results() = 0;
- protected:
-    bool success;
-};
+/* The return value from this routine is passed to the other routines in
+ * this interface.
+ * Returning NULL, or returning an analysis_tool_t for which the ! operator
+ * returns false, indicates failure.
+ */
+analysis_tool_t *drmemtrace_analysis_tool_create();
 
-#endif /* _ANALYSIS_TOOL_H_ */
+#endif /* _ANALYSIS_TOOL_INTERFACE_H_ */
