@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -152,7 +152,7 @@ analyzer_t::create_analysis_tools()
                HISTOGRAM ", or " REUSE_DIST ".\n");
         return false;
     }
-    if (!tools[0])
+    if (!*tools[0])
         return false;
     num_tools = 1;
     return true;
