@@ -33,6 +33,9 @@
 #include "analysis_tool.h"
 #include "analyzer.h"
 #include "reader/file_reader.h"
+#ifdef HAS_ZLIB
+# include "reader/compressed_file_reader.h"
+#endif
 #include "common/utils.h"
 
 analyzer_t::analyzer_t() :
@@ -58,8 +61,16 @@ analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in
         ERRMSG("Trace file name is empty\n");
         return;
     }
+#ifdef HAS_ZLIB
+    // Even if the file is uncompressed, zlib's gzip interface is faster than
+    // file_reader_t's fstream in our measurements, so we always use it when
+    // available.
+    trace_iter = new compressed_file_reader_t(trace_file.c_str());
+    trace_end = new compressed_file_reader_t();
+#else
     trace_iter = new file_reader_t(trace_file.c_str());
     trace_end = new file_reader_t();
+#endif
 }
 
 analyzer_t::~analyzer_t()

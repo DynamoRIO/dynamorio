@@ -1294,14 +1294,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     if (NOT DEFINED ${key}_postcmd)
       set(${key}_postcmd "")
     endif ()
-    if (NOT DEFINED ${key}_postcmd2)
-      set(${key}_postcmd2 "")
-    endif ()
     add_test(${test} ${CMAKE_COMMAND}
       -D precmd=${${key}_precmd}
       -D cmd=${cmd_with_at}
       -D postcmd=${${key}_postcmd}
       -D postcmd2=${${key}_postcmd2}
+      -D postcmd3=${${key}_postcmd3}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
@@ -2515,6 +2513,32 @@ if (CLIENT_INTERFACE)
       set(tool.histogram.offline_postcmd2
         "${histo_path}@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
 
+      find_program(GZIP gzip "gzip compression utility")
+      if (UNIX AND ZLIB AND GZIP)
+        # Test the gzip file reader.  It does not work with -indir.
+        # We're using the same app name, so we serialize to avoid file conflicts:
+        set(tool.histogram.gzip_depends tool.histogram.offline)
+        torunonly_ci(tool.histogram.gzip ${histo_app} drcachesim
+          "histogram-offline.c" "-offline" "" "")
+        set(tool.histogram.gzip_toolname "drcachesim")
+        set(tool.histogram.gzip_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.histogram.gzip_rawtemp ON) # no preprocessor
+        get_target_path_for_execution(histo_path drmemtrace_histogram)
+        prefix_cmd_if_necessary(histo_path ON ${histo_path})
+        set(tool.histogram.gzip_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.histogram.gzip_precmd
+          "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${histo_app}.*.dir")
+        set(tool.histogram.gzip_postcmd
+          "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
+        set(tool.histogram.gzip_postcmd2
+          "${GZIP}@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
+        set(tool.histogram.gzip_postcmd3
+          "${histo_path}@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace.gz")
+      elseif (UNIX)
+        message(STATUS "gzip or zlib not found: disabling tool.histogram.gzip test")
+      endif ()
     endif (NOT ANDROID)
 
     if (X86) # i#1732: no ARM/AArch64 support for drcpusim yet
