@@ -95,7 +95,9 @@ main(void)
 {
     HANDLE hThread;
     CONTEXT Context;
+#if 0 /* FIXME i#2249: not handled yet */
     bool r;
+#endif
 
     INIT();
 
