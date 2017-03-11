@@ -1792,8 +1792,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_INDIR_VAR_REG_SIZEx2:  /* TYPE_INDIR_VAR_REG + scale */
     case TYPE_INDIR_VAR_REG_SIZEx3x5:/* TYPE_INDIR_VAR_REG + scale */
         {
+            /* i#2281 We should not shrink the register in the case of instruction :
+             * 64 67 ff 36 00 00 addr16 push %fs:0x00[4byte]
+             * The second dist operand is 0xfffffffc(%esp)[4byte] with 32 bit register.
+             */
             reg_id_t reg =
-                resolve_var_reg(di, opsize, true/*addr*/, true/*shrinkable*/
+                resolve_var_reg(di, opsize, true/*addr*/, false/*shrinkable*/
                                 _IF_X64(true/*d64*/) _IF_X64(false/*!growable*/)
                                 _IF_X64(false/*!extendable*/));
             opnd_size_t sz =
