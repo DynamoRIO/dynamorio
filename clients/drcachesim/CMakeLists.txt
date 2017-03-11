@@ -45,7 +45,6 @@ endif ()
 # i#2277: we use zlib if available to read compressed trace files.
 # XXX: we could ship with a zlib for Windows: today we simply don't support
 # compressed traces on Windows.
-find_package(ZLIB)
 if (ZLIB_FOUND)
   add_definitions(-DHAS_ZLIB)
   include_directories(${ZLIB_INCLUDE_DIRS})
