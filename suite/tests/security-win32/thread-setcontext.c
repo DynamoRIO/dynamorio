@@ -84,7 +84,11 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
         count++;
         print("breakpoint seen\n");
         //deactivate breakpoint
+#ifndef X64
         pExceptionInfo->ContextRecord->Eip++;
+#else
+        pExceptionInfo->ContextRecord->Rip++;
+#endif
         return EXCEPTION_CONTINUE_EXECUTION;
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
