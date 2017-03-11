@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Standalone raw2trace converter. */
+/* Standalone histogram analysis tool launcher for file traces. */
 
 #ifdef WINDOWS
 # define UNICODE
@@ -39,10 +39,10 @@
 # include <windows.h>
 #endif
 
-#include "dr_api.h"
 #include "droption.h"
 #include "dr_frontend.h"
-#include "raw2trace.h"
+#include "../analyzer.h"
+#include "histogram.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
@@ -50,18 +50,23 @@
     exit(1); \
 } while (0)
 
-static droption_t<std::string> op_indir
-(DROPTION_SCOPE_FRONTEND, "indir", "", "[Required] Directory with trace input files",
- "Specifies a directory within which all *.log files will be processed.");
+static droption_t<std::string> op_trace
+(DROPTION_SCOPE_FRONTEND, "trace", "", "[Required] Trace input file",
+ "Specifies the file containing the trace to be analyzed.");
 
-static droption_t<std::string> op_out
-(DROPTION_SCOPE_FRONTEND, "out", "", "[Required] Path to output file",
- "Specifies the path to the output file.");
+// XXX i#2006: these are duplicated from drcachesim's options.
+// Once we decide on the final tool generalization approach we should
+// either share these options in a single location or split them.
 
-// Non-static for use by raw2trace.cpp
-droption_t<unsigned int> op_verbose
-(DROPTION_SCOPE_FRONTEND, "verbose", 0, "Verbosity level for diagnostic output",
- "Verbosity level for diagnostic output.");
+droption_t<unsigned int> op_line_size
+(DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
+ "Specifies the cache line size, which is assumed to be identical for L1 and L2 "
+ "caches.");
+
+droption_t<unsigned int> op_report_top
+(DROPTION_SCOPE_FRONTEND, "report_top", 10,
+ "Number of top results to be reported",
+ "Specifies the number of top results to be reported.");
 
 int
 _tmain(int argc, const TCHAR *targv[])
@@ -75,12 +80,19 @@ _tmain(int argc, const TCHAR *targv[])
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||
-        op_indir.get_value().empty() ||
-        op_out.get_value().empty()) {
+        op_trace.get_value().empty()) {
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
-    raw2trace_t raw2trace(op_indir.get_value(), op_out.get_value());
-    raw2trace.do_conversion();
+
+    histogram_t tool;
+    analysis_tool_t *tool_list = &tool;
+    analyzer_t analyzer(op_trace.get_value(), &tool_list, 1);
+    if (!analyzer)
+        FATAL_ERROR("failed to initialize analyzer");
+    if (!analyzer.run())
+        FATAL_ERROR("failed to run analyzer");
+    analyzer.print_stats();
+
     return 0;
 }

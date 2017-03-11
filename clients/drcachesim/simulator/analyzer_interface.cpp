@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,70 +30,34 @@
  * DAMAGE.
  */
 
-#include <assert.h>
-#include <fstream>
-#include "file_reader.h"
-#include "../common/memref.h"
+#include "../analysis_tool_interface.h"
+#include "../analysis_tool.h"
+#include "../common/options.h"
 #include "../common/utils.h"
+#include "cache_simulator.h"
+#include "tlb_simulator.h"
+/* XXX: we include these here for now but it's undecided whether they
+ * should be separated and this should only include
+ * cache-simulation-based tools.
+ */
+#include "../tools/histogram.h"
+#include "../tools/reuse_distance.h"
 
-#ifdef VERBOSE
-# include <iostream>
-#endif
-
-file_reader_t::file_reader_t()
+analysis_tool_t *
+drmemtrace_analysis_tool_create()
 {
-    /* Empty. */
-}
-
-file_reader_t::file_reader_t(const char *file_name) :
-    fstream(file_name, std::ifstream::binary)
-{
-    /* Empty. */
-}
-
-bool
-file_reader_t::init()
-{
-    at_eof = false;
-    if (!fstream)
-        return false;
-    trace_entry_t *first_entry = read_next_entry();
-    if (first_entry == NULL)
-        return false;
-    if (first_entry->type != TRACE_TYPE_HEADER ||
-        first_entry->addr != TRACE_ENTRY_VERSION) {
-        ERRMSG("missing header or version mismatch\n");
-        return false;
-    }
-    ++*this;
-    return true;
-}
-
-file_reader_t::~file_reader_t()
-{
-    fstream.close();
-}
-
-trace_entry_t *
-file_reader_t::read_next_entry()
-{
-    if (!fstream.read((char*)&entry_copy, sizeof(entry_copy)))
+    if (op_simulator_type.get_value() == CPU_CACHE)
+        return new cache_simulator_t;
+    else if (op_simulator_type.get_value() == TLB)
+        return new tlb_simulator_t;
+    else if (op_simulator_type.get_value() == HISTOGRAM)
+        return new histogram_t;
+    else if (op_simulator_type.get_value() == REUSE_DIST)
+        return new reuse_distance_t;
+    else {
+        ERRMSG("Usage error: unsupported analyzer type. "
+               "Please choose " CPU_CACHE ", " TLB ", "
+               HISTOGRAM ", or " REUSE_DIST ".\n");
         return NULL;
-    return &entry_copy;
-}
-
-bool
-file_reader_t::is_complete()
-{
-    if (!fstream)
-        return false;
-    bool res = false;
-    std::streampos pos = fstream.tellg();
-    fstream.seekg(-(int)sizeof(trace_entry_t), fstream.end);
-    // Avoid reaching eof b/c we can't seek away from it.
-    if (fstream.read((char*)&entry_copy.type, sizeof(entry_copy.type)) &&
-        entry_copy.type == TRACE_TYPE_FOOTER)
-        res = true;
-    fstream.seekg(pos);
-    return res;
+    }
 }

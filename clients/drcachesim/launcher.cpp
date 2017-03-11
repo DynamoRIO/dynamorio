@@ -49,7 +49,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <iostream>
-#include "analyzer.h"
+#include "analyzer_multi.h"
 #include "dr_api.h"
 #include "dr_inject.h"
 #include "dr_config.h"
@@ -233,8 +233,7 @@ _tmain(int argc, const TCHAR *targv[])
             FATAL_ERROR("invalid -outdir %s", op_outdir.get_value().c_str());
         }
     } else {
-        // declare the analyzer based on its type
-        analyzer = new analyzer_t;
+        analyzer = new analyzer_multi_t;
         if (!*analyzer) {
             FATAL_ERROR("failed to initialize analyzer");
         }

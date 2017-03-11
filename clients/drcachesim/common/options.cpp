@@ -217,11 +217,13 @@ droption_t<bytesize_t> op_sim_refs
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
 
+// XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int> op_report_top
 (DROPTION_SCOPE_FRONTEND, "report_top", 10,
  "Number of top results to be reported",
  "Specifies the number of top results to be reported.");
 
+// XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int> op_reuse_distance_threshold
 (DROPTION_SCOPE_FRONTEND, "reuse_distance_threshold", 100,
  "The reuse distance threshold for reporting the distant repeated references.",
