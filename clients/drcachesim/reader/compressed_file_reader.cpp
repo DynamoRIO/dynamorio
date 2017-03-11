@@ -40,7 +40,7 @@
 # include <iostream>
 #endif
 
-compressed_file_reader_t::compressed_file_reader_t()
+compressed_file_reader_t::compressed_file_reader_t() : file(NULL)
 {
     /* Empty. */
 }
@@ -70,7 +70,8 @@ compressed_file_reader_t::init()
 
 compressed_file_reader_t::~compressed_file_reader_t()
 {
-    gzclose(file);
+    if (file != NULL)
+        gzclose(file);
 }
 
 trace_entry_t *
