@@ -1381,20 +1381,18 @@ test_stack_pointer_size(void *dc)
      * We can't simply append these to dis-udis86-randtest.raw b/c our test
      * there uses -syntax_intel.  We could make a new raw DR-style test.
      */
-    dr_mcontext_t mc;
-    instr_t *instr;
     byte *pc;
     char buf[512];
     int len;
     const byte bytes_push[] = { 0x67, 0x51 };
     const byte bytes_ret[] = { 0x67, 0xc3 };
-    const byte bytes_enter[] = { 0x67, 0xc8 };
+    const byte bytes_enter[] = { 0x67, 0xc8, 0xab, 0xcd, 0xef };
     const byte bytes_leave[] = { 0x67, 0xc9 };
 
     pc = disassemble_to_buffer(dc, (byte *)bytes_push, (byte *)bytes_push,
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
-    ASSERT(pc != NULL);
+    ASSERT(pc != NULL && pc - (byte *)bytes_push == sizeof(bytes_push));
     ASSERT(strcmp(buf, IF_X64_ELSE
                   ("addr32 push   %rcx %rsp -> %rsp 0xfffffff8(%rsp)[8byte]\n",
                    "addr16 push   %ecx %esp -> %esp 0xfffffffc(%esp)[4byte]\n")) == 0);
@@ -1402,7 +1400,7 @@ test_stack_pointer_size(void *dc)
     pc = disassemble_to_buffer(dc, (byte *)bytes_ret, (byte *)bytes_ret,
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
-    ASSERT(pc != NULL);
+    ASSERT(pc != NULL && pc - (byte *)bytes_ret == sizeof(bytes_ret));
     ASSERT(strcmp(buf, IF_X64_ELSE
                   ("addr32 ret    %rsp (%rsp)[8byte] -> %rsp\n",
                    "addr16 ret    %esp (%esp)[4byte] -> %esp\n")) == 0);
@@ -1410,17 +1408,17 @@ test_stack_pointer_size(void *dc)
     pc = disassemble_to_buffer(dc, (byte *)bytes_enter, (byte *)bytes_enter,
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
-    ASSERT(pc != NULL);
+    ASSERT(pc != NULL && pc - (byte *)bytes_enter == sizeof(bytes_enter));
     ASSERT(strcmp(buf, IF_X64_ELSE
-                  ("addr32 enter  $0x0000 $0x00 %rsp %rbp -> %rsp 0xfffffff8(%rsp)[8byte]"
+                  ("addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp 0xfffffff8(%rsp)[8byte]"
                    " %rbp\n",
-                   "addr16 enter  $0xc367 $0x67 %esp %ebp -> %esp 0xfffffffc(%esp)[4byte]"
+                   "addr16 enter  $0xcdab $0xef %esp %ebp -> %esp 0xfffffffc(%esp)[4byte]"
                    " %ebp\n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)bytes_leave, (byte *)bytes_leave,
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
-    ASSERT(pc != NULL);
+    ASSERT(pc != NULL && pc - (byte *)bytes_leave == sizeof(bytes_leave));
     ASSERT(strcmp(buf, IF_X64_ELSE
                   ("addr32 leave  %rbp %rsp (%rbp)[8byte] -> %rsp %rbp\n",
                    "addr16 leave  %ebp %esp (%ebp)[4byte] -> %esp %ebp\n")) == 0);
