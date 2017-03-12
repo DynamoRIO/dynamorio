@@ -5390,6 +5390,7 @@ receive_pending_signal(dcontext_t *dcontext)
     int sig;
     LOG(THREAD, LOG_ASYNCH, 3, "receive_pending_signal\n");
     if (info->interrupted != NULL) {
+        print_file(STDERR, "\tre-linking outgoing for interrupted F%d\n", info->interrupted->id);//NOCHECKIN
         LOG(THREAD, LOG_ASYNCH, 3, "\tre-linking outgoing for interrupted F%d\n",
             info->interrupted->id);
         SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, acquire,
