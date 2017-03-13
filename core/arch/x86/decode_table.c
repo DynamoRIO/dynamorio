@@ -1487,14 +1487,9 @@ const instr_info_t * const op_instr[] =
 #define xSI TYPE_VAR_XREG, REG_ESI
 #define xDI TYPE_VAR_XREG, REG_EDI
 
-/* esp modifications in push/pop instrs operate on esp vs. sp
- * wrt addr16, not data16, so we have to special-case those esp operands
- */
-#define axSP TYPE_VAR_ADDR_XREG, REG_ESP
-#define axBP TYPE_VAR_ADDR_XREG, REG_EBP
-/* jecxz and loop* use addr16 */
+/* jecxz and loop* vary by addr16 */
 #define axCX TYPE_VAR_ADDR_XREG, REG_ECX
-/* string ops use addr16 */
+/* string ops also use addr16 */
 #define axSI TYPE_VAR_ADDR_XREG, REG_ESI
 #define axDI TYPE_VAR_ADDR_XREG, REG_EDI
 #define axAX TYPE_VAR_ADDR_XREG, REG_EAX
@@ -1570,6 +1565,7 @@ const instr_info_t * const op_instr[] =
 #define edi TYPE_REG, REG_EDI
 
 #define xsp TYPE_XREG, REG_ESP
+#define xbp TYPE_XREG, REG_EBP
 #define xcx TYPE_XREG, REG_ECX
 
 #define cs  TYPE_REG, SEG_CS
@@ -1675,8 +1671,8 @@ const instr_info_t first_byte[] = {
     {OP_add,  0x030000, "add",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x02]},
     {OP_add,  0x040000, "add",  al, xx, Ib, al, xx, no,  fW6, tfb[0x03]},
     {OP_add,  0x050000, "add", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x04]},
-    {OP_push, 0x060000, "push", axSP, i_xSPo1, es, axSP, xx, i64, x, tfb[0x0e]},
-    {OP_pop,  0x070000, "pop", es, axSP, axSP, i_xSP, xx, i64, x, tsb[0xa1]},
+    {OP_push, 0x060000, "push", xsp, i_xSPo1, es, xsp, xx, i64, x, tfb[0x0e]},
+    {OP_pop,  0x070000, "pop", es, xsp, xsp, i_xSP, xx, i64, x, tsb[0xa1]},
     /* 08 */
     {OP_or,  0x080000, "or",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][1]},
     {OP_or,  0x090000, "or",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x08]},
@@ -1684,7 +1680,7 @@ const instr_info_t first_byte[] = {
     {OP_or,  0x0b0000, "or",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x0a]},
     {OP_or,  0x0c0000, "or",  al, xx, Ib, al, xx, no,  fW6, tfb[0x0b]},
     {OP_or,  0x0d0000, "or", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x0c]},
-    {OP_push,0x0e0000, "push", axSP, i_xSPo1, cs, axSP, xx, i64, x, tfb[0x16]},
+    {OP_push,0x0e0000, "push", xsp, i_xSPo1, cs, xsp, xx, i64, x, tfb[0x16]},
     {ESCAPE, 0x0f0000, "(escape)", xx, xx, xx, xx, xx, no, x, NA},
     /* 10 */
     {OP_adc,  0x100000, "adc",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][2]},
@@ -1693,8 +1689,8 @@ const instr_info_t first_byte[] = {
     {OP_adc,  0x130000, "adc",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x12]},
     {OP_adc,  0x140000, "adc",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x13]},
     {OP_adc,  0x150000, "adc", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x14]},
-    {OP_push, 0x160000, "push", axSP, i_xSPo1, ss, axSP, xx, i64, x, tfb[0x1e]},
-    {OP_pop,  0x170000, "pop", ss, axSP, axSP, i_xSP, xx, i64, x, tfb[0x1f]},
+    {OP_push, 0x160000, "push", xsp, i_xSPo1, ss, xsp, xx, i64, x, tfb[0x1e]},
+    {OP_pop,  0x170000, "pop", ss, xsp, xsp, i_xSP, xx, i64, x, tfb[0x1f]},
     /* 18 */
     {OP_sbb,  0x180000, "sbb",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][3]},
     {OP_sbb,  0x190000, "sbb",  Ev, xx, Gv, Ev, xx, mrm, (fW6|fRC), tfb[0x18]},
@@ -1702,8 +1698,8 @@ const instr_info_t first_byte[] = {
     {OP_sbb,  0x1b0000, "sbb",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x1a]},
     {OP_sbb,  0x1c0000, "sbb",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x1b]},
     {OP_sbb,  0x1d0000, "sbb", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x1c]},
-    {OP_push, 0x1e0000, "push", axSP, i_xSPo1, ds, axSP, xx, i64, x, tsb[0xa0]},
-    {OP_pop,  0x1f0000, "pop", ds, axSP, axSP, i_xSP, xx, i64, x, tfb[0x07]},
+    {OP_push, 0x1e0000, "push", xsp, i_xSPo1, ds, xsp, xx, i64, x, tsb[0xa0]},
+    {OP_pop,  0x1f0000, "pop", ds, xsp, xsp, i_xSP, xx, i64, x, tfb[0x07]},
     /* 20 */
     {OP_and,  0x200000, "and",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][4]},
     {OP_and,  0x210000, "and",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x20]},
@@ -1759,26 +1755,26 @@ const instr_info_t first_byte[] = {
     {X64_EXT, 0x4e0000, "(x64_ext 14)", xx, xx, xx, xx, xx, no, x, 14},
     {X64_EXT, 0x4f0000, "(x64_ext 15)", xx, xx, xx, xx, xx, no, x, 15},
     /* 50 */
-    {OP_push,  0x500000, "push", axSP, i_xSPo1, xAX_x, axSP, xx, no, x, tfb[0x51]},
-    {OP_push,  0x510000, "push", axSP, i_xSPo1, xCX_x, axSP, xx, no, x, tfb[0x52]},
-    {OP_push,  0x520000, "push", axSP, i_xSPo1, xDX_x, axSP, xx, no, x, tfb[0x53]},
-    {OP_push,  0x530000, "push", axSP, i_xSPo1, xBX_x, axSP, xx, no, x, tfb[0x54]},
-    {OP_push,  0x540000, "push", axSP, i_xSPo1, xSP_x, axSP, xx, no, x, tfb[0x55]},
-    {OP_push,  0x550000, "push", axSP, i_xSPo1, xBP_x, axSP, xx, no, x, tfb[0x56]},
-    {OP_push,  0x560000, "push", axSP, i_xSPo1, xSI_x, axSP, xx, no, x, tfb[0x57]},
-    {OP_push,  0x570000, "push", axSP, i_xSPo1, xDI_x, axSP, xx, no, x, tex[12][6]},
+    {OP_push,  0x500000, "push", xsp, i_xSPo1, xAX_x, xsp, xx, no, x, tfb[0x51]},
+    {OP_push,  0x510000, "push", xsp, i_xSPo1, xCX_x, xsp, xx, no, x, tfb[0x52]},
+    {OP_push,  0x520000, "push", xsp, i_xSPo1, xDX_x, xsp, xx, no, x, tfb[0x53]},
+    {OP_push,  0x530000, "push", xsp, i_xSPo1, xBX_x, xsp, xx, no, x, tfb[0x54]},
+    {OP_push,  0x540000, "push", xsp, i_xSPo1, xSP_x, xsp, xx, no, x, tfb[0x55]},
+    {OP_push,  0x550000, "push", xsp, i_xSPo1, xBP_x, xsp, xx, no, x, tfb[0x56]},
+    {OP_push,  0x560000, "push", xsp, i_xSPo1, xSI_x, xsp, xx, no, x, tfb[0x57]},
+    {OP_push,  0x570000, "push", xsp, i_xSPo1, xDI_x, xsp, xx, no, x, tex[12][6]},
     /* 58 */
-    {OP_pop,  0x580000, "pop", xAX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x59]},
-    {OP_pop,  0x590000, "pop", xCX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5a]},
-    {OP_pop,  0x5a0000, "pop", xDX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5b]},
-    {OP_pop,  0x5b0000, "pop", xBX_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5c]},
-    {OP_pop,  0x5c0000, "pop", xSP_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5d]},
-    {OP_pop,  0x5d0000, "pop", xBP_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5e]},
-    {OP_pop,  0x5e0000, "pop", xSI_x, axSP, axSP, i_xSP, xx, no, x, tfb[0x5f]},
-    {OP_pop,  0x5f0000, "pop", xDI_x, axSP, axSP, i_xSP, xx, no, x, tex[26][0]},
+    {OP_pop,  0x580000, "pop", xAX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x59]},
+    {OP_pop,  0x590000, "pop", xCX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5a]},
+    {OP_pop,  0x5a0000, "pop", xDX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5b]},
+    {OP_pop,  0x5b0000, "pop", xBX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5c]},
+    {OP_pop,  0x5c0000, "pop", xSP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5d]},
+    {OP_pop,  0x5d0000, "pop", xBP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5e]},
+    {OP_pop,  0x5e0000, "pop", xSI_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5f]},
+    {OP_pop,  0x5f0000, "pop", xDI_x, xsp, xsp, i_xSP, xx, no, x, tex[26][0]},
     /* 60 */
-    {OP_pusha, 0x600000, "pusha", axSP, i_xSPo8, axSP, eAX, eBX, xop|i64, x, exop[0x00]},
-    {OP_popa,  0x610000, "popa", axSP, eAX, axSP, i_xSPs8, xx, xop|i64, x, exop[0x02]},
+    {OP_pusha, 0x600000, "pusha", xsp, i_xSPo8, xsp, eAX, eBX, xop|i64, x, exop[0x00]},
+    {OP_popa,  0x610000, "popa", xsp, eAX, xsp, i_xSPs8, xx, xop|i64, x, exop[0x02]},
     {OP_bound, 0x620000, "bound", xx, xx, Gv, Ma, xx, mrm|i64, x, END_LIST},
     {X64_EXT,  0x630000, "(x64_ext 16)", xx, xx, xx, xx, xx, no, x, 16},
     {PREFIX, 0x640000, "fs", xx, xx, xx, xx, xx, no, x, SEG_FS},
@@ -1786,9 +1782,9 @@ const instr_info_t first_byte[] = {
     {PREFIX, 0x660000, "data size", xx, xx, xx, xx, xx, no, x, PREFIX_DATA},
     {PREFIX, 0x670000, "addr size", xx, xx, xx, xx, xx, no, x, PREFIX_ADDR},
     /* 68 */
-    {OP_push_imm, 0x680000, "push", axSP, i_xSPo1, Iz, axSP, xx, no, x, tfb[0x6a]},
+    {OP_push_imm, 0x680000, "push", xsp, i_xSPo1, Iz, xsp, xx, no, x, tfb[0x6a]},
     {OP_imul,  0x690000, "imul", Gv, xx, Ev, Iz, xx, mrm, fW6, tfb[0x6b]},
-    {OP_push_imm, 0x6a0000, "push", axSP, i_xSPo1, Ib, axSP, xx, no, x, END_LIST},/* sign-extend to push 2/4/8 bytes */
+    {OP_push_imm, 0x6a0000, "push", xsp, i_xSPo1, Ib, xsp, xx, no, x, END_LIST},/* sign-extend to push 2/4/8 bytes */
     {OP_imul,  0x6b0000, "imul", Gv, xx, Ev, Ib, xx, mrm, fW6, END_LIST},
     {REP_EXT,  0x6c0000, "((rep) ins)", Yb, xx, i_dx, xx, xx, no, fRD, 0},
     {REP_EXT,  0x6d0000, "((rep) ins)", Yz, xx, i_dx, xx, xx, no, fRD, 1},
@@ -1843,10 +1839,10 @@ const instr_info_t first_byte[] = {
     {OP_cwde, 0x980000, "cwde", eAX, xx, ax, xx, xx, no, x, END_LIST},/*16-bit=="cbw", src is al not ax; FIXME: newer gdb calls it "cwtl"?!?*/
     /* PR 354096: does not write to ax/eax/rax: sign-extends into dx/edx/rdx */
     {OP_cdq,  0x990000, "cdq", eDX, xx, eAX, xx, xx, no, x, END_LIST},/*16-bit=="cwd";64-bit=="cqo"*/
-    {OP_call_far, 0x9a0000, "lcall",  axSP, i_vSPo2, Ap, axSP, xx, i64, x, END_LIST},
+    {OP_call_far, 0x9a0000, "lcall",  xsp, i_vSPo2, Ap, xsp, xx, i64, x, END_LIST},
     {OP_fwait, 0x9b0000, "fwait", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_pushf, 0x9c0000, "pushf", axSP, i_xSPo1, axSP, xx, xx, no, fRX, END_LIST},
-    {OP_popf,  0x9d0000, "popf", axSP, xx, axSP, i_xSP, xx, no, fWX, END_LIST},
+    {OP_pushf, 0x9c0000, "pushf", xsp, i_xSPo1, xsp, xx, xx, no, fRX, END_LIST},
+    {OP_popf,  0x9d0000, "popf", xsp, xx, xsp, i_xSP, xx, no, fWX, END_LIST},
     {OP_sahf,  0x9e0000, "sahf", xx, xx, ah, xx, xx, no, (fW6&(~fWO)), END_LIST},
     {OP_lahf,  0x9f0000, "lahf", ah, xx, xx, xx, xx, no, (fR6&(~fRO)), END_LIST},
     /* a0 */
@@ -1889,22 +1885,22 @@ const instr_info_t first_byte[] = {
     /* c0 */
     {EXTENSION, 0xc00000, "(group 2a)", Eb, xx, Ib, xx, xx, mrm, x, 3},
     {EXTENSION, 0xc10000, "(group 2b)", Ev, xx, Ib, xx, xx, mrm, x, 4},
-    {OP_ret,  0xc20000, "ret", axSP, xx, Iw, axSP, i_iSP, no, x, tfb[0xc3]},
-    {OP_ret,  0xc30000, "ret", axSP, xx, axSP, i_iSP, xx, no, x, END_LIST},
+    {OP_ret,  0xc20000, "ret", xsp, xx, Iw, xsp, i_iSP, no, x, tfb[0xc3]},
+    {OP_ret,  0xc30000, "ret", xsp, xx, xsp, i_iSP, xx, no, x, END_LIST},
     {VEX_PREFIX_EXT, 0xc40000, "(vex_prefix_ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {VEX_PREFIX_EXT, 0xc50000, "(vex_prefix_ext 1)", xx, xx, xx, xx, xx, no, x, 1},
     {EXTENSION, 0xc60000, "(group 11a)", Eb, xx, Ib, xx, xx, mrm, x, 17},
     {EXTENSION, 0xc70000, "(group 11b)", Ev, xx, Iz, xx, xx, mrm, x, 18},
     /* c8 */
-    {OP_enter,  0xc80000, "enter", axSP, i_xSPoN, Iw, Ib, axSP, xop, x, exop[0x05]},
-    {OP_leave,  0xc90000, "leave", axSP, axBP, axBP, axSP, i_xBP, no, x, END_LIST},
-    {OP_ret_far,  0xca0000, "lret", axSP, xx, Iw, axSP, i_vSPs2, no, x, tfb[0xcb]},
-    {OP_ret_far,  0xcb0000, "lret", axSP, xx, axSP, i_vSPs2, xx, no, x, END_LIST},
+    {OP_enter,  0xc80000, "enter", xsp, i_xSPoN, Iw, Ib, xsp, xop, x, exop[0x05]},
+    {OP_leave,  0xc90000, "leave", xsp, xbp, xbp, xsp, i_xBP, no, x, END_LIST},
+    {OP_ret_far,  0xca0000, "lret", xsp, xx, Iw, xsp, i_vSPs2, no, x, tfb[0xcb]},
+    {OP_ret_far,  0xcb0000, "lret", xsp, xx, xsp, i_vSPs2, xx, no, x, END_LIST},
     /* we ignore the operations on the kernel stack */
     {OP_int3, 0xcc0000, "int3", xx, xx, xx, xx, xx, no, fINT, END_LIST},
     {OP_int,  0xcd0000, "int",  xx, xx, Ib, xx, xx, no, fINT, END_LIST},
     {OP_into, 0xce0000, "into", xx, xx, xx, xx, xx, i64, fINT, END_LIST},
-    {OP_iret, 0xcf0000, "iret", axSP, xx, axSP, i_vSPs3, xx, no, fWX, END_LIST},
+    {OP_iret, 0xcf0000, "iret", xsp, xx, xsp, i_vSPs3, xx, no, fWX, END_LIST},
     /* d0 */
     {EXTENSION, 0xd00000, "(group 2c)", Eb, xx, c1,  xx, xx, mrm, x, 5},
     {EXTENSION, 0xd10000, "(group 2d)", Ev, xx, c1,  xx, xx, mrm, x, 6},
@@ -1936,7 +1932,7 @@ const instr_info_t first_byte[] = {
     {OP_out,  0xe60000, "out", xx, xx, Ib, al, xx, no, x, tfb[0xef]},
     {OP_out,  0xe70000, "out", xx, xx, Ib, zAX, xx, no, x, tfb[0xe6]},
     /* e8 */
-    {OP_call,     0xe80000, "call",  axSP, i_iSPo1, Jz, axSP, xx, no, x, END_LIST},
+    {OP_call,     0xe80000, "call",  xsp, i_iSPo1, Jz, xsp, xx, no, x, END_LIST},
     {OP_jmp,       0xe90000, "jmp", xx, xx, Jz, xx, xx, no, x, END_LIST},
     {OP_jmp_far,   0xea0000, "ljmp", xx, xx, Ap, xx, xx, i64, x, END_LIST},
     {OP_jmp_short, 0xeb0000, "jmp", xx, xx, Jb, xx, xx, no, x, END_LIST},
@@ -2164,8 +2160,8 @@ const instr_info_t second_byte[] = {
   {OP_setle, 0x0f9e10, "setle", Eb, xx, xx, xx, xx, mrm, (fRS|fRO|fRZ), END_LIST},
   {OP_setnle,0x0f9f10, "setnle",Eb, xx, xx, xx, xx, mrm, (fRS|fRO|fRZ), END_LIST},
   /* a0 */
-  {OP_push, 0x0fa010, "push", axSP, i_xSPo1, fs, axSP, xx, no, x, tsb[0xa8]},
-  {OP_pop,  0x0fa110, "pop", fs, axSP, axSP, i_xSP, xx, no, x, tsb[0xa9]},
+  {OP_push, 0x0fa010, "push", xsp, i_xSPo1, fs, xsp, xx, no, x, tsb[0xa8]},
+  {OP_pop,  0x0fa110, "pop", fs, xsp, xsp, i_xSP, xx, no, x, tsb[0xa9]},
   {OP_cpuid, 0x0fa210, "cpuid", eax, ebx, eax, ecx, xx, xop, x, exop[0x06]},
   {OP_bt,   0x0fa310, "bt",   xx, xx, Ev, Gv, xx, mrm, fW6, tex[15][4]},
   {OP_shld, 0x0fa410, "shld", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xa5]},
@@ -2173,8 +2169,8 @@ const instr_info_t second_byte[] = {
   {INVALID, 0x0fa610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0fa710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* a8 */
-  {OP_push, 0x0fa810, "push", axSP, i_xSPo1, gs, axSP, xx, no, x, END_LIST},
-  {OP_pop,  0x0fa910, "pop", gs, axSP, axSP, i_xSP, xx, no, x, END_LIST},
+  {OP_push, 0x0fa810, "push", xsp, i_xSPo1, gs, xsp, xx, no, x, END_LIST},
+  {OP_pop,  0x0fa910, "pop", gs, xsp, xsp, i_xSP, xx, no, x, END_LIST},
   {OP_rsm,  0x0faa10, "rsm", xx, xx, xx, xx, xx, no, fWX, END_LIST},
   {OP_bts,  0x0fab10, "bts", Ev, xx, Gv, Ev, xx, mrm, fW6, tex[15][5]},
   {OP_shrd, 0x0fac10, "shrd", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xad]},
@@ -2433,12 +2429,12 @@ const instr_info_t extensions[][8] = {
   { /* extensions[12] */
     {OP_inc, 0xff0020, "inc", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][0]},
     {OP_dec, 0xff0021, "dec", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][1]},
-    {OP_call_ind,     0xff0022, "call",  axSP, i_iSPo1, i_Exi, axSP, xx, mrm, x, END_LIST},
+    {OP_call_ind,     0xff0022, "call",  xsp, i_iSPo1, i_Exi, xsp, xx, mrm, x, END_LIST},
     /* Note how a far call's stack operand size matches far ret rather than call */
-    {OP_call_far_ind, 0xff0023, "lcall",  axSP, i_vSPo2, i_Ep, axSP, xx, mrm, x, END_LIST},
+    {OP_call_far_ind, 0xff0023, "lcall",  xsp, i_vSPo2, i_Ep, xsp, xx, mrm, x, END_LIST},
     {OP_jmp_ind,      0xff0024, "jmp",  xx, xx, i_Exi, xx, xx, mrm, x, END_LIST},
     {OP_jmp_far_ind,  0xff0025, "ljmp",  xx, xx, i_Ep, xx, xx, mrm, x, END_LIST},
-    {OP_push, 0xff0026, "push", axSP, i_xSPo1, Esv, axSP, xx, mrm, x, tfb[0x06]},
+    {OP_push, 0xff0026, "push", xsp, i_xSPo1, Esv, xsp, xx, mrm, x, tfb[0x06]},
     {INVALID, 0xff0027, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
  },
   /* group 6 (first bytes 0f 00) */
@@ -2600,7 +2596,7 @@ const instr_info_t extensions[][8] = {
   },
   /* group 1d (Intel now calling Group 1A) -- first opcode byte 8f */
   { /* extensions[26] */
-    {OP_pop,  0x8f0020, "pop", Esv, axSP, axSP, i_xSP, xx, mrm, x, tfb[0x17]},
+    {OP_pop,  0x8f0020, "pop", Esv, xsp, xsp, i_xSP, xx, mrm, x, tfb[0x17]},
     /* we shouldn't ever get here for these, as this becomes an XOP prefix */
     {INVALID, 0x8f0021, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x8f0022, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6328,7 +6324,7 @@ const instr_info_t extra_operands[] =
     {OP_CONTD, 0x000000, "<popa cont'd>", eDX, eBP, xx, xx, xx, xop, x, exop[0x04]},
     {OP_CONTD, 0x000000, "<popa cont'd>", eSI, eDI, xx, xx, xx, no, x, END_LIST},
     /* 0x05 */
-    {OP_CONTD, 0x000000, "<enter cont'd>", axBP, xx, axBP, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0x000000, "<enter cont'd>", xbp, xx, xbp, xx, xx, no, x, END_LIST},
     /* 0x06 */
     {OP_CONTD, 0x000000, "<cpuid cont'd>", ecx, edx, xx, xx, xx, no, x, END_LIST},
     /* 0x07 */

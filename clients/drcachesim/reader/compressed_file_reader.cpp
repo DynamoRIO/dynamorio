@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,8 +31,8 @@
  */
 
 #include <assert.h>
-#include <fstream>
-#include "file_reader.h"
+#include <zlib.h>
+#include "compressed_file_reader.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
 
@@ -40,22 +40,21 @@
 # include <iostream>
 #endif
 
-file_reader_t::file_reader_t()
+compressed_file_reader_t::compressed_file_reader_t() : file(NULL)
 {
     /* Empty. */
 }
 
-file_reader_t::file_reader_t(const char *file_name) :
-    fstream(file_name, std::ifstream::binary)
+compressed_file_reader_t::compressed_file_reader_t(const char *file_name)
 {
-    /* Empty. */
+    file = gzopen(file_name, "rb");
 }
 
 bool
-file_reader_t::init()
+compressed_file_reader_t::init()
 {
     at_eof = false;
-    if (!fstream)
+    if (file == NULL)
         return false;
     trace_entry_t *first_entry = read_next_entry();
     if (first_entry == NULL)
@@ -69,31 +68,29 @@ file_reader_t::init()
     return true;
 }
 
-file_reader_t::~file_reader_t()
+compressed_file_reader_t::~compressed_file_reader_t()
 {
-    fstream.close();
+    if (file != NULL)
+        gzclose(file);
 }
 
 trace_entry_t *
-file_reader_t::read_next_entry()
+compressed_file_reader_t::read_next_entry()
 {
-    if (!fstream.read((char*)&entry_copy, sizeof(entry_copy)))
+    int len = gzread(file, (char*)&entry_copy, sizeof(entry_copy));
+    // Returns less than asked-for for end of file, or –1 for error.
+    if (len < (int)sizeof(entry_copy))
         return NULL;
     return &entry_copy;
 }
 
 bool
-file_reader_t::is_complete()
+compressed_file_reader_t::is_complete()
 {
-    if (!fstream)
-        return false;
-    bool res = false;
-    std::streampos pos = fstream.tellg();
-    fstream.seekg(-(int)sizeof(trace_entry_t), fstream.end);
-    // Avoid reaching eof b/c we can't seek away from it.
-    if (fstream.read((char*)&entry_copy.type, sizeof(entry_copy.type)) &&
-        entry_copy.type == TRACE_TYPE_FOOTER)
-        res = true;
-    fstream.seekg(pos);
-    return res;
+    // The gzip reading interface does not support seeking to SEEK_END so there
+    // is no efficient way to read the footer.
+    // We could have the trace file writer seek back and set a bit at the start.
+    // Or we can just not supported -indir with a gzipped file, which is what we
+    // do for now: the user must pass in -infile for a gzipped file.
+    return false;
 }

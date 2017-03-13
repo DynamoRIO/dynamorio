@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -77,15 +77,43 @@ the simulator via a pipe.
 Any child processes will be followed into and profiled, with their
 memory references passed to the simulator as well.
 
+To simulate TLB devices instead of caches, use the \p -simulator_type
+parameter:
+
+\code
+bin64/drrun -t drcachesim -simulator_type TLB -- /path/to/target/app <args> <for> <app>
+\endcode
+
+Several other trace analysis tools are under development.
+
 To dump the trace for future offline analysis:
 \code
 bin64/drrun -t drcachesim -offline -- /path/to/target/app <args> <for> <app>
 \endcode
 
-The collected traces will be dumpped into a newly created directory,
-which can be passed to drcachesim for offline cache simulation.
+The collected traces will be dumped into a newly created directory,
+which can be passed to drcachesim for offline cache simulation with the \p
+-indir option:
 \code
 bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
+\endcode
+
+The direct results of the \p -offline run are raw, compacted files, stored
+in a \p raw subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
+The \p -indir option both converts the data to a canonical trace form and
+passes the resulting data to the cache simulator.  The canonical trace data
+is stored by \p -indir in a file named \p drmemtrace.trace inside the \p
+drmemtrace.app.pid.xxxx.dir/ directory.  Future runs can point directly at
+this file using the \p -infile option:
+\code
+bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
+\endcode
+
+The \p -infile option supports reading a gzipped trace file, allowing
+compression of the \p drmemtrace.trace file to save space:
+\code
+gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
+bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
 \endcode
 
 \section sec_drcachesim_sim Simulator Details

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,7 +49,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <iostream>
-#include "analyzer.h"
+#include "analyzer_multi.h"
 #include "dr_api.h"
 #include "dr_inject.h"
 #include "dr_config.h"
@@ -185,7 +185,7 @@ _tmain(int argc, const TCHAR *targv[])
                                        (const char **) argv,
                                        &parse_err, &app_idx)) {
         // We try to support no "--" separating the app
-        if (argv[app_idx][0] != '-') {
+        if (argv[app_idx] != NULL && argv[app_idx][0] != '-') {
             // Treat as the app name
         } else {
             FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
@@ -233,9 +233,8 @@ _tmain(int argc, const TCHAR *targv[])
             FATAL_ERROR("invalid -outdir %s", op_outdir.get_value().c_str());
         }
     } else {
-        // declare the analyzer based on its type
-        analyzer = new analyzer_t;
-        if (!analyzer) {
+        analyzer = new analyzer_multi_t;
+        if (!*analyzer) {
             FATAL_ERROR("failed to initialize analyzer");
         }
     }

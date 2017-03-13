@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1777,11 +1777,11 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
          * of this does not have a varying hardcoded reg, fortunately. */
         *opnd = opnd_create_base_disp(opsize, REG_NULL, 0, 0, reg_get_size(opsize));
         return true;
-    case TYPE_INDIR_VAR_XREG: /* indirect reg varies by addr16 not data16, base is 4x8,
+    case TYPE_INDIR_VAR_XREG: /* indirect reg varies by ss only, base is 4x8,
                                * opsize varies by data16 */
-    case TYPE_INDIR_VAR_REG: /* indirect reg varies by addr16 not data16, base is 4x8,
+    case TYPE_INDIR_VAR_REG: /* indirect reg varies by ss only, base is 4x8,
                               * opsize varies by rex and data16 */
-    case TYPE_INDIR_VAR_XIREG: /* indirect reg varies by addr16 not data16, base is 4x8,
+    case TYPE_INDIR_VAR_XIREG: /* indirect reg varies by ss only, base is 4x8,
                                 * opsize varies by data16 except on 64-bit Intel */
     case TYPE_INDIR_VAR_XREG_OFFS_1: /* TYPE_INDIR_VAR_XREG + an offset */
     case TYPE_INDIR_VAR_XREG_OFFS_8: /* TYPE_INDIR_VAR_XREG + an offset + scale */
@@ -1793,7 +1793,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_INDIR_VAR_REG_SIZEx3x5:/* TYPE_INDIR_VAR_REG + scale */
         {
             reg_id_t reg =
-                resolve_var_reg(di, opsize, true/*addr*/, true/*shrinkable*/
+                resolve_var_reg(di, opsize, true/*doesn't matter*/, false/*!shrinkable*/
                                 _IF_X64(true/*d64*/) _IF_X64(false/*!growable*/)
                                 _IF_X64(false/*!extendable*/));
             opnd_size_t sz =

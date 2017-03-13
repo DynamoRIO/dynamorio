@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,14 +30,20 @@
  * DAMAGE.
  */
 
-/* analyzer: represent a memory trace analysis tool.
+/* analyzer: represent a memory trace analysis tool that operates only
+ * on a file.  We separate this from analyzer_multi, which can operate online
+ * or on a raw trace file, to avoid needing to link in DR itself.
  */
 
 #ifndef _ANALYZER_H_
 #define _ANALYZER_H_ 1
 
 #include "analysis_tool.h"
-#include "reader/reader.h"
+#include <string>
+
+// We avoid reader.h here to make it easier for standalone tools
+// along the lines of histogram_launcher.
+class reader_t;
 
 class analyzer_t
 {
@@ -45,25 +51,26 @@ class analyzer_t
     // Usage: errors encountered during the constructor will set a flag that should
     // be queried via operator!.
     analyzer_t();
+    // The analyzer will reference the tools array passed in during its lifetime:
+    // it does not make a copy.
+    // The user must free them afterward.
+    analyzer_t(const std::string &trace_file, analysis_tool_t **tools,
+               int num_tools);
     virtual ~analyzer_t();
     virtual bool operator!();
     virtual bool run();
     virtual bool print_stats();
 
  protected:
-    bool create_analysis_tools();
-    void destroy_analysis_tools();
     // This finalizes the trace_iter setup.  It can block and is meant to be
     // called at the top of run().
     bool start_reading();
-
-    static const int max_num_tools = 8;
 
     bool success;
     reader_t *trace_iter;
     reader_t *trace_end;
     int num_tools;
-    analysis_tool_t *tools[max_num_tools];
+    analysis_tool_t **tools;
 };
 
 #endif /* _ANALYZER_H_ */

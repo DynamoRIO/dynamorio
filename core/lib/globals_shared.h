@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -242,6 +242,7 @@ typedef __int64 ssize_t;
 #  else
 typedef int ssize_t;
 #  endif
+#  define _SSIZE_T_DEFINED
 #  define INT64_FORMAT "I64"
 #else /* Linux */
 #  ifdef X64

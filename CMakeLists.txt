@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -1615,6 +1615,15 @@ if (BUILD_TESTS AND UNIX)
       message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
     endif ()
   endif ()
+endif ()
+
+# zlib is used for some clients/ and tests.
+if (CMAKE_CROSSCOMPILING)
+  # find_package looks at the host system.
+  # XXX i#2285: we should re-visit the CMAKE_FIND_ROOT_PATH settings!
+  set(ZLIB_FOUND OFF)
+else ()
+  find_package(ZLIB)
 endif ()
 
 if (BUILD_CLIENTS)
