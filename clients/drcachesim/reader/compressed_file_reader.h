@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,70 +30,31 @@
  * DAMAGE.
  */
 
-#include <assert.h>
-#include <fstream>
-#include "file_reader.h"
+/* compressed_file_reader: reads compressed files containing memory traces. */
+
+#ifndef _COMPRESSED_FILE_READER_H_
+#define _COMPRESSED_FILE_READER_H_ 1
+
+#include <zlib.h>
+#include "reader.h"
 #include "../common/memref.h"
-#include "../common/utils.h"
+#include "../common/trace_entry.h"
 
-#ifdef VERBOSE
-# include <iostream>
-#endif
-
-file_reader_t::file_reader_t()
+class compressed_file_reader_t : public reader_t
 {
-    /* Empty. */
-}
+ public:
+    compressed_file_reader_t();
+    explicit compressed_file_reader_t(const char *file_name);
+    virtual ~compressed_file_reader_t();
+    virtual bool init();
+    bool is_complete();
 
-file_reader_t::file_reader_t(const char *file_name) :
-    fstream(file_name, std::ifstream::binary)
-{
-    /* Empty. */
-}
+ protected:
+    virtual trace_entry_t * read_next_entry();
 
-bool
-file_reader_t::init()
-{
-    at_eof = false;
-    if (!fstream)
-        return false;
-    trace_entry_t *first_entry = read_next_entry();
-    if (first_entry == NULL)
-        return false;
-    if (first_entry->type != TRACE_TYPE_HEADER ||
-        first_entry->addr != TRACE_ENTRY_VERSION) {
-        ERRMSG("missing header or version mismatch\n");
-        return false;
-    }
-    ++*this;
-    return true;
-}
+ private:
+    gzFile file;
+    trace_entry_t entry_copy;
+};
 
-file_reader_t::~file_reader_t()
-{
-    fstream.close();
-}
-
-trace_entry_t *
-file_reader_t::read_next_entry()
-{
-    if (!fstream.read((char*)&entry_copy, sizeof(entry_copy)))
-        return NULL;
-    return &entry_copy;
-}
-
-bool
-file_reader_t::is_complete()
-{
-    if (!fstream)
-        return false;
-    bool res = false;
-    std::streampos pos = fstream.tellg();
-    fstream.seekg(-(int)sizeof(trace_entry_t), fstream.end);
-    // Avoid reaching eof b/c we can't seek away from it.
-    if (fstream.read((char*)&entry_copy.type, sizeof(entry_copy.type)) &&
-        entry_copy.type == TRACE_TYPE_FOOTER)
-        res = true;
-    fstream.seekg(pos);
-    return res;
-}
+#endif /* _COMPRESSED_FILE_READER_H_ */

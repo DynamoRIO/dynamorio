@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,9 @@
 #ifndef _ANALYSIS_TOOL_H_
 #define _ANALYSIS_TOOL_H_ 1
 
-#include "common/memref.h"
+// To support installation of headers for analysis tools into a single
+// separate directory we omit common/ here and rely on -I.
+#include "memref.h"
 
 class analysis_tool_t
 {

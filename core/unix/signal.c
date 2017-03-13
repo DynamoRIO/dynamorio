@@ -5390,13 +5390,16 @@ receive_pending_signal(dcontext_t *dcontext)
     int sig;
     LOG(THREAD, LOG_ASYNCH, 3, "receive_pending_signal\n");
     if (info->interrupted != NULL) {
-        LOG(THREAD, LOG_ASYNCH, 3, "\tre-linking outgoing for interrupted F%d\n",
-            info->interrupted->id);
-        SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, acquire,
-                                    change_linking_lock);
-        link_fragment_outgoing(dcontext, info->interrupted, false);
-        SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, release,
-                                    change_linking_lock);
+        /* i#2066: if we were building a trace, it may already be re-linked */
+        if (!TEST(FRAG_LINKED_OUTGOING, info->interrupted->flags)) {
+            LOG(THREAD, LOG_ASYNCH, 3, "\tre-linking outgoing for interrupted F%d\n",
+                info->interrupted->id);
+            SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, acquire,
+                                        change_linking_lock);
+            link_fragment_outgoing(dcontext, info->interrupted, false);
+            SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, release,
+                                        change_linking_lock);
+        }
         if (TEST(FRAG_HAS_SYSCALL, info->interrupted->flags)) {
             /* restore syscall (they're a barrier to signals, so signal
              * handler has cur frag exit before it does a syscall)
