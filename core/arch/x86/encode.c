@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -492,8 +492,10 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     /* Assumption: the only addr-specified operands that can be short
      * are OPSZ_4x8_short2 and OPSZ_4x8_short2xi8, or
      * OPSZ_4_short2 for x86 mode on x64.
+     * Stack memrefs can pass addr==true and OPSZ_4x8.
      */
-    CLIENT_ASSERT(!addr || size_template == OPSZ_4x8_short2xi8 ||
+    CLIENT_ASSERT(!addr || size_template == OPSZ_4x8 ||
+                  size_template == OPSZ_4x8_short2xi8 ||
                   size_template == OPSZ_4x8_short2
                   IF_X64(|| (!X64_MODE(di) && size_template == OPSZ_4_short2)),
                   "internal prefix assumption error");
@@ -1120,11 +1122,11 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                 opnd_get_disp(opnd) == 0 &&
                 /* FIXME: how know data size?  for now just use reg size... */
                 size_ok(di, opnd_get_size(opnd), reg_get_size(opsize), false/*!addr*/));
-    case TYPE_INDIR_VAR_XREG: /* indirect reg that varies (by addr16), base is 4x8,
+    case TYPE_INDIR_VAR_XREG: /* indirect reg that varies by ss only, base is 4x8,
                                * opsize that varies by data16 */
-    case TYPE_INDIR_VAR_REG: /* indrect reg that varies (by addr16), base is 4x8,
+    case TYPE_INDIR_VAR_REG: /* indrect reg that varies by ss only, base is 4x8,
                               * opsize that varies by rex & data16 */
-    case TYPE_INDIR_VAR_XIREG: /* indrect reg that varies (by addr16), base is 4x8,
+    case TYPE_INDIR_VAR_XIREG: /* indrect reg that varies by ss only, base is 4x8,
                                 * opsize that varies by data16 except on 64-bit Intel */
     case TYPE_INDIR_VAR_XREG_OFFS_1: /* TYPE_INDIR_VAR_XREG + an offset */
     case TYPE_INDIR_VAR_XREG_OFFS_8: /* TYPE_INDIR_VAR_XREG + an offset + scale */
@@ -1149,10 +1151,11 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
              * to generalize we'll want opsize_var_size(reg_get_size(opsize)) or sthg.
              */
             CLIENT_ASSERT(reg_get_size(opsize) == OPSZ_4, "internal decoding error");
-            return (reg_size_ok(di, base, optype, OPSZ_VARSTACK, true/*addr*/) &&
-                    base == resolve_var_reg(di, opsize, true,
-                                            true _IF_X64(true) _IF_X64(false)
-                                            _IF_X64(false)) &&
+            return (reg_size_ok(di, base, optype, OPSZ_4x8, true/*addr*/) &&
+                    base == resolve_var_reg(di, opsize, true/*doesn't matter*/,
+                                            false/*!shrinkable*/ _IF_X64(true/*d64*/)
+                                            _IF_X64(false/*!growable*/)
+                                            _IF_X64(false/*!extendable*/)) &&
                     opnd_get_index(opnd) == REG_NULL &&
                     /* we're forgiving here, rather than adding complexity
                      * of a disp_equals_minus_size flag or sthg (i#164)

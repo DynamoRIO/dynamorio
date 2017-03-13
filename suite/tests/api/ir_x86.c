@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -314,6 +314,34 @@ test_instr_encode(void *dc, instr_t *instr, uint len_expect)
     instr_destroy(dc, decin);
 }
 
+static void
+test_instr_decode(void *dc, instr_t *instr, byte *bytes, uint bytes_len, bool size_match)
+{
+    instr_t *decin;
+    if (size_match) {
+        uint len;
+        byte *pc = instr_encode(dc, instr, buf);
+        len = (int) (pc - (byte *)buf);
+#if VERBOSE
+        disassemble_with_info(dc, buf, STDOUT, true, true);
+#endif
+        ASSERT(len == bytes_len);
+        ASSERT(memcmp(buf, bytes, bytes_len) == 0);
+    }
+    decin = instr_create(dc);
+    decode(dc, bytes, decin);
+#if VERBOSE
+    print("Comparing |");
+    instr_disassemble(dc, instr, STDOUT);
+    print("|\n       to |");
+    instr_disassemble(dc, decin, STDOUT);
+    print("|\n");
+#endif
+    ASSERT(instr_same(instr, decin));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
 /* emits the instruction to buf (for tests that wish to do additional checks on
  * the output) */
 static void
@@ -353,12 +381,13 @@ test_indirect_cti(void *dc)
     /*
     0x004275f4   ff d1                call   %ecx %esp -> %esp (%esp)
     0x004275f4   66 ff d1             data16 call   %cx %esp -> %esp (%esp)
-    0x004275f4   67 ff d1             addr16 call   %ecx %sp -> %sp (%sp)
+    0x004275f4   67 ff d1             addr16 call   %ecx %esp -> %esp (%esp)
     0x00427794   ff 19                lcall  (%ecx) %esp -> %esp (%esp)
     0x00427794   66 ff 19             data16 lcall  (%ecx) %esp -> %esp (%esp)
-    0x00427794   67 ff 1f             addr16 lcall  (%bx) %sp -> %sp (%sp)
+    0x00427794   67 ff 1f             addr16 lcall  (%bx) %esp -> %esp (%esp)
     */
     instr_t *instr;
+    byte bytes_addr16_call[] = { 0x67, 0xff, 0xd1 };
     instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
     test_instr_encode(dc, instr, 2);
 #ifndef X64 /* only on AMD can we shorten, so we don't test it */
@@ -367,15 +396,9 @@ test_indirect_cti(void *dc)
                                    opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
 #endif
-    instr = instr_create_2dst_2src(dc, OP_call_ind,
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
-                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
-                                                         REG_NULL, 0, -(int)sizeof(void*),
-                                                         OPSZ_ret),
-                                   /* only on AMD can we shorten, so we don't test it */
-                                   opnd_create_reg(REG_XCX),
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
-    test_instr_encode(dc, instr, 3);
+    /* addr16 prefix does nothing here */
+    instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
+    test_instr_decode(dc, instr, bytes_addr16_call, sizeof(bytes_addr16_call), false);
 
     /* invalid to have far call go through reg since needs 6 bytes */
     instr = INSTR_CREATE_call_far_ind(dc, opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0,
@@ -388,13 +411,13 @@ test_indirect_cti(void *dc)
                                    opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_2dst_2src(dc, OP_call_far_ind,
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
-                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
+                                   opnd_create_reg(REG_XSP),
+                                   opnd_create_base_disp(REG_XSP,
                                                          REG_NULL, 0, -8,
                                                          OPSZ_8_rex16_short4),
                                    opnd_create_base_disp(IF_X64_ELSE(REG_EBX, REG_BX),
                                                          REG_NULL, 0, 0, OPSZ_6),
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
+                                   opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 3);
 
     /* case 10710: make sure we can encode these guys
@@ -547,9 +570,7 @@ static void
 test_size_changes(void *dc)
 {
     /*
-     *   0x004299d4   67 51                addr16 push   %ecx %sp -> %sp (%sp)
      *   0x004299d4   66 51                data16 push   %cx %esp -> %esp (%esp)
-     *   0x004299d4   66 67 51             data16 addr16 push   %cx %sp -> %sp (%sp)
      *   0x004298a4   e3 fe                jecxz  $0x004298a4 %ecx
      *   0x004298a4   67 e3 fd             addr16 jecxz  $0x004298a4 %cx
      *   0x080a5260   67 e2 fd             addr16 loop   $0x080a5260 %cx -> %cx
@@ -557,15 +578,7 @@ test_size_changes(void *dc)
      *   0x080a5260   67 e0 fd             addr16 loopne $0x080a5260 %cx -> %cx
      */
     instr_t *instr;
-    /* push addr16 */
-    instr = instr_create_2dst_2src(dc, OP_push,
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)),
-                                   opnd_create_base_disp(IF_X64_ELSE(REG_ESP, REG_SP),
-                                                         REG_NULL, 0, -(int)sizeof(void*),
-                                                         OPSZ_ret),
-                                   opnd_create_reg(REG_XCX),
-                                   opnd_create_reg(IF_X64_ELSE(REG_ESP, REG_SP)));
-    test_instr_encode(dc, instr, 2);
+    /* addr16 doesn't affect push so we only test data16 here */
 #ifndef X64 /* can only shorten on AMD */
     /* push data16 */
     instr = instr_create_2dst_2src(dc, OP_push,
@@ -573,11 +586,6 @@ test_size_changes(void *dc)
                                    opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_2),
                                    opnd_create_reg(REG_CX), opnd_create_reg(REG_XSP));
     test_instr_encode(dc, instr, 2);
-    /* push addr16 and data16 */
-    instr = instr_create_2dst_2src(dc, OP_push, opnd_create_reg(REG_SP),
-                                   opnd_create_base_disp(REG_SP, REG_NULL, 0, -2, OPSZ_2),
-                                   opnd_create_reg(REG_CX), opnd_create_reg(REG_SP));
-    test_instr_encode(dc, instr, 3);
 #endif
     /* jecxz and jcxz */
     test_instr_encode(dc, INSTR_CREATE_jecxz(dc, opnd_create_pc(buf)), 2);
@@ -1366,6 +1374,56 @@ test_xinst_create(void *dc)
     instr_reset(dc, ins2);
 }
 
+static void
+test_stack_pointer_size(void *dc)
+{
+    /* Test i#2281 where we had the stack pointer size incorrectly varying.
+     * We can't simply append these to dis-udis86-randtest.raw b/c our test
+     * there uses -syntax_intel.  We could make a new raw DR-style test.
+     */
+    byte *pc;
+    char buf[512];
+    int len;
+    const byte bytes_push[] = { 0x67, 0x51 };
+    const byte bytes_ret[] = { 0x67, 0xc3 };
+    const byte bytes_enter[] = { 0x67, 0xc8, 0xab, 0xcd, 0xef };
+    const byte bytes_leave[] = { 0x67, 0xc9 };
+
+    pc = disassemble_to_buffer(dc, (byte *)bytes_push, (byte *)bytes_push,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_push == sizeof(bytes_push));
+    ASSERT(strcmp(buf, IF_X64_ELSE
+                  ("addr32 push   %rcx %rsp -> %rsp 0xfffffff8(%rsp)[8byte]\n",
+                   "addr16 push   %ecx %esp -> %esp 0xfffffffc(%esp)[4byte]\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)bytes_ret, (byte *)bytes_ret,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_ret == sizeof(bytes_ret));
+    ASSERT(strcmp(buf, IF_X64_ELSE
+                  ("addr32 ret    %rsp (%rsp)[8byte] -> %rsp\n",
+                   "addr16 ret    %esp (%esp)[4byte] -> %esp\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)bytes_enter, (byte *)bytes_enter,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_enter == sizeof(bytes_enter));
+    ASSERT(strcmp(buf, IF_X64_ELSE
+                  ("addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp 0xfffffff8(%rsp)[8byte]"
+                   " %rbp\n",
+                   "addr16 enter  $0xcdab $0xef %esp %ebp -> %esp 0xfffffffc(%esp)[4byte]"
+                   " %ebp\n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)bytes_leave, (byte *)bytes_leave,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL && pc - (byte *)bytes_leave == sizeof(bytes_leave));
+    ASSERT(strcmp(buf, IF_X64_ELSE
+                  ("addr32 leave  %rbp %rsp (%rbp)[8byte] -> %rsp %rbp\n",
+                   "addr16 leave  %ebp %esp (%ebp)[4byte] -> %esp %ebp\n")) == 0);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1428,6 +1486,8 @@ main(int argc, char *argv[])
     test_predication(dcontext);
 
     test_xinst_create(dcontext);
+
+    test_stack_pointer_size(dcontext);
 
     print("all done\n");
     return 0;

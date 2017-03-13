@@ -42,6 +42,17 @@ else ()
   add_definitions(-DUNIX)
 endif ()
 
+# i#2277: we use zlib if available to read compressed trace files.
+# XXX: we could ship with a zlib for Windows: today we simply don't support
+# compressed traces on Windows.
+if (ZLIB_FOUND)
+  add_definitions(-DHAS_ZLIB)
+  include_directories(${ZLIB_INCLUDE_DIRS})
+  set(zlib_reader reader/compressed_file_reader.cpp)
+else ()
+  set(zlib_reader "")
+endif()
+
 set(client_and_sim_srcs
   common/named_pipe_${os_name}.cpp
   common/options.cpp
@@ -54,6 +65,7 @@ add_executable(drcachesim
   ${client_and_sim_srcs}
   reader/reader.cpp
   reader/file_reader.cpp
+  ${zlib_reader}
   reader/ipc_reader.cpp
   simulator/analyzer_interface.cpp
   simulator/simulator.cpp
@@ -92,6 +104,7 @@ set(file_analyzer_tool_srcs
   common/trace_entry.cpp
   reader/reader.cpp
   reader/file_reader.cpp
+  ${zlib_reader}
   )
 
 # We show one example of how to create a standalone analyzer of trace
@@ -105,6 +118,11 @@ add_executable(drmemtrace_histogram
 target_link_libraries(drmemtrace_histogram drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_histogram droption)
 add_dependencies(drmemtrace_histogram api_headers)
+
+if (ZLIB_FOUND)
+  target_link_libraries(drcachesim ${ZLIB_LIBRARIES})
+  target_link_libraries(drmemtrace_histogram ${ZLIB_LIBRARIES})
+endif ()
 
 macro(add_drmemtrace name type)
   if (${type} STREQUAL "STATIC")

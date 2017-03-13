@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -208,6 +208,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         }
     case TYPE_Y:
     case TYPE_FLOATCONST:
+    case TYPE_XREG:
     case TYPE_VAR_ADDR_XREG:
     case TYPE_INDIR_REG:
     case TYPE_INDIR_VAR_XREG:

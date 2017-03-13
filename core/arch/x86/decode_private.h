@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -381,13 +381,13 @@ enum {
     TYPE_VAR_REGX_EX, /* like TYPE_VAR_REGX but extendable.  used for bswap. */
     TYPE_INDIR_E,
     TYPE_INDIR_REG,
-    TYPE_INDIR_VAR_XREG, /* indirected register that varies (by addr prefix),
+    TYPE_INDIR_VAR_XREG, /* indirected register that only varies by stack segment,
                           * with a base of 32/64 depending on the mode;
                           * indirected size varies with data prefix */
-    TYPE_INDIR_VAR_REG, /* indirected register that varies (by addr prefix),
+    TYPE_INDIR_VAR_REG, /* indirected register that only varies by stack segment,
                          * with a base of 32/64;
                          * indirected size varies with data and rex prefixes */
-    TYPE_INDIR_VAR_XIREG, /* indirected register that varies (by addr prefix),
+    TYPE_INDIR_VAR_XIREG, /* indirected register that only varies by stack segment,
                            * with a base of 32/64 depending on the mode;
                            * indirected size varies w/ data prefix, except 64-bit Intel */
     TYPE_INDIR_VAR_XREG_OFFS_1, /* TYPE_INDIR_VAR_XREG but with an offset of
