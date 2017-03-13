@@ -354,6 +354,9 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
     elf_info_t *mod = (elf_info_t *) mod_in;
     if (offs_start == NULL || mod == NULL || idx >= mod->num_syms || mod->syms == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
+    /* Keep this consistent with symbol_is_import() and elf_hash_lookup(), both at
+     * core/unix/module_elf.c
+     */
     if ((mod->syms[idx].st_value == 0 &&
         ELF_ST_TYPE(mod->syms[idx].st_info) != STT_TLS) ||
         mod->syms[idx].st_shndx == 0) {

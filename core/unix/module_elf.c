@@ -882,7 +882,9 @@ elf_hash_lookup(const char   *name,
             ASSERT(false && "malformed ELF symbol entry");
             continue;
         }
-        /* Keep this consistent with symbol_is_import. */
+        /* Keep this consistent with symbol_is_import()  at this file and
+         * drsym_obj_symbol_offs() at ext/drsyms/drsyms_elf.c
+         */
         if (sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS)
             continue; /* no value */
         if (elf_sym_matches(sym, strtab, name, is_indirect_code))
@@ -1540,7 +1542,8 @@ symbol_iterator_stop(elf_symbol_iterator_t *iter)
 static bool
 symbol_is_import(ELF_SYM_TYPE *sym)
 {
-    /* Keep this consistent with elf_hash_lookup.
+    /* Keep this consistent with elf_hash_lookup() at this file and
+     * drsym_obj_symbol_offs() at ext/drsyms/drsyms_elf.c.
      * With some older ARM and AArch64 tool chains we have st_shndx == STN_UNDEF
      * with a non-zero st_value pointing at the PLT. See i#2008.
      */
