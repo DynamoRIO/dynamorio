@@ -2972,6 +2972,7 @@ else (UNIX)
   tobuild(security-win32.apc-shellcode security-win32/apc-shellcode.c)
   tobuild(security-win32.except-int2d security-win32/except-int2d.c)
   tobuild(security-win32.except-guard security-win32/except-guard.c)
+  tobuild(security-win32.thread-setcontext security-win32/thread-setcontext.c)
 
   tobuild(win32.threadterm win32/threadterm.c)
 
