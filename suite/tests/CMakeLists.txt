@@ -2514,7 +2514,7 @@ if (CLIENT_INTERFACE)
         "${histo_path}@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
 
       find_program(GZIP gzip "gzip compression utility")
-      if (UNIX AND ZLIB AND GZIP)
+      if (UNIX AND ZLIB_FOUND AND GZIP)
         # Test the gzip file reader.  It does not work with -indir.
         # We're using the same app name, so we serialize to avoid file conflicts:
         set(tool.histogram.gzip_depends tool.histogram.offline)
