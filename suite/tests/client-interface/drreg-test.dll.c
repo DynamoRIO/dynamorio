@@ -158,6 +158,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* test aflags */
         res = drreg_reserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        res = drreg_restore_app_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
         res = drreg_unreserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
     } else if (subtest == DRREG_TEST_1_C ||
@@ -235,8 +237,11 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
 
     res = drreg_reserve_aflags(drcontext, bb, inst);
     CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+    res = drreg_restore_app_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
     res = drreg_unreserve_aflags(drcontext, bb, inst);
     CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
+
     res = drreg_aflags_liveness(drcontext, inst, &flags);
     CHECK(res == DRREG_SUCCESS, "query of aflags should work");
     res = drreg_are_aflags_dead(drcontext, inst, &dead);
