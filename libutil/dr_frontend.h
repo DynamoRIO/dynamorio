@@ -182,7 +182,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
  */
 drfront_status_t
 drfront_bufprint(INOUT char *buf, size_t bufsz, INOUT size_t *sofar,
-                 OUT ssize_t *len, char *fmt, ...);
+                 OUT ssize_t *len, const char *fmt, ...);
 
 /**
  * Converts from UTF-16 to UTF-8.
