@@ -78,11 +78,12 @@ GLOBAL_LABEL(FUNCNAME:)
 /* push flags on the stack */
 #ifdef X64
         pushfq
+        or       qword ptr [esp], HEX(100)
 #else
         pushfd
+        or       dword ptr [esp], HEX(100)
 #endif
 /* Setting the trap flag to 1 on top of the stack */
-        or       dword ptr [esp], HEX(100)
         jnz      flag_set
         ret
     flag_set:
