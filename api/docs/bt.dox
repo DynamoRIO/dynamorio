@@ -1187,6 +1187,27 @@ instr_num_dsts(), include all possible operands.  Clients should explicitly
 query instr_is_predicated() when using API routines that do not take in
 #dr_opnd_query_flags_t.
 
+********************
+\subsection sec_it_blocks IT Blocks
+
+On ARM AArch32, the Thumb mode includes conditional groups of instructions
+called IT blocks.  The #OP_it header instruction indicates how many
+instructions are in the block and the direction of each instruction's
+conditional.  Thus, inserting instrumentation inside the block without
+updating the header results in an unencodable instruction list.  To solve
+this, we provide two API routines: dr_remove_it_instrs() and
+dr_insert_it_instrs().  The first simply removes the headers.  Since the
+individual instructions from the blocks are marked with their condition in
+our IR, the header is not necessary for tools to analyze the instructions.
+The second re-instates the headers, creating a legal instruction list.
+This re-creation of the proper IT block headers occurs as a final phase in
+drmgr, after the instru2instru event.  This means that the original #OP_it
+header instructions are present for clients to observe in the analysis
+phase.
+
+Clients not using drmgr can call dr_remove_it_instrs() and then
+dr_insert_it_instrs() on their own.
+
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
