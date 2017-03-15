@@ -1364,10 +1364,10 @@ os_timeout(int time_in_milliseconds)
 # define WRITE_TLS_SLOT_IMM(imm, var)                                 \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                            \
     ASSERT(sizeof(var) == sizeof(void*));                             \
-    __asm__ __volatile__(                            \
-        "mov %%gs:%1, %%"ASM_XAX" \n\t"              \
-        "movq %0, %c2(%%"ASM_XAX") \n\t"             \
-        :                                            \
+    __asm__ __volatile__(                                             \
+        "mov %%gs:%1, %%"ASM_XAX" \n\t"                               \
+        "movq %0, %c2(%%"ASM_XAX") \n\t"                              \
+        :                                                             \
         : "r"(var), "m" (*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), "i"(imm) \
         : "memory", ASM_XAX);
 
@@ -1394,11 +1394,11 @@ os_timeout(int time_in_milliseconds)
 # define READ_TLS_SLOT(offs, var)                    \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());           \
     ASSERT(sizeof(var) == sizeof(void*));            \
-    __asm__ __volatile__(                                             \
-        "mov %%gs:%1, %%"ASM_XAX" \n\t"                               \
-        "movzwq %2, %%"ASM_XDX" \n\t"                                 \
-        "movq (%%"ASM_XAX", %%"ASM_XDX"), %0 \n\t"                    \
-        : "=r"(var)                                                   \
+    __asm__ __volatile__(                            \
+        "mov %%gs:%1, %%"ASM_XAX" \n\t"              \
+        "movzwq %2, %%"ASM_XDX" \n\t"                \
+        "movq (%%"ASM_XAX", %%"ASM_XDX"), %0 \n\t"   \
+        : "=r"(var)                                  \
         : "m" (*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), "m"(offs) \
         : "memory", ASM_XAX, ASM_XDX);
 
