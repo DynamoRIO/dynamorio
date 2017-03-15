@@ -3006,6 +3006,7 @@ else (UNIX)
   tobuild(security-win32.except-int2d security-win32/except-int2d.c)
   tobuild(security-win32.except-guard security-win32/except-guard.c)
   tobuild(security-win32.thread-setcontext security-win32/thread-setcontext.c)
+  tobuild(security-win32.singlestep security-win32/singlestep.c)
 
   tobuild(win32.threadterm win32/threadterm.c)
 
@@ -3153,9 +3154,6 @@ endif (UNIX)
 tobuild(security-common.codemod security-common/codemod.c)
 tochcon(security-common.codemod execmem_exec_t)
 mark_execstack(security-common.codemod)
-if (X86) # trap flag for single step execution is a X86 feature.
-  tobuild(security-common.singlestep security-common/singlestep.c)
-endif (X86)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
   tochcon(security-common.decode-bad-stack execmem_exec_t)
