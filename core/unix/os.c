@@ -1360,7 +1360,49 @@ os_timeout(int time_in_milliseconds)
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
-#ifdef X86
+#ifdef MACOS64
+# define WRITE_TLS_SLOT_IMM(imm, var)                                 \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                            \
+    ASSERT(sizeof(var) == sizeof(void*));                             \
+    __asm__ __volatile__(                            \
+        "mov %%gs:%1, %%"ASM_XAX" \n\t"              \
+        "movq %0, %c2(%%"ASM_XAX") \n\t"             \
+        :                                            \
+        : "r"(var), "m" (*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), "i"(imm) \
+        : "memory", ASM_XAX);
+
+# define READ_TLS_SLOT_IMM(imm, var)                 \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());           \
+    ASSERT(sizeof(var) == sizeof(void*));            \
+    __asm__ __volatile__(                            \
+        "mov %%gs:%1, %%"ASM_XAX" \n\t"              \
+        "movq %c2(%%"ASM_XAX"), %0 \n\t"             \
+        : "=r"(var)                                  \
+        : "m" (*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), "i"(imm) \
+        : ASM_XAX);
+
+# define WRITE_TLS_SLOT(offs, var)                                    \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                            \
+    __asm__ __volatile__(                                             \
+        "mov %%gs:%0, %%"ASM_XAX" \n\t"                               \
+        "movzwq %1, %%"ASM_XDX" \n\t"                                 \
+        "movq %2, (%%"ASM_XAX", %%"ASM_XDX") \n\t"                    \
+        :                                                             \
+        : "m" (*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), "m"(offs), "r"(var) \
+        : "memory", ASM_XAX, ASM_XDX);
+
+# define READ_TLS_SLOT(offs, var)                    \
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());           \
+    ASSERT(sizeof(var) == sizeof(void*));            \
+    __asm__ __volatile__(                                             \
+        "mov %%gs:%1, %%"ASM_XAX" \n\t"                               \
+        "movzwq %2, %%"ASM_XDX" \n\t"                                 \
+        "movq (%%"ASM_XAX", %%"ASM_XDX"), %0 \n\t"                    \
+        : "=r"(var)                                                   \
+        : "m" (*(void **)(DR_TLS_BASE_SLOT * sizeof(void *))), "m"(offs) \
+        : "memory", ASM_XAX, ASM_XDX);
+
+#elif defined(X86)
 # define WRITE_TLS_SLOT_IMM(imm, var)                                 \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                            \
     ASSERT(sizeof(var) == sizeof(void*));                             \
@@ -1457,7 +1499,15 @@ static os_local_state_t uninit_tls; /* has .magic == 0 */
 static bool
 is_thread_tls_initialized(void)
 {
-#ifdef X86
+#ifdef MACOS64
+    byte **tls_swap_slot;
+    tls_swap_slot = (byte **)get_app_tls_swap_slot_addr();
+    if (tls_swap_slot == NULL ||
+        *tls_swap_slot == NULL ||
+        *tls_swap_slot == TLS_SLOT_VAL_EXITED)
+        return false;
+    return true;
+#elif defined(X86)
     if (INTERNAL_OPTION(safe_read_tls_init)) {
         /* Avoid faults during early init or during exit when we have no handler.
          * It's not worth extending the handler as the faults are a perf hit anyway.
@@ -1538,7 +1588,7 @@ is_thread_tls_initialized(void)
 static bool
 is_thread_tls_allocated(void)
 {
-# ifdef X86
+# if defined(X86) && !defined(MACOS64)
     if (INTERNAL_OPTION(safe_read_tls_init)) {
         /* We use this routine to allow currently-native threads, for which
          * is_thread_tls_initialized() (and thus is_thread_initialized()) will
@@ -1714,7 +1764,9 @@ set_tls(ushort tls_offs, void *value)
 byte *
 get_segment_base(uint seg)
 {
-#ifdef X86
+#ifdef MACOS64
+  return (byte *) read_thread_register(seg);
+#elif defined(X86)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
 # ifdef HAVE_TLS
@@ -1846,7 +1898,7 @@ static void
 os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 {
     app_pc app_lib_tls_base, app_alt_tls_base;
-#ifdef X86
+#if defined(X86) && !defined(MACOS64)
     int i, index;
     our_modify_ldt_t *desc;
 
@@ -1864,7 +1916,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     os_tls->app_alt_tls_base =
         is_dynamo_address(app_alt_tls_base) ? NULL : app_alt_tls_base;
 
-#ifdef X86
+#if defined(X86) && !defined(MACOS64)
     /* get all TLS thread area value */
     /* XXX: is get_thread_area supported in 64-bit kernel?
      * It has syscall number 211.
@@ -1878,7 +1930,6 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         tls_get_descriptor(i + index, &desc[i]);
     }
 #endif /* X86 */
-
     os_tls->os_seg_info.dr_tls_base = segment;
     os_tls->os_seg_info.priv_alt_tls_base = IF_X86_ELSE(segment, NULL);
 
@@ -1888,8 +1939,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
             IF_UNIT_TEST_ELSE(os_tls->app_lib_tls_base,
                               privload_tls_init(os_tls->app_lib_tls_base));
     }
-
-#ifdef X86
+#if defined(X86) && !defined(MACOSX64)
     LOG(THREAD_GET, LOG_THREADS, 1,
         "thread "TIDFMT" app lib tls reg: 0x%x, alt tls reg: 0x%x\n",
         get_thread_id(), os_tls->app_lib_tls_reg, os_tls->app_alt_tls_reg);
@@ -1999,7 +2049,7 @@ os_tls_thread_exit(local_state_t *local_state)
     if (should_zero_tls_at_thread_exit()) {
         tls_thread_free(tls_type, index);
 
-# if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64) && !defined(MACOS)
         if (tls_type == TLS_TYPE_ARCH_PRCTL) {
             /* syscall re-sets gs register so re-clear it */
             if (read_thread_register(SEG_TLS) != 0) {
@@ -2027,14 +2077,14 @@ void
 os_tls_exit(local_state_t *local_state, bool other_thread)
 {
 #ifdef HAVE_TLS
-# ifdef X86
+# if defined(X86) && !defined(MACOS64)
     static const ptr_uint_t zero = 0;
 # endif /* X86 */
     /* We can't read from fs: as we can be called from other threads */
     /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
     os_local_state_t *os_tls = (os_local_state_t *)
         (((byte*)local_state) - offsetof(os_local_state_t, state));
-# ifdef X86
+# if defined(X86) && !defined(MACOS64)
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
      */
@@ -2073,7 +2123,7 @@ os_tls_get_gdt_index(dcontext_t *dcontext)
 void
 os_tls_pre_init(int gdt_index)
 {
-#ifdef X86
+#if defined(X86) && !defined(MACOS64)
     /* Only set to above 0 for tls_type == TLS_TYPE_GDT */
     if (gdt_index > 0) {
         /* PR 458917: clear gdt slot to avoid leak across exec */
@@ -6331,7 +6381,7 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
     ASSERT(IF_X86_ELSE((seg == SEG_FS || seg == SEG_GS),
                        (seg == DR_REG_TPIDRURW || DR_REG_TPIDRURO)));
     switch (os_tls->tls_type) {
-# ifdef X64
+# if defined(X64) && !defined(MACOS)
     case TLS_TYPE_ARCH_PRCTL: {
         res = tls_set_fs_gs_segment_base(os_tls->tls_type, seg, base, NULL);
         ASSERT(res);

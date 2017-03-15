@@ -72,7 +72,10 @@
  * PR 205276 covers transparently stealing our segment selector.
  */
 #ifdef X86
-# ifdef X64
+# if defined(MACOS64)
+#  define SEG_TLS SEG_FS /* XXX: no way to set on MacOS 64-bit */
+#  define LIB_SEG_TLS SEG_GS /* libc+loader tls */
+# elif defined(X64)
 #  define SEG_TLS SEG_GS
 #  define ASM_SEG "%gs"
 #  define LIB_SEG_TLS SEG_FS /* libc+loader tls */
@@ -110,6 +113,17 @@
 # define DR_REG_SYSNUM DR_REG_X8
 #else
 # error NYI
+#endif
+
+#if defined(MACOS) && defined(X64)
+/* FIXME: current pthread_t struct has the first TLS entry at offset 28. We should
+ * provide a dynamic method to determine the first entry for forward compatability.
+ * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
+ * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
+ * for our own use.
+ */
+# define DR_TLS_BASE_OFFSET 34 /* offset from pthread_t struct to slot 6 */
+# define DR_TLS_BASE_SLOT 6 /* the TLS slot for DR's TLS base */
 #endif
 
 #ifdef AARCHXX
