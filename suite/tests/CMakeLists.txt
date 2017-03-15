@@ -3153,6 +3153,9 @@ endif (UNIX)
 tobuild(security-common.codemod security-common/codemod.c)
 tochcon(security-common.codemod execmem_exec_t)
 mark_execstack(security-common.codemod)
+if (X86) # trap flag for single step execution is a X86 feature.
+  tobuild(security-common.singlestep security-common/singlestep.c)
+endif (X86)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
   tochcon(security-common.decode-bad-stack execmem_exec_t)
