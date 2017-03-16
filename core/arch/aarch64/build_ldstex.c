@@ -118,12 +118,11 @@ instr_create_ldstex(dcontext_t *dcontext, int len, uint *pc, instr_t *instr,
             instr_set_src(instr_ldstex, s++, instr_get_src(&instr[i], j));
     }
     ASSERT(d == num_dsts && s == num_srcs);
-    /* Set pointer to original encoding. */
-    instr_ldstex->length = len * AARCH64_INSTR_SIZE;
-    instr_ldstex->bytes = instr[0].bytes;
+    /* Set raw bits to original encoding. */
+    instr_set_raw_bits(instr_ldstex, instr[0].bytes, len * AARCH64_INSTR_SIZE);
     /* Conservatively assume all flags are read and written. */
-    instr_ldstex->flags |= INSTR_EFLAGS_VALID;
     instr_ldstex->eflags = EFLAGS_READ_ALL | EFLAGS_WRITE_ALL;
+    instr_set_eflags_valid(instr_ldstex, true);
 }
 
 /* Here we attempt to combine a loop involving ldex (load exclusive) and

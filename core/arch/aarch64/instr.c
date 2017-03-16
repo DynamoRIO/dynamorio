@@ -54,7 +54,7 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
     if (instr_get_opcode(instr) == OP_LABEL)
         return 0;
     if (instr_get_opcode(instr) == OP_ldstex) {
-        ASSERT (instr->length != 0);
+        ASSERT(instr->length != 0);
         return instr->length;
     }
     ASSERT(instr_get_opcode(instr) != OP_ldstex);
