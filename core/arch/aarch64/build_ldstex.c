@@ -275,7 +275,7 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
 static byte *
 decode_common_with_ldstex(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
-    if (INTERNAL_OPTION(build_ldstex)) {
+    if (INTERNAL_OPTION(unsafe_build_ldstex)) {
         byte *pc_next = decode_ldstex(dcontext, pc, orig_pc, instr);
         if (pc_next != NULL)
             return pc_next;

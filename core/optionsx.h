@@ -540,7 +540,7 @@
                             "optimization level on optimizing mangle sequences")
 #endif
 #ifdef AARCH64
-    OPTION_DEFAULT_INTERNAL(bool, build_ldstex, false,
+    OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                             "replace blocks using exclusive load/store with a "
                             "macro-instruction (unsafe)")
 #endif
