@@ -150,8 +150,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     if (instr_is_label(instr))
         return copy_pc;
 
-    /* First, handle the already-encoded instructions. OP_ldstex is always relocatable. */
-    if (instr_raw_bits_valid(instr) || instr_get_opcode(instr) == OP_ldstex) {
+    /* First, handle the already-encoded instructions */
+    if (instr_raw_bits_valid(instr)) {
         CLIENT_ASSERT(check_reachable, "internal encode error: cannot encode raw "
                       "bits and ignore reachability");
         /* Copy raw bits, possibly re-relativizing */
