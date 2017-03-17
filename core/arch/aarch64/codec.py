@@ -224,6 +224,7 @@ def generate_opcodes(patterns):
         c.append(t + '/**< AArch64 %s opcode.*/' % mn)
         i += 1
     c += ['',
+          '    OP_ldstex, /* single-entry single-exit block with exclusive load/store */',
           '    OP_xx, /* placeholder for undecoded instructions */',
           '',
           '    OP_AFTER_LAST,',
@@ -264,7 +265,8 @@ def generate_opcode_names(patterns):
     for mn in sorted(mns):
         c.append('/*%4d */ "%s",' % (i, mn))
         i += 1
-    c += ['          "xx",',
+    c += ['          "ldstex",',
+          '          "xx",',
           '};',
           '',
           '#endif /* OPCODE_NAMES_H */']

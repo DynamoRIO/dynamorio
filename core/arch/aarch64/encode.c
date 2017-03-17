@@ -168,7 +168,8 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                  byte *dst_pc, byte *final_pc)
 {
     /* FIXME i#1569: re-relativizing is NYI */
-    ASSERT(instr_raw_bits_valid(instr));
+    /* OP_ldstex is always relocatable. */
+    ASSERT(instr_raw_bits_valid(instr) || instr_get_opcode(instr) == OP_ldstex);
     memcpy(dst_pc, instr->bytes, instr->length);
     return dst_pc + instr->length;
 }

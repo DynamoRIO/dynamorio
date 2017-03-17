@@ -287,6 +287,7 @@ const char *opcode_names[] = {
 /* 280 */ "wfe",
 /* 281 */ "wfi",
 /* 282 */ "yield",
+          "ldstex",
           "xx",
 };
 

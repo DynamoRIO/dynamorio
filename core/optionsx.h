@@ -539,6 +539,11 @@
     OPTION_DEFAULT_INTERNAL(uint, opt_mangle, 1,
                             "optimization level on optimizing mangle sequences")
 #endif
+#ifdef AARCH64
+    OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
+                            "replace blocks using exclusive load/store with a "
+                            "macro-instruction (unsafe)")
+#endif
 
 #ifdef WINDOWS_PC_SAMPLE
      OPTION_DEFAULT(uint, prof_pcs_DR, 2, "PC profile dynamorio.dll, value is bit shift to use, < 2 or > 32 disables, requires -prof_pcs")

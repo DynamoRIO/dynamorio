@@ -1217,7 +1217,7 @@ dr_insert_it_instrs() on their own.
 \endhtmlonly
 \section sec_ldrex Exclusive Monitor Instrumentation Constraints
 
-On ARM and AArch64, a ldrex..strex pair of instructions has some
+On ARM and AArch64, a ldrex..strex (or ldxr..stxr) pair of instructions has some
 constraints that make inserting
 instrumentation in between the pair challenging.  ARM/AArch64 hardware requires
 that an application minimize memory operations in between the ldrex and
@@ -1226,9 +1226,9 @@ this can result in failure to acquire the desired exclusive monitor, which
 is always done in a loop and can result in a non-terminating loop when the
 application is run with instrumentation.
 
-Empirically, inserting a few memory references in between a ldrex..strex
-pair generally works fine, but inserting something heavyweight like a clean
-call is not recommended.
+Inserting a few memory references in between a ldrex..strex pair works
+on most but not all hardware. Inserting something heavyweight like a clean
+call is likely to result in a non-terminating loop.
 
 We recommend using inlined instrumentation with at most a few memory
 references in such regions, rather than clean calls.  In general, this is
@@ -1236,6 +1236,14 @@ the best performing strategy anyway for heavyweight tools that want to
 instrument every instruction.  Take a look at the memtrace_simple and
 instrace_simple samples, which check for instr_is_exclusive_store() to
 avoid a clean call in between.
+
+The runtime option "-unsafe_build_ldstex" may be useful on AArch64
+hardware that does not allow any loads or stores between an exclusive
+load and the corresponding exclusive store. With this option DynamoRIO
+tries to turn a sequence of instructions containing an exclusive
+load/store pair into a macro-instruction, which prevents any loads and
+stores from being inserted, but also prevents any of the instructions
+involved from being instrumented.
 
 \ifnot vmsafe
 ***************************************************************************

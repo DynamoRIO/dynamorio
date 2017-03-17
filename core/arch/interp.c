@@ -79,6 +79,10 @@
 # include "../annotations.h"
 #endif
 
+#ifdef AARCH64
+# include "build_ldstex.h"
+#endif
+
 enum { DIRECT_XFER_LENGTH = 5 };
 
 /* forward declarations */
@@ -3377,13 +3381,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             bb->instr_start = bb->cur_pc;
             if (bb->full_decode) {
                 /* only going through this do loop once! */
-                bb->cur_pc = decode(dcontext, bb->cur_pc, bb->instr);
+                bb->cur_pc = IF_AARCH64_ELSE(decode_with_ldstex, decode)
+                    (dcontext, bb->cur_pc, bb->instr);
                 if (bb->record_translation)
                     instr_set_translation(bb->instr, bb->instr_start);
             } else {
                 /* must reset, may go through loop multiple times */
                 instr_reset(dcontext, bb->instr);
-                bb->cur_pc = decode_cti(dcontext, bb->cur_pc, bb->instr);
+                bb->cur_pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)
+                    (dcontext, bb->cur_pc, bb->instr);
 
 #if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
                 /* Quickly check whether this may be a Valgrind annotation. */
@@ -4925,7 +4931,8 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                             LOG(THREAD, LOG_INTERP|LOG_VMAREAS, 3,
                                 "native_exec: decoding @"PFX" looking for call\n", pc);
                             instr_reset(dcontext, &instr);
-                            next_pc = decode_cti(dcontext, pc, &instr);
+                            next_pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)
+                                (dcontext, pc, &instr);
                             STATS_INC(num_native_entrance_TOS_decodes);
                             if (next_pc == retaddr && instr_is_call(&instr)) {
                                 native_exec_bb = true;
@@ -7244,7 +7251,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                 }
                 instr_reset(dcontext, instr);
                 prev_pc = pc;
-                pc = decode_cti(dcontext, pc, instr);
+                pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)
+                    (dcontext, pc, instr);
 #ifdef WINDOWS
                 /* Perform fixups for ignorable syscalls on XP & 2003. */
                 if (possible_ignorable_sysenter
