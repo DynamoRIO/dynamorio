@@ -54,7 +54,7 @@
 
 drfront_status_t
 drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
-                 char *fmt, ...)
+                 const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);

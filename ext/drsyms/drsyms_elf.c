@@ -102,6 +102,7 @@ static bool verbose = 0;
 # define Elf_Phdr Elf64_Phdr
 # define Elf_Shdr Elf64_Shdr
 # define Elf_Sym  Elf64_Sym
+# define ELF_ST_TYPE ELF64_ST_TYPE
 #else
 # define elf_getehdr elf32_getehdr
 # define elf_getphdr elf32_getphdr
@@ -110,6 +111,7 @@ static bool verbose = 0;
 # define Elf_Phdr Elf32_Phdr
 # define Elf_Shdr Elf32_Shdr
 # define Elf_Sym  Elf32_Sym
+# define ELF_ST_TYPE ELF32_ST_TYPE
 #endif
 
 typedef struct _elf_info_t {
@@ -352,7 +354,12 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
     elf_info_t *mod = (elf_info_t *) mod_in;
     if (offs_start == NULL || mod == NULL || idx >= mod->num_syms || mod->syms == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
-    if (mod->syms[idx].st_value == 0) {
+    /* Keep this consistent with symbol_is_import() and elf_hash_lookup(), both at
+     * core/unix/module_elf.c
+     */
+    if ((mod->syms[idx].st_value == 0 &&
+        ELF_ST_TYPE(mod->syms[idx].st_info) != STT_TLS) ||
+        mod->syms[idx].st_shndx == 0) {
         /* We're looking at .dynsym and this is an import */
         *offs_start = 0;
         if (offs_end != NULL)

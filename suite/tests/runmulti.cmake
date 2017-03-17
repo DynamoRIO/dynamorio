@@ -33,6 +33,7 @@
 # * cmd = command to run
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * postcmd = post processing command to run
+# * postcmdN (for N=2+) = additional post processing commands to run
 # * cmp = the file containing the expected output
 #
 # A "*" in any command line will be glob-expanded right before running.
@@ -89,7 +90,7 @@ macro(process_cmdline line skip_empty err_and_out)
   endif ()
   if (NOT ${line} MATCHES "^foreach;")
     if (NOT ${skip_empty} OR NOT ${line} STREQUAL "" AND NOT globempty)
-      message("Running |${${line}}|")
+      message("Running ${line} |${${line}}|")
       execute_process(COMMAND ${${line}}
         RESULT_VARIABLE cmd_result
         ERROR_VARIABLE cmd_err
@@ -106,7 +107,14 @@ process_cmdline(precmd ON ignore)
 
 process_cmdline(cmd OFF tomatch)
 
-process_cmdline(postcmd OFF tomatch)
+if (NOT "${postcmd}" STREQUAL "")
+  process_cmdline(postcmd OFF tomatch)
+  set(num 2)
+  while (NOT "${postcmd${num}}" STREQUAL "")
+    process_cmdline(postcmd${num} OFF tomatch)
+    math(EXPR num "${num} + 1")
+  endwhile ()
+endif()
 
 # get expected output (must already be processed w/ regex => literal, etc.)
 file(READ "${cmp}" str)
