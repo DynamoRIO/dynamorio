@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -174,6 +174,7 @@ class reuse_distance_t : public analysis_tool_t
     uint64_t time_stamp;
     size_t line_size;
     size_t line_size_bits;
+    int_least64_t total_refs;
     size_t report_top;  /* most accessed lines */
     static const std::string TOOL_NAME;
 };
