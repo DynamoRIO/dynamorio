@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
 #include "../common/options.h"
 #include "../common/utils.h"
 
-const std::string histogram_t::TOOL_NAME = "Cache Histogram";
+const std::string histogram_t::TOOL_NAME = "Cache histogram tool";
 
 histogram_t::histogram_t()
 {
@@ -74,15 +74,13 @@ bool cmp(const std::pair<addr_t, uint64_t> &l,
 bool
 histogram_t::print_results()
 {
-    std::cerr << TOOL_NAME << " result:\n";
-    std::cerr << TOOL_NAME << ": icache = " << icache_map.size()
-              << " unique cache lines\n";
-    std::cerr << TOOL_NAME << ": dcache = " << dcache_map.size()
-              << " unique cache lines\n";
+    std::cerr << TOOL_NAME << " results:\n";
+    std::cerr << "icache: " << icache_map.size() << " unique cache lines\n";
+    std::cerr << "dcache: " << dcache_map.size() << " unique cache lines\n";
     std::vector<std::pair<addr_t, uint64_t> > top(report_top);
     std::partial_sort_copy(icache_map.begin(), icache_map.end(),
                            top.begin(), top.end(), cmp);
-    std::cerr << TOOL_NAME << ": icache top " << top.size() << "\n";
+    std::cerr << "icache top " << top.size() << "\n";
     for (std::vector<std::pair<addr_t, uint64_t> >::iterator it = top.begin();
          it != top.end(); ++it) {
         std::cerr << std::setw(18) << std::hex << std::showbase << (it->first << 6)
@@ -92,7 +90,7 @@ histogram_t::print_results()
     top.resize(report_top);
     std::partial_sort_copy(dcache_map.begin(), dcache_map.end(),
                            top.begin(), top.end(), cmp);
-    std::cerr << TOOL_NAME << ": dcache top " << top.size() << "\n";
+    std::cerr << "dcache top " << top.size() << "\n";
     for (std::vector<std::pair<addr_t, uint64_t> >::iterator it = top.begin();
          it != top.end(); ++it) {
         std::cerr << std::setw(18) << std::hex << std::showbase << (it->first << 6)

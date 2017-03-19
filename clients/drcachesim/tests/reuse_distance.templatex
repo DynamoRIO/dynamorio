@@ -1,10 +1,12 @@
 Hello, world!
 ---- <application exited with code 0> ----
-cache reuse distance result:
-[0-9]+ total accesses
-[0-9]+ unique cache lines accessed
-reuse distance threshold = [0-9]+ cache lines
-top 10 frequently referenced cache lines
+Reuse distance tool results:
+Total accesses: [0-9]+
+Unique accesses: [0-9]+
+Unique cache lines accessed: [0-9]+
 .*
-top 10 distant repeatedly referenced cache lines
+Reuse distance threshold = [0-9]+ cache lines
+Top 10 frequently referenced cache lines
+.*
+Top 10 distant repeatedly referenced cache lines
 .*

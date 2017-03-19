@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,9 +37,9 @@
 #include "../common/options.h"
 #include "../common/utils.h"
 
-const std::string reuse_distance_t::TOOL_NAME = "cache reuse distance";
+const std::string reuse_distance_t::TOOL_NAME = "Reuse distance tool";
 
-reuse_distance_t::reuse_distance_t()
+reuse_distance_t::reuse_distance_t() : total_refs(0)
 {
     line_size = op_line_size.get_value();
     line_size_bits = compute_log2((int)line_size);
@@ -58,13 +58,13 @@ reuse_distance_t::~reuse_distance_t()
 bool
 reuse_distance_t::process_memref(const memref_t &memref)
 {
-    if (memref.data.type == TRACE_TYPE_INSTR ||
-        memref.data.type == TRACE_TYPE_PREFETCH_INSTR ||
+    if (type_is_instr(memref.instr.type) ||
         memref.data.type == TRACE_TYPE_READ ||
         memref.data.type == TRACE_TYPE_WRITE ||
         // We may potentially handle prefetches differently.
         // TRACE_TYPE_PREFETCH_INSTR is handled above.
         type_is_prefetch(memref.data.type)) {
+        ++total_refs;
         addr_t tag = memref.data.addr >> line_size_bits;
         std::map<addr_t, line_ref_t*>::iterator it = cache_map.find(tag);
         if (it == cache_map.end()) {
@@ -118,20 +118,24 @@ bool cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
 bool
 reuse_distance_t::print_results()
 {
-    std::cerr << TOOL_NAME << " result:\n";
-    std::cerr << ref_list->cur_time << " total accesses\n";
-    std::cerr << ref_list->unique_lines << " unique cache lines accessed\n";
-    std::cerr << "reuse distance threshold = "
+    std::cerr << TOOL_NAME << " results:\n";
+    std::cerr << "Total accesses: " << total_refs << "\n";
+    std::cerr << "Unique accesses: " << ref_list->cur_time << "\n";
+    std::cerr << "Unique cache lines accessed: " << ref_list->unique_lines << "\n";
+    std::cerr << "\n";
+    std::cerr << "Reuse distance threshold = "
               << ref_list->threshold << " cache lines\n";
     std::vector<std::pair<addr_t, line_ref_t*> > top(report_top);
     std::partial_sort_copy(cache_map.begin(), cache_map.end(),
                            top.begin(), top.end(), cmp_total_refs);
-    std::cerr << "top " << top.size() << " frequently referenced cache lines\n";
+    std::cerr << "Top " << top.size() << " frequently referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
               << ": " << std::setw(17) << "#references  "
               << std::setw(14) << "#distant refs" << "\n";
     for (std::vector<std::pair<addr_t, line_ref_t*> >::iterator it = top.begin();
          it != top.end(); ++it) {
+        if (it->second == NULL) // Very small app.
+            break;
         std::cerr << std::setw(18) << std::hex << std::showbase
                   << (it->first << line_size_bits)
                   << ": " << std::setw(12) << std::dec << it->second->total_refs
@@ -142,12 +146,14 @@ reuse_distance_t::print_results()
     top.resize(report_top);
     std::partial_sort_copy(cache_map.begin(), cache_map.end(),
                            top.begin(), top.end(), cmp_distant_refs);
-    std::cerr << "top " << top.size() << " distant repeatedly referenced cache lines\n";
+    std::cerr << "Top " << top.size() << " distant repeatedly referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
               << ": " << std::setw(17) << "#references  "
               << std::setw(14) << "#distant refs" << "\n";
     for (std::vector<std::pair<addr_t, line_ref_t*> >::iterator it = top.begin();
          it != top.end(); ++it) {
+        if (it->second == NULL) // Very small app.
+            break;
         std::cerr << std::setw(18) << std::hex << std::showbase
                   << (it->first << line_size_bits)
                   << ": " << std::setw(12) << std::dec << it->second->total_refs
