@@ -1,0 +1,4 @@
+start of test, count = 0
+set debug register
+single step seen
+end of test, count = 1

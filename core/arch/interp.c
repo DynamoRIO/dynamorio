@@ -4471,6 +4471,12 @@ expand_should_set_translation(dcontext_t *dcontext)
     return false;
 }
 
+/* Forges a single step exception coming from a debug register. */
+static void forge_debugRegister_exception(app_pc pc) {
+    os_forge_exception(pc, EXCEPTION_SINGLE_STEP);
+    ASSERT_NOT_REACHED();
+}
+
 /* returns false if need to rebuild bb: in that case this routine will
  * set the bb flags needed to ensure successful mangling 2nd time around
  */
@@ -4524,6 +4530,34 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         STATS_INC(num_sandboxed_fragments);
     }
 #endif /* X86 */
+
+#ifdef WINDOWS
+    {
+        int i;
+        for (i=0; i<DEBUG_REGISTERS_NB; i++) {
+            if (dcontext->debugRegister[i] >= bb->start_pc &&
+                dcontext->debugRegister[i] < bb->end_pc) {
+                /* We might hit a debug register in this basic block. */
+                instr_t *instr;
+                instr = instrlist_first_expanded(dcontext, bb->ilist);
+                while (instr) {
+                    if (instr->translation == dcontext->debugRegister[i]) {
+                        LOG(THREAD, LOG_INTERP, 2,
+                            "dr%d is in basic block "PFX" in "PFX":"PFX"\n", i,
+                            dcontext->debugRegister[i], bb->start_pc, bb->end_pc);
+                        /* Will forge an exception before executing instruction. */
+                        dr_insert_clean_call(dcontext, bb->ilist, instr,
+                                             (void *) forge_debugRegister_exception,
+                                             false, 1,
+                                             OPND_CREATE_INTPTR(dcontext->debugRegister[i]));
+                        break;
+                    }
+                    instr = instr_get_next_expanded(dcontext, bb->ilist, instr);
+                }
+            }
+        }
+    }
+#endif /* WINDOWS */
 
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist before mangling:\n");

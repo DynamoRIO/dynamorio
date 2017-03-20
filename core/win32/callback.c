@@ -3774,6 +3774,14 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
         LOG(THREAD, LOG_ASYNCH, 3, "target context:\n");
         DOLOG(3, LOG_ASYNCH, { dump_context_info(cxt, THREAD, true); });
 
+        /* Updates debug register values.
+         * FIXME should check dr6 and dr7 values as well.
+         */
+        dcontext->debugRegister[0] = (app_pc) cxt->Dr0;
+        dcontext->debugRegister[1] = (app_pc) cxt->Dr1;
+        dcontext->debugRegister[2] = (app_pc) cxt->Dr2;
+        dcontext->debugRegister[3] = (app_pc) cxt->Dr3;
+
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 2, "intercept_nt_continue: squashing old trace\n");
             trace_abort(dcontext);
