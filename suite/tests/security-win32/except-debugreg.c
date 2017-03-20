@@ -94,7 +94,7 @@ main(void)
         nop
     }
     test_debug_register();
-    
+
     print("end of test count = %d\n", count);
 
     return 0;
