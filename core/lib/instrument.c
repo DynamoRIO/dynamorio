@@ -1791,7 +1791,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
             copy->segments[i].end = os_segments[i].end;
             copy->segments[i].prot = os_segments[i].prot;
         }
-    } else
+    } else if (segments != NULL)
         memcpy(copy->segments, segments, num_segments*sizeof(module_segment_data_t));
     copy->timestamp = timestamp;
 # ifdef MACOS
