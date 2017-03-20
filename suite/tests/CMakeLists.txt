@@ -2442,6 +2442,17 @@ if (CLIENT_INTERFACE)
       set(tool.reuse_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
+      if (X86 AND X64) # We only bother with a sample trace for x86_64.
+        # We test with a fixed trace file so we can test exact numeric results.
+        set(small_trace_file
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.small.x64.trace")
+        torunonly_ci(tool.reuse.offline ${ci_shared_app} drcachesim
+          "reuse_offline.c" # for expect basename
+          "-infile ${small_trace_file} -simulator_type reuse_distance -reuse_distance_histogram" "" "")
+        set(tool.reuse.offline_toolname "drcachesim")
+        set(tool.reuse.offline_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      endif ()
+
       # Test offline traces.
       # XXX: we could exclude the pipe files and build the offline trace
       # support by itself for Android.

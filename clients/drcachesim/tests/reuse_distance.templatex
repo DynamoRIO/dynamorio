@@ -5,6 +5,11 @@ Total accesses: [0-9]+
 Unique accesses: [0-9]+
 Unique cache lines accessed: [0-9]+
 .*
+Reuse distance mean: [0-9\.]+
+Reuse distance median: 1
+Reuse distance standard deviation: [0-9\.]+
+\(Pass -reuse_distance_histogram to see all the data\.\)
+.*
 Reuse distance threshold = [0-9]+ cache lines
 Top 10 frequently referenced cache lines
 .*

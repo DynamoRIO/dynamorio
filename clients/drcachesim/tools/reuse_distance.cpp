@@ -31,6 +31,7 @@
  */
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include "droption.h"
 #include "reuse_distance.h"
@@ -43,7 +44,8 @@ reuse_distance_t::reuse_distance_t() : total_refs(0)
 {
     line_size = op_line_size.get_value();
     line_size_bits = compute_log2((int)line_size);
-    ref_list = new line_ref_list_t(op_reuse_distance_threshold.get_value());
+    ref_list = new line_ref_list_t(op_reuse_distance_threshold.get_value(),
+                                   op_reuse_skip_dist.get_value());
     report_top = op_report_top.get_value();
     if (op_verbose.get_value() >= 2) {
         std::cerr << "cache line size " << line_size << ", "
@@ -58,6 +60,17 @@ reuse_distance_t::~reuse_distance_t()
 bool
 reuse_distance_t::process_memref(const memref_t &memref)
 {
+    if (DEBUG_VERBOSE(3)) {
+        std::cerr << " ::" << memref.data.pid << "." << memref.data.tid
+                  << ":: " << trace_type_names[memref.data.type];
+        if (memref.data.type != TRACE_TYPE_THREAD_EXIT) {
+            std::cerr << " @ ";
+            if (!type_is_instr(memref.data.type))
+                std::cerr << (void *)memref.data.pc << " ";
+            std::cerr << (void *)memref.data.addr << " x" << memref.data.size;
+        }
+        std::cerr << std::endl;
+    }
     if (type_is_instr(memref.instr.type) ||
         memref.data.type == TRACE_TYPE_READ ||
         memref.data.type == TRACE_TYPE_WRITE ||
@@ -74,19 +87,17 @@ reuse_distance_t::process_memref(const memref_t &memref)
             // insert into the list
             ref_list->add_to_front(ref);
         } else {
-            ref_list->move_to_front(it->second);
+            int_least64_t dist = ref_list->move_to_front(it->second);
+            std::map<int_least64_t, int_least64_t>::iterator dist_it =
+                dist_map.find(dist);
+            if (dist_it == dist_map.end())
+                dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
+            else
+                ++dist_it->second;
+            if (op_verbose.get_value() >= 3) {
+                std::cerr << "Distance is " << dist << "\n";
+            }
         }
-    }
-    if (op_verbose.get_value() >= 3) {
-        std::cerr << " ::" << memref.data.pid << "." << memref.data.tid
-                  << ":: " << trace_type_names[memref.data.type];
-        if (memref.data.type != TRACE_TYPE_THREAD_EXIT) {
-            std::cerr << " @ ";
-            if (!type_is_instr(memref.data.type))
-                std::cerr << (void *)memref.data.pc << " ";
-            std::cerr << (void *)memref.data.addr << " x" << memref.data.size;
-        }
-        std::cerr << std::endl;
     }
     return true;
 }
@@ -122,6 +133,56 @@ reuse_distance_t::print_results()
     std::cerr << "Total accesses: " << total_refs << "\n";
     std::cerr << "Unique accesses: " << ref_list->cur_time << "\n";
     std::cerr << "Unique cache lines accessed: " << ref_list->unique_lines << "\n";
+    std::cerr << "\n";
+
+    std::cerr.precision(2);
+    std::cerr.setf(std::ios::fixed);
+
+    double sum = 0.0;
+    int_least64_t count = 0;
+    for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
+         it != dist_map.end(); ++it) {
+        sum += it->first * it->second;
+        count += it->second;
+    }
+    double mean = sum / count;
+    std::cerr << "Reuse distance mean: " << mean << "\n";
+    double sum_of_squares = 0;
+    int_least64_t recount = 0;
+    bool have_median = false;
+    for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
+         it != dist_map.end(); ++it) {
+        double diff = it->first - mean;
+        sum_of_squares += (diff * diff) * it->second;
+        if (!have_median) {
+            recount += it->second;
+            if (recount >= count/2) {
+                std::cerr << "Reuse distance median: " << it->first << "\n";
+                have_median = true;
+            }
+        }
+    }
+    double stddev = std::sqrt(sum_of_squares / count);
+    std::cerr << "Reuse distance standard deviation: " << stddev << "\n";
+
+    if (op_reuse_distance_histogram.get_value()) {
+        std::cerr << "Reuse distance histogram:\n";
+        std::cerr << "Distance" << std::setw(12) << "Count"
+                  << "  Percent  Cumulative\n";
+        double cum_percent = 0;
+        for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
+             it != dist_map.end(); ++it) {
+            double percent = it->second / static_cast<double>(count);
+            cum_percent += percent;
+            std::cerr << std::setw(8) << it->first
+                      << std::setw(12) << it->second
+                      << std::setw(8) << percent*100. << "%"
+                      << std::setw(8) << cum_percent*100. << "%\n";
+        }
+    } else {
+        std::cerr << "(Pass -reuse_distance_histogram to see all the data.)\n";
+    }
+
     std::cerr << "\n";
     std::cerr << "Reuse distance threshold = "
               << ref_list->threshold << " cache lines\n";
@@ -160,5 +221,6 @@ reuse_distance_t::print_results()
                   << ", " << std::setw(12) << std::dec << it->second->distant_refs
                   << "\n";
     }
+
     return true;
 }
