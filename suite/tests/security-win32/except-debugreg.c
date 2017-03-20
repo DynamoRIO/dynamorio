@@ -31,26 +31,14 @@
  */
 
 
+#ifndef ASM_CODE_ONLY /* C code */
 #include "tools.h"
 #include <windows.h>
 
 static int count = 0;
+void set_debug_register();
+void test_debug_register();
 
-
-static void
-test_debug_register(void)
-{
-    __asm {
-        /* some amount of code in here */
-        nop
-        nop
-        nop
-        xor eax, eax
-        test eax, eax
-        nop
-        nop
-    }
-}
 
 /* top-level exception handler */
 static LONG
@@ -87,16 +75,46 @@ main(void)
 
     print("start of test count = %d\n", count);
 
-    __asm {
-        /* first break */
-        int 3
-        nop
-        nop
-    }
+    set_debug_register();
     test_debug_register();
 
     print("end of test count = %d\n", count);
 
     return 0;
 }
+
+#else /* asm code *************************************************************/
+#include "asm_defines.asm"
+START_FILE
+
+/* void set_debug_register()
+ *   Generates one int 3 interruption and returns.
+ */
+#define FUNCNAME set_debug_register
+DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        int      3
+        nop
+        nop
+        ret
+END_FUNC(FUNCNAME)
+
+/* void test_debug_register()
+ * Some amount of dummy code where to put a breakpoint
+ */
+#define FUNCNAME test_debug_register
+DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        nop
+        nop
+        nop
+        xor      eax, eax
+        test     eax, eax
+        nop
+        nop
+        ret
+END_FUNC(FUNCNAME)
+
+END_FILE
+#endif
 
