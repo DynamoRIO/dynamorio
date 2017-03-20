@@ -4473,7 +4473,7 @@ expand_should_set_translation(dcontext_t *dcontext)
 
 /* Forges a single step exception coming from a debug register. */
 static void forge_debugRegister_exception(app_pc pc) {
-    os_forge_exception(pc, EXCEPTION_SINGLE_STEP);
+    os_forge_exception(pc, SINGLE_STEP_EXCEPTION);
     ASSERT_NOT_REACHED();
 }
 
