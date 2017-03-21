@@ -51,7 +51,11 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
         pExceptionInfo->ContextRecord->Dr7 = 0x00000101;
         print("set debug register\n");
         //goto next instruction to avoid infinite loop
+#ifndef X64
         pExceptionInfo->ContextRecord->Eip++;
+#else
+        pExceptionInfo->ContextRecord->Rip++;
+#endif
         return EXCEPTION_CONTINUE_EXECUTION;
     }
     else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {

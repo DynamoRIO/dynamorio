@@ -4471,11 +4471,13 @@ expand_should_set_translation(dcontext_t *dcontext)
     return false;
 }
 
+#ifdef WINDOWS
 /* Forges a single step exception coming from a debug register. */
 static void forge_debugRegister_exception(app_pc pc) {
     os_forge_exception(pc, SINGLE_STEP_EXCEPTION);
     ASSERT_NOT_REACHED();
 }
+#endif
 
 /* returns false if need to rebuild bb: in that case this routine will
  * set the bb flags needed to ensure successful mangling 2nd time around
