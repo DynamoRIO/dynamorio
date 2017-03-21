@@ -6,6 +6,7 @@ Hello world!
 Hello world!
 All done
 ---- <application exited with code 0> ----
+Cache simulation results:
 Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                              6[34].

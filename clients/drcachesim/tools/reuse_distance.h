@@ -42,17 +42,53 @@
 #include <iostream>
 #include "../analysis_tool.h"
 #include "../common/memref.h"
-#include "../common/options.h"
 
 // We see noticeable overhead in release build with an if() that directly
-// checks op_verbose, so for debug-only uses we turn it into something the
+// checks knob_verbose, so for debug-only uses we turn it into something the
 // compiler can remove for better performance without going so far as ifdef-ing
 // big code chunks and impairing readability.
 #ifdef DEBUG
-# define DEBUG_VERBOSE(level) (op_verbose.get_value() >= (level))
+# define DEBUG_VERBOSE(level) (reuse_distance_t::knob_verbose >= (level))
 #else
 # define DEBUG_VERBOSE(level) (false)
 #endif
+
+struct line_ref_t;
+struct line_ref_list_t;
+
+class reuse_distance_t : public analysis_tool_t
+{
+ public:
+    reuse_distance_t(unsigned int line_size,
+                     bool report_histogram,
+                     unsigned int distance_threshold,
+                     unsigned int report_top,
+                     unsigned int skip_list_distance,
+                     bool verify_skip,
+                     unsigned int verbose);
+    virtual ~reuse_distance_t();
+    virtual bool process_memref(const memref_t &memref);
+    virtual bool print_results();
+
+    // Global value for use in non-member code.
+    static unsigned int knob_verbose;
+
+ protected:
+    /* XXX i#2020: use unsorted_map (C++11) for faster lookup */
+    std::map<addr_t, line_ref_t*> cache_map;
+    // This is our reuse distance histogram.
+    std::map<int_least64_t, int_least64_t> dist_map;
+    line_ref_list_t *ref_list;
+
+    unsigned int knob_line_size;
+    bool knob_report_histogram;
+    unsigned int knob_report_top; /* most accessed lines */
+
+    uint64_t time_stamp;
+    size_t line_size_bits;
+    int_least64_t total_refs;
+    static const std::string TOOL_NAME;
+};
 
 /* A doubly linked list node for the cache line reference info */
 struct line_ref_t
@@ -100,10 +136,11 @@ struct line_ref_list_t
     uint64_t unique_lines;  // the total number of unique cache lines accessed
     uint64_t threshold;     // the reuse distance threshold
     uint64_t skip_distance; // distance between skip list nodes
+    bool verify_skip;       // check results using brute-force walks
 
-    line_ref_list_t(uint64_t reuse_threshold, uint64_t skip_dist) :
+    line_ref_list_t(uint64_t reuse_threshold, uint64_t skip_dist, bool verify) :
         head(NULL), gate(NULL), cur_time(0), unique_lines(0),
-        threshold(reuse_threshold), skip_distance(skip_dist)
+        threshold(reuse_threshold), skip_distance(skip_dist), verify_skip(verify)
     {
     }
 
@@ -245,7 +282,7 @@ struct line_ref_list_t
         else
             --dist; // Don't count self.
 
-        if (DEBUG_VERBOSE(0) && op_reuse_verify_skip.get_value()) {
+        if (DEBUG_VERBOSE(0) && verify_skip) {
             // Compute reuse distance with a full list walk as a sanity check.
             // This is a debug-only option, so we guard with DEBUG_VERBOSE(0).
             // Yes, the option check branch shows noticeable overhead without it.
@@ -288,32 +325,9 @@ struct line_ref_list_t
         if (DEBUG_VERBOSE(3))
             print_list();
         // XXX: we should keep a running mean of the distance, and adjust
-        // op_reuse_skip_dist to stay close to the mean, for best performance.
+        // knob_reuse_skip_dist to stay close to the mean, for best performance.
         return dist;
     }
-};
-
-class reuse_distance_t : public analysis_tool_t
-{
- public:
-    reuse_distance_t();
-    virtual ~reuse_distance_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
-
- protected:
-    /* XXX i#2020: use unsorted_map (C++11) for faster lookup */
-    std::map<addr_t, line_ref_t*> cache_map;
-    // This is our reuse distance histogram.
-    std::map<int_least64_t, int_least64_t> dist_map;
-    line_ref_list_t *ref_list;
-
-    uint64_t time_stamp;
-    size_t line_size;
-    size_t line_size_bits;
-    int_least64_t total_refs;
-    size_t report_top;  /* most accessed lines */
-    static const std::string TOOL_NAME;
 };
 
 #endif /* _REUSE_DISTANCE_H_ */

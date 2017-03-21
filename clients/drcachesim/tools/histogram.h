@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,7 +44,9 @@
 class histogram_t : public analysis_tool_t
 {
  public:
-    histogram_t();
+    histogram_t(unsigned int line_size,
+                unsigned int report_top,
+                unsigned int verbose);
     virtual ~histogram_t();
     virtual bool process_memref(const memref_t &memref);
     virtual bool print_results();
@@ -54,9 +56,9 @@ class histogram_t : public analysis_tool_t
     std::map<addr_t, uint64_t> icache_map;
     std::map<addr_t, uint64_t> dcache_map;
 
-    size_t line_size;
+    unsigned int knob_line_size;
+    unsigned int knob_report_top; /* most accessed lines */
     size_t line_size_bits;
-    size_t report_top;  /* most accessed lines */
     static const std::string TOOL_NAME;
 };
 

@@ -3,6 +3,7 @@ app dr_client_main
 pre-DR start
 pre-DR detach
 all done
+Cache simulation results:
 Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                         *[0-9,\.]*.....

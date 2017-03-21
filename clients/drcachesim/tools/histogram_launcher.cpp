@@ -42,7 +42,7 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "../analyzer.h"
-#include "histogram.h"
+#include "histogram_create.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
@@ -68,6 +68,10 @@ droption_t<unsigned int> op_report_top
  "Number of top results to be reported",
  "Specifies the number of top results to be reported.");
 
+droption_t<unsigned int> op_verbose
+(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
+ "Verbosity level for notifications.");
+
 int
 _tmain(int argc, const TCHAR *targv[])
 {
@@ -85,9 +89,11 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    histogram_t tool;
-    analysis_tool_t *tool_list = &tool;
-    analyzer_t analyzer(op_trace.get_value(), &tool_list, 1);
+    analysis_tool_t *tool =
+        histogram_tool_create(op_line_size.get_value(),
+                              op_report_top.get_value(),
+                              op_verbose.get_value());
+    analyzer_t analyzer(op_trace.get_value(), &tool, 1);
     if (!analyzer)
         FATAL_ERROR("failed to initialize analyzer");
     if (!analyzer.run())
