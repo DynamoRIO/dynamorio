@@ -46,7 +46,7 @@
 
 analysis_tool_t *
 tlb_simulator_create(unsigned int num_cores,
-                     unsigned int page_size,
+                     uint64_t page_size,
                      unsigned int TLB_L1I_entries,
                      unsigned int TLB_L1D_entries,
                      unsigned int TLB_L1I_assoc,
@@ -66,7 +66,7 @@ tlb_simulator_create(unsigned int num_cores,
 }
 
 tlb_simulator_t::tlb_simulator_t(unsigned int num_cores,
-                                 unsigned int page_size,
+                                 uint64_t page_size,
                                  unsigned int TLB_L1I_entries,
                                  unsigned int TLB_L1D_entries,
                                  unsigned int TLB_L1I_assoc,

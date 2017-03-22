@@ -46,11 +46,11 @@ class cache_simulator_t : public simulator_t
  public:
     cache_simulator_t(unsigned int num_cores,
                       unsigned int line_size,
-                      size_t L1I_size,
-                      size_t L1D_size,
+                      uint64_t L1I_size,
+                      uint64_t L1D_size,
                       unsigned int L1I_assoc,
                       unsigned int L1D_assoc,
-                      size_t LL_size,
+                      uint64_t LL_size,
                       unsigned int LL_assoc,
                       std::string replace_policy,
                       uint64_t skip_refs,
@@ -69,11 +69,11 @@ class cache_simulator_t : public simulator_t
     // XXX i#1715: add support for arbitrary cache layouts.
 
     unsigned int knob_line_size;
-    size_t knob_L1I_size;
-    size_t knob_L1D_size;
+    uint64_t knob_L1I_size;
+    uint64_t knob_L1D_size;
     unsigned int knob_L1I_assoc;
     unsigned int knob_L1D_assoc;
-    size_t knob_LL_size;
+    uint64_t knob_LL_size;
     unsigned int knob_LL_assoc;
     std::string knob_replace_policy;
 

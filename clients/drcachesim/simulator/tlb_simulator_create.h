@@ -41,7 +41,7 @@
 // These options are currently documented in ../common/options.cpp.
 analysis_tool_t *
 tlb_simulator_create(unsigned int num_cores = 4,
-                     unsigned int page_size = 4*1024,
+                     uint64_t page_size = 4*1024,
                      unsigned int TLB_L1I_entries = 32,
                      unsigned int TLB_L1D_entries = 32,
                      unsigned int TLB_L1I_assoc = 32,

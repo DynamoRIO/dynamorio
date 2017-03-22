@@ -45,7 +45,7 @@ class tlb_simulator_t : public simulator_t
 {
  public:
     tlb_simulator_t(unsigned int num_cores,
-                    unsigned int page_size,
+                    uint64_t page_size,
                     unsigned int TLB_L1I_entries,
                     unsigned int TLB_L1D_entries,
                     unsigned int TLB_L1I_assoc,
@@ -65,7 +65,7 @@ class tlb_simulator_t : public simulator_t
     // Create a tlb_t object with a specific replacement policy.
     virtual tlb_t *create_tlb(std::string policy);
 
-    unsigned int knob_page_size;
+    uint64_t knob_page_size;
     unsigned int knob_TLB_L1I_entries;
     unsigned int knob_TLB_L1D_entries;
     unsigned int knob_TLB_L1I_assoc;
