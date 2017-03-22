@@ -1786,13 +1786,17 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
         HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_data_t,
                          num_segments, ACCT_VMAREAS, PROTECTED);
     if (os_segments != NULL) {
+        ASSERT(segments == NULL);
         for (i = 0; i < num_segments; i++) {
             copy->segments[i].start = os_segments[i].start;
             copy->segments[i].end = os_segments[i].end;
             copy->segments[i].prot = os_segments[i].prot;
         }
-    } else
-        memcpy(copy->segments, segments, num_segments*sizeof(module_segment_data_t));
+    } else {
+        ASSERT(segments != NULL);
+        if (segments != NULL)
+            memcpy(copy->segments, segments, num_segments*sizeof(module_segment_data_t));
+    }
     copy->timestamp = timestamp;
 # ifdef MACOS
     copy->current_version = current_version;
