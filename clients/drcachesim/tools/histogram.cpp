@@ -37,7 +37,7 @@
 #include "histogram.h"
 #include "../common/utils.h"
 
-const std::string histogram_t::TOOL_NAME = "Cache histogram tool";
+const std::string histogram_t::TOOL_NAME = "Cache line histogram tool";
 
 analysis_tool_t *
 histogram_tool_create(unsigned int line_size = 64,

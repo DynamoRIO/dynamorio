@@ -1,6 +1,6 @@
 Hello, world!
 ---- <application exited with code 0> ----
-Cache histogram tool results:
+Cache line histogram tool results:
 icache: [0-9]+ unique cache lines
 dcache: [0-9]+ unique cache lines
 icache top 20
