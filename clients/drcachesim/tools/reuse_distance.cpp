@@ -79,6 +79,7 @@ reuse_distance_t::reuse_distance_t(unsigned int line_size,
 
 reuse_distance_t::~reuse_distance_t()
 {
+    delete ref_list;
 }
 
 bool
