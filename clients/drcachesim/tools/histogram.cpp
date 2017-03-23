@@ -31,19 +31,28 @@
  */
 
 #include <algorithm>
+#include <iomanip>
 #include <iostream>
-#include "droption.h"
+#include <vector>
 #include "histogram.h"
-#include "../common/options.h"
 #include "../common/utils.h"
 
 const std::string histogram_t::TOOL_NAME = "Cache histogram tool";
 
-histogram_t::histogram_t()
+analysis_tool_t *
+histogram_tool_create(unsigned int line_size = 64,
+                      unsigned int report_top = 10,
+                      unsigned int verbose = 0)
 {
-    line_size = op_line_size.get_value();
+    return new histogram_t(line_size, report_top, verbose);
+}
+
+histogram_t::histogram_t(unsigned int line_size,
+                         unsigned int report_top,
+                         unsigned int verbose) :
+    knob_line_size(line_size), knob_report_top(report_top)
+{
     line_size_bits = compute_log2((int)line_size);
-    report_top = op_report_top.get_value();
 }
 
 histogram_t::~histogram_t()
@@ -77,7 +86,7 @@ histogram_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "icache: " << icache_map.size() << " unique cache lines\n";
     std::cerr << "dcache: " << dcache_map.size() << " unique cache lines\n";
-    std::vector<std::pair<addr_t, uint64_t> > top(report_top);
+    std::vector<std::pair<addr_t, uint64_t> > top(knob_report_top);
     std::partial_sort_copy(icache_map.begin(), icache_map.end(),
                            top.begin(), top.end(), cmp);
     std::cerr << "icache top " << top.size() << "\n";
@@ -87,7 +96,7 @@ histogram_t::print_results()
                   << ": " << std::dec << it->second << "\n";
     }
     top.clear();
-    top.resize(report_top);
+    top.resize(knob_report_top);
     std::partial_sort_copy(dcache_map.begin(), dcache_map.end(),
                            top.begin(), top.end(), cmp);
     std::cerr << "dcache top " << top.size() << "\n";

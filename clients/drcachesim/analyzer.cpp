@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <iostream>
 #include "analysis_tool.h"
 #include "analyzer.h"
 #include "reader/file_reader.h"
@@ -115,7 +116,13 @@ bool
 analyzer_t::print_stats()
 {
     bool res = true;
-    for (int i = 0; i < num_tools; ++i)
+    for (int i = 0; i < num_tools; ++i) {
         res = tools[i]->print_results() && res;
+        if (i+1 < num_tools) {
+            // Separate tool output.
+            std::cerr << "\n=========================================================="
+                "=================\n";
+        }
+    }
     return res;
 }

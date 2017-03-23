@@ -64,6 +64,7 @@
      Total Number Of iterations   :  10
     ...................................................................
 ---- <application exited with code 0> ----
+TLB simulation results:
 Core #0 \([0-9]* thread\(s\)\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...

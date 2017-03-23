@@ -58,16 +58,12 @@ set(client_and_sim_srcs
   common/options.cpp
   common/trace_entry.cpp)
 
-add_executable(drcachesim
-  launcher.cpp
-  analyzer.cpp
-  analyzer_multi.cpp
-  ${client_and_sim_srcs}
-  reader/reader.cpp
-  reader/file_reader.cpp
-  ${zlib_reader}
-  reader/ipc_reader.cpp
-  simulator/analyzer_interface.cpp
+# i#2006: we split our tools into libraries for combining as desired in separate
+# launchers.
+add_library(reuse_distance STATIC tools/reuse_distance.cpp)
+add_library(histogram STATIC tools/histogram.cpp)
+# We combine the cache and TLB simulators as they share code already.
+add_library(simulator STATIC
   simulator/simulator.cpp
   simulator/cache.cpp
   simulator/cache_lru.cpp
@@ -78,8 +74,18 @@ add_executable(drcachesim
   simulator/cache_simulator.cpp
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
-  tools/histogram.cpp
-  tools/reuse_distance.cpp
+  )
+
+add_executable(drcachesim
+  launcher.cpp
+  analyzer.cpp
+  analyzer_multi.cpp
+  ${client_and_sim_srcs}
+  reader/reader.cpp
+  reader/file_reader.cpp
+  ${zlib_reader}
+  reader/ipc_reader.cpp
+  simulator/analyzer_interface.cpp
   # We embed the raw2trace conversion for convenience:
   tracer/raw2trace.cpp
   tracer/instru.cpp
@@ -87,6 +93,8 @@ add_executable(drcachesim
   )
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
+# Link in our tools:
+target_link_libraries(drcachesim simulator reuse_distance histogram)
 # To avoid dup symbol errors between drinjectlib and the drdecode brought in
 # by drfrontendlib we have to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -95,9 +103,10 @@ use_DynamoRIO_extension(drcachesim droption)
 use_DynamoRIO_extension(drcachesim drcovlib_static)
 use_DynamoRIO_extension(drcachesim drutil_static)
 
-# This is to avoid common/ in analysis_tool.h's include of memref.h, to make
-# it easier for installation of needed tool headers into a single dir.
-include_directories(common)
+# This is to avoid ../ and common/ in the #includes of headers that we
+# may want to install into a single dir for 3rd-party tool integration.
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(file_analyzer_tool_srcs
   analyzer.cpp
@@ -112,10 +121,9 @@ set(file_analyzer_tool_srcs
 # i#2006: the final method for supporting 3rd-party tools is not yet decided.
 add_executable(drmemtrace_histogram
   ${file_analyzer_tool_srcs}
-  tools/histogram.cpp
   tools/histogram_launcher.cpp
   )
-target_link_libraries(drmemtrace_histogram drfrontendlib)
+target_link_libraries(drmemtrace_histogram histogram drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_histogram droption)
 add_dependencies(drmemtrace_histogram api_headers)
 
@@ -184,6 +192,9 @@ endmacro()
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(drmemtrace_histogram)
+restore_nonclient_flags(simulator)
+restore_nonclient_flags(reuse_distance)
+restore_nonclient_flags(histogram)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -203,6 +214,9 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(drmemtrace_histogram)
+add_win32_flags(simulator)
+add_win32_flags(reuse_distance)
+add_win32_flags(histogram)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)

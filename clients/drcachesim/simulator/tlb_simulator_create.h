@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,38 +30,28 @@
  * DAMAGE.
  */
 
-/* caching_device_block: represents a unit block of a caching device.
- */
+/* tlb simulator creation */
 
-#ifndef _CACHING_DEVICE_BLOCK_H_
-#define _CACHING_DEVICE_BLOCK_H_ 1
+#ifndef _TLB_SIMULATOR_CREATE_H_
+#define _TLB_SIMULATOR_CREATE_H_ 1
 
-#include <stdint.h>
-#include "../common/memref.h"
+#include <string>
+#include "analysis_tool.h"
 
-// Assuming a block of a caching device represents a memory space of at least 4-byte,
-// e.g., a CPU cache line or a virtual/physical page, we can use special value
-// that cannot be computed from valid address as special tag for
-// block status.
-static const addr_t TAG_INVALID = (addr_t)-1; // block is invalid
+// These options are currently documented in ../common/options.cpp.
+analysis_tool_t *
+tlb_simulator_create(unsigned int num_cores = 4,
+                     uint64_t page_size = 4*1024,
+                     unsigned int TLB_L1I_entries = 32,
+                     unsigned int TLB_L1D_entries = 32,
+                     unsigned int TLB_L1I_assoc = 32,
+                     unsigned int TLB_L1D_assoc = 32,
+                     unsigned int TLB_L2_entries = 1024,
+                     unsigned int TLB_L2_assoc = 4,
+                     std::string replace_policy = "LFU",
+                     uint64_t skip_refs = 0,
+                     uint64_t warmup_refs = 0,
+                     uint64_t sim_refs = 1ULL << 63,
+                     unsigned int verbose = 0);
 
-class caching_device_block_t
-{
- public:
-    // Initializing counter to 0 is just to be safe and to make it easier to write new
-    // replacement algorithms without errors (and we expect negligible perf cost), as
-    // we expect any use of counter to only occur *after* a valid tag is put in place,
-    // where for the current replacement code we also set the counter at that time.
-    caching_device_block_t() : tag(TAG_INVALID), counter(0) {}
-    // Destructor must be virtual and default is not.
-    virtual ~caching_device_block_t() {}
-
-    addr_t tag;
-
-    // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
-    // A 32-bit counter should be sufficient but we may want to revisit.
-    // We already have stdint.h so we can reinstate int_least64_t easily.
-    int counter; // for use by replacement policies
-};
-
-#endif /* _CACHING_DEVICE_BLOCK_H_ */
+#endif /* _TLB_SIMULATOR_CREATE_H_ */

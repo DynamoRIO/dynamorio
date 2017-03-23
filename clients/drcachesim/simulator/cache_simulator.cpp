@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,20 +48,67 @@
 #include "cache_simulator.h"
 #include "droption.h"
 
-cache_simulator_t::cache_simulator_t()
+// XXX i#2006: making this a library means that these options or knobs are
+// duplicated in multiple places as we pass them through the various layers.
+// We lose the convenience of adding a new option and its default value
+// in a single place.
+// It is also error-prone to pass in this long list if we want to set
+// just one option in the middle: should we switch to a struct of options
+// where we can set by field name?
+analysis_tool_t *
+cache_simulator_create(unsigned int num_cores,
+                       unsigned int line_size,
+                       uint64_t L1I_size,
+                       uint64_t L1D_size,
+                       unsigned int L1I_assoc,
+                       unsigned int L1D_assoc,
+                       uint64_t LL_size,
+                       unsigned int LL_assoc,
+                       std::string replace_policy,
+                       uint64_t skip_refs,
+                       uint64_t warmup_refs,
+                       uint64_t sim_refs,
+                       unsigned int verbose)
+{
+    return new cache_simulator_t(num_cores, line_size, L1I_size, L1D_size,
+                                 L1I_assoc, L1D_assoc, LL_size, LL_assoc,
+                                 replace_policy, skip_refs,warmup_refs,
+                                 sim_refs, verbose);
+}
+
+cache_simulator_t::cache_simulator_t(unsigned int num_cores,
+                                     unsigned int line_size,
+                                     uint64_t L1I_size,
+                                     uint64_t L1D_size,
+                                     unsigned int L1I_assoc,
+                                     unsigned int L1D_assoc,
+                                     uint64_t LL_size,
+                                     unsigned int LL_assoc,
+                                     std::string replace_policy,
+                                     uint64_t skip_refs,
+                                     uint64_t warmup_refs,
+                                     uint64_t sim_refs,
+                                     unsigned int verbose) :
+    simulator_t(num_cores, skip_refs,warmup_refs, sim_refs, verbose),
+    knob_line_size(line_size),
+    knob_L1I_size(L1I_size),
+    knob_L1D_size(L1D_size),
+    knob_L1I_assoc(L1I_assoc),
+    knob_L1D_assoc(L1D_assoc),
+    knob_LL_size(LL_size),
+    knob_LL_assoc(LL_assoc),
+    knob_replace_policy(replace_policy)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
-    num_cores = op_num_cores.get_value();
-
-    llcache = create_cache(op_replace_policy.get_value());
+    llcache = create_cache(knob_replace_policy);
     if (llcache == NULL) {
         success = false;
         return;
     }
 
-    if (!llcache->init(op_LL_assoc.get_value(), (int)op_line_size.get_value(),
-                       (int)op_LL_size.get_value(), NULL, new cache_stats_t)) {
+    if (!llcache->init(knob_LL_assoc, (int)knob_line_size,
+                       (int)knob_LL_size, NULL, new cache_stats_t)) {
         ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
                "associativity are powers of 2 "
                "and that the total size is a multiple of the line size.\n");
@@ -69,24 +116,24 @@ cache_simulator_t::cache_simulator_t()
         return;
     }
 
-    icaches = new cache_t* [num_cores];
-    dcaches = new cache_t* [num_cores];
-    for (int i = 0; i < num_cores; i++) {
-        icaches[i] = create_cache(op_replace_policy.get_value());
+    icaches = new cache_t* [knob_num_cores];
+    dcaches = new cache_t* [knob_num_cores];
+    for (int i = 0; i < knob_num_cores; i++) {
+        icaches[i] = create_cache(knob_replace_policy);
         if (icaches[i] == NULL) {
             success = false;
             return;
         }
-        dcaches[i] = create_cache(op_replace_policy.get_value());
+        dcaches[i] = create_cache(knob_replace_policy);
         if (dcaches[i] == NULL) {
             success = false;
             return;
         }
 
-        if (!icaches[i]->init(op_L1I_assoc.get_value(), (int)op_line_size.get_value(),
-                              (int)op_L1I_size.get_value(), llcache, new cache_stats_t) ||
-            !dcaches[i]->init(op_L1D_assoc.get_value(), (int)op_line_size.get_value(),
-                              (int)op_L1D_size.get_value(), llcache, new cache_stats_t)) {
+        if (!icaches[i]->init(knob_L1I_assoc, (int)knob_line_size,
+                              (int)knob_L1I_size, llcache, new cache_stats_t) ||
+            !dcaches[i]->init(knob_L1D_assoc, (int)knob_line_size,
+                              (int)knob_L1D_size, llcache, new cache_stats_t)) {
             ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "
                    "associativity are powers of 2 "
                    "and that the total sizes are multiples of the line size.\n");
@@ -95,10 +142,10 @@ cache_simulator_t::cache_simulator_t()
         }
     }
 
-    thread_counts = new unsigned int[num_cores];
-    memset(thread_counts, 0, sizeof(thread_counts[0])*num_cores);
-    thread_ever_counts = new unsigned int[num_cores];
-    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*num_cores);
+    thread_counts = new unsigned int[knob_num_cores];
+    memset(thread_counts, 0, sizeof(thread_counts[0])*knob_num_cores);
+    thread_ever_counts = new unsigned int[knob_num_cores];
+    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*knob_num_cores);
 }
 
 cache_simulator_t::~cache_simulator_t()
@@ -107,7 +154,7 @@ cache_simulator_t::~cache_simulator_t()
         return;
     delete llcache->get_stats();
     delete llcache;
-    for (int i = 0; i < num_cores; i++) {
+    for (int i = 0; i < knob_num_cores; i++) {
         // Try to handle failure during construction.
         if (icaches[i] == NULL)
             return;
@@ -127,13 +174,13 @@ cache_simulator_t::~cache_simulator_t()
 bool
 cache_simulator_t::process_memref(const memref_t &memref)
 {
-    if (skip_refs > 0) {
-        skip_refs--;
+    if (knob_skip_refs > 0) {
+        knob_skip_refs--;
         return true;
     }
 
     // The references after warmup and simulated ones are dropped.
-    if (warmup_refs == 0 && sim_refs == 0)
+    if (knob_warmup_refs == 0 && knob_sim_refs == 0)
         return true;;
 
     // Both warmup and simulated references are simulated.
@@ -171,7 +218,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return false;
     }
 
-    if (op_verbose.get_value() >= 3) {
+    if (knob_verbose >= 3) {
         std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
             " @" << (void *)memref.data.pc <<
             " " << trace_type_names[memref.data.type] << " " <<
@@ -179,11 +226,11 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     // process counters for warmup and simulated references
-    if (warmup_refs > 0) { // warm caches up
-        warmup_refs--;
+    if (knob_warmup_refs > 0) { // warm caches up
+        knob_warmup_refs--;
         // reset cache stats when warming up is completed
-        if (warmup_refs == 0) {
-            for (int i = 0; i < num_cores; i++) {
+        if (knob_warmup_refs == 0) {
+            for (int i = 0; i < knob_num_cores; i++) {
                 icaches[i]->get_stats()->reset();
                 dcaches[i]->get_stats()->reset();
             }
@@ -191,7 +238,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
         }
     }
     else {
-        sim_refs--;
+        knob_sim_refs--;
     }
     return true;
 }
@@ -199,7 +246,8 @@ cache_simulator_t::process_memref(const memref_t &memref)
 bool
 cache_simulator_t::print_results()
 {
-    for (int i = 0; i < num_cores; i++) {
+    std::cerr << "Cache simulation results:\n";
+    for (int i = 0; i < knob_num_cores; i++) {
         unsigned int threads = thread_ever_counts[i];
         std::cerr << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
         if (threads > 0) {

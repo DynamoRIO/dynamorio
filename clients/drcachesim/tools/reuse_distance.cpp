@@ -32,23 +32,47 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <iostream>
-#include "droption.h"
+#include <vector>
 #include "reuse_distance.h"
-#include "../common/options.h"
 #include "../common/utils.h"
 
 const std::string reuse_distance_t::TOOL_NAME = "Reuse distance tool";
 
-reuse_distance_t::reuse_distance_t() : total_refs(0)
+unsigned int reuse_distance_t::knob_verbose;
+
+analysis_tool_t *
+reuse_distance_tool_create(unsigned int line_size = 64,
+                           bool report_histogram = false,
+                           unsigned int distance_threshold = 100,
+                           unsigned int report_top = 10,
+                           unsigned int skip_list_distance = 500,
+                           bool verify_skip = false,
+                           unsigned int verbose = 0)
 {
-    line_size = op_line_size.get_value();
-    line_size_bits = compute_log2((int)line_size);
-    ref_list = new line_ref_list_t(op_reuse_distance_threshold.get_value(),
-                                   op_reuse_skip_dist.get_value());
-    report_top = op_report_top.get_value();
-    if (op_verbose.get_value() >= 2) {
-        std::cerr << "cache line size " << line_size << ", "
+    return new reuse_distance_t(line_size, report_histogram, distance_threshold,
+                                report_top, skip_list_distance, verify_skip,
+                                verbose);
+}
+
+reuse_distance_t::reuse_distance_t(unsigned int line_size,
+                                   bool report_histogram,
+                                   unsigned int distance_threshold,
+                                   unsigned int report_top,
+                                   unsigned int skip_list_distance,
+                                   bool verify_skip,
+                                   unsigned int verbose) :
+    knob_line_size(line_size), knob_report_histogram(report_histogram),
+    knob_report_top(report_top), total_refs(0)
+{
+    knob_verbose = verbose;
+    line_size_bits = compute_log2((int)knob_line_size);
+    ref_list = new line_ref_list_t(distance_threshold,
+                                   skip_list_distance,
+                                   verify_skip);
+    if (DEBUG_VERBOSE(2)) {
+        std::cerr << "cache line size " << knob_line_size << ", "
                   << "reuse distance threshold " << ref_list->threshold << std::endl;
     }
 }
@@ -94,7 +118,7 @@ reuse_distance_t::process_memref(const memref_t &memref)
                 dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
             else
                 ++dist_it->second;
-            if (op_verbose.get_value() >= 3) {
+            if (DEBUG_VERBOSE(3)) {
                 std::cerr << "Distance is " << dist << "\n";
             }
         }
@@ -165,7 +189,7 @@ reuse_distance_t::print_results()
     double stddev = std::sqrt(sum_of_squares / count);
     std::cerr << "Reuse distance standard deviation: " << stddev << "\n";
 
-    if (op_reuse_distance_histogram.get_value()) {
+    if (knob_report_histogram) {
         std::cerr << "Reuse distance histogram:\n";
         std::cerr << "Distance" << std::setw(12) << "Count"
                   << "  Percent  Cumulative\n";
@@ -186,7 +210,7 @@ reuse_distance_t::print_results()
     std::cerr << "\n";
     std::cerr << "Reuse distance threshold = "
               << ref_list->threshold << " cache lines\n";
-    std::vector<std::pair<addr_t, line_ref_t*> > top(report_top);
+    std::vector<std::pair<addr_t, line_ref_t*> > top(knob_report_top);
     std::partial_sort_copy(cache_map.begin(), cache_map.end(),
                            top.begin(), top.end(), cmp_total_refs);
     std::cerr << "Top " << top.size() << " frequently referenced cache lines\n";
@@ -204,7 +228,7 @@ reuse_distance_t::print_results()
                   << "\n";
     }
     top.clear();
-    top.resize(report_top);
+    top.resize(knob_report_top);
     std::partial_sort_copy(cache_map.begin(), cache_map.end(),
                            top.begin(), top.end(), cmp_distant_refs);
     std::cerr << "Top " << top.size() << " distant repeatedly referenced cache lines\n";

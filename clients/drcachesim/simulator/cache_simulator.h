@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,7 +44,19 @@
 class cache_simulator_t : public simulator_t
 {
  public:
-    cache_simulator_t();
+    cache_simulator_t(unsigned int num_cores,
+                      unsigned int line_size,
+                      uint64_t L1I_size,
+                      uint64_t L1D_size,
+                      unsigned int L1I_assoc,
+                      unsigned int L1D_assoc,
+                      uint64_t LL_size,
+                      unsigned int LL_assoc,
+                      std::string replace_policy,
+                      uint64_t skip_refs,
+                      uint64_t warmup_refs,
+                      uint64_t sim_refs,
+                      unsigned int verbose);
     virtual ~cache_simulator_t();
     virtual bool process_memref(const memref_t &memref);
     virtual bool print_results();
@@ -55,6 +67,15 @@ class cache_simulator_t : public simulator_t
 
     // Currently we only support a simple 2-level hierarchy.
     // XXX i#1715: add support for arbitrary cache layouts.
+
+    unsigned int knob_line_size;
+    uint64_t knob_L1I_size;
+    uint64_t knob_L1D_size;
+    unsigned int knob_L1I_assoc;
+    unsigned int knob_L1D_assoc;
+    uint64_t knob_LL_size;
+    unsigned int knob_LL_assoc;
+    std::string knob_replace_policy;
 
     // Implement a set of ICaches and DCaches with pointer arrays.
     // This is useful for implementing polymorphism correctly.

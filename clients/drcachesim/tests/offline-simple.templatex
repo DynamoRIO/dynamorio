@@ -1,4 +1,5 @@
 Hello, world!
+Cache simulation results:
 Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                         *[0-9,\.]*...

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,12 +40,19 @@
 #include "droption.h"
 #include "simulator.h"
 
-simulator_t::simulator_t() :
-    last_thread(0), last_core(0)
+simulator_t::simulator_t(unsigned int num_cores,
+                         uint64_t skip_refs,
+                         uint64_t warmup_refs,
+                         uint64_t sim_refs,
+                         unsigned int verbose) :
+    knob_num_cores(num_cores),
+    knob_skip_refs(skip_refs),
+    knob_warmup_refs(warmup_refs),
+    knob_sim_refs(sim_refs),
+    knob_verbose(verbose),
+    last_thread(0),
+    last_core(0)
 {
-    skip_refs = op_skip_refs.get_value();
-    warmup_refs = op_warmup_refs.get_value();
-    sim_refs = op_sim_refs.get_value();
 }
 
 simulator_t::~simulator_t() {}
@@ -63,13 +70,13 @@ simulator_t::core_for_thread(memref_tid_t tid)
     // structure.
     unsigned int min_count = UINT_MAX;
     int min_core = 0;
-    for (int i = 0; i < num_cores; i++) {
+    for (int i = 0; i < knob_num_cores; i++) {
         if (thread_counts[i] < min_count) {
             min_count = thread_counts[i];
             min_core = i;
         }
     }
-    if (op_verbose.get_value() >= 1) {
+    if (knob_verbose >= 1) {
         std::cerr << "new thread " << tid << " => core " << min_core <<
             " (count=" << thread_counts[min_core] << ")" << std::endl;
     }
@@ -86,7 +93,7 @@ simulator_t::handle_thread_exit(memref_tid_t tid)
     assert(exists != thread2core.end());
     assert(thread_counts[exists->second] > 0);
     --thread_counts[exists->second];
-    if (op_verbose.get_value() >= 1) {
+    if (knob_verbose >= 1) {
         std::cerr << "thread " << tid << " exited from core " << exists->second <<
             " (count=" << thread_counts[exists->second] << ")" << std::endl;
     }

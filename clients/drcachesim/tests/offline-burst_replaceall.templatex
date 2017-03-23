@@ -5,6 +5,7 @@ pre-DR detach
 processing [0-9]* buffers
 creating module file .*
 all done
+Cache simulation results:
 Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                         *[0-9,\.]*.....
