@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,7 +65,6 @@ caching_device_stats_t::child_access(const memref_t &memref, bool hit)
 void
 caching_device_stats_t::print_counts(std::string prefix)
 {
-    std::cerr.imbue(std::locale("")); // Add commas, at least for my locale
     std::cerr << prefix << std::setw(18) << std::left << "Hits:" <<
         std::setw(20) << std::right << num_hits << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Misses:" <<
@@ -101,9 +100,11 @@ caching_device_stats_t::print_child_stats(std::string prefix)
 void
 caching_device_stats_t::print_stats(std::string prefix)
 {
+    std::cerr.imbue(std::locale("")); // Add commas, at least for my locale
     print_counts(prefix);
     print_rates(prefix);
     print_child_stats(prefix);
+    std::cerr.imbue(std::locale("C")); // Reset to avoid affecting later prints.
 }
 
 void
