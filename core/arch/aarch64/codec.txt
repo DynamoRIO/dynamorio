@@ -193,10 +193,10 @@ x11100100xxxxxxxxxxxxxxxxxxxxxxx  ands   logic_imm
 ## Bitfield
 
 0001001100xxxxxxxxxxxxxxxxxxxxxx  sbfm   w0 : w5 immr imms
-0011001100xxxxxxxxxxxxxxxxxxxxxx  bfm    w0 : w5 immr imms
+0011001100xxxxxxxxxxxxxxxxxxxxxx  bfm    w0 : w0 w5 immr imms
 0101001100xxxxxxxxxxxxxxxxxxxxxx  ubfm   w0 : w5 immr imms
 1001001101xxxxxxxxxxxxxxxxxxxxxx  sbfm   x0 : x5 immr imms
-1011001101xxxxxxxxxxxxxxxxxxxxxx  bfm    x0 : x5 immr imms
+1011001101xxxxxxxxxxxxxxxxxxxxxx  bfm    x0 : x0 x5 immr imms
 1101001101xxxxxxxxxxxxxxxxxxxxxx  ubfm   x0 : x5 immr imms
 
 ## Extract

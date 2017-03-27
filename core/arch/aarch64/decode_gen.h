@@ -2625,6 +2625,26 @@ decode_opndsgen_31000000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 }
 
 static bool
+decode_opndsgen_33000000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    opnd_t dst0, src0, src1, src2, src3;
+    if (!decode_opnd_w0(enc & 0xffc0001f, opcode, pc, &dst0) ||
+        !decode_opnd_w0(enc & 0xffc0001f, opcode, pc, &src0) ||
+        !decode_opnd_w5(enc & 0xffc003e0, opcode, pc, &src1) ||
+        !decode_opnd_immr(enc & 0xffff0000, opcode, pc, &src2) ||
+        !decode_opnd_imms(enc & 0xffc0fc00, opcode, pc, &src3))
+        return false;
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_dst(instr, 0, dst0);
+    instr_set_src(instr, 0, src0);
+    instr_set_src(instr, 1, src1);
+    instr_set_src(instr, 2, src2);
+    instr_set_src(instr, 3, src3);
+    return true;
+}
+
+static bool
 decode_opndsgen_38000000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
     opnd_t dst0, src0;
@@ -4045,6 +4065,26 @@ decode_opndsgen_adc00000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
     instr_set_src(instr, 0, src0);
     instr_set_src(instr, 1, src1);
     instr_set_src(instr, 2, src2);
+    return true;
+}
+
+static bool
+decode_opndsgen_b3400000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    opnd_t dst0, src0, src1, src2, src3;
+    if (!decode_opnd_x0(enc & 0xffc0001f, opcode, pc, &dst0) ||
+        !decode_opnd_x0(enc & 0xffc0001f, opcode, pc, &src0) ||
+        !decode_opnd_x5(enc & 0xffc003e0, opcode, pc, &src1) ||
+        !decode_opnd_immr(enc & 0xffff0000, opcode, pc, &src2) ||
+        !decode_opnd_imms(enc & 0xffc0fc00, opcode, pc, &src3))
+        return false;
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 1, 4);
+    instr_set_dst(instr, 0, dst0);
+    instr_set_src(instr, 0, src0);
+    instr_set_src(instr, 1, src1);
+    instr_set_src(instr, 2, src2);
+    instr_set_src(instr, 3, src3);
     return true;
 }
 
@@ -5563,7 +5603,7 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                         if ((enc & 0xff208000) == 0x2b000000)
                                             return decode_opndsgen_0b000000(enc, dc, pc, instr, OP_adds);
                                         if ((enc & 0xffc00000) == 0x33000000)
-                                            return decode_opndsgen_13000000(enc, dc, pc, instr, OP_bfm);
+                                            return decode_opndsgen_33000000(enc, dc, pc, instr, OP_bfm);
                                     }
                                 }
                             } else {
@@ -5722,7 +5762,7 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                         if ((enc & 0x7fe00000) == 0x2b200000)
                                             return decode_opndsgen_2b200000(enc, dc, pc, instr, OP_adds);
                                         if ((enc & 0xffc00000) == 0x33000000)
-                                            return decode_opndsgen_13000000(enc, dc, pc, instr, OP_bfm);
+                                            return decode_opndsgen_33000000(enc, dc, pc, instr, OP_bfm);
                                     }
                                 }
                             }
@@ -8676,7 +8716,7 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                         if ((enc & 0xff200000) == 0xab000000)
                                             return decode_opndsgen_0b000000(enc, dc, pc, instr, OP_adds);
                                         if ((enc & 0xffc00000) == 0xb3400000)
-                                            return decode_opndsgen_93400000(enc, dc, pc, instr, OP_bfm);
+                                            return decode_opndsgen_b3400000(enc, dc, pc, instr, OP_bfm);
                                     }
                                 }
                             } else {
@@ -8893,7 +8933,7 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                         if ((enc & 0x7f800000) == 0x31000000)
                                             return decode_opndsgen_31000000(enc, dc, pc, instr, OP_adds);
                                         if ((enc & 0xffc00000) == 0xb3400000)
-                                            return decode_opndsgen_93400000(enc, dc, pc, instr, OP_bfm);
+                                            return decode_opndsgen_b3400000(enc, dc, pc, instr, OP_bfm);
                                     } else {
                                         if ((enc & 0xffc00000) == 0xa9400000)
                                             return decode_opndsgen_69400000(enc, dc, pc, instr, OP_ldp);
