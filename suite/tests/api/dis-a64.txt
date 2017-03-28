@@ -171,8 +171,8 @@
 31000c41 : adds   w1, w2, #0x3            : adds   %w2 $0x0003 lsl $0x00 -> %w1
 31000fff : cmn    wsp, #0x3               : adds   %wsp $0x0003 lsl $0x00 -> %wzr
 32000441 : orr    w1, w2, #0x3            : orr    %w2 $0x00000003 -> %w1
-33031041 : bfxil  w1, w2, #3, #2          : bfm    %w2 $0x03 $0x04 -> %w1
-331f7fff : bfxil  wzr, wzr, #31, #1       : bfm    %wzr $0x1f $0x1f -> %wzr
+33031041 : bfxil  w1, w2, #3, #2          : bfm    %w1 %w2 $0x03 $0x04 -> %w1
+331f7fff : bfxil  wzr, wzr, #31, #1       : bfm    %wzr %wzr $0x1f $0x1f -> %wzr
 34081041 : cbz    w1, 10010208            : cbz    $0x0000000010010208 %w1
 347fffff : cbz    wzr, 100ffffc           : cbz    $0x00000000100ffffc %wzr
 35081041 : cbnz   w1, 10010208            : cbnz   $0x0000000010010208 %w1
@@ -1015,8 +1015,8 @@ adffffff : ldp    q31, q31, [sp,#-16]!    : ldp    -0x10(%sp)[32byte] %sp $0xfff
 b1000c41 : adds   x1, x2, #0x3            : adds   %x2 $0x0003 lsl $0x00 -> %x1
 b1000fff : cmn    sp, #0x3                : adds   %sp $0x0003 lsl $0x00 -> %xzr
 b2400441 : orr    x1, x2, #0x3            : orr    %x2 $0x0000000000000003 -> %x1
-b3431041 : bfxil  x1, x2, #3, #2          : bfm    %x2 $0x03 $0x04 -> %x1
-b37fffff : bfxil  xzr, xzr, #63, #1       : bfm    %xzr $0x3f $0x3f -> %xzr
+b3431041 : bfxil  x1, x2, #3, #2          : bfm    %x1 %x2 $0x03 $0x04 -> %x1
+b37fffff : bfxil  xzr, xzr, #63, #1       : bfm    %xzr %xzr $0x3f $0x3f -> %xzr
 b4ffffff : cbz    xzr, ffffffc            : cbz    $0x000000000ffffffc %xzr
 b5800000 : cbnz   x0, ff00000             : cbnz   $0x000000000ff00000 %x0
 b5ffffff : cbnz   xzr, ffffffc            : cbnz   $0x000000000ffffffc %xzr
