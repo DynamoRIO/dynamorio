@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <sys/time.h> /* itimer */
 
 #define ALT_STACK_SIZE  (SIGSTKSZ*2)
 
@@ -64,6 +65,8 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     } else if (sig == SIGSEGV) {
         print("Got SIGSEGV\n");
         SIGLONGJMP(mark, 1);
+    } else if (sig == SIGPROF) {
+        /* Do nothing. */
     } else {
         print("Got unexpected signal %d\n", sig);
     }
@@ -104,7 +107,7 @@ static void
 event_exit(void)
 {
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
-    dr_fprintf(STDERR, "Saw %d signal(s)\n", num_signals);
+    dr_fprintf(STDERR, "Saw %s signals\n", num_signals > 2 ? ">2" : "<=2");
 }
 
 DR_EXPORT void
@@ -132,13 +135,32 @@ int
 main(int argc, const char *argv[])
 {
     pthread_t thread;
+    struct itimerval timer;
+    sigset_t mask;
+    int rc;
     intercept_signal(SIGUSR1, signal_handler, true/*sigstack*/);
     intercept_signal(SIGSEGV, signal_handler, true/*sigstack*/);
     thread_ready = create_cond_var();
     thread_exit = create_cond_var();
     got_signal = create_cond_var();
+
+    intercept_signal(SIGPROF, signal_handler, true/*sigstack*/);
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 1000;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 1000;
+    rc = setitimer(ITIMER_PROF, &timer, NULL);
+    assert(rc == 0);
+
     pthread_create(&thread, NULL, thread_func, NULL);
     wait_cond_var(thread_ready);
+
+#if 0 /* FIXME i#2311: once fixed in DR we can enable this. */
+    /* Block SIGPROF in the main thread to better test races. */
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGPROF);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
+#endif
 
     print("Sending SIGUSR1 pre-DR-init\n");
     pthread_kill(thread, SIGUSR1);

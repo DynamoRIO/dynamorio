@@ -2645,7 +2645,8 @@ dr_app_cleanup(void)
      */
     tr = thread_lookup(get_thread_id());
     if (tr != NULL && tr->dcontext != NULL) {
-        os_process_under_dynamorio(tr->dcontext);
+        os_process_under_dynamorio_initiate(tr->dcontext);
+        os_process_under_dynamorio_complete(tr->dcontext);
         dynamo_thread_under_dynamo(tr->dcontext);
     }
     return dynamorio_app_exit();
@@ -2764,7 +2765,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     bool found_threads;
     uint attempts = 0;
 
-    os_process_under_dynamorio(dcontext);
+    os_process_under_dynamorio_initiate(dcontext);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.
      */
@@ -2774,6 +2775,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         if (found_threads && !bb_lock_start)
             bb_lock_start = true;
     } while (found_threads && attempts < MAX_TAKE_OVER_ATTEMPTS);
+    os_process_under_dynamorio_complete(dcontext);
 
     if (found_threads) {
         SYSLOG(SYSLOG_WARNING, INTERNAL_SYSLOG_WARNING,
