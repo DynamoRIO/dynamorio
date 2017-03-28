@@ -365,6 +365,18 @@ set_default_signal_action(int sig)
     return (rc == 0);
 }
 
+static bool
+set_ignore_signal_action(int sig)
+{
+    kernel_sigaction_t act;
+    int rc;
+    memset(&act, 0, sizeof(act));
+    act.handler = (handler_t) SIG_IGN;
+    /* arm the signal */
+    rc = sigaction_syscall(sig, &act, NULL);
+    return (rc == 0);
+}
+
 /* We assume that signal handlers will be shared most of the time
  * (pthreads shares them)
  * Rather than start out with the handler table in local memory and then
@@ -765,7 +777,8 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
             if (info->app_sigaction[i] != NULL) {
                 /* Restore to old handler, but not if exiting whole
                  * process: else may get itimer during cleanup, so we
-                 * set to SIG_IGN.  XXX: we need to handle for detach.
+                 * set to SIG_IGN.  We do this for detach in
+                 * signal_remove_alarm_handlers().
                  */
                 if (dynamo_exited && !doing_detach) {
                     info->app_sigaction[i]->handler = (handler_t) SIG_IGN;
@@ -1320,22 +1333,16 @@ set_our_handler_sigact(kernel_sigaction_t *act, int sig)
         "mask for our handler is "PFX" "PFX"\n", mask_sig[0], mask_sig[1]);
 }
 
-/* Set up master_signal_handler as the handler for signal "sig",
- * for the current thread.  Since we deal with kernel data structures
- * in our interception of system calls, we use them here as well,
- * to avoid having to translate to/from libc data structures.
- */
 static void
-intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
+set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                           kernel_sigaction_t *act)
 {
     int rc;
-    kernel_sigaction_t act;
     kernel_sigaction_t oldact;
     ASSERT(sig <= MAX_SIGNUM);
 
-    set_our_handler_sigact(&act, sig);
     /* arm the signal */
-    rc = sigaction_syscall(sig, &act, &oldact);
+    rc = sigaction_syscall(sig, act, &oldact);
     ASSERT(rc == 0
            /* Workaround for PR 223720, which was fixed in ESX4.0 but
             * is present in ESX3.5 and earlier: vmkernel treats
@@ -1377,9 +1384,43 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
         }
 #endif
     }
-
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
     info->we_intercept[sig] = true;
+}
+
+/* Set up master_signal_handler as the handler for signal "sig",
+ * for the current thread.  Since we deal with kernel data structures
+ * in our interception of system calls, we use them here as well,
+ * to avoid having to translate to/from libc data structures.
+ */
+static void
+intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
+{
+    kernel_sigaction_t act;
+    ASSERT(sig <= MAX_SIGNUM);
+    set_our_handler_sigact(&act, sig);
+    set_handler_and_record_app(dcontext, info, sig, &act);
+}
+
+static void
+intercept_signal_ignore_initially(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
+{
+    kernel_sigaction_t act;
+    ASSERT(sig <= MAX_SIGNUM);
+    memset(&act, 0, sizeof(act));
+    act.handler = (handler_t) SIG_IGN;
+    set_handler_and_record_app(dcontext, info, sig, &act);
+}
+
+static void
+intercept_signal_no_longer_ignore(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
+{
+    kernel_sigaction_t act;
+    int rc;
+    ASSERT(sig <= MAX_SIGNUM);
+    set_our_handler_sigact(&act, sig);
+    rc = sigaction_syscall(sig, &act, NULL);
+    ASSERT(rc == 0);
 }
 
 /* i#1921: For proper single-threaded native execution with re-takeover we need
@@ -1400,10 +1441,6 @@ signal_remove_handlers(dcontext_t *dcontext)
     kernel_sigemptyset(&act.mask);
     for (i = 1; i <= MAX_SIGNUM; i++) {
         if (info->app_sigaction[i] != NULL) {
-            /* restore to old handler, but not if exiting whole
-             * process: else may get itimer during cleanup, so we
-             * set to SIG_IGN (we'll have to fix once we impl detach)
-             */
             LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
                 info->app_sigaction[i]->handler, i);
             sigaction_syscall(i, info->app_sigaction[i], NULL);
@@ -1415,19 +1452,51 @@ signal_remove_handlers(dcontext_t *dcontext)
     }
 }
 
-/* We assume regular POSIX with handlers global to just one thread group in the
- * process.
- */
 void
-signal_reinstate_handlers(dcontext_t *dcontext)
+signal_remove_alarm_handlers(dcontext_t *dcontext)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (info->we_intercept[i]) {
+        if (!info->we_intercept[i])
+            continue;
+        if (sig_is_alarm_signal(i)) {
+            set_ignore_signal_action(i);
+        }
+    }
+}
+
+/* We assume regular POSIX with handlers global to just one thread group in the
+ * process.
+ */
+void
+signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int i;
+    for (i = 1; i <= MAX_SIGNUM; i++) {
+        if (!info->we_intercept[i])
+            continue;
+        if (sig_is_alarm_signal(i) && ignore_alarm) {
+            LOG(THREAD, LOG_ASYNCH, 2, "\tignoring %d initially\n", i);
+            intercept_signal_ignore_initially(dcontext, info, i);
+        } else {
             LOG(THREAD, LOG_ASYNCH, 2, "\trestoring DR handler for %d\n", i);
             intercept_signal(dcontext, info, i);
         }
+    }
+}
+
+void
+signal_reinstate_alarm_handlers(dcontext_t *dcontext)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int i;
+    for (i = 1; i <= MAX_SIGNUM; i++) {
+        if (!info->we_intercept[i] || !sig_is_alarm_signal(i))
+            continue;
+        LOG(THREAD, LOG_ASYNCH, 2, "\trestoring DR handler for %d\n", i);
+        intercept_signal_no_longer_ignore(dcontext, info, i);
     }
 }
 

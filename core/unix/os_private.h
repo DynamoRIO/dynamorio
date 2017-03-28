@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -253,6 +253,9 @@ void signal_exit(void);
 void signal_thread_init(dcontext_t *dcontext);
 void signal_thread_exit(dcontext_t *dcontext, bool other_thread);
 bool is_thread_signal_info_initialized(dcontext_t *dcontext);
+void signal_remove_handlers(dcontext_t *dcontext);
+void signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm);
+void signal_reinstate_alarm_handlers(dcontext_t *dcontext);
 void handle_clone(dcontext_t *dcontext, uint flags);
 /* If returns false to skip the syscall, the result is in "result". */
 bool handle_sigaction(dcontext_t *dcontext, int sig,

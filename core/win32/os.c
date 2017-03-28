@@ -1702,11 +1702,17 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
 }
 
 void
-os_process_under_dynamorio(dcontext_t *dcontext)
+os_process_under_dynamorio_initiate(dcontext_t *dcontext)
 {
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     init_apc_go_native = false;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
+
+void
+os_process_under_dynamorio_complete(dcontext_t *dcontext)
+{
+    /* Nothing. */
 }
 
 void

@@ -2539,12 +2539,20 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
 }
 
 void
-os_process_under_dynamorio(dcontext_t *dcontext)
+os_process_under_dynamorio_initiate(dcontext_t *dcontext)
 {
     LOG(GLOBAL, LOG_THREADS, 1, "process now under DR\n");
     /* We only support regular process-wide signal handlers for delayed takeover. */
-    signal_reinstate_handlers(dcontext);
+    /* i#2161: we ignore alarm signals during the attach process to avoid races. */
+    signal_reinstate_handlers(dcontext, true/*ignore alarm*/);
     hook_vsyscall(dcontext, false);
+}
+
+void
+os_process_under_dynamorio_complete(dcontext_t *dcontext)
+{
+    /* i#2161: only now do we un-ignore alarm signals. */
+    signal_reinstate_alarm_handlers(dcontext);
 }
 
 void
