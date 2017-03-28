@@ -183,8 +183,8 @@ def generate_encoder(patterns, opndsgen, opndtypes):
         pat1 = pats.pop()
         for p in pats:
             (b, m, mn, f) = p
-            c.append('        if ((enc = encode_opnds%s(pc, instr, 0x%08x)) != ENCFAIL)' %
-                     (f, b))
+            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x);' % (f, b))
+            c.append('        if (enc != ENCFAIL)')
             c.append('            return enc;')
         (b, m, mn, f) = pat1
         c.append('        return encode_opnds%s(pc, instr, 0x%08x);' % (f, b))
