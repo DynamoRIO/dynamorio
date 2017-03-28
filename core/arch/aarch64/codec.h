@@ -33,6 +33,8 @@
 #ifndef CODEC_H
 #define CODEC_H 1
 
+#define ENCFAIL (uint)0 /* a value that is not a valid instruction */
+
 byte *decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr);
 uint encode_common(byte *pc, instr_t *i);
 

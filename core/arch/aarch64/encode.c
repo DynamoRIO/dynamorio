@@ -160,6 +160,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
 
     *(uint *)copy_pc = encode_common(final_pc, instr);
+    if (*(uint *)copy_pc == ENCFAIL) {
+        IF_DEBUG(instr_disassemble(dcontext, instr, STDERR));
+        /* We were unable to encode this instruction. */
+        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    }
     return copy_pc + 4;
 }
 
