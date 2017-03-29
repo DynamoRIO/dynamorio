@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -409,10 +409,7 @@ void
 signal_fork_init(dcontext_t *dcontext);
 
 void
-signal_remove_handlers(dcontext_t *dcontext);
-
-void
-signal_reinstate_handlers(dcontext_t *dcontext);
+signal_remove_alarm_handlers(dcontext_t *dcontext);
 
 bool
 set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,

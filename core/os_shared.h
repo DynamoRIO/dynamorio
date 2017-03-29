@@ -64,7 +64,8 @@ void os_thread_exit(dcontext_t *dcontext, bool other_thread);
 void os_thread_under_dynamo(dcontext_t *dcontext);
 /* must only be called for the executing thread */
 void os_thread_not_under_dynamo(dcontext_t *dcontext);
-void os_process_under_dynamorio(dcontext_t *dcontext);
+void os_process_under_dynamorio_initiate(dcontext_t *dcontext);
+void os_process_under_dynamorio_complete(dcontext_t *dcontext);
 void os_process_not_under_dynamorio(dcontext_t *dcontext);
 
 bool os_take_over_all_unknown_threads(dcontext_t *dcontext);
