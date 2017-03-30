@@ -4318,7 +4318,7 @@ check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                     "got seg fault @"PFX" in non-E region we made RO "PFX"-"PFX"\n",
                     target, base, base + size);
                 LOG(THREAD, LOG_ASYNCH, 2,
-                    "found_modified_code: traslating "PFX"\n", instr_cache_pc);
+                    "found_modified_code: translating "PFX"\n", instr_cache_pc);
                 /* For safe recreation we need to either be couldbelinking or hold the
                  * initexit lock (to keep someone from flushing current fragment), the
                  * initexit lock is easier
@@ -4976,30 +4976,14 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
         if (is_in_dynamo_dll((app_pc)pExcptRec->ExceptionAddress))
             is_DR_exception = true;
         else {
-            /*
-             * i#2144 : We exclude single step cases in a jump.
-             */
-            if (pExcptRec->ExceptionCode == EXCEPTION_SINGLE_STEP &&
-                !in_fcache(pExcptRec->ExceptionAddress)) {
-                fragment_t wrapper;
-                linkstub_t *l;
-                fragment_t *f = fragment_pclookup(dcontext, dcontext->next_tag, &wrapper);
-                l = FRAGMENT_EXIT_STUBS(f);
-                SYSLOG_INTERNAL_WARNING("single step exception address "PFX" to "PFX"\n",
-                                        pExcptRec->ExceptionAddress, EXIT_CTI_PC(f, l));
-
-                /* Pointing exception address to the cti ending basic block*/
-                pExcptRec->ExceptionAddress = (PVOID) EXIT_CTI_PC(f, l);
-                cxt->CXT_XIP = (ptr_uint_t) EXIT_CTI_PC(f, l);
-            }
             /* we go ahead and grab locks here to do a negative test for
              * !in_fcache rather than trying to enumerate all non-cache
              * categories, as we'll have to grab a lock anyway to find
              * whether in a separate stub region.  we do this last to
              * reduce the scenarios in which we won't report a crash.
              */
-            else if (is_dynamo_address((app_pc)pExcptRec->ExceptionAddress) &&
-                     !in_fcache(pExcptRec->ExceptionAddress)) {
+            if (is_dynamo_address((app_pc)pExcptRec->ExceptionAddress) &&
+                !in_fcache(pExcptRec->ExceptionAddress)) {
 #ifdef CLIENT_INTERFACE
                 /* PR 451074: client needs a chance to handle exceptions in its
                  * own gencode.  client_exception_event() won't return if client

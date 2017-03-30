@@ -1,3 +1,4 @@
+
 /* ******************************************************************************
  * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
@@ -2388,6 +2389,21 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_destroy(dcontext, instr);
     }
 #endif /* WINDOWS */
+}
+
+/***************************************************************************
+ * Single step exceptions generation
+ */
+void
+mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    /*
+     * Simply inserts a nop so as that next instruction where a single step
+     * exception might occur is not in a different basic block.
+     * FIXME i#2144 : to be absolutely transparent, we should translate the 
+     * exception address as if we did not insert this nop.
+     */
+    POST(ilist, instr, INSTR_CREATE_nop(dcontext);
 }
 
 /***************************************************************************
