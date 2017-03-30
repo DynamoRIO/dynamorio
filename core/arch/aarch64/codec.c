@@ -46,7 +46,6 @@
 
 #include "codec.h"
 
-#define ENCFAIL (uint)0 /* a value that is not a valid instruction */
 
 /* Decode immediate argument of bitwise operations.
  * Returns zero if the encoding is invalid.
@@ -2592,7 +2591,5 @@ uint encode_common(byte *pc, instr_t *i)
         ASSERT(instr_num_srcs(i) >= 1 && opnd_is_immed_int(instr_get_src(i, 0)));
         return opnd_get_immed_int(instr_get_src(i, 0));
     }
-    /* We were unable to encode this instruction. */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return enc;
 }
