@@ -161,8 +161,14 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     *(uint *)copy_pc = encode_common(final_pc, instr);
     if (*(uint *)copy_pc == ENCFAIL) {
-        IF_DEBUG(instr_disassemble(dcontext, instr, STDERR));
         /* We were unable to encode this instruction. */
+        IF_DEBUG({
+            char disas_instr[MAX_INSTR_DIS_SZ];
+            instr_disassemble_to_buffer(dcontext, instr, disas_instr,
+                                        MAX_INSTR_DIS_SZ);
+            SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
+                                  " '%s'\n", disas_instr);
+        });
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     }
     return copy_pc + 4;
