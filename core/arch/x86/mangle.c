@@ -2403,7 +2403,7 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
      * FIXME i#2144 : to be absolutely transparent, we should translate the
      * exception address as if we did not insert this nop.
      */
-    POST(ilist, instr, INSTR_CREATE_nop(dcontext);
+    POST(ilist, instr, INSTR_CREATE_nop(dcontext));
 }
 
 /***************************************************************************
