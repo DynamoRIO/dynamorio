@@ -107,7 +107,14 @@ static void
 event_exit(void)
 {
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
-    dr_fprintf(STDERR, "Saw %s signals\n", num_signals > 2 ? ">2" : "<=2");
+    /* Unfortunately we have no synch to guarantee we see some alarm
+     * signals.
+     * FIXME: once we have i#2311 and can ensure alarms only arrive in
+     * the 2nd thread, we can use a cond var from the signal handler and
+     * ensure we see some.  For now we just hope to occasionally test some
+     * races with alarms.
+     */
+    dr_fprintf(STDERR, "Saw %s signals\n", num_signals >= 2 ? ">=2" : "<2");
 }
 
 DR_EXPORT void
