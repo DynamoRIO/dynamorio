@@ -37,7 +37,11 @@
  * Collects the memory reference information and dumps it to a file as text.
  *
  * (1) It fills a per-thread-buffer with inlined instrumentation.
- * (2) It calls a clean call to dump the buffer into a file.
+ * (2) It calls a clean call to dump the buffer into a file. On AArch64, clean
+ *     calls add too many additional instructions. To reduce the number of
+ *     instructions added to each instrumented basic block, the clean call
+ *     is placed in a separate code cache page and jumps to that code page
+ *     are inserted instead of clean calls.
  *
  * The profile consists of list of <type, size, addr> entries representing
  * - mem ref instr: e.g., { type = 42 (call), size = 5, addr = 0x7f59c2d002d3 }
@@ -108,6 +112,10 @@ enum {
 static reg_id_t tls_seg;
 static uint     tls_offs;
 static int      tls_idx;
+#if defined(AARCH64)
+static size_t page_size;
+static app_pc code_cache;
+#endif
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base)+tls_offs+(enum_val))
 #define BUF_PTR(tls_base) *(mem_ref_t **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
 
@@ -146,6 +154,42 @@ clean_call(void)
     void *drcontext = dr_get_current_drcontext();
     memtrace(drcontext);
 }
+
+#if defined(AARCH64)
+static void
+code_cache_init(void)
+{
+    void         *drcontext;
+    instrlist_t  *ilist;
+    instr_t      *where;
+    byte         *end;
+
+    drcontext  = dr_get_current_drcontext();
+    code_cache = dr_nonheap_alloc(page_size,
+                                  DR_MEMPROT_READ  |
+                                  DR_MEMPROT_WRITE |
+                                  DR_MEMPROT_EXEC);
+    ilist = instrlist_create(drcontext);
+    /* The lean procecure simply performs a clean call, and then jump back */
+    /* jump back to the DR's code cache */
+    where = INSTR_CREATE_br(drcontext, opnd_create_reg(DR_REG_X14));
+    instrlist_meta_append(ilist, where);
+    /* clean call */
+    dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
+    /* Encodes the instructions into memory and then cleans up. */
+    end = instrlist_encode(drcontext, ilist, code_cache, false);
+    DR_ASSERT((size_t)(end - code_cache) < page_size);
+    instrlist_clear_and_destroy(drcontext, ilist);
+    /* set the memory as just +rx now */
+    dr_memory_protect(code_cache, page_size, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
+}
+
+static void
+code_cache_exit(void)
+{
+    dr_nonheap_free(code_cache, page_size);
+}
+#endif
 
 static void
 insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -231,17 +275,9 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 /* insert inline code to add an instruction entry into the buffer */
 static void
-instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
+instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                 reg_id_t reg_ptr, reg_id_t reg_tmp)
 {
-    /* We need two scratch registers */
-    reg_id_t reg_ptr, reg_tmp;
-    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr) !=
-        DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
-        DRREG_SUCCESS) {
-        DR_ASSERT(false); /* cannot recover */
-        return;
-    }
     insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)instr_get_opcode(where));
@@ -250,26 +286,13 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(where));
     insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(mem_ref_t));
-    /* Restore scratch registers */
-    if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
-        DR_ASSERT(false);
 }
 
 /* insert inline code to add a memory reference info entry into the buffer */
 static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
-               opnd_t ref, bool write)
+               opnd_t ref, bool write, reg_id_t reg_ptr, reg_id_t reg_tmp)
 {
-    /* We need two scratch registers */
-    reg_id_t reg_ptr, reg_tmp;
-    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr) !=
-        DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
-        DRREG_SUCCESS) {
-        DR_ASSERT(false); /* cannot recover */
-        return;
-    }
     /* save_addr should be called first as reg_ptr or reg_tmp maybe used in ref */
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
@@ -277,11 +300,36 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)drutil_opnd_mem_size_in_bytes(ref, where));
     insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(mem_ref_t));
-    /* Restore scratch registers */
-    if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
-        DR_ASSERT(false);
 }
+
+#if defined(AARCH64)
+static void
+insert_lean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
+                 app_pc pc, reg_id_t scratch1, reg_id_t scratch2)
+{
+    /* We jump to lean procedure which performs full context switch and
+     * clean call invocation. This is to reduce the code cache size.
+     */
+    DR_ASSERT(scratch1 == DR_REG_X14);
+
+    instr_t *restore = INSTR_CREATE_label(drcontext);
+
+    /* this is the return address for jumping back from lean procedure */
+    MINSERT(ilist, where,
+        INSTR_CREATE_adr(drcontext,
+                         opnd_create_reg(DR_REG_X14),
+                         opnd_create_instr(restore)));
+
+    /* Jump to clean call in code cache */
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)code_cache,
+                                    opnd_create_reg(scratch2),
+                                    ilist, where, NULL, NULL);
+    MINSERT(ilist, where,
+        INSTR_CREATE_br(drcontext, opnd_create_reg(scratch2)));
+
+    MINSERT(ilist, where, restore);
+}
+#endif
 
 /* For each memory reference app instr, we insert inline code to fill the buffer
  * with an instruction entry and memory reference entries.
@@ -292,24 +340,45 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
                       bool translating, void *user_data)
 {
     int i;
+    reg_id_t reg_ptr, reg_tmp;
+    IF_AARCH64(drvector_t allowed;)
 
     if (!instr_is_app(instr))
         return DR_EMIT_DEFAULT;
+
     if (!instr_reads_memory(instr) && !instr_writes_memory(instr))
         return DR_EMIT_DEFAULT;
 
+#if defined(AARCH64)
+    drreg_init_and_fill_vector(&allowed, false);
+    drreg_set_vector_entry(&allowed, DR_REG_X14, true);
+#endif
+    /* We need two scratch registers */
+    if (drreg_reserve_register(drcontext, bb, instr,
+                               IF_AARCH64_ELSE(&allowed, NULL), &reg_ptr) !=
+        DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tmp) !=
+        DRREG_SUCCESS) {
+        IF_AARCH64(drvector_delete(&allowed));
+        DR_ASSERT(false); /* cannot recover */
+        return DR_EMIT_DEFAULT;
+    }
+    IF_AARCH64(drvector_delete(&allowed));
+
     /* insert code to add an entry for app instruction */
-    instrument_instr(drcontext, bb, instr);
+    instrument_instr(drcontext, bb, instr, reg_ptr, reg_tmp);
 
     /* insert code to add an entry for each memory reference opnd */
     for (i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_is_memory_reference(instr_get_src(instr, i)))
-            instrument_mem(drcontext, bb, instr, instr_get_src(instr, i), false);
+            instrument_mem(drcontext, bb, instr, instr_get_src(instr, i), false,
+                           reg_ptr, reg_tmp);
     }
 
     for (i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_is_memory_reference(instr_get_dst(instr, i)))
-            instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i), true);
+            instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i), true,
+                           reg_ptr, reg_tmp);
     }
 
     /* insert code to call clean_call for processing the buffer */
@@ -329,7 +398,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          * forthcoming buffer filling API (i#513) will provide that.
          */
         IF_AARCHXX(&& !instr_is_exclusive_store(instr)))
+#if defined(AARCH64)
+        insert_lean_call(drcontext, bb, instr,
+                 instr_get_app_pc(instr), reg_ptr, reg_tmp);
+#else
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
+#endif
+
+    /* Restore scratch registers */
+    if (drreg_unreserve_register(drcontext, bb, instr, reg_ptr) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 
     return DR_EMIT_DEFAULT;
 }
@@ -401,6 +480,7 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
+    IF_AARCH64(code_cache_exit());
     dr_log(NULL, LOG_ALL, 1, "Client 'memtrace' num refs seen: "SZFMT"\n", num_refs);
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
@@ -425,6 +505,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drreg_options_t ops = {sizeof(ops), 3, false};
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
+    IF_AARCH64(page_size = dr_page_size());
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init())
         DR_ASSERT(false);
 
@@ -450,6 +531,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, MEMTRACE_TLS_COUNT, 0))
         DR_ASSERT(false);
 
+    IF_AARCH64(code_cache_init());
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'memtrace' initializing\n");
 }

@@ -143,6 +143,8 @@ x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
 x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
 
+# Note: The encoders for adr and adrp take the current instruction as argument
+#       in order to support calculating offsets for instruction operands.
 ################################################################################
 # Instruction patterns
 
