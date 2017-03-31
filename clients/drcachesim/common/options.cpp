@@ -42,16 +42,18 @@ droption_t<bool> op_offline
  "If this option is enabled, trace data is instead written to files in -outdir "
  "for later offline analysis.  No simulator is executed.");
 
-droption_t<bytesize_t> op_num_threads
-(DROPTION_SCOPE_ALL, "num_threads", 0, "Number of threads for writing traces",
+droption_t<unsigned int> op_num_threads
+(DROPTION_SCOPE_CLIENT, "num_threads", 0, "(NYI) Number of threads for writing traces",
  "For the offline analysis mode (when -offline is requested), specifies the number "
- "of sideline threads are used to write traces file out.  "
+ "of sideline threads to be used to write trace files out.  "
  "0 means synchronized write without any sideline threads.");
 
-droption_t<unsigned int> op_queue_size
-(DROPTION_SCOPE_ALL, "queue_size", 4000, "The queue size for ",
- "For the offline analysis mode (when -offline is requested), specifies the size "
- "of the queue for batching trace data to be written out by sideline threads.");
+droption_t<bytesize_t> op_queue_size
+(DROPTION_SCOPE_CLIENT, "queue_size", bytesize_t(8*1024*1024),
+ "(NYI) The maximum size of the queue for traces before they are written out",
+ "For the offline analysis mode (when -offline is requested), specifies the maximum "
+ "size (number of bytes) of the queue for traces before they are written out "
+ "by sideline threads.");
 
 droption_t<std::string> op_ipc_name
 (DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Base name of named pipe",

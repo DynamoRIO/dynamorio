@@ -2462,7 +2462,7 @@ if (CLIENT_INTERFACE)
       macro (torunonly_drcacheoff testname exetgt)
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
-          "-offline -num_threads 0" "" "")
+          "-offline" "" "")
         set(tool.drcacheoff.${testname}_toolname "drcachesim")
         set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
