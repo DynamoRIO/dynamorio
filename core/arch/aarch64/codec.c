@@ -436,13 +436,13 @@ encode_opnd_adr_page(int scale, byte *pc, opnd_t opnd, OUT uint *enc_out,
 {
     ptr_int_t offset;
     uint bits;
-    if (opnd_is_rel_addr(opnd))
+    if (opnd_is_rel_addr(opnd)) {
         offset = (ptr_int_t)opnd_get_addr(opnd) -
              (ptr_int_t)((ptr_uint_t)pc >> scale << scale);
-    else if (opnd.kind == INSTR_kind)
+    } else if (opnd_is_instr(opnd)) {
         offset = (ptr_int_t)
             ((byte *)opnd_get_instr(opnd)->note - (byte *)instr->note);
-    else
+    } else
         return false;
 
     if (!try_encode_int(&bits, 21, scale, offset))
